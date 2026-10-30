@@ -87,7 +87,11 @@ async def _fetch_chat_context(chat_id: int, limit: int) -> str:
         rows = await _db.get_recent_messages(chat_id, limit)
         # Rework R1 (H-2): прод-шов renderer'а D9 (гейт внутри — OFF →
         # байт-в-байт прежний контекст).
-        return await build_chat_context(_db, rows, chat_id=chat_id)
+        # ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): поиск идёт по ВСЕЙ
+        # публикации — фото с подписью тоже получает содержимое картинки
+        # (OCR/описание или честный статус), иначе ответ строится по подписи.
+        return await build_chat_context(_db, rows, chat_id=chat_id,
+                                        media_for_captioned=True)
     except Exception:
         logger.warning("[smartsearch] chat context fetch failed | chat=%s",
                        chat_id, exc_info=True)

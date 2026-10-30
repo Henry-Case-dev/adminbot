@@ -1076,13 +1076,20 @@ def _build_batch_text(batch: list, skip_empty: bool = False,
 
 async def visual_window_state(db, chat_id: int, rows, *,
                               consumer: str = "summary") -> dict:
-    """Состояние медиа окна: ``{"ready": {...}, "pending": {...}, "failed": {...}}``.
+    """Состояние медиа окна: ``{"ready", "pending", "failed", "missing"}``.
 
     Без ожидания и без новых Vision-вызовов: готовые анализы читаются, для
     неготовых возвращается причина. Ключи — ``tg_message_id``. Ошибка/нет
     БД/модуль выключен → пустые словари (fail-open, прежнее поведение).
-    Изоляция чата — в самих запросах готовности (chat_id обязателен)."""
-    out: dict = {"ready": {}, "pending": {}, "failed": {}}
+    Изоляция чата — в самих запросах готовности (chat_id обязателен).
+
+    Review-fix2 (B2): ``missing`` — «анализа нет И задачи нет» (например,
+    распознавание было выключено в момент приёма, а потом включили). Это НЕ
+    идущая работа: ждать нечего, фоновый потребитель идёт прежним путём без
+    визуального свидетельства. Только ``pending`` (реально идущий анализ)
+    откладывает конспект — иначе окно ждало бы вечно и конспект не строился
+    бы никогда."""
+    out: dict = {"ready": {}, "pending": {}, "failed": {}, "missing": {}}
     if db is None or not chat_id:
         return out
     ids: list[int] = []
@@ -1113,13 +1120,98 @@ async def visual_window_state(db, chat_id: int, rows, *,
                 "text": _visual_evidence_text(state),
                 "refs": _visual_evidence_refs(state, int(mid)),
             }
-        elif getattr(state, "terminal_failure", False):
+        elif getattr(state, "failed", False) or getattr(
+                state, "terminal_failure", False):
             out["failed"][int(mid)] = str(getattr(state, "reason_code", "")
                                           or "vision_failed")
+        elif _state_analysis_missing(state, media_readiness) and \
+                await _analysis_rows_absent(db, int(chat_id), state):
+            # Анализа нет вовсе и задача не запланирована — содержимого нет.
+            out["missing"][int(mid)] = str(getattr(state, "reason_code", "")
+                                           or "analysis_missing")
         else:
             out["pending"][int(mid)] = str(getattr(state, "reason_code", "")
                                           or "vision_queued")
     return out
+
+
+def _state_analysis_missing(state, media_readiness) -> bool:
+    """Все активы сообщения: анализа нет И задачи нет (не идущая работа).
+
+    Агрегат ``MediaReadiness.pending`` считает ``missing`` ожиданием (единый
+    контракт ядра), поэтому фоновый потребитель смотрит на ФАКТИЧЕСКИЕ
+    состояния активов: ждать имеет смысл только когда работа реально есть."""
+    assets = tuple(getattr(state, "assets", ()) or ())
+    if not assets:
+        return False
+    for asset in assets:
+        status = str(getattr(asset, "analysis_status", "") or "")
+        if status != media_readiness.ANALYSIS_MISSING:
+            return False
+        if getattr(asset, "job_ref", None):
+            return False
+    return True
+
+
+async def _analysis_rows_absent(db, chat_id: int, state) -> bool:
+    """Ни одной строки анализа по активам (иначе это идущий/прерванный анализ).
+
+    ``missing`` без строк анализа — «не запускалось» (например, Vision был
+    выключен при приёме): watchdog такую задачу не увидит, поэтому ожидание
+    было бы бесконечным. Строка анализа (в т.ч. ``running``) — работа в
+    контуре, её завершение/терминал ведёт watchdog."""
+    try:
+        from services import mca_vision
+        scope = mca_vision.access_scope_for(int(chat_id))
+        for asset in tuple(getattr(state, "assets", ()) or ()):
+            asset_id = str(getattr(asset, "asset_id", "") or "")
+            if not asset_id:
+                return False
+            row = await mca_vision.latest_asset_analysis(db, asset_id, scope)
+            if row is not None:
+                return False
+    except Exception:
+        return False
+    return True
+
+
+def visual_evidence_lines(state: dict, *, honest: bool = True) -> dict:
+    """``{tg_message_id: строка}`` для текстовых потребителей (сводка/поиск).
+
+    Готовый анализ → OCR/описание со ссылкой (msg/asset/анализ vN); ``honest``
+    добавляет честные строки для тех, чьё содержимое НЕ получено (pending —
+    ещё распознаётся, failed — распознать не удалось, причина названа).
+    ``missing`` (анализ не запускался) не описывается: там нечего утверждать,
+    потребитель сохраняет прежний маркер. Никакого выдуманного содержимого."""
+    lines: dict = {}
+    for tg_id, entry in (state or {}).get("ready", {}).items():
+        text = str((entry or {}).get("text") or "").strip()
+        if not text:
+            continue
+        refs = str((entry or {}).get("refs") or "").strip()
+        lines[int(tg_id)] = (f"[изображение — {refs}: {text}]" if refs
+                             else f"[изображение: {text}]")
+    if not honest:
+        return lines
+    for tg_id, reason in (state or {}).get("failed", {}).items():
+        lines[int(tg_id)] = ("[изображение не распознано ("
+                             f"{_reason_text(reason)}): содержимое неизвестно]")
+    for tg_id, _reason in (state or {}).get("pending", {}).items():
+        lines[int(tg_id)] = ("[изображение ещё распознаётся: содержимое "
+                             "пока неизвестно]")
+    return lines
+
+
+def _reason_text(reason: str) -> str:
+    """Человеческая причина отказа распознавания (fallback — сам код)."""
+    try:
+        from services import media_readiness
+        text = media_readiness.reason_text(reason)
+        if text:
+            return text
+    except Exception:
+        pass
+    return str(reason or "технический сбой")
 
 
 def _visual_evidence_text(state) -> str:

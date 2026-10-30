@@ -73,7 +73,8 @@ def _truncate_reply_chains(block: str, limit: int) -> str:
 def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                         trigger_message_id=None, reply_chains: str = "",
                         anchor_message_id=None,
-                        media_blocks: dict | None = None) -> str:
+                        media_blocks: dict | None = None,
+                        media_for_captioned: bool = False) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов).
@@ -115,6 +116,12 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             tg_message_id=row_get(row, "tg_message_id"),
             message_id=row_get(row, "id"))
         text = (row["text"] or "").strip()
+        tg_id = 0
+        if media_blocks:
+            try:
+                tg_id = int(row_get(row, "tg_message_id") or 0)
+            except Exception:
+                tg_id = 0
         if not text and media_enabled:
             text = row_media_marker(row, item_id=item_id)
             # Rework R1 (H-2, review T-5124): прод-шов единого renderer'а D9 —
@@ -122,14 +129,20 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             # маркера. media_blocks=None (гейт OFF/ошибка) → прежний путь
             # байт-в-байт; для строки без блока (не изображение/нет актива/
             # ошибка рендера) старый маркер сохраняется.
-            if media_blocks:
-                try:
-                    tg_id = int(row_get(row, "tg_message_id") or 0)
-                except Exception:
-                    tg_id = 0
-                block = media_blocks.get(tg_id) if tg_id else None
+            if media_blocks and tg_id:
+                block = media_blocks.get(tg_id)
                 if block:
                     text = block
+        elif text and media_enabled and media_for_captioned and media_blocks \
+                and tg_id and tg_id in media_blocks:
+            # ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): фото С ПОДПИСЬЮ
+            # раньше теряло содержимое картинки (блок фасада подставлялся
+            # только для строк без текста) — поиск отвечал по подписи, хотя
+            # готовый OCR уже есть. Содержимое картинки идёт рядом с подписью
+            # отдельной строкой: это данные распознавания, не слова автора.
+            # Явный параметр → остальные потребители контекста получают
+            # прежний вывод байт-в-байт.
+            text = f"{text}\n{media_blocks[tg_id]}"
         if not text:
             continue
         name = row["author_name"] or f"id{row['user_id'] or '?'}"
@@ -266,16 +279,23 @@ async def collect_media_analysis_blocks(db, chat_id: int,
 async def build_chat_context(db, rows, *, chat_id: int,
                              max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                              trigger_message_id=None, reply_chains: str = "",
-                             anchor_message_id=None) -> str:
+                             anchor_message_id=None,
+                             media_for_captioned: bool = False) -> str:
     """Прод-сборка контекста (единственная точка шва H-2): окна чата для
     direct/autonomous-потребителей (smartsearch/factcheck) с media-блоками
     renderer'а D9 под гейтом. Гейт OFF → ``format_chat_context`` на тех же
-    строках без media_blocks — байт-в-байт прежний контекст."""
+    строках без media_blocks — байт-в-байт прежний контекст.
+
+    ``media_for_captioned`` (ASAP-VISION-SYNC-01 §4.6, review-fix2): медиа с
+    подписью тоже получает блок содержимого (OCR/описание или честный статус).
+    Включает потребитель, которому нужен поиск по картинке (smartsearch);
+    остальные контексты остаются прежними."""
     media_blocks = await collect_media_analysis_blocks(db, chat_id, rows)
     return format_chat_context(
         rows, max_chars=max_chars, trigger_message_id=trigger_message_id,
         reply_chains=reply_chains, anchor_message_id=anchor_message_id,
-        media_blocks=media_blocks)
+        media_blocks=media_blocks,
+        media_for_captioned=bool(media_for_captioned))
 
 
 # ── ASAP-VISION-SYNC-01 §4.4: актуальная ревизия медиа для потребителя ──────

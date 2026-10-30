@@ -45,6 +45,7 @@ from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
     FACTCHECK_IMAGE_NO_CLAIM_PHRASES,
+    FACTCHECK_IMAGE_PENDING_AUTO_PHRASES,
     FACTCHECK_IMAGE_PENDING_PHRASES,
     FACTCHECK_MEDIA_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
@@ -208,14 +209,34 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
             # короткая реплика БЕЗ псевдопроверки и БЕЗ платного поиска.
             if gate_decision is not None \
                     and gate_decision.decision == "no_claim_after_context":
+                # P1 (§4.6, review-fix2): пока картинка читается, «нечего
+                # проверять» запрещено — запрос откладывается и продолжится сам.
+                pending_reply = await _pending_refusal(
+                    message, target, user_hint, publication)
+                if pending_reply is not None:
+                    await send_chunked_reply(
+                        bot, chat_id,
+                        _with_publication_notice(pending_reply, publication),
+                        target.message_id)
+                    return "pending"
                 await send_chunked_reply(
-                    bot, chat_id, random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                    bot, chat_id,
+                    _gate_refusal_text(publication, FACTCHECK_NO_CLAIM_PHRASES),
                     target.message_id)
                 return "no_claim"
             if gate_decision is not None \
                     and gate_decision.decision == "ambiguous_needs_clarification":
+                pending_reply = await _pending_refusal(
+                    message, target, user_hint, publication)
+                if pending_reply is not None:
+                    await send_chunked_reply(
+                        bot, chat_id,
+                        _with_publication_notice(pending_reply, publication),
+                        target.message_id)
+                    return "pending"
                 await send_chunked_reply(
-                    bot, chat_id, random.choice(FACTCHECK_CLARIFY_PHRASES),
+                    bot, chat_id,
+                    _gate_refusal_text(publication, FACTCHECK_CLARIFY_PHRASES),
                     target.message_id)
                 return "ambiguous"
             if envelope is not None:
@@ -515,12 +536,19 @@ _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
 def setup_factcheck(service, db=None) -> None:
     """DI: FactCheckService. Вызывается из bot.py on_startup (42.8).
     Epic 60 (63.1): db + THROTTLE_PERSISTENT_ENABLED → персистентный кулдаун
-    (throttle_state, scope='factcheck'). Epic 65: db → окно chat_context."""
+    (throttle_state, scope='factcheck'). Epic 65: db → окно chat_context.
+    ASAP-VISION-SYNC-01 §4.6 (review-fix2): рантайм-привязка для возобновления
+    отложенного фактчека (durable-намерение → worker-sweep Vision)."""
     global _service, _cooldown, _db
     _service = service
     _db = db
     _cooldown = make_cooldown(
         "factcheck", settings.FACTCHECK_COOLDOWN_SECONDS, db)
+    try:
+        from services import factcheck_orchestrator as _orch
+        _orch.bind_runtime(db=db, service=service)
+    except Exception:      # pragma: no cover — привязка не рвёт старт
+        logger.debug("[factcheck] runtime bind failed", exc_info=True)
 
 
 def _parse_trigger(message: types.Message) -> tuple[types.Message | None, str | None]:
@@ -778,6 +806,113 @@ def _with_publication_notice(text: str, publication) -> str:
     return f"{text}\n\n{notice}"
 
 
+def _media_unverified(publication) -> bool:
+    """Содержимое изображения НЕ проверено (терминальный отказ/не прочиталось).
+
+    Один предикат на все ранние отказы: «нечего проверять» нельзя говорить,
+    когда часть публикации осталась непроверенной, — сначала причина и
+    оговорка `publication.notice()`."""
+    media = getattr(publication, "media", None)
+    return bool(getattr(publication, "media_unchecked", False)
+                or getattr(media, "vision_failed", False)
+                or getattr(publication, "album_incomplete", False))
+
+
+def _gate_refusal_text(publication, phrases) -> str:
+    """Ранний отказ гейта с честной причиной и оговоркой о медиа.
+
+    ASAP-VISION-SYNC-01 §4 (review-fix2, B1): если распознавание картинки
+    завершилось отказом, отказ «нечего проверять» недопустим даже при непустой
+    подписи («проверь скрин» — текст, но не тезис). Первая строка называет
+    настоящую причину, оговорка `publication.notice()` говорит, что именно
+    осталось непроверенным."""
+    if _media_unverified(publication):
+        text = random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
+    else:
+        text = random.choice(tuple(phrases))
+    return _with_publication_notice(text, publication)
+
+
+# ── P1 (ASAP-VISION-SYNC-01 §4.6, review-fix2): отложенный фактчек ──────────
+
+
+def _media_still_reading(publication) -> bool:
+    """Связанное изображение ЕЩЁ распознаётся (pending, НЕ терминальный отказ).
+
+    Отличие от `_media_unverified`: там содержимое уже потеряно и нужна честная
+    оговорка, здесь работа идёт — запрос имеет смысл отложить и продолжить
+    самому, а не просить пользователя повторить. Неоднозначная привязка
+    исключена: там ответ — уточнение, а не ожидание."""
+    media = getattr(publication, "media", None)
+    if getattr(publication, "media_ambiguous", False):
+        return False
+    if _media_unverified(publication):
+        return False
+    return bool(getattr(publication, "has_image", False)
+                and getattr(media, "image_not_analyzed", False))
+
+
+async def _supersede_deferred_factcheck(message, target) -> None:
+    """Свежая просьба отменяет прежнее отложенное намерение (один ответ)."""
+    if _db is None:
+        return
+    try:
+        from services import factcheck_orchestrator as orchestrator
+        await orchestrator.cancel_deferred_factcheck(
+            _db, chat_id=int(message.chat.id),
+            target_message_id=int(getattr(target, "message_id", 0) or 0))
+    except Exception:      # pragma: no cover — отмена не рвёт ход
+        logger.debug("[factcheck] supersede failed", exc_info=True)
+
+
+async def _defer_pending_factcheck(message, target, user_hint,
+                                   publication) -> dict:
+    """Durable-намерение «продолжить фактчек, когда картинка прочитается».
+
+    Регистрируется ТЕМ ЖЕ механизмом, что и у Direct (§4.6): запись
+    `vision:intent:<chat>:<msg>` + возобновление worker-sweep'ом Vision через
+    единый оркестратор (своего пути доставки нет). `{}` — намерение не создано
+    (нет БД, анализ уже готов, сбой): ответ остаётся прежним честным pending."""
+    if _db is None:
+        return {}
+    try:
+        from services import factcheck_orchestrator as orchestrator
+        kind = "reply" if target is not message else "command"
+        req = orchestrator.FactcheckRequest(
+            chat_id=int(message.chat.id),
+            trigger_tg_message_id=int(message.message_id),
+            target_tg_message_id=int(getattr(target, "message_id", 0) or 0),
+            target_text="", user_hint=user_hint, kind=kind)
+        return await orchestrator.defer_factcheck_until_media_ready(
+            _db, req, publication=publication)
+    except Exception:      # pragma: no cover — fail-open, ответ уже есть
+        logger.warning("[factcheck] defer failed | chat=%s",
+                       getattr(message.chat, "id", None), exc_info=True)
+        return {}
+
+
+def _pending_phrase(deferred: dict) -> str:
+    """Фраза «ещё разбираю»: с зарегистрированным намерением — без просьбы
+    повторять (иначе пользователь пришлёт запрос второй раз и получит два
+    ответа), без него — прежняя честная просьба подождать."""
+    return random.choice(FACTCHECK_IMAGE_PENDING_AUTO_PHRASES if deferred
+                         else FACTCHECK_IMAGE_PENDING_PHRASES)
+
+
+async def _pending_refusal(message, target, user_hint,
+                           publication) -> str | None:
+    """Пока картинка читается, отказ «нечего проверять» недопустим.
+
+    Возврат ``None`` — ожидания нет (изображение не связано/готово/упало) и
+    работает прежняя ветка отказа. Иначе запрос откладывается и возвращается
+    фраза ожидания (первая строка — из пула pending)."""
+    if not _media_still_reading(publication):
+        return None
+    deferred = await _defer_pending_factcheck(message, target, user_hint,
+                                              publication)
+    return _pending_phrase(deferred)
+
+
 # ── Epic 72 (74.C.3, D275): фактчек на расшифровку ───────────────────
 
 _TRANSCRIPTION_CLAIM_RE = re.compile(r"🗣:\s?(.*)", re.DOTALL)
@@ -846,6 +981,10 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм (D107: троттлинг — на вызов)
     await cooldown_touch(_cooldown, message.chat.id, user_id)  # слот сразу (42.4)
+    # P1 (§4.6, review-fix2): свежая просьба по тому же сообщению ВЫТЕСНЯЕТ
+    # прежнее отложенное намерение — иначе ответ пришёл бы дважды (сейчас и из
+    # sweep'а). Чужие намерения (Direct) не трогаются.
+    await _supersede_deferred_factcheck(message, target)
     # P0-FACTCHECK MEDIA (owner 25.10.2026 §3–§7): публикация целиком —
     # текст/подпись (в т.ч. с другого элемента альбома) + все изображения
     # через существующий Vision-контур. Раньше здесь был только текст, и
@@ -874,8 +1013,19 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 probe.claim.tg_message_id, probe.claim.author,
                 probe.window_messages, probe.chain_len, irrelevant)
         else:
+            phrase = _empty_content_phrase(publication, probe)
+            # P1 (§4.6, review-fix2): пока картинка читается, просьба «повтори
+            # через минуту» заменяется durable-намерением — продолжение придёт
+            # само, повторять запрос не нужно.
+            deferred = {}
+            if phrase in FACTCHECK_IMAGE_PENDING_PHRASES:
+                deferred = await _defer_pending_factcheck(
+                    message, target, user_hint, publication)
+            # Отдельная оговорка `publication.notice()` здесь не дублируется:
+            # `_empty_content_phrase` уже называет фактическое состояние входа
+            # (технический сбой / ещё распознаётся / нет тезиса на картинке).
             await _reply(bot, message.chat.id,
-                         _empty_content_phrase(publication, probe),
+                         _pending_phrase(deferred) if deferred else phrase,
                          target.message_id)
             logger.info(
                 "[factcheck] no claim in target/context | chat=%s | target=%s "
@@ -975,17 +1125,35 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
             # без кеш-записи (идемпотентность 59.2 сохранена).
             if gate_decision is not None \
                     and gate_decision.decision == "no_claim_after_context":
+                pending_reply = await _pending_refusal(
+                    message, target, user_hint, publication)
+                if pending_reply is not None:
+                    await send_chunked_reply(
+                        bot, message.chat.id,
+                        _with_publication_notice(pending_reply, publication),
+                        target.message_id)
+                    await _settle_cooldown(message.chat.id, user_id, "pending")
+                    return
                 await send_chunked_reply(
                     bot, message.chat.id,
-                    random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                    _gate_refusal_text(publication, FACTCHECK_NO_CLAIM_PHRASES),
                     target.message_id)
                 await _settle_cooldown(message.chat.id, user_id, "no_claim")
                 return
             if gate_decision is not None \
                     and gate_decision.decision == "ambiguous_needs_clarification":
+                pending_reply = await _pending_refusal(
+                    message, target, user_hint, publication)
+                if pending_reply is not None:
+                    await send_chunked_reply(
+                        bot, message.chat.id,
+                        _with_publication_notice(pending_reply, publication),
+                        target.message_id)
+                    await _settle_cooldown(message.chat.id, user_id, "pending")
+                    return
                 await send_chunked_reply(
                     bot, message.chat.id,
-                    random.choice(FACTCHECK_CLARIFY_PHRASES),
+                    _gate_refusal_text(publication, FACTCHECK_CLARIFY_PHRASES),
                     target.message_id)
                 await _settle_cooldown(message.chat.id, user_id, "ambiguous")
                 return

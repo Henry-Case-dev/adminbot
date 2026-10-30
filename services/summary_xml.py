@@ -55,7 +55,8 @@ class XmlGroundingBuilder:
     """Builds the XML chat history block for the LLM prompt."""
 
     def build(self, messages: list, aliases: AliasResolver | None = None,
-              trigger_message_id=None, *, window_caps=None) -> str:
+              trigger_message_id=None, *, window_caps=None,
+              media_evidence: dict | None = None) -> str:
         """messages: rows with id/timestamp/author_name/text/reply_to_id/media_type.
 
         Раунд 10.23 (F1, ADR-1023-1): сообщение с ``tg_message_id ==
@@ -70,6 +71,13 @@ class XmlGroundingBuilder:
         None)`` → капы ОТПУЩЕНЫ (ветка capacity-aware Legacy: фиксированные
         капы больше НЕ триггер «стоп», spec §31; dead-path проверка
         «XML context: hard cap … reached» обязана быть недостижима в ON-ветке).
+
+        ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): ``media_evidence`` —
+        ``{tg_message_id: строка}`` с фактическим визуальным свидетельством
+        (OCR/описание со ссылкой msg/asset/анализ vN либо честная строка
+        «не распознано»). Раньше фото с подписью уходило в статью как
+        «подпись [фото]», и готовый OCR терялся. ``None`` →
+        байт-в-байт прежнее поведение.
         """
         if not messages:
             return "<chat_history/>"
@@ -86,7 +94,8 @@ class XmlGroundingBuilder:
         remaining_trigger = trigger_message_id
         for row in (messages[:max_messages]
                     if max_messages is not None else messages):
-            element = self._build_element(row, aliases, remaining_trigger)
+            element = self._build_element(row, aliases, remaining_trigger,
+                                          media_evidence=media_evidence)
             if max_chars is not None \
                     and total_chars + len(element) > max_chars:
                 logger.warning(
@@ -101,7 +110,8 @@ class XmlGroundingBuilder:
         parts.append("</chat_history>")
         return "\n".join(parts)
 
-    def _build_element(self, row, aliases=None, trigger_message_id=None) -> str:
+    def _build_element(self, row, aliases=None, trigger_message_id=None, *,
+                       media_evidence=None) -> str:
         msg_id = row["id"]
         timestamp = row["timestamp"]
         try:
@@ -115,7 +125,8 @@ class XmlGroundingBuilder:
             # Epic 28 (T-213-D): алиас побеждает устаревший author_name старых строк
             author = aliases.resolve(int(row["user_id"] or 0), author or None, None)
         media_type = row["media_type"] or "text"
-        body = self._build_body(row["text"], media_type)
+        body = self._build_body(row["text"], media_type,
+                                evidence=self._media_entry(row, media_evidence))
         if is_target_row(row, trigger_message_id):
             # Маркер дописывается ДО _escape → в XML он станет
             # `&lt;&lt;&lt; [ЭТО ТВОЯ ТЕКУЩАЯ КОМАНДА]` (well-formed XML сохранён).
@@ -133,16 +144,38 @@ class XmlGroundingBuilder:
             f'reply_to_id="{reply_attr}" type="{media_type}"{extra}>{_escape(body)}</message>'
         )
 
-    def _build_body(self, text: str | None, media_type: str) -> str:
+    @staticmethod
+    def _media_entry(row, media_evidence):
+        """Готовая строка свидетельства для строки окна (или "")."""
+        if not media_evidence:
+            return ""
+        try:
+            tg_id = int(row_get(row, "tg_message_id") or 0)
+        except (TypeError, ValueError):
+            tg_id = 0
+        if not tg_id:
+            return ""
+        return str(media_evidence.get(tg_id) or "").strip()
+
+    def _build_body(self, text: str | None, media_type: str,
+                    evidence: str = "") -> str:
+        cap = hot.get("limits.summary_max_message_chars",
+                      settings.SUMMARY_MAX_MESSAGE_CHARS)
         if media_type == "text":
-            return (text or "")[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
+            return (text or "")[:cap]
         description = _MEDIA_DESCRIPTIONS.get(media_type, "[медиа]")
         caption = (text or "").strip()
         # Epic 67 (D267): у транскрибированных voice/video реальный текст уже
         # в smart_messages.text — суффикс-плейсхолдер не добавляем.
         if media_type in ("voice", "video") and caption:
-            return caption[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
+            return caption[:cap]
+        if evidence:
+            # ASAP-VISION-SYNC-01 §4.6 (review-fix2): фактическое содержимое
+            # картинки (OCR/описание со ссылкой) либо честный статус вместо
+            # плейсхолдера «[фото]» — подпись сохраняется рядом.
+            body = f"{caption} {evidence}".strip() if caption else evidence
+            return body[:cap]
         if caption:
-            caption = caption[: hot.get("limits.summary_max_message_chars", settings.SUMMARY_MAX_MESSAGE_CHARS)]
+            caption = caption[:cap]
             return f"{caption} {description}"
         return description

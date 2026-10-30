@@ -32,6 +32,7 @@ from services.initiative_observer import InitiativeObserverRunner
 from services.search_service import SearchService
 from services.smartmodule_phrases import (
     FACTCHECK_IMAGE_NO_CLAIM_PHRASES,
+    FACTCHECK_IMAGE_PENDING_AUTO_PHRASES,
     FACTCHECK_IMAGE_PENDING_PHRASES,
     FACTCHECK_MEDIA_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
@@ -127,6 +128,17 @@ async def _ready(db, asset_id, *, text, chat_id=None,
     return await _core_ready_analysis(db, asset_id, text=text,
                                       chat_id=int(chat_id or CHAT),
                                       description=description)
+
+
+async def _vision_job(db, tg_id: int, asset_id: str, *, serial: int) -> None:
+    """Настоящая задача распознавания — production-состояние «pending».
+
+    Отложить запрос имеет смысл только когда работа реально идёт (§4.6): актив
+    без анализа И без задачи — не ожидание, поэтому тесту нужен durable-job."""
+    await mca_vision.enqueue_asset_analysis(
+        db, {"asset_id": asset_id, "tg_message_id": int(tg_id),
+             "file_id": f"fid_{serial}", "media_group_id": ""},
+        chat_id=CHAT)
 
 
 class _CaptureLLM:
@@ -463,6 +475,7 @@ async def test_v2_pending_media_forbids_no_claim(db):
                author="Аня")
     asset_id = await _img(db, 1600, serial=161)
     await _rec(db, asset_id, status="running")
+    await _vision_job(db, 1600, asset_id, serial=161)
 
     service = MagicMock()
     service.check_claim = AsyncMock(side_effect=AssertionError(
@@ -478,8 +491,12 @@ async def test_v2_pending_media_forbids_no_claim(db):
     assert outcome == orch.OUTCOME_PENDING
     assert outcome in orch.REFUNDABLE_OUTCOMES
     sent = bot.send_message.await_args.args[1]
-    assert sent in FACTCHECK_IMAGE_PENDING_PHRASES
+    # Review-fix2 (P1): намерение зарегистрировано → фраза честно говорит
+    # «продолжу сам» вместо «повтори через минуту» (оба пула — pending).
+    assert sent in (FACTCHECK_IMAGE_PENDING_PHRASES
+                    + FACTCHECK_IMAGE_PENDING_AUTO_PHRASES)
     assert sent not in FACTCHECK_NO_CLAIM_PHRASES
+    assert len(await _intent_payloads(db)) == 1
     assert service.check_claim.await_count == 0
 
 
@@ -589,3 +606,621 @@ def test_vision_settings_catalogized_and_effective():
     assert mca_vision.resolve_output_token_limit(route) == \
         mca_vision.OUTPUT_TOKEN_FLOOR            # нижняя граница-защита
     hot.set_config_cache(None)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# REVIEW-FIX2 (ASAP-VISION-SYNC-01): B1, B2, P1, P2
+# ════════════════════════════════════════════════════════════════════════════
+
+from tests.test_evol_vision_sync_core import (      # noqa: E402
+    _photo_message,
+    _text_message,
+)
+
+
+async def _intent_payloads(db) -> list:
+    import json
+    cur = await db.db.execute(
+        "SELECT payload FROM task_jobs WHERE kind=? AND status IN "
+        "('queued','running') ORDER BY created_at", (mr.PENDING_INTENT_KIND,))
+    rows = [dict(r) for r in await cur.fetchall() or []]
+    return [json.loads(r["payload"] or "{}") for r in rows]
+
+
+# ── B1: «содержимое картинки НЕ проверено» доходит до ответа ────────────────
+
+@pytest.mark.asyncio
+async def test_b1_v2_captioned_photo_terminal_failure_is_not_no_claim(db):
+    """B1 (v2): фото с подписью-просьбой «проверь скрин», анализ упал
+    (provider_timeout), вокруг 15 сообщений. Раньше гейт отвечал «нечего
+    проверять» — без единого слова о том, что картинку не распознали."""
+    from services import factcheck_orchestrator as orch
+
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 1800, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 1800, serial=181)
+    await _rec(db, asset_id, status="failed", error_reason="provider_timeout")
+    for i in range(14):
+        await _msg(db, 1810 + i, text=f"болтовня номер {i}", author="Петя")
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(side_effect=AssertionError(
+        "по непроверенной картинке вердикт не выдумывается"))
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(side_effect=AssertionError("LLM offline"))
+    bot = AsyncMock()
+
+    outcome = await orch.run_factcheck(
+        _factcheck_req(1800, "проверь скрин"), service=service, db=db,
+        bot=bot, cache=_FakeCache())
+
+    assert outcome == orch.OUTCOME_UNAVAILABLE
+    assert outcome != orch.OUTCOME_NO_CLAIM
+    sent = bot.send_message.await_args.args[1]
+    first_line = sent.split("\n", 1)[0]
+    assert first_line in FACTCHECK_MEDIA_ERROR_PHRASES
+    assert first_line not in FACTCHECK_NO_CLAIM_PHRASES
+    assert "НЕ проверено" in sent               # оговорка о содержимом картинки
+    assert service.check_claim.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_b1_v1_gate_refusal_keeps_media_caveat(db, monkeypatch):
+    """B1 (v1-маршрут): отказ гейта «нечего проверять» при непроверенной
+    картинке заменяется причиной + оговоркой о содержимом изображения."""
+    await _msg(db, 1900, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 1900, serial=191)
+    await _rec(db, asset_id, status="failed", error_reason="provider_timeout")
+    for i in range(14):
+        await _msg(db, 1910 + i, text=f"болтовня номер {i}", author="Петя")
+
+    target = _photo_message(1900, serial=191, caption="проверь скрин")
+    trigger = _text_message(1999, "фактчек").model_copy(
+        update={"reply_to_message": target})
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(side_effect=AssertionError(
+        "вердикта по непроверенной картинке быть не должно"))
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(side_effect=AssertionError("LLM offline"))
+    hfc.setup_factcheck(service, db)
+    monkeypatch.setattr(hfc, "_pipeline_v2_enabled", lambda: False)
+    monkeypatch.setattr(hfc, "_temporal_on", lambda: False)
+
+    gate_decision = MagicMock()
+    gate_decision.decision = "no_claim_after_context"
+
+    async def _gate(chat_id, before, after, **kwargs):
+        return "", gate_decision
+
+    monkeypatch.setattr(hfc, "_fetch_context_with_gate", _gate)
+
+    bot = AsyncMock()
+    # Публикация собирается единым резолвером (services.factcheck_service);
+    # здесь она подаётся напрямую, чтобы тест проверял ИМЕННО формулировку
+    # раннего отказа при непроверенной картинке, а не окружение рендера
+    # (состояние `media_unchecked` из упавшего анализа доказано в v2-тесте и
+    # в core-тестах §8.25).
+    from services.factcheck_service import ClaimMediaMaterial, ClaimPublication
+
+    unverified = ClaimPublication(
+        text="проверь скрин", caption_text="проверь скрин", has_image=True,
+        media=ClaimMediaMaterial(image_present=True, image_unchecked=True,
+                                 unchecked_reason="provider_timeout",
+                                 image_count=1))
+
+    async def _resolve(message, tgt):
+        return unverified
+
+    monkeypatch.setattr(hfc, "_resolve_publication", _resolve)
+    await hfc.factcheck_handler(trigger, bot=bot)
+
+    sent = bot.send_message.await_args.args[1]
+    first_line = sent.split("\n", 1)[0]
+    assert first_line in FACTCHECK_MEDIA_ERROR_PHRASES
+    assert first_line not in FACTCHECK_NO_CLAIM_PHRASES
+    assert "НЕ проверено" in sent
+    assert service.check_claim.await_count == 0
+
+
+def test_b1_gate_refusal_helper_covers_both_pools():
+    """B1: единый шов раннего отказа (v1) — причина + оговорка для обоих
+    пулов (no_claim / уточнение), и прежняя фраза без непроверенной картинки."""
+    from services.factcheck_service import ClaimMediaMaterial, ClaimPublication
+
+    unchecked = ClaimPublication(
+        text="проверь скрин", caption_text="проверь скрин", has_image=True,
+        media=ClaimMediaMaterial(image_present=True, image_unchecked=True,
+                                 unchecked_reason="provider_timeout",
+                                 image_count=1))
+    for pool in (FACTCHECK_NO_CLAIM_PHRASES, hfc.FACTCHECK_CLARIFY_PHRASES):
+        text = hfc._gate_refusal_text(unchecked, pool)
+        first = text.split("\n", 1)[0]
+        assert first in FACTCHECK_MEDIA_ERROR_PHRASES
+        assert "НЕ проверено" in text
+
+    clean = ClaimPublication(text="Земля плоская", caption_text="Земля плоская")
+    text = hfc._gate_refusal_text(clean, FACTCHECK_NO_CLAIM_PHRASES)
+    assert text in FACTCHECK_NO_CLAIM_PHRASES       # прежнее поведение
+
+
+# ── B2: «анализа нет и задачи нет» — не вечный pending ─────────────────────
+
+@pytest.mark.asyncio
+async def test_b2_missing_analysis_does_not_block_digest(db):
+    """B2: у фото есть актив, но нет ни анализа, ни задачи (Vision был
+    выключен при приёме). Раньше конспект окна не строился НИКОГДА: элемент
+    висел в pending, а watchdog его не видел. Теперь это не ожидание."""
+    from services.summary_memory import visual_window_state
+
+    photo_tg = 2100
+    rows = await _window_rows(db, photo_tg)
+    await _img(db, photo_tg, serial=210)      # анализа нет, задачи нет
+
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    assert state["pending"] == {}, "«анализа нет» — не идущая работа"
+    assert int(photo_tg) in state["missing"]
+    assert state["ready"] == {} and state["failed"] == {}
+
+    llm = _CaptureLLM()
+    memory = MemoryManager(db, llm)
+    status = await memory._build_running_summary_impl(CHAT, rows)
+    assert status == "success"
+    payload = llm.calls[0][-1]["content"]
+    assert "болтовня номер 3" in payload
+    assert "изображение" not in payload.lower()   # содержимого картинки нет
+    stored = await db.get_running_summary(CHAT, time.time())
+    assert stored is not None and stored["summary"]
+
+
+@pytest.mark.asyncio
+async def test_b2_running_analysis_still_defers_digest(db):
+    """B2 (граница): реально идущий анализ (есть задача) по-прежнему
+    откладывает конспект — defer только для настоящего pending."""
+    photo_tg = 2200
+    rows = await _window_rows(db, photo_tg)
+    asset_id = await _img(db, photo_tg, serial=220)
+    await _rec(db, asset_id, status="running")
+
+    llm = _CaptureLLM()
+    memory = MemoryManager(db, llm)
+    status = await memory._build_running_summary_impl(CHAT, rows)
+    assert status == "skipped_media_pending"
+    assert llm.calls == []
+
+
+# ── P1: отложенный фактчек (durable) возобновляется сам ────────────────────
+
+@pytest.mark.asyncio
+async def test_p1_factcheck_pending_defers_and_resumes_once(db, monkeypatch):
+    """P1 (§4.6): фактчек с pending-OCR сохраняется одним durable-намерением и
+    возобновляется тем же worker-sweep'ом Vision — один логический результат,
+    без повторной присылки запроса пользователем и без второго ответа."""
+    from services import factcheck_orchestrator as orch
+
+    # Единая ветка вычисления (legacy): temporal-конверт здесь не предмет теста.
+    monkeypatch.setattr("services.mca_gates.temporal_factcheck_enabled",
+                        lambda: False)
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 2300, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 2300, serial=231)
+    analysis_id = await _rec(db, asset_id, status="running")
+    await _vision_job(db, 2300, asset_id, serial=231)
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(return_value="Вердикт: не подтверждается")
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(return_value="ок")
+    bot = AsyncMock()
+
+    previous_handler = getattr(mr, "_RESUME_HANDLER", None)
+    mr.set_resume_handler(None)
+    orch.bind_runtime(db=db, service=service)
+    try:
+        outcome = await orch.run_factcheck(
+            _factcheck_req(2300, "проверь скрин"), service=service, db=db,
+            bot=bot, cache=_FakeCache())
+        assert outcome == orch.OUTCOME_PENDING
+
+        intents = await _intent_payloads(db)
+        assert len(intents) == 1, intents
+        assert intents[0]["consumer"] == orch.FACTCHECK_RESUME_CONSUMER
+        assert intents[0]["notified"] is False
+
+        # Повторный тот же запрос не создаёт второе намерение (coalesce).
+        await orch.run_factcheck(
+            _factcheck_req(2300, "проверь скрин"), service=service, db=db,
+            bot=bot, cache=_FakeCache())
+        assert len(await _intent_payloads(db)) == 1
+
+        bot.reset_mock()
+        await db.finish_media_analysis(
+            analysis_id, expected_revision=1, status="ready",
+            ocr_blocks=[{"text": "Скрин: перевод 5000",
+                         "channel": "untrusted_data"}],
+            visual_description="скриншот перевода")
+
+        first = await mr.resume_deferred_requests(db, bot=bot)
+        assert first["resumed"] == 1
+        delivered = bot.send_message.await_count
+        assert delivered >= 1
+        assert service.check_claim.await_count == 1
+
+        second = await mr.resume_deferred_requests(db, bot=bot)
+        assert second["resumed"] == 0
+        assert bot.send_message.await_count == delivered      # дубля нет
+        assert await _intent_payloads(db) == []               # намерение закрыто
+    finally:
+        mr.set_resume_handler(previous_handler)
+
+
+@pytest.mark.asyncio
+async def test_p1_factcheck_terminal_failure_resumes_honestly_once(db, monkeypatch):
+    """P1: терминальный отказ Vision тоже завершает отложенный фактчек —
+    одним честным ответом с причиной и оговоркой (без выдуманного вердикта)."""
+    from services import factcheck_orchestrator as orch
+    from services.task_supervisor import TaskJobStore
+
+    monkeypatch.setattr("services.mca_gates.temporal_factcheck_enabled",
+                        lambda: False)
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 2400, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 2400, serial=241)
+    analysis_id = await _rec(db, asset_id, status="running")
+    await _vision_job(db, 2400, asset_id, serial=241)
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(side_effect=AssertionError(
+        "по непроверенной картинке вердикт не выдумывается"))
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(return_value="ок")
+    bot = AsyncMock()
+
+    previous_handler = getattr(mr, "_RESUME_HANDLER", None)
+    mr.set_resume_handler(None)
+    orch.bind_runtime(db=db, service=service)
+    try:
+        assert await orch.run_factcheck(
+            _factcheck_req(2400, "проверь скрин"), service=service, db=db,
+            bot=bot, cache=_FakeCache()) == orch.OUTCOME_PENDING
+        bot.reset_mock()
+
+        job = (await _intent_payloads(db))[0]
+        await db.finish_media_analysis(
+            analysis_id, expected_revision=1, status="failed",
+            error_reason="provider_timeout")
+        # Задача распознавания закрывается тем же терминалом (иначе ядро
+        # честно считает, что запланирован retry, и ждёт дальше).
+        store = TaskJobStore(db)
+        for row in await store.active():
+            if row.get("kind") == mca_vision.VISION_JOB_KIND:
+                await store.finish(str(row.get("job_id")), status="failed",
+                                   reason_code="provider_timeout")
+
+        summary = await mr.resume_deferred_requests(db, bot=bot)
+        assert summary["terminal"] == 1
+        sent = bot.send_message.await_args.args[1]
+        assert sent.split("\n", 1)[0] in FACTCHECK_MEDIA_ERROR_PHRASES
+        assert "НЕ проверено" in sent
+        assert service.check_claim.await_count == 0
+        assert job["consumer"] == orch.FACTCHECK_RESUME_CONSUMER
+        assert await _intent_payloads(db) == []
+    finally:
+        mr.set_resume_handler(previous_handler)
+
+
+@pytest.mark.asyncio
+async def test_p1_v1_pending_request_defers_and_resumes_once(db, monkeypatch):
+    """P1 (v1-маршрут, DEFAULT): пока OCR идёт, хендлер больше не просит
+    «повтори через минуту», а регистрирует то же durable-намерение — ответ
+    приходит сам после распознавания, ровно один раз."""
+    from services import factcheck_orchestrator as orch
+    from services.factcheck_service import ClaimMediaMaterial, ClaimPublication
+
+    monkeypatch.setattr(hfc, "_pipeline_v2_enabled", lambda: False)
+    monkeypatch.setattr(hfc, "_temporal_on", lambda: True)
+    # Возобновлённый прогон идёт через единый оркестратор (в фоне нет aiogram-
+    # объектов исходной просьбы); временной контур выключен — проверяется
+    # обычное вычисление, а не маршрут конверта.
+    monkeypatch.setattr("services.mca_gates.temporal_factcheck_enabled",
+                        lambda: False)
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 2600, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 2600, serial=261)
+    analysis_id = await _rec(db, asset_id, status="running")
+    await _vision_job(db, 2600, asset_id, serial=261)
+
+    target = _photo_message(2600, serial=261, caption="проверь скрин",
+                            chat_id=CHAT)
+    trigger = _text_message(2699, "фактчек", chat_id=CHAT).model_copy(
+        update={"reply_to_message": target})
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(return_value="Вердикт: не подтверждается")
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(return_value="ок")
+    hfc.setup_factcheck(service, db)
+    orch.bind_runtime(db=db, service=service)
+
+    gate_decision = MagicMock()
+    gate_decision.decision = "no_claim_after_context"
+
+    async def _gate(chat_id, before, after, **kwargs):
+        return "", gate_decision
+
+    monkeypatch.setattr(hfc, "_fetch_context_with_gate", _gate)
+
+    pending_pub = ClaimPublication(
+        text="проверь скрин", caption_text="проверь скрин", has_image=True,
+        media=ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
+                                 pending_count=1, image_count=1))
+
+    async def _resolve(message, tgt):
+        return pending_pub
+
+    monkeypatch.setattr(hfc, "_resolve_publication", _resolve)
+
+    previous_handler = getattr(mr, "_RESUME_HANDLER", None)
+    mr.set_resume_handler(None)
+    bot = AsyncMock()
+    try:
+        await hfc.factcheck_handler(trigger, bot=bot)
+
+        sent = bot.send_message.await_args.args[1]
+        first_line = sent.split("\n", 1)[0]
+        assert first_line in FACTCHECK_IMAGE_PENDING_AUTO_PHRASES
+        assert "повтори через минуту" not in sent
+        assert service.check_claim.await_count == 0
+
+        intents = await _intent_payloads(db)
+        assert len(intents) == 1, intents
+        assert intents[0]["consumer"] == orch.FACTCHECK_RESUME_CONSUMER
+
+        # Анализ готов → продолжение самим sweep'ом; вердикт один.
+        await db.finish_media_analysis(
+            analysis_id, expected_revision=1, status="ready",
+            ocr_blocks=[{"text": "Скрин: перевод 5000",
+                         "channel": "untrusted_data"}],
+            visual_description="скриншот перевода")
+        bot.reset_mock()
+        first = await mr.resume_deferred_requests(db, bot=bot)
+        assert first["resumed"] == 1
+        delivered = bot.send_message.await_count
+        assert delivered >= 1
+        assert service.check_claim.await_count == 1
+
+        second = await mr.resume_deferred_requests(db, bot=bot)
+        assert second["resumed"] == 0
+        assert bot.send_message.await_count == delivered
+        assert await _intent_payloads(db) == []
+    finally:
+        mr.set_resume_handler(previous_handler)
+
+
+@pytest.mark.asyncio
+async def test_p1_repeat_request_supersedes_deferred_intent(db, monkeypatch):
+    """P1: повторная просьба по тому же сообщению отменяет старое намерение —
+    один логический ответ (свежий прогон важнее отложенного)."""
+    from services import factcheck_orchestrator as orch
+
+    monkeypatch.setattr("services.mca_gates.temporal_factcheck_enabled",
+                        lambda: False)
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 2650, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 2650, serial=266)
+    await _rec(db, asset_id, status="running")
+    await _vision_job(db, 2650, asset_id, serial=266)
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(return_value="Вердикт: не подтверждается")
+    service.llm = MagicMock()
+    service.llm.generate = AsyncMock(return_value="ок")
+    bot = AsyncMock()
+
+    previous_handler = getattr(mr, "_RESUME_HANDLER", None)
+    mr.set_resume_handler(None)
+    orch.bind_runtime(db=db, service=service)
+    try:
+        await orch.run_factcheck(
+            _factcheck_req(2650, "проверь скрин"), service=service, db=db,
+            bot=bot, cache=_FakeCache())
+        assert len(await _intent_payloads(db)) == 1
+
+        assert await orch.cancel_deferred_factcheck(
+            db, chat_id=CHAT, target_message_id=2650) is True
+        assert await _intent_payloads(db) == []
+        # Повторная отмена — no-op (идемпотентность state-машины).
+        assert await orch.cancel_deferred_factcheck(
+            db, chat_id=CHAT, target_message_id=2650) is False
+    finally:
+        mr.set_resume_handler(previous_handler)
+
+
+@pytest.mark.asyncio
+async def test_p1_fresh_request_after_ready_prevents_second_answer(db,
+                                                                  monkeypatch):
+    """P1 (один логический результат): если пользователь всё же повторил
+    просьбу и анализ уже готов, отвечает ЭТОТ прогон, а отложенное намерение
+    снимается — второго ответа из sweep'а нет."""
+    from services import factcheck_orchestrator as orch
+    from services.factcheck_service import ClaimMediaMaterial, ClaimPublication
+
+    monkeypatch.setattr(hfc, "_pipeline_v2_enabled", lambda: False)
+    monkeypatch.setattr(hfc, "_temporal_on", lambda: True)
+    monkeypatch.setattr("services.mca_gates.temporal_factcheck_enabled",
+                        lambda: False)
+    hot.set_config_cache(_Cfg({"limits.vision_readiness_wait_seconds": 0.01}))
+    await _msg(db, 2670, media_type="photo", caption="проверь скрин",
+               author="Аня")
+    asset_id = await _img(db, 2670, serial=268)
+    analysis_id = await _rec(db, asset_id, status="running")
+    await _vision_job(db, 2670, asset_id, serial=268)
+
+    target = _photo_message(2670, serial=268, caption="проверь скрин",
+                            chat_id=CHAT)
+    trigger = _text_message(2698, "фактчек", chat_id=CHAT).model_copy(
+        update={"reply_to_message": target})
+
+    service = MagicMock()
+    service.check_claim = AsyncMock(return_value="Вердикт: не подтверждается")
+    service.llm = MagicMock()
+    hfc.setup_factcheck(service, db)
+    orch.bind_runtime(db=db, service=service)
+
+    state = {"publication": ClaimPublication(
+        text="проверь скрин", caption_text="проверь скрин", has_image=True,
+        media=ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
+                                 pending_count=1, image_count=1))}
+
+    async def _resolve(message, tgt):
+        return state["publication"]
+
+    monkeypatch.setattr(hfc, "_resolve_publication", _resolve)
+
+    refusal = MagicMock()
+    refusal.decision = "no_claim_after_context"
+    checkable = MagicMock()
+    checkable.decision = "checkable"
+    gate = {"decision": refusal}
+
+    async def _gate(chat_id, before, after, **kwargs):
+        return "", gate["decision"]
+
+    monkeypatch.setattr(hfc, "_fetch_context_with_gate", _gate)
+
+    previous_handler = getattr(mr, "_RESUME_HANDLER", None)
+    mr.set_resume_handler(None)
+    bot = AsyncMock()
+    try:
+        await hfc.factcheck_handler(trigger, bot=bot)
+        assert len(await _intent_payloads(db)) == 1
+
+        # Анализ готов; пользователь повторяет просьбу — побеждает этот прогон.
+        await db.finish_media_analysis(
+            analysis_id, expected_revision=1, status="ready",
+            ocr_blocks=[{"text": "Скрин: перевод 5000",
+                         "channel": "untrusted_data"}],
+            visual_description="скриншот перевода")
+        state["publication"] = ClaimPublication(
+            text="проверь скрин", caption_text="проверь скрин", has_image=True,
+            media=ClaimMediaMaterial(image_present=True, image_analyzed=True,
+                                     image_count=1))
+        gate["decision"] = checkable
+        monkeypatch.setattr(hfc, "_temporal_on", lambda: False)
+        bot.reset_mock()
+        await hfc.factcheck_handler(trigger, bot=bot)
+
+        assert await _intent_payloads(db) == []       # намерение снято
+        assert service.check_claim.await_count == 1
+        delivered = bot.send_message.await_count
+        assert delivered == 1
+
+        summary = await mr.resume_deferred_requests(db, bot=bot)
+        assert summary["resumed"] == 0
+        assert bot.send_message.await_count == delivered   # второго ответа нет
+    finally:
+        mr.set_resume_handler(previous_handler)
+
+
+# ── P2: статья и поиск видят содержимое фото С ПОДПИСЬЮ ────────────────────
+@pytest.mark.asyncio
+async def test_p2_captioned_photo_evidence_in_article_and_search(db):
+    """P2: фото с подписью раньше уходило в статью/поиск как «подпись [фото]».
+    Теперь готовый OCR с адресом (msg/asset/анализ vN) доходит до обоих
+    потребителей, а непроверенное изображение — только честной строкой."""
+    from services.chat_context import build_chat_context
+    from services.summary_memory import visual_evidence_lines, visual_window_state
+    from services.summary_xml import XmlGroundingBuilder
+
+    await _msg(db, 2500, media_type="photo", caption="что на скрине?",
+               author="Аня")
+    asset_id = await _img(db, 2500, serial=251)
+    await _ready(db, asset_id, text="Скрин: перевод 5000",
+                 description="скриншот перевода")
+    rows = [_row(2500, "что на скрине?", author="Аня", media_type="photo")]
+
+    # Поиск: явный оптик-ин для потребителя, которому нужен поиск по картинке.
+    ctx = await build_chat_context(db, rows, chat_id=CHAT,
+                                   media_for_captioned=True)
+    assert "Скрин: перевод 5000" in ctx
+    assert f"msg:{CHAT}:2500" in ctx
+    # Паритет остальных потребителей: без флага подпись рендерится как прежде.
+    ctx_legacy = await build_chat_context(db, rows, chat_id=CHAT)
+    assert "Скрин: перевод 5000" not in ctx_legacy
+    assert "что на скрине?" in ctx_legacy
+
+    # Статья (L1/L2 XML): свидетельство вместо плейсхолдера «[фото]».
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    evidence = visual_evidence_lines(state)
+    xml_ctx = XmlGroundingBuilder().build(
+        [_xml_row(2500, "что на скрине?", author="Аня")], window_caps=(None, None),
+        media_evidence=evidence)
+    assert "Скрин: перевод 5000" in xml_ctx
+    assert "[фото]" not in xml_ctx
+    assert f"msg:2500" in xml_ctx
+    assert "анализ v" in xml_ctx
+
+    # Непроверенное изображение: в статье честная строка, а не «[фото]».
+    await _msg(db, 2501, media_type="photo", caption="а это?", author="Петя")
+    failed_asset = await _img(db, 2501, serial=252)
+    await _rec(db, failed_asset, status="failed",
+               error_reason="provider_timeout")
+    rows2 = [_row(2501, "а это?", author="Петя", media_type="photo")]
+    state2 = await visual_window_state(db, CHAT, rows2, consumer="summary")
+    evidence2 = visual_evidence_lines(state2)
+    xml_ctx2 = XmlGroundingBuilder().build(
+        [_xml_row(2501, "а это?", author="Петя")], window_caps=(None, None),
+        media_evidence=evidence2)
+    assert "не распознано" in xml_ctx2
+    assert "[фото]" not in xml_ctx2
+
+
+def _xml_row(tg_id: int, text: str, *, author: str = "Сергей") -> dict:
+    """Строка окна в форме, которую читает XmlGroundingBuilder."""
+    return _row(tg_id, text, author=author, media_type="photo")
+
+
+@pytest.mark.asyncio
+async def test_p2_summary_consumers_get_matching_evidence_shape(db):
+    """P2 (регресс шва): фактам/графу нужен `{msg: {text, refs}}`, статье —
+    строка. Один и тот же источник состояния, но разные формы: иначе готовый
+    OCR не доходит до статьи/фактов (или путь фонового потребителя падает)."""
+    from services.summary_generator import SummaryGenerator
+    from services.summary_memory import _build_batch_text, visual_window_state
+
+    await _msg(db, 2700, media_type="photo", caption="что на скрине?",
+               author="Аня")
+    asset_id = await _img(db, 2700, serial=271)
+    await _ready(db, asset_id, text="Скрин: перевод 5000",
+                 description="скриншот перевода")
+    rows = [_row(2700, "что на скрине?", author="Аня", media_type="photo")]
+
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    facts = SummaryGenerator._media_facts_evidence(state)
+    lines = SummaryGenerator._media_xml_evidence(state)
+    assert facts and isinstance(facts[2700], dict)
+    assert lines and isinstance(lines[2700], str)
+
+    text = _build_batch_text(rows, skip_empty=True, media_evidence=facts)
+    assert "Скрин: перевод 5000" in text          # готовый OCR дошёл до фактов
+    assert "msg:" in text and "asset:" in text    # адрес источника сохранён
+    assert "Скрин: перевод 5000" in lines[2700]
+
+
+def test_p2_facts_evidence_excludes_unready_media():
+    """P2: ожидающая/упавшая картинка не становится «фактом» — в долговременное
+    знание идёт только завершённый анализ (честный статус — в статье, не в
+    фактах)."""
+    from services.summary_generator import SummaryGenerator
+
+    assert SummaryGenerator._media_facts_evidence(
+        {"ready": {}, "pending": {1: "vision_queued"},
+         "failed": {2: "provider_timeout"}, "missing": {}}) is None
+    assert SummaryGenerator._media_xml_evidence(None) is None
+

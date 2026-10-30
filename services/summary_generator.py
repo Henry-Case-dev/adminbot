@@ -960,7 +960,13 @@ class SummaryGenerator:
                 if hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
                     fire_and_forget(
                         self.memory.memorize_facts(
-                            chat_id, _build_batch_text(rows, skip_empty=True),
+                            chat_id,
+                            _build_batch_text(
+                                rows, skip_empty=True,
+                                media_evidence=(
+                                    self._media_facts_evidence(
+                                        await self._window_media_state(
+                                            chat_id, rows)))),
                             "chat_history"),
                          "summary")
                 await self._run_hybrid_l2(
@@ -1715,6 +1721,44 @@ class SummaryGenerator:
                 pass
         return _lfw.build_legacy_package_content(package), coverage
 
+    async def _window_media_state(self, chat_id: int, rows) -> dict | None:
+        """Состояние медиа окна для статьи/фактов (review-fix2, P2).
+
+        Без ожидания и без новых Vision-вызовов: готовый OCR/описание,
+        ожидающие и упавшие — с причиной. ``None`` — состояния нет (модуль
+        выключен/нет БД): поведение прежнее, байт-в-байт."""
+        db = getattr(self.memory, "db", None) if self.memory is not None else None
+        if db is None or not chat_id:
+            return None
+        try:
+            from services.summary_memory import visual_window_state
+            return await visual_window_state(db, chat_id, rows,
+                                             consumer="summary")
+        except Exception:
+            logger.warning("summary: media state collect failed — old "
+                           "context | chat_id=%s", chat_id, exc_info=True)
+            return None
+
+    @staticmethod
+    def _media_facts_evidence(state) -> dict | None:
+        """``{tg_message_id: {text, refs}}`` — ТОЛЬКО завершённые анализы.
+
+        Формат `_build_batch_text(media_evidence=...)`: в факты/граф идёт
+        исключительно фактическое содержимое картинки; ожидающее или упавшее
+        распознавание «фактом» не становится (честный статус нужен статье, но
+        не долговременному знанию)."""
+        ready = dict((state or {}).get("ready") or {})
+        return ready or None
+
+    @staticmethod
+    def _media_xml_evidence(state) -> dict | None:
+        """``{tg_message_id: строка}`` для XML-статьи: содержимое + честный
+        статус нераспознанного вместо плейсхолдера «[фото]»."""
+        if not state:
+            return None
+        from services.summary_memory import visual_evidence_lines
+        return visual_evidence_lines(state) or None
+
     async def _run_legacy_pipeline(self, chat_id: int, rows: list,
                                    focus: str | None,
                                    trigger_message_id: int | None,
@@ -1775,9 +1819,14 @@ class SummaryGenerator:
                     _db, correlation_id)
                 if snap_rows:
                     rows = snap_rows
+        # ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): фактическое визуальное
+        # свидетельство окна (OCR/описание со ссылкой либо честный статус)
+        # вместо плейсхолдера «[фото]» — в статью и в извлечение фактов.
+        window_media_state = await self._window_media_state(chat_id, rows)
         xml_context = self.xml.build(
             rows, self.aliases, trigger_message_id,
-            window_caps=(None, None) if zone_c else None)
+            window_caps=(None, None) if zone_c else None,
+            media_evidence=self._media_xml_evidence(window_media_state))
         # ── Волна C (T-4424): full-window режим определяется ПОСЛЕ сборки
         # плоского XML — «влез ли он целиком» знает только билдер. OFF или
         # малое окно → xml_context как раньше (бит-в-бит); большое окно при
@@ -1817,7 +1866,10 @@ class SummaryGenerator:
                 and hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED)):
             fire_and_forget(
                 self.memory.memorize_facts(
-                    chat_id, _build_batch_text(rows, skip_empty=True), "chat_history"),
+                    chat_id, _build_batch_text(
+                        rows, skip_empty=True,
+                        media_evidence=self._media_facts_evidence(
+                            window_media_state)), "chat_history"),
                 "summary")
         # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
         rag_context = await self.memory.get_rag_context(

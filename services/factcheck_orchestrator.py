@@ -50,6 +50,7 @@ from services.smartmodule_phrases import (
     FACTCHECK_ATTRIBUTION_MISS_PHRASES,
     FACTCHECK_CLARIFY_PHRASES,
     FACTCHECK_ERROR_PHRASES,
+    FACTCHECK_IMAGE_PENDING_AUTO_PHRASES,
     FACTCHECK_IMAGE_PENDING_PHRASES,
     FACTCHECK_MEDIA_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
@@ -431,6 +432,209 @@ async def _apply_critique_section_setting(chat_id: int | None,
                        exc_info=True)
         return verdict
 
+# ── ASAP-VISION-SYNC-01 §4 (review-fix2, B1): «картинка не проверена» ───────
+
+def _media_unverified(publication) -> bool:
+    """Содержимое изображения публикации НЕ проверено.
+
+    Терминальный отказ распознавания, сбой чтения Vision или неполный альбом —
+    всё это означает «часть публикации не проверена». Один предикат на ранние
+    отказы гейта: при нём нельзя отвечать «нечего проверять», нужна причина и
+    честная оговорка `publication.notice()`."""
+    media = getattr(publication, "media", None)
+    return bool(getattr(publication, "media_unchecked", False)
+                or getattr(media, "vision_failed", False)
+                or getattr(publication, "album_incomplete", False))
+
+
+# ── P1 (ASAP-VISION-SYNC-01 §4.6, review-fix2): отложенный фактчек ──────────
+# связанного изображения не готов, запрос глубится в durable-намерение и
+# возобновляется ТЕМ ЖЕ worker-sweep'ом Vision (`VisionMediaWorker.
+# _maintenance_sweep` → `media_readiness.resume_deferred_requests`), а не
+# «повтори через минуту» вручную. Один логический результат: намерение
+# закрывается вызывающим только ПОСЛЕ доставки (CAS), повторный проход молчит.
+
+FACTCHECK_RESUME_CONSUMER = "factcheck"
+
+#: Рантайм-привязка (db/service/cache) для возобновления: sweep вызывает
+#: обработчик из фоновой задачи, объекта handler'а там нет. Регистрируется
+#: один раз в `handlers.factcheck.setup_factcheck` (прецедент `mca_vision.
+#: bind_runtime`), ошибок не бросает.
+_RUNTIME: dict = {}
+
+#: Установленный нами диспетчер (для идемпотентной переустановки).
+_RESUME_DISPATCH = None
+
+
+def bind_runtime(*, db=None, service=None, cache=None) -> None:
+    """DI для отложенного возобновления (fail-open, ничего не бросает)."""
+    try:
+        if db is not None:
+            _RUNTIME["db"] = db
+        if service is not None:
+            _RUNTIME["service"] = service
+        _RUNTIME["cache"] = cache
+    except Exception:          # pragma: no cover — привязка не рвёт старт
+        logger.debug("[factcheck_v2] runtime bind failed", exc_info=True)
+
+
+async def defer_factcheck_until_media_ready(db, req: FactcheckRequest, *,
+                                            publication=None) -> dict:
+    """Сохранить фактчек-запрос до готовности анализа изображения.
+
+    Одна запись на сообщение (coalesce `vision:intent:<chat>:<msg>` в
+    `task_jobs`), TTL — существующая настройка распознавания. Возврат `{}` —
+    намерение не создано (нет БД/цели, анализ уже готов, ошибка): ответ
+    пользователю про pending уже отправлен, поведение прежнее.
+
+    ``enqueue=False``: анализ уже поставлен резолвером публикации
+    (`prepare_images_ready`) — здесь только чтение фактического состояния.
+    Откладываем ТОЛЬКО реально идущую работу (``ANALYSIS_PENDING``): «анализа
+    нет и задачи нет» — это не ожидание, намерение по нему висело бы мёртвым
+    до TTL. Такой запрос остаётся с прежним честным «попробуй ещё раз»."""
+    if db is None:
+        return {}
+    target_id = int(req.target_tg_message_id or req.trigger_tg_message_id or 0)
+    if not target_id:
+        return {}
+    try:
+        from services import media_readiness
+        readiness = await media_readiness.prepare_media_evidence(
+            db, chat_id=int(req.chat_id), message_id=target_id,
+            caption=str(getattr(publication, "caption_text", "") or ""),
+            query=str(req.user_hint or ""),
+            consumer=FACTCHECK_RESUME_CONSUMER, wait_seconds=0.0,
+            enqueue=False, force=True, allow_adjacent=True)
+        if readiness is None or readiness.ready:
+            return {}
+        if not any(getattr(state, "analysis_status", "") ==
+                   media_readiness.ANALYSIS_PENDING
+                   for state in (readiness.assets or ())):
+            return {}
+        install_resume_dispatch()
+        return await media_readiness.defer_until_ready(
+            db, readiness, consumer=FACTCHECK_RESUME_CONSUMER,
+            message_id=target_id, query=str(req.user_hint or ""),
+            notify=False)
+    except Exception:
+        logger.warning("[factcheck_v2] defer registration failed | chat=%s",
+                       getattr(req, "chat_id", None), exc_info=True)
+        return {}
+
+
+async def cancel_deferred_factcheck(db, *, chat_id: int,
+                                    target_message_id: int) -> bool:
+    """Снять прежнее ОТЛОЖЕННОЕ намерение фактчека (свежий запрос важнее).
+
+    Один логический результат (§4.6): если пользователь всё-таки повторил
+    просьбу, новый прогон отменит старое намерение и ответит сам — второго
+    ответа из sweep'а не будет. Чужие намерения (Direct) НЕ трогаются:
+    отменяется только `consumer == factcheck` для этого сообщения."""
+    if db is None or not chat_id or not target_message_id:
+        return False
+    try:
+        from services import media_readiness
+        from services.task_supervisor import TaskJobStore
+        store = TaskJobStore(db)
+        for row in await store.active():
+            if str(row.get("kind") or "") != media_readiness.PENDING_INTENT_KIND:
+                continue
+            payload = media_readiness._intent_payload(row)
+            if str(payload.get("consumer") or "") != FACTCHECK_RESUME_CONSUMER:
+                continue
+            if int(payload.get("trigger_message_id") or 0) != int(
+                    target_message_id):
+                continue
+            cancelled = await store.cancel(
+                str(row.get("job_id") or ""),
+                reason_code="superseded_by_new_request")
+            if cancelled:
+                logger.info("[factcheck_v2] deferred intent superseded | "
+                            "chat=%s | target=%s", chat_id, target_message_id)
+                return True
+    except Exception:
+        logger.warning("[factcheck_v2] deferred intent cancel failed | "
+                       "chat=%s | target=%s", chat_id, target_message_id,
+                       exc_info=True)
+    return False
+
+
+def install_resume_dispatch() -> None:
+    """Научить sweep возобновлять ещё и фактчек (idempotent, fail-open).
+
+    У `media_readiness` один слот обработчика возобновления, и его занимает
+    Direct. Порядок старта (`bot.py`: `setup_factcheck` → `DirectChatService`)
+    не позволяет цепляться на старте, поэтому диспетчер ставится в момент
+    ФАКТИЧЕСКОГО откладывания — тогда Direct уже создан, и его обработчик
+    берётся как предыдущий: чужие намерения идут ровно по прежнему пути."""
+    global _RESUME_DISPATCH
+    try:
+        from services import media_readiness
+    except Exception:          # pragma: no cover
+        return
+    previous = getattr(media_readiness, "_RESUME_HANDLER", None)
+    if previous is _RESUME_DISPATCH and _RESUME_DISPATCH is not None:
+        return
+
+    async def _dispatch(intent, states, bot=None):
+        consumer = str((intent or {}).get("consumer") or "")
+        if consumer == FACTCHECK_RESUME_CONSUMER:
+            return await deliver_deferred_factcheck(intent, states, bot)
+        fallback = previous
+        if fallback is None or fallback is _dispatch:
+            fallback = getattr(media_readiness, "_RESUME_HANDLER", None)
+        if fallback is None or fallback is _dispatch:
+            return False
+        return await fallback(intent, states, bot)
+
+    _RESUME_DISPATCH = _dispatch
+    try:
+        media_readiness.set_resume_handler(_dispatch)
+    except Exception:          # pragma: no cover
+        logger.debug("[factcheck_v2] resume dispatch install failed",
+                     exc_info=True)
+
+
+async def deliver_deferred_factcheck(intent, states, bot=None) -> bool:
+    """Продолжить отложенный фактчек один раз (возврат True — доставляли).
+
+    Публикация и её материал резолвятся заново в самом прогоне (одна правда
+    об OCR/причине отказа), поэтому дублирующей логики доставки нет: готовый
+    анализ → обычный вердикт с честной оговоркой; терминальный отказ →
+    честное «содержимое картинки не проверено» с причиной.
+
+    Возобновление идёт через ЕДИНЫЙ оркестратор (одна реализация анализа и
+    доставки) даже когда исходная просьба пришла по legacy-маршруту: в фоне
+    нет aiogram-объектов исходного сообщения, поэтому переигровка хендлера
+    невозможна, а второй путь доставки создал бы второй ответ."""
+    if bot is None or not intent:
+        return False
+    db = _RUNTIME.get("db")
+    service = _RUNTIME.get("service")
+    chat_id = int(intent.get("chat_id") or 0)
+    target_id = int(intent.get("trigger_message_id") or 0)
+    if db is None or service is None or not chat_id or not target_id:
+        logger.warning("[factcheck_v2] deferred resume skipped — runtime "
+                       "unbound | chat=%s | target=%s", chat_id, target_id)
+        return False
+    req = FactcheckRequest(
+        chat_id=chat_id, trigger_tg_message_id=target_id,
+        target_tg_message_id=target_id, target_text="",
+        user_hint=(str(intent.get("question") or "").strip() or None),
+        kind="reply")
+    try:
+        outcome = await run_factcheck(req, service=service, db=db, bot=bot,
+                                      cache=_RUNTIME.get("cache"))
+    except Exception:
+        logger.warning("[factcheck_v2] deferred resume failed | chat=%s | "
+                       "target=%s", chat_id, target_id, exc_info=True)
+        return False
+    logger.info("[factcheck_v2] deferred request resumed | chat=%s | "
+                "target=%s | outcome=%s | terminal=%s", chat_id, target_id,
+                outcome, str(intent.get("reason_code") or "-"))
+    return True
+
+
 async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
                         cache=None) -> str:
     """Единый вход W3 (06H.2): provenance → context+gate → план →
@@ -616,8 +820,17 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     pending_dependency = publication.admission_blocked_by_pending_media()
     if pending_dependency and (
             decision is None or decision.decision != fsg.DECISION_CHECKABLE):
+        # P1 (§4.6, review-fix2): «повтори через минуту» больше не единственный
+        # выход. Запрос сохраняется durable (одна запись на сообщение) и
+        # возобновляется тем же worker-sweep'ом Vision, когда анализ готов:
+        # пользователю не нужно присылать запрос заново. Поэтому ответ
+        # выбирается ПОСЛЕ регистрации намерения: зарегистрировано — честно
+        # «продолжу сам», не зарегистрировано — прежнее «повтори через минуту».
+        deferred = await defer_factcheck_until_media_ready(
+            db, req, publication=publication)
         media_pending_text = _guard_outbound(
-            random.choice(FACTCHECK_IMAGE_PENDING_PHRASES),
+            random.choice(FACTCHECK_IMAGE_PENDING_AUTO_PHRASES if deferred
+                          else FACTCHECK_IMAGE_PENDING_PHRASES),
             where="media_pending", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, media_pending_text,
                                  req.target_tg_message_id)
@@ -626,20 +839,25 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                        chat_id=req.chat_id)
         logger.info("[factcheck_v2] media pending — gate deferred | "
                     "chat=%s | dependency=%s | images=%d | pending=%d | "
-                    "ocr_chars=%d", req.chat_id, publication.media_dependency(),
+                    "ocr_chars=%d | deferred=%s", req.chat_id,
+                    publication.media_dependency(),
                     publication.media.image_count,
                     publication.media.pending_count,
-                    publication.media.ocr_chars)
+                    publication.media.ocr_chars, bool(deferred))
         return _finish(OUTCOME_PENDING, "v2_gate:media_pending")
 
     # 2d. ASAP-VISION-SYNC-01 §4: терминальный отказ распознавания НЕ означает
-    #     «нечего проверять». Если проверяемого текста нет (ключа/подписи нет) и
-    #     гейт собирался отказать, предварительный `no_claim`/«недоступная цель»
-    #     запрещён: ответ честно говорит, что содержимое картинки НЕ проверено, и
-    #     называет причину. Когда тезис проверяемый — проверка идёт, а честная
-    #     оговорка о непроверенной картинке добавляется к вердикту
+    #     «нечего проверять». Если гейт собирался отказать (no_claim /
+    #     ambiguous / unavailable / классификатор не дал решения), предварительный
+    #     `no_claim` запрещён: ответ честно говорит, что содержимое картинки НЕ
+    #     проверено, и называет причину. Когда тезис проверяемый — проверка идёт,
+    #     а честная оговорка о непроверенной картинке добавляется к вердикту
     #     (publication.notice()).
-    if publication.media_unchecked and not target_resolved and (
+    #     Review-fix2 (B1): барьер привязан к РЕШЕНИЮ гейта, а не к пустоте
+    #     текста. Подпись «проверь скрин» — это текст, но не тезис: при
+    #     непроверенной картинке отказ «нечего проверять» недопустим и в самом
+    #     частом случае (цель С текстом, анализ упал / не прочитался).
+    if _media_unverified(publication) and (
             decision is None or decision.decision != fsg.DECISION_CHECKABLE):
         media_unchecked_text = _guard_outbound(
             random.choice(FACTCHECK_MEDIA_ERROR_PHRASES),
@@ -663,8 +881,17 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         # ASAP-FC-ADMISSION-01 §2.4: это именно «нет идентифицируемого
         # тезиса» (после разрешения цели и контекста), НЕ «доказательств не
         # хватило» и НЕ «непонятно, что проверять».
-        text = _guard_outbound(random.choice(FACTCHECK_NO_CLAIM_PHRASES),
-                               where="no_claim", chat_id=req.chat_id)
+        # Review-fix2 (B1, страховка): если картинка непроверена, отказ не
+        # выдаётся без честной оговорки о её содержимом.
+        if _media_unverified(publication):
+            text = _guard_outbound(random.choice(FACTCHECK_MEDIA_ERROR_PHRASES),
+                                   where="no_claim_media", chat_id=req.chat_id)
+            notice = publication.notice()
+            if notice:
+                text = f"{text}\n\n{notice}"
+        else:
+            text = _guard_outbound(random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                                   where="no_claim", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, text,
                                  req.target_tg_message_id)
         tf.stage_event("deliver", "skipped", reason_code="no_claim_after_context",
@@ -676,6 +903,12 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         text = await persona_short_reply(
             service, req.chat_id, instruction=_SHORT_REPLY_INSTRUCTION,
             situation=situation, fallback_phrases=FACTCHECK_CLARIFY_PHRASES)
+        if text and _media_unverified(publication):
+            # Review-fix2 (B1): уточнение не должно скрывать, что содержимое
+            # картинки не проверено.
+            notice = publication.notice()
+            if notice:
+                text = f"{text}\n\n{notice}"
         if text:
             await send_chunked_reply(bot, req.chat_id, text,
                                      req.target_tg_message_id)

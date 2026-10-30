@@ -179,6 +179,9 @@ LLM — двойники), файл `tests/test_evol_vision_sync_wave2.py`.
    `media_evidence = (await visual_window_state(db, chat_id, rows, consumer="summary"))["ready"]`
    и при непустом `pending` откладывать durable-сборку так же, как в конспекте
    окна (`vision_deferred`, без сообщений в чат).
+   → **ЗАКРЫТО в §review-fix2 (P2):** статья получает `media_evidence`
+   (`_media_xml_evidence`) и факты (`_media_facts_evidence`) из одного чтения
+   `visual_window_state`; долговременное знание — только завершённые анализы.
 3. **Поиск и медиа с подписью.** `chat_context.format_chat_context` подставляет
    медиа-блок только для строк БЕЗ текста; фото с подписью доходит до поиска
    одной подписью (OCR не попадает). Патч-нота (файлы вне моей зоны):
@@ -186,10 +189,211 @@ LLM — двойники), файл `tests/test_evol_vision_sync_wave2.py`.
    блок отдельной строкой (`media_blocks.get(tg_id)`) вместо замены текста;
    `handlers/search.py` — при `pending` в окне отвечать честной оговоркой,
    а не «по картинке ничего нет».
+   → **ЗАКРЫТО в §review-fix2 (P2):** явный параметр `media_for_captioned`
+   (default OFF → паритет), smartsearch включает его; ожидающая/упавшая
+   картинка даёт честную строку статуса, а не выдуманное содержимое.
 4. **v2-маршрут фактчека по-прежнему за флагом (`flags.factcheck_pipeline_v2`,
    default OFF).** Дефект pending→`no_claim` в нём устранён, но включение
    маршрута — отдельное решение владельца, эту волну оно не блокирует.
+   → **Уточнение в §review-fix2 (P1):** откладывание pending-запроса теперь
+   работает и в v1 (DEFAULT-маршрут), поэтому фикс не зависит от включения
+   v2-флага.
 5. **Живые проверки в Telegram не выполнялись** (запрещено условиями задачи).
+
+## §review-fix2 — закрытие замечаний ревью (B1, B2, P1, P2)
+
+Ветка `evol/impl`, worktree `…/evol-71536a366a11-c63f6f44`, база — коммиты
+`ca15a2f6` (ядро F1–F5) и `b6403881` (волна 2). Ниже — по каждому блокеру:
+что было неверно, где исправлено и чем доказано.
+
+### B1 (High) — «содержимое картинки НЕ проверено» не доходило до ответа
+
+**Было.** В `factcheck_orchestrator._run_inner` ветка 2d была привязана к
+пустоте текста (`not target_resolved`): у цели С текстом (подпись-просьба
+«проверь скрин») терминальный отказ распознавания проваливался в ранние отказы
+гейта, и пользователь получал голую фразу «нечего проверять» без причины и без
+оговорки. В обычном хендлере (`handlers/factcheck.py`) ранние отказы гейта
+(`no_claim_after_context`, `ambiguous_needs_clarification`) тоже уходили
+«голым» пулом без `publication.notice()`.
+
+**Исправлено.**
+
+* `services/factcheck_orchestrator.py`: единый предикат `_media_unverified()`
+  (`media_unchecked` / `media.vision_failed` / `album_incomplete`); ветка 2d
+  привязана к РЕШЕНИЮ гейта (`decision is None or decision != CHECKABLE`), а не
+  к пустоте текста. Отказ `no_claim` при непроверенной картинке заменяется
+  причиной (`FACTCHECK_MEDIA_ERROR_PHRASES`) + `publication.notice()`; ветка
+  уточнения (`ambiguous`) тоже получает оговорку.
+* `handlers/factcheck.py`: единый шов раннего отказа `_gate_refusal_text()` для
+  v1/legacy и temporal-маршрутов — причина + оговорка для обоих пулов
+  (`no_claim`, уточнение). Предикат `_media_unverified()` продублирован
+  намеренно (handler не зависит от оркестратора, как и раньше).
+* Формулировка `_empty_content_phrase` не тронута: она уже называет состояние
+  входа, дублировать оговорку поверх неё не стали (иначе одна и та же причина
+  звучала бы в одном ответе дважды).
+
+**Доказано.** `test_b1_v2_captioned_photo_terminal_failure_is_not_no_claim` —
+фото с подписью «проверь скрин», анализ `provider_timeout`, 14 сообщений
+вокруг: исход `unavailable`, первая строка из `FACTCHECK_MEDIA_ERROR_PHRASES`,
+в тексте «НЕ проверено», `check_claim` не вызывался.
+`test_b1_v1_gate_refusal_keeps_media_caveat` — тот же вход через хендлер
+(v1-маршрут): отказ гейта заменён причиной + оговоркой.
+`test_b1_gate_refusal_helper_covers_both_pools` — шов покрывает оба пула и не
+меняет поведение для проверенной публикации. Пре-существующий пин на это же
+поведение — `test_v2_terminal_vision_failure_is_honest_not_no_claim` (зелёный).
+
+### B2 (Medium) — «анализа нет и задачи нет» висело вечным pending
+
+**Было.** `summary_memory.visual_window_state` считал `missing` ожиданием
+(агрегат `MediaReadiness.pending` включает `missing` по контракту ядра),
+поэтому фото, принятое при выключенном Vision, навсегда блокировало конспект
+окна: `pending` не пустел, а watchdog такую задачу не видел (её нет).
+
+**Исправлено.** `visual_window_state` получил состояние `missing`:
+`_state_analysis_missing()` (все активы — `ANALYSIS_MISSING` и без `job_ref`)
+плюс `_analysis_rows_absent()` (в БД нет ни одной строки анализа; строка
+`running` = работа в контуре). Только `pending` (реально идущий анализ)
+откладывает конспект; `missing` идёт прежним путём без визуального
+свидетельства; `failed`/terminal не блокирует (как и раньше).
+
+**Доказано.** `test_b2_missing_analysis_does_not_block_digest` — фото без
+анализа и без задачи: `pending == {}`, `missing` содержит сообщение, конспект
+строится (`success`), в payload нет содержимого картинки.
+`test_b2_running_analysis_still_defers_digest` — граница: идущий анализ (есть
+задача) по-прежнему даёт `skipped_media_pending` без LLM-вызова.
+
+### P1 — «повтори через минуту» без возобновления
+
+**Было.** `defer_until_ready` вызывался только из Direct; фактчек на pending
+OCR отвечал «повтори через минуту» и ничего не сохранял — пользователь обязан
+был прислать запрос заново (и мог получить два ответа, если всё же повторял
+уже после готовности анализа).
+
+**Исправлено.**
+
+* `services/factcheck_orchestrator.py`: `defer_factcheck_until_media_ready()` —
+  durable-намерение `vision:intent:<chat>:<msg>` (coalesce, TTL — штатная
+  настройка распознавания) через `defer_until_ready(consumer="factcheck")`.
+  Откладывается ТОЛЬКО реально идущая работа (`ANALYSIS_PENDING` с задачей):
+  «анализа нет и задачи нет» не превращается в мёртвое намерение.
+* `install_resume_dispatch()` — единая точка возобновления: диспетчер ставится
+  в момент фактического откладывания, поэтому слот обработчика
+  `media_readiness` (его занимает Direct) используется как цепочка: чужие
+  намерения идут прежним путём, фактчековые — в `deliver_deferred_factcheck()`.
+  Переустановка идемпотентна и самовосстанавливается, если Direct
+  зарегистрировался позже.
+* `deliver_deferred_factcheck()` — продолжение через ЕДИНЫЙ оркестратор (в фоне
+  нет aiogram-объектов исходной просьбы: переигровка хендлера невозможна, а
+  второй путь доставки дал бы второй ответ). Своего пути доставки нет.
+* `cancel_deferred_factcheck()` + вызов из `factcheck_handler` — свежая просьба
+  по тому же сообщению снимает прежнее намерение
+  (`superseded_by_new_request`), поэтому «один логический результат» держится
+  даже если пользователь всё же повторил запрос. Чужие намерения (Direct) не
+  трогаются.
+* `services/smartmodule_phrases.py`: `FACTCHECK_IMAGE_PENDING_AUTO_PHRASES` —
+  фраза «как прочитаю, проверку пришлю сам, повторять не нужно», выбирается
+  ТОЛЬКО когда намерение реально зарегистрировано; без намерения остаётся
+  прежний честный pending-пул.
+* `handlers/factcheck.py`: откладывание подключено и к v1 (DEFAULT-маршрут:
+  `flags.factcheck_pipeline_v2` default OFF), а не только к v2 —
+  `_defer_pending_factcheck()` / `_pending_refusal()` в обоих ранних отказах
+  гейта (temporal и legacy) и в ветке «нет тезиса в цели/окружении».
+
+**Доказано.** `test_p1_factcheck_pending_defers_and_resumes_once` (v2) — pending
+OCR → ровно одно намерение `consumer=factcheck`, повторная просьба не создаёт
+второго, после готовности анализ возобновляется sweep'ом (`resumed=1`), второй
+проход молчит, намерение закрыто.
+`test_p1_factcheck_terminal_failure_resumes_honestly_once` — терминальный отказ
+распознавания завершает отложенный фактчек одним честным ответом с причиной и
+оговоркой (`terminal=1`), вердикт не выдумывается.
+`test_p1_v1_pending_request_defers_and_resumes_once` (v1) — хендлер отвечает
+фразой авто-продолжения (без «повтори через минуту»), намерение одно, после
+готовности приходит вердикт (`check_claim` один раз), второго ответа нет.
+`test_p1_repeat_request_supersedes_deferred_intent` — отмена снимает намерение
+и идемпотентна (повторная отмена — `False`).
+`test_p1_fresh_request_after_ready_prevents_second_answer` — пользователь
+повторил просьбу уже после готовности: отвечает этот прогон, из sweep'а
+второго ответа нет (`resumed=0`).
+
+### P2 — статья и поиск не видели содержимое фото С ПОДПИСЬЮ
+
+**Было.** `chat_context.format_chat_context` подставлял медиа-блок только для
+строк БЕЗ текста, поэтому captioned-фото доходило до поиска одной подписью;
+`summary_generator` (L1/L2 и извлечение фактов) отдавал в XML плейсхолдер
+«[фото]» и не передавал `media_evidence` в `_build_batch_text`.
+
+**Исправлено.**
+
+* `services/chat_context.py`: параметр `media_for_captioned` (явный, default
+  OFF → остальные потребители получают прежний вывод байт-в-байт). Для строки
+  с текстом И медиа-блоком содержимое картинки идёт отдельной строкой рядом с
+  подписью (это данные распознавания, не слова автора).
+* `handlers/search.py`: smartsearch включает `media_for_captioned=True` — поиск
+  идёт по всей публикации.
+* `services/summary_xml.py`: `media_evidence` (`{tg: строка}`) заменяет
+  плейсхолдер «[фото]» фактическим содержимым (OCR/описание с адресом) либо
+  честной строкой «не распознано»; `None` → байт-в-байт прежнее поведение.
+* `services/summary_generator.py`: состояние окна читается один раз
+  (`_window_media_state`), затем раздаётся в двух формах —
+  `_media_xml_evidence()` (строки для статьи: готовое + честный статус) и
+  `_media_facts_evidence()` (`{msg: {text, refs}}` для `_build_batch_text`; в
+  долговременное знание идёт ТОЛЬКО завершённый анализ). Обе формы реально
+  подключены: XML статьи и `memorize_facts` в гибридном и legacy-контурах.
+
+**Найденный при завершении дефект (исправлен).** Прерванная работа передавала
+в `_build_batch_text(media_evidence=…)` результат `visual_evidence_lines()`, то
+есть `{tg: строка}`, тогда как функция ждёт `{tg: {text, refs}}` —
+`AttributeError` на первом же captioned-фото с готовым анализом. Разделение
+форм (`_media_facts_evidence` / `_media_xml_evidence`) устраняет это и
+закреплено отдельным регресс-тестом.
+
+**Доказано.** `test_p2_captioned_photo_evidence_in_article_and_search` —
+captioned-фото с готовым анализом: контекст поиска содержит OCR и адрес
+`msg:<chat>:<id>`, статья содержит OCR + `анализ v`, плейсхолдера «[фото]»
+нет; без флага контекст байт-в-байт прежний (паритет других потребителей);
+непроверенная картинка даёт честную строку «не распознано».
+`test_p2_summary_consumers_get_matching_evidence_shape` — регресс на форму
+свидетельства (факты — словарь, статья — строка), OCR и адрес источника
+доходят до фактов. `test_p2_facts_evidence_excludes_unready_media` — pending и
+failed в факты не попадают.
+
+### Прогоны после review-fix2 (этот worktree, `C:\Code\Python\adminbot\.venv\Scripts\python.exe`)
+
+| Набор | Результат |
+|---|---|
+| `test_evol_vision_sync_wave2.py` | **24 passed** (8.9 с; было 11, добавлено 13) |
+| `test_evol_vision_sync_core.py` | **35 passed** |
+| `test_factcheck_media_2026_10_25.py` + `test_factcheck_handlers.py` + `test_epic33_router_isolation.py` | **103 passed** |
+| фактчек-набор (21 файл: `test_factcheck_*`, `test_evol_factcheck_critical`, `test_asap8_v63_b07_temporal_factcheck`, `test_epic33_router_isolation`) | **458 passed, 2 pre-existing failed** |
+| summary/search-набор (`test_summary_xml`, `test_summary_memory`, `test_summary_generator`, `test_summary_legacy_source_window_asap41`, `test_summary_l2_integration`, `test_summary_wave8_off_parity_asap41`, `test_summary_wave8_ladder_matrix_asap41`, `test_summary_article_formatter`, `test_summary_fact_package`, `test_smartsearch_{handlers,service,prompts}`, `test_search_aggregator`) | **351 passed** |
+| summary-лестница (`test_summary_wave8_ladder_matrix`, `wave8_golden`, `source_window`, `article_formatter`, `fact_package`, `l1_repair`, `asap2_acceptance`) | **135 passed** |
+| `pytest tests/ -k "chat_context or media_for_captioned or visual_window or build_batch_text"` | **7 passed** |
+| `pytest tests/ -k "phrase or tone or style_policy or honesty or egress"` (пулы фраз/стиль) | **586 passed, 1 skipped** |
+
+**Классификация падений.** Оба падения — `test_factcheck_post_release_w1::
+TestAggregatorFailureTaxonomy` (`test_timeout_is_not_provider_unavailable`,
+`test_api_error_is_provider_error`): тест поднимает реальный DuckDuckGo-fallback,
+сеть отдаёт то пустую выдачу, то результаты, отсюда `empty_results` вместо
+`provider_error` и «нет исключения» вместо таймаута. Файл
+`services/search_aggregator.py` в этом диффе не менялся (последняя правка —
+`b6403881`, только docstring: `git show b6403881 -- services/search_aggregator.py`
+= 6 строк комментария), тест-файл тоже не менялся. Класс — pre-existing сетевой
+(тот же, что зафиксирован в §7).
+
+### Что осталось непроверенным и почему
+
+* **Живые проверки в Telegram не выполнялись** — условиями задачи запрещены.
+  Автотесты покрывают оба маршрута фактчека (v1/v2), откладывание и
+  возобновление; живая проверка «отложенный ответ реально приходит в чат»
+  остаётся за владельцем.
+* Возобновление после рестарта процесса опирается на существующий sweep
+  (`VisionMediaWorker._resume_intents`): намерение durable, но фактический
+  рестарт-прогон в тестах не эмулировался (покрыто ядром F1).
+* Если пользователь повторит просьбу ПОКА анализ ещё идёт, прежнее намерение
+  снимается и создаётся новое (coalesce) — один ответ сохраняется, но счётчик
+  «сколько раз откладывали» в логах увеличится (наблюдаемость, не поведение).
+
+---
 
 ## 9. Остаточный риск
 
@@ -231,3 +435,13 @@ LLM — двойники), файл `tests/test_evol_vision_sync_wave2.py`.
 заняты параллельной лейн, патч-нота приложена. Все новые и затронутые наборы
 зелёные; 12+2 падений классифицированы как pre-existing и подтверждены
 прогоном на чистом HEAD-архиве.
+
+**Дополнение §review-fix2 (после ревью).** Честная оговорка «содержимое
+картинки не проверено» теперь доходит до ответа и для цели С текстом (подпись-
+просьба), и в обычном хендлере. «Анализа нет и задачи нет» перестало считаться
+ожиданием — конспект окна строится, а не висит вечно. Отложенный фактчек стал
+durable-намерением с продолжением самим sweep'ом распознавания (в v1 и v2, без
+повторной присылки запроса и без второго ответа при повторе). Статья и поиск
+получают содержимое фото С подписью (OCR с адресом либо честный статус) вместо
+плейсхолдера «[фото]»; заодно устранено рассогласование формы свидетельства
+между статьёй и фактами.
