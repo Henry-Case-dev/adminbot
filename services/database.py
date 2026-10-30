@@ -11835,20 +11835,26 @@ class DatabaseService:
     async def dossier_feed(self, limit: int = 12,
                            chat_id: int | None = None,
                            now_ts: int | None = None) -> list:
-        """Раунд 10.20 (БЛОК 3.3/T-1897): случайные живые факты-«выдержки»
-        из досье для виджета-тикера. chat_id None → по всем чатам (GLOBAL),
-        иначе — только участники чата. Возвращает [{chat_id, name, fact}].
+        """EVOL-007: живые confirmed-факты досье, новые первыми.
 
-        M3/S10.20-16: выборка ограничена свежим пулом ``limit*20``
-        (``ORDER BY id DESC`` по PK) — ``ORDER BY RANDOM()`` по всему скану
-        при GLOBAL-поллинге 45с бил по росту ``graph_facts``. Ошибки доступа
-        к БД НЕ глотаются (API-слой ловит сам, `web/api/oversight.py`) —
-        «fail-open» здесь только про пустой результат ([]) на пустой БД."""
+        Раньше (10.20/M3) это была случайная выборка из пула ``limit*20``.
+        Виджет «Новые факты» так не может показать, когда запись появилась.
+        Теперь порядок — ``created_at DESC, id DESC`` (время записи
+        экстракции, не дата события). Даты не подменяются: ``message_timestamp``
+        и ``last_confirmed_at`` возвращаются как есть, NULL остаётся NULL.
+
+        chat_id None → строки всех чатов (вызывающий обязан пометить scope
+        как global; эта функция scope-ярлык не выдумывает). Иначе — только
+        этот чат. Популяция та же: confirmed, непустой fact, живой TTL,
+        target_user задан. Ошибки доступа к БД НЕ глотаются.
+
+        Конверт с честным пустым состоянием и датой последнего прохода —
+        ``services.memory_diagnostics.new_facts_widget`` (HTTP-роут виджета
+        этот конверт пока не собирает)."""
         ts = int(now_ts if now_ts is not None else time.time())
         cap = max(1, int(limit))
-        pool = max(cap, cap * 20)
-        sql = ("SELECT chat_id, name, fact FROM ("
-               "SELECT chat_id, target_user AS name, fact, id "
+        sql = ("SELECT chat_id, target_user AS name, fact, id, kind, "
+               "created_at, message_timestamp, last_confirmed_at "
                "FROM graph_facts "
                "WHERE target_user IS NOT NULL AND fact IS NOT NULL "
                "AND fact != '' AND status = 'confirmed' "
@@ -11857,8 +11863,7 @@ class DatabaseService:
         if chat_id is not None:
             sql += "AND chat_id = ? "
             params.append(int(chat_id))
-        sql += "ORDER BY id DESC LIMIT ?) ORDER BY RANDOM() LIMIT ?"
-        params.append(pool)
+        sql += "ORDER BY created_at DESC, id DESC LIMIT ?"
         params.append(cap)
         cursor = await self.db.execute(sql, params)
         return [dict(row) for row in await cursor.fetchall()]
