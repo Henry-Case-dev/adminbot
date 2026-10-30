@@ -1,0 +1,74 @@
+{
+  "epic": "EVOL-032",
+  "slice": "§6 glass seam",
+  "date": "2026-10-31",
+  "candidate_branch": "evol/impl",
+  "candidate_base": "d31b8831",
+  "tool": "Chromium (Playwright 1.62, headless) + own PNG/step analysis; polygon background paused for the numeric runs, MOVING for the screenshot pairs",
+  "root_cause": {
+    "file": "web/index.html",
+    "line_before": "57-58 (#lg-lens-map / #lg-lens filter)",
+    "attribute": "feImage width=\"360\" height=\"120\" (user units = px)",
+    "mechanism": "feDisplacementMap reads an undefined (transparent black, R=G=0 => -16px shift on both axes) map outside the feImage primitive subregion, while at the boundary the map holds R=15/G=128 resp. R=128/G=15 => a 13-16px sampling discontinuity => a 1-px crease at exactly 360px / 120px from the surface origin",
+    "applies_to": "every glass surface wider than 360px or taller than 120px (backdrop carrier: whole surface; layer carrier: only inside the ring-mask band)"
+  },
+  "fix": {
+    "file": "web/index.html",
+    "change": "#lg-lens-map subregion now equals the filter region: x=-6% y=-6% width=112% height=112%",
+    "unchanged": [
+      "same 256x256 lens map bitmap (data:image/png, byte-identical)",
+      "preserveAspectRatio=\"none\" (map stays stretched, not letterboxed)",
+      "feDisplacementMap scale=32, xChannelSelector=R, yChannelSelector=G, sRGB",
+      "filter region x=-6% y=-6% width=112% height=112%",
+      "backdrop-filter blur(5px) saturate(140%) url(#lg-lens)",
+      "glass alpha rgba(21,27,42,.5), radius 22px, ring mask, layer z-index -1",
+      "polygon background, refraction animation, health tint path (fill only)"
+    ]
+  },
+  "measurements": {
+    "method": "1-px luma step at the cut-off coordinate vs the total change over the 29-px window; a crease has step >> total (sharpness = step/total)",
+    "empty_surface_358x160_backdrop": {
+      "before": { "line": "H@+120", "step_px": 1.82, "total_29px": 0.65, "sharpness": 2.81 },
+      "after":  { "line": "H@+120", "step_px": 1.72, "total_29px": 2.79, "sharpness": 0.61 }
+    },
+    "empty_surface_480x200_backdrop": {
+      "before": { "line": "H@+120", "step_px": [1.5, 1.71], "total_29px": [0.43, 0.71], "sharpness": [3.51, 2.41] },
+      "after":  { "line": "H@+120", "step_px": [1.64, 1.68], "total_29px": [4.97, 5.0], "sharpness": [0.33, 0.34] }
+    },
+    "empty_surface_440x120_backdrop": {
+      "before": { "line": "V@+360", "step_px": 1.79, "total_29px": 3.75 },
+      "after":  { "line": "V@+360", "note": "no sustained line at the cut-off" }
+    },
+    "production_card_390x844_alert_mobile_carrier": {
+      "card": "358x150",
+      "before": { "line": "H@+120", "step_px": 1.56, "total_29px": 0.24, "sharpness": 6.36 },
+      "after":  { "line": "H@+120", "step_px": 2.04, "total_29px": 3.09, "sharpness": 0.66 }
+    },
+    "production_card_1280x900_alert_backdrop_carrier": {
+      "card": "511x150",
+      "before": { "line": "H@+120", "step_px": 1.64, "total_29px": 0.90, "sharpness": 1.83 },
+      "after":  { "line": "H@+120", "step_px": 0.72, "total_29px": 1.12, "sharpness": 0.64 }
+    }
+  },
+  "invariants_after": {
+    "polygon_canvas": "fixed, 1280x900 attr / 1280px CSS at 1280x900; 390x844 at 390x844 (unchanged)",
+    "refraction": "reason=active, 3 layers at both viewports",
+    "layer_filter": "blur(5px) saturate(140%) url(#lg-refract-lens-N)",
+    "layer_mask": "4 linear-gradient bands (ring)",
+    "layer_z_index": "-1",
+    "card": "background-color rgba(141,74,85,.5) in alert; isolation=isolate; overflow=clip",
+    "backdrop_filter_desktop": "blur(5px) saturate(1.4) url(\"#lg-lens\")",
+    "backdrop_filter_mobile_carrier": "blur(5px) saturate(1.4) (url() dropped by [data-refract-layer=\"on\"])",
+    "pageerrors": "none"
+  },
+  "screenshots": {
+    "1280_normal": ["w6-1280-normal-before.png", "w6-1280-normal-after.png"],
+    "1280_alert": ["w6-1280-alert-before.png", "w6-1280-alert-after.png"],
+    "390_normal": ["w6-390-normal-before.png", "w6-390-normal-after.png"],
+    "390_alert": ["w6-390-alert-before.png", "w6-390-alert-after.png"],
+    "boosted_alert_crops": ["w6-boost-1280-alert-before.png", "w6-boost-1280-alert-after.png",
+                            "w6-boost-390-alert-before.png", "w6-boost-390-alert-after.png"],
+    "note": "each live pair was captured as two frames 900 ms apart with the polygon background animating"
+  },
+  "run_dir": "C:/Users/main/.config/opencode/WorkspaceData/runs/c742e4de9e92c489/evol-032-glass-seam-96ebdfc34f59/temp-a910c7a20a"
+}
