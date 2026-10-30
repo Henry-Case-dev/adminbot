@@ -63,6 +63,7 @@ from services import media_share
 from services import native_media
 from services import command_prefix
 from services import command_registry
+from services import video_intent
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_download import fetch_media_to_tmp
 from services.persistent_throttling import (
@@ -80,6 +81,8 @@ from services.smartmodule_phrases import (
     LLM_ERROR_PHRASES,
     COMMAND_NO_TARGET_PHRASES,
     SMARTMODULE_BUSY_PHRASES,
+    VIDEO_INTENT_AMBIGUOUS_PHRASES,
+    VIDEO_INTENT_EXPIRED_PHRASES,
     VIDEO_MEDIA_EMPTY_PHRASES,
     VIDEO_MEDIA_PROVIDER_TIMEOUT_PHRASES,
     VIDEO_MEDIA_TOO_LONG_PHRASES,
@@ -538,12 +541,24 @@ def _request_author(message: types.Message) -> str:
 @dataclasses.dataclass(frozen=True)
 class _VideoRequest:
     """Матрица kind × mode (FR-B3/FR-B4)."""
-    kind: str            # "youtube" | "direct_url" | "platform_url" | "native"
+    kind: str            # "youtube" | "direct_url" | "platform_url" | "native" | "voice"
     mode: str            # "summary" | "transcript"
     url: str | None      # исходный URL для url-кидов
     video_id: str | None # youtube-ветка (каскад работает по id)
     media: _VideoMedia | None
     source: types.Message   # сообщение, на которое реплаим/с которого читаем
+    # EVOL §4.4: ключ идемпотентности (чат + стабильная ссылка + операция) и
+    # correlation_id для наблюдаемости. Заполняются `_with_meta`.
+    source_ref: str = ""
+    correlation_id: str = ""
+    intent: str = ""
+
+    @property
+    def operation(self) -> str:
+        """Операция работы: транскрипт отдельно от анализа-выжимки."""
+        if self.intent:
+            return video_intent.operation_of(self.intent)
+        return "transcript" if self.mode == "transcript" else "summary"
 
 
 def _request_mode(message: types.Message) -> str:
@@ -551,15 +566,61 @@ def _request_mode(message: types.Message) -> str:
     return "transcript" if "транскрипт" in text.lower() else "summary"
 
 
+def _request_intent(message: types.Message, mode: str) -> str:
+    """Намерение запроса (§4.2): транскрипт/выжимка/описание; иначе по mode."""
+    detected = video_intent.detect_intent(
+        str(message.text or message.caption or ""))
+    if detected in video_intent.ANALYSIS_INTENTS:
+        return detected
+    return video_intent.TRANSCRIPT if mode == "transcript" else video_intent.SUMMARY
+
+
+def _request_source_ref(request: _VideoRequest) -> str:
+    """Стабильная ссылка на источник для ключа идемпотентности (§4.4)."""
+    if request.kind == "youtube" and request.video_id:
+        return f"yt:{request.video_id}"
+    if request.url:
+        return video_intent.url_ref(request.url)
+    media = getattr(request.media, "media", None)
+    if media is not None:
+        return video_intent.media_ref(media)
+    return ""
+
+
+def _with_meta(request: _VideoRequest, message: types.Message) -> _VideoRequest:
+    """Дополнить запрос ключом идемпотентности и correlation_id (R17-безопасно)."""
+    chat_id = getattr(getattr(message, "chat", None), "id", 0)
+    message_id = getattr(message, "message_id", None)
+    return dataclasses.replace(
+        request,
+        source_ref=request.source_ref or _request_source_ref(request),
+        correlation_id=request.correlation_id or video_intent.new_correlation_id(
+            chat_id if isinstance(chat_id, int) else 0,
+            message_id if isinstance(message_id, int) else None),
+        intent=request.intent or _request_intent(message, request.mode))
+
+
 def _classify_video_request(message: types.Message) -> _VideoRequest | None:
+    """Классификация (FR-B3) + EVOL §4.4 метаданные (ref/correlation/intent)."""
+    request = _classify_video_request_raw(message)
+    if request is None:
+        return None
+    try:
+        return _with_meta(request, message)
+    except Exception:                              # pragma: no cover — защита
+        logger.warning("[youtube] request meta failed", exc_info=True)
+        return request
+
+
+def _classify_video_request_raw(message: types.Message) -> _VideoRequest | None:
     """Классификация (FR-B3): триггер есть (substring); приоритеты:
     (1) YouTube-URL (reply-таргет приоритетнее вызова, D126-семантика);
     (2) прямая медиа-ссылка; (3) известная платформа (НЕ youtube, НЕ direct);
     (4) нативное медиа video/document;
     (5) F19 (ADR-1024-20 §4.6) voice/video_note реплая/своего сообщения →
-    ``kind="voice"`` (mode — transcript: команда «транскрипт»);
-    (6) ничего → None (UNHANDLED → пропагация живёт). mode — «транскрипт»
-    substring текста вызова (FR-B4). Никогда не бросает."""
+    ``kind="voice"``; mode — «транскрипт» substring текста вызова (FR-B4), иначе
+    выжимка (для голосового/кружка это честный STT-фолбэк, §4.4);
+    (6) ничего → None (UNHANDLED → пропагация живёт). Никогда не бросает."""
     try:
         body = _triggered_body(message)
         if body is None:
@@ -591,16 +652,165 @@ def _classify_video_request(message: types.Message) -> _VideoRequest | None:
                                  video_id=None, media=media,
                                  source=media.source)
         # (5) F19 (ADR-1024-20 §4.6): voice/video_note (реплая или своего
-        # сообщения) — команда «транскрипт» принудительно повторяет STT.
+        # сообщения). «транскрипт» — принудительный повтор STT; выжимка по
+        # кружку/голосовому — честный фолбэк (STT → выжимка, §4.4).
         voice_message = _resolve_voice_media(message)
         if voice_message is not None:
-            return _VideoRequest(kind="voice", mode="transcript", url=None,
-                                 video_id=None, media=None,
+            voice_media = native_media.resolve_reply_video(voice_message)
+            return _VideoRequest(kind="voice", mode=mode, url=None,
+                                 video_id=None, media=voice_media,
                                  source=voice_message)
         return None
     except Exception:
         logger.warning("[youtube] classify failed — UNHANDLED", exc_info=True)
         return None
+
+
+# ── EVOL §4: единое разрешение намерения/источника ───────────────────
+
+def _addressed_to_bot(message: types.Message) -> bool:
+    """Осознанное обращение к боту: префикс («Бот,/Имя,») или reply на бота."""
+    text = str(message.text or message.caption or "")
+    if command_prefix.split_prefix(text)[0] is not None:
+        return True
+    reply = getattr(message, "reply_to_message", None)
+    author = getattr(reply, "from_user", None) if reply is not None else None
+    author_id = getattr(author, "id", None)
+    return (_media_bot_id is not None and isinstance(author_id, int)
+            and author_id == _media_bot_id)
+
+
+def _request_from_intent(vintent: "video_intent.VideoIntent",
+                         message: types.Message) -> _VideoRequest:
+    """``VideoIntent`` → существующий ``_VideoRequest`` (без второго пайплайна)."""
+    mode = ("transcript" if vintent.intent == video_intent.TRANSCRIPT
+            else "summary")
+    media = vintent.media
+    if media is not None:
+        return _VideoRequest(kind="native", mode=mode, url=None, video_id=None,
+                             media=media, source=media.source,
+                             source_ref=vintent.source_ref or "",
+                             correlation_id=vintent.correlation_id,
+                             intent=vintent.intent)
+    url = vintent.url or ""
+    source = vintent.media_message or message
+    yt_id = extract_youtube_video_id(url) if url else None
+    if yt_id is not None:
+        kind = "youtube"
+    elif url and is_direct_media_url(url):
+        kind = "direct_url"
+    else:
+        kind = "platform_url"
+    return _VideoRequest(kind=kind, mode=mode, url=url or None, video_id=yt_id,
+                         media=None, source=source,
+                         source_ref=vintent.source_ref or "",
+                         correlation_id=vintent.correlation_id,
+                         intent=vintent.intent)
+
+
+def _pending_notifier(bot):
+    """Один ограниченный ответ по истёкшему ожиданию (§4.3)."""
+    async def _notify(entry) -> None:
+        await _reply(bot, entry.vintent.chat_id,
+                     random.choice(VIDEO_INTENT_EXPIRED_PHRASES),
+                     entry.vintent.request_tg_message_id)
+    return _notify
+
+
+async def _observe_and_bind_pending(bot, message: types.Message,
+                                    own_operation: str) -> bool:
+    """Записать медиа/ссылку в окно чата и привязать ожидающие запросы.
+
+    Возвращает True, если этот путь уже запустил анализ и сообщение
+    потреблено (дальше по цепочке роутеров оно не идёт)."""
+    user = getattr(message, "from_user", None)
+    if (user is not None and _media_bot_id is not None
+            and getattr(user, "id", None) == _media_bot_id):
+        return False                       # свои публикации бота — не источник
+    try:
+        bound = video_intent.observe(message)
+    except Exception:
+        logger.warning("[youtube] video intent observe failed", exc_info=True)
+        return False
+    if not bound:
+        return False
+    ran = False
+    for entry in bound:
+        if own_operation != video_intent.UNKNOWN and \
+                own_operation == entry.vintent.operation:
+            # тот же ролик и та же операция уже будут разобраны обычным путём
+            # запроса — single-flight даст ОДИН анализ и ОДИН ответ.
+            video_intent.emit_for(entry.vintent, "media_matched",
+                                  video_intent.REASON_OWN_REQUEST)
+            continue
+        await _run_bound_intent(bot, entry)
+        ran = True
+    return ran
+
+
+async def _run_bound_intent(bot, entry) -> None:
+    """Запустить анализ по ожиданию, которое закрыло пришедшее медиа."""
+    vintent = entry.vintent
+    source = vintent.media_message
+    if source is None:
+        logger.info("[youtube] bound intent without carrier — skip | "
+                    "corr=%s", vintent.correlation_id)
+        video_intent.emit_for(vintent, "failed", video_intent.REASON_NO_SOURCE)
+        return
+    request = _request_from_intent(vintent, source)
+    video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
+    await _dispatch_video_request(bot, source, request,
+                                  request_user_id=vintent.request_user_id)
+
+
+async def _handle_unclassified(bot, message: types.Message):
+    """Запрос без канонического youtube-триггера: намерение + окно/ожидание.
+
+    Возвращает UNHANDLED, если сообщение не наше (обычная речь, чужие
+    воркеры), ``None`` — если потреблено (анализ/ожидание/уточнение)."""
+    text = str(message.text or message.caption or "")
+    intent = video_intent.detect_intent(text)
+    if intent == video_intent.DOWNLOAD:
+        # «скачай» — отдельная просьба о файле (4e), НЕ анализ (§4.4).
+        return UNHANDLED
+    canonical = _triggered_body(message) is not None
+    addressed = canonical or _addressed_to_bot(message)
+    # Окно соседства применяем ТОЛЬКО при видео-контексте запроса: иначе
+    # «Бот, <веб-ссылка> выжимка» привязалось бы к чужому ролику из истории.
+    video_context = canonical or video_intent.mentions_video(text)
+    if intent in video_intent.ANALYSIS_INTENTS and addressed:
+        vintent = video_intent.resolve_request(message, intent,
+                                               allow_window=video_context)
+        if vintent.resolution == video_intent.RESOLVED:
+            video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
+            video_intent.emit_for(vintent, "media_matched", vintent.reason_code)
+            request = _request_from_intent(vintent, message)
+            return await _dispatch_video_request(bot, message, request,
+                                                 request_user_id=vintent.request_user_id)
+        if vintent.resolution == video_intent.AMBIGUOUS:
+            video_intent.emit_for(vintent, "request_seen")
+            video_intent.emit_for(vintent, "media_ambiguous",
+                                  vintent.reason_code)
+            await _reply(bot, message.chat.id,
+                         random.choice(VIDEO_INTENT_AMBIGUOUS_PHRASES),
+                         message.message_id)
+            return None
+        # WAITING: не отвечаем мгновенно «видео нет» (§4.3). Ожидание —
+        # только для явного видео-контекста, обычную речь не задерживаем.
+        if not canonical and not video_intent.mentions_video(text) \
+                and not video_intent.has_pending(message.chat.id):
+            return UNHANDLED
+        video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
+        video_intent.register_pending(vintent, notify=_pending_notifier(bot))
+        return None
+    if canonical:
+        # Канонический триггер без цели и без видео-намерения — прежний
+        # нейтральный ответ (не уходит в LLM обычного ответа).
+        await _reply(bot, message.chat.id,
+                     random.choice(COMMAND_NO_TARGET_PHRASES),
+                     message.message_id)
+        return None
+    return UNHANDLED
 
 
 # ── Раунд 3 (3.5, T-692): STT-хелперы ────────────────────────────────
@@ -931,6 +1141,8 @@ async def _process_url_media(bot, message: types.Message,
             path = await _download_or_phrase(bot, chat_id, url,
                                              target_message_id)
             if path is None:
+                _emit_req(request, "failed", "download_unavailable",
+                          chat_id=chat_id, message_id=target_message_id)
                 return
             if _downloaded_too_big(path):          # 5.10 (проверка по st_size)
                 logger.info("[youtube] downloaded file too big for STT | "
@@ -945,6 +1157,8 @@ async def _process_url_media(bot, message: types.Message,
             await _send_transcript_reply(bot, chat_id, target_message_id,
                                          author, transcript)
             await _inject_url_memory(message, author, transcript)
+            _emit_req(request, "delivered", chat_id=chat_id,
+                      message_id=target_message_id)
             logger.info("[youtube] url-file transcript OK | chat=%s kind=%s "
                         "chars=%d", chat_id, request.kind, len(transcript))
             return
@@ -974,6 +1188,10 @@ async def _process_url_media(bot, message: types.Message,
             if text_out:
                 await _send_plain_answer(bot, chat_id, text_out,
                                          target_message_id)
+                _emit_req(request, "multimodal_success", chat_id=chat_id,
+                          message_id=target_message_id)
+                _emit_req(request, "delivered", chat_id=chat_id,
+                          message_id=target_message_id)
                 logger.info("[youtube] direct-url cascade OK | chat=%s",
                             chat_id)
                 return
@@ -984,12 +1202,18 @@ async def _process_url_media(bot, message: types.Message,
         # (гейт ниже) → при пустоте мультимодалки — фраза.
         path = await _download_or_phrase(bot, chat_id, url, target_message_id)
         if path is None:
+            _emit_req(request, "failed", "download_unavailable",
+                      chat_id=chat_id, message_id=target_message_id)
             return
         ticket, text_out = await _publish_and_cascade(
             bot, chat_id, str(path), label)
         if text_out:
             await _send_plain_answer(bot, chat_id, text_out,
                                      target_message_id)
+            _emit_req(request, "multimodal_success", chat_id=chat_id,
+                      message_id=target_message_id)
+            _emit_req(request, "delivered", chat_id=chat_id,
+                      message_id=target_message_id)
             logger.info("[youtube] published cascade OK | chat=%s kind=%s",
                         chat_id, request.kind)
             return
@@ -1001,13 +1225,23 @@ async def _process_url_media(bot, message: types.Message,
                          random.choice(VIDEO_MEDIA_UNAVAILABLE_PHRASES),
                          target_message_id)
             return
+        _emit_req(request, "transcript_fallback",
+                  video_intent.REASON_TRANSCRIPT_ONLY, chat_id=chat_id,
+                  message_id=target_message_id)
         transcript = await _stt_or_phrase(bot, chat_id, str(path),
                                           target_message_id)
         if transcript is None:
+            _emit_req(request, "failed", "stt_unavailable", chat_id=chat_id,
+                      message_id=target_message_id)
             return
         if await _summarize_and_send(bot, chat_id, transcript,
                                      target_message_id):
             await _inject_url_memory(message, author, transcript)
+            _emit_req(request, "delivered", chat_id=chat_id,
+                      message_id=target_message_id)
+        else:
+            _emit_req(request, "failed", "summary_failed", chat_id=chat_id,
+                      message_id=target_message_id)
     finally:
         if path is not None:
             try:
@@ -1048,24 +1282,34 @@ async def _process_youtube_transcript(bot, message: types.Message,
             await _send_transcript_reply(bot, chat_id, target_message_id,
                                          author, transcript)
             await _inject_url_memory(message, author, transcript)
+            _emit_req(request, "delivered", "subtitles", chat_id=chat_id,
+                      message_id=target_message_id)
             logger.info("[youtube] yt transcript sent | video_id=%r chars=%d",
                         video_id, len(transcript))
             return
         url = f"https://www.youtube.com/watch?v={video_id}"
         path = await _download_or_phrase(bot, chat_id, url, target_message_id)
         if path is None:
+            _emit_req(request, "failed", "download_failed", chat_id=chat_id,
+                      message_id=target_message_id)
             return
         if _downloaded_too_big(path):              # 5.10 (проверка по st_size)
+            _emit_req(request, "failed", "video_too_big", chat_id=chat_id,
+                      message_id=target_message_id)
             await _reply(bot, chat_id, _too_big_phrase(
                 _configured_video_max_size_mb()), target_message_id)
             return
         transcript = await _stt_or_phrase(bot, chat_id, str(path),
                                           target_message_id)
         if transcript is None:
+            _emit_req(request, "failed", "stt_unavailable", chat_id=chat_id,
+                      message_id=target_message_id)
             return
         await _send_transcript_reply(bot, chat_id, target_message_id,
                                      author, transcript)
         await _inject_url_memory(message, author, transcript)
+        _emit_req(request, "delivered", "stt", chat_id=chat_id,
+                  message_id=target_message_id)
         logger.info("[youtube] yt download+STT transcript sent | "
                     "video_id=%r chars=%d", video_id, len(transcript))
     finally:
@@ -1095,6 +1339,8 @@ async def _process_video_media(bot, message: types.Message,
                         settings.VIDEO_TRANSCRIBE_MAX_DURATION_SECONDS)
     file_size = getattr(media.media, "file_size", None)
     if isinstance(file_size, int) and file_size > size_mb * 1024 * 1024:
+        _emit_req(request, "failed", "video_too_big", chat_id=chat_id,
+                  message_id=target_message_id)
         await _reply(bot, chat_id, _too_big_phrase(size_mb), target_message_id)
         logger.info("[youtube] video-file too big | chat=%s bytes=%d "
                     "limit_mb=%d mode=%s", chat_id, file_size, size_mb,
@@ -1102,6 +1348,8 @@ async def _process_video_media(bot, message: types.Message,
         return
     duration = getattr(media.media, "duration", None)   # Video: int; Document: нет
     if isinstance(duration, int) and duration > 0 and duration > dur_limit:
+        _emit_req(request, "failed", "video_too_long", chat_id=chat_id,
+                  message_id=target_message_id)
         await _reply(bot, chat_id, random.choice(VIDEO_MEDIA_TOO_LONG_PHRASES),
                      target_message_id)
         logger.info("[youtube] video-file too long | chat=%s dur=%d",
@@ -1143,6 +1391,8 @@ async def _process_video_media(bot, message: types.Message,
                     logger.warning(
                         "[youtube] media branch without transcriber | chat=%s",
                         chat_id)
+                    _emit_req(request, "failed", "transcriber_unavailable",
+                              chat_id=chat_id, message_id=target_message_id)
                     await _reply(bot, chat_id,
                                  random.choice(VIDEO_MEDIA_UNAVAILABLE_PHRASES),
                                  target_message_id)
@@ -1150,6 +1400,8 @@ async def _process_video_media(bot, message: types.Message,
                 transcript = await _stt_or_phrase(bot, chat_id, path,
                                                   target_message_id)
                 if transcript is None:
+                    _emit_req(request, "failed", "stt_unavailable",
+                              chat_id=chat_id, message_id=target_message_id)
                     return
                 author = _resolve_author(media.source)
                 origin = getattr(media.source, "forward_origin", None)
@@ -1161,6 +1413,8 @@ async def _process_video_media(bot, message: types.Message,
                                              author, transcript,
                                              forwarder=forwarder)
                 await _inject_video_memory(media, author, transcript)
+                _emit_req(request, "delivered", chat_id=chat_id,
+                          message_id=target_message_id)
                 logger.info("[youtube] video-file transcript OK | chat=%s "
                             "kind=%s chars=%d", chat_id, media.kind,
                             len(transcript))
@@ -1173,6 +1427,10 @@ async def _process_video_media(bot, message: types.Message,
                 if text_out:
                     await _send_plain_answer(bot, chat_id, text_out,
                                              target_message_id)
+                    _emit_req(request, "multimodal_success", chat_id=chat_id,
+                              message_id=target_message_id)
+                    _emit_req(request, "delivered", chat_id=chat_id,
+                              message_id=target_message_id)
                     logger.info(
                         "[youtube] video-file cascade OK | chat=%s kind=%s",
                         chat_id, media.kind)
@@ -1180,23 +1438,39 @@ async def _process_video_media(bot, message: types.Message,
             else:
                 logger.info("[video cascade] file L1/L2 disabled (no key) — "
                             "STT path | chat=%s", chat_id)
-            # STT-фолбек (публикация недоступна / каскад пуст / нет ключа)
+            # STT-фолбек (публикация недоступна / каскад пуст / нет ключа).
+            # §4.4: транскрипция НЕ выдаётся за просмотренное видео — событие
+            # transcript_fallback фиксирует честную ветку.
             if _media_transcriber is None:
                 logger.warning(
                     "[youtube] media branch without transcriber | chat=%s",
                     chat_id)
+                _emit_req(request, "failed", "transcriber_unavailable",
+                          chat_id=chat_id, message_id=target_message_id)
                 await _reply(bot, chat_id,
                              random.choice(VIDEO_MEDIA_UNAVAILABLE_PHRASES),
                              target_message_id)
                 return
+            audio_only = media.kind in ("voice", "video_note")
+            _emit_req(request, "transcript_fallback",
+                      video_intent.REASON_AUDIO_ONLY if audio_only
+                      else video_intent.REASON_TRANSCRIPT_ONLY,
+                      chat_id=chat_id, message_id=target_message_id)
             transcript = await _stt_or_phrase(bot, chat_id, path,
                                               target_message_id)
             if transcript is None:
+                _emit_req(request, "failed", "stt_unavailable",
+                          chat_id=chat_id, message_id=target_message_id)
                 return
             if await _summarize_and_send(bot, chat_id, transcript,
                                          target_message_id):
                 author = _resolve_author(media.source)
                 await _inject_video_memory(media, author, transcript)
+                _emit_req(request, "delivered", chat_id=chat_id,
+                          message_id=target_message_id)
+            else:
+                _emit_req(request, "failed", "summary_failed",
+                          chat_id=chat_id, message_id=target_message_id)
             logger.info("[youtube] video-file OK | chat=%s kind=%s chars=%d",
                         chat_id, media.kind, len(transcript))
     finally:
@@ -1211,9 +1485,21 @@ async def _process_video_media(bot, message: types.Message,
 
 # ── youtube+summary: URL-ветка Части 1 (байт-в-байт) ──────────────────
 
+def _emit_summary(correlation_id: str, event: str, message: types.Message,
+                  target: types.Message, reason_code: str = "") -> None:
+    """Наблюдаемость youtube+summary по correlation_id (§4.5)."""
+    if not correlation_id:
+        return
+    video_intent.emit(event, correlation_id=correlation_id,
+                      reason_code=reason_code, chat_id=message.chat.id,
+                      message_id=getattr(target, "message_id", None),
+                      intent=video_intent.SUMMARY)
+
+
 async def _process_youtube_summary(bot, message: types.Message,
                                    target: types.Message,
-                                   video_id: str) -> None:
+                                   video_id: str,
+                                   correlation_id: str = "") -> None:
     """URL-ветка 0e для mode=summary. Раунд 10.24 (F16, ADR-1024-17):
     A) скачать видео (тихо, 360p, бюджет) → B) опубликовать (media_share) и
     дать мультимодалке РЕАЛЬНЫЙ файл (`summarize_media_url`) → C) фолбэк на
@@ -1268,6 +1554,10 @@ async def _process_youtube_summary(bot, message: types.Message,
                     if text_out:
                         await send_chunked_reply(bot, message.chat.id, text_out,
                                                  target.message_id)
+                        _emit_summary(correlation_id, "multimodal_success",
+                                      message, target)
+                        _emit_summary(correlation_id, "delivered",
+                                      message, target)
                         logger.info(                                # R41-5
                             "[youtube] multimodal summary sent | chat=%s "
                             "video_id=%r", message.chat.id, video_id)
@@ -1282,12 +1572,16 @@ async def _process_youtube_summary(bot, message: types.Message,
             )
             await send_chunked_reply(bot, message.chat.id, text_out,
                                      target.message_id)
+            _emit_summary(correlation_id, "delivered", message, target,
+                          reason_code="subtitle_fallback")
         logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
                     message.chat.id, video_id)
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).
         logger.warning("[youtube] empty answer — silence | chat=%s video_id=%r | error=%s",
                        message.chat.id, video_id, exc)
+        _emit_summary(correlation_id, "failed", message, target,
+                      reason_code="empty_answer")
         await react_moai(bot, message.chat.id, target.message_id)
     except YouTubeTranscriptUnavailableException as exc:
         # F16: age_restricted → отдельный понятный пул (не ложная 5.6).
@@ -1296,16 +1590,22 @@ async def _process_youtube_summary(bot, message: types.Message,
                    else YOUTUBE_ERROR_PHRASES)
         logger.exception("[youtube] transcript failed | chat=%s video_id=%r "
                          "| reason=%s", message.chat.id, video_id, reason)  # R41-5
+        _emit_summary(correlation_id, "failed", message, target,
+                      reason_code=str(reason))
         await _reply(bot, message.chat.id, random.choice(phrases),  # 5.6/5.6-age
                      target.message_id)
     except LLMError as exc:
         logger.warning("[youtube] LLM failed | chat=%s video_id=%r | error=%s",  # Epic 47 (D190): WARNING
                        message.chat.id, video_id, exc)
+        _emit_summary(correlation_id, "failed", message, target,
+                      reason_code="llm_error")
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),       # 5.5 → ЦЕЛЕВОЕ
                      target.message_id)
     except Exception:
         logger.exception("[youtube] unexpected error | chat=%s video_id=%r",
                          message.chat.id, video_id)                       # R41-5
+        _emit_summary(correlation_id, "failed", message, target,
+                      reason_code="unexpected")
         await _reply(bot, message.chat.id, random.choice(LLM_ERROR_PHRASES),
                      target.message_id)
     finally:
@@ -1317,78 +1617,135 @@ async def _process_youtube_summary(bot, message: types.Message,
         permit.release()
 
 
+def _request_operation(request) -> str:
+    """Операция запроса (устойчиво к тест-двойникам без поля operation)."""
+    op = getattr(request, "operation", None)
+    if isinstance(op, str) and op:
+        return op
+    return "transcript" if getattr(request, "mode", "") == "transcript" \
+        else "summary"
+
+
+def _emit_req(request: _VideoRequest | None, event: str, reason_code: str = "",
+              chat_id: int | None = None, message_id: int | None = None) -> None:
+    """Наблюдаемость §4.5 по correlation_id запроса (no-op без него)."""
+    correlation = getattr(request, "correlation_id", "") if request else ""
+    if not correlation:
+        return
+    video_intent.emit(event, correlation_id=correlation,
+                      reason_code=reason_code, chat_id=chat_id,
+                      message_id=message_id, intent=getattr(request, "intent", ""),
+                      source_ref=getattr(request, "source_ref", ""))
+
+
+async def _dispatch_video_request(bot, message: types.Message,
+                                  request: _VideoRequest,
+                                  *, request_user_id: int | None = None):
+    """ЕДИНАЯ точка исполнения видео-запроса (§4.4).
+
+    Порядок: voice-команда → master-флаг → single-flight (join не платит
+    кулдаун и не получает второй ответ) → кулдаун новой работы → ветка."""
+    if getattr(request, "kind", None) == "voice" and (
+            getattr(request, "mode", "") == "transcript"
+            or getattr(request, "media", None) is None):
+        # F19 (ADR-1024-20 §2.3/§4.6): «транскрипт» по voice/video_note —
+        # принудительный повтор STT через слой 0i, ДО кулдауна.
+        await _handle_voice_command(bot, message)
+        return None
+    # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
+    # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
+    if getattr(request, "mode", "") == "summary" and not hot.get(
+            "flags.video_summary_enabled", settings.VIDEO_SUMMARY_ENABLED):
+        return UNHANDLED
+    chat_id = message.chat.id
+    user_id = (request_user_id if isinstance(request_user_id, int)
+               else (message.from_user.id if message.from_user else 0))
+    # §4.4: ключ идемпотентности chat_id + стабильная ссылка + операция.
+    # Почти одновременные запросы к тому же ролику дают ОДИН анализ.
+    operation = _request_operation(request)
+    source_ref = getattr(request, "source_ref", "") or ""
+    correlation = getattr(request, "correlation_id", "") or ""
+    job = video_intent.job_key(chat_id, source_ref, operation)
+    if not video_intent.try_begin(job):
+        _emit_req(request, "joined_existing_job", video_intent.REASON_JOINED,
+                  chat_id=chat_id, message_id=message.message_id)
+        logger.info("[youtube] joined existing job | chat=%s op=%s ref=%s",
+                    chat_id, operation, video_intent.ref_hash(source_ref))
+        return None
+    try:
+        logger.info("[youtube] triggered | chat=%s user=%s kind=%s op=%s "
+                    "video_id=%r corr=%s", chat_id, user_id,
+                    getattr(request, "kind", None), operation,
+                    getattr(request, "video_id", None), correlation)
+        # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
+        cooldown_refresh(_cooldown, hot.get("limits.youtube_cooldown_seconds",
+                                            settings.YOUTUBE_COOLDOWN_SECONDS))
+        remaining = await cooldown_remaining(_cooldown, chat_id, user_id)
+        if remaining > 0:                      # 5.1 → РЕПЛАЙ НА ВЫЗОВ (D131/D107)
+            await _reply(bot, chat_id, throttle_phrase(remaining),
+                         message.message_id)
+            return None                        # консьюм
+        await cooldown_touch(_cooldown, chat_id, user_id)
+        _emit_req(request, "analysis_started", chat_id=chat_id,
+                  message_id=message.message_id)
+        if getattr(request, "kind", None) == "youtube" and \
+                getattr(request, "mode", "") == "summary":
+            # URL-ветка Части 1 — байт-в-байт (T-688); слот пула — внутри
+            # _process_youtube_summary ПОСЛЕ cache-check (быстрый путь без пула).
+            await _process_youtube_summary(
+                bot, message, getattr(request, "source", message),
+                getattr(request, "video_id", None),
+                correlation_id=correlation)
+            return None
+        # Раунд N (T-841): url/native-ветки mode=summary несут LLM-каскад
+        # (L1/L2 + выжимка) — весь поток под слотом пула per-chat; транскрипт-
+        # ветки (субтитры/STT, без LLM) пул НЕ используют (STT-семафор свой).
+        permit = None
+        if getattr(request, "mode", "") == "summary":
+            pool = get_smartmodule_concurrency_pool()
+            permit = await pool.try_acquire(chat_id,
+                                            timeout=smartmodule_wait_seconds())
+            if permit is None:
+                logger.warning("[youtube] concurrency slot timeout | chat=%s "
+                               "kind=%s", chat_id,
+                               getattr(request, "kind", None))
+                await _reply(bot, chat_id,
+                             random.choice(SMARTMODULE_BUSY_PHRASES),
+                             message.message_id)
+                return None
+        try:
+            if getattr(request, "kind", None) == "youtube":
+                await _process_youtube_transcript(bot, message, request)
+                return None
+            if getattr(request, "kind", None) in ("native", "voice"):
+                # Медиа-ветка (консьюм; ответный кеш отсутствует (EVOL-031) —
+                # у файла нет стабильного канонического ключа, FR-10; кулдаун
+                # общий уже touch'нут).
+                await _process_video_media(bot, message, request)
+                return None
+            await _process_url_media(bot, message, request)
+            return None
+        finally:
+            if permit is not None:
+                permit.release()
+    finally:
+        video_intent.finish(job)
+
+
 @youtube_router.message()
 async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
-    # Раунд 10.15 (F6, T-1595): обязательный префикс (Имя/«Бот,»). Нет
-    # префикса или нет триггера в остатке → UNHANDLED (пропагация живёт).
-    if _triggered_body(message) is None:
-        return UNHANDLED
+    # EVOL §4: единая классификация ДО любых media-tool.
     request = _classify_video_request(message)
-    if request is None:
-        # Триггер есть, цели (URL/медиа) нет → консьюм нейтральной фразой
-        # (НЕ уходит в LLM обычного ответа, spec §5).
-        await _reply(bot, message.chat.id,
-                     random.choice(COMMAND_NO_TARGET_PHRASES),
-                     message.message_id)
-        return
-    # F19 (ADR-1024-20 §2.3/§4.6): команда «транскрипт» по voice/video_note —
-    # принудительный повтор STT через слой 0i. Обрабатывается ДО кулдауна:
-    # при kill-switch OFF или недоступной цели поведение совпадает с прежним
-    # нейтральным ответом (request is None) — без списания youtube-кулдауна.
-    if request.kind == "voice":
-        await _handle_voice_command(bot, message)
-        return
-    # Раунд 10.6 (T-1201/A1): master-флаг «Выжимка видео» гейтит ТОЛЬКО
-    # summary-ветки (YouTube+media); «транскрипт» продолжает работать.
-    if request.mode == "summary" and not hot.get(
-            "flags.video_summary_enabled", settings.VIDEO_SUMMARY_ENABLED):
-        return UNHANDLED
-    user_id = message.from_user.id if message.from_user else 0
-    logger.info("[youtube] triggered | chat=%s user=%s kind=%s video_id=%r",
-                message.chat.id, user_id, request.kind, request.video_id)
-    # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
-    cooldown_refresh(_cooldown, hot.get("limits.youtube_cooldown_seconds",
-                                        settings.YOUTUBE_COOLDOWN_SECONDS))
-    remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
-    if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (D131/D107)
-        await _reply(bot, message.chat.id, throttle_phrase(remaining),
-                     message.message_id)
-        return                                # консьюм
-    await cooldown_touch(_cooldown, message.chat.id, user_id)
-    if request.kind == "youtube" and request.mode == "summary":
-        # URL-ветка Части 1 — байт-в-байт (T-688); слот пула — внутри
-        # _process_youtube_summary ПОСЛЕ cache-check (быстрый путь без пула).
-        await _process_youtube_summary(bot, message, request.source,
-                                       request.video_id)
-        return
-    # Раунд N (T-841): url/native-ветки mode=summary несут LLM-каскад
-    # (L1/L2 + выжимка) — весь поток под слотом пула per-chat; транскрипт-
-    # ветки (субтитры/STT, без LLM) пул НЕ используют (STT-семафор свой).
-    permit = None
-    if request.mode == "summary":
-        pool = get_smartmodule_concurrency_pool()
-        permit = await pool.try_acquire(message.chat.id,
-                                        timeout=smartmodule_wait_seconds())
-        if permit is None:
-            logger.warning("[youtube] concurrency slot timeout | chat=%s "
-                           "kind=%s", message.chat.id, request.kind)
-            await _reply(bot, message.chat.id,
-                         random.choice(SMARTMODULE_BUSY_PHRASES),
-                         message.message_id)
-            return
-    try:
-        if request.kind == "youtube":
-            await _process_youtube_transcript(bot, message, request)
-            return
-        if request.kind == "native":
-            # Медиа-ветка (консьюм; ответный кеш отсутствует (EVOL-031) —
-            # у файла нет стабильного канонического ключа, FR-10; кулдаун
-            # общий уже touch'нут).
-            await _process_video_media(bot, message, request)
-            return
-        await _process_url_media(bot, message, request)
-    finally:
-        if permit is not None:
-            permit.release()
+    own_operation = (_request_operation(request) if request is not None
+                     else video_intent.UNKNOWN)
+    # §4.3: наблюдение медиа/ссылок чата и привязка ОЖИДАЮЩИХ запросов. Медиа,
+    # закрывшее ожидание, потребляется этим путём (один анализ, один ответ).
+    if await _observe_and_bind_pending(bot, message, own_operation):
+        return None
+    if request is not None:
+        return await _dispatch_video_request(bot, message, request)
+    # Раунд 10.15 (F6, T-1595): нет канонического триггера → решает намерение
+    # (§4.2): анализ по окну/ожиданию, «скачай» — не наша ветка (4e).
+    return await _handle_unclassified(bot, message)

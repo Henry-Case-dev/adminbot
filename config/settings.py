@@ -3013,6 +3013,18 @@ class Settings:
     VIDEO_STT_TIMEOUT_SECONDS: float = _env_float_min("VIDEO_STT_TIMEOUT_SECONDS", 120.0, 5.0)
     # Мин. длина транскрипта для «честной выжимки» (иначе фраза «нет речи»).
     VIDEO_SUMMARY_MIN_CHARS: int = _env_int_min("VIDEO_SUMMARY_MIN_CHARS", 100, 1)
+    # ── EVOL §4: единое видео-намерение (services/video_intent.py) ──
+    # Общая конфигурация ожидания/окна соседства (НЕ скрытые константы):
+    # hot.get("limits.video_intent_*", settings.VIDEO_INTENT_*) на каждом вызове.
+    # TTL ожидания медиа после запроса («сделай выжимку» → пересланный ролик).
+    VIDEO_INTENT_PENDING_TTL_SECONDS: float = _env_float_min(
+        "VIDEO_INTENT_PENDING_TTL_SECONDS", 90.0, 5.0)
+    # Сколько последних сообщений чата держим как окно соседства.
+    VIDEO_INTENT_WINDOW_MESSAGES: int = _env_int_min(
+        "VIDEO_INTENT_WINDOW_MESSAGES", 12, 1)
+    # Максимальный возраст соседнего медиа в окне (сек).
+    VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS: float = _env_float_min(
+        "VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS", 900.0, 10.0)
     # Размерные гейты STT-провайдеров (Builder сверяет с фактическими лимитами
     # ДО деплоя): Groq upload ~25МБ; OpenRouter input_audio base64 — консервативно 20МБ.
     STT_GROQ_MAX_UPLOAD_MB: int = _env_int("STT_GROQ_MAX_UPLOAD_MB", 25)

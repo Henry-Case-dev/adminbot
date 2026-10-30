@@ -5,6 +5,7 @@ LLM-выжимка; лимиты ДО скачивания; деградация
 voice/video_note НЕ перехватываются; триггер без URL и без медиа → UNHANDLED.
 """
 import os
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -460,7 +461,11 @@ class TestMediaDegradation:
 
     @pytest.mark.asyncio
     async def test_broken_media_resolve_does_not_crash(self, yv_cleanup):
-        """Медиа-детекция упала → триггер консьюмится фразой (не падаем)."""
+        """Медиа-детекция упала → триггер консьюмится, не падаем.
+
+        EVOL §4.3: мгновенной фразы «нет цели» больше нет — запрос уходит в
+        короткое ожидание медиа и закрывается ОДНИМ ответом по TTL."""
+        from services import video_intent
         _setup()
 
         class BoomDoc:
@@ -473,7 +478,10 @@ class TestMediaDegradation:
         bot = _make_bot()
         result = await youtube_mod.youtube_handler(msg, bot=bot)
         assert result is None                      # консьюм (не UNHANDLED)
-        assert bot.send_message.await_count == 1   # нейтральная фраза «нет цели»
+        assert bot.send_message.await_count == 0   # без мгновенного ответа
+        assert video_intent.has_pending(CHAT_ID)
+        await video_intent.expire(now=time.monotonic() + 10_000)
+        assert bot.send_message.await_count == 1
 
 
 # ── 5. Память (FR-7/AC-1.6) ───────────────────────────────────────────

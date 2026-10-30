@@ -44,13 +44,17 @@ class TestCatalogInvariant106:
         # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
         # −2 GROUPS/mapped, −1 TAB_RULES (вкладка «Умный кэш» удалена).
         # Пин REGISTRY 587 дрейфовал на базе W1 (факт 586) — учтено.
+        # EVOL §4 (единое видео-намерение): +3 Settings-поля
+        # (VIDEO_INTENT_PENDING_TTL_SECONDS / _WINDOW_MESSAGES /
+        # _WINDOW_MAX_AGE_SECONDS); REGISTRY/GROUPS/TAB_RULES не растут
+        # (hot.get с settings-дефолтом, ΔDDL = 0) → Settings 465→468.
         assert len(pc.REGISTRY) == 581
         assert len(pc.GROUPS) == 119
         assert len(pc._TAB_BY_GROUP) == 117
         assert len(pc.TAB_RULES) == 22
         # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
         # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 465
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 468
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -93,7 +97,10 @@ class TestRuntimeGates:
 
     def test_youtube_gate_only_summary(self):
         src = open("handlers/youtube.py", encoding="utf-8").read()
-        assert 'request.mode == "summary"' in src
+        # EVOL §4.4: единая точка исполнения `_dispatch_video_request`;
+        # master-флаг гейтит ТОЛЬКО summary-ветки (транскрипт продолжает жить).
+        assert 'getattr(request, "mode", "") == "summary" and not hot.get(' in src
+        assert "flags.video_summary_enabled" in src
 
 
 class TestNavShell:

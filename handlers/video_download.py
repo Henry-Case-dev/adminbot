@@ -30,6 +30,7 @@ from config.settings import settings
 from services import command_prefix
 from services import hot_config as hot
 from services import native_media as native_media_module
+from services import video_intent
 from services.external_log import trace_step
 from services.media_send import send_quality_menu
 from services.persistent_throttling import (
@@ -82,7 +83,9 @@ _cooldown = CooldownTracker(settings.DOWNLOAD_COOLDOWN)
 
 # Section 70.5 + раунд 10.15 (F6, T-1597): обязательный префикс (Имя/«Бот,»);
 # триггер ищется в ОСТАТКЕ. F6-U1: «спизди»/«скачать» из реестра убраны.
-_TRIGGER_RE = re.compile(r"^\s*(скачай|загрузи|стяни)\b", re.IGNORECASE)
+# EVOL §4.4: единственный источник истины «что такое скачивание» —
+# ``services.video_intent`` (анализ/выжимка сюда не попадают).
+_TRIGGER_RE = video_intent.DOWNLOAD_TRIGGER_RE
 _URL_RE = re.compile(r"https?://\S+")
 
 
@@ -266,6 +269,13 @@ async def video_download_handler(message: types.Message, bot: Bot = None):
         return UNHANDLED                        # не триггер → пропагация живёт
     user_id = message.from_user.id if message.from_user else 0
     chat_id = message.chat.id
+    # EVOL §4.5: «скачай» — отдельная операция (download), не анализ.
+    video_intent.emit("request_seen",
+                      correlation_id=video_intent.new_correlation_id(
+                          chat_id, message.message_id),
+                      reason_code=video_intent.DOWNLOAD, chat_id=chat_id,
+                      message_id=message.message_id,
+                      intent=video_intent.DOWNLOAD)
     logger.info("[videodl] triggered | chat=%s user=%s", chat_id, user_id)
 
     # Раунд 10.24 (F14, ADR-1024-15 §2.2): native-first. Найдено нативное

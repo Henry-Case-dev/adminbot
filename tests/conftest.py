@@ -339,6 +339,21 @@ def _reset_pemsoc_reaction_claims():
     reset_claims()
 
 
+@pytest.fixture(autouse=True)
+def _reset_video_intent_state():
+    """EVOL §4: окно соседства/pending/jobs видео-намерения — на каждый тест.
+
+    Иначе соседнее медиа одного теста (тот же CHAT_ID) привязывается к запросу
+    следующего теста, а фоновый watchdog TTL пишет в чужой AsyncMock-bot.
+    """
+    from services import video_intent
+    video_intent.reset()
+    video_intent.configure_watchdog(False)
+    yield
+    video_intent.reset()
+    video_intent.configure_watchdog(True)
+
+
 @pytest.fixture
 def make_message():
     """Factory fixture to create mock Message objects."""

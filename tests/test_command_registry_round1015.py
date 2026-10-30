@@ -6,6 +6,8 @@
 """
 from unittest.mock import AsyncMock, MagicMock
 
+import time
+
 import pytest
 from aiogram.dispatcher.event.bases import UNHANDLED
 
@@ -18,7 +20,10 @@ from handlers import youtube as youtube_mod
 from services import bot_persona
 from services import command_prefix as cp
 from services import command_registry as reg
-from services.smartmodule_phrases import COMMAND_NO_TARGET_PHRASES
+from services.smartmodule_phrases import (
+    COMMAND_NO_TARGET_PHRASES,
+    VIDEO_INTENT_EXPIRED_PHRASES,
+)
 
 CHAT_ID = -1001234567890
 YT_URL = "https://youtu.be/dQw4w9WgXcQ"
@@ -194,15 +199,24 @@ class TestYoutubeWeb:
         assert target is msg and video_id == "dQw4w9WgXcQ"
 
     @pytest.mark.asyncio
-    async def test_youtube_trigger_without_target_consumed(self, oleg_name):
+    async def test_youtube_trigger_without_target_awaits_media(self, oleg_name):
+        """EVOL §4.3: канонический триггер без цели НЕ отвечает мгновенно
+        «видео нет» — создаёт короткое ожидание и отвечает РОВНО один раз по
+        истечении TTL (контракт §4.3 заменил прежнюю нейтральную фразу)."""
+        from services import video_intent
         old = youtube_mod._service
         youtube_mod._service = MagicMock()
         try:
             bot = AsyncMock()
             msg = _msg(text="Олег, поясни за видос")
             result = await youtube_mod.youtube_handler(msg, bot=bot)
-            assert result is None
-            assert bot.send_message.await_args.args[1] in COMMAND_NO_TARGET_PHRASES
+            assert result is None                 # консьюм: в LLM не уходит
+            assert bot.send_message.await_count == 0
+            assert video_intent.has_pending(CHAT_ID)
+            await video_intent.expire(now=time.monotonic() + 10_000)
+            assert bot.send_message.await_count == 1
+            assert (bot.send_message.await_args.args[1]
+                    in VIDEO_INTENT_EXPIRED_PHRASES)
         finally:
             youtube_mod._service = old
 
