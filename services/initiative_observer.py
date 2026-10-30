@@ -262,6 +262,24 @@ REASON_LABELS: dict[str, str] = {
     "delivery_unknown": "исход отправки неизвестен",
     "reason_not_recorded": "причина не записана (код отсутствовал)",
     "no_opportunities_24h": "за сутки не нашлось ни одного повода",
+    # EVOL-014: причины подсервиса мемов (не смешиваются со счётчиками реплик).
+    "disabled_by_setting": "инициативные мемы выключены",
+    "initiative_disabled": "инициатива выключена — мемы тоже остановлены",
+    "image_module_off": "модуль генерации изображений выключен",
+    "image_provider_not_configured": "провайдер изображений не настроен",
+    "image_provider_unhealthy": "провайдер изображений нездоров",
+    "random_unavailable": "квантовый контур случайности недоступен",
+    "no_random_hit": "случайный розыгрыш не выбрал мем",
+    "cooldown_active": "пауза между мемами ещё не прошла",
+    "summary_failed": "выжимка под мем не собралась",
+    "image_generation_failed": "провайдер изображений не отдал картинку",
+    "publish_blocked": "отправка заблокирована publish-гейтом",
+    "daily_quota_reached": "суточная квота мемов исчерпана",
+    "low_activity": "в окне слишком мало сообщений для мема",
+    "schema_absent": "таблица квоты мемов ещё не применена",
+    "length_limit_unknown": "потолок длины выжимки не известен",
+    "in_flight": "генерация мема в этом чате уже идёт",
+    "quiet_hours": "тихие часы — мем не запускается",
 }
 
 
@@ -1061,6 +1079,7 @@ class InitiativeObserverRunner:
             await self._scan_phase(payload)
             await self._evaluate_phase(payload, job_id)
             await self._diagnose_phase(payload)
+            await self._meme_phase(payload)
             counters["passes"] = int(counters.get("passes") or 0) + 1
             payload["counters"] = counters
             await self._finish(job_id, status=JOB_COMPLETED, payload=payload)
@@ -1076,6 +1095,63 @@ class InitiativeObserverRunner:
             await self._finish(job_id, status=JOB_FAILED,
                                reason_code="task_failed", payload=payload)
             return JOB_FAILED
+
+    async def _meme_phase(self, payload: dict) -> None:
+        """EVOL-014: подсервис мемов внутри этого же прохода.
+
+        Ошибка мема не валит текстовую инициативу. Выключение мемов
+        (заводской OFF) — ранний выход внутри capability, не отмена job.
+        """
+        try:
+            from services import meme_initiative as meme
+            chat_ids = []
+            chats = payload.get("chats") or {}
+            if isinstance(chats, dict):
+                for key in chats:
+                    try:
+                        chat_ids.append(int(key))
+                    except (TypeError, ValueError):
+                        continue
+            results = await meme.on_initiative_cycle(
+                self._db, chat_ids, llm=self._llm,
+                ledger=meme.open_ledger(self._db),
+                sender=self._meme_sender(),
+                publish_gate=self._meme_publish_gate())
+            payload["meme"] = {
+                "output_kind": meme.OUTPUT_KIND,
+                "separate_from_initiative": True,
+                "attempts": [item.as_dict() for item in results],
+            }
+        except Exception:
+            logger.warning("[meme] phase failed — initiative continues",
+                           exc_info=True)
+
+    def _meme_sender(self):
+        bot = self._bot
+        if bot is None:
+            return None
+
+        async def _send(chat_id, content, caption):
+            from services import telegram_send
+            photo = content
+            try:
+                from aiogram.types import BufferedInputFile
+                photo = BufferedInputFile(content, filename="meme.png")
+            except Exception:
+                photo = content
+            await telegram_send.send_photo(
+                bot, int(chat_id), photo, caption=caption or None)
+            return True
+
+        return _send
+
+    def _meme_publish_gate(self):
+        async def _gate(chat_id: int):
+            from services import meme_initiative as meme
+            return await meme._default_publish_gate(self._db, int(chat_id),
+                                                    int(time.time()))
+
+        return _gate
 
     # ── фаза 1: scan (дёшево; курсор и счётчики) ──────────────────────────
 

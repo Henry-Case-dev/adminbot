@@ -585,7 +585,28 @@ async def collect_window(db, *, hours: int = 24, chat_id: int | None = None,
         "decisions_recent": decisions,
         "refusals_recent": refusals[:LIST_LIMIT],
         "sends": sends,
+        # EVOL-014: отдельный объект. Цифры мемов не входят в delivered/
+        # opportunities текстовой инициативы.
+        "meme": _meme_snapshot(db, chat_id),
     }
+
+
+def _meme_snapshot(db, chat_id: int | None) -> dict:
+    """Снимок мемов. Ошибка чтения не роняет воронку инициативы."""
+    try:
+        from services import meme_initiative as meme
+        return meme.analytics_snapshot(meme.open_ledger(db), chat_id=chat_id)
+    except Exception:
+        logger.warning("[w5] meme snapshot failed — empty", exc_info=True)
+        return {
+            "output_kind": "meme_initiative",
+            "separate_from_initiative": True,
+            "coverage": "unavailable",
+            "counters": {},
+            "skip_reasons": {},
+            "attempts": [],
+            "quota": None,
+        }
 
 
 # ── вердикт: health ≠ outcome ──────────────────────────────────────────────

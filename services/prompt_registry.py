@@ -294,6 +294,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "search.rerank": "search-rerank-w2b",
     "direct.history_segment": "history-segment-w2b",
     "cover.scene_verify": "scene-verify-w2b",
+    # EVOL-014: заводские промпты инициативных мемов.
+    "initiative.meme.image": "meme-image-evol014",
+    "initiative.meme.summary": "meme-summary-evol014",
 }
 
 
@@ -432,6 +435,9 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "search.rerank": ("search-rerank-w2b", "09a8999edd2d"),
     "direct.history_segment": ("history-segment-w2b", "c09094652f9d"),
     "cover.scene_verify": ("scene-verify-w2b", "507d915349e1"),
+    # EVOL-014: печати sha12 заводского текста (сгенерированы из кода).
+    "initiative.meme.image": ("meme-image-evol014", "f81fe7e4b505"),
+    "initiative.meme.summary": ("meme-summary-evol014", "8b0906ccbdaa"),
 }
 
 #: Явные исключения grep-аудита EVOL-018 (контракт §1.7 п.4): имя константы
@@ -1768,6 +1774,30 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         consumers=("cover_style_jobs.py:1889",),
         composition_point="cover/scene_verify",
         migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    # EVOL-014: заводской image-prefix и лёгкий summarizer. Редактирование —
+    # общий effective_prompt (override передаётся в реестр), без второго
+    # хранилища. pg_key не объявляется здесь: литерал prompts.* без записи
+    # в каталоге роняет полноту реестра, а каталог — соседняя полоса.
+    declare_prompt(
+        block_id="initiative.meme.image",
+        purpose="Заводской префикс image-prompt инициативного мема. "
+                "Стартовое значение дословно: «Создай мем с шрифтом импакт:».",
+        family="initiative", scope="code",
+        code_source="services.meme_initiative.MEME_IMAGE_PROMPT",
+        consumers=("meme_initiative.py:consider_chat",),
+        composition_point="initiative/meme_image",
+        migration="factory", owner_lane="W3-EVOL014", speech=False,
+        ui="catalog_pending"),
+    declare_prompt(
+        block_id="initiative.meme.summary",
+        purpose="Лёгкая meme-oriented выжимка одного чата. Потолок длины "
+                "передаётся вызовом, в текст инструкции не зашит.",
+        family="initiative", scope="code",
+        code_source="services.meme_initiative.MEME_SUMMARY_SYSTEM_PROMPT",
+        consumers=("meme_initiative.py:consider_chat",),
+        composition_point="initiative/meme_summary",
+        migration="factory", owner_lane="W3-EVOL014", speech=False,
+        ui="catalog_pending"),
 )
 
 
@@ -2581,7 +2611,11 @@ def factory_set_fingerprint() -> str:
 #: ``search.rerank``, ``direct.history_segment``, ``cover.scene_verify``);
 #: было ``b980947c71aa``, стало ``c1535d3d4252``.
 #: Переутверждено осознанно (SOUL-AMD.3.2 + EVOL-016 контракт §1.7).
-FACTORY_SET_SHA256_12 = "c1535d3d4252"
+#: Бамп EVOL-014 (W3, 30.10.2026): зарегистрированы заводские промпты
+#: инициативных мемов ``initiative.meme.image`` (дословный префикс
+#: «Создай мем с шрифтом импакт:») и ``initiative.meme.summary``.
+#: Было ``c1535d3d4252``, стало ``03776db327b4``.
+FACTORY_SET_SHA256_12 = "03776db327b4"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

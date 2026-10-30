@@ -1070,6 +1070,26 @@ async def list_versions(block_id: str, *, scope: str = "global",
                                    cache=cache, store=store, actor=actor)
 
 
+def meme_prompt_view(block_id: str, *, pg_value=None,
+                     chat_value=None) -> dict:
+    """EVOL-014: эффективный мем-промпт через реестр, без второго хранилища.
+
+    ``pg_value``/``chat_value`` — уже прочитанный override (каталог/UI
+    подставит его тем же путём, что и остальные блоки). Заводской текст
+    остаётся константой, на которую указывает ``code_source``.
+    """
+    eff = pr.effective_prompt(block_id, pg_value=pg_value,
+                              chat_value=chat_value)
+    return {
+        "block_id": eff.block_id,
+        "text": eff.text,
+        "source": eff.factory_source,
+        "differs_from_factory": bool(eff.differs_from_factory),
+        "factory_revision": eff.factory_revision,
+        "revision": eff.revision,
+    }
+
+
 __all__ = [
     "FACTORY_HISTORY_KEY", "FACTORY_HISTORY_CATEGORY", "CORE_DOC_CATEGORY",
     "HISTORY_MAX_PER_BLOCK", "FactoryConflict", "factory_default",
@@ -1080,6 +1100,8 @@ __all__ = [
     # EVOL-016/017 API журнала версий
     "apply_release", "import_legacy_snapshots", "activate_revision",
     "list_revisions", "diff_revisions", "get_revision_source", "list_versions",
+    # EVOL-014: мем-промпты читаются общим effective-путём реестра.
+    "meme_prompt_view",
 ]
 
 

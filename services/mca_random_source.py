@@ -84,6 +84,13 @@ PURPOSE_MEMORY_RECALL = "memory_recall"
 PURPOSE_ARCHIVE_SAMPLE = "archive_sample"
 PURPOSE_BELIEF_REVIEW = "belief_review"
 PURPOSE_ASSOCIATION_PAIR = "association_pair"
+# EVOL-014: санкционированное расширение закрытого набора — триггер
+# инициативного мема. Это НЕ exploration-выбор альтернативы (choose()
+# по-прежнему отвергает purpose вне EXPLORATION_PURPOSES) и НЕ новый
+# probability-ключ. Draw идёт через draw_probability; недоступность
+# контура потребитель фиксирует как random_unavailable, без локального
+# Math.random / random.Random.
+PURPOSE_MEME_TRIGGER = "meme_trigger"
 
 # purpose → ключ вероятности (одна карта в одном месте; D6).
 EXPLORATION_PROBABILITY_KEYS = {
@@ -97,6 +104,16 @@ EXPLORATION_PROBABILITY_KEYS = {
 }
 EXPLORATION_PURPOSES = frozenset(EXPLORATION_PROBABILITY_KEYS)
 INTERNAL_PURPOSES = frozenset({PURPOSE_ACTIVATION_SELFCHECK})
+# Draw-purpose, которые контур принимает как санкционированные. Мем-триггер
+# здесь, но не в карте exploration: это не выбор альтернативы.
+SANCTIONED_DRAW_PURPOSES = (
+    EXPLORATION_PURPOSES | INTERNAL_PURPOSES | frozenset({PURPOSE_MEME_TRIGGER})
+)
+
+
+def purpose_sanctioned(purpose: str) -> bool:
+    """True, если purpose входит в закрытый санкционированный набор."""
+    return str(purpose or "") in SANCTIONED_DRAW_PURPOSES
 
 # Недопустимые измерения (D6/T-4967): не рандомизируются никогда. Координатор
 # формирует только допустимые альтернативы; политика дополнительно отвергает

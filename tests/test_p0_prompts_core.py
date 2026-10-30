@@ -105,7 +105,8 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # (9 шаблонов + печати, b980947c71aa), затем расширенный аудит — ещё 9
     # живых LLM-инструкций (temporal/memory-rerank/search/cover) ->
     # c1535d3d4252.
-    assert pr.FACTORY_SET_SHA256_12 == "c1535d3d4252"
+    # EVOL-014 (30.10.2026): +2 заводских промпта мемов → 03776db327b4.
+    assert pr.FACTORY_SET_SHA256_12 == "03776db327b4"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
