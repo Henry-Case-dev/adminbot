@@ -91,8 +91,11 @@ class TestGeometry:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,220}overflow-y:\s*auto", APP_CSS)
-        # re-pin ASAP 8 v6 D13 (§18I.14): нижней навигации нет — мобильная
-        # верхняя в потоке шапки (flex-child, не fixed, без нижнего offset).
+        # re-pin ASAP 8 v6 D13 (§18I.14) + EVOL-025 (W9): отдельного fixed-слоя
+        # нижней навигации нет. Мобильный блок разделов — flex-child shell-
+        # колонки (последний слот после `</main>`): в портрете занимает низ
+        # колонки, контент структурно не уходит под него; в низком ландшафте
+        # становится плавающим рейлом (отдельное медиа-правило ниже по файлу).
         nav = re.search(r"\.mobile-topnav \{([^}]*)\}", APP_CSS)
         assert nav, "D13: .mobile-topnav правило присутствует"
         assert "flex: 0 0 auto" in nav.group(1)

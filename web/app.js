@@ -10937,8 +10937,35 @@
       _syncShellMode: function () {
         try {
           var w = window.innerWidth || 0;
+          var h = window.innerHeight || 0;
           this.shellMode = w >= 1200 ? 'desktop' : (w >= 768 ? 'compact'
             : 'mobile');
+          // EVOL-025 (W9): единый источник адаптивного режима для CSS.
+          // `data-shell-mode` — наблюдаемое состояние каркаса (тесты/e2e без
+          // повторного медиа-запроса), `w9-sheet-bottom` — РЕАЛЬНЫЙ режим
+          // модалок: узкий экран или низкий ландшафт → лист снизу вместо
+          // центрированного окна (см. app.css §7). Оба пишутся из той же
+          // точки, что shellMode, поэтому resize/зум/поворот их пересчитывают.
+          var sheet = (w > 0 && w <= 640) ||
+            (h > 0 && h <= 520 && w > h);
+          try {
+            var de = document.documentElement;
+            if (de) {
+              de.setAttribute('data-shell-mode', this.shellMode);
+              de.classList.toggle('w9-sheet-bottom', !!sheet);
+            }
+          } catch (e2) { /* no-op */ }
+          // Метрика панели разделов привязана к узлу, который v-if
+          // пересоздаёт при смене shell-режима: переподключаем после
+          // перерисовки (и снимаем значение, когда панели нет).
+          var self = this;
+          if (typeof this.$nextTick === 'function') {
+            this.$nextTick(function () {
+              if (typeof self._syncBottomNavMetric === 'function') {
+                self._syncBottomNavMetric();
+              }
+            });
+          }
         } catch (e) { /* вне браузера */ }
       },
       toggleDrawer: function () {
@@ -25762,7 +25789,10 @@
             }
           } catch (e) { /* no-op */ }
         };
+        // EVOL-025 (W9): фактическая высота мобильной панели разделов — см.
+        // отдельный метод ниже (переподключаемый наблюдатель).
         apply();
+        this._syncBottomNavMetric();
         if (typeof ResizeObserver !== 'undefined') {
           try {
             var hdr = document.querySelector('header.header-sticky');
@@ -25772,6 +25802,54 @@
             }
           } catch (e) { /* no-op */ }
         }
+      },
+      // EVOL-025 (W9): метрика мобильной навигации.
+      // Панель — последний flex-child shell-колонки, поэтому резерв контенту
+      // не нужен; переменная `--bottom-nav-h` существует ровно для одного
+      // потребителя — меню «Ещё», которое раскрывается ВВЕРХ от панели.
+      // Значение ИЗМЕРЯЕТСЯ (safe-area, крупный системный шрифт, zoom меняют
+      // высоту без правки CSS-константы). Наблюдатель переподключается к
+      // НОВОМУ узлу: смена shell-режима (mobile ↔ compact/desktop) пересоздаёт
+      // nav через v-if, и «прибитый» к старому узлу ResizeObserver оставлял бы
+      // значение от прошлой ориентации.
+      _syncBottomNavMetric: function () {
+        if (typeof document === 'undefined') return;
+        var de = document.documentElement;
+        var nav = null;
+        try { nav = document.querySelector('.mobile-topnav'); }
+        catch (e) { return; }
+        if (!nav) {
+          try {
+            if (de) de.style.removeProperty('--bottom-nav-h');
+            if (this._navObserver) {
+              this._navObserver.disconnect();
+              this._navObserverEl = null;
+            }
+          } catch (e2) { /* no-op */ }
+          return;
+        }
+        var applyNav = function () {
+          try {
+            var el = document.querySelector('.mobile-topnav');
+            var n = el ? Math.round(el.getBoundingClientRect().height) : 0;
+            if (n > 0) {
+              document.documentElement.style.setProperty('--bottom-nav-h',
+                                                         n + 'px');
+            }
+          } catch (err) { /* no-op */ }
+        };
+        applyNav();
+        if (typeof ResizeObserver === 'undefined') return;
+        try {
+          if (!this._navObserver) {
+            this._navObserver = new ResizeObserver(applyNav);
+          }
+          if (this._navObserverEl !== nav) {
+            this._navObserver.disconnect();
+            this._navObserver.observe(nav);
+            this._navObserverEl = nav;
+          }
+        } catch (e3) { /* no-op */ }
       },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {

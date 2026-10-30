@@ -63,7 +63,17 @@ def test_health_css_contract_and_tokens():
     block = css.split("EVOL-032 / CONTRACT 2 — тонирование", 1)[1]
     assert "transition: none" in block
     assert "prefers-reduced-motion: reduce" in block
+    # Границы секции здоровья заданы ЯВНО (до следующего баннера раздела).
+    # Раньше окно проверки шло «до конца файла», и в него попадали правила
+    # последующих волн (EVOL-023/024, EVOL-025) — пин падал на чужом
+    # `box-shadow` оверлеев, хотя к тонированию здоровья он отношения не
+    # имеет. Тот же приём уже применён к JS-двойнику
+    # (tests/js/evol032_health_glass_test.js). Инварианты сохранены и стали
+    # точнее: у правил здоровья нет ни тени, ни blur, ни второй подложки.
     rules = block.split("*/", 1)[-1]
+    for marker in ("EVOL-023 / EVOL-024", "EVOL-025 (W9)",
+                   "EVOL-022 — аддитивный"):
+        rules = rules.split(marker, 1)[0]
     assert "box-shadow" not in rules
     assert "backdrop-filter" not in rules
 

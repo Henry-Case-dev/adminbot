@@ -330,8 +330,9 @@
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
                активный — по route (activeNav), aria-current.
                F1 (ADR-1025-1 D5): при IA v2 полоса НЕ рендерится — её роль
-               выполняют sidebar (≥1200) / drawer (768–1199) / mobile-topnav
-               (<768, D13 §18I.14).
+               выполняют sidebar (≥1200) / drawer (768–1199) / панель разделов
+               в нижнем слоте shell (<768; EVOL-025 перенёс её из второй строки
+               шапки в конец shell-колонки, см. блок ниже после `</main>`).
                OFF (IA_V2_ENABLED=false) → эта разметка байт-в-байт. -->
           <nav v-if="!iaV2" class="navbar-band scroll-thin" aria-label="Основная навигация">
             <button v-for="n in navItems" :key="n.id"
@@ -342,33 +343,12 @@
               <span class="nav-label">{{ n.label }}</span>
             </button>
           </nav>
-          <!-- ═══ W2-SHELL (asap8-v6.3, U01.1/U01.3): мобильная row B (<768,
-               IA v2) — ровно 4 сегмента «Статус / Аналитика / Модули / Ещё ▾»
-               в этом порядке, равные доли ширины, БЕЗ горизонтального скролла.
-               Всё остальное — только в меню «Ещё» (popover ниже). Нижний
-               navbar НЕ возвращается. ═══ -->
-          <nav v-if="iaV2 && isMobileShell" class="mobile-topnav"
-               aria-label="Разделы">
-            <button v-for="n in mobileTopnavItems" :key="'mt-' + n.id"
-                    type="button" class="mobile-topnav-link"
-                    :class="{ active: activeNav === n.id }"
-                    :aria-current="activeNav === n.id ? 'page' : null"
-                    @click="shellNavTo(n.route)">
-              <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
-              <span class="mobile-topnav-label">{{ n.label }}</span>
-            </button>
-            <button ref="moreMenuTrigger" type="button"
-                    class="mobile-topnav-link mobile-topnav-more"
-                    :class="{ active: moreMenuActive || moreMenuOpen }"
-                    aria-haspopup="menu"
-                    :aria-expanded="moreMenuOpen ? 'true' : 'false'"
-                    :aria-label="moreMenuTriggerLabel"
-                    :title="moreMenuTriggerLabel"
-                    @click="toggleMoreMenu()">
-              <span class="msr" aria-hidden="true">{{ iconGlyph('grid_view') }}</span>
-              <span class="mobile-topnav-label">{{ moreMenuTriggerLabel }}</span>
-            </button>
-          </nav>
+          <!-- ═══ EVOL-025 (W9): мобильный блок навигации перенесён из шапки
+               в последний слот shell-колонки (см. ниже, после </main>). В
+               портрете он читается как нижняя панель разделов, в низком
+               ландшафте — как компактная однострочная полоса. Шапка при этом
+               остаётся ОДНОЙ рабочей строкой (область/профиль/⛶) — контент
+               начинается сразу под ней. ═══ -->
         </header>
 
         <!-- ═══ W2-SHELL (U01.4): меню «Ещё» — popover/sheet ПОВЕРХ контента
@@ -12621,10 +12601,37 @@
         </nav>
       </aside>
 
-      <!-- ═══ D13 (§18I.14): мобильная нижняя навигация (bottom-nav) и шторка
-           «Ещё» (more-sheet) УДАЛЕНЫ по решению владельца. Мобильная (<768)
-           навигация — компактная верхняя строка внутри sticky-шапки ниже
-           (mobile-topnav, row 2), тот же канонический реестр navItems. -->
+      <!-- ═══ EVOL-025 (W9): адаптивная навигация shell-колонки.
+           Тот же канонический реестр (mobileTopnavItems + «Ещё»), ровно один
+           экземпляр разметки. Положение задаётся CSS по ФАКТИЧЕСКОМУ размеру
+           окна: портрет — нижняя панель разделов (последний flex-child
+           колонки, контент получает остальную высоту), низкий ландшафт —
+           плавающий вертикальный рейл у правого края (высоту не занимает).
+           Горизонтальной прокрутки и третьей панели нет: сегменты делят ширину
+           и остаются тач-целями ≥44. ═══ -->
+      <nav v-if="iaV2 && isMobileShell" class="mobile-topnav"
+           aria-label="Разделы">
+        <button v-for="n in mobileTopnavItems" :key="'mt-' + n.id"
+                type="button" class="mobile-topnav-link"
+                :class="{ active: activeNav === n.id }"
+                :aria-current="activeNav === n.id ? 'page' : null"
+                :aria-label="n.label" :title="n.label"
+                @click="shellNavTo(n.route)">
+          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+          <span class="mobile-topnav-label">{{ n.label }}</span>
+        </button>
+        <button ref="moreMenuTrigger" type="button"
+                class="mobile-topnav-link mobile-topnav-more"
+                :class="{ active: moreMenuActive || moreMenuOpen }"
+                aria-haspopup="menu"
+                :aria-expanded="moreMenuOpen ? 'true' : 'false'"
+                :aria-label="moreMenuTriggerLabel"
+                :title="moreMenuTriggerLabel"
+                @click="toggleMoreMenu()">
+          <span class="msr" aria-hidden="true">{{ iconGlyph('grid_view') }}</span>
+          <span class="mobile-topnav-label">{{ moreMenuTriggerLabel }}</span>
+        </button>
+      </nav>
     </div>
 
     <!-- ASAP-speech-arch U-05 (§8): крупный редактор редакции характера.

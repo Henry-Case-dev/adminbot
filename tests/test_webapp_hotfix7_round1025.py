@@ -73,8 +73,11 @@ class TestAreaA_Layout:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,200}overflow-y:\s*auto", APP_CSS)
-        # re-pin ASAP 8 v6 D13 (§18I.14): нижней навигации нет — мобильная
-        # верхняя в потоке шапки (flex-child, не fixed).
+        # re-pin ASAP 8 v6 D13 (§18I.14) + EVOL-025 (W9): нижней панели-fixed нет
+        # — мобильный блок разделов остаётся flex-child'ом shell-колонки
+        # (последний слот после `</main>`), в портрете читается как нижняя
+        # панель, в низком ландшафте — плавающим рейлом. Утверждение проверяет
+        # именно это: правило не делает панель отдельным fixed-слоем.
         assert ".bottom-nav {" not in APP_CSS, \
             "D13: .bottom-nav CSS удалён"
         assert re.search(r"\.mobile-topnav \{[^}]*flex: 0 0 auto", APP_CSS)

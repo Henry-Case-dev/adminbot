@@ -3920,7 +3920,7 @@
 /* ═══ W2-GLASS (U08.4d): lg-mini-lens — круглый Tier B-контрол ⛶ ═══
    Класс БОЛЬШЕ НЕ привязан к кнопке ⛶ в шапке: EVOL-023 §4 (ревью F1,
    31.10.2026) вернул ⛶ к compact ghost-icon (см. .header-fs-btn), материал
-   остаётся для изолированного glass-тест-стенда (tests/glass-teststand) и
+   остаётся для изолированного стенда стекла в каталоге тестов и
    Tier-A селекторов движка. Прежняя привязка (21.10, U08.4d/U08.5.1 —
    REV-W2-N1) относилась к «64px затемнённому квадрату» и §4 не покрывала.
    Здесь остаётся только визуал линзы: круглый rim + один блик. */
@@ -5841,4 +5841,251 @@ html.cover-editor-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .app-shell.ia-v2 .app-sidebar { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVOL-025 (W9) — сквозная adaptive/mobile-first система.
+
+   Требование (plans/current_task.md L341–355 + EVOL-033 §C L517–527):
+   компоновка реагирует на ФАКТИЧЕСКИЙ доступный размер, а не на список
+   моделей; в портрете контент начинается рано и навигация компактная
+   (нижняя панель разделов), в низком ландшафте nav не съедает высоту,
+   на планшете — 1–2 колонки по месту, на широком desktop контент больше не
+   «островок» фиксированной ширины.
+
+   СЛОЙ АДДИТИВНЫЙ: разметка навигации та же (один реестр, один экземпляр),
+   меняется только её место в shell-колонке и геометрия. Защищённая оптика
+   (liquid-glass, полигональный фон, рефракция, мини-линза ⛶) и маршруты/RBAC
+   не затрагиваются — здесь только layout/touch/a11y-обвязка.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Мобильная навигация: последний слот shell-колонки ─────────────────
+   Разметка `.mobile-topnav` переехала из шапки в конец `.app-shell`
+   (index.html после `</main>`) и стала ПОСЛЕДНИМ flex-child колонки
+   [header / main.scroll-area / nav]. Панель не накрывает контент и не требует
+   ручного резерва высоты: `main` (flex: 1 1 auto) сам получает ровно
+   остаток видимой области — модель §92/§93 (shell = фактически видимая
+   высота) сохранена, bottom-offset по-прежнему никем не потребляется.
+   Шапка в портрете остаётся ОДНОЙ рабочей строкой (область/профиль/⛶):
+   бывшая вторая строка разделов ушла вниз, контент начинается сразу. */
+.app-shell.shell-mobile .mobile-topnav {
+  width: 100%;
+  padding: .1rem .35rem calc(.25rem + max(env(safe-area-inset-bottom, 0px),
+               var(--tg-safe-area-inset-bottom, 0px),
+               var(--tg-content-safe-area-inset-bottom, 0px)));
+  background-color: var(--shell-bg);
+  background-image: var(--shell-specular);
+  border-top: var(--shell-border);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, .22),
+              inset 0 1px 0 var(--shell-highlight);
+  -webkit-backdrop-filter: var(--shell-blur);
+  backdrop-filter: var(--shell-blur);
+  color: var(--text-2);
+  /* Панель ниже drawer (40) и overlay-меню (55/57), выше контента. */
+  z-index: 20;
+}
+.app-shell.shell-mobile .mobile-topnav-link {
+  min-height: var(--control-h-touch, 44px);
+  padding: .15rem .2rem; gap: 2px; border-radius: .55rem;
+}
+.app-shell.shell-mobile .mobile-topnav-link .msr { font-size: 21px; }
+.app-shell.shell-mobile .mobile-topnav-label { font-size: .625rem; }
+.app-shell.shell-mobile .mobile-topnav-link.active {
+  background: rgba(255, 255, 255, .09);
+}
+
+/* ── 2. Портрет: компактная шапка + ранний старт контента ─────────────────
+   Одна строка: [область][профиль][⛶]. Верхний padding учитывает safe-area
+   ровно один раз (формула FS-HOTFIX: сумма системной и Telegram-части). */
+@media (max-width: 767px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+    row-gap: 0;
+    padding-top: calc(.4rem + max(env(safe-area-inset-top, 0px),
+                  var(--tg-safe-area-inset-top, 0px))
+                  + var(--tg-content-safe-area-inset-top, 0px));
+    padding-bottom: .4rem;
+  }
+  /* Переключатель области — главный контрол строки: тач-цель 44 px
+     (прежние 40 px на телефоне и 32 px в ландшафте не проходили a11y). */
+  .app-shell.shell-mobile .scope-trigger {
+    min-height: var(--control-h-touch, 44px);
+  }
+  .app-shell.shell-mobile main.scroll-area { padding-top: .75rem; }
+  /* Тач-цели там, где они действительно нужны (WCAG 2.5.5): действия в
+     модалке/панели сохранения, иконочные «Обновить», опции селектора
+     области и пункты drawer. Мелкие подписи/ссылки внутри текста и таблиц
+     не раздуваются — это не icon controls. */
+  .app-shell.shell-mobile .modal-actions button,
+  .app-shell.shell-mobile .sticky-save button { min-height: var(--control-h-touch, 44px); }
+  .app-shell.shell-mobile button[aria-label="Обновить"] {
+    min-width: var(--control-h-touch, 44px);
+    min-height: var(--control-h-touch, 44px);
+  }
+  .app-shell.shell-mobile .scope-panel .scope-option {
+    min-height: var(--control-h-touch, 44px);
+  }
+  .app-shell.shell-mobile .app-drawer .sidebar-link {
+    min-height: var(--control-h-touch, 44px);
+  }
+  /* Поля ввода и выбор в мобильном shell: 40 px из --control-h — меньше
+     тач-минимума (замер: поиск каталога 374×40, селекторы «Аналитики»
+     88×40). Высота растёт, плотность форм не ломается (поля и так в
+     собственных строках). */
+  .app-shell.shell-mobile input.field,
+  .app-shell.shell-mobile select.field { min-height: var(--control-h-touch, 44px); }
+  /* Действия на карточке модуля (закреп/параметры/глобальный тумблер-кнопка):
+     замер 116×34 / 88×34 / 149×34 — под тач-минимум. */
+  .app-shell.shell-mobile .module-card .btn-ghost {
+    min-height: var(--control-h-touch, 44px);
+  }
+}
+
+/* ── 3. Низкий ландшафт: навигация не отнимает высоту ─────────────────────
+   Портретная нижняя панель в landscape 320–520 px съедала бы ещё ~50 px
+   полезной высоты. Здесь она становится плавающим вертикальным рейлом у
+   правого края: высоту не занимает вообще, подписи скрыты (доступные имена —
+   в aria-label/title), контент получает РЕАЛЬНУЮ высоту и резерв справа,
+   поэтому ничего не уходит под рейл. Шапка — та же одна строка.
+   Ширина 768–1199 в низком ландшафте — compact shell (постоянной панели нет,
+   навигация в drawer): там вместо рейла сворачивается ШАПКА в одну строку,
+   иначе две строки + ряд разделов отбирали у контента почти всё. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app-shell.shell-mobile .mobile-topnav {
+    position: fixed;
+    top: 50%;
+    right: max(.25rem, env(safe-area-inset-right, 0px));
+    left: auto; bottom: auto;
+    transform: translateY(-50%);
+    width: auto; flex-direction: column; gap: .15rem;
+    padding: .25rem;
+    border: var(--shell-border); border-top: var(--shell-border);
+    border-radius: 14px;
+  }
+  .app-shell.shell-mobile .mobile-topnav-link {
+    min-width: var(--control-h-touch, 44px);
+    min-height: var(--control-h-touch, 44px);
+    padding: .2rem;
+  }
+  .app-shell.shell-mobile .mobile-topnav-label { display: none; }
+  .app-shell.shell-mobile main.scroll-area {
+    padding-right: calc(58px + max(env(safe-area-inset-right, 0px), 0px));
+  }
+  /* Шапка низкого ландшафта — одна строка в ЛЮБОМ shell-режиме. */
+  header.header-sticky.header-compact-v2 {
+    flex-wrap: nowrap;
+    row-gap: 0;
+    min-height: 48px;
+    padding-top: calc(.2rem + max(env(safe-area-inset-top, 0px),
+                  var(--tg-safe-area-inset-top, 0px))
+                  + var(--tg-content-safe-area-inset-top, 0px));
+    padding-bottom: .2rem;
+  }
+  header.header-sticky.header-compact-v2 .header-title-wrap {
+    flex: 1 1 4rem; min-width: 0;
+  }
+  /* Крошка и полное имя пользователя — первыми под сжатие: путь назад
+     остаётся доступен через кнопку ←, имя/роль — в drawer. */
+  header.header-sticky.header-compact-v2 .breadcrumb { display: none; }
+  header.header-sticky.header-compact-v2 .header-user span { display: none; }
+  header.header-sticky.header-compact-v2 .header-scope-row {
+    order: 2; flex: 1 1 auto; flex-wrap: nowrap;
+    width: auto; min-width: 0;
+  }
+  header.header-sticky.header-compact-v2 .header-scope-row .scope-trigger {
+    max-width: 40vw;
+  }
+}
+
+/* ── 4. Меню «Ещё»: bottom sheet над нижней панелью (портрет) ─────────────
+   Триггер теперь внизу, поэтому панель раскрывается ВВЕРХ от него, а не
+   «под шапкой». Высота ограничена видимой областью, скролл — внутри панели
+   (никаких скролл-ловушек: overscroll-behavior уже contain). */
+@media (max-width: 767px) {
+  .app-shell.shell-mobile .more-menu-panel {
+    top: auto;
+    bottom: calc(var(--bottom-nav-h, 56px) + 6px);
+    max-height: min(62vh, calc(100dvh - var(--header-h, 56px) - 96px));
+  }
+}
+
+/* Меню «Ещё» из рейла (низкий ландшафт) — панель справа, в пределах видимой
+   высоты. Специфичность выше портретного правила выше: рейл у правого края,
+   лист не должен накрывать его и не может уезжать за верх вьюпорта. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app-shell.shell-mobile .more-menu-root .more-menu-panel {
+    top: max(6px, env(safe-area-inset-top, 0px));
+    bottom: max(6px, env(safe-area-inset-bottom, 0px));
+    right: calc(58px + max(env(safe-area-inset-right, 0px), 0px));
+    left: auto;
+    width: min(340px, 78vw);
+    max-height: none;
+  }
+}
+
+/* ── 5. Планшет / промежуточная ширина: 1–2 колонки по месту ──────────────
+   До 767 px хаб-сетка была принудительно одноколоночной (.app-shell.ia-v2
+   .hub-grid { 1fr }) — на 560–767 px это давало одну широкую «плитку» на
+   весь планшет. Плитки хаба компактные (иконка+заголовок+подзаголовок),
+   поэтому здесь честные две колонки по min-content. */
+@media (min-width: 560px) and (max-width: 767px) {
+  .app-shell.ia-v2 .hub-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── 6. Широкий desktop: контент использует пространство ──────────────────
+   `.hub-grid`/`.module-list` держали фиксированные 1024/1100 px — на 1440+
+   это островок узких карточек среди пустоты. Предел поднят, но не снят:
+   читаемая ширина строки остаётся ограниченной, колонки добавляются по
+   minmax-семантике самих сеток (3–4 колонки вместо «островка»). */
+@media (min-width: 1440px) {
+  .app-shell.ia-v2 .hub-head,
+  .app-shell.ia-v2 .hub-grid { max-width: 78rem; }
+  .app-shell.ia-v2 .module-catalog .module-list,
+  .app-shell.ia-v2 .module-quick-wrap,
+  .app-shell.ia-v2 .module-toolbar { max-width: 78rem; }
+  .app-shell.ia-v2 .speech-screen { max-width: 1400px; }
+}
+
+/* ── 7. Модалки на узком экране: bottom sheet ─────────────────────────────
+   Класс `w9-sheet-bottom` ставится app.js::_syncShellMode (единственный
+   источник режима — та же точка, что shellMode; пересчёт на resize/зуме).
+   Это реальный режим, а не косметический маркер: он включает sheet-геометрию
+   (низ экрана, скругление сверху, safe-area снизу, внутренний скролл только
+   в .modal-body). Закрытие остаётся в собственных действиях модалки и не
+   уходит под системные кнопки Telegram — отсюда padding-bottom safe-area. */
+html.w9-sheet-bottom .modal-backdrop {
+  align-items: flex-end;
+  justify-content: stretch;
+  padding: 0;
+  padding-bottom: var(--kb-offset, 0px);
+}
+html.w9-sheet-bottom .modal-card {
+  width: 100%;
+  max-width: 100%;
+  max-height: min(calc(var(--app-usable-height, 100dvh)
+                 - var(--kb-offset, 0px) - 8px), 92dvh);
+  border-radius: 18px 18px 0 0;
+  padding-bottom: calc(1rem + max(env(safe-area-inset-bottom, 0px),
+                  var(--tg-safe-area-inset-bottom, 0px),
+                  var(--tg-content-safe-area-inset-bottom, 0px)));
+}
+/* Низкий ландшафт: лист не должен упираться в системные кнопки клиента. */
+@media (orientation: landscape) and (max-height: 520px) {
+  html.w9-sheet-bottom .modal-card {
+    max-height: calc(100dvh - var(--kb-offset, 0px) - 8px);
+  }
+}
+
+/* ── 8. Клавиатура/увеличенный шрифт: подписи не обрезаются ───────────────
+   Крупный системный шрифт (Android) и zoom 200 % увеличивают высоту строки:
+   сегменты навигации и триггер области не ограничивают высоту жёстко и
+   переносят подпись внутри контента, а не выталкивают её за вьюпорт. */
+.app-shell.shell-mobile .mobile-topnav-link,
+.app-shell.shell-mobile .scope-trigger {
+  height: auto;
+}
+.app-shell.shell-mobile .mobile-topnav-label {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
