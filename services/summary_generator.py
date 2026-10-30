@@ -1397,7 +1397,8 @@ class SummaryGenerator:
                                        map_unavailable: bool = False,
                                        review_skipped_reason=None,
                                        source_window=None,
-                                       anchor_map=None, length=None):
+                                       anchor_map=None, length=None,
+                                       visual_evidence=None):
         """T-4609/T-4610 (spec §2 B.3/B.4; ADR-1028-8 D4/AM-4): Writer от
         Full SourceWindow; FactPackage = derived view (только валидация/
         roster); WHOLE_WINDOW — один вызов; CAPACITY_OVERFLOW — иерархический
@@ -1526,7 +1527,13 @@ class SummaryGenerator:
             len(partitions), allowance)
         documents = []
         for seg_index, segment in enumerate(partitions, start=1):
-            seg_items = build_l1_payload(segment, chat_id)
+            # review-fix3 (§4/§9.3): сегменты иерархического Writer — тот же
+            # визуальный вход, что и WHOLE_WINDOW (иначе OCR терялся бы на
+            # больших окнах). Нет свидетельства → прежняя форма вызова.
+            seg_items = (build_l1_payload(segment, chat_id,
+                                          visual_evidence=visual_evidence)
+                         if visual_evidence
+                         else build_l1_payload(segment, chat_id))
             seg_ids = {item.get("message_id") for item in seg_items
                        if isinstance(item.get("message_id"), int)}
             seg_map = slice_map_for_ids(overflow_map, seg_ids) \
@@ -1625,7 +1632,8 @@ class SummaryGenerator:
 
     async def _build_legacy_full_window_context(
             self, chat_id: int, rows: list, correlation_id: str, ctx=None, *,
-            semantic_package: dict | None = None
+            semantic_package: dict | None = None,
+            visual_evidence: dict | None = None
             ) -> tuple[str | None, dict | None]:
         """Волна C (T-4424, spec §3 C.3, ADR-1028-7 D7.3): контент истории
         для БОЛЬШОГО окна — иерархически свёрнутый full-window пакет вместо
@@ -1672,8 +1680,11 @@ class SummaryGenerator:
                 budget_limit = safe_budget(limit) if kind == "tokens" \
                     else limit
                 result = build_fallback_package(
-                    build_l1_payload(rows, chat_id), budget=(kind,
-                                                             budget_limit),
+                    (build_l1_payload(rows, chat_id,
+                                      visual_evidence=visual_evidence)
+                     if visual_evidence
+                     else build_l1_payload(rows, chat_id)),
+                    budget=(kind, budget_limit),
                     correlation_id=correlation_id, chat_id=chat_id,
                     reason="legacy_full_window")
                 package = result.package if result is not None else None
@@ -1839,7 +1850,9 @@ class SummaryGenerator:
                 (full_window_context, full_window_coverage) = (
                     await self._build_legacy_full_window_context(
                         chat_id, rows, correlation_id, ctx,
-                        semantic_package=semantic_package))
+                        semantic_package=semantic_package,
+                        visual_evidence=self._media_xml_evidence(
+                            window_media_state)))
         keywords = self._extract_keywords(rows)
         l2_rows = await self.memory.search_long_term(
             chat_id, keywords, await _chat_limit(
@@ -2419,7 +2432,23 @@ class SummaryGenerator:
                                or "") or None)
             except Exception:  # pragma: no cover - fail-open
                 pass
-            payload_items = build_l1_payload(rows, chat_id)
+            # ASAP-VISION-SYNC-01 (review-fix3, §4/§8.18/§9.3): статья по
+            # умолчанию строится гибридным контуром (L1/L2) — готовое
+            # визуальное свидетельство окна обязано доходить и сюда, иначе
+            # captioned-фото отдаёт Writer'у одну подпись без содержимого
+            # картинки. Источник тот же, что у статьи/фактов (§4.6): готовый
+            # анализ со ссылками msg/asset/анализ vN, для pending/failed —
+            # честная строка статуса. Нет медиа/БД → None (байт-в-байт).
+            visual_state = await self._window_media_state(chat_id, rows)
+            visual_evidence = self._media_xml_evidence(visual_state)
+            if visual_evidence:
+                payload_items = build_l1_payload(
+                    rows, chat_id, visual_evidence=visual_evidence)
+            else:
+                # Свидетельства нет (нет медиа/БД/модуля): вызов прежней
+                # формы — элемент §92 байт-в-байт, поведение без медиа не
+                # меняется.
+                payload_items = build_l1_payload(rows, chat_id)
             # T-4607: map-payload L1 (semantic map v1) — по форме выхода
             # (map-режим врезается только в capacity-first ветке run_l1).
             map_payload = None
@@ -2621,7 +2650,8 @@ class SummaryGenerator:
                     anchor_map=(getattr(exec_input, "anchor_map", None)
                                 if exec_input is not None else None),
                     length=(getattr(exec_input, "length", None)
-                            if exec_input is not None else None))
+                            if exec_input is not None else None),
+                    visual_evidence=visual_evidence)
                 calls_so_far += (_l2_writer_calls(l2_result)
                                  + _l2_review_extra_calls(l2_result))
             elif _pages:

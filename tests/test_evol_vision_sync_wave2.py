@@ -1224,3 +1224,151 @@ def test_p2_facts_evidence_excludes_unready_media():
          "failed": {2: "provider_timeout"}, "missing": {}}) is None
     assert SummaryGenerator._media_xml_evidence(None) is None
 
+
+# ── review-fix3: гибридный путь статьи (L1/L2) получает визуальные данные ──
+
+class _StopHybrid(BaseException):
+    """Прерывание тестового прогона сразу после захвата payload Writer'а.
+
+    Наследуется от BaseException намеренно: `_run_hybrid_l2` гасит любые
+    `Exception` (LEVEL-3/UX), а тесту нужен ровно один факт — что ушло в
+    Writer статьи, без последующих публикаций/фолбэков."""
+
+
+@pytest.mark.asyncio
+async def test_review_fix3_hybrid_article_payload_carries_visual_evidence(
+        db, monkeypatch):
+    """review-fix3 (§4/§8.18/§9.3): статья по умолчанию строится гибридным
+    контуром, поэтому готовый OCR captioned-фото обязан попадать в §92-payload
+    этого контура (раньше — только в Legacy XML). Без медиа элемент прежний."""
+    from types import SimpleNamespace
+
+    from services import summary_generator as sg
+    from services import summary_l1_clusterizer as sl1
+    from services.summary_memory import visual_window_state
+
+    await _msg(db, 3000, media_type="photo", caption="что на скрине?",
+               author="Аня")
+    asset_id = await _img(db, 3000, serial=301)
+    await _ready(db, asset_id, text="Скрин: перевод 5000",
+                 description="скриншот перевода")
+    rows = [_row(3000, "что на скрине?", author="Аня", media_type="photo")]
+
+    # 1) Паритет по умолчанию: без свидетельства элемент §92 байт-в-байт
+    #    прежний (подпись автора, никакого OCR).
+    plain = sl1.build_l1_payload(rows, CHAT)
+    assert plain[0]["text"] == "что на скрине?"
+    assert "перевод 5000" not in plain[0]["text"]
+
+    # 2) Сам payload принимает свидетельство: адрес источника сохранён.
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    lines = sg.SummaryGenerator._media_xml_evidence(state)
+    assert lines and "перевод 5000" in lines[3000]
+    enriched = sl1.build_l1_payload(rows, CHAT, visual_evidence=lines)
+    assert "что на скрине?" in enriched[0]["text"]
+    assert "Скрин: перевод 5000" in enriched[0]["text"]
+    for token in ("msg:", "asset:", "анализ v"):
+        assert token in enriched[0]["text"]
+    assert enriched[0]["message_type"] == "photo"
+
+    # 3) Продакшн-путь: `_run_hybrid_l2` (Hybrid L1/L2 — режим по умолчанию)
+    #    отдаёт Writer'у статьи payload, уже содержащий OCR и адрес источника.
+    memory = MagicMock()
+    memory.db = db
+    gen = sg.SummaryGenerator(memory=memory, xml=MagicMock(),
+                              llm=MagicMock(), bot=None)
+    l1_map = {"schema_version": 1,
+              "topics": [{"topic_id": "topic_001", "title": "скрин перевода",
+                          "message_ids": [3000], "participants": [],
+                          "short_hint": ""}],
+              "events": [], "unassigned_message_ids": []}
+    fake_l1 = SimpleNamespace(
+        usable=True, payload=l1_map, threads_count=1, invalid_reason=None,
+        status="ok", duration_ms=1.0, map_degraded=False, map_stats={})
+
+    async def _fake_run_l1(**kwargs):
+        return fake_l1
+
+    monkeypatch.setattr(sl1, "run_l1", _fake_run_l1)
+    captured: dict = {}
+
+    async def _capture(chat_id, rows_arg, payload_items, *args, **kwargs):
+        captured["payload"] = payload_items
+        captured["visual"] = kwargs.get("visual_evidence")
+        raise _StopHybrid()
+
+    monkeypatch.setattr(gen, "_run_writer_source_stage", _capture)
+
+    # Writer-от-окна — прод-дефолт ON (conftest держит kill-switch OFF для
+    # остальных тестов набора: здесь он осознанно возвращается к продакшну).
+    with patched_settings(SUMMARY_WRITER_SOURCE_INPUT_ENABLED=True):
+        with pytest.raises(_StopHybrid):
+            await gen._run_hybrid_l2(CHAT, rows, None, "review-fix3-run")
+
+    payload = captured.get("payload")
+    assert payload, "Writer статьи не получил payload — гибридный путь не дошёл"
+    assert "Скрин: перевод 5000" in payload[0]["text"]
+    assert "msg:" in payload[0]["text"] and "asset:" in payload[0]["text"]
+    assert "анализ v" in payload[0]["text"]
+    assert "[фото]" not in payload[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_review_fix3_hybrid_payload_honest_status_for_unready_media(db):
+    """review-fix3: нераспознанное изображение в статье — честный статус
+    (ожидание/отказ с причиной), а не выдуманное содержимое и не пустая
+    подпись."""
+    from services import summary_l1_clusterizer as sl1
+    from services.summary_generator import SummaryGenerator
+    from services.summary_memory import visual_window_state
+
+    await _msg(db, 3100, media_type="photo", author="Аня")
+    pending_asset = await _img(db, 3100, serial=311)
+    await _vision_job(db, 3100, pending_asset, serial=311)
+    await _msg(db, 3101, media_type="photo", caption="а это?", author="Петя")
+    failed_asset = await _img(db, 3101, serial=312)
+    await _rec(db, failed_asset, status="failed", error_reason="provider_timeout")
+
+    rows = [_row(3100, "", author="Аня", media_type="photo"),
+            _row(3101, "а это?", author="Петя", media_type="photo")]
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    lines = SummaryGenerator._media_xml_evidence(state)
+    payload = sl1.build_l1_payload(rows, CHAT, visual_evidence=lines)
+
+    assert "распознаётся" in payload[0]["text"]        # идёт работа — честно
+    assert "не распознано" in payload[1]["text"]       # отказ назван
+    assert "а это?" in payload[1]["text"]              # подпись сохранена
+
+
+@pytest.mark.asyncio
+async def test_review_fix3_legacy_full_window_reduction_keeps_visual_evidence(
+        db):
+    """review-fix3 (§9.3): урезанная иерархическая свёртка большого окна
+    (Legacy full-window) — тоже потребление §92-содержимого, поэтому готовый
+    OCR доходит и туда, а не только в плоский XML малого окна."""
+    from services.summary_generator import SummaryGenerator
+    from services.summary_memory import visual_window_state
+
+    await _msg(db, 3200, media_type="photo", caption="что на скрине?",
+               author="Аня")
+    asset_id = await _img(db, 3200, serial=321)
+    await _ready(db, asset_id, text="Скрин: перевод 5000",
+                 description="скриншот перевода")
+    rows = [_row(3200, "что на скрине?", author="Аня", media_type="photo")]
+
+    memory = MagicMock()
+    memory.db = db
+    gen = SummaryGenerator(memory=memory, xml=MagicMock(),
+                           llm=MagicMock(), bot=None)
+    state = await visual_window_state(db, CHAT, rows, consumer="summary")
+    lines = SummaryGenerator._media_xml_evidence(state)
+
+    with_visual, _cov = await gen._build_legacy_full_window_context(
+        CHAT, rows, "review-fix3-legacy", visual_evidence=lines)
+    without, _cov2 = await gen._build_legacy_full_window_context(
+        CHAT, rows, "review-fix3-legacy")
+    assert with_visual and "Скрин: перевод 5000" in with_visual
+    assert "msg:" in with_visual and "asset:" in with_visual
+    assert without and "Скрин: перевод 5000" not in without
+    assert "что на скрине?" in without       # подпись прежняя, без OCR
+

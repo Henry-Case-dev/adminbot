@@ -425,7 +425,7 @@ _L1_FIELDS = (
 )
 
 
-def build_l1_payload(rows, chat_id) -> list:
+def build_l1_payload(rows, chat_id, *, visual_evidence=None) -> list:
     """Структурированные сообщения §92 для L1-кластеризатора.
 
     Используются **только фактически доступные** поля строки окна:
@@ -434,8 +434,18 @@ def build_l1_payload(rows, chat_id) -> list:
     ``reply_to_id``, ``timestamp``, ``text``; ``chat_id`` — из контекста
     запуска. Отсутствующие метаданные не выдумываются: ``mentions`` (поля в
     окне нет) в элемент не попадает вовсе.
+
+    ASAP-VISION-SYNC-01 (review-fix3, §4/§9.3): ``visual_evidence`` —
+    ``{tg_message_id: строка}`` визуального свидетельства окна
+    (:func:`services.summary_memory.visual_evidence_lines`: готовый OCR/
+    описание со ссылками msg/asset/анализ vN, а для нераспознанного —
+    честный статус). Строка добавляется к ``text`` того же сообщения, поэтому
+    Writer статьи (и любой потребитель §92-элемента) видит содержимое
+    картинки вместо потери на captioned-фото. ``None``/пусто → элемент
+    байт-в-байт прежний (паритет всех существующих вызовов без медиа).
     """
     payload: list = []
+    evidence = visual_evidence or {}
     for row in rows or []:
         item = {
             "message_id": _row_tg(row),
@@ -447,6 +457,17 @@ def build_l1_payload(rows, chat_id) -> list:
             "reply_to_id": _row_get(row, "reply_to_id"),
             "message_type": _row_get(row, "media_type"),
         }
+        if evidence:
+            # Ключ — TG id (§92-пространство); чужая/нечисловая строка окна
+            # свидетельства не получает (ничего не выдумываем).
+            try:
+                visual = str(evidence.get(int(item["message_id"] or 0))
+                             or "").strip()
+            except (TypeError, ValueError):
+                visual = ""
+            if visual:
+                caption = str(item.get("text") or "").strip()
+                item["text"] = f"{caption} {visual}".strip()
         mentions = _row_get(row, "mentions")
         if mentions is not None:
             item["mentions"] = mentions

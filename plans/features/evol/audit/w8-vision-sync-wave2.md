@@ -395,6 +395,83 @@ TestAggregatorFailureTaxonomy` (`test_timeout_is_not_provider_unavailable`,
 
 ---
 
+## §review-fix3 — визуальные данные в статье гибридного контура (последний P2)
+
+### Дефект (воспроизведён на кандидате `7131897b`)
+
+Статья по умолчанию строится **гибридным** контуром (`SUMMARY_HYBRID_L2_ENABLED`
+= True): `_run_hybrid_l2` → §92-элементы (`build_l1_payload(rows, chat_id)`) →
+Writer статьи. В эти элементы уходили только поля строки окна, поэтому
+captioned-фото давало `{"text": "что на скрине?", "message_type": "photo"}` —
+без OCR и без адреса источника. Визуальное свидетельство раздавалось **только**
+в `_run_legacy_pipeline` (XML-статья + факты), то есть §4/§8.18 («сводки видят
+источник после готовности анализа») выполнялось лишь на аварийном/выключенном
+контуре, а §9.3 («каждый путь потребления подключён или честно объявлен
+независимым от картинки») — нет.
+
+### Исправлено
+
+* `services/summary_l1_clusterizer.py`: `build_l1_payload(rows, chat_id, *,
+  visual_evidence=None)` — необязательный `{tg_message_id: строка}` из
+  `visual_evidence_lines` (готовый OCR/описание со ссылками msg/asset/анализ
+  vN; для pending — «ещё распознаётся», для failed — «не распознано (причина)»).
+  Строка дописывается к `text` того же сообщения. `None`/пусто → элемент
+  байт-в-байт прежний; ключи вне окна/нечисловые ничего не получают.
+* `services/summary_generator.py`:
+  * `_run_hybrid_l2` читает состояние окна один раз (`_window_media_state`,
+  без ожидания и без новых Vision-вызовов) и отдаёт строки в §92-payload
+  статьи; без свидетельства вызов идёт **прежней формы** (паритет).
+  * `_run_writer_source_stage(..., visual_evidence=...)` — те же строки в
+  сегменты иерархического Writer (CAPACITY_OVERFLOW): иначе OCR терялся бы на
+  больших окнах.
+  * `_build_legacy_full_window_context(..., visual_evidence=...)` — свёртка
+  большого окна Legacy тоже потребляет §92-элементы, поэтому визуальные данные
+  идут и туда (плоский XML малого окна уже получал их в review-fix2).
+
+### Доказано
+
+* `test_review_fix3_hybrid_article_payload_carries_visual_evidence` — captioned-
+  фото с готовым анализом: (1) `build_l1_payload` без свидетельства байт-в-байт
+  (только подпись, без OCR); (2) со свидетельством — OCR + `msg:`/`asset:`/
+  `анализ v`; (3) **продакшн-путь** `_run_hybrid_l2` отдаёт Writer'у payload с
+  OCR и адресом, плейсхолдера «[фото]» нет.
+* `test_review_fix3_hybrid_payload_honest_status_for_unready_media` — идущее
+  распознавание и терминальный отказ дают честные строки (подпись сохранена).
+* `test_review_fix3_legacy_full_window_reduction_keeps_visual_evidence` —
+  свёртка большого окна: со свидетельством OCR есть, без — только подпись.
+* **RED-проверка:** тот же тест на поведении ДО правки (обёртка `build_l1_payload`
+  без параметра) падает — `WorkspaceData/runs/…/evol-vision-fix3-*/red_probe.py`,
+  «RED_OK: тест падает без правки».
+
+### Прогоны после review-fix3 (этот worktree, `C:\Code\Python\adminbot\.venv\Scripts\python.exe`)
+
+| Набор | Результат |
+|---|---|
+| `test_evol_vision_sync_wave2.py` + `test_evol_vision_sync_core.py` | **62 passed** |
+| `test_summary_wave_c_asap4`, `wave_d_asap4`, `legacy_source_window_asap41`, `asap2_acceptance_round1027`, `wave8_off_parity_asap41`, vision core+wave2 | **198 passed** |
+| `test_asap8_f2_summary_execution_input`, `summary_capacity_asap41`, `fact_view_v2_anchors`, `golden_839_asap41`, `semantic_map_asap41`, `wave8_golden_asap41`, `wave8_ladder_matrix_asap41`, `writer_source_asap41`, vision core | **147 passed** |
+| `pytest tests/ -k summary` | **1808 passed, 6 failed** — ровно тот же набор падений, что в чистом `git archive 7131897b` (**1804 passed, 6 failed**): `summary_coverage_ledger_asap41::test_segment_permanent_failure_is_honest_degraded`, `summary_l1_clusterizer::…test_off_chain_byte_identical_single_call`, `summary_source_window_asap41::test_establish_single_point_writes_and_logs`, `summary_two_call_round1022::test_editor_then_narrator`, `unified_core_route_coverage::test_summary_single_path_gets_core_and_expression`, `verbilizer_response_modes_round1023::…summary_kill_switch_off_prev_narrator` |
+| чистая выгрузка (`git archive` + Expand-Archive, без правок): импорт `handlers.factcheck` + `services.factcheck_orchestrator` + пул `FACTCHECK_IMAGE_PENDING_AUTO_PHRASES` | **OK** (пул теперь закоммичен; `e9cbd050` самодостаточен) |
+
+Первые два падения «combined-only» из этого списка изолированно зелёные и в
+worktree, и в чистой выгрузке; `unified_core_route_coverage` падает и там, и там
+(тест подменяет генератор `SimpleNamespace` без `_window_media_state` — след
+review-fix2, не эта правка).
+
+### Честные зазоры
+
+* Вход **L1-кластеризатора** (`pack_l1_input` → LLM-карта тем) по-прежнему не
+  содержит OCR: свидетельство подключено к payload статьи/Writer'а (текст
+  читателя) и к свёртке большого окна. Логика карты — структурная (темы/связи),
+  а раскрытие содержимого даёт Writer; подключать свидетельство в упаковку L1
+  значило бы менять бюджеты/eviction/chunking L1 — отдельное решение, не этот
+  блокер.
+* Оценка объёма партиций (`_partition_lossless`) считается по строкам без
+  визуального текста: возможна недооценка на несколько процентов, её гасит
+  штатный бюджет/eviction Writer'а (не потеря содержимого картинки).
+
+---
+
 ## 9. Остаточный риск
 
 * Отложенный конспект окна при долго не готовом изображении: конспект не
