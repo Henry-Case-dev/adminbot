@@ -2783,6 +2783,14 @@ class DirectChatService:
         # Epic 60 (65.3): успешный допуск сбрасывает стачку.
         if hot.get("flags.chat_silence_enabled", settings.CHAT_SILENCE_ENABLED):
             await self.silence_streak.reset(chat_id, user_id)
+        # ASAP-VISION-SYNC-01 §3.5: «сначала просьба — потом изображение» —
+        # если ЭТО сообщение и есть поздно пришедшее медиа, к которому привязан
+        # отложенный запрос, ход отвечает на ИСХОДНЫЙ вопрос (после лимитов:
+        # отказ по лимиту не расходует возобновление). Потребление — ровно
+        # один раз (durable CAS), повторной отправки не будет.
+        _resume_intent = await self._claim_resume_intent(chat_id, message)
+        if _resume_intent is not None and not query:
+            query = str(_resume_intent.get("question") or "")
         logger.info("[direct] triggered | chat=%s user=%s", chat_id, target_name)
         # Epic 53 (62.3.3): CB OPEN → БЕЗ вызова LLM (0 запросов в апстрим),
         # сразу человеческая фраза CHAT_LLM_DOWN_PHRASES. Throttle-заряд уже
@@ -2794,6 +2802,15 @@ class DirectChatService:
                          message.message_id)
             self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             return
+        # ASAP-VISION-SYNC-01 §3/§4: барьер готовности медиа выполняется ДО
+        # захвата per-chat слота — ожидание Vision не блокирует другие
+        # сообщения чата и не занимает пул. Разрешённые маркеры ранее
+        # присланного изображения читаются тем же bounded-резолвом.
+        _extra_media_markers = await self._resolve_earlier_image_markers(
+            chat_id, message)
+        _media_readiness = await self._prepare_turn_media_evidence(
+            chat_id, message, query=query, correlation_id=correlation_id,
+            extra_markers=_extra_media_markers)
         # Epic 60 (63.2, T-461) — раунд N (T-840): слот пула ПОСЛЕ
         # throttle/CB-веток (мгновенные, не стоят в очереди); таймаут
         # ожидания → CHAT_LOCK_BUSY_PHRASES. Текст лога сохранён
@@ -2896,12 +2913,10 @@ class DirectChatService:
                                  exc_info=True)
                     style_directives = ""
             # ADD-TR.2 (ADTR-ENTRY, M-ADTR-ENTRY-REFS способ C): явная ссылка
-            # на ранее присланное в чате изображение — bounded-резолв по
-            # каноническому реестру MCA-19; неоднозначность → () (уточнение —
-            # штатный путь L1/Writer, без «угаданной» цели). Один резолв на
-            # ход — общий для context-сборки и L1-контекста.
-            _extra_media_markers = await self._resolve_earlier_image_markers(
-                chat_id, message)
+            # на ранее присланное в чате изображение вычислена ДО захвата слота
+            # (один резолв на ход, общий для context-сборки и L1-контекста);
+            # медиа-свидетельство актуальной ревизии (ASAP-VISION-SYNC-01)
+            # готово там же — L1 и Writer получают одну ревизию.
             # P0-HA SEGMENTS (архконтракт §0): граница количественной выборки
             # фиксируется ДО сборки контекста хода; сразу после создания
             # tool_ctx она станет его атрибутом (setattr ниже). Без числа+
@@ -2916,6 +2931,10 @@ class DirectChatService:
                 style_directives=style_directives,
                 extra_media_markers=_extra_media_markers,
                 history_sample=history_sample)
+            # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
+            # (данные, не инструкции); без связанного медиа блок не создаётся.
+            user_blocks = self._insert_media_evidence(
+                user_blocks, _media_readiness)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -3649,6 +3668,12 @@ class DirectChatService:
                             chat_id, _scrubbed_on)
                 _pcomp.emit_layer_events_once(_composer_manifest)
             time_line = await self._chat_time_line(chat_id)
+            # ASAP-VISION-SYNC-01 §4.4: финальная сборка payload перечитывает
+            # медиа-состояние БЕЗ ожидания — если анализ завершился после L1,
+            # Writer получает актуальную ревизию (старый pending-снимок
+            # заменяется), а не «не вижу изображение».
+            user_blocks = await self._refresh_turn_media_evidence(
+                _media_readiness, user_blocks)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
@@ -8100,6 +8125,168 @@ class DirectChatService:
             logger.debug("[adtr] earlier-image resolve failed — skipped",
                          exc_info=True)
             return ()
+
+    # ── ASAP-VISION-SYNC-01 (§1/§4): барьер готовности медиа в Direct ──────
+
+    MEDIA_EVIDENCE_TAG = "media_analysis"
+
+    async def _claim_resume_intent(self, chat_id, message) -> dict | None:
+        """Отложенный запрос «просьба → изображение» для ТЕКУЩЕГО сообщения.
+
+        Безопасно: ошибка/нет БД → None (обычный ход)."""
+        db = getattr(self, "db", None)
+        if db is None:
+            return None
+        try:
+            message_id = int(getattr(message, "message_id", 0) or 0)
+        except (TypeError, ValueError):
+            return None
+        if not message_id:
+            return None
+        try:
+            from services import media_readiness
+            intent = await media_readiness.claim_resume_for_turn(
+                db, chat_id=int(chat_id), message_id=message_id,
+                consumer="direct")
+        except Exception:
+            logger.debug("[direct] resume intent claim failed — обычный ход",
+                         exc_info=True)
+            return None
+        if intent is not None:
+            logger.info("[direct] deferred request resumed | chat=%s | "
+                        "trigger=%s | tg=%s", chat_id,
+                        intent.get("trigger_message_id"),
+                        intent.get("tg_message_id"))
+            return intent
+        return None
+
+    async def _prepare_turn_media_evidence(self, chat_id, message, *, query: str,
+                                           correlation_id: str = "",
+                                           extra_markers=()):
+        """Дождаться фактического анализа медиа ДО сборки payload.
+
+        Возвращает `MediaReadiness` или None (ход не зависит от изображения).
+        Никогда не бросает и никогда не «выдумывает» содержимое: pending и
+        терминальный отказ приходят как честное состояние."""
+        db = getattr(self, "db", None)
+        if db is None:
+            return None
+        try:
+            from services import media_readiness
+            reply = getattr(message, "reply_to_message", None)
+            own_media = message_media_type(message) is not None
+            reply_media = message_media_type(reply) is not None
+            explicit_reference = ""
+            for marker in extra_markers or ():
+                text = str(marker or "")
+                position = text.find("tg:")
+                if position >= 0:
+                    explicit_reference = text[position:].strip("[] ")
+                    break
+            if not media_readiness.is_media_dependent(
+                    query=query, own_media=own_media,
+                    reply_media=reply_media,
+                    explicit_ref=bool(explicit_reference)):
+                return None
+            readiness = await media_readiness.prepare_media_evidence(
+                db, chat_id=int(chat_id),
+                message_id=getattr(message, "message_id", None),
+                reply_to_message_id=getattr(reply, "message_id", None),
+                quote_text=str(getattr(message, "quote", None).text
+                               if getattr(message, "quote", None) is not None
+                               else ""),
+                explicit_reference=explicit_reference,
+                caption=str(getattr(message, "caption", None) or ""),
+                query=query,
+                media_group_id=str(getattr(message, "media_group_id", "") or ""),
+                consumer="direct", correlation_id=correlation_id,
+                allow_adjacent=bool(explicit_reference),
+                own_media=own_media, reply_media=reply_media)
+            if readiness is None:
+                return None
+            logger.info("[direct] media readiness | chat=%s | assoc=%s/%s | "
+                        "analysis=%s | rev=%s | reason=%s", chat_id,
+                        readiness.association_kind,
+                        readiness.association_status,
+                        readiness.analysis_status,
+                        readiness.analysis_revision,
+                        readiness.reason_code or "-")
+            if readiness.pending:
+                # Интерактивный предел исчерпан, но Vision продолжает работать:
+                # запрос сохраняется durable и будет возобновлён; содержимое
+                # изображения не выдумывается (Writer получает честный pending).
+                try:
+                    await media_readiness.defer_until_ready(
+                        db, readiness, consumer="direct",
+                        message_id=getattr(message, "message_id", None),
+                        query=query, notify=False)
+                except Exception:
+                    logger.debug("[direct] defer failed", exc_info=True)
+            return readiness
+        except Exception:
+            logger.warning("[direct] media readiness failed — обычный ход | "
+                           "chat=%s", chat_id, exc_info=True)
+            return None
+
+    def _insert_media_evidence(self, user_blocks, readiness) -> list:
+        """Вставить блок медиа-свидетельства в payload (до Current_Question)."""
+        blocks = list(user_blocks or [])
+        if readiness is None:
+            return blocks
+        try:
+            block = readiness.evidence_block()
+        except Exception:
+            logger.debug("[direct] evidence block build failed", exc_info=True)
+            return blocks
+        if not block:
+            return blocks
+        index = next((i for i, candidate in enumerate(blocks)
+                      if str(candidate).lstrip().startswith(
+                          "<Current_Question")), None)
+        if index is None:
+            return blocks + [block]
+        return blocks[:index] + [block] + blocks[index:]
+
+    async def _refresh_turn_media_evidence(self, readiness, user_blocks) -> list:
+        """Актуальная ревизия ПЕРЕД финальной сборкой payload (§4.4).
+
+        Ошибка/нет состояния → payload не меняется (паритет)."""
+        blocks = list(user_blocks or [])
+        db = getattr(self, "db", None)
+        if db is None or readiness is None:
+            return blocks
+        try:
+            from services import media_readiness
+            fresh = await media_readiness.refresh_media_evidence(
+                db, readiness, consumer="direct")
+            if fresh is None:
+                return blocks
+            block = fresh.evidence_block(self.MEDIA_EVIDENCE_TAG)
+            if not block:
+                return blocks
+            replaced = False
+            for index, candidate in enumerate(blocks):
+                text = str(candidate or "")
+                if text.lstrip().startswith(
+                        f"<{self.MEDIA_EVIDENCE_TAG}"):
+                    if text != block:
+                        blocks[index] = block
+                        replaced = True
+                    break
+            if not replaced and not any(
+                    str(c).lstrip().startswith(f"<{self.MEDIA_EVIDENCE_TAG}")
+                    for c in blocks):
+                blocks = self._insert_media_evidence(blocks, fresh)
+            media_readiness.mark_consumer_received(fresh, consumer="direct")
+            if fresh.ready and readiness.analysis_status != fresh.analysis_status:
+                logger.info("[direct] media revision applied before writer | "
+                            "chat=%s | status=%s | rev=%s", fresh.chat_id,
+                            fresh.analysis_status, fresh.analysis_revision)
+            return blocks
+        except Exception:
+            logger.warning("[direct] media refresh failed — прежний payload",
+                           exc_info=True)
+            return blocks
 
     @staticmethod
     def _is_reply_trigger(message) -> bool:

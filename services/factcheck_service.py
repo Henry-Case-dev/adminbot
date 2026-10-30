@@ -291,10 +291,30 @@ class ClaimMediaMaterial:
     # они попадают только вместе с OCR; иначе идут отдельным блоком контекста.
     description_suffix: str = ""
     truncated: bool = False           # материал изображения обрезан по лимиту
+    # ASAP-VISION-SYNC-01 §4: терминальный отказ распознавания — содержимое
+    # картинки НЕ проверено (отличается от «файл недоступен» и от «нет
+    # текста»); причина нормализована, а не пустая.
+    image_unchecked: bool = False
+    unchecked_reason: str = ""
 
     def notice(self) -> str:
         """Человеческое ограничение (никогда не выдумывает распознавание)."""
         parts: list[str] = []
+        if self.image_unchecked:
+            reason = ""
+            try:
+                from services import media_readiness
+                reason = media_readiness.reason_text(self.unchecked_reason)
+            except Exception:
+                reason = self.unchecked_reason or "технический сбой"
+            if self.image_count:
+                parts.append("Часть изображений публикации распознать не "
+                             f"удалось ({reason}) — их содержимое НЕ проверено, "
+                             "проверено то, что доступно.")
+            else:
+                parts.append("Изображение распознать не удалось "
+                             f"({reason}) — содержимое картинки НЕ проверено, "
+                             "проверен только текст публикации.")
         if self.vision_failed:
             if self.image_count:
                 parts.append("Не все изображения публикации удалось прочитать "
@@ -383,7 +403,9 @@ async def load_claim_media(db, chat_id: int | None,
                            render_async=None,
                            max_chars: int = 2000,
                            message_ids=None,
-                           expected_images: int = 0) -> ClaimMediaMaterial:
+                           expected_images: int = 0,
+                           media_wait_seconds: float | None = None,
+                           ) -> ClaimMediaMaterial:
     """OCR/визуальное описание изображений публикации (REUSE mca_vision).
 
     ``message_ids`` (P0-FACTCHECK media §3) — элементы альбома: читаются ВСЕ,
@@ -418,6 +440,25 @@ async def load_claim_media(db, chat_id: int | None,
         if mid and mid not in ids:
             ids.append(mid)
     rendered: list[dict] = []
+    # ASAP-VISION-SYNC-01 §4 («Фактчек — специальное обязательное правило»):
+    # ДО извлечения тезиса и до suitability-gate связанные изображения
+    # доводятся до фактического анализа (bounded; reuse durable jobs, без
+    # новых LLM-вызовов). Пока анализ идёт, «нечего проверять» запрещено:
+    # ниже это честно помечается как pending, а терминальный отказ даёт
+    # явную оговорку «содержимое картинки не проверено».
+    readiness_by_message: dict = {}
+    if ids:
+        try:
+            from services import media_readiness
+            readiness_by_message = await media_readiness.prepare_images_ready(
+                db, chat_id=int(chat_id), message_ids=ids,
+                consumer="factcheck",
+                wait_seconds=(media_wait_seconds
+                              if media_wait_seconds is not None else None))
+        except Exception:
+            logger.warning("[factcheck] media readiness failed — прежний "
+                           "путь | chat=%s", chat_id, exc_info=True)
+            readiness_by_message = {}
     failed = 0
     for mid in ids[:_MAX_ALBUM_ELEMENTS]:
         try:
@@ -451,6 +492,8 @@ async def load_claim_media(db, chat_id: int | None,
     # изображений одним общим бюджетом больше нет. При превышении лимита
     # элемента — честный флаг truncated (=> оговорка в ответе).
     element_budget = max(200, int(max_chars or 2000))
+    unchecked = False
+    unchecked_reason = ""
     for index, media in enumerate(rendered, start=1):
         caption = str(media.get("caption") or "").strip()
         if caption and caption not in captions:
@@ -500,6 +543,24 @@ async def load_claim_media(db, chat_id: int | None,
             desc_blocks.append(desc_part)
     ocr_suffix = "\n\n".join(ocr_blocks).strip()
     desc_suffix = "\n\n".join(desc_blocks).strip()
+    # ASAP-VISION-SYNC-01: фактическое состояние каждого изображения (не вывод
+    # из текста рендера): pending — анализ идёт, failed — терминальный отказ
+    # (содержимое картинки НЕ проверено, об этом говорит ответ).
+    for state in (readiness_by_message or {}).values():
+        if getattr(state, "ready", False):
+            continue
+        if getattr(state, "pending", False):
+            if not pending:
+                pending = True
+                pending_count = max(pending_count, 1)
+            continue
+        if getattr(state, "failed", False) and not unchecked:
+            unchecked = True
+            unchecked_reason = str(getattr(state, "reason_code", "") or "")
+    if unchecked:
+        # Честная оговорка «картинку не проверили» покрывает и недоступность
+        # файла — не дублируем её вторым предложением.
+        vision_failed = False
     # Review fix: описание — КОНТЕКСТ, а не тезис. В claim/envelope оно идёт
     # только когда есть OCR (материал тезиса); без OCR остаётся в
     # description_suffix и передаётся модели отдельным non-evidence блоком.
@@ -512,13 +573,16 @@ async def load_claim_media(db, chat_id: int | None,
                               image_not_analyzed=pending,
                               ocr_chars=ocr_chars,
                               caption="\n\n".join(captions),
-                              vision_failed=unavailable
-                              or (bool(failed) and expected > 0),
+                              vision_failed=False if unchecked else
+                              (unavailable
+                               or (bool(failed) and expected > 0)),
                               image_count=len(rendered),
                               pending_count=pending_count,
                               visual_descriptions=tuple(raw_descriptions),
                               description_suffix=desc_suffix,
-                              truncated=truncated)
+                              truncated=truncated,
+                              image_unchecked=unchecked,
+                              unchecked_reason=unchecked_reason)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -552,6 +616,32 @@ class ClaimPublication:
             parts.append(media_notice)
         return " ".join(parts)
 
+    # ASAP-VISION-SYNC-01 §4: единая точка правды о медиа-зависимости для
+    # обоих маршрутов фактчека (handler и v2-оркестратор). Пока анализ
+    # изображения `pending`, предварительный `no_claim` запрещён: пустая
+    # подпись ≠ отсутствие проверяемого тезиса.
+    @property
+    def media_pending(self) -> bool:
+        return bool(self.media.image_not_analyzed)
+
+    @property
+    def media_unchecked(self) -> bool:
+        return bool(self.media.image_unchecked)
+
+    def media_dependency(self) -> str:
+        """`ready` | `pending` | `unchecked` | `none` (нормализованно)."""
+        if self.media_pending:
+            return "pending"
+        if self.media_unchecked:
+            return "unchecked"
+        if self.has_image or self.media.image_present:
+            return "ready"
+        return "none"
+
+    def admission_blocked_by_pending_media(self) -> bool:
+        """True — допуск обязан отложиться (pending OCR), а не дать no_claim."""
+        return self.media_pending
+
     def material_context(self) -> str:
         """Визуальные описания как non-evidence контекст (review fix).
 
@@ -573,7 +663,8 @@ async def resolve_claim_publication(
         target=None,
         use_stored_target_text: bool = True,
         render_async=None,
-        max_chars: int = 2000) -> ClaimPublication:
+        max_chars: int = 2000,
+        media_wait_seconds: float | None = None) -> ClaimPublication:
     """Восстановить публикацию: durable элементы альбома + изображения.
 
     P0-FACTCHECK media (owner 25.10.2026 §3): ответ на ЛЮБОЙ элемент
@@ -758,7 +849,8 @@ async def resolve_claim_publication(
     image_ids.sort()
     media = await load_claim_media(
         db, chat_id, tg_id, render_async=render_async, max_chars=max_chars,
-        message_ids=image_ids or None, expected_images=len(expected_ids))
+        message_ids=image_ids or None, expected_images=len(expected_ids),
+        media_wait_seconds=media_wait_seconds)
     has_image = hint_image or bool(expected_ids) or media.image_present
     if expected_ids and not media.image_present and not media.vision_failed:
         media = dataclasses.replace(media, vision_failed=True)

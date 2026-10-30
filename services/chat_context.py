@@ -276,3 +276,87 @@ async def build_chat_context(db, rows, *, chat_id: int,
         rows, max_chars=max_chars, trigger_message_id=trigger_message_id,
         reply_chains=reply_chains, anchor_message_id=anchor_message_id,
         media_blocks=media_blocks)
+
+
+# ── ASAP-VISION-SYNC-01 §4.4: актуальная ревизия медиа для потребителя ──────
+# `format_chat_context` остаётся байт-в-байт прежним (рендер только готовых
+# анализов). Эти два хелпера дают потребителю возможность (а) перечитать ОДИН
+# медиа-блок заново после готовности Vision и (б) проверить, что он получил
+# актуальную ревизию, а не старый pending-снимок. Новых vision-вызовов нет.
+
+
+async def refresh_media_block(db, chat_id: int, tg_message_id: int) -> dict:
+    """Свежий медиа-блок сообщения + фактическая ревизия анализа.
+
+    Возвращает ``{"text": str, "analysis_status": str, "analysis_revision":
+    int|None, "pending": bool, "association": str}``; пустой словарь — медиа
+    нет/гейт OFF/ошибка (потребитель сохраняет прежнее поведение)."""
+    if db is None:
+        return {}
+    try:
+        from services import media_readiness
+        from services import mca_gates
+        from services import mca_vision
+        if not mca_gates.vision_enabled():
+            return {}
+        if not await mca_vision.resolve_requested(int(chat_id)):
+            return {}
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=int(chat_id), tg_message_id=int(tg_message_id))
+        text = str((rendered or {}).get("text") or "").strip()
+        readiness = await media_readiness.prepare_media_evidence(
+            db, chat_id=int(chat_id), message_id=int(tg_message_id),
+            consumer="chat_context", wait_seconds=0.0, enqueue=False,
+            force=True)
+        status = ""
+        revision = None
+        pending = False
+        association = ""
+        if readiness is not None:
+            status = readiness.analysis_status
+            revision = readiness.analysis_revision
+            pending = readiness.pending
+            association = readiness.association_kind
+        return {"text": text, "analysis_status": status,
+                "analysis_revision": revision, "pending": pending,
+                "association": association}
+    except Exception:
+        logger.warning("chat_context: media block refresh failed | chat=%s "
+                       "tg=%s", chat_id, tg_message_id, exc_info=True)
+        return {}
+
+
+async def pending_media_targets(db, chat_id: int, rows,
+                                anchor_message_id=None) -> dict:
+    """Какие медиа окна ещё НЕ готовы: ``{tg_message_id: reason_code}``.
+
+    Потребитель (Direct/FactCheck) использует это, чтобы не выдать
+    окончательный вывод по изображению, анализ которого не получен."""
+    if db is None:
+        return {}
+    try:
+        from services import media_readiness
+        result: dict[int, str] = {}
+        for row in rows or ():
+            try:
+                if not is_media_type(row_get(row, "media_type")):
+                    continue
+                tg_id = int(row_get(row, "tg_message_id") or 0)
+            except Exception:
+                continue
+            if not tg_id:
+                continue
+            if anchor_message_id is not None and \
+                    tg_id != int(anchor_message_id):
+                continue
+            state = await media_readiness.prepare_media_evidence(
+                db, chat_id=int(chat_id), message_id=tg_id,
+                consumer="chat_context", wait_seconds=0.0, enqueue=False,
+                force=True)
+            if state is None or state.ready:
+                continue
+            result[tg_id] = state.reason_code or "vision_queued"
+        return result
+    except Exception:
+        logger.debug("chat_context: pending media scan failed", exc_info=True)
+        return {}

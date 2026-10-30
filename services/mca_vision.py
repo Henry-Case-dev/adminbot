@@ -2097,6 +2097,242 @@ async def message_source_ref(db, *, chat_id: int, tg_message_id: int) -> int | N
 # Анализ (D8/T-5106): раздельный выход; OCR — данные, не инструкции
 # ════════════════════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════════════════════
+# ASAP-VISION-SYNC-01 §5: ВЫХОДНОЙ КОНТРАКТ vision-вызова
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Было: жёсткая магическая константа `max_tokens=1024` для ЛЮБОГО изображения
+# и любого маршрута. Длинный скриншот упирался в лимит → обрезанный JSON →
+# честный, но бессмысленный `parse_error` (телеметрия
+# `vision_adapt outcome=failed strategy=original reason=fits error=""`), а
+# `finish_reason`/reasoning-токены/наличие `content` вообще не читались —
+# поэтому реальная причина отказа не была видна НИГДЕ.
+#
+# Стало: эффективный предел вывода — конфигурация (правится администратором
+# через каталог: `models.vision_max_output_tokens`) → щедрый дефолт по классу
+# маршрута (reasoning-модели тратят completion-бюджет на размышление) → пол
+ # и потолок как защита от бесконечной генерации. Плюс: честное различение
+# причин (обрезано/не JSON/пусто/неожиданный формат/лимит провайдера/…),
+# structured output только там, где маршрут его принимает, и bounded-стратегия
+# (≤1 повтор на УСТАНОВЛЕННЫЙ класс ошибки; детерминированно невалидный
+# запрос повторно не отправляется).
+VISION_MAX_OUTPUT_TOKENS_KEY = "models.vision_max_output_tokens"
+VISION_REASONING_MODE_KEY = "models.vision_reasoning"
+VISION_STRUCTURED_OUTPUT_KEY = "models.vision_structured_output"
+
+#: Защитные границы предела вывода (не «бюджет значимого результата»):
+#: ниже пола OCR физически не влезает, выше потолка — риск бесконечной
+#: генерации/счёта.
+OUTPUT_TOKEN_FLOOR = 512
+OUTPUT_TOKEN_CEILING = 32768
+#: Честная стартовая точка для обычной (не reasoning) VLM-маршрута.
+OUTPUT_TOKEN_DEFAULT = 4096
+#: Reasoning-модель тратит completion-бюджет на размышление: без запаса
+#: содержимое обрывается на `finish_reason=length` при пустом `content`.
+OUTPUT_TOKEN_THINKING_DEFAULT = 16384
+#: Маркеры класса «thinking/reasoning» в имени модели (не allow-list
+#: провайдеров: только оценка порядка бюджета, не маршрутизация).
+_REASONING_MODEL_TOKENS = (
+    "reasoning", "thinking", "think", "qwq", "o1", "o3", "o4", "-r1",
+    "deepseek-r", "magistral", "gpt-5-thinking",
+)
+#: Максимум HTTP-попыток ОДНОГО анализа (1 базовый + 1 на обрезание и/или
+#: 1 на неподдерживаемый параметр маршрута) — без бесконечных retry.
+_VISION_MAX_ATTEMPTS = 3
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Модель класса «размышление» (оценка бюджета вывода, не маршрут)."""
+    name = str(model or "").lower()
+    return any(token in name for token in _REASONING_MODEL_TOKENS)
+
+
+def _route_config_key(route: VisionRoute) -> str:
+    return f"{route.source}|{route.base_url}|{route.model}"
+
+
+def _hot_int(key: str, default=None):
+    """Целочисленное значение конфигурации (каталог/инъекция) либо default."""
+    try:
+        value = hot.get(key, default)
+    except Exception:
+        return default
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _hot_str_value(key: str, default: str = "") -> str:
+    try:
+        value = hot.get(key, default)
+    except Exception:
+        value = default
+    return str(value if value is not None else default).strip().lower()
+
+
+def resolve_output_token_limit(route: VisionRoute, *, attempt: int = 0) -> int:
+    """Эффективный предел ВЫВОДА vision-вызова (не «квота инструкций»).
+
+    Приоритет: настройка администратора (`models.vision_max_output_tokens`,
+    каталог/горячая конфигурация) → конфигурационный дефолт окружения
+    (`VISION_MAX_OUTPUT_TOKENS`, если появится в Settings) → дефолт по классу
+    маршрута (reasoning-модель получает запас на размышление). Клампится в
+    [OUTPUT_TOKEN_FLOOR, OUTPUT_TOKEN_CEILING]; `attempt` (≥1) — расширение
+    для ОДНОГО повтора после установленного обрезания, а не общий бюджет."""
+    configured = _hot_int(VISION_MAX_OUTPUT_TOKENS_KEY, None)
+    if configured is None:
+        configured = getattr(settings, "VISION_MAX_OUTPUT_TOKENS", None)
+        try:
+            configured = int(configured) if configured not in (None, "") else None
+        except (TypeError, ValueError):
+            configured = None
+    if configured is None or configured <= 0:
+        configured = (OUTPUT_TOKEN_THINKING_DEFAULT
+                      if _is_reasoning_model(route.model)
+                      else OUTPUT_TOKEN_DEFAULT)
+    limit = int(configured)
+    if attempt:
+        limit = limit * (2 ** min(3, max(0, int(attempt))))
+    return max(OUTPUT_TOKEN_FLOOR, min(OUTPUT_TOKEN_CEILING, limit))
+
+
+def resolve_reasoning_mode(route: VisionRoute) -> str:
+    """Запрошенный режим reasoning: `off` — владелец прямо просит отключить;
+    `auto` (дефолт) — не отправлять неподдерживаемые параметры вслепую."""
+    value = _hot_str_value(VISION_REASONING_MODE_KEY, "auto")
+    if value in ("off", "none", "0", "false", "no"):
+        return "off"
+    return "auto"
+
+
+def resolve_structured_output(route: VisionRoute) -> str:
+    """`on` — structured output принудительно; `off` — никогда; `auto` —
+    только для маршрута, который его уже принимал (без слепой отправки)."""
+    value = _hot_str_value(VISION_STRUCTURED_OUTPUT_KEY, "auto")
+    if value in ("on", "1", "true", "yes"):
+        return "on"
+    if value in ("off", "0", "false", "no"):
+        return "off"
+    return "auto"
+
+
+#: Параметры маршрута, которые провайдер ОТКЛОНИЛ (обучение на фактическом
+#: ответе: повторно не отправляем). Ключ — route (base_url|model), значение —
+#: набор имён полей payload.
+_REJECTED_ROUTE_PARAMS: dict[str, set] = {}
+
+
+def route_param_rejected(route: VisionRoute, param: str) -> bool:
+    return param in _REJECTED_ROUTE_PARAMS.get(_route_config_key(route), set())
+
+
+def mark_route_param_rejected(route: VisionRoute, param: str) -> None:
+    _REJECTED_ROUTE_PARAMS.setdefault(_route_config_key(route), set()).add(
+        str(param))
+
+
+def reset_route_param_memo() -> None:
+    _REJECTED_ROUTE_PARAMS.clear()
+    _STRUCTURED_PROVEN.clear()
+
+
+#: Маршруты, реально принявшие `response_format` (structured output доказан
+#: успешным ответом — не «вслепую по типу провайдера»).
+_STRUCTURED_PROVEN: set = set()
+
+
+def _structured_output_proven(route: VisionRoute) -> bool:
+    return _route_config_key(route) in _STRUCTURED_PROVEN
+
+
+def mark_structured_output_proven(route: VisionRoute) -> None:
+    _STRUCTURED_PROVEN.add(_route_config_key(route))
+
+
+_ANALYSIS_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "ocr_blocks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "bbox": {"type": "array",
+                             "items": {"type": "number"}},
+                },
+                "required": ["text"],
+            },
+        },
+        "visual_description": {"type": "string"},
+        "uncertainty": {"type": "array", "items": {"type": "string"}},
+        "self_reported_confidence": {"type": "number"},
+    },
+    "required": ["ocr_blocks", "visual_description"],
+}
+
+
+def build_analysis_payload(route: VisionRoute, image: "DownloadedImage", *,
+                           output_limit: int, structured: bool,
+                           reasoning_off: bool) -> dict:
+    """Payload технического vision-вызова по ВОЗМОЖНОСТЯМ маршрута.
+
+    `structured` → настоящий `response_format` (json_schema с fallback на
+    json_object); `reasoning_off` → параметр отключения размышления. Оба
+    флага приходят от `resolve_*`/обучения маршрута, т.е. в payload не
+    попадает ничего, что маршрут не подтвердил."""
+    payload: dict = {
+        "model": route.model,
+        "messages": [
+            {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
+            {"role": "user", "content": [
+                {"type": "text",
+                 "text": "Распознай изображение по инструкции системы."},
+                {"type": "image_url",
+                 "image_url": {"url": _data_url(image.data, image.mime)}},
+            ]},
+        ],
+        "max_tokens": int(output_limit),
+        "temperature": 0,
+    }
+    if structured:
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "vision_analysis",
+                            "strict": True,
+                            "schema": _ANALYSIS_JSON_SCHEMA},
+        }
+    if reasoning_off:
+        # Единый OpenAI-совместимый способ попросить «без размышления»;
+        # отправляется ТОЛЬКО по подтверждённой возможности маршрута.
+        payload["reasoning_effort"] = "none"
+    return payload
+
+
+#: Поля payload, чьё отклонение провайдером распознаётся по тексту ошибки
+#: (обучаем маршрут и повторяем БЕЗ них — установленный класс ошибки).
+_UNSUPPORTED_PARAM_TOKENS = {
+    "response_format": ("response_format", "json_schema", "structured"),
+    "reasoning_effort": ("reasoning_effort", "reasoning", "thinking"),
+}
+
+
+def unsupported_param_from_error(text: str) -> str:
+    """Имя отклонённого параметра payload из текста ошибки провайдера."""
+    lowered = str(text or "").lower()
+    for param, tokens in _UNSUPPORTED_PARAM_TOKENS.items():
+        if any(token in lowered for token in tokens):
+            return param
+    return ""
+
+
 # Фиксированный system prompt: OCR/описание — тех-вызов data-only (mca-18 §5
 # D6: стиль не получают); текст на изображении — недоверенные данные (GEN-R18).
 ANALYSIS_SYSTEM_PROMPT = (
@@ -2125,6 +2361,9 @@ class VisionAnalysis:
     uncertainty: list[str]
     self_reported_confidence: float | None
     error_reason: str = ""
+    # ASAP-VISION-SYNC-01 §5: разделённые признаки успеха одного вызова —
+    # транспорт / схема / готовность анализа (потребитель получает отдельно).
+    diagnostics: dict | None = None
 
 
 def _untrusted_block(text: str, bbox=None) -> dict:
@@ -2155,25 +2394,52 @@ def _strip_markdown_fence(raw: str) -> str:
     return body
 
 
-def parse_analysis_payload(raw: str) -> VisionAnalysis:
+_TRUNCATION_FINISH_REASONS = frozenset({"length", "max_tokens",
+                                        "max_output_tokens"})
+
+
+def parse_analysis_payload(raw: str, *, finish_reason: str = ""
+                           ) -> VisionAnalysis:
     """Разбор ответа VLM в раздельный контракт. Не-JSON → честный `failed`
     (parse_error не маскируется в no_text); OCR-текст НИКОГДА не
     интерпретируется как инструкции — он только переносится в data-канал.
     EVOL-011: пустой content — ОТДЕЛЬНАЯ причина (`empty_content`), не «не
     JSON»: по телеметрии различимы пустой ответ провайдера и битый payload;
-    статус терминала (`failed`) и поведение пайплайна не меняются."""
+    статус терминала (`failed`) и поведение пайплайна не меняются.
+
+    ASAP-VISION-SYNC-01 §5: `finish_reason` (факт из HTTP-ответа) отделяет
+    ОБРЕЗАННЫЙ по лимиту вывода ответ (`output_truncated`) от настоящего
+    битого JSON (`parse_error`); JSON валиден, но не содержит ни одного поля
+    контракта → `unexpected_format` (а не «текста нет»)."""
     text = str(raw or "")
+    finish = str(finish_reason or "").strip().lower()
+    truncated = finish in _TRUNCATION_FINISH_REASONS
     if not text.strip():
-        return VisionAnalysis("failed", [], "", ["ответ модели пуст"],
-                              None, "empty_content")
+        return VisionAnalysis(
+            "failed", [], "",
+            ["ответ модели пуст"],
+            None, "output_truncated" if truncated else "empty_content")
     try:
         payload = json.loads(_strip_markdown_fence(text))
     except Exception:
+        if truncated:
+            return VisionAnalysis(
+                "failed", [], "",
+                ["ответ модели обрезан по пределу вывода (finish_reason="
+                 f"{finish})"],
+                None, "output_truncated")
         return VisionAnalysis("failed", [], "", ["ответ модели не JSON"],
                               None, "parse_error")
     if not isinstance(payload, dict):
         return VisionAnalysis("failed", [], "", ["ответ модели не объект"],
                               None, "parse_error")
+    if not any(key in payload
+               for key in ("ocr_blocks", "visual_description", "uncertainty",
+                           "self_reported_confidence")):
+        return VisionAnalysis(
+            "failed", [], "",
+            ["ответ модели не в ожидаемом формате (нет полей контракта)"],
+            None, "unexpected_format")
     raw_blocks = payload.get("ocr_blocks") or []
     blocks: list[dict] = []
     if isinstance(raw_blocks, list):
@@ -2200,38 +2466,30 @@ def parse_analysis_payload(raw: str) -> VisionAnalysis:
                           confidence)
 
 
-async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
-                              route: VisionRoute | None = None,
-                              transport=None, correlation_id: str | None = None,
-                              pg_pool=None) -> VisionAnalysis:
-    """Один vision-вызов тех-контракта (data-only): bytes → раздельный выход.
-    Учёт расхода (mca-11): ТОЛЬКО реальный вызов пишет
-    `usage_events.record(module='vision', step='media')`; cache hit — без
-    события (вызывающий путь кеша эту функцию не вызывает)."""
-    route = route or resolve_route(chat_id)
-    # D2/D13: честная конфигурационная ошибка вместо запроса с чужим ключом
-    # или несовместимым payload.
-    problem = route_config_problem(route)
-    if problem:
-        raise VisionError("vision_unavailable", problem)
-    key = api_key_for(route)
-    url = chat_completions_url(route.base_url)
-    payload = {
-        "model": route.model,
-        "messages": [
-            {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-            {"role": "user", "content": [
-                {"type": "text",
-                 "text": "Распознай изображение по инструкции системы."},
-                {"type": "image_url",
-                 "image_url": {"url": _data_url(image.data, image.mime)}},
-            ]},
-        ],
-        "max_tokens": 1024,
-        "temperature": 0,
-    }
-    headers = {"Authorization": f"Bearer {key}"}
-    transport = transport or _default_transport
+def _reasoning_tokens(usage: dict) -> int:
+    """Reasoning-токены ответа (если провайдер их отдаёт; иначе 0)."""
+    try:
+        details = (usage or {}).get("completion_tokens_details") or {}
+        if isinstance(details, dict):
+            return int(details.get("reasoning_tokens") or 0)
+    except Exception:
+        pass
+    return 0
+
+
+async def _vision_http_attempt(image: DownloadedImage, *, chat_id: int,
+                               route: VisionRoute, transport, url: str,
+                               headers: dict, output_limit: int,
+                               structured: bool, reasoning_off: bool,
+                               attempt: int) -> dict:
+    """ОДНА HTTP-попытка + разбор ответа в (transport-уровень).
+
+    Возвращает `{"status", "body", "content", "finish_reason", "usage",
+    "error_detail"}`. Ошибки транспорта/провайдера — VisionError (как раньше):
+    класс ошибки решает, есть ли смысл в bounded-повторе."""
+    payload = build_analysis_payload(
+        route, image, output_limit=output_limit, structured=structured,
+        reasoning_off=reasoning_off)
     try:
         status, body = await transport(url, payload=payload, headers=headers,
                                        timeout=60.0)
@@ -2240,6 +2498,8 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
     except httpx.HTTPError as exc:
         raise VisionError("vision_unavailable",
                           f"transport_error:{type(exc).__name__}") from exc
+    body = body or {}
+    error_text = _probe_error_text(body)
     if status == 429:
         raise VisionError("vision_rate_limited", "http_429")
     if status in (401, 403):
@@ -2252,8 +2512,13 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
         # в событии оставался только reason_code=vision_failed).
         # VISION-ADAPT: + класс лимита (bytes/pixels/format/context) —
         # провайдер-агностично, из семантики ответа.
+        if status >= 500:
+            # Класс 5xx отличим от 4xx по detail (`http_5xx/provider_error`);
+            # словарь reason-кодов не расширяем (bounded-retry джобы решается
+            # по reason, а не по коду ответа).
+            raise VisionError("vision_failed", f"http_{status}/provider_error")
         detail = f"http_{status}"
-        text = _probe_error_text(body)
+        text = error_text
         if text:
             if _looks_like_image_rejection(text):
                 detail += "/image_rejected"
@@ -2269,23 +2534,170 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
             if rejection_class:
                 detail += f"/{rejection_class}"
         raise VisionError("vision_failed", detail)
-    usage = (body or {}).get("usage") or {}
-    try:
-        from services import usage_events
-        await usage_events.record(
-            pg_pool, module="vision", step="media",
-            correlation_id=correlation_id, chat_id=chat_id,
-            model=route.model,
-            input_tokens=int(usage.get("prompt_tokens") or 0),
-            output_tokens=int(usage.get("completion_tokens") or 0))
-    except Exception:      # pragma: no cover - учёт расхода fail-open
-        logger.debug("[vision] usage record failed", exc_info=True)
-    choices = (body or {}).get("choices") or []
+    usage = body.get("usage") or {}
+    choices = body.get("choices") or []
     content = ""
+    finish_reason = ""
     if choices and isinstance(choices[0], dict):
         message = choices[0].get("message") or {}
-        content = str(message.get("content") or "")
-    return parse_analysis_payload(content)
+        if isinstance(message, dict):
+            raw_content = message.get("content")
+            if isinstance(raw_content, str):
+                content = raw_content
+            elif isinstance(raw_content, list):
+                # OpenAI-совместимые «части» ответа: текстовые фрагменты.
+                content = "".join(
+                    str(part.get("text") or "")
+                    for part in raw_content if isinstance(part, dict))
+        finish_reason = str(choices[0].get("finish_reason") or "")
+    return {"status": int(status), "body": body, "content": content,
+            "finish_reason": finish_reason, "usage": usage,
+            "choices": choices, "error_text": error_text,
+            "output_limit": int(output_limit), "structured": bool(structured),
+            "reasoning_off": bool(reasoning_off), "attempt": int(attempt)}
+
+
+async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
+                              route: VisionRoute | None = None,
+                              transport=None, correlation_id: str | None = None,
+                              pg_pool=None) -> VisionAnalysis:
+    """Vision-вызов тех-контракта (data-only): bytes → раздельный выход.
+
+    ASAP-VISION-SYNC-01 §5: эффективный предел вывода берётся из конфигурации
+    маршрута (не магическая 1024); `finish_reason`, наличие `content` и
+    reasoning-токены читаются и различают причины; structured output /
+    reasoning-off отправляются ТОЛЬКО по возможностям маршрута. Повторы
+    ограничены установленными классами ошибок (обрезание вывода, отклонённый
+    параметр маршрута) — максимум `_VISION_MAX_ATTEMPTS` HTTP-вызовов;
+    заведомо невалидный запрос повторно не отправляется.
+
+    Учёт расхода (mca-11): ТОЛЬКО реальный вызов пишет
+    `usage_events.record(module='vision', step='media')`; cache hit — без
+    события (вызывающий путь кеша эту функцию не вызывает)."""
+    route = route or resolve_route(chat_id)
+    # D2/D13: честная конфигурационная ошибка вместо запроса с чужим ключом
+    # или несовместимым payload.
+    problem = route_config_problem(route)
+    if problem:
+        raise VisionError("vision_unavailable", problem)
+    key = api_key_for(route)
+    url = chat_completions_url(route.base_url)
+    headers = {"Authorization": f"Bearer {key}"}
+    transport = transport or _default_transport
+
+    structured_mode = resolve_structured_output(route)
+    structured = structured_mode == "on" or (
+        structured_mode == "auto"
+        and not route_param_rejected(route, "response_format")
+        and _structured_output_proven(route))
+    reasoning_mode = resolve_reasoning_mode(route)
+    reasoning_off = (reasoning_mode == "off"
+                     and not route_param_rejected(route, "reasoning_effort"))
+    output_limit = resolve_output_token_limit(route)
+    diagnostics: dict = {"endpoint": route.base_url, "model": route.model,
+                         "route_source": route.source,
+                         "config_revision": route.config_revision,
+                         "structured_output": structured,
+                         "reasoning_mode": reasoning_mode,
+                         "reasoning_off_sent": reasoning_off,
+                         "output_limit": output_limit, "attempts": 0,
+                         "transport_success": False, "schema_valid": False,
+                         "analysis_ready": False,
+                         "finish_reason": "", "output_tokens": 0,
+                         "reasoning_tokens": 0, "content_present": False,
+                         "strategy_changes": []}
+    last: VisionAnalysis | None = None
+    truncation_retry_used = False
+    param_retry_used = False
+    for attempt in range(1, _VISION_MAX_ATTEMPTS + 1):
+        try:
+            result = await _vision_http_attempt(
+                image, chat_id=chat_id, route=route, transport=transport,
+                url=url, headers=headers, output_limit=output_limit,
+                structured=structured, reasoning_off=reasoning_off,
+                attempt=attempt)
+        except VisionError as exc:
+            rejected = unsupported_param_from_error(exc.detail)
+            if (rejected and not param_retry_used
+                    and attempt < _VISION_MAX_ATTEMPTS
+                    and not str(exc.detail).startswith(("http_401",
+                                                        "http_403",
+                                                        "http_429"))):
+                # Установленный класс: маршрут не принимает параметр —
+                # обучаем маршрут и повторяем БЕЗ него (ровно один раз).
+                param_retry_used = True
+                mark_route_param_rejected(route, rejected)
+                if rejected == "response_format":
+                    structured = False
+                if rejected == "reasoning_effort":
+                    reasoning_off = False
+                diagnostics["strategy_changes"].append(
+                    f"param_rejected:{rejected}")
+                continue
+            diagnostics["error_detail"] = str(exc.detail or "")
+            diagnostics["error_reason"] = str(exc.reason or "")
+            setattr(exc, "diagnostics", diagnostics)
+            raise
+        diagnostics["attempts"] = attempt
+        diagnostics["transport_success"] = bool(result["choices"])
+        diagnostics["finish_reason"] = result["finish_reason"]
+        diagnostics["content_present"] = bool(result["content"].strip())
+        usage = result["usage"] or {}
+        diagnostics["output_tokens"] = int(usage.get("completion_tokens") or 0)
+        diagnostics["reasoning_tokens"] = max(
+            int(diagnostics.get("reasoning_tokens") or 0),
+            _reasoning_tokens(usage))
+        diagnostics["output_limit"] = int(result["output_limit"])
+        diagnostics["structured_output"] = bool(result["structured"])
+        diagnostics["reasoning_off_sent"] = bool(result["reasoning_off"])
+        try:
+            from services import usage_events
+            await usage_events.record(
+                pg_pool, module="vision", step="media",
+                correlation_id=correlation_id, chat_id=chat_id,
+                model=route.model,
+                input_tokens=int(usage.get("prompt_tokens") or 0),
+                output_tokens=int(usage.get("completion_tokens") or 0))
+        except Exception:      # pragma: no cover - учёт расхода fail-open
+            logger.debug("[vision] usage record failed", exc_info=True)
+        analysis = parse_analysis_payload(result["content"],
+                                          finish_reason=result["finish_reason"])
+        diagnostics["schema_valid"] = analysis.error_reason not in (
+            "parse_error", "unexpected_format", "empty_content",
+            "output_truncated")
+        diagnostics["analysis_ready"] = analysis.status in ("ready", "no_text")
+        diagnostics["error_reason"] = analysis.error_reason
+        if result["structured"] and analysis.status in ("ready", "no_text"):
+            # Маршрут принял structured output и вернул валидный контракт —
+            # запоминаем, чтобы следующий вызов мог слать его без «слепой»
+            # отправки (обучение на фактическом успехе).
+            mark_structured_output_proven(route)
+        analysis = dataclasses.replace(analysis,
+                                       diagnostics=dict(diagnostics))
+        if analysis.status in ("ready", "no_text"):
+            return analysis
+        last = analysis
+        truncated = analysis.error_reason == "output_truncated"
+        reasoning_starved = (not result["content"].strip()
+                             and diagnostics["reasoning_tokens"] > 0)
+        if (truncated or reasoning_starved) and not truncation_retry_used \
+                and attempt < _VISION_MAX_ATTEMPTS:
+            # Установленный класс: вывод закончился на лимите (в т.ч. весь
+            # бюджет ушёл в reasoning у thinking-модели). Стратегия — БОЛЬШЕ
+            # бюджета (+ reasoning-off, если владелец просил и маршрут его не
+            # отклонял), не повтор того же запроса.
+            truncation_retry_used = True
+            output_limit = resolve_output_token_limit(route, attempt=1)
+            if reasoning_mode == "off" and not reasoning_off:
+                reasoning_off = True
+            diagnostics["strategy_changes"].append(
+                "output_limit_raised" if not reasoning_starved
+                else "reasoning_budget_raised")
+            continue
+        break
+    return last or VisionAnalysis(
+        "failed", [], "", ["vision-вызов не дал результата"], None,
+        "empty_content", dict(diagnostics, transport_success=False))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2530,6 +2942,38 @@ def _classify_adapt_error(exc: BaseException) -> tuple[str, str]:
     return "", type(exc).__name__
 
 
+def _fine_analysis_reason(exc: BaseException) -> str:
+    """Точная причина отказа вызова для analysis-строки (ASAP-VISION-SYNC-01).
+
+    Диагностика вызова знает parse-уровень (`output_truncated`,
+    `unexpected_format`); для транспортных классов причина нормализуется из
+    `detail` (таймаут/лимит/отказ провайдера/отклонение изображения). Пустая
+    строка → вызывающий пишет существующий coarse-код."""
+    diagnostics = getattr(exc, "diagnostics", None) or {}
+    cause = str(diagnostics.get("error_reason") or "")
+    if cause:
+        return cause
+    detail = str(getattr(exc, "detail", "") or "")
+    if not detail:
+        return ""
+    if detail.startswith("timeout"):
+        return "provider_timeout"
+    if detail.startswith("http_429"):
+        return "rate_limited"
+    if any(token in detail for token in ("/image_rejected", "/size",
+                                        "/pixels", "/format")):
+        return "image_rejected"
+    if detail.startswith("http_5"):
+        return "provider_error"
+    if detail.startswith("http_4"):
+        return "provider_rejected"
+    if detail.startswith("transport_error"):
+        return "transport_error"
+    if detail.startswith("not a supported raster") or "empty image" in detail:
+        return "image_rejected"
+    return ""
+
+
 def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
                 image: DownloadedImage, chat_id: int | None,
                 strategy: str = "", error_class: str = "",
@@ -2548,15 +2992,26 @@ def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
                      ("failed" if (error_class or error) else ""))
         reason_code = ""
         error_detail = ""
+        diagnostics: dict = dict(getattr(merged, "diagnostics", None) or {})
         if merged is not None:
-            # Парсер положил error_reason (parse_error/empty_content);
-            # прочие не-готовые статусы — по существующему словарю.
+            # Парсер положил error_reason (parse_error/empty_content/
+            # output_truncated/unexpected_format); прочие не-готовые статусы —
+            # по существующему словарю.
             reason_code = str(getattr(merged, "error_reason", "") or "")
+            if reason_code and reason_code not in mca_events.REASON_CODES:
+                # Точная причина вне словаря §17.2 не подменяется пустой:
+                # она уходит в `cause`, а reason_code — существующий код
+                # статуса (словарь вторым контуром не расширяем).
+                reason_code = (_reason_by_status(status)
+                               if status not in ("ready", "no_text") else "")
             if not reason_code and status not in ("ready", "no_text"):
                 reason_code = _reason_by_status(status)
         if error is not None:
             reason_code, error_class = _classify_adapt_error(error)
             error_detail = _safe_exc_text(error)
+            diagnostics.update(getattr(error, "diagnostics", None) or {})
+            if not error_detail and getattr(error, "detail", ""):
+                error_detail = str(getattr(error, "detail") or "")
         if status in ("ready", "no_text"):
             outcome = "success"
             _adapt_warn_clear()
@@ -2569,13 +3024,22 @@ def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
         if outcome == "failed":
             level, repeats = _adapt_warn_level(
                 f"{status}|{reason_code}|{error_class}")
+        # ASAP-VISION-SYNC-01 §5: причина больше не может потеряться в пустом
+        # `error=""` — в событие уходят фактическая причина (reason_code +
+        # detail), finish_reason/токены/предел вывода и разделённые признаки
+        # transport_success / schema_valid / analysis_ready.
+        cause = (getattr(merged, "error_reason", "")
+                 or diagnostics.get("error_reason") or reason_code or "")
         logger.info(
             "[vision] adapt | strategy=%s | reason=%s | calls=%d | "
-            "status=%s | bytes=%d | pixels=%d | ms=%d%s%s",
+            "status=%s | bytes=%d | pixels=%d | ms=%d%s%s%s%s",
             strategy, plan.reason, calls, status or "-",
             len(image.data or b""), plan.pixels,
             int((time.monotonic() - started) * 1000),
             f" | reason_code={reason_code}" if reason_code else "",
+            f" | cause={cause}" if cause else "",
+            f" | finish={diagnostics.get('finish_reason')}"
+            if diagnostics.get("finish_reason") else "",
             f" | error={error_class}" if error_class else "")
         mca_events.emit_mca_event(
             "vision_adapt",
@@ -2587,8 +3051,19 @@ def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
             chat_id=chat_id,
             error_json={"strategy": strategy, "reason": plan.reason,
                         "calls": calls, "error": error_class,
+                        "cause": cause or None,
                         **({"detail": error_detail} if error_detail else {}),
-                        **({"repeats": repeats} if repeats else {})})
+                        **({"repeats": repeats} if repeats else {}),
+                        **{key: diagnostics.get(key) for key in (
+                            "endpoint", "model", "route_source",
+                            "config_revision", "structured_output",
+                            "reasoning_mode", "reasoning_off_sent",
+                            "output_limit", "attempts", "finish_reason",
+                            "output_tokens", "reasoning_tokens",
+                            "content_present", "transport_success",
+                            "schema_valid", "analysis_ready",
+                            "strategy_changes") if diagnostics.get(key)
+                           not in (None, "", [], False)}})
     except Exception:      # pragma: no cover - телеметрия не рвёт анализ
         pass
 
@@ -2857,6 +3332,13 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
     deferred_at = None
     if depth >= _queue_capacity():
         deferred_at = int(time.time()) + _backoff(2)   # избыток → deferred
+    lifetime_deadline = None
+    try:
+        from services import media_readiness as _mr
+        lifetime_deadline = int(time.time()) + \
+            int(_mr.operation_lifetime_seconds())
+    except Exception:
+        lifetime_deadline = None
     enqueued = 0
     for asset_id in asset_ids:
         kind, variant = kind_by_asset.get(str(asset_id), ("", ""))
@@ -2881,7 +3363,7 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
                 owner="vision.media", kind=VISION_JOB_KIND,
                 coalesce_key=f"vision:asset:{asset_id}", payload=payload,
                 max_attempts=JOB_MAX_ATTEMPTS,
-                next_retry_at=deferred_at)
+                next_retry_at=deferred_at, deadline_at=lifetime_deadline)
             enqueued += 1
             if deferred_at is not None:
                 pipeline_stage_event("ingest", "skipped",
@@ -2890,6 +3372,19 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
         except Exception:
             logger.warning("[vision] enqueue job failed | asset=%s",
                            asset_id, exc_info=True)
+    if enqueued:
+        # ASAP-VISION-SYNC-01 §3 («сначала просьба — потом изображение»):
+        # ожидающее намерение чата связывается с ФАКТИЧЕСКИ пришедшим медиа
+        # сразу при приёме (durable-запись task_jobs, без второй таблицы и
+        # без удержания чатового lock на время ожидания).
+        try:
+            from services import media_readiness
+            await media_readiness.link_pending_intent_for_message(
+                db, chat_id=chat_id,
+                tg_message_id=int(getattr(message, "message_id", 0) or 0),
+                media_group_id=media_group_id, asset_ids=list(asset_ids))
+        except Exception:
+            logger.debug("[vision] pending-intent link failed", exc_info=True)
     return enqueued
 
 
@@ -3439,10 +3934,15 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
             image, chat_id=chat_id, route=route, transport=transport,
             correlation_id=correlation_id)
     except VisionError as exc:
+        # ASAP-VISION-SYNC-01 §5: точная причина (обрезание/неожиданный
+        # формат/…) пишется в analysis-строку отдельно от кода события —
+        # потребитель читает `error_reason` и не видит пустую причину.
         await _finish_analysis_or_job(
             db, analysis_id, row_revision, job, _finish, exc.reason,
             _STATUS_BY_REASON.get(exc.reason, "failed"),
-            chat_id=chat_id, asset_id=asset_id)
+            chat_id=chat_id, asset_id=asset_id,
+            detail=str(getattr(exc, "detail", "") or ""),
+            analysis_reason=_fine_analysis_reason(exc))
         _note_breaker(exc.reason in ("vision_unavailable",
                                      "vision_rate_limited"))
         return
@@ -3536,7 +4036,8 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                                   job: dict, finish_job, reason: str,
                                   status: str, *, chat_id: int,
                                   asset_id: str, stage: str = "vision",
-                                  detail: str = ""
+                                  detail: str = "",
+                                  analysis_reason: str = ""
                                   ) -> None:
     """Честная фиксация неуспеха: CAS-finish analysis-строки (если наша) +
     терминальный исход джобы с reason из финального словаря (269).
@@ -3550,7 +4051,7 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
         if analysis_id:
             await db.finish_media_analysis(
                 analysis_id, expected_revision=row_revision, status=status,
-                error_reason=reason)
+                error_reason=(analysis_reason or reason))
     except Exception:
         logger.warning("[vision] analysis finish failed", exc_info=True)
     error_json = {"detail": detail} if detail else None
@@ -3862,8 +4363,21 @@ class VisionMediaWorker:
             logger.debug("[vision] maintenance sweep slow | dur=%.2fs", dur)
 
     async def _recover_stale(self) -> None:
-        """Рестарт-восстановление: потерянные владельцы → interrupted."""
-        await self._store.recover_stale(stale_after_seconds=120)
+        """Рестарт-восстановление + WATCHDOG жизненного цикла.
+
+        Раньше потерянный владелец только помечался `interrupted` — задача
+        больше не работала, а analysis-строка оставалась `running` (потребитель
+        видел вечный `pending`). Теперь единый watchdog (`media_readiness`)
+        проверяет фактическое состояние и bounded-образом возвращает задачу в
+        очередь (fencing_token+1 → повторная запись старого воркера no-op) или
+        гарантирует терминальный исход. Второго журнала/воркера нет."""
+        try:
+            from services import media_readiness
+            await media_readiness.watchdog_sweep(self._db, store=self._store)
+        except Exception:
+            logger.warning("[vision] watchdog sweep failed — legacy recover",
+                           exc_info=True)
+            await self._store.recover_stale(stale_after_seconds=120)
 
     async def _claim_once(self) -> int:
         """Bounded pull: manual > auto > backfill (D20); claim фоновыми
@@ -4883,3 +5397,163 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
         "job_linked": True,       # связка с job; LLM-опросов НЕТ (D23)
         "message_key": f"{chat_id}:{asset.get('tg_message_id')}",
     }
+
+# ════════════════════════════════════════════════════════════════════════════
+# ASAP-VISION-SYNC-01 §2/§4: публичный per-asset шов готовности
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Потребители (общий контракт `services/media_readiness.py`) не обязаны
+# повторять логику `recognize_target`: здесь — ТОЛЬКО два кирпича поверх
+# существующего механизма (durable job + событие + честный терминал):
+#   * `enqueue_asset_analysis` — идемпотентная постановка (coalesce_key =
+#     asset-гранула, single-flight mca-01; повторная доставка/два вопроса об
+#     одном изображении не создают второй Vision-вызов);
+#   * `await_asset_ready` — ожидание через событие + проверку СОХРАНЁННОГО
+#     состояния (работает и после рестарта/в другом процессе), bounded-окно;
+#     timeout → честный pending (job остаётся в очереди), НЕ «не вижу».
+# Новых таблиц/воркеров/LLM-вызовов нет.
+
+
+async def enqueue_asset_analysis(db, asset: dict | None, *, chat_id: int,
+                                 priority: str = PRIORITY_MANUAL,
+                                 correlation_id: str | None = None
+                                 ) -> dict | None:
+    """Поставить анализ актива (идемпотентно). Возвращает durable-джобу или
+    None (постановка не удалась / актив не пригоден). Никогда не бросает."""
+    if db is None or not asset:
+        return None
+    asset_id = str(asset.get("asset_id") or "")
+    if not asset_id:
+        return None
+    try:
+        from services.task_supervisor import TaskJobStore
+        store = TaskJobStore(db)
+        deadline_at = None
+        try:
+            # §watchdog: ОБЩИЙ срок жизни операции (≠ интерактивное ожидание
+            # пользователя) ставится при постановке — истёкший срок гарантирует
+            # терминальный исход, не отменяя живую работу.
+            from services import media_readiness
+            deadline_at = int(time.time()) + \
+                int(media_readiness.operation_lifetime_seconds())
+        except Exception:
+            deadline_at = None
+        await store.enqueue(
+            owner="vision.readiness", kind=VISION_JOB_KIND,
+            coalesce_key=f"vision:asset:{asset_id}",
+            payload=_vision_payload(
+                asset_id=asset_id, chat_id=int(chat_id),
+                tg_message_id=int(asset.get("tg_message_id") or 0),
+                file_id=str(asset.get("file_id") or ""),
+                media_group_id=str(asset.get("media_group_id") or ""),
+                priority=priority,
+                user_id=None),
+            max_attempts=JOB_MAX_ATTEMPTS, deadline_at=deadline_at)
+        pipeline_stage_event("ingest", "success", chat_id=chat_id,
+                             operation_id=asset_id)
+        return await asset_active_job(db, asset_id)
+    except Exception:
+        logger.warning("[vision] readiness enqueue failed | chat=%s | "
+                       "asset=%s", chat_id, asset_id[:16], exc_info=True)
+        return None
+
+
+async def await_asset_ready(db, asset: dict | None, *, chat_id: int,
+                            wait_seconds: float = 0.0,
+                            correlation_id: str | None = None
+                            ) -> dict:
+    """Дождаться готового анализа актива в bounded-окне.
+
+    Возвращает словарь контракта готовности:
+      `status` — ready | no_text | pending | failed | unavailable |
+                 unsupported | missing | disabled;
+      `analysis` — durable-строка анализа (для ready/no_text),
+      `analysis_revision` / `analysis_id` / `model` / `config_revision`,
+      `reason_code` — нормализованная причина (никогда не пустая при отказе),
+      `job` — ссылка на durable-джобу (coalesce_key/статус) или None,
+      `waited_ms` — фактическое время ожидания.
+
+    Готовность НЕ зависит только от `asyncio.Event` одного процесса:
+    каждый цикл перечитывает сохранённое состояние (рестарт worker, второй
+    процесс, поздняя запись)."""
+    started = time.monotonic()
+    asset = asset or {}
+    asset_id = str(asset.get("asset_id") or "")
+    scope = access_scope_for(chat_id)
+    result = {"status": "missing", "asset_id": asset_id,
+              "analysis": None, "analysis_revision": None,
+              "analysis_id": None, "model": "", "config_revision": "",
+              "reason_code": "vision_missing_source", "job": None,
+              "cache_hit": False, "waited_ms": 0, "asset_kind": "",
+              "media_group_id": str(asset.get("media_group_id") or ""),
+              "tg_message_id": int(asset.get("tg_message_id") or 0)}
+    if not asset_id:
+        return result
+    result["asset_kind"] = str(asset.get("asset_kind") or "")
+    if not mca_gates.vision_enabled():
+        result.update(status="disabled", reason_code="vision_disabled")
+        return result
+    ready = await resolve_ready_for_asset(db, asset, scope)
+    cache_hit = ready is not None
+    if ready is None:
+        requested = True
+        try:
+            requested = await resolve_requested(int(chat_id))
+        except Exception:
+            requested = True
+        if not requested:
+            result.update(status="disabled", reason_code="vision_disabled")
+            return result
+    deadline = time.monotonic() + max(0.0, float(wait_seconds))
+    event = _register_waiter(asset_id)
+    try:
+        while True:
+            ready = await resolve_ready_for_asset(db, asset, scope)
+            if ready is not None:
+                result.update(
+                    status=str(ready.get("status") or "ready"),
+                    analysis=ready,
+                    analysis_revision=int(ready.get("revision") or 1),
+                    analysis_id=int(ready.get("id") or 0),
+                    model=str(ready.get("analyzer_model") or ""),
+                    config_revision=str(ready.get("analyzer_config_revision")
+                                        or ""),
+                    reason_code="", cache_hit=cache_hit,
+                    waited_ms=int((time.monotonic() - started) * 1000))
+                return result
+            outcome = await asset_vision_outcome(db, asset_id, scope)
+            if outcome is not None:
+                job = await asset_terminal_job(db, asset_id)
+                result.update(
+                    status=str(outcome.get("status") or "failed"),
+                    reason_code=str(outcome.get("reason") or "") or
+                    "vision_failed",
+                    job=job,
+                    waited_ms=int((time.monotonic() - started) * 1000))
+                return result
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                await asyncio.wait_for(event.wait(), timeout=min(remaining,
+                                                                2.0))
+            except asyncio.TimeoutError:
+                continue
+            event.clear()
+    finally:
+        _drop_waiter(asset_id, event)
+    job = await asset_active_job(db, asset_id)
+    if job is None:
+        # Живой задачи нет и готового результата нет — честная причина:
+        # постановка не выполнялась (а не «изображения нет»).
+        outcome = await asset_vision_outcome(db, asset_id, scope)
+        if outcome is not None:
+            result.update(status=str(outcome.get("status") or "failed"),
+                          reason_code=str(outcome.get("reason") or "")
+                          or "vision_failed")
+        else:
+            result.update(status="pending", reason_code="vision_queued")
+    else:
+        result.update(status="pending", reason_code="vision_queued")
+    result.update(job=job, waited_ms=int((time.monotonic() - started) * 1000))
+    return result
