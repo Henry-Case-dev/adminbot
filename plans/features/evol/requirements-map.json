@@ -4117,7 +4117,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §2 + §9",
+     "observation": "Единая система строк для четырёх источников Статуса (общая дизайн-система, различимые типы записей); tests/test_evol001_005_status_widgets.py — 28 passed, после review-fix 31 passed; смежные UI-регрессы 168 и 119 passed; живой рендер Playwright + Browser Use (§9).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    },
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §review-fix, блокер 1",
+     "observation": "Блокер ревью закрыт: .sfeed-item flex 0 0 var(--sfeed-row-h) отменяет legacy flex-shrink (высота строки 13.33→64 px, текст 0→15.8/31.6 px, прокрутка 62→666).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00067",
@@ -4132,7 +4156,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §3 + §9",
+     "observation": "Авто-движение при переполнении + полноценная ручная прокрутка (pointer/touch/keyboard, пауза/возобновление) для всех четырёх панелей; tests/test_evol001_005_status_widgets.py 31 passed; node routing_test обновлён.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    },
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §review-fix, блокер 2",
+     "observation": "Дробный аккумулятор прокрутки: скорость 390 px — 0.89→16.43 px/s, 1280 px — 16.0 px/s (авто-прокрутка больше не «замирает» на узком экране).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00075",
@@ -4147,7 +4195,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §4 + §review-fix",
+     "observation": "Окно записи открывает ТУ ЖЕ сущность (полный текст, не обрывок); focus trap окна включён и в review-fix закрыт по замечанию ревью; 31 passed в tests/test_evol001_005_status_widgets.py.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00083",
@@ -4162,7 +4225,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §5 + §7",
+     "observation": "Первоисточник и связанные записи в окне записи; бэкенд только передаёт уже существующие поля (новых полей не выдумано); 31 passed + смежные UI-регрессы.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00089",
@@ -4177,7 +4255,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol001-005.md §6 + §9",
+     "observation": "Метки времени, тип записи и честные пустые состояния; test_webapp_round1014_ui переведён на statusRowDateLabel; 4 пред-существующих падения в этом файле задокументированы (§11), не относятся к EVOL.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol001-005.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "f5b6e2bc4066873f59682281828fb74074680feb1d1929750904d624a93bc168",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00095",
@@ -4207,7 +4300,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol006.md §6 + §review-fix",
+     "observation": "Классификация фактов в промпте извлечения (kind: durable/one-off/world_news/quote/hypothetical/temporary/pattern, атрибуция, basis, provenance) без лексических фильтров; tests/test_evol006_fact_quality.py — 26 passed; регресс 389 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol006.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "5b892ec45b70a6560e82072835c95907d2cae600ea195a4473a14225f68b5eed",
+     "candidate_commit": "98d16b94"
+    },
+    {
+     "ref": "plans/features/evol/audit/w4-evol006.md §10",
+     "observation": "Review-fix: путь восстановления больше не обходит контракт — retry-промпт требует закрытые kind/subject_type/basis, таймаут не превращает разовый запрос в личный долговременный факт (RED→PASS).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol006.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "5b892ec45b70a6560e82072835c95907d2cae600ea195a4473a14225f68b5eed",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00107",
@@ -4222,7 +4339,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-memory-backend.md §EVOL-007 + §Проверки",
+     "observation": "Виджет «Новые факты» отдаёт реальные метки времени с сортировкой по свежести (не случайная выборка), изоляция по чатам, честные пустые состояния и время последнего успешного извлечения; pytest tests/test_evol007_new_facts_widget.py + test_evol009 — 18 passed (a02aca0c).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-memory-backend.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "e39c270870ad2727bb9b022c79550c7493a50c7d71033bd7bd9c29b2019c12ed",
+     "candidate_commit": "3d52e487"
+    }
+   ]
   },
   {
    "source_id": "L00113",
@@ -4237,7 +4369,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-memory-backend.md §EVOL-008",
+     "observation": "Расписание циклов не менялось; состояние честно различает disabled и never-run, принудительных прогонов нет; 71 combined tests green (3d52e487) + tz-фикс deep_sleep (a02aca0c).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-memory-backend.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "e39c270870ad2727bb9b022c79550c7493a50c7d71033bd7bd9c29b2019c12ed",
+     "candidate_commit": "3d52e487"
+    }
+   ]
   },
   {
    "source_id": "L00119",
@@ -4252,7 +4399,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "a02aca0c",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-memory-backend.md §EVOL-009 + §review-fix",
+     "observation": "Диагностика памяти: число кандидатов берётся из FACTS_EXTRACT usage_json (candidates=saved+skipped+deduped+superseded, text_only/outcome отдельно, legacy null ≠ 0), честные empty_state_reason/freshness; 18 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-memory-backend.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "e39c270870ad2727bb9b022c79550c7493a50c7d71033bd7bd9c29b2019c12ed",
+     "candidate_commit": "a02aca0c"
+    }
+   ]
   },
   {
    "source_id": "L00125",
@@ -4282,7 +4444,31 @@
    "live_required": true,
    "live_when": "postdeploy",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "0e853f7f",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. live_required(postdeploy): реальное прекращение «фальшивого исчерпания бюджета» подтверждается только на проде после релиза.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w1-evol010.md §1-§5",
+     "observation": "Удалён мёртвый вызов _LAST_EMBED_META (детерминированный NameError после успешного embed), code_defect классифицируется честно и не ретраится, фальшивый EmbeddingBudgetExhausted убран, backfill останавливается честно; tests/test_evol010_embedding_defects.py — 12 passed, смежные наборы 79/90/56/19 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol010.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "151dd377191361e024a0b864a64611bfbc57069321912a48b064d0ace1093983",
+     "candidate_commit": "0e853f7f"
+    },
+    {
+     "ref": "plans/features/evol/audit/w1-evol010.md §8",
+     "observation": "Follow-up: code_defect добавлен в whitelist mca_events (dc1fdba6).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol010.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "151dd377191361e024a0b864a64611bfbc57069321912a48b064d0ace1093983",
+     "candidate_commit": "0e853f7f"
+    }
+   ]
   },
   {
    "source_id": "L00143",
@@ -4297,7 +4483,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "dc1fdba6",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w1-evol011-013.md §EVOL-011 + §Тесты",
+     "observation": "vision_adapt больше не отдаёт failed с пустой причиной: reason_code (parse_error/empty_content/timeout/rate_limited/unavailable/cancelled), LLMError.cause_class; tests/test_evol011_vision_telemetry.py — 14 passed; 24 passed суммарно, compileall EXIT 0.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol011-013.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "b54fff503435e90f3170767644d2a22afad030fbb9fe2f910d83ba5624b4a531",
+     "candidate_commit": "dc1fdba6"
+    }
+   ]
   },
   {
    "source_id": "L00151",
@@ -4312,7 +4513,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "c7851980",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w2a-evol016.md §1.4",
+     "observation": "Барьер «кастом юзера — НЕ трогаем» снят: prompt_migrations делегирует в релизную политику, прямые вызовы канона в rollback-путях отклоняются.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2a-evol016.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c0a8061e7ed1125f904ce1a51a65ecbce152bdda4e6239d909a0282ab6cc5dbb",
+     "candidate_commit": "44437903"
+    },
+    {
+     "ref": "plans/features/evol/audit/w2a-evol016.md Приложение B",
+     "observation": "F1-F5 по ревью: рестарт не меняет активный промпт, activate_revision активирует запрошенную ревизию, применение релиза в одной транзакции; батарея 446 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2a-evol016.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c0a8061e7ed1125f904ce1a51a65ecbce152bdda4e6239d909a0282ab6cc5dbb",
+     "candidate_commit": "c7851980"
+    }
+   ]
   },
   {
    "source_id": "L00163",
@@ -4327,7 +4552,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "dc1fdba6",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w1-evol011-013.md §EVOL-013 + §Тесты",
+     "observation": "Не-embedding offender-сайты: машинно-читаемый reason_code вместо имени типа, WARN-дедуп 600 с со счётчиком повторов; tests/test_evol013_reason_quality.py — 10 passed; 24 passed суммарно.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol011-013.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "b54fff503435e90f3170767644d2a22afad030fbb9fe2f910d83ba5624b4a531",
+     "candidate_commit": "dc1fdba6"
+    }
+   ]
   },
   {
    "source_id": "L00169",
@@ -4357,7 +4597,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "e7443fad",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w1-evol015.md §1-§4",
+     "observation": "Цитата Telegram проходит насквозь: метаданные квоты сохраняются (позиция в UTF-16 verbatim, is_manual, entities), аддитивная миграция v38, контекст/ChainItem/рендеринг помечают выделенный фрагмент приоритетным; plain reply побайтово не изменился; tests/test_evol015_quote_pipeline.py — 18 passed (полоса 19 passed).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol015.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "e2bf5e906686e06b23cc31e9b9b38a37934341b7a9c9874db2f50e045a29c763",
+     "candidate_commit": "e7443fad"
+    },
+    {
+     "ref": "plans/features/evol/audit/w1-evol015.md §7.1",
+     "observation": "SQL-регрессия message_identity.py:268 воспроизведена и закрыта, 58 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol015.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "e2bf5e906686e06b23cc31e9b9b38a37934341b7a9c9874db2f50e045a29c763",
+     "candidate_commit": "e7443fad"
+    }
+   ]
   },
   {
    "source_id": "L00181",
@@ -4552,7 +4816,40 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "c7851980",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w2a-evol016.md §1.1-§1.3",
+     "observation": "Единый версионный контур промптов: services/prompt_release_policy.py (автомат активации label+seal, атомарное применение под advisory-lock, снимок legacy перед первой записью, рестарт — no-op, fail-closed при дрейфе печати), declare_prompt как единственная точка регистрации, 98 блоков с печатями; 463 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2a-evol016.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c0a8061e7ed1125f904ce1a51a65ecbce152bdda4e6239d909a0282ab6cc5dbb",
+     "candidate_commit": "44437903"
+    },
+    {
+     "ref": "plans/features/evol/audit/w2a-evol016.md Приложение C",
+     "observation": "Схема v39: журнал ревизий/активаций (PG JOURNAL_DDL + SQLite-книга схемы), RETURNING activation_id исправлен; 149 passed; осознанный Δ DDL = +4 с перепином счётчиков.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2a-evol016.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c0a8061e7ed1125f904ce1a51a65ecbce152bdda4e6239d909a0282ab6cc5dbb",
+     "candidate_commit": "011fe8ff"
+    },
+    {
+     "ref": "plans/features/evol/audit/w2a-evol016.md Приложение B",
+     "observation": "F1-F5: дрейф/рестарт, активация запрошенной ревизии, сканер приватных промптов, hook полномочий на API журнала, одна транзакция; батарея 446 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2a-evol016.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c0a8061e7ed1125f904ce1a51a65ecbce152bdda4e6239d909a0282ab6cc5dbb",
+     "candidate_commit": "c7851980"
+    }
+   ]
   },
   {
    "source_id": "L00214",
@@ -4642,7 +4939,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "be5ad652",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w2b-evol017.md §Эндпоинты + §UI + §Проверки",
+     "observation": "История версий промптов в существующем редакторе: list/source/diff/activate через HTTP-слой с RBAC-hook и изоляцией по чату; активная версия с меткой factory/manual/restored/legacy-import, хронология, diff, активация с подтверждением и вперёд, retired/incompatible блокируются с причиной, неудача сохраняет активную; tests/test_evol017_prompt_history_ui.py — 9 passed; смежные 26 и 19 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2b-evol017.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "5fc979615319536463ed185fc913509b9c96e298a15eee2a685ceb1bcae747f9",
+     "candidate_commit": "be5ad652"
+    }
+   ]
   },
   {
    "source_id": "L00232",
@@ -4732,7 +5044,31 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "c7851980",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w2c-evol018.md §Что добавлено + §Проверка",
+     "observation": "Постоянный общепроектный контракт версионирования промптов: docs/prompt-versioning-contract.md (declare_prompt как единственная точка, семантика активации, правила scope, границы аудита) + стоячее правило в AGENTS.md; 31 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2c-evol018.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "133dce8ba0fd5023895a2fdfb0f323205adedcaf826bd1ffa1e2485c6d24e7d6",
+     "candidate_commit": "95b8d275"
+    },
+    {
+     "ref": "plans/features/evol/audit/w2c-evol018.md §Честная граница",
+     "observation": "Сканер аудита доведён до нуля находок после F3 (приватные и склеенные из скобок константы, 9 живых инструкций зарегистрированы с печатями).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w2c-evol018.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "133dce8ba0fd5023895a2fdfb0f323205adedcaf826bd1ffa1e2485c6d24e7d6",
+     "candidate_commit": "c7851980"
+    }
+   ]
   },
   {
    "source_id": "L00256",
@@ -4762,7 +5098,23 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "4fcbf684",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. UI «Проверка распознавания» (эндпоинт /api/vision/recognition-check + 5-шаговый экран) — в 18baa36b, ревью в процессе.",
+   "ui_review": "pending",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol019-021.md §EVOL-019 + §Тесты",
+     "observation": "«Проверить» подтверждает распознавание, а не HTTP 200: структурированные состояния (config/reachable/media/recognition/content/terminal_reason/paid_call, 18 причин) и честное покрытие медиа; pytest tests/test_evol019_vision_recognition.py — в общем прогоне 116 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol019-021.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c476e8419a1f538b59c56e49c6d070998f2d13cde3ebe67f89fba3f4841a8ee5",
+     "candidate_commit": "4fcbf684"
+    }
+   ]
   },
   {
    "source_id": "L00267",
@@ -4852,7 +5204,23 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "98d16b94",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. F1/F2 (lifetime run counter, активация только по реальному событию) входят в 18baa36b — ревью в процессе; UI-карточка «Опыт» там же.",
+   "ui_review": "pending",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol019-021.md §EVOL-020 + §review-fix",
+     "observation": "Диагностика цепочки опыта: 8 стадий с реальными отметками времени и окнами 24ч/7д/30д, состояния working/idle/broken/disabled/stale/never_run; блокеры B1-B3 закрыты; tests/test_evol020_experience_pipeline.py — 20 passed, -k evol/experience/diagnostic — 452 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol019-021.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c476e8419a1f538b59c56e49c6d070998f2d13cde3ebe67f89fba3f4841a8ee5",
+     "candidate_commit": "98d16b94"
+    }
+   ]
   },
   {
    "source_id": "L00285",
@@ -4867,7 +5235,23 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "4fcbf684",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. UI эпизодов (feed/recovery/адресация #/memory?episode=) — в 18baa36b, ревью в процессе.",
+   "ui_review": "pending",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w4-evol019-021.md §EVOL-021 + §Тесты",
+     "observation": "Смысл эпизодов и группа восстановления: семантические сводки без фальшивых заголовков, реальная причина восстановления и discovered_old_event, без LLM на каждое открытие, изоляция по чату; tests/test_evol021_episode_semantics.py — в общем прогоне 116 passed.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w4-evol019-021.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "c476e8419a1f538b59c56e49c6d070998f2d13cde3ebe67f89fba3f4841a8ee5",
+     "candidate_commit": "4fcbf684"
+    }
+   ]
   },
   {
    "source_id": "L00292",
@@ -4927,7 +5311,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "33a14034",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-ui-foundation.md §8 + §7",
+     "observation": "Слой дизайн-токенов (hairline/радиусы/шаг 4-8-12-16-24-32/высоты контролов) как фундамент; регресс дизайн-токенов и полигонов 273 структурных проверки + node-наборы — PASS.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-ui-foundation.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "5148d706d16a005d9caa34a02779c1a6efd5967d6569347614490cd7b43bae69",
+     "candidate_commit": "33a14034"
+    }
+   ]
   },
   {
    "source_id": "L00312",
@@ -5242,7 +5641,31 @@
    "live_required": true,
    "live_when": "postdeploy",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "7492d325",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. live_required(postdeploy): отсутствие повторов и живость дедупа/idempotency подтверждается на проде после релиза.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w1-evol031.md §2-§5",
+     "observation": "Smart Cache / Exact Match replay завершённых ответов выведен из эксплуатации (слаги search/web/youtube, ветка direct_dedup, флаг CHAT_DEDUP_ENABLED, UI-карточка); update-markers, idempotency, embedding-кеш и wide-context фактчек сохранены; 16 новых + 290 legacy тестов.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol031.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "7eaa7e1623e93210d3bc959af35391fd3238c51fb833808c337e58d4b59b22f3",
+     "candidate_commit": "28d55bd1"
+    },
+    {
+     "ref": "plans/features/evol/audit/w1-evol031.md §9-§12",
+     "observation": "Хвосты: устаревшие legacy-пины выровнены (133 passed / 180 passed / 895+361 passed, residual-скан 0 вхождений); финальные 4 счётчика каталога — 219 passed; byte-freeze пины F8/F11 переквалифицированы осознанно.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w1-evol031.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "7eaa7e1623e93210d3bc959af35391fd3238c51fb833808c337e58d4b59b22f3",
+     "candidate_commit": "7492d325"
+    }
+   ]
   },
   {
    "source_id": "L00433",
@@ -5332,7 +5755,22 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend+ui",
+   "review_candidate": "33a14034",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты.",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-ui-foundation.md §2-§7",
+     "observation": "Стеклянная поверхность: тонирование существующей заливки карточки (degraded 32%/failed 55%, альфа не меняется), refreshTint только перечитывает слой (+16 строк, без makeLayer/canvas/mask/filter/z-index), нормальное/неизвестное/disabled никогда не красное, дублирование цветом+иконкой+aria, reduced-motion; 4 pytest + 273 структурных + живой рендер Playwright (только bg-color переход, rect неизменен 320-1920).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-ui-foundation.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "5148d706d16a005d9caa34a02779c1a6efd5967d6569347614490cd7b43bae69",
+     "candidate_commit": "33a14034"
+    }
+   ]
   },
   {
    "source_id": "L00455",
@@ -6427,7 +6865,32 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "review_verdict": "APPROVED",
+   "review_scope": "backend",
+   "review_candidate": "a02aca0c",
+   "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+   "review_note": "Ревью пройдено, деплой ещё не выполнен: VERIFIED сознательно не выставлен (релиз — после EVOL-033 и оставшихся UI-волн). Артефакты доказательств лежат в ветке evol/impl и в master ещё не влиты. UI-проводка настроек мемов закоммичена в 18baa36b — ревью в процессе, поэтому UI-часть НЕ считается принятой.",
+   "ui_review": "pending",
+   "evidence": [
+    {
+     "ref": "plans/features/evol/audit/w3-meme-backend.md §Архитектура + §Квота + §Проверки",
+     "observation": "Бэкенд инициативных мемов: capability внутри цикла инициативы (по умолчанию OFF), квантовый RNG без Math.random fallback, окно per-chat, лимит длины до вызова суммаризатора, фабричный промпт с печатями, своя атомарная суточная квота, publish-gate, схема v40; 44 passed (было 39).",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-meme-backend.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "92de1655840e5432b8fcd1a5ae7cc430a8ec01cd06e68d4410ac235493180508",
+     "candidate_commit": "9eeb3532"
+    },
+    {
+     "ref": "plans/features/evol/audit/w3-meme-backend.md §review-fix",
+     "observation": "Мост к реальному конвейеру починен: consider_chat(llm=) реальный LLM-путь (был проглатываемый TypeError), cycle_exception отделён от summary_failed, inflight-проверка до платного вызова.",
+     "type": "test",
+     "artifact_path": "plans/features/evol/audit/w3-meme-backend.md",
+     "artifact_branch": "evol/impl",
+     "artifact_sha256": "92de1655840e5432b8fcd1a5ae7cc430a8ec01cd06e68d4410ac235493180508",
+     "candidate_commit": "a02aca0c"
+    }
+   ]
   },
   {
    "source_id": "L00751",
@@ -8109,5 +8572,14 @@
    "status": "PENDING",
    "evidence": []
   }
- ]
+ ],
+ "evidence_convention": {
+  "note": "Ревью-принятые, но не задеплоенные требования держат status=PENDING + review_verdict=APPROVED: словарь requirements_gate.py строгий, а VERIFIED до деплоя не выставляется.",
+  "artifact_branch": "evol/impl",
+  "artifact_branch_tip": "18baa36b",
+  "reviewed_candidate": "18baa36b",
+  "review_source": "orchestrator handoff 2026-10-31 (чат): независимое ревью ветки evol/impl @ 18baa36b; отдельного файла вердикта в репозитории нет",
+  "artifact_sha256_meaning": "sha256 файла отчёта в ветке evol/impl на момент привязки (30-31.10.2026)",
+  "pending_global": "Деплой не выполнен (candidate_commit/deployed_commit в карте пусты); UI-проводка 014/019/020/021 и F1/F2 EVOL-020 в 18baa36b ждут вердикта ревью; EVOL-033 остаётся интеграционным гейтом."
+ }
 }
