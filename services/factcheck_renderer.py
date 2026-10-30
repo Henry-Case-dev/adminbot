@@ -46,6 +46,11 @@ from services.factcheck_orchestrator import (
     CheckedVerdict,
     FactcheckPresentation,
 )
+from services.factcheck_prompts import (
+    CRITIQUE_POLICY_FORBIDDEN,
+    FACTCHECK_CRITIQUE_HEADING,
+    critique_policy_for_verdict,
+)
 from services.smartmodule_utils import _CHUNK_LIMIT, send_chunked_reply
 
 logger = logging.getLogger(__name__)
@@ -112,6 +117,15 @@ _PART_TEXT_MAX_CHARS = 110
 _TAG_RE = re.compile(r"<[^>]+>")
 _URL_SAFE_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 
+#: EVOL §5 (W5): Writer начинает отдельный раздел этой строкой. Заголовок
+#: ищется в любом месте текста (после перевода строки/конца предложения или
+#: в начале) — egress-guard может схлопнуть переводы строк, и тогда раздел
+#: всё равно должен остаться отдельным блоком, а не раствориться в абзаце.
+_CRITIQUE_HEADING_RE = re.compile(
+    r"(?P<prefix>^|[\n]|[.!?…]\s+)[ \t*_#>\"«]*"
+    r"критическ\w*[ \t]+разнос\w*[ \t]*[:\-—–]?[ \t]*",
+    re.IGNORECASE | re.MULTILINE)
+
 
 # ── Безопасные атомы ─────────────────────────────────────────────────────────
 
@@ -144,6 +158,55 @@ def _safe_links(links) -> tuple[str, ...]:
         if _URL_SAFE_RE.match(u) and u not in out:
             out.append(u)
     return tuple(out)
+
+
+def split_critique_section(text: str) -> tuple[str, str]:
+    """Разделить публичный текст Writer'а на ``(основной разбор, разнос)``.
+
+    EVOL §5 (W5): раздел «Критический разнос» генерируется в ТОЙ ЖЕ
+    Writer-фазе, но публикуется отдельным блоком renderer'а (не сливается с
+    источниками, переживает HTML/чанкинг). Заголовок распознаётся как
+    отдельная строка (или после конца предложения — egress-guard может
+    схлопнуть переводы строк). Заголовка нет/раздел пуст → ``(text, "")``:
+    renderer не выдумывает раздел, которого Writer не написал.
+    """
+    body = str(text or "")
+    match = _CRITIQUE_HEADING_RE.search(body)
+    if match is None:
+        return body, ""
+    prefix = match.group("prefix") or ""
+    head = body[:match.start()] + prefix
+    tail = body[match.end():].strip()
+    if not tail:
+        return body, ""
+    head = head.strip()
+    if not head:
+        # Раздел оказался единственным содержанием: оставляем как тело,
+        # чтобы не отправить пустое сообщение с одним заголовком.
+        return body, ""
+    return head, tail
+
+
+def critique_publishable(verdict: CheckedVerdict | None, *,
+                         allow_critique: bool = True) -> bool:
+    """Детерминированный gate раздела: доказанный разгром или ничего.
+
+    SEMANTIC GUARD §5.1/§5.2 (сервер, не пожелание модели): раздел
+    публикуется только когда прогон УЖЕ установил ошибку/подмену, есть
+    доказательства и настройка «Критический разнос» включена. Полностью
+    подтверждённый тезис, неполные данные, технический сбой поиска и
+    fallback → ``False`` (выдуманное опровержение запрещено).
+    """
+    if not allow_critique or verdict is None:
+        return False
+    policy = critique_policy_for_verdict(
+        factual_verdict=verdict.factual_verdict,
+        parts=tuple(verdict.parts or ()),
+        reason_code=verdict.reason_code,
+        fallback_used=bool(verdict.fallback_used),
+        has_evidence=bool(verdict.evidence is not None
+                          and verdict.evidence.refs))
+    return policy != CRITIQUE_POLICY_FORBIDDEN
 
 
 def _content(presentation: FactcheckPresentation,
@@ -256,7 +319,8 @@ def _sources_rows(verdict: CheckedVerdict | None, links, *,
 
 
 def _serialize(presentation: FactcheckPresentation,
-               verdict: CheckedVerdict | None, *, html_mode: bool) -> str:
+               verdict: CheckedVerdict | None, *, html_mode: bool,
+               allow_critique: bool = True) -> str:
     headline, body, links, notice = _content(presentation, verdict)
     esc = _esc if html_mode else (lambda s: s)
     esc_attr = _esc_attr if html_mode else (lambda s: s)
@@ -264,12 +328,25 @@ def _serialize(presentation: FactcheckPresentation,
     if headline:
         headline = str(headline)
         blocks.append(f"<b>{esc(headline)}</b>" if html_mode else headline)
+    # EVOL §5 (W5): отдельный раздел «Критический разнос» — свой блок, ДО
+    # разбора/источников (ссылки в него не попадают). Публикуется только при
+    # доказанной ошибке прогона и включённой настройке (critique_publishable).
+    body, critique = split_critique_section(body)
+    if critique and not critique_publishable(verdict,
+                                             allow_critique=allow_critique):
+        logger.info("[factcheck_v2] critique section withheld | "
+                    "reason=not_established_or_disabled")
+        critique = ""
     # P0-FACTCHECK-CORRECTIVE (§7.4): обязательная композиция снята — тело
     # вербализатора (его собственная структура и длина) проходит как есть;
     # принудительный список «2–4 пункта» больше не создаётся. Разбор
     # ключевых утверждений и привязка реальных источников сохранены.
     if body.strip():
         blocks.append(esc(body.strip()))
+    if critique:
+        title = f"<b>{esc(FACTCHECK_CRITIQUE_HEADING)}</b>" if html_mode \
+            else FACTCHECK_CRITIQUE_HEADING
+        blocks.append(f"{title}\n{esc(critique)}")
     # FC-RENDER: разбор ключевых утверждений с цитатами при каждом тезисе +
     # роль каждого источника. Без вердикта (legacy plain) — прежний список.
     bindings = _part_bindings(verdict)
@@ -311,13 +388,17 @@ def _serialize(presentation: FactcheckPresentation,
 # ── Публичный API ────────────────────────────────────────────────────────────
 
 def render_factcheck(presentation: FactcheckPresentation,
-                     verdict: CheckedVerdict | None = None,
+                     verdict: CheckedVerdict | None = None, *,
+                     allow_critique: bool = True,
                      ) -> FactcheckPresentation:
     """Детерминированный рендер → НОВАЯ FactcheckPresentation (frozen) с
     ``parse_mode="HTML"``. Структура добавляется, факты не меняются.
+    ``allow_critique`` — настройка «Критический разнос» этого чата (default
+    ``True``: политика раздела всё равно проверяется по вердикту).
     Любой сбой → та же презентация без parse_mode (plain-паритет)."""
     try:
-        text = _serialize(presentation, verdict, html_mode=True)
+        text = _serialize(presentation, verdict, html_mode=True,
+                          allow_critique=allow_critique)
         return dataclasses.replace(presentation, text=text,
                                    parse_mode=FACTCHECK_PARSE_MODE)
     except Exception:
@@ -327,12 +408,14 @@ def render_factcheck(presentation: FactcheckPresentation,
 
 
 def render_plain(presentation: FactcheckPresentation,
-                 verdict: CheckedVerdict | None = None,
+                 verdict: CheckedVerdict | None = None, *,
+                 allow_critique: bool = True,
                  ) -> FactcheckPresentation:
     """Plain-деградация (06E.6): та же контент-модель без разметки."""
     return dataclasses.replace(
         presentation,
-        text=_serialize(presentation, verdict, html_mode=False),
+        text=_serialize(presentation, verdict, html_mode=False,
+                        allow_critique=allow_critique),
         parse_mode=None)
 
 

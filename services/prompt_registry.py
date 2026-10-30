@@ -174,6 +174,10 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # Factcheck / Summary / поиск
     "factcheck.base.single": "factcheck-r1022",
     "factcheck.base.analyst": "factcheck-analyst-r1023-f3",
+    # EVOL §5 (W5, 31.10.2026): речевая директива раздела «Критический
+    # разнос» — дословный текст владельца, редактируемый заводской промпт
+    # (PG-ключ prompts.factcheck_critique_directive).
+    "factcheck.critique.directive": "factcheck-critique-w5",
     # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3): identity-фраза снята
     # с активного вербализатора фактчека; жанровые правила сохранены.
     "factcheck.base.verbalizer": "factcheck-verbalizer-w1",
@@ -327,6 +331,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "verbilizer.mode.default": ("mode-r1024", "c633eb52f63c"),
     "factcheck.base.single": ("factcheck-r1022", "aa6a2ed38b4c"),
     "factcheck.base.analyst": ("factcheck-analyst-r1023-f3", "9573b3d86161"),
+    # EVOL §5 (W5): печать дословной директивы раздела «Критический разнос».
+    "factcheck.critique.directive": ("factcheck-critique-w5", "cfcd9009df17"),
     "factcheck.base.verbalizer": ("factcheck-verbalizer-w1", "42442333d77d"),
     "summary.base.single": ("summary-cfg07a", "e66c40b6acdf"),
     "summary.base.editor": ("summary-editor-r1025-hotfix4", "cbd95e5e2489"),
@@ -1804,6 +1810,24 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         composition_point="initiative/meme_summary",
         migration="factory", owner_lane="W3-EVOL014", speech=False,
         ui="catalog_pending"),
+    # EVOL §5 (W5, 31.10.2026): речевая директива раздела «Критический
+    # разнос» публичного фактчека — редактируемый заводской промпт (дословный
+    # текст владельца). PG-ключ каталога заводит лейн настроек; до этого
+    # действует эта заводская редакция, скрытого второго хранилища нет
+    # (``factcheck_prompts.resolve_critique_directive`` читает реестр).
+    declare_prompt(
+        block_id="factcheck.critique.directive",
+        purpose="Речевая директива раздела «Критический разнос» публичного "
+                "ответа фактчека: как резко и в каком голосе критиковать "
+                "УЖЕ установленную ошибку тезиса. Семантический guard "
+                "(только ошибочные части, без выдуманного разгрома) живёт в "
+                "коде, не в этом тексте.",
+        family="factcheck", scope="code",
+        code_source="services.factcheck_prompts.FACTCHECK_CRITIQUE_DIRECTIVE",
+        consumers=("factcheck_prompts.py:resolve_critique_directive",),
+        composition_point="speech_plain/factcheck_critique_section",
+        migration="factory", owner_lane="W5-EVOL", speech=True,
+        ui="catalog_pending"),
 )
 
 
@@ -2628,7 +2652,11 @@ def factory_set_fingerprint() -> str:
 #: получил тот же контракт класса/атрибуции (метка ``fact-retry-evol006``) —
 #: путь восстановления после LLMError больше не возвращает бесклассовые тройки.
 #: Было ``07ade6d16884``, стало ``1ce70bfedd8c``.
-FACTORY_SET_SHA256_12 = "1ce70bfedd8c"
+#: Бамп EVOL §5 (W5, 31.10.2026): зарегистрирована речевая директива раздела
+#: «Критический разнос» публичного фактчека
+#: (``factcheck.critique.directive``, дословный текст владельца, метка
+#: ``factcheck-critique-w5``). Было ``1ce70bfedd8c``, стало ``519663a57eb6``.
+FACTORY_SET_SHA256_12 = "519663a57eb6"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

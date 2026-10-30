@@ -30,6 +30,11 @@ from services.factcheck_prompts import (
     FACTCHECK_SYSTEM_PROMPT,
     FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
     PREV_FACTCHECK_VERBALIZER_R1023,
+    CRITIQUE_POLICY_FORBIDDEN,
+    build_critique_section_block,
+    critique_policy_for_findings,
+    critique_policy_for_verdict,
+    resolve_critique_directive,
 )
 from services.grounding_validator import (
     collect_allowed_anchors,
@@ -70,6 +75,89 @@ from services.tool_router import ToolContext, resolve_lore_compiler_flag
 from services.tool_schemas import factcheck_tools
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EVOL §5 (W5) — настройка «Критический разнос» (service-level)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Горячий ключ настройки раздела «Критический разнос» публичного фактчека.
+#: Это НЕ дубль мастер-тумблера модуля (``flags.factcheck_enabled``):
+#: раздел живёт только внутри уже включённого фактчека и по умолчанию ON.
+#: Наследование — существующий механизм настроек: chat-override → global
+#: (hot/PG) → заводской дефолт. Ключ каталога/UI заводит отдельный лейн
+#: настроек; рантайм читает его уже сейчас (без UI-зависимости).
+CRITIQUE_SECTION_KEY = "flags.factcheck_critique_section_enabled"
+
+
+def critique_section_default() -> bool:
+    """Заводской дефолт настройки (ON; §5.2 «default ON внутри фактчека»)."""
+    return bool(getattr(settings, "FACTCHECK_CRITIQUE_SECTION_ENABLED", True))
+
+
+async def resolve_critique_section(chat_id: int | None) -> tuple[bool, str]:
+    """``(включён, источник)`` настройки раздела «Критический разнос».
+
+    ``source`` — ``chat`` (override этого чата) | ``global`` (общий слой) |
+    ``factory`` (заводской дефолт): тот же словарь, что у остальных
+    per-chat параметров (CFG-01 §01.1). ``chat_id=None`` → глобальный слой.
+    Никогда не бросает: сбой резолва → заводской дефолт (fail-open).
+    """
+    default = critique_section_default()
+    if chat_id is None:
+        try:
+            return bool(hot.get(CRITIQUE_SECTION_KEY, default)), "global"
+        except Exception:      # pragma: no cover — hot-слой не роняет ответ
+            return default, "factory"
+    try:
+        from services.chat_params import get_chat_param_sourced
+        value, source = await get_chat_param_sourced(
+            int(chat_id), CRITIQUE_SECTION_KEY, default)
+        return bool(value), str(source or "factory")
+    except Exception:          # pragma: no cover — PG down → глобальный слой
+        try:
+            return bool(hot.get(CRITIQUE_SECTION_KEY, default)), "global"
+        except Exception:
+            return default, "factory"
+
+
+async def _critique_section_block(chat_id: int | None, policy: str) -> str:
+    """Блок инструкции раздела для публичной Writer-фазы.
+
+    Настройка OFF или политика ``forbidden`` → ``""`` (раздела нет; факты,
+    источники и оговорки остаются). Директива — активная редакция из единого
+    EVOL-реестра (``resolve_critique_directive``), не вторая копия текста.
+    """
+    if str(policy or "") == CRITIQUE_POLICY_FORBIDDEN:
+        return ""
+    enabled, _source = await resolve_critique_section(chat_id)
+    if not enabled:
+        return ""
+    return build_critique_section_block(policy,
+                                        directive=resolve_critique_directive())
+
+
+async def _speech_style_hint(chat_id: int | None) -> str:
+    """Активный Style Policy hint для публичной Writer-фазы фактчека.
+
+    SOUL-16: hint — слой стиля владельца (W3-владелец ``style_policy``).
+    Пустое значение (ось выключена/нет правил) → ``""``: сборка прежняя
+    байт-в-байт. Никогда не бросает.
+    """
+    if not chat_id:
+        return ""
+    try:
+        from services.prompt_composer import speech_style_hint
+        return str(await speech_style_hint(chat_id) or "").strip()
+    except Exception:          # pragma: no cover — слой стиля не роняет Writer
+        return ""
+
+
+def _with_critique_block(base: str, block: str) -> str:
+    """Дописать блок раздела к жанровому канону (пустой блок → байт-паритет)."""
+    if not block:
+        return base
+    return f"{base}\n\n{block}"
 
 
 def _metatext_retry_reason():
@@ -1044,9 +1132,22 @@ class FactCheckService:
         # (GLOBAL/per-chat, hot-apply); конфиг-слой недоступен → блок пуст
         # (байт-паритет прежней сборки).
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # EVOL §5 (W5): одиночный путь — тоже публичная Writer-фаза. Раздел
+        # «Критический разнос» здесь self-assessed: структуры проверенных
+        # частей нет (Writer сам и аналитик), поэтому инструкция требует
+        # критиковать только уже названные им ошибки и запрещает выдуманное
+        # опровержение. Политика — по наличию доказательств прогона.
+        critique_block = await _critique_section_block(
+            chat_id, critique_policy_for_verdict(
+                factual_verdict=None,
+                has_evidence=bool(str(results or "").strip())))
+        system = _with_critique_block(system, critique_block)
         owner_block = await speech_owner_block(chat_id)
         if owner_block:
             system = f"{system}\n\n{owner_block}"
+        style_hint = await _speech_style_hint(chat_id)
+        if style_hint:
+            system = f"{system}\n\n{style_hint}"
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -1096,20 +1197,32 @@ class FactCheckService:
             if modes_on else PREV_FACTCHECK_VERBALIZER_R1023)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
+        # EVOL §5 (W5): отдельный раздел «Критический разнос» — инструкция в
+        # ТОЙ ЖЕ публичной Writer-фазе (второго LLM-вызова нет). Политика
+        # считается по структуре проверенных findings: все подтверждены /
+        # не проверяемы → раздела нет (выдуманный разгром запрещён).
+        critique_block = await _critique_section_block(
+            chat_id, critique_policy_for_findings(data.get("findings")))
+        verbalizer_base = _with_critique_block(verbalizer_base,
+                                               critique_block)
         # UNIFIED-CORE (P0, 20.10.2026): Вербализатор — пользовательская
         # вербализация фактчека → Core + Expression владельца (критерии §5:
         # один Core везде; жанровые исключения сняты; объективность, ссылки
         # и структура жанра остаются в каноне). Блок идёт ПОСЛЕ режимного/
         # канального (character_block — последний part; MCA-08 шов).
         owner_block = await speech_owner_block(chat_id)
+        # EVOL §5 (W5): активный Style Policy hint владельца — до публичного
+        # Writer (хвост: rules → style, MCA-08 D5). Пусто → байт-паритет.
+        style_hint = await _speech_style_hint(chat_id)
         # Review iter1 (H2): у фактчека нет safe-HTML-доставки → text-only
         # plain-блок (без требования `<b>`, без HTML-тегов вовсе).
         verbalizer_system = (compose_verbalizer_system(
             verbalizer_base, response_mode, "plain",
-            character_block=owner_block)
+            character_block=owner_block, style_directives=style_hint)
             if modes_on else
-            (f"{verbalizer_base}\n\n{owner_block}" if owner_block
-             else verbalizer_base))
+            (_with_critique_block(
+                f"{verbalizer_base}\n\n{owner_block}" if owner_block
+                else verbalizer_base, style_hint)))
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
@@ -1756,8 +1869,23 @@ class FactCheckService:
         # пользовательская речь → тот же штатный шов, что Stage-2/одиночный
         # путь: Core + Expression владельца ПОСЛЕДНИМ блоком system (характер
         # по настройкам владельца; блок пуст → сборка байт-в-байт прежняя).
-        owner_block = await speech_owner_block(getattr(env, "chat_id", None))
+        # EVOL §5 (W5): тот же раздел «Критический разнос» и тот же слой
+        # стиля, что на остальных публичных путях (политика — по проверенному
+        # вердикту: supported/insufficient/техсбой → раздела нет).
+        _chat = getattr(env, "chat_id", None)
+        critique_block = await _critique_section_block(
+            _chat, critique_policy_for_verdict(
+                factual_verdict=verdict.factual_verdict,
+                parts=tuple(verdict.parts or ()),
+                reason_code=verdict.reason,
+                fallback_used=bool(fallback_used),
+                has_evidence=bool(verdict.parts or ())))
+        base = _with_critique_block(base, critique_block)
+        owner_block = await speech_owner_block(_chat)
         system = f"{base}\n\n{owner_block}" if owner_block else base
+        style_hint = await _speech_style_hint(_chat)
+        if style_hint:
+            system = f"{system}\n\n{style_hint}"
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": "ВЕРДИКТ (JSON):\n" + json.dumps(

@@ -164,7 +164,10 @@ class TestServiceHotPoints:
         service = FactCheckService(agg, llm)
         await service.check_claim("цель")
         assert agg.last_max == 555
-        assert llm.last_system == "ПРОМПТ-ИЗ-БД 555"
+        # EVOL §5 (W5): к канону из БД добавляется жанровая инструкция раздела
+        # «Критический разнос» (публичная подача), поэтому сравниваем первый
+        # блок system-сообщения — он и есть hot-канон с подставленным лимитом.
+        assert llm.last_system.split("\n\n")[0] == "ПРОМПТ-ИЗ-БД 555"
 
     @pytest.mark.asyncio
     async def test_factcheck_falls_back_to_settings_without_cache(self):

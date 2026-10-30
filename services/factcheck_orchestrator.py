@@ -316,6 +316,36 @@ def _apply_delivery_guard(presentation: FactcheckPresentation,
 
 # ── Оркестратор ──────────────────────────────────────────────────────────────
 
+async def _apply_critique_section_setting(chat_id: int | None,
+                                          verdict: CheckedVerdict
+                                          ) -> CheckedVerdict:
+    """EVOL §5 (W5): снять раздел «Критический разнос» при настройке OFF.
+
+    Настройка — отдельная ось подачи ответа внутри включённого фактчека
+    (``services.factcheck_service.resolve_critique_section``: chat-override →
+    global → заводской дефолт ON), мастер-тумблер модуля не дублируется.
+    Раздел распознаётся в тексте Writer'а и удаляется детерминированно:
+    факты/источники/оговорки не меняются, «лишней секции» не остаётся.
+    Любой сбой резолва/разбора → вердикт как есть (fail-open, доставку не
+    рвёт).
+    """
+    try:
+        from services.factcheck_renderer import split_critique_section
+        from services.factcheck_service import resolve_critique_section
+        enabled, source = await resolve_critique_section(chat_id)
+        logger.info("[factcheck_v2] critique section | chat=%s | enabled=%s | "
+                    "source=%s", chat_id, enabled, source)
+        if enabled:
+            return verdict
+        body, critique = split_critique_section(verdict.verdict_text)
+        if not critique:
+            return verdict
+        return dataclasses.replace(verdict, verdict_text=body)
+    except Exception:          # pragma: no cover — настройка не рвёт доставку
+        logger.warning("[factcheck_v2] critique setting failed — passthrough",
+                       exc_info=True)
+        return verdict
+
 async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
                         cache=None) -> None:
     """Единый вход W3 (06H.2): provenance → context+gate → план →
@@ -571,6 +601,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         # вывод нельзя подавать как подтверждённый источниками. Технический
         # класс уже назван заголовком, когда reason_code есть.
         _notice = _RETRIEVAL_NO_CITABLE_NOTICE
+    # EVOL §5 (W5): настройка «Критический разнос» (chat → global → factory,
+    # default ON внутри включённого фактчека; мастер-тумблер модуля не
+    # дублируется). OFF → раздел снимается ДО презентации: факты, источники и
+    # оговорки остаются, лишней секции нет.
+    verdict = await _apply_critique_section_setting(req.chat_id, verdict)
     presentation = build_presentation(
         verdict, reply_to_message_id=req.target_tg_message_id,
         notice=_notice)

@@ -201,10 +201,21 @@ def test_factcheck_single_path_without_config_is_byte_parity(no_config):
     # SPEECH-SIMPLIFY §2.1-2.3/§5 (owner 25.10.2026): базовая манера/юмор/
     # длина/достоверность — один короткий блок перед жанровым каноном; при
     # отсутствии конфигурации второго Core/Expression не появляется.
+    # EVOL §5 (W5, owner 31.10.2026): после жанрового канона идёт ровно одна
+    # инструкция раздела «Критический разнос» (та же публичная Writer-фаза,
+    # политика self-assessed — доказательств прогона нет, кроме выдачи).
+    from services.factcheck_prompts import (
+        CRITIQUE_POLICY_SELF_ASSESSED,
+        build_critique_section_block,
+    )
     from services import prompt_style_blocks as psb
     expected = FACTCHECK_SYSTEM_PROMPT.replace("{max_symbols}",
                                                str(max_symbols))
-    assert system == expected + "\n\n" + psb.speech_base_block()
+    critique = build_critique_section_block(CRITIQUE_POLICY_SELF_ASSESSED)
+    assert system == (expected + "\n\n" + critique + "\n\n"
+                      + psb.speech_base_block())
+    # второго Core/Expression в payload нет (слой характера — один блок)
+    assert system.count("<Speech_Base>") == 1
 
 
 # ═══ 2. Summary: Рассказчик (Stage-2) и legacy-путь ═════════════════════════

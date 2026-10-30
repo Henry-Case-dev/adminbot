@@ -369,3 +369,184 @@ _FACTCHECK_VERBALIZER_W1_BASE = """СИСТЕМНАЯ РОЛЬ:
 FACTCHECK_VERBALIZER_SYSTEM_PROMPT = (
     _FACTCHECK_VERBALIZER_W1_BASE + "\n\n" + TYPOGRAPHY_BLOCK
 )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EVOL §5 (W5) — «Критический разнос»: отдельный раздел публичного фактчека
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Задача §5.1/§5.2: сохранить фактчек доказательной проверкой, но убрать
+# канцелярский тон — резкая критика ОШИБОЧНОЙ части тезиса отдельным явным
+# разделом, в голосе Core/Expression/Style. Требования контракта:
+#
+#   * речевая директива раздела — РЕДАКТИРУЕМЫЙ заводской текст владельца
+#     (дословно ниже), версионируется единым EVOL-реестром промптов
+#     (``prompt_registry``: declare_prompt + печать ревизии); скрытого вечного
+#     custom-override нет — значение читается через ``resolve_prompt`` и
+#     заводская ревизия применяется по принятой политике версий;
+#   * генерация — в СУЩЕСТВУЮЩЕЙ публичной Writer/verbalizer-фазе из той же
+#     структуры проверенных утверждений: второго LLM-вызова, отдельной
+#     «модели-разносчика» и дополнительного web-search здесь нет;
+#   * СЕМАНТИЧЕСКИЙ GUARD (детерминированный, не пожелание модели): раздел
+#     разрешён только там, где прогон УЖЕ установил ошибку/подмену/необосно-
+#     ванный вывод. Полностью подтверждённый тезис, неполные данные, техни-
+#     ческий сбой поиска и fallback-прогон раздела не получают —
+#     ``critique_policy_for_verdict`` + renderer-gate отбрасывают его даже
+#     если модель его всё-таки написала;
+#   * критический текст не вправе менять вердикт/даты/цифры/ссылки: он живёт
+#     отдельным блоком renderer'а и ссылок не добавляет.
+
+#: Речевая директива раздела (дословный текст владельца, §5.1). Это
+#: РЕДАКТИРУЕМЫЙ заводской промпт: блок единого EVOL-реестра
+#: ``factcheck.critique.directive`` (declare_prompt + печать ревизии в
+#: ``FACTORY_REVISION_SEALS``); ``resolve_critique_directive`` читает активную
+#: редакцию через реестр, пока ключа каталога нет — действует этот заводской
+#: текст. Правка владельца действует сразу; смена заводской ревизии
+#: применяется по общей политике версий (ADR-1013-3).
+FACTCHECK_CRITIQUE_DIRECTIVE = (
+    "Жестко разъеби тейк автора и поясни почему он не прав."
+)
+
+#: Registry ID директивы в едином реестре промптов (EVOL-016/018).
+FACTCHECK_CRITIQUE_BLOCK_ID = "factcheck.critique.directive"
+
+#: Заголовок раздела в публичном ответе (§5.1: «отдельный явный раздел»).
+#: Renderer печатает его жирным; Writer обязан начать раздел этой строкой.
+FACTCHECK_CRITIQUE_HEADING = "Критический разнос"
+
+#: Политика раздела (закрытый набор; считает сервер, не модель).
+CRITIQUE_POLICY_ALLOWED = "allowed"            # ошибка уже установлена прогоном
+CRITIQUE_POLICY_SELF_ASSESSED = "self_assessed"  # структуры нет: решает Writer
+CRITIQUE_POLICY_FORBIDDEN = "forbidden"        # разгрома быть не может
+
+#: Служебные исходы прогона, при которых доказанного разбора нет вовсе
+#: (технический сбой/непригодные материалы) — «разнос» запрещён.
+_CRITIQUE_BLOCKING_REASONS = frozenset({
+    "deadline_exceeded", "provider_unavailable", "source_missing",
+})
+
+#: Вердикты, при которых критиковать нечего (полное подтверждение/нехватка
+#: данных): выдуманное опровержение запрещено (§5.1).
+_CRITIQUE_EMPTY_VERDICTS = frozenset({"supported", "insufficient_evidence"})
+
+#: Статусы findings аналитика (``system2_handoff._FACT_STATUSES``), означающие
+#: УСТАНОВЛЕННУЮ ошибку тезиса.
+_CRITIQUE_WRONG_STATUSES = frozenset({"false", "misleading"})
+
+
+def resolve_critique_directive() -> str:
+    """Активная редакция директивы раздела (единый EVOL-реестр, fail-open).
+
+    Источник — реестр промптов: если у блока уже есть PG-ключ каталога
+    (его заводит лейн настроек), читается действующая редакция владельца;
+    иначе — заводской литерал реестра. Скрытого второго хранилища и вечной
+    «custom override» нет. Никогда не бросает.
+    """
+    try:
+        from services import prompt_registry as _pr
+        spec = _pr.block(FACTCHECK_CRITIQUE_BLOCK_ID)
+        key = str(getattr(spec, "pg_key", "") or "")
+        if key:
+            from services.prompt_style_blocks import resolve_prompt
+            value = str(resolve_prompt(key, FACTCHECK_CRITIQUE_DIRECTIVE) or "")
+            if value.strip():
+                return value.strip()
+    except Exception:      # pragma: no cover — реестр не роняет сборку
+        pass
+    return FACTCHECK_CRITIQUE_DIRECTIVE
+
+
+def critique_policy_for_findings(findings) -> str:
+    """Политика по структуре аналитика Stage-1 (two-call путь).
+
+    Раздел разрешён только если среди findings есть УСТАНОВЛЕННАЯ ошибка
+    (``false``/``misleading``). Все части подтверждены или не проверяемы →
+    разгрома не будет (``forbidden``). Никогда не бросает."""
+    wrong = False
+    for item in findings or ():
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("status") or "").strip().lower() in \
+                _CRITIQUE_WRONG_STATUSES:
+            wrong = True
+            break
+    return CRITIQUE_POLICY_ALLOWED if wrong else CRITIQUE_POLICY_FORBIDDEN
+
+
+def critique_policy_for_verdict(*, factual_verdict: str | None,
+                                parts=(), reason_code: str | None = None,
+                                fallback_used: bool = False,
+                                has_evidence: bool = False) -> str:
+    """Детерминированная политика раздела по проверенному вердикту.
+
+    Правила (закрытый набор, без оценки «достаточно резко»):
+
+    * технический исход (``deadline_exceeded``/``provider_unavailable``/
+      ``source_missing``) и ``fallback_used`` → ``forbidden``: проверки не
+      было, доказанного разгрома быть не может;
+    * ``supported`` (всё подтверждено) и ``insufficient_evidence`` (данных
+      нет) → ``forbidden``: опровержение не выдумывается;
+    * ``refuted``/``mixed`` → ``allowed`` (при ``mixed`` критика — только
+      опровергнутых/недоказанных частей, это задаёт инструкция);
+    * структуры нет (legacy one-call, ``factual_verdict is None``) →
+      ``self_assessed`` при наличии доказательств прогона, иначе
+      ``forbidden``.
+    """
+    if fallback_used:
+        return CRITIQUE_POLICY_FORBIDDEN
+    if str(reason_code or "") in _CRITIQUE_BLOCKING_REASONS:
+        return CRITIQUE_POLICY_FORBIDDEN
+    verdict = str(factual_verdict or "").strip().lower()
+    if verdict in ("refuted", "mixed"):
+        return CRITIQUE_POLICY_ALLOWED
+    if verdict in _CRITIQUE_EMPTY_VERDICTS:
+        return CRITIQUE_POLICY_FORBIDDEN
+    # legacy/неизвестный вердикт: структуры нет — критику ограничивает сам
+    # Writer, но только когда у прогона есть доказательства.
+    if has_evidence:
+        return CRITIQUE_POLICY_SELF_ASSESSED
+    return CRITIQUE_POLICY_FORBIDDEN
+
+
+def build_critique_section_block(policy: str, *,
+                                 directive: str = "") -> str:
+    """Блок инструкции раздела для публичной Writer-фазы.
+
+    ``forbidden`` → пустая строка (раздела в ответе нет: ни выдуманного
+    опровержения, ни «разгрома» без проверки). ``directive`` — активная
+    редакция владельческой директивы (``resolve_prompt``); пустая → заводской
+    литерал (пустота не обнуляет инструкцию).
+    """
+    if str(policy or "") == CRITIQUE_POLICY_FORBIDDEN:
+        return ""
+    text = str(directive or "").strip() or FACTCHECK_CRITIQUE_DIRECTIVE
+    lines = [
+        "РАЗДЕЛ \"КРИТИЧЕСКИЙ РАЗНОС\" (ЖАНРОВАЯ ДИРЕКТИВА ВЛАДЕЛЬЦА):",
+        text,
+        "",
+        "КАК ЭТО РАБОТАЕТ:",
+        "- Раздел идет ПОСЛЕ разбора по существу, отдельным абзацем, и "
+        "начинается строкой ровно так: " + FACTCHECK_CRITIQUE_HEADING
+        + ": - дальше сразу сам текст.",
+        "- Крепость формулировок, ирония и мат - по твоему характеру и "
+        "настройкам этого чата. Канцелярит, вежливые оговорки и нейтральный "
+        "отчетный тон здесь запрещены.",
+        "- Никаких новых фактов, цифр, дат и ссылок: только то, что уже есть "
+        "в разборе выше. Вердикт раздела не меняет.",
+        "- Разбирай ВЫСКАЗЫВАНИЕ, а не человека: без выдуманных личных "
+        "обвинений, диагнозов и оскорблений по национальности, полу, вере, "
+        "здоровью и прочим чувствительным признакам.",
+        "- Ссылки, источники и оговорки остаются в разборе: в разделе их не "
+        "дублируй.",
+    ]
+    if str(policy or "") == CRITIQUE_POLICY_SELF_ASSESSED:
+        lines.append(
+            "- Критикуй только те части тезиса, которые ты сам выше назвал "
+            "ошибочными или необоснованными. Если по фактам придраться не к "
+            "чему - раздел не выводи: выдуманное опровержение запрещено.")
+    else:
+        lines.append(
+            "- Критикуй ТОЛЬКО те части тезиса, которые в разборе уже "
+            "признаны ошибочными, подмененными или необоснованными. "
+            "Подтвержденные части не переписывай и не опровергай.")
+    return "\n".join(lines)

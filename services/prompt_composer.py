@@ -914,6 +914,34 @@ async def speech_owner_block(chat_id: int | None) -> str:
     return "\n\n".join(parts)
 
 
+async def speech_style_hint(chat_id: int | None) -> str:
+    """Активный Style Policy hint для речевых маршрутов ВНЕ композера.
+
+    SOUL-16/ASAP3 §1: hint строит единственный владелец — ``style_policy``
+    (``resolve_style_policy_ref``); второго сборщика здесь нет. Нужен
+    функциональным Writer'ам (фактчек и родственные публичные маршруты),
+    которые собирают system-промпт сами, а не через ``compose_turn``:
+    без этого активный слой стиля владельца до публичного Writer не доходил
+    (баг §5.2 EVOL: «корректные активные инструкции не доходят»).
+
+    Ось выключена/правил нет/слой недоступен → ``""``: сборка вызывающего
+    остаётся байт-в-байт прежней. Никогда не бросает.
+    """
+    if not chat_id:
+        return ""
+    try:
+        cid = int(chat_id)
+    except (TypeError, ValueError):
+        return ""
+    try:
+        ref = await resolve_style_policy_ref(cid)
+    except Exception:          # pragma: no cover — resolve уже fail-open
+        return ""
+    if ref is None or not ref.enabled:
+        return ""
+    return str(ref.hint or "").strip()
+
+
 def core_detail_label(core_ref: CoreRef | None) -> str:
     """Короткая метка выбора Core для трассы/Inspector (без текста промпта)."""
     if core_ref is None:
