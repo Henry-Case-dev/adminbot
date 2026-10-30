@@ -6711,7 +6711,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "working-tree@7131897b",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w9-responsive.md",
+          "artifact_sha256": "b786c46e48b31cc680786a41fcf544ccb8c1510361f3b6fcfb585e34034eab1b",
+          "ref": "plans/features/evol/audit/w9-responsive.md §2/§4",
+          "observation": "Адаптивная система: шапка телефона 116→58 px (контент начинается с 58-й строки), разделы переехали в нижний слот shell-колонки; низкий ландшафт — плавающий рейл (667×375: шапка 87→58, доля контента 0.769→0.846; 812×375: 113→55); планшет 560–767 — 2 колонки; ≥1440 пределы сеток 1024/1100→78rem (1920: каталог 1248 в 3 колонки). Модалки на ≤640 px и низком ландшафте — bottom sheet (низ, радиус 18/0, safe-area, один внутренний скролл, подъём над клавиатурой)."
+        },
+        {
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "working-tree@7131897b",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w9-responsive-inventory.json",
+          "artifact_sha256": "bc7d11484855b42e779ced6f301a3f216000ece22757bb0b356384319e794979",
+          "ref": "evidence/w9-responsive-inventory.json",
+          "observation": "Машинная инвентаризация: 19 маршрутов × 8 вьюпортов (320/390/600/768/1024/1440/1920 + 667×375 landscape) = 152 ячейки; hScroll 0, offscreen 0, clipped 0, failures 0."
+        },
+        {
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "working-tree@7131897b",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w9-responsive-probe.json",
+          "artifact_sha256": "301ece0c62e5b6a0197273caab9cf93691b04a23f20afa66ff6a8b9393fe30dd",
+          "ref": "evidence/w9-responsive-probe.json + tools/ui_evol_w9_responsive_e2e.py",
+          "observation": "Живой прогон EVOL-W9-RESPONSIVE OK: тач-цели <44×44 на главных маршрутах — 0 (было 6–7 на #/modules, 3 на #/oversight); селектор области 44 px в границах вьюпорта; меню «Ещё» вплотную над панелью (зазор 6 px, Esc→фокус в триггер); модалка-лист/окно по режиму; клавиатура 280 px поднимает лист; safe-area +34 px поднимает панель; zoom 200 % и крупный шрифт 125 % без h-скролла; поворот с пересчётом метрики; CLS 0."
+        }
+      ]
     },
     {
       "source_id": "L00347",
