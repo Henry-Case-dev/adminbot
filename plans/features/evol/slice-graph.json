@@ -1,6 +1,6 @@
 {
  "schema": "openworkflow-slices-v1",
- "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода).",
+ "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода). Аддендум 31.10.2026 (OI-2026-10-31-EVOL-ADDENDUM): четыре дельты активного эпика вынесены в отдельные W5-слайсы EVOL-SOCIAL-FRAME / EVOL-VIDEO-INTENT / EVOL-FACTCHECK-CRITICAL / EVOL-GLASS-SEAM; они зависят от уже поставленных слайсов (QUOTE/SMARTCACHE/PROMPTREG/PROMPTCONV/HEALTHGLASS), входят в EVOL-RELEASE и (стекло) в EVOL-UI-FULLDOD.",
  "slices": [
   {
    "id": "EVOL-W0-AUDIT",
@@ -709,7 +709,11 @@
     "EVOL-B-TELEMETRY",
     "EVOL-B-FACTS",
     "EVOL-B-MEMCYCLES",
-    "EVOL-B-SETREG"
+    "EVOL-B-SETREG",
+    "EVOL-SOCIAL-FRAME",
+    "EVOL-VIDEO-INTENT",
+    "EVOL-FACTCHECK-CRITICAL",
+    "EVOL-GLASS-SEAM"
    ],
    "write_scope": [
     "plans/features/evol/release/**",
@@ -726,7 +730,8 @@
    "wave": "W5",
    "depends_on": [
     "EVOL-F-MEMES",
-    "EVOL-UI-HEALTHGLASS"
+    "EVOL-UI-HEALTHGLASS",
+    "EVOL-GLASS-SEAM"
    ],
    "write_scope": [
     "web/index.html",
@@ -739,6 +744,117 @@
    "req_ids": [
     "EVOL-033"
    ]
+  },
+  {
+   "id": "EVOL-SOCIAL-FRAME",
+   "title": "Аддендум 31.10 §§1-3: ситуативный социальный контекст хода (SocialTurnFrameBuilder, 0 LLM) на существующих L1/Decision/Writer",
+   "wave": "W5",
+   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 915-1034",
+   "depends_on": [
+    "EVOL-B-QUOTE",
+    "EVOL-B-SMARTCACHE",
+    "EVOL-B-PROMPTREG",
+    "EVOL-B-PROMPTCONV",
+    "EVOL-W0-AUDIT"
+   ],
+   "write_scope": [
+    "services/social_turn_frame.py",
+    "services/direct_l1.py",
+    "services/direct_chat_service.py",
+    "services/prompt_composer.py",
+    "services/prompt_registry.py",
+    "services/smartmodule_phrases.py",
+    "tests/test_evol_social_frame.py",
+    "plans/features/evol/audit/w5-social.md"
+   ],
+   "acceptance": "Frame собирается из существующих message_identity/quote_resolver/canonical_context без доп. LLM-вызова, доходит до Writer в фактическом payload; 10 сценариев §3 на моках L1/Writer PASS + релевантные регрессии адресации/relations/цитат/Initiative/Composer.",
+   "req_ids": [
+    "EVOL-SOCIAL-FRAME"
+   ],
+   "risk": "R2",
+   "next_role": "Builder",
+   "rationale": "Один контракт данных хода (frame) + его проводка в существующие Decision/Writer — проверяется 10 фиксированными сценариями; отдельно от видео/фактчека/стекла.",
+   "depends_note": "Зависимости — уже поставленные в ветке evol/impl слайсы (message_identity/quote_resolver/canonical_context, direct_chat_service, prompt registry/composer, W0-аудит): общий код не переписывается, только расширяется."
+  },
+  {
+   "id": "EVOL-VIDEO-INTENT",
+   "title": "Аддендум 31.10 §4: единый VideoIntent, связка «просьба → репост», single-flight и одна выжимка",
+   "wave": "W5",
+   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1036-1089",
+   "depends_on": [
+    "EVOL-B-QUOTE",
+    "EVOL-W0-AUDIT"
+   ],
+   "write_scope": [
+    "services/video_intent.py",
+    "services/native_media.py",
+    "handlers/youtube.py",
+    "handlers/video_download.py",
+    "handlers/direct_chat.py",
+    "tests/test_evol_video_intent.py",
+    "tests/test_youtube_video_media.py",
+    "plans/features/evol/audit/w5-video.md"
+   ],
+   "acceptance": "request→media→intent→one job→one answer подтверждено 8 сценариями §4.5 без живых отправок: late media/pending TTL, ambiguous без случайного выбора, single-flight без повторного списания кулдауна, summary ≠ download; затронутые регрессии handlers/media/routing PASS.",
+   "req_ids": [
+    "EVOL-VIDEO-INTENT"
+   ],
+   "risk": "R2",
+   "next_role": "Builder",
+   "rationale": "Один сквозной исход «один запрос — один анализ — один ответ» на существующем media-пайплайне; отделим от социального слоя и фактчека.",
+   "depends_note": "handlers/** и canonical/media-примитивы уже принадлежат EVOL-B-QUOTE/W0: работа идёт внутри существующего маршрута, новый анализатор не вводится."
+  },
+  {
+   "id": "EVOL-FACTCHECK-CRITICAL",
+   "title": "Аддендум 31.10 §5: критический разнос в существующем фактчеке с семантическим guard и единым речевым контуром",
+   "wave": "W5",
+   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1091-1141",
+   "depends_on": [
+    "EVOL-B-PROMPTREG",
+    "EVOL-B-PROMPTCONV",
+    "EVOL-W0-AUDIT"
+   ],
+   "write_scope": [
+    "services/factcheck_orchestrator.py",
+    "services/factcheck_service.py",
+    "services/factcheck_prompts.py",
+    "services/factcheck_renderer.py",
+    "config/prompts/**",
+    "tests/test_evol_factcheck_critical.py",
+    "plans/features/evol/audit/w5-factcheck.md"
+   ],
+   "acceptance": "Отдельная критическая секция из того же checked verdict, директива в реестре версий промптов EVOL, настройка внутри модуля «Фактчек» (default ON); guard: true/insufficient_evidence без выдуманного разгрома; 8 offline-кейсов §5.4 PASS, Core/Expression в фактическом payload на всех маршрутах.",
+   "req_ids": [
+    "EVOL-FACTCHECK-CRITICAL"
+   ],
+   "risk": "R2",
+   "next_role": "Builder",
+   "rationale": "Одно поведение публичного ответа фактчека (структура + guard + стиль) поверх существующего пайплайна, проверяемое 8 фиксированными кейсами.",
+   "depends_note": "Директива и настройка опираются на единый реестр версий промптов (EVOL-016, уже поставлен); второй фактчек-пайплайн не создаётся. UI-часть §5.3 (переключатель внутри модуля «Фактчек» в web/app.js) правится совместно с владельцем этого файла — отдельного параллельного писателя web/app.js не заводится."
+  },
+  {
+   "id": "EVOL-GLASS-SEAM",
+   "title": "Аддендум 31.10 §6: устранение прямого внутреннего шва стеклянной поверхности в рамках EVOL-032",
+   "wave": "W5",
+   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1143-1147",
+   "depends_on": [
+    "EVOL-UI-HEALTHGLASS"
+   ],
+   "write_scope": [
+    "web/static/glass.js",
+    "web/static/glass-refraction.js",
+    "web/static/glass-probe.js",
+    "tests/js/evol_glass_seam_test.js",
+    "plans/features/evol/audit/evidence/glass-seam/**"
+   ],
+   "acceptance": "Первопричина шва локализована в общем стеклянном слое и исправлена там же; before/after в движении фона на desktop+mobile для normal/alert без внутренних прямых швов; прозрачность, преломление, анимация и полигональный фон сохранены.",
+   "req_ids": [
+    "EVOL-GLASS-SEAM"
+   ],
+   "risk": "R2",
+   "next_role": "Builder",
+   "rationale": "Один дефект отрисовки с одной причиной и визуальной before/after-приёмкой внутри уже принятого стеклянного фундамента EVOL-032.",
+   "depends_note": "Опирается на поставленный фундамент EVOL-032 (EVOL-UI-HEALTHGLASS); оптика/refraction не переделываются, шов не маскируется градиентом/blur."
   }
  ]
 }

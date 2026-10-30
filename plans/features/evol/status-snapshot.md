@@ -1,6 +1,7 @@
 # EVOL — статус по требованиям (снимок 31.10.2026)
 
-Карта: `plans/features/evol/requirements-map.json` (46 обязательных требований: EVOL-001..045 + EVOL-DoD).
+Карта: `plans/features/evol/requirements-map.json` (50 обязательных требований: EVOL-001..045 + EVOL-DoD + 4 дельты аддендума 31.10:
+`EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-GLASS-SEAM`).
 Ветка реализации: `evol/impl`, вершина `18baa36b`. Деплой не выполнялся.
 
 ## Как записан статус
@@ -45,26 +46,43 @@
 | EVOL-DoD | не достигнуто (нужен релиз + EVOL-033) | — | — | — |
 
 Итого привязано доказательств: **24 требования** (001..022, 031, 032). Не начато: 23 требования (023..030, 033..045) + DoD.
+Дополнительно из аддендума 31.10: 3 требования в работе (`BUILDING`), 1 не начато (`PENDING`) — доказательств пока нет.
+
+## Аддендум 31.10.2026 — четыре дельты активного эпика (OI-2026-10-31-EVOL-ADDENDUM)
+
+Источник: `plans/current_task.md` строки **911-1155** (социальный контекст §§1-3, видео §4, критический фактчек §5,
+стеклянный шов EVOL-032 §6). Разложено в карте: 145 строк (4 `required` + 125 `duplicate` + 16 `context`),
+все строки диапазона классифицированы. Новые слайсы добавлены в `slice-graph.json` (волна W5) — это дельты, а не новый эпик.
+
+| Слайс | Что закрывает | Зависит от (уже поставлено) | Статус |
+|---|---|---|---|
+| `EVOL-SOCIAL-FRAME` | SocialTurnFrameBuilder (0 LLM) из message_identity/quote_resolver/canonical_context → существующие L1/Decision/Writer; 10 сценариев §3 | `EVOL-B-QUOTE`, `EVOL-B-SMARTCACHE`, `EVOL-B-PROMPTREG`, `EVOL-B-PROMPTCONV`, `EVOL-W0-AUDIT` | `BUILDING` (реализация+тесты в рабочей копии, не закоммичено) |
+| `EVOL-VIDEO-INTENT` | единый VideoIntent, связка «просьба → отдельный репост», pending TTL, single-flight, summary ≠ download; 8 сценариев §4.5 | `EVOL-B-QUOTE`, `EVOL-W0-AUDIT` | `BUILDING` |
+| `EVOL-FACTCHECK-CRITICAL` | отдельная секция «Критический разнос» из того же checked verdict, директива в реестре версий промптов, настройка в модуле «Фактчек», семантический guard; 8 кейсов §5.4 | `EVOL-B-PROMPTREG`, `EVOL-B-PROMPTCONV`, `EVOL-W0-AUDIT` | `BUILDING` (реализация закоммичена `d036707a`, независимого вердикта ревью в карте нет) |
+| `EVOL-GLASS-SEAM` | первопричина прямого шва в общем стеклянном слое + before/after в движении (normal/alert, desktop/mobile), внутри приёмки EVOL-032 | `EVOL-UI-HEALTHGLASS` | `PENDING` (не начато) |
+
+Рёбра графа: все четыре добавлены в `EVOL-RELEASE.depends_on`; `EVOL-GLASS-SEAM` дополнительно в `EVOL-UI-FULLDOD.depends_on`
+(финальный UI-DoD обязан включать устранение шва). Доказательств (`evidence[]`) у новых требований нет — коммита кандидата ещё нет,
+поэтому `BUILDING`/`PENDING`, без `VERIFIED` и без `review_verdict`.
+Оговорка по §5.3: UI-часть настройки живёт в `web/app.js` — этот файл остаётся за UI-цепочкой, отдельного параллельного писателя нет
+(зафиксировано в `depends_note` узла).
 
 ## Гейт плана
 
 `py C:\Users\main\.config\opencode\tools\requirements_gate.py check --map plans/features/evol/requirements-map.json --stage plan --repo .`
-→ **EXIT 1**, `inventory=304 manual=236 errors=103`. До привязки доказательств было ровно то же: **errors=103** (мои правки новых ошибок не добавили).
+→ **EXIT 1**, `inventory=406 manual=279 errors=124`.
+Запускать **из корня основного репозитория** (`C:\Code\Python\adminbot`): `plans/current_task.md` в `.gitignore` и в worktree отсутствует,
+иначе гейт даёт `source not present` и лавину ложных «gone or edited».
 
-Состав ошибок (пред-существующие, не связаны с этой привязкой):
-
-1. `authoritative source changed: reconcile user task and rebuild map` — sha `plans/current_task.md` изменился
-   (`dec5a583…` сейчас против `54454df5…` в карте).
-2. 102 × `source item not mapped L00915..L01149` — владелец дописал в конец `current_task.md` новый блок директив
-   (строки ~911-1155: социальный контекст, видео-intent, фактчек-критика, шов стекла EVOL-032, порядок работ).
-
-Это **незакрытая дельта требований**, а не дефект карты. Её нужно обработать отдельно: снять неизменяемый
-снапшот дописанного блока в `plans/owner_inputs/`, зарегистрировать вход, разложить новые пункты по требованиям/слайсам
-(там появляются новые общие контракты → вероятно `ARCHITECT_REQUIRED`), после чего повторить гейт.
+Состав ошибок сейчас — **только** `source item not mapped` для строк **1166-1428**: это отдельное более позднее поручение владельца
+§SRC/COG (`plans/owner_inputs/2026-10-31-evol-src-cog.md`, строки 1158-1430), не входящее в аддендум 911-1155.
+Ошибок внутри 911-1155 — **0**; расхождения sha источника — **0**; ошибок графа (циклы/пересечение write_scope/отсутствующие узлы) — **0**.
+Прежние 103 ошибки (1 × `authoritative source changed` + 102 × `source item not mapped` в 911-1155) закрыты.
 
 ## Что дальше
 
 1. Orchestrator: перенести обновлённую карту в ветку `evol/impl` (в `master` каталог `plans/features/evol/` сейчас **untracked**, правка живёт только в рабочей копии).
-2. Orchestrator: закрыть дельту источника (owner_inputs + новые строки карты + слайсы), затем гейт должен упасть только на реально неготовых пунктах.
+2. Orchestrator: дельта аддендума 911-1155 разложена по карте и графу (эта секция выше); остаётся закрыть **другое** поручение
+   §SRC/COG (строки 1158-1430, `plans/owner_inputs/2026-10-31-evol-src-cog.md`) — именно на нём сейчас падает гейт плана.
 3. Ревью `18baa36b` → снять `ui_review: pending` у 014/019/020/021 и привязать UI-доказательства.
 4. Затем EVOL-033 как интеграционный гейт, после него — релиз и `VERIFIED` (для 010/031 плюс live-проверка на проде).
