@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import pathlib
 import random
 from concurrent.futures import ThreadPoolExecutor
@@ -658,3 +659,222 @@ def test_quota_view_labels_timezone_and_remaining(tmp_path):
     assert view["limit"] == 3
     assert view["timezone_source"] == "utc_fallback"
     assert view["next_reset"]
+
+
+# ── 12. мост «цикл инициативы → мем» подключён к реальному конвейеру ───────
+
+class _FakeCursor:
+    def __init__(self, rows):
+        self._rows = rows
+
+    async def fetchall(self):
+        return self._rows
+
+
+class _FakeWindowDB:
+    """Мини-db для живого пути: путь SQLite + окно сообщений."""
+
+    def __init__(self, path, rows):
+        self.db_path = str(path)
+        self._rows = [dict(row) for row in rows]
+
+    async def execute(self, _sql, params=()):
+        if not params:
+            return _FakeCursor(list(self._rows))
+        chat_id, limit = int(params[0]), int(params[-1])
+        rows = [row for row in self._rows
+                if int(row.get("chat_id", chat_id)) == chat_id]
+        return _FakeCursor(rows[:limit])
+
+
+class _FakeLLM:
+    def __init__(self, text="мемный хук", *, _chat_model="chat-model"):
+        self.text = text
+        self._chat_model = _chat_model
+        self.calls: list[tuple[list, dict]] = []
+
+    async def generate(self, messages, **kwargs):
+        self.calls.append((messages, kwargs))
+        return self.text
+
+
+def _wire_live_pipeline(monkeypatch, tmp_path, led, *, llm=None,
+                        provider_calls=None):
+    """Подменяет только платные/внешние границы; мост остаётся настоящим."""
+    llm = llm if llm is not None else _FakeLLM()
+    provider_calls = provider_calls if provider_calls is not None else []
+
+    async def _settings_loader(_chat_id=None):
+        return _settings(window_messages=50, min_messages=1)
+
+    async def _image_dependency(_chat_id, health=None):
+        return dict(IMAGE_OK)
+
+    async def _model_chars():
+        return 200
+
+    async def _random_source(_db):
+        return _Hit(value=0.0)
+
+    async def _image(prompt, chat_id, job_id):
+        provider_calls.append((prompt, chat_id, job_id))
+        return SimpleNamespace(ok=True, called=True, reason="", content=b"png")
+
+    async def _gate(_db, _chat_id, _now_ts):
+        return True, "ok"
+
+    monkeypatch.setattr(meme, "load_settings", _settings_loader)
+    monkeypatch.setattr(meme, "image_dependency", _image_dependency)
+    monkeypatch.setattr(meme, "model_prompt_chars", _model_chars)
+    monkeypatch.setattr(meme, "default_random_source", _random_source)
+    monkeypatch.setattr(meme, "_default_image", _image)
+    monkeypatch.setattr(meme, "_default_publish_gate", _gate)
+    db = _FakeWindowDB(led.path, _rows(-100, n=6))
+    return llm, provider_calls, db
+
+
+def _runner(db, llm):
+    runner = obs.InitiativeObserverRunner.__new__(obs.InitiativeObserverRunner)
+    runner._db = db
+    runner._llm = llm
+    runner._bot = None
+    return runner
+
+
+def test_meme_phase_runs_real_pipeline_and_journals_stages(
+        tmp_path, monkeypatch):
+    """Без заглушки on_initiative_cycle: фаза реально доходит до генерации."""
+    led = _ledger(tmp_path)
+    llm, provider_calls, db = _wire_live_pipeline(monkeypatch, tmp_path, led)
+    payload = {"chats": {-100: {}}}
+
+    _run(_runner(db, llm)._meme_phase(payload))
+
+    attempts = payload["meme"]["attempts"]
+    assert [item["chat_id"] for item in attempts] == [-100]
+    assert attempts[0]["stage"] == meme.STAGE_PUBLISH
+    assert attempts[0]["reason"] == meme.SKIP_PUBLISH
+    assert attempts[0]["detail"] == "publisher_not_bound"
+    assert attempts[0]["generated"] is True
+
+    rows = led.attempts(-100)
+    stages = {row["stage"] for row in rows}
+    assert {meme.STAGE_SUMMARY, meme.STAGE_IMAGE} <= stages
+    assert meme.STAGE_CONSIDERED in stages and meme.STAGE_ELIGIBLE in stages
+    reasons = {row["reason_code"] for row in rows if row["reason_code"]}
+    assert meme.SKIP_CYCLE_EXCEPTION not in reasons
+    assert meme.SKIP_SUMMARY not in reasons
+    # Выжимка пришла от реального клиента и с посчитанной целью.
+    assert len(llm.calls) == 1
+    messages, kwargs = llm.calls[0]
+    assert kwargs["step"] == "meme_summary"
+    assert kwargs["module"] == "initiative"
+    body = json.loads(messages[1]["content"])
+    assert body["target_chars"] == 200 - len(PREFIX) - 1
+    assert provider_calls and provider_calls[0][0].startswith(PREFIX + " ")
+    snap = meme.analytics_snapshot(led, chat_id=-100)
+    assert snap["counters"][meme.STAGE_SUMMARY] == 1
+    assert snap["counters"][meme.STAGE_IMAGE] == 1
+
+
+def test_meme_phase_bridge_exception_is_cycle_exception(tmp_path, monkeypatch):
+    """Ошибка моста — отдельная причина, а не «провал выжимки»."""
+    led = _ledger(tmp_path)
+    llm, _, db = _wire_live_pipeline(monkeypatch, tmp_path, led)
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("bridge down")
+
+    monkeypatch.setattr(meme, "consider_chat", boom)
+    payload = {"chats": {-100: {}}}
+    _run(_runner(db, llm)._meme_phase(payload))
+
+    attempt = payload["meme"]["attempts"][0]
+    assert attempt["reason"] == meme.SKIP_CYCLE_EXCEPTION
+    assert attempt["detail"] == "RuntimeError"
+    assert attempt["stage"] == meme.STAGE_FAILED
+
+    rows = led.attempts(-100)
+    assert [row["reason_code"] for row in rows if row["reason_code"]] == [
+        meme.SKIP_CYCLE_EXCEPTION]
+    snap = meme.analytics_snapshot(led, chat_id=-100)
+    assert snap["skip_reasons"] == {meme.SKIP_CYCLE_EXCEPTION: 1}
+    assert meme.SKIP_SUMMARY not in snap["skip_reasons"]
+    assert obs.reason_label(meme.SKIP_CYCLE_EXCEPTION) != meme.SKIP_CYCLE_EXCEPTION
+
+
+def test_retry_of_released_slot_is_not_daily_quota(tmp_path):
+    """Повтор снятой брони — slot_released; квота при этом не «исчерпана»."""
+    led = _ledger(tmp_path)
+    assert _reserve(led, -100, "rel-1", 3, now_ts=int(NOW.timestamp())).ok
+    led.mark("rel-1", "released", "not_called")
+    assert led.status_counts(-100, "2026-10-30").get("released") == 1
+
+    async def summarizer(*_a, **_k):
+        return "хук"
+
+    result, provider, _ = _run(_consider(
+        tmp_path, ledger=led, summarizer=summarizer, job_id="rel-1"))
+    assert result.reason == meme.SKIP_SLOT_RELEASED
+    assert result.reason != meme.SKIP_QUOTA
+    assert result.detail == "job_released"
+    assert provider.calls == []
+    assert led.spent(-100, "2026-10-30") == 0
+    assert obs.reason_label(meme.SKIP_SLOT_RELEASED) != meme.SKIP_SLOT_RELEASED
+
+
+def test_default_summarizer_matches_real_client_contract(monkeypatch):
+    """Легкая выжимка совпадает по контракту с НАСТОЯЩИМ LLM-клиентом.
+
+    Фейковый llm не поймал бы дрейф сигнатуры, из-за которого живой путь
+    падал на TypeError. Транспорт подменён, сеть не используется.
+    """
+    from services.llm_client import LLMClient
+
+    client = LLMClient("https://llm.example.invalid/v1", "sk-test",
+                       "chat-model", "")
+    seen: dict = {}
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {"choices": [{"message": {"content": "  хук  "}}]}
+
+    async def _post(path, payload, **_kwargs):
+        seen["path"] = path
+        seen["payload"] = payload
+        return _Response()
+
+    monkeypatch.setattr(client, "_post", _post)
+    summary = _run(meme._default_summarize(
+        client, _rows(-100, 2), 60, "система", chat_id=-100,
+        model="другая-модель"))
+
+    assert summary == "хук"
+    assert seen["path"] == "/chat/completions"
+    assert seen["payload"]["messages"][0] == {
+        "role": "system", "content": "система"}
+    body = json.loads(seen["payload"]["messages"][1]["content"])
+    assert body["target_chars"] == 60
+    assert [item["id"] for item in body["messages"]] == [0, 1]
+    # Модель задаётся общим клиентом: подмены на одну выжимку нет.
+    assert seen["payload"]["model"] == "chat-model"
+
+
+def test_in_flight_check_precedes_paid_summary(tmp_path):
+    """Свежая чужая бронь отсекает попытку ДО платной выжимки."""
+    led = _ledger(tmp_path)
+    assert _reserve(led, -100, "live", 3, now_ts=int(NOW.timestamp()) - 30).ok
+    called = {"summary": 0}
+
+    async def summarizer(*_a, **_k):
+        called["summary"] += 1
+        return "хук"
+
+    result, provider, _ = _run(_consider(
+        tmp_path, ledger=led, summarizer=summarizer))
+    assert result.reason == meme.SKIP_IN_FLIGHT
+    assert called["summary"] == 0
+    assert provider.calls == []
+

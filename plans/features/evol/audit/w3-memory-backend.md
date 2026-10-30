@@ -73,3 +73,26 @@ Per-chat override читается, только если вызывающий �
 * `compileall services`.
 
 Сети, Telegram и полного набора тестов не было.
+
+## §review-fix (EVOL-009, по вердикту Reviewer)
+
+Блокер: у диагностики не было числа кандидатов. `mca_events.usage_json` не читался, а `unconfirmed_facts` кандидатами не является (это состояние фактов, а не результаты прохода).
+
+Что сделано в `services/memory_diagnostics.py`:
+
+* `_extract_usage(db, chat_id)` — чтение терминалов `FACTS_EXTRACT` (`outcome != 'start'`) в scope. `last_terminal` = последний проход: `at`, `outcome`, `reason_code`, `stage`, `pass_outcome` (это `usage_json.outcome`, т.е. настоящий исход прохода), `candidates` = `saved+skipped+deduped+superseded`, плюс сами `saved/skipped/deduped/superseded` и `text_only` по отдельности. `total` — сумма по проходам scope с явными `terminal_passes` / `passes_with_usage` / `passes_without_usage` / `covers_all_passes`; суммы считаются только по проходам с `usage_json`, поэтому частичное покрытие не выдаётся за полное. Старое событие без `usage_json` → `None` (неизвестно), никогда `0`. Поле отдано в `memory_health_diagnostics` как `extract_usage`; `counts.extract_skipped_by_reason` сохранён.
+* `last_extract` виджета (EVOL-007) и диагностики теперь несёт те же счётчики и `pass_outcome`, `stage`.
+* `_SUCCESS_OUTCOMES` больше не мёртвый: это исходы прохода из `summary_memory.outcome_map` (`success`/`all_duplicates`/`partial`/`text_only_vector_deferred`), их использует `_pass_ok`.
+* `empty_state_reason` называет реальный исход последнего прохода: `empty:skipped:validation_failed`, `empty:failed:writer_failed`; для честного «новых нет» — `no_new_results:skipped:no_new_contribution`. Голого `empty` при сбое больше нет.
+* `freshness`: `has_items` только при успешном проходе. Провал → `extract_failed`, пропуск по другой причине → `extract_skipped`, события недоступны или прохода нет → `unknown`.
+* `schedule_view()`: у `deep_sleep` свой часовой пояс — `limits.worker_budget_tz` (`WORKER_BUDGET_TZ`), ровно как в `dream_worker._deep_tz_name` (`dream_worker.py:542-547`), где считаются его сутки/час. У `extract`/`sleep` остаётся `limits.summary_timezone` (крон сводки и окно дистилляции). В каждой секции добавлен `timezone_key`, чтобы соответствие было проверяемым.
+
+Проверки (`tests/test_evol009_memory_diagnostics.py`, фикстуры без сети):
+
+* агрегация из реальных строк `mca_events` (`_extract_pass` пишет `usage_json` так же, как `summary_memory.py:3759-3761` и `:3394-3416`), плюс `unconfirmed_facts` отдельно от кандидатов;
+* старое событие без `usage_json` → `candidates/saved/text_only = None`, `covers_all_passes=False`; смешанная история — сумма только по покрытым проходам;
+* проход с `write_failed` и `validation_failed` → `candidates=3`, `saved=0` (кандидаты не пропадают из-за нулевой записи);
+* `empty_state_reason` и `freshness` по каждому исходу последнего прохода;
+* `deep_sleep.timezone` = `WORKER_BUDGET_TZ`, `sleep`/`extract` = `SUMMARY_TIMEZONE`.
+
+Прогон: `pytest tests/test_evol009_memory_diagnostics.py tests/test_evol007_new_facts_widget.py -q` — 18 passed. Коммитов нет, правки в рабочем дереве `evol/impl` (33a14034).

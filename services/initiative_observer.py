@@ -280,6 +280,8 @@ REASON_LABELS: dict[str, str] = {
     "length_limit_unknown": "потолок длины выжимки не известен",
     "in_flight": "генерация мема в этом чате уже идёт",
     "quiet_hours": "тихие часы — мем не запускается",
+    "cycle_exception": ("сбой моста «инициатива → мем» (не провал выжимки)"),
+    "slot_released": ("бронь этого задания уже снята — нужен новый запуск"),
 }
 
 
@@ -1101,6 +1103,8 @@ class InitiativeObserverRunner:
 
         Ошибка мема не валит текстовую инициативу. Выключение мемов
         (заводской OFF) — ранний выход внутри capability, не отмена job.
+        Реальный LLM-клиент передаётся внутрь: лёгкая выжимка идёт тем же
+        клиентом, что и соседние лёгкие вызовы инициативы.
         """
         try:
             from services import meme_initiative as meme
@@ -1122,9 +1126,23 @@ class InitiativeObserverRunner:
                 "separate_from_initiative": True,
                 "attempts": [item.as_dict() for item in results],
             }
-        except Exception:
-            logger.warning("[meme] phase failed — initiative continues",
-                           exc_info=True)
+        except Exception as exc:
+            # Не выдаём поломку моста за провал выжимки: причина отдельная
+            # и видна в payload/аналитике, текстовая инициатива продолжается.
+            logger.warning("[meme] phase raised — initiative continues "
+                           "| error=%s", type(exc).__name__, exc_info=True)
+            try:
+                from services import meme_initiative as meme
+                payload["meme"] = {
+                    "output_kind": meme.OUTPUT_KIND,
+                    "separate_from_initiative": True,
+                    "reason": meme.SKIP_CYCLE_EXCEPTION,
+                    "detail": type(exc).__name__,
+                    "attempts": [],
+                }
+            except Exception:
+                logger.warning("[meme] phase status not recorded",
+                               exc_info=True)
 
     def _meme_sender(self):
         bot = self._bot

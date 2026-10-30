@@ -11,7 +11,9 @@ from services.database import DatabaseService
 from services.memory_diagnostics import (
     memory_cycle_status,
     memory_health_diagnostics,
+    new_facts_widget,
     resolve_search,
+    schedule_view,
 )
 
 
@@ -30,6 +32,19 @@ async def _db():
     svc = DatabaseService(":memory:")
     await svc.initialize()
     return svc
+
+
+async def _extract_pass(db, chat_id, ts, outcome, *, reason=None, usage=None,
+                        stage="extract"):
+    """Строка терминала FACTS_EXTRACT ровно в том виде, как её пишет
+    `services/summary_memory.py` (usage_json = счётчики + исход прохода)."""
+    usage_json = json.dumps(usage) if usage is not None else None
+    await db.db.execute(
+        "INSERT INTO mca_events (ts, level, event_name, outcome, chat_id, "
+        "stage, reason_code, usage_json) VALUES (?, 'INFO', 'FACTS_EXTRACT', "
+        "?, ?, ?, ?, ?)",
+        (ts, outcome, chat_id, stage, reason, usage_json))
+    await db.db.commit()
 
 
 async def _dream(db, chat_id, run_at, kind, status):
@@ -221,3 +236,188 @@ async def test_backlog_is_a_real_count_only_when_vec_table_exists():
         assert fts_fallback["indexing_backlog"] == 1
     finally:
         await db.close()
+
+
+@pytest.mark.asyncio
+async def test_extract_candidates_come_from_usage_json_not_unconfirmed_facts():
+    db = await _db()
+    try:
+        # unconfirmed-факт — состояние фактов, а не число кандидатов прохода.
+        await db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, created_at, "
+            "target_user, status) VALUES (-100, 'черновик', 'chat_history', "
+            "80, 'Аня', 'unconfirmed')")
+        await db.db.commit()
+        await _extract_pass(db, -100, 100, "success", usage={
+            "saved": 2, "skipped": 1, "deduped": 3, "superseded": 1,
+            "text_only": 0, "outcome": "partial"})
+        await _extract_pass(db, -100, 200, "success", usage={
+            "saved": 1, "skipped": 0, "deduped": 0, "superseded": 0,
+            "text_only": 1, "outcome": "text_only_vector_deferred"})
+        body = await memory_health_diagnostics(
+            db, chat_id=-100, now_ts=1000, flags=_flags())
+        usage = body["extract_usage"]
+        last = usage["last_terminal"]
+        assert last["at"] == 200
+        assert last["candidates"] == 1            # 1+0+0+0
+        assert last["saved"] == 1
+        assert last["deduped"] == 0
+        assert last["text_only"] == 1
+        assert last["pass_outcome"] == "text_only_vector_deferred"
+        assert last["usage_present"] is True
+        total = usage["total"]
+        assert total["terminal_passes"] == 2
+        assert total["candidates"] == 8           # 7 + 1
+        assert total["saved"] == 3
+        assert total["skipped"] == 1
+        assert total["deduped"] == 3
+        assert total["superseded"] == 1
+        assert total["text_only"] == 1
+        assert total["covers_all_passes"] is True
+        assert body["counts"]["unconfirmed_facts"] == 1
+        # Другой scope не получает чужих кандидатов.
+        other = await memory_health_diagnostics(
+            db, chat_id=-200, now_ts=1000, flags=_flags())
+        assert other["extract_usage"]["last_terminal"] is None
+        assert other["extract_usage"]["total"]["candidates"] is None
+        assert other["extract_usage"]["total"]["terminal_passes"] == 0
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_legacy_extract_row_without_usage_json_stays_unknown_not_zero():
+    db = await _db()
+    try:
+        await _extract_pass(db, -100, 100, "success")   # старое событие
+        body = await memory_health_diagnostics(
+            db, chat_id=-100, now_ts=1000, flags=_flags())
+        usage = body["extract_usage"]
+        last = usage["last_terminal"]
+        assert last["outcome"] == "success"
+        assert last["usage_present"] is False
+        assert last["candidates"] is None
+        assert last["saved"] is None
+        assert last["text_only"] is None
+        assert last["pass_outcome"] is None
+        total = usage["total"]
+        assert total["terminal_passes"] == 1
+        assert total["passes_with_usage"] == 0
+        assert total["passes_without_usage"] == 1
+        assert total["covers_all_passes"] is False
+        assert total["candidates"] is None         # не 0
+        assert total["saved"] is None
+        # Смешанная история: сумма считается только по проходам с usage_json,
+        # покрытие честно помечено.
+        await _extract_pass(db, -100, 200, "success", usage={
+            "saved": 2, "skipped": 0, "deduped": 1, "superseded": 0,
+            "text_only": 0, "outcome": "success"})
+        mixed = (await memory_health_diagnostics(
+            db, chat_id=-100, now_ts=1000, flags=_flags()))["extract_usage"]
+        assert mixed["last_terminal"]["usage_present"] is True
+        assert mixed["last_terminal"]["candidates"] == 3
+        assert mixed["total"]["candidates"] == 3
+        assert mixed["total"]["passes_with_usage"] == 1
+        assert mixed["total"]["passes_without_usage"] == 1
+        assert mixed["total"]["covers_all_passes"] is False
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_failed_or_invalidated_pass_reports_candidates_with_zero_saved():
+    db = await _db()
+    try:
+        await _extract_pass(db, -100, 100, "failed", reason="writer_failed",
+                            usage={"saved": 0, "skipped": 3, "deduped": 0,
+                                   "superseded": 0, "text_only": 0,
+                                   "outcome": "write_failed"})
+        await _extract_pass(db, -100, 200, "skipped",
+                            reason="validation_failed",
+                            usage={"saved": 0, "skipped": 2, "deduped": 1,
+                                   "superseded": 0, "text_only": 0,
+                                   "outcome": "validation_failed"})
+        body = await memory_health_diagnostics(
+            db, chat_id=-100, now_ts=1000, flags=_flags())
+        usage = body["extract_usage"]
+        last = usage["last_terminal"]
+        assert last["outcome"] == "skipped"
+        assert last["reason_code"] == "validation_failed"
+        assert last["candidates"] == 3             # 0+2+1+0
+        assert last["candidates"] != 0
+        assert last["saved"] == 0
+        assert last["skipped"] == 2
+        assert last["deduped"] == 1
+        total = usage["total"]
+        assert total["candidates"] == 6
+        assert total["saved"] == 0
+        assert total["passes_with_usage"] == 2
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_empty_state_reason_and_freshness_follow_real_last_pass():
+    db = await _db()
+    try:
+        widget_flags = {"global": {
+            "graph_rag_enabled": True, "dream_enabled": False,
+            "deep_sleep_enabled": False, "persona_enabled": True}}
+        await _extract_pass(db, -100, 500, "skipped",
+                            reason="validation_failed", stage="gate")
+        bare = await new_facts_widget(
+            db, chat_id=-100, now_ts=1000, flags=widget_flags)
+        assert bare["items"] == []
+        assert bare["empty_state"] == "empty"
+        assert bare["empty_state_reason"] == "empty:skipped:validation_failed"
+        assert bare["freshness"] is None
+
+        await db.insert_graph_fact(
+            -100, "живой факт", "chat_history", None, target_user="Аня")
+        await db.db.commit()
+        await _extract_pass(db, -100, 600, "failed", reason="writer_failed")
+        failed = await new_facts_widget(
+            db, chat_id=-100, now_ts=1000, flags=widget_flags)
+        assert [item["fact"] for item in failed["items"]] == ["живой факт"]
+        assert failed["empty_state"] is None
+        assert failed["freshness"] == "extract_failed"
+        assert failed["last_extract"]["candidates"] is None
+
+        await _extract_pass(db, -100, 700, "success", usage={
+            "saved": 1, "skipped": 0, "deduped": 0, "superseded": 0,
+            "text_only": 0, "outcome": "partial"})
+        ok = await new_facts_widget(
+            db, chat_id=-100, now_ts=1000, flags=widget_flags)
+        assert ok["freshness"] == "has_items"
+        assert ok["last_extract"]["candidates"] == 1
+
+        await _extract_pass(db, -100, 800, "skipped",
+                            reason="no_new_contribution")
+        no_new = await new_facts_widget(
+            db, chat_id=-100, now_ts=1000, flags=widget_flags)
+        assert no_new["freshness"] == "no_new_results"
+        assert no_new["empty_state"] is None
+        assert no_new["empty_state_reason"] is None
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_schedule_deep_sleep_timezone_matches_its_own_day_math(monkeypatch):
+    from services import hot_config
+    values = {
+        "limits.summary_timezone": "Asia/Tokyo",
+        "limits.worker_budget_tz": "Europe/Berlin",
+        "memory.dream_tick_minutes": 30,
+    }
+    monkeypatch.setattr(hot_config, "get",
+                        lambda key, default=None: values.get(key, default))
+    schedule = schedule_view()
+    # deep_sleep считает сутки/час в WORKER_BUDGET_TZ (dream_worker._deep_tz_name)
+    assert schedule["deep_sleep"]["timezone"] == "Europe/Berlin"
+    assert schedule["deep_sleep"]["timezone_key"] == "limits.worker_budget_tz"
+    assert schedule["sleep"]["timezone"] == "Asia/Tokyo"
+    assert schedule["sleep"]["timezone_key"] == "limits.summary_timezone"
+    assert schedule["extract"]["timezone"] == "Asia/Tokyo"
+    assert schedule["extract"]["timezone_key"] == "limits.summary_timezone"
+    assert schedule["deep_sleep"]["tick_minutes"] == 30

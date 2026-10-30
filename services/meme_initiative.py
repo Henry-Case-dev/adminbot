@@ -23,6 +23,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import sqlite3
 import uuid
@@ -91,13 +93,18 @@ SKIP_SCHEMA = "schema_absent"
 SKIP_LENGTH_UNKNOWN = "length_limit_unknown"
 SKIP_IN_FLIGHT = "in_flight"
 SKIP_QUIET = "quiet_hours"
+#: Мост «цикл инициативы → мем» сломался. Это НЕ провал выжимки: выжимка
+#: могла вообще не вызываться. Отдельный код, чтобы аналитика не врала.
+SKIP_CYCLE_EXCEPTION = "cycle_exception"
+#: Retry уже снятой брони (вызов провайдера достоверно не начинался).
+SKIP_SLOT_RELEASED = "slot_released"
 
 SKIP_REASONS = (
     SKIP_DISABLED, SKIP_INITIATIVE_DISABLED, SKIP_IMAGE_MODULE_OFF,
     SKIP_IMAGE_NOT_CONFIGURED, SKIP_IMAGE_UNHEALTHY, SKIP_RANDOM_UNAVAILABLE,
     SKIP_RANDOM_MISS, SKIP_COOLDOWN, SKIP_SUMMARY, SKIP_IMAGE_FAILED,
     SKIP_PUBLISH, SKIP_QUOTA, SKIP_ACTIVITY, SKIP_SCHEMA, SKIP_LENGTH_UNKNOWN,
-    SKIP_IN_FLIGHT, SKIP_QUIET,
+    SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION, SKIP_SLOT_RELEASED,
 )
 
 STAGE_CONSIDERED = "considered"
@@ -995,6 +1002,7 @@ async def consider_chat(
         random_source=None,
         messages: list[dict] | None = None,
         message_reader: Callable[..., Awaitable[list[dict]]] | None = None,
+        llm: Any = None,
         summarizer: Callable[..., Awaitable[str]] | None = None,
         image_provider: Callable[..., Awaitable[Any]] | None = None,
         publish_gate: Callable[..., Awaitable[tuple]] | None = None,
@@ -1094,45 +1102,55 @@ async def consider_chat(
         return result
 
     summary_prompt = active_prompt_view(SUMMARY_PROMPT_BLOCK_ID)
+    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
+    # Guard «генерация уже идёт» — ДО платной выжимки: иначе чужая свежая
+    # бронь съедала бы LLM-вызов впустую (порядок проверок — до дорогих).
+    if ledger.fresh_inflight(int(chat_id), ts) and not job_id:
+        return skipped(SKIP_IN_FLIGHT, limit=limit, jid=jid)
     try:
         if summarizer is None:
             summary = await _default_summarize(
-                None, rows, int(limit.summary_target),
+                llm, rows, int(limit.summary_target),
                 str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT),
-                cfg.summarizer_model)
+                chat_id=int(chat_id), model=cfg.summarizer_model)
         else:
             summary = await summarizer(
                 int(chat_id), rows, int(limit.summary_target),
                 str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT))
-    except Exception:
-        logger.warning("[meme] summary failed", exc_info=True)
+    except Exception as exc:
+        logger.warning("[meme] summary failed | chat=%s | error=%s",
+                       chat_id, type(exc).__name__)
         counters[STAGE_FAILED] = 1
-        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail="exception",
-                       limit=limit)
+        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED,
+                       detail=f"exception:{type(exc).__name__}", limit=limit,
+                       jid=jid)
     counters[STAGE_SUMMARY] = 1
     prompt, error = build_image_prompt(
         prefix, str(summary or ""), summary_target=limit.summary_target)
     if error:
         counters[STAGE_FAILED] = 1
         return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail=error,
-                       limit=limit)
+                       limit=limit, jid=jid)
 
-    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
-    if ledger.fresh_inflight(int(chat_id), ts) and not job_id:
-        return skipped(SKIP_IN_FLIGHT, limit=limit, jid=jid)
     reserved = ledger.reserve(
         chat_id=int(chat_id), day_bucket=day.bucket, job_id=jid,
         limit=cfg.daily_limit, tz_name=day.timezone_name,
         tz_source=day.timezone_source, now_ts=ts)
-    if reserved.already and reserved.status in (
-            "provider_called", "provider_failed"):
-        # Тот же job уже дошёл до провайдера: второй слот не берём и
-        # второй платный вызов не делаем.
-        return skipped(SKIP_QUOTA, detail="job_already_counted", limit=limit,
-                       jid=jid)
+    if reserved.already:
+        if reserved.status == "released":
+            # Слот снят (вызов провайдера достоверно не начинался): квота
+            # не исчерпана, новый слот берётся другим job_id.
+            return skipped(SKIP_SLOT_RELEASED, detail="job_released",
+                           limit=limit, jid=jid)
+        if reserved.status in ("provider_called", "provider_failed"):
+            # Тот же job уже дошёл до провайдера: второй слот не берём и
+            # второй платный вызов не делаем.
+            return skipped(SKIP_QUOTA, detail="job_already_counted",
+                           limit=limit, jid=jid)
+        return skipped(SKIP_QUOTA, detail=f"job_{reserved.status or 'denied'}",
+                       limit=limit, jid=jid)
     if not reserved.ok:
-        reason = reserved.reason if reserved.reason != "already" else SKIP_QUOTA
-        return skipped(reason, limit=limit, jid=jid)
+        return skipped(reserved.reason, limit=limit, jid=jid)
 
     called = False
     try:
@@ -1175,10 +1193,13 @@ async def consider_chat(
     if not allowed or sender is None:
         counters[STAGE_PUBLISH] = 1
         counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
+        # Честная причина: гейт мог быть открыт, а отправителя нет вообще.
+        detail = (str(gate_reason or SKIP_PUBLISH) if not allowed
+                  else "publisher_not_bound")
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="blocked",
             reason=SKIP_PUBLISH,
-            detail=str(gate_reason or "publisher_not_bound"),
+            detail=detail,
             job_id=jid, prompt=prompt, published=False, generated=True,
             limit=limit, prompt_origin=origin, counters=dict(counters))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
@@ -1202,10 +1223,32 @@ async def consider_chat(
     return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
 
 
-async def _default_summarize(llm, rows, target: int, system_prompt: str,
-                             model: str) -> str:
-    if llm is None:
+#: Предел ожидания лёгкого LLM-вызова выжимки в этом же проходе инициативы.
+SUMMARY_TIMEOUT_SECONDS = 45
+
+
+async def _default_summarize(llm, rows, target: int, system_prompt: str, *,
+                             chat_id: int | None = None,
+                             model: str = "") -> str:
+    """Лёгкий контур выжимки: ОДИН вызов существующего LLM-клиента.
+
+    Тяжёлый summary-pipeline (planner → writer → reviewer) не используется.
+    ``target`` — уже посчитанная до вызова цель в символах: она уходит
+    суммаризатору как задание («уложись в N»), а не проверяется обрезкой
+    постфактум. Нет клиента/вызова — честный ``RuntimeError``, не тихая
+    подстановка чужого текста.
+    """
+    generate = getattr(llm, "generate", None) if llm is not None else None
+    if generate is None:
         raise RuntimeError("summarizer_unavailable")
+    effective_model = str(getattr(llm, "_chat_model", "") or "")
+    if model and effective_model and model != effective_model:
+        # Осознанно: отдельного клиента под выжимку не создаём, поэтому
+        # настроенная модель не подменяется тихо — она видна в настройках,
+        # а фактический вызов идёт моделью общего клиента (как у соседних
+        # лёгких вызовов инициативы).
+        logger.info("[meme] summarizer_model=%s не применяется общим "
+                    "клиентом; фактическая модель=%s", model, effective_model)
     payload = {
         "target_chars": int(target),
         "messages": [
@@ -1213,11 +1256,19 @@ async def _default_summarize(llm, rows, target: int, system_prompt: str,
             for row in rows
         ],
     }
-    complete = getattr(llm, "complete", None)
-    if complete is None:
-        raise RuntimeError("summarizer_unavailable")
-    return str(await complete(system=system_prompt, user=payload,
-                              max_chars=int(target), model=model or None))
+    messages = [
+        {"role": "system", "content": str(system_prompt or "")},
+        {"role": "user",
+         "content": json.dumps(payload, ensure_ascii=False,
+                               separators=(",", ":"))},
+    ]
+    raw = await asyncio.wait_for(
+        generate(messages, temperature=0.2,
+                 chat_id=int(chat_id) if chat_id is not None else None,
+                 module="initiative", step="meme_summary",
+                 correlation_id=uuid.uuid4().hex[:16]),
+        timeout=SUMMARY_TIMEOUT_SECONDS)
+    return str(raw or "").strip()
 
 
 async def _default_image(prompt: str, chat_id: int, job_id: str):
@@ -1233,18 +1284,50 @@ async def _default_image(prompt: str, chat_id: int, job_id: str):
 
 
 async def on_initiative_cycle(db, chat_ids, **kwargs) -> list[AttemptResult]:
-    """Точка вызова из прохода Initiative. Пустой список чатов — no-op."""
+    """Точка вызова из прохода Initiative. Пустой список чатов — no-op.
+
+    Падение одной попытки не валит ни остальные чаты, ни текстовую
+    инициативу, но и не выдаётся за провал выжимки: пишется отдельная
+    причина ``cycle_exception`` и строка журнала попыток.
+    """
     results = []
     for chat_id in chat_ids or ():
         try:
             results.append(await consider_chat(db, int(chat_id), **kwargs))
-        except Exception:
-            logger.warning("[meme] chat attempt failed — initiative continues",
-                           exc_info=True)
-            results.append(AttemptResult(
-                chat_id=int(chat_id), stage=STAGE_FAILED, outcome="failed",
-                reason=SKIP_SUMMARY, detail="cycle_exception"))
+        except Exception as exc:
+            logger.warning("[meme] chat attempt raised — initiative continues "
+                           "| chat=%s | error=%s", chat_id,
+                           type(exc).__name__, exc_info=True)
+            results.append(
+                _bridge_failure(int(chat_id), exc, **kwargs))
     return results
+
+
+def _bridge_failure(chat_id: int, exc: BaseException,
+                    **kwargs) -> AttemptResult:
+    """Ошибка моста: отдельная причина, честная запись, не ``summary_failed``."""
+    counters = {stage: 0 for stage in STAGES}
+    counters[STAGE_CONSIDERED] = 1
+    counters[STAGE_FAILED] = 1
+    result = AttemptResult(
+        chat_id=int(chat_id), stage=STAGE_FAILED, outcome="failed",
+        reason=SKIP_CYCLE_EXCEPTION,
+        detail=f"{type(exc).__name__}", counters=counters)
+    settings = kwargs.get("settings")
+    if not isinstance(settings, MemeSettings):
+        settings = MemeSettings()
+    now_ts = kwargs.get("now_ts")
+    if now_ts is None:
+        stamp = kwargs.get("now")
+        now_ts = int(stamp.timestamp()) if isinstance(stamp, datetime) \
+            else int(datetime.now(timezone.utc).timestamp())
+    try:
+        _finish(result, ledger=kwargs.get("ledger"), now_ts=int(now_ts),
+                settings=settings)
+    except Exception:
+        logger.warning("[meme] bridge failure journaling failed",
+                       exc_info=True)
+    return result
 
 
 def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,

@@ -24,11 +24,23 @@ EMPTY_NO_NEW = "no_new_results"
 EMPTY_LOAD_FAILED = "load_failed"
 EMPTY_NOT_YET = "not_yet_run"
 
+# Свежесть показанных фактов относительно последнего прохода экстракции.
+# «has_items» не выдаётся, если последний проход упал или был пропущен.
+FRESH_HAS_ITEMS = "has_items"
+FRESH_EXTRACT_FAILED = "extract_failed"
+FRESH_EXTRACT_SKIPPED = "extract_skipped"
+FRESH_UNKNOWN = "unknown"
+
 # Успешный проход экстракции: факты записаны ИЛИ честный «новых нет».
 # failed / disabled-skip успехом не считаются.
 _EXTRACT_EVENT = "FACTS_EXTRACT"
-_SUCCESS_OUTCOMES = ("success",)
+# Исходы самого прохода (`usage_json.outcome`, services/summary_memory.py,
+# таблица outcome_map) — все они дают mca-outcome 'success'.
+_SUCCESS_OUTCOMES = ("success", "all_duplicates", "partial",
+                     "text_only_vector_deferred")
 _NO_NEW_REASON = "no_new_contribution"
+# Счётчики прохода экстракции из usage_json (summary_memory.py:3759-3761).
+_EXTRACT_COUNT_KEYS = ("saved", "skipped", "deduped", "superseded")
 
 _MEMORY_ERROR_EVENTS = (
     "FACTS_EXTRACT",
@@ -105,6 +117,53 @@ def _settings_default(attr: str) -> bool:
     return bool(getattr(settings, attr))
 
 
+def _usage_dict(raw) -> dict | None:
+    """usage_json события как словарь. Нет/битый — None (не пустой словарь)."""
+    if raw in (None, ""):
+        return None
+    data = raw
+    if isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def _usage_counts(usage: dict | None) -> dict:
+    """Счётчики прохода из usage_json (summary_memory.py:3759-3761).
+
+    `candidates` = saved + skipped + deduped + superseded. Нет usage_json —
+    все счётчики None: неизвестно, а не ноль.
+    """
+    def num(key: str) -> int | None:
+        if usage is None:
+            return None
+        return _int_or_none(usage.get(key))
+
+    counts: dict = {key: num(key) for key in _EXTRACT_COUNT_KEYS}
+    counts["text_only"] = num("text_only")
+    values = [counts[key] for key in _EXTRACT_COUNT_KEYS]
+    counts["candidates"] = (
+        sum(values) if all(value is not None for value in values) else None)
+    counts["usage_present"] = usage is not None
+    pass_outcome = (usage or {}).get("outcome")
+    counts["pass_outcome"] = (
+        str(pass_outcome) if isinstance(pass_outcome, str) and pass_outcome
+        else None)
+    return counts
+
+
+def _pass_ok(last: dict) -> bool:
+    """Проход считается успешным по mca-исходу и (если известен) usage-исходу."""
+    if last.get("outcome") != "success":
+        return False
+    pass_outcome = last.get("pass_outcome")
+    if pass_outcome is None:
+        return True                     # старое событие без usage_json
+    return str(pass_outcome) in _SUCCESS_OUTCOMES
+
+
 async def _live_flag(name: str, chat_id: int | None) -> tuple[bool, str]:
     """Глобальный/per-chat флаг без сети, если кэш чата не прогрет.
 
@@ -174,14 +233,19 @@ def schedule_view() -> dict:
         from services import hot_config as hot
         tz = hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE)
         tick = hot.get("memory.dream_tick_minutes", settings.DREAM_TICK_MINUTES)
+        # Сутки/час глубокого сна считаются в WORKER_BUDGET_TZ
+        # (dream_worker.py:542-547, `_deep_tz_name`), а не в SUMMARY_TIMEZONE.
+        deep_tz = hot.get("limits.worker_budget_tz", settings.WORKER_BUDGET_TZ)
     except Exception:
         tz = settings.SUMMARY_TIMEZONE
         tick = settings.DREAM_TICK_MINUTES
+        deep_tz = getattr(settings, "WORKER_BUDGET_TZ", tz)
     return {
         "extract": {
             "mode": "event_driven_and_summary_cron",
             "summary_cron": "hour=0,6,12,18 minute=0",
             "timezone": str(tz or "UTC"),
+            "timezone_key": "limits.summary_timezone",
             "gate": "flags.graph_rag_enabled",
             "note": (
                 "memorize_facts вызывается с живых хуков (сообщение, поиск, "
@@ -198,6 +262,7 @@ def schedule_view() -> dict:
             "window_start_hour": int(settings.DREAM_WINDOW_START_HOUR),
             "window_end_hour": int(settings.DREAM_WINDOW_END_HOUR),
             "timezone": str(tz or "UTC"),
+            "timezone_key": "limits.summary_timezone",
             "gate": "memory.dream_enabled",
             "jobs_always_registered": True,
             "note": (
@@ -213,13 +278,16 @@ def schedule_view() -> dict:
             "trigger_mode_default": str(settings.DEEP_SLEEP_TRIGGER),
             "fixed_hour_default": int(settings.DEEP_SLEEP_HOUR),
             "cooldown_hours": cooldown,
+            "timezone": str(deep_tz or tz or "UTC"),
+            "timezone_key": "limits.worker_budget_tz",
             "gate": "flags.deep_sleep_enabled",
             "default_enabled": bool(settings.DEEP_SLEEP_ENABLED),
             "note": (
                 "По умолчанию флаг выключен. trigger=after_sleep запускается "
                 "после обычного сна; trigger=fixed — в свой local-час "
-                "(WORKER_BUDGET_TZ). Ordinary-sleep master глубокий сон не "
-                "блокирует: у него свой флаг."
+                "(WORKER_BUDGET_TZ, как в dream_worker._deep_tz_name; "
+                "SUMMARY_TIMEZONE здесь не применяется). Ordinary-sleep master "
+                "глубокий сон не блокирует: у него свой флаг."
             ),
         },
         "personality": {
@@ -299,7 +367,8 @@ async def facts_extract_status(db, chat_id: int | None) -> dict:
     clause, params = _scope_clause(chat_id)
     last = await _fetchone(
         db,
-        "SELECT ts, outcome, reason_code, error_json FROM mca_events "
+        "SELECT ts, outcome, reason_code, stage, usage_json, error_json "
+        "FROM mca_events "
         "WHERE event_name = ? AND outcome != 'start'" + clause +
         " ORDER BY ts DESC, id DESC LIMIT 1",
         [_EXTRACT_EVENT, *params])
@@ -313,11 +382,21 @@ async def facts_extract_status(db, chat_id: int | None) -> dict:
     terminal = last is not None
     last_extract = None
     if last is not None:
+        counts = _usage_counts(_usage_dict(last.get("usage_json")))
         last_extract = {
             "at": _int_or_none(last.get("ts")),
             "outcome": last.get("outcome"),
             "reason_code": last.get("reason_code") or None,
             "error_class": _error_class(last.get("error_json")),
+            "stage": last.get("stage") or None,
+            "pass_outcome": counts["pass_outcome"],
+            "usage_present": counts["usage_present"],
+            "candidates": counts["candidates"],
+            "saved": counts["saved"],
+            "skipped": counts["skipped"],
+            "deduped": counts["deduped"],
+            "superseded": counts["superseded"],
+            "text_only": counts["text_only"],
         }
     return {
         "has_terminal": terminal,
@@ -341,14 +420,51 @@ def _empty_state(items: list, *, enabled: bool, status: dict) -> str | None:
     return EMPTY_EMPTY
 
 
+def _empty_state_reason(empty: str | None, status: dict) -> str | None:
+    """Причина пустоты с реальным исходом последнего прохода.
+
+    «Пусто» само по себе не объясняет сбой: если последний проход был
+    пропущен по валидации или упал, причина это называет
+    (`empty:skipped:validation_failed`, `empty:failed:writer_failed`).
+    """
+    if empty is None:
+        return None
+    if empty not in (EMPTY_EMPTY, EMPTY_NO_NEW):
+        return empty
+    last = status.get("last_extract") or {}
+    parts = [empty]
+    outcome = last.get("outcome")
+    if outcome and outcome != "success":
+        parts.append(str(outcome))
+    code = last.get("reason_code")
+    if code:
+        parts.append(str(code))
+    return ":".join(parts)
+
+
 def _freshness(items: list, status: dict) -> str | None:
+    """Свежесть фактов по последнему проходу экстракции, без натяжек.
+
+    «has_items» — только когда проход реально успешен. Провал, пропуск по
+    другой причине и неизвестное состояние называются своими словами.
+    """
     if not items:
         return None
+    if status.get("events_unavailable"):
+        return FRESH_UNKNOWN
     last = status.get("last_extract") or {}
+    if not last:
+        return FRESH_UNKNOWN
+    if _pass_ok(last):
+        return FRESH_HAS_ITEMS
     if (last.get("outcome") == "skipped"
             and last.get("reason_code") == _NO_NEW_REASON):
         return EMPTY_NO_NEW
-    return "has_items"
+    if last.get("outcome") == "failed":
+        return FRESH_EXTRACT_FAILED
+    if last.get("outcome") == "skipped":
+        return FRESH_EXTRACT_SKIPPED
+    return FRESH_UNKNOWN
 
 
 async def new_facts_widget(db, *, chat_id: int | None = None,
@@ -410,7 +526,7 @@ async def new_facts_widget(db, *, chat_id: int | None = None,
         "items": items,
         "ordered_by": "created_at_desc",
         "empty_state": empty,
-        "empty_state_reason": None if empty is None else empty,
+        "empty_state_reason": _empty_state_reason(empty, status),
         "extraction_enabled": enabled,
         "extraction_enabled_source": enabled_source,
         "updates_disabled": (enabled is False),
@@ -624,6 +740,62 @@ async def _skip_counts(db, chat_id: int | None) -> dict:
     }
 
 
+async def _extract_usage(db, chat_id: int | None) -> dict:
+    """EVOL-009: число кандидатов прохода экстракции из `usage_json`.
+
+    Пишет их сам проход (`services/summary_memory.py:3759-3761` →
+    `mca_events.usage_json`). `candidates` = saved + skipped + deduped +
+    superseded, плюс `text_only` и исход прохода отдельно. Старое событие
+    без usage_json — None (честное «неизвестно»), не ноль.
+    `unconfirmed_facts` кандидатами не считается: это состояние фактов.
+    """
+    clause, params = _scope_clause(chat_id)
+    rows = await _fetchall(
+        db,
+        "SELECT ts, outcome, reason_code, stage, usage_json FROM mca_events "
+        "WHERE event_name = ? AND outcome != 'start'" + clause +
+        " ORDER BY ts DESC, id DESC",
+        [_EXTRACT_EVENT, *params])
+    last_terminal = None
+    if rows:
+        head = rows[0]
+        body = {
+            "at": _int_or_none(head.get("ts")),
+            "outcome": head.get("outcome"),
+            "reason_code": head.get("reason_code") or None,
+            "stage": head.get("stage") or None,
+        }
+        body.update(_usage_counts(_usage_dict(head.get("usage_json"))))
+        last_terminal = body
+    keys = (*_EXTRACT_COUNT_KEYS, "text_only", "candidates")
+    sums = {key: 0 for key in keys}
+    seen: set[str] = set()
+    with_usage = 0
+    for row in rows:
+        usage = _usage_dict(row.get("usage_json"))
+        if usage is None:
+            continue
+        with_usage += 1
+        counts = _usage_counts(usage)
+        for key in keys:
+            value = counts.get(key)
+            if value is None:
+                continue
+            sums[key] += value
+            seen.add(key)
+    total = {
+        "terminal_passes": len(rows),
+        "passes_with_usage": with_usage,
+        "passes_without_usage": len(rows) - with_usage,
+        # Покрывает ли сумма все проходы scope. False — сумма только по
+        # проходам с usage_json, и это не «ноль» по остальным.
+        "covers_all_passes": (len(rows) - with_usage) == 0,
+    }
+    for key in keys:
+        total[key] = sums[key] if (with_usage and key in seen) else None
+    return {"last_terminal": last_terminal, "total": total}
+
+
 async def _recent_error(db, chat_id: int | None) -> dict | None:
     clause, params = _scope_clause(chat_id)
     placeholders = ",".join("?" * len(_MEMORY_ERROR_EVENTS))
@@ -778,6 +950,7 @@ async def memory_health_diagnostics(
             cycle["stages"]["personality"]["last_success_at"]),
         "last_new_fact_at": await latest_new_fact_at(db, cid, ts),
         "counts": await _skip_counts(db, cid),
+        "extract_usage": await _extract_usage(db, cid),
         "search": search,
         "indexing_backlog": tables["indexing_backlog"],
         "indexing_backlog_reason": tables["indexing_backlog_reason"],
