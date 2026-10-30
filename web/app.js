@@ -2633,6 +2633,7 @@
         // F7 (memory-retention-health, D-6): метрики здоровья памяти
         // (GET /api/memory/health) — overdue/unconfirmed/сырьё/хранилище.
         memoryHealth: null,
+        memoryHealthError: false,
         // ── U03 (v6.3 W3-STATUS): B03 «Просрочено N» + durable-воронки ──
         expiredOverview: null,        // GET /api/memory/expired-overview
         expiredOverviewBusy: false,
@@ -4963,6 +4964,84 @@
           detail: this.hbReason || '', reason: this.hbReason || '',
           badge: badge,
         };
+      },
+      // EVOL-032: payload адаптера. Бот и сердцебиение — процесс, scope global,
+      // даже если в селекторе выбран чат. errors_total передаётся и игнорируется.
+      botHealthSource: function () {
+        var s = this.statusData;
+        if (!s || !s.bot) return { missing: true };
+        var up = s.uptime || {};
+        return {
+          state: s.bot.state || '',
+          errors_total: s.bot.errors_total,
+          observed_at: up.generated_at || s.bot.started_at || '',
+          stale: s.bot.stale === true || s.stale === true,
+        };
+      },
+      heartbeatHealthSource: function () {
+        var s = this.statusData;
+        var up = (s && s.uptime) || {};
+        return {
+          hbState: this.hbState || 'unknown',
+          reason: this.hbReason || '',
+          observed_at: up.generated_at || '',
+        };
+      },
+      experienceHealthSource: function () {
+        var e = (this.statusData && this.statusData.experience) || null;
+        if (!e) return { missing: true };
+        return e;
+      },
+      sleepHealthSource: function () {
+        var c = this.cognition;
+        if (!c) return { missing: true };
+        return {
+          dream: c.dream || null,
+          deep_sleep: c.deep_sleep || null,
+          observed_at: c.generated_at || '',
+          scope: 'global',
+        };
+      },
+      memoryHealthSource: function () {
+        if (this.memoryHealthError) return { request_error: true };
+        if (!this.memoryHealth) return { missing: true };
+        return this.memoryHealth;
+      },
+      visionHealthSource: function () {
+        var s = this.adjacentVision;
+        if (!s) return { missing: true };
+        return {
+          requested: s.requested,
+          effective_enabled: s.effective_enabled,
+          reason: s.reason || '',
+          capability: s.capability || '',
+          recognition_verdict: s.recognition_verdict || s.health_status || null,
+          chat_id: s.chat_id,
+          checked_at: s.checked_at || '',
+          queue: s.queue || null,
+        };
+      },
+      // Реальный scope источников: cognition/vision читаются по активному чату
+      // (chat_id / X-Chat-Id), /api/memory/health и /api/status — global.
+      healthScope: function () {
+        return this.activeChatId == null ? 'global' : String(this.activeChatId);
+      },
+      heartbeatHealth: function () {
+        return healthStateFrom('heartbeat', this.heartbeatHealthSource, 'global');
+      },
+      botSectionHealth: function () {
+        return healthStateFrom('bot', this.botHealthSource, 'global');
+      },
+      memoryHealthView: function () {
+        return healthStateFrom('memory', this.memoryHealthSource, 'global');
+      },
+      visionHealthView: function () {
+        return healthStateFrom('vision', this.visionHealthSource, this.healthScope);
+      },
+      // Единственный существующий маршрут причин: вкладка инцидентов
+      // «Аналитики» (#/oversight?tab=incidents читается oversightApplyDeepLink).
+      botProblemHref: function () {
+        return '#/oversight?tab=incidents';
       },
       // §15/C2-OFF (T-2599, мягкий откат C2): прежнее вычисление «сердцебиения»
       // (HEAD 441e8f7) — ratio = loadavg[0]/cpu_count иначе max(CPU%,RAM%)/100;
@@ -8522,8 +8601,10 @@
         this.memoryHealthBusy = true;
         try {
           this.memoryHealth = await this.api('/api/memory/health');
+          this.memoryHealthError = false;
         } catch (e) {
           this.memoryHealth = null;
+          this.memoryHealthError = true;
         } finally {
           this.memoryHealthBusy = false;
         }
@@ -25588,6 +25669,379 @@
       }
     },
     template: '#override-stack-tpl',
+  });
+
+  // ═══ EVOL-032 / CONTRACT 2 — адаптер здоровья и корень стекла ═════════════
+  // Цвет карточки — только RGB её собственной заливки (app.css). Эта функция
+  // не парсит логи, слово error, CSS и проценты. Красный — только явный
+  // вердикт подсистемы. HTTP 200, один WARN, stale, пустая выборка,
+  // errors_total, чужой чат и выключенный модуль сами по себе не красят.
+  var HEALTH_LABEL = {
+    normal: 'Норма', degraded: 'Проблема', failed: 'Сбой',
+    unknown: 'Неизвестно', disabled: 'Выключено',
+  };
+  var HEALTH_BADGE = {
+    normal: 'badge-ok', degraded: 'badge-err', failed: 'badge-err',
+    unknown: 'badge-warn', disabled: 'badge-muted',
+  };
+  var HEALTH_ICON = {
+    normal: 'monitoring', degraded: 'stop', failed: 'stop',
+    unknown: 'help', disabled: 'visibility_off',
+  };
+  var HEALTH_NAME = {
+    bot: 'Бот', heartbeat: 'Сердцебиение', memory: 'Память',
+    experience: 'Опыт', vision: 'Vision', sleep: 'Сон',
+    media: 'Медиа', process: 'Процесс',
+  };
+  var HEALTH_PER_CHAT = {
+    experience: 1, vision: 1, memory: 1, sleep: 1, media: 1,
+  };
+
+  function healthView(state, subsystem, reason, observedAt) {
+    if (!HEALTH_LABEL[state]) state = 'unknown';
+    var label = HEALTH_LABEL[state];
+    var name = HEALTH_NAME[subsystem] || 'Подсистема';
+    var why = reason ? String(reason).slice(0, 180) : '';
+    var when = observedAt ? String(observedAt) : '';
+    var parts = [name, label];
+    if (why) parts.push(why);
+    if (when) parts.push(when);
+    var icon = HEALTH_ICON[state];
+    return {
+      state: state,
+      label: label,
+      badge: HEALTH_BADGE[state],
+      icon: icon,
+      glyph: (typeof ICONS !== 'undefined' && ICONS[icon]) || '',
+      reason: why,
+      observedAt: when,
+      ariaLabel: parts.join(', '),
+      paints: state === 'degraded' || state === 'failed',
+    };
+  }
+
+  function healthObservedAt(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    var v = payload.observed_at || payload.observedAt || payload.checked_at
+      || payload.generated_at || payload.last_ok_at || '';
+    return (v == null || v === '') ? '' : String(v);
+  }
+
+  function healthExplicit(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    var raw = payload.health_status || payload.function_verdict
+      || payload.recognition_verdict;
+    if (raw == null && payload.state === 'problem') raw = 'problem';
+    if (raw == null && payload.problem === true
+        && !payload.state && !payload.hbState && !payload.bot) {
+      raw = 'problem';
+    }
+    if (raw == null || raw === '') return null;
+    var s = String(raw).toLowerCase();
+    if (s === 'problem' || s === 'degraded') return 'degraded';
+    if (s === 'failed' || s === 'failure') return 'failed';
+    if (s === 'normal' || s === 'healthy') return 'normal';
+    if (s === 'disabled') return 'disabled';
+    if (s === 'unknown' || s === 'stale' || s === 'pending'
+        || s === 'not_observed') return 'unknown';
+    return null;
+  }
+
+  function healthStale(payload) {
+    if (!payload || typeof payload !== 'object') return false;
+    if (payload.stale === true || payload.fresh === false) return true;
+    var mark = payload.health_status || payload.state;
+    return mark === 'stale';
+  }
+
+  function healthForeign(subsystem, payload, scope) {
+    if (!HEALTH_PER_CHAT[subsystem] || !payload || typeof payload !== 'object') {
+      return false;
+    }
+    var card = (scope == null || scope === '' || scope === 'global')
+      ? 'global' : String(scope);
+    var chat = null;
+    if (payload.chat_id != null && payload.chat_id !== '') {
+      chat = String(payload.chat_id);
+    } else if (payload.scope && payload.scope !== 'global'
+               && payload.scope !== 'chat') {
+      chat = String(payload.scope);
+    }
+    if (chat == null) return payload.scope === 'chat' && card === 'global';
+    if (card === 'global') return true;
+    return chat !== card;
+  }
+
+  function healthDisabled(subsystem, payload) {
+    if (!payload || typeof payload !== 'object') return false;
+    if (payload.disabled === true) return true;
+    if (subsystem === 'bot') {
+      var st = payload.state || (payload.bot && payload.bot.state);
+      return st === 'stopped' || st === 'disabled';
+    }
+    if (subsystem === 'experience') {
+      return payload.enabled === false || payload.state === 'disabled';
+    }
+    if (subsystem === 'vision') {
+      return payload.reason === 'vision_disabled'
+        || payload.capability === 'disabled'
+        || payload.requested === false;
+    }
+    if (subsystem === 'sleep') {
+      var dream = payload.dream || {};
+      var deep = payload.deep_sleep || {};
+      // Спокойное «выключено» только когда погашены ОБА рубильника сна:
+      // выключенный глубокий сон при живом обычном — не disabled.
+      return dream.enabled === false && deep.enabled !== true;
+    }
+    if (payload.enabled === false) return true;
+    return false;
+  }
+
+  function healthHttpOnly(payload) {
+    if (!payload || typeof payload !== 'object' || healthExplicit(payload)) {
+      return false;
+    }
+    var keys = Object.keys(payload);
+    if (!keys.length) return false;
+    var ok = { http_status: 1, httpStatus: 1, status_code: 1, ok: 1, status: 1 };
+    for (var i = 0; i < keys.length; i++) if (!ok[keys[i]]) return false;
+    return payload.http_status === 200 || payload.httpStatus === 200
+      || payload.status === 200 || payload.status_code === 200
+      || payload.ok === true;
+  }
+
+  function healthWarnOnly(payload) {
+    if (!payload || typeof payload !== 'object' || healthExplicit(payload)) {
+      return false;
+    }
+    if (payload.state || payload.hbState || payload.bot) return false;
+    var level = payload.level || payload.log_level;
+    if (level && (String(level).toUpperCase() === 'WARN'
+        || String(level).toUpperCase() === 'WARNING')) return true;
+    return payload.warn === true && !payload.capability && !payload.requested;
+  }
+
+  function healthSubsystemState(id, payload) {
+    if (id === 'bot') {
+      var st = payload.state || (payload.bot && payload.bot.state) || '';
+      if (st === 'running' || st === 'polling') return 'normal';
+      if (st === 'polling_error') return 'failed';
+      if (st === 'stopped' || st === 'disabled') return 'disabled';
+      return 'unknown';
+    }
+    if (id === 'heartbeat') {
+      var hb = String(payload.hbState || '').toLowerCase();
+      if (!hb && payload.state && payload.cpu == null && payload.mem == null
+          && payload.disk == null) {
+        hb = String(payload.state).toLowerCase();
+      }
+      if (hb === 'healthy') return 'normal';
+      if (hb === 'warning') return 'degraded';
+      if (hb === 'critical') return 'failed';
+      return 'unknown';
+    }
+    if (id === 'experience') {
+      if (payload.state === 'failed') return 'failed';
+      if (payload.state === 'degraded' || payload.state === 'problem') {
+        return 'degraded';
+      }
+      if (payload.state === 'implemented') return 'normal';
+      return 'unknown';
+    }
+    if (id === 'vision' || id === 'memory' || id === 'media') return 'unknown';
+    if (id === 'sleep') {
+      // «Включено» само по себе не доказательство работы: normal — только
+      // подтверждённый прогон (running или записанный last_run_at) при
+      // включённом рубильнике. Нет прогонов → unknown, не failed.
+      var dm = payload.dream || {};
+      var ds = payload.deep_sleep || {};
+      if (dm.running === true || ds.running === true) return 'normal';
+      if (dm.last_run_at || ds.last_run_at) return 'normal';
+      return 'unknown';
+    }
+    return 'unknown';
+  }
+
+  function healthSubsystemReason(id, payload) {
+    if (!payload || typeof payload !== 'object') return 'нет данных';
+    if (id === 'bot') {
+      var st = payload.state || (payload.bot && payload.bot.state) || '';
+      if (!st) return 'нет поля bot.state';
+      if (st === 'polling_error') return 'polling_error';
+      if (st === 'starting') return 'запуск, вердикта ещё нет';
+      if (st === 'stopped') return 'бот остановлен';
+      return '';
+    }
+    if (id === 'heartbeat') return payload.reason || '';
+    if (id === 'experience') {
+      if (payload.state === 'not_run') return 'нет новых уроков — не сбой';
+      if (payload.state === 'unavailable') return 'данные недоступны';
+      return '';
+    }
+    if (id === 'vision') return 'нет отдельного вердикта распознавания';
+    if (id === 'memory') {
+      if (payload.request_error) return 'ошибка запроса';
+      if (payload.missing || payload.available === false) return 'нет данных';
+      return 'счётчики не являются вердиктом функции';
+    }
+    if (id === 'media') {
+      if (payload.basis === 'text_scan' || payload.reliable === false) {
+        return 'эвристика не является сбоем';
+      }
+      return 'нет данных';
+    }
+    if (id === 'sleep') {
+      var dm = payload.dream || {};
+      var ds = payload.deep_sleep || {};
+      if (dm.running === true || ds.running === true) return '';
+      if (dm.last_run_at || ds.last_run_at) return '';
+      if (dm.enabled === false && ds.enabled === false) return '';
+      return 'включено, прогонов ещё не было';
+    }
+    return '';
+  }
+
+  function healthStateFrom(subsystem, payload, scope) {
+    var id = String(subsystem || '').toLowerCase();
+    var at = healthObservedAt(payload);
+    if (id === 'process' || id === 'healthz' || id === 'api_health') {
+      return healthView('unknown', id,
+        'процессный health не красит карточку', at);
+    }
+    if (payload == null || payload.missing === true) {
+      return healthView('unknown', id, 'нет данных', at);
+    }
+    if (healthStale(payload)) {
+      return healthView('unknown', id, 'данные устарели', at);
+    }
+    if (healthForeign(id, payload, scope)) {
+      var who = payload.chat_id != null
+        ? ('чат ' + payload.chat_id) : 'другой чат';
+      var affected = payload.affected_chats || payload.affected_chat;
+      var why = 'не этот scope: ' + who;
+      if (affected) why += ' · ' + affected;
+      return healthView('unknown', id, why, at);
+    }
+    if (healthDisabled(id, payload)) {
+      var by = payload.disabled_by
+        ? ('выключено: ' + payload.disabled_by) : 'выключено настройкой';
+      return healthView('disabled', id, by, at);
+    }
+    if (healthHttpOnly(payload) || healthWarnOnly(payload)) {
+      return healthView('unknown', id, 'нет вердикта функции', at);
+    }
+    var explicit = healthExplicit(payload);
+    if (explicit) {
+      return healthView(explicit, id, payload.reason || '', at);
+    }
+    return healthView(healthSubsystemState(id, payload), id,
+      healthSubsystemReason(id, payload), at);
+  }
+
+  if (typeof window !== 'undefined') window.healthStateFrom = healthStateFrom;
+
+  // Корень карточки, не обёртка. class/data-glass падают на этот же элемент
+  // (inheritAttrs). Геометрию, радиус, padding и border компонент не задаёт.
+  app.component('health-glass-surface', {
+    name: 'health-glass-surface',
+    inheritAttrs: true,
+    props: {
+      subsystem: { type: String, required: true },
+      scope: { type: [String, Number], default: 'global' },
+      source: { type: Object, default: null },
+      material: { type: String, default: 'bg' },
+      href: { type: String, default: '' },
+    },
+    computed: {
+      view: function () {
+        return healthStateFrom(this.subsystem, this.source, this.scope);
+      },
+      materialNorm: function () {
+        return this.material === 'strong' ? 'strong' : 'bg';
+      },
+      scopeText: function () {
+        if (this.scope == null || this.scope === '') return 'global';
+        return String(this.scope);
+      },
+      problemHref: function () {
+        if (!this.href) return '';
+        var st = this.view && this.view.state;
+        if (st !== 'degraded' && st !== 'failed') return '';
+        return this.href;
+      },
+    },
+    watch: {
+      'view.state': function () {
+        var self = this;
+        if (this.$nextTick) {
+          this.$nextTick(function () { self.syncGlassTint(); });
+        } else {
+          this.syncGlassTint();
+        }
+      },
+    },
+    mounted: function () { this.syncGlassTint(); },
+    beforeUnmount: function () { this.cancelGlassTint(); },
+    methods: {
+      cancelGlassTint: function () {
+        if (this._healthTintRaf && typeof window !== 'undefined') {
+          try { window.cancelAnimationFrame(this._healthTintRaf); } catch (e) { /* no-op */ }
+        }
+        this._healthTintRaf = 0;
+      },
+      transitionMs: function (el) {
+        // Длительность берём у фактического CSS: reduced-motion выставляет
+        // `transition: none` → 0 → синхронизация мгновенная.
+        var dur = 0;
+        try {
+          var cs = window.getComputedStyle(el);
+          var first = String(cs.transitionDuration || '').split(',')[0].trim();
+          var m = first.match(/^([\d.]+)(m?s)$/);
+          if (m) dur = parseFloat(m[1]) * (m[2] === 's' ? 1000 : 1);
+        } catch (e) { dur = 0; }
+        return dur > 0 && dur < 2000 ? dur : 0;
+      },
+      syncGlassTint: function () {
+        var el = this.$el;
+        if (!el || el.nodeType !== 1 || typeof window === 'undefined') return;
+        var api = window.__GlassRefraction;
+        if (!api || typeof api.refreshTint !== 'function') return;
+        this.cancelGlassTint();
+        api.refreshTint(el);
+        var dur = this.transitionMs(el);
+        if (!dur || typeof window.requestAnimationFrame !== 'function') return;
+        // Слой преломления копирует заливку в canvas и не наследует
+        // CSS-transition: догоняем интерполяцию ровно на длительность
+        // перехода, иначе на WebKit canvas переключился бы скачком. Меняется
+        // только цвет подложки уже существующего слоя (refreshTint).
+        var self = this;
+        var end = Date.now() + dur + 64;
+        var tick = function () {
+          self._healthTintRaf = 0;
+          if (!self.$el || Date.now() > end) return;
+          try { api.refreshTint(self.$el); } catch (e) { return; }
+          if (Date.now() <= end) {
+            self._healthTintRaf = window.requestAnimationFrame(tick);
+          }
+        };
+        this._healthTintRaf = window.requestAnimationFrame(tick);
+      },
+    },
+    template:
+      '<div :data-health-subsystem="subsystem"' +
+      ' :data-health-scope="scopeText"' +
+      ' :data-health-state="view.state"' +
+      ' :data-health-material="materialNorm"' +
+      ' role="group" :aria-label="view.ariaLabel">' +
+      '<div class="health-glass-status" role="status" aria-live="polite"' +
+      ' :data-health-indicator="view.state">' +
+      '<span class="msr" aria-hidden="true">{{ view.glyph }}</span>' +
+      '<a v-if="problemHref" class="health-glass-status__link health-glass-status__label" :href="problemHref">{{ view.label }}</a>' +
+      '<span v-else class="health-glass-status__label">{{ view.label }}</span>' +
+      '<span v-if="view.reason" class="health-glass-status__reason">{{ view.reason }}</span>' +
+      '<span v-if="view.observedAt" class="health-glass-status__time">{{ view.observedAt }}</span>' +
+      '</div><slot></slot></div>',
   });
 
   app.mount('#app');

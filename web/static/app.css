@@ -57,6 +57,15 @@
          Токены — единый источник для панелей/карточек/модалок/sticky. */
       --glass-bg: rgba(21, 27, 42, 0.5);
       --glass-bg-strong: rgba(21, 27, 42, 0.85);
+      /* EVOL-032 / CONTRACT 2: RGB заливки здоровья. Alpha = alpha материала
+         (0.5 / 0.85), не новый слой. 32% и 55% --err (#F07178) поверх базы
+         rgb(21, 27, 42). normal/unknown/disabled этих токенов не получают. */
+      --health-fill-degraded: rgba(91, 55, 67, 0.5);
+      --health-fill-failed: rgba(141, 74, 85, 0.5);
+      --health-fill-degraded-strong: rgba(91, 55, 67, 0.85);
+      --health-fill-failed-strong: rgba(141, 74, 85, 0.85);
+      --health-dur: 420ms;
+      --health-ease: cubic-bezier(0.2, 0, 0, 1);
       --glass-blur: blur(16px);
       --glass-border-color: rgba(170, 182, 200, 0.16);
       --glass-border: 1px solid var(--glass-border-color);
@@ -138,6 +147,30 @@
       --card-bg: var(--glass-bg);
       --card-border: 1px solid var(--surface-border);
       --accent-grad: linear-gradient(135deg, var(--purple-500), var(--grad-d), var(--teal-500));
+      /* EVOL-022 — аддитивный ритм в ЭТОМ ЖЕ :root, не вторая палитра.
+         Живые имена --radius-* / --glass-border не переименовываются.
+         Страницы этой волной не перекрашиваются; новый health-статус их берёт. */
+      --border-hairline: 1px;
+      --radius-xs: var(--radius-sm);
+      --radius-xl: 16px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --control-h-sm: 32px;
+      --control-h: 40px;
+      --control-h-touch: 44px;
+      /* EVOL-043 groundwork: общие имена кнопки/тумблера. На .btn-* /
+         .module-toggle этой волной НЕ навешиваются — иначе сдвинется
+         существующая геометрия контролов. */
+      --btn-h: var(--control-h);
+      --btn-h-sm: var(--control-h-sm);
+      --btn-radius: var(--radius-lg);
+      --btn-hairline: var(--border-hairline);
+      --toggle-h: 24px;
+      --toggle-hit: var(--control-h-touch);
     }
     /* Реальный фолбэк высоты shell (ADR-1025-17 D1): апгрейд
        `--app-usable-height` до `100dvh` разрешён ТОЛЬКО при доказанной
@@ -5153,5 +5186,110 @@ html.cover-editor-open { overflow: hidden; }
   .prompt-history-actions .btn-ghost,
   .prompt-history-diff-controls .btn-ghost,
   [data-prompt-catalog] .prompt-tree-item { min-height: 44px; }
+}
+
+/* ═══ EVOL-032 / CONTRACT 2 — тонирование существующей заливки ═══
+   Меняется только background-color стеклянного корня. Alpha байт-в-байт
+   как у нормального материала (0.5 или 0.85). Нет box-shadow, второго
+   blur, overlay, backdrop-filter и смены геометрии. Селектор из двух
+   атрибутов побеждает .card и [data-glass="a"] без !important и не
+   красит соседа. normal / unknown / disabled правил заливки не имеют. */
+[data-health-state] {
+  transition: background-color var(--health-dur) var(--health-ease);
+}
+[data-health-state="degraded"][data-health-material="bg"] {
+  background-color: rgba(91, 55, 67, 0.5);
+}
+[data-health-state="failed"][data-health-material="bg"] {
+  background-color: rgba(141, 74, 85, 0.5);
+}
+[data-health-state="degraded"][data-health-material="strong"] {
+  background-color: rgba(91, 55, 67, 0.85);
+}
+[data-health-state="failed"][data-health-material="strong"] {
+  background-color: rgba(141, 74, 85, 0.85);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-health-state] {
+    transition: none;
+  }
+}
+/* Строка статуса — фиксированная высота, чтобы смена state не меняла
+   getBoundingClientRect корня. Не задаёт padding/radius/border корня. */
+.health-glass-status,
+.health-status-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  min-height: var(--space-6);
+  max-height: var(--space-6);
+  box-sizing: border-box;
+  /* Смена state меняет только текст — линия не имеет права ни раздвинуть
+     строку заголовка, ни изменить высоту карточки: фиксированная высота плюс
+     сжатие вместо переноса. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--tx-tiny);
+  line-height: var(--space-6);
+  color: var(--text-2);
+}
+.health-glass-status { margin: 0 0 var(--space-2) 0; }
+.health-status-line { margin: 0; }
+.health-glass-status .msr,
+.health-status-line .msr {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  flex: 0 0 16px;
+}
+.health-glass-status__label,
+.health-status-line__label {
+  font-weight: 600;
+  color: var(--text-1);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-glass-status__reason,
+.health-glass-status__time,
+.health-status-line__reason {
+  color: var(--text-3);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-glass-status__link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.health-glass-status__link:focus-visible,
+.health-status-line:focus-visible {
+  outline: 2px solid var(--teal-500);
+  outline-offset: 1px;
+}
+/* Индикатор текста, не заливка. unknown — янтарь, disabled — спокойный
+   приглушённый, без красного фона. */
+.health-glass-status[data-health-indicator="unknown"] .health-glass-status__label,
+.health-status-line[data-health-indicator="unknown"] .health-status-line__label {
+  color: var(--warn);
+}
+.health-glass-status[data-health-indicator="disabled"] .health-glass-status__label,
+.health-status-line[data-health-indicator="disabled"] .health-status-line__label {
+  color: var(--text-3);
+}
+.health-glass-status[data-health-indicator="degraded"] .health-glass-status__label,
+.health-glass-status[data-health-indicator="failed"] .health-glass-status__label,
+.health-status-line[data-health-indicator="degraded"] .health-status-line__label,
+.health-status-line[data-health-indicator="failed"] .health-status-line__label {
+  color: var(--err-text);
 }
 

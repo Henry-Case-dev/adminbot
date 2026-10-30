@@ -754,8 +754,24 @@
     };
   }
 
+  /* EVOL-032 / CONTRACT 2: перечитать подложку уже существующего слоя.
+   * Не создаёт canvas, не меняет размеры, маску, filter id и z-index.
+   * Нет записи слоя — no-op (false). */
+  function refreshTint(el) {
+    if (!el || !st.layers || !st.layers.length) return false;
+    var hit = false;
+    for (var i = 0; i < st.layers.length; i++) {
+      var rec = st.layers[i];
+      if (!rec || rec.surface !== el) continue;
+      try { rec.tint = surfaceTint(el); } catch (e) { /* прежний tint */ }
+      hit = true;
+    }
+    return hit;
+  }
+
   var api = {
     start: start, stop: stop, sync: sync, invalidate: invalidate,
+    refreshTint: refreshTint,
     setEnabled: setEnabled,
     enabled: function () { return st.enabled; },
     diagnostics: diagnostics,

@@ -10073,7 +10073,9 @@
                  Название/статус/последняя активность/компактная ошибка +
                  контролы. Liquid Glass; без длинной таблицы/постоянной
                  пульсации. Секции метрик остаются в `.status-block` (7 кол.). -->
-            <div class="card p-4 status-hero sg-5" data-glass="a">
+            <health-glass-surface class="card p-4 status-hero sg-5" data-glass="a"
+                 subsystem="bot" scope="global" material="bg"
+                 :source="botHealthSource" :href="botProblemHref">
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span>
                 <div class="status-hero__title">{{ botDisplayName || 'Бот' }}</div>
@@ -10110,13 +10112,21 @@
                   </button>
                 </div>
               </template>
-            </div>
+            </health-glass-surface>
               <div class="card p-4 status-block">
                 <div class="status-block__grid">
                 <section class="status-block__pulse">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
                     <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
                     <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
+                    <span class="health-status-line" data-health-inline="heartbeat"
+                          role="status" aria-live="polite"
+                          :data-health-indicator="heartbeatHealth.state"
+                          :aria-label="heartbeatHealth.ariaLabel">
+                      <span class="msr" aria-hidden="true">{{ heartbeatHealth.glyph }}</span>
+                      <span class="health-status-line__label">{{ heartbeatHealth.label }}</span>
+                      <span v-if="heartbeatHealth.reason" class="health-status-line__reason">{{ heartbeatHealth.reason }}</span>
+                    </span>
                     <span class="text-xs text-gray-500">{{ heartbeat.detail }}</span>
                   </div>
                   <div class="hb-wrap"
@@ -10152,7 +10162,16 @@
                 </section>
 
                 <section class="status-block__bot">
-                  <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Бот</div>
+                  <div class="text-sm font-bold mb-2 flex items-center gap-2 flex-wrap">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Бот
+                    <span class="health-status-line" data-health-inline="bot"
+                          role="status" aria-live="polite"
+                          :data-health-indicator="botSectionHealth.state"
+                          :aria-label="botSectionHealth.ariaLabel">
+                      <span class="msr" aria-hidden="true">{{ botSectionHealth.glyph }}</span>
+                      <span class="health-status-line__label">{{ botSectionHealth.label }}</span>
+                    </span>
+                  </div>
                   <div v-if="!statusData" class="spinner"></div>
                   <div v-else class="text-sm space-y-1.5">
                     <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
@@ -10268,8 +10287,9 @@
                  бейджей из шапки «Мониторинга Интеллекта» удалён; данные —
                  один источник (cognition + deep-sleep payload, уже загружен
                  loadCognition — без новых запросов). -->
-            <div v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4"
-                 data-status-sleep>
+            <health-glass-surface v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4"
+                 data-status-sleep subsystem="sleep" :scope="healthScope" material="bg"
+                 :source="sleepHealthSource">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold">Сон / Глубокий сон</div>
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
@@ -10298,7 +10318,7 @@
                   <div>Результат: {{ deepResultLabel() }}</div>
                 </div>
               </div>
-            </div>
+            </health-glass-surface>
 
             <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
                  global admin. Три самостоятельные области (Убеждения,
@@ -10383,6 +10403,14 @@
               <div class="mt-3 pt-2 border-t border-white/10">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <div class="text-xs font-bold">Здоровье памяти</div>
+                  <span class="health-status-line" data-health-inline="memory"
+                        role="status" aria-live="polite"
+                        :data-health-indicator="memoryHealthView.state"
+                        :aria-label="memoryHealthView.ariaLabel">
+                    <span class="msr" aria-hidden="true">{{ memoryHealthView.glyph }}</span>
+                    <span class="health-status-line__label">{{ memoryHealthView.label }}</span>
+                    <span v-if="memoryHealthView.reason" class="health-status-line__reason">{{ memoryHealthView.reason }}</span>
+                  </span>
                   <span class="text-xs text-gray-500">смысловые результаты · технические счётчики</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="memoryHealthBusy"
                           @click="loadMemoryHealth()">⟳</button>
@@ -10552,6 +10580,13 @@
                     <div class="font-bold mb-1">Смежные контуры</div>
                     <div class="flex flex-wrap gap-1">
                       <span class="badge badge-muted">Распознавание изображений: {{ adjacentVisionLine() || 'нет данных' }}</span>
+                      <span class="health-status-line" data-health-inline="vision"
+                            role="status" aria-live="polite"
+                            :data-health-indicator="visionHealthView.state"
+                            :aria-label="visionHealthView.ariaLabel">
+                        <span class="msr" aria-hidden="true">{{ visionHealthView.glyph }}</span>
+                        <span class="health-status-line__label">{{ visionHealthView.label }}</span>
+                      </span>
                       <span class="badge badge-muted">Временной фактчек: {{ adjacentFactcheckLine() || 'прогонов пока нет' }}</span>
                       <span class="badge badge-muted">Характер (SelfModel): {{ adjacentSelfModelLine() || 'нет данных' }}</span>
                       <span class="badge badge-muted">Случайность: лента применений — в блоке «Источник случайности» выше</span>
@@ -11148,7 +11183,9 @@
                  `experience` из GET /api/status; при неизвестных исходах
                  улучшение НЕ выдумывается (A57); число уроков не заменяет
                  эффект. Только чтение, без внешних вызовов. -->
-            <div class="card p-4 sg-12" data-experience>
+            <health-glass-surface class="card p-4 sg-12" data-experience
+                 subsystem="experience" material="bg"
+                 :scope="healthScope" :source="experienceHealthSource">
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Опыт</div>
                 <span v-if="experienceFeed.ready && experienceFeed.enabled"
@@ -11218,7 +11255,7 @@
                   число уроков не заменяет эффект.
                 </div>
               </template>
-            </div>
+            </health-glass-surface>
 
             <!-- Wave 2 UX: «История доступности ключей» переехала со
                  «Статуса» в «Аналитику» → вкладка «Модели и расходы»
