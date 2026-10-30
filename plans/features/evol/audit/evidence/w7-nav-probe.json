@@ -24,7 +24,15 @@
    "h": 44,
    "title": "На весь экран",
    "right": 1264,
-   "vw": 1280
+   "vw": 1280,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
   },
   "topnav": null
  },
@@ -45,6 +53,12 @@
   "nameTruncated": true,
   "badgeOverlapsName": false,
   "triggerInsideViewport": true
+ },
+ "desktop_scope_escape": {
+  "panel": false,
+  "tag": "BUTTON",
+  "isTrigger": true,
+  "expanded": "false"
  },
  "desktop_rail": {
   "vw": 1280,
@@ -71,7 +85,15 @@
    "h": 44,
    "title": "На весь экран",
    "right": 1264,
-   "vw": 1280
+   "vw": 1280,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
   },
   "topnav": null
  },
@@ -100,7 +122,15 @@
    "h": 44,
    "title": "На весь экран",
    "right": 1264,
-   "vw": 1280
+   "vw": 1280,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
   },
   "topnav": null
  },
@@ -134,7 +164,15 @@
    "h": 44,
    "title": "На весь экран",
    "right": 884,
-   "vw": 900
+   "vw": 900,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
   },
   "topnav": null
  },
@@ -171,7 +209,15 @@
    "h": 44,
    "title": "На весь экран",
    "right": 374,
-   "vw": 390
+   "vw": 390,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
   },
   "topnav": {
    "h": 47,
@@ -224,6 +270,15 @@
   "headerH": 64,
   "overlap": 0,
   "mainX": 216
+ },
+ "inventory_summary": {
+  "routes": 19,
+  "viewports": 6,
+  "cells": 114,
+  "hScroll": 0,
+  "offscreen": 0,
+  "clipped": 0,
+  "failures": 0
  },
  "failures": []
 }

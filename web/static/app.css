@@ -3699,11 +3699,16 @@
                data-fs-reason на <html> — dev-маркер причины, НЕ UI.
 
    Геометрия FS-HOTFIX (18.10): иконка 18px (норма 16–18px), сам узел
-   остаётся hit-целью ≥44×44 (U07.2/U01). Материал (21.10, U08.4d/U08.5.1,
-   REV-W2-N1 закрыт биндингом): Tier B мини-линза .lg-mini-lens (W2-GLASS
-   ниже; rim + один блик, НЕ «64px затемнённый квадрат») — правила
-   .header-fs-btn больше не красят фон/рамку и не добавляют своё стекло,
-   материал приходит ТОЛЬКО из .lg-mini-lens. */
+   остаётся hit-целью ≥44×44 (U07.2/U01).
+
+   МАТЕРИАЛ ⛶ (EVOL-023 §4, ревью F1, 31.10.2026): кнопка — compact
+   ghost-icon. Декоративная Tier B мини-линза (.lg-mini-lens: радиальный
+   градиент, рамка, rim ::after, inset-блики, backdrop-filter, тень,
+   скругление) с узла СНЯТА: в шапке она читалась как отдельный стеклянный
+   объект, а §4 требует лаконичный иконочный контрол с прозрачной областью
+   нажатия. Материал .lg-mini-lens остаётся в W2-GLASS (изолированный
+   glass-тест-стенд + Tier-A селекторы движка), но к функциональной кнопке
+   не привязан; см. plans/features/evol/audit/w7-nav-cleanup.md §review-fix. */
 .header-fs-btn {
   position: relative;
   display: inline-flex;
@@ -3712,6 +3717,19 @@
   min-width: 44px;
   min-height: 44px;
   padding: 0;
+  /* EVOL-023 §4 (ревью F1, 31.10.2026): ⛶ — КОМПАКТНЫЙ GHOST-ICON.
+     Декоративный материал (radial-gradient, рамка, rim ::after, inset-блики,
+     backdrop-filter, тень, скругление) снят: кнопка читалась как отдельный
+     стеклянный объект в шапке. Остались иконка (currentColor) и прозрачная
+     область нажатия 44×44. Класс .lg-mini-lens к функциональной кнопке
+     больше не привязан (материал живёт в W2-GLASS для glass-тест-стенда). */
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: inherit;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: filter 0.12s ease;
@@ -3900,10 +3918,12 @@
 /* ═══ /HOTFIX-TIERA ═══ */
 
 /* ═══ W2-GLASS (U08.4d): lg-mini-lens — круглый Tier B-контрол ⛶ ═══
-   Материал для кнопки U07 (класс применён в разметке ⛶ index.html,
-   21.10, U08.4d/U08.5.1 — REV-W2-N1; геометрия — за fullscreen-лейном,
-   здесь только визуал: круглая мини-линза с rim и одним бликом, НЕ
-   «64px затемнённый квадрат»). */
+   Класс БОЛЬШЕ НЕ привязан к кнопке ⛶ в шапке: EVOL-023 §4 (ревью F1,
+   31.10.2026) вернул ⛶ к compact ghost-icon (см. .header-fs-btn), материал
+   остаётся для изолированного glass-тест-стенда (tests/glass-teststand) и
+   Tier-A селекторов движка. Прежняя привязка (21.10, U08.4d/U08.5.1 —
+   REV-W2-N1) относилась к «64px затемнённому квадрату» и §4 не покрывала.
+   Здесь остаётся только визуал линзы: круглый rim + один блик. */
 .lg-mini-lens {
   position: relative;
   isolation: isolate;

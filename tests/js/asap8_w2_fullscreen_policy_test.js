@@ -422,11 +422,20 @@ async function main() {
     'шапка обходит нативную зону целиком (sum-формула)');
   assert.ok(!appCss.includes('fs-slot-float') && !appCss.includes('data-fs-scheme'),
     'float-слот/схема темы удалены (слот только inline)');
-  assert.ok(!/\.header-fs-btn::before/.test(appCss) &&
-            !/\.header-fs-btn[^{,]*\{[^}]*backdrop-filter/.test(appCss) &&
-            !/\.header-fs-btn[^{,]*\{[^}]*\bbackground\s*:/.test(appCss),
-    'материал ⛶ только из .lg-mini-lens (U08.4d): правила header-fs-btn не ' +
-    'красят фон и не добавляют своё стекло (геометрия — за fullscreen-лейном)');
+  assert.ok(!/\.header-fs-btn::before/.test(appCss),
+    'материал ⛶ (псевдо-слой) не возвращается (EVOL-023 §4, ревью F1)');
+  {
+    const m = /\n\.header-fs-btn\s*\{([^}]*)\}/.exec(appCss);
+    assert.ok(m, 'правило .header-fs-btn найдено');
+    const decl = m[1].replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(/background:\s*transparent/.test(decl) &&
+              /border:\s*0/.test(decl) &&
+              /box-shadow:\s*none/.test(decl) &&
+              /backdrop-filter:\s*none/.test(decl),
+      'кнопка ⛶ обязана объявлять прозрачную hit-цель и отсутствие материала');
+    assert.ok(!/radial-gradient|rgba\(|border-radius:\s*50%/.test(decl),
+      'декоративная линза (градиент/рамка/rim/скругление) вернулась на ⛶');
+  }
   assert.ok(/\.header-fs-btn\s*\{[^}]*min-width:\s*44px/.test(appCss) &&
             /\.header-fs-btn\s*\{[^}]*min-height:\s*44px/.test(appCss),
     'кнопка ⛶ остаётся hit-целью ≥44×44');

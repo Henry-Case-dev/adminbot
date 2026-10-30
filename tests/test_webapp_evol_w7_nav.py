@@ -98,6 +98,16 @@ class TestUnifiedScopeSwitcher:
         # Слой overlay: плотная подложка вместо «стекла в стекле» (.04).
         assert "[data-glass-nested=\"1\"].scope-panel," in CSS, \
             "исключение из nested-in-glass для плавающего меню"
+        # Ревью F2 (31.10.2026): закрытие панели возвращает фокус в триггер —
+        # Esc из поиска больше не оставляет клавиатурного пользователя на BODY.
+        assert "closeScope: function () {" in JS
+        seg = JS[JS.index("closeScope: function () {"):]
+        seg = seg[:seg.index("\n      },")]
+        assert "document.querySelector('.scope-panel')" in seg, \
+            "closeScope не определяет, был ли фокус внутри панели"
+        assert "document.querySelector('.scope-wrap > .scope-trigger')" in seg, \
+            "нет цели возврата фокуса (.scope-trigger)"
+        assert "trigger.focus()" in seg, "фокус не возвращается в триггер"
 
 
 class TestTopbar:
@@ -183,17 +193,55 @@ class TestFullscreenContract:
         assert "toggleFullscreen: function" in JS
 
     def test_ghost_icon_with_hit_area(self):
-        """Лаконичный ghost-icon: подложку даёт только мини-линза (U08.4d)."""
+        """⛶ — compact ghost-icon: прозрачная hit-цель 44×44, без материала.
+
+        EVOL-023 §4 (ревью F1, 31.10.2026): декоративная Tier B мини-линза
+        (`.lg-mini-lens`: радиальный градиент, рамка, rim `::after`,
+        inset-блики, `backdrop-filter`, тень, скругление) с кнопки снята —
+        в шапке она читалась как отдельный стеклянный объект, а §4 требует
+        лаконичный иконочный контрол с прозрачной областью нажатия.
+        Материал `.lg-mini-lens` в CSS остаётся (glass-тест-стенд), но на
+        функциональной кнопке его быть не должно.
+        """
         m = re.search(r"<button[^>]*header-fs-btn[^>]*>", INDEX)
         assert m, "кнопка ⛶ на месте"
         tag = m.group(0)
-        assert "lg-mini-lens" in tag, "материал — защищённая мини-линза"
+        assert "lg-mini-lens" not in tag, \
+            "декоративная мини-линза снова привязана к функциональной кнопке"
+        assert not re.search(r'class="[^"]*lg-mini-lens', INDEX), \
+            "материал .lg-mini-lens не должен появляться в разметке ⛶"
         assert "background" not in tag.lower()
         assert ":title=" in tag or 'title="' in tag, "tooltip обязателен"
+        assert ":aria-label=" in tag or 'aria-label="' in tag, \
+            "доступное имя ⛶ обязательно"
+        assert '@click="toggleFullscreen()"' in tag, "действие не потеряно"
+
+        # Объявленный контракт: прозрачная подложка и полное отсутствие
+        # декоративного материала (не «за счёт preflight tailwind»).
+        rule = re.search(r"\n\.header-fs-btn\s*\{([^}]*)\}", CSS)
+        assert rule, "правило .header-fs-btn не найдено"
+        # Комментарии внутри правила не участвуют в оценке материала.
+        body = re.sub(r"/\*.*?\*/", "", rule.group(1), flags=re.S)
+        for decl in ("background: transparent;", "border: 0;",
+                     "box-shadow: none;", "backdrop-filter: none;"):
+            assert decl in body, "нет объявленного ghost-контракта: " + decl
+        for bad in ("radial-gradient", "rgba(", "border-radius: 50%",
+                    "inset 0 1px 0"):
+            assert bad not in body, "в правиле кнопки остался материал: " + bad
+
+        # Ни одно правило не навешивает материал на ⛶, включая hover/active.
+        assert not re.search(r"\.header-fs-btn[^{,}]*\.lg-mini-lens", CSS), \
+            "материал мини-линзы привязан к кнопке составным селектором"
+        for pseudo in (":hover", ":active"):
+            mm = re.search(r"\.header-fs-btn" + pseudo + r"\s*\{([^}]*)\}", CSS)
+            if mm:
+                for bad in ("background", "box-shadow", "backdrop-filter"):
+                    assert bad not in mm.group(1), \
+                        f"{pseudo} снова красит подложку: {bad}"
+
         # Прозрачная, но удобная область нажатия ≥44×44 (не менялась).
         assert re.search(r"\.header-fs-btn\s*\{[^}]*min-width:\s*44px", CSS)
         assert re.search(r"\.header-fs-btn\s*\{[^}]*min-height:\s*44px", CSS)
-        assert INDEX.count("lg-mini-lens") == 1
 
 
 class TestOverlayLayer:

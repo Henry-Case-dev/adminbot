@@ -1,22 +1,20 @@
 'use strict';
 /* U08.4d/U08.5.1 (asap8-v6.3, слайс FE-GLASS-MINILENS) — REGRESSION.
  *
- * Дефект (REV-W2-N1; plans/features/asap8-v6-3-live-correction/
- * prep-rfl-binding.md §«REAL дефекты» #1): клауза ТЗ «маленький fullscreen
- * control U07 — круглая мини-линза с rim и одним бликом, не 64px затемнённый
- * квадрат» не была доставлена: класс .lg-mini-lens определён (app.css,
- * W2-GLASS) и входит в Tier-A селекторы движков (app.js::_lgGlassSelector,
- * glass-refraction.js::SURFACE_SELECTOR), но ни один коммит не привязывал
- * его к кнопке ⛶ — index.html нёс только .header-fs-btn, контрол рендерился
- * без линзового материала (has_mini_lens=false на 31c16555).
- *
- * Фикс: класс lg-mini-lens в разметке ЕДИНСТВЕННОЙ кнопки ⛶ (тот же узел =
- * то же действие: @click → toggleFullscreen → FullscreenPolicy.request/exit,
- * без нового состояния); hover/active не стирают материал плоским фоном.
+ * ПЕРЕКВАЛИФИЦИРОВАН 31.10.2026 (EVOL-023 §4, ревью W7 F1). Прежняя редакция
+ * защищала ПОЛОЖИТЕЛЬНУЮ привязку: «кнопка ⛶ обязана нести .lg-mini-lens»
+ * (REV-W2-N1 — линза вместо «64px затемнённого квадрата»). Владелец/ревью
+ * EVOL-023 §4 требует обратное: ⛶ — компактный ghost-icon с прозрачной
+ * областью нажатия и БЕЗ тяжёлой декоративной подложки; в шапке линза
+ * читалась отдельным стеклянным объектом. Поэтому проверка стала
+ * ОТРИЦАТЕЛЬНОЙ (материала на функциональной кнопке быть не должно), а
+ * материал .lg-mini-lens остаётся в CSS/движке для изолированного
+ * glass-тест-стенда. Контракт W2-GLASS не отменён — отменена только привязка
+ * к функциональному контролу. Действие, слот-гвард и aria не менялись.
  *
  * Запуск: node tests/js/asap8_u084d_mini_lens_binding_test.js
  * → MINI-LENS-BINDING-OK
- * TEST-LIFECYCLE: REGRESSION owner=U08.4d/U08.5.1
+ * TEST-LIFECYCLE: REGRESSION owner=U08.4d/U08.5.1 → superseded-by EVOL-023 §4
  */
 const fs = require('fs');
 const path = require('path');
@@ -29,23 +27,21 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
 const REFRACTION =
   fs.readFileSync(path.join(ROOT, 'web', 'static', 'glass-refraction.js'), 'utf8');
 
-/* ── 1. Разметка: кнопка ⛶ несёт ОБА класса — слот + материал ──────────── */
+/* ── 1. Разметка: кнопка ⛶ — только слот, БЕЗ декоративного материала ──── */
 const btnMatch = INDEX.match(/<button[^>]*header-fs-btn[^>]*>/);
 assert.ok(btnMatch, 'кнопка ⛶ (header-fs-btn) не найдена в index.html');
 const btnTag = btnMatch[0];
-assert.ok(/class="[^"]*\blg-mini-lens\b[^"]*"/.test(btnTag),
-  'U08.4d: кнопка ⛶ не несёт материал lg-mini-lens ' +
-  '(дефект REV-W2-N1 воспроизведён)');
+assert.ok(!/class="[^"]*\blg-mini-lens\b[^"]*"/.test(btnTag),
+  'EVOL-023 §4: на функциональной кнопке снова висит декоративная мини-линза');
+assert.ok(!/class="[^"]*\blg-mini-lens\b/.test(INDEX),
+  'lg-mini-lens не должен применяться ни к одному узлу разметки');
 assert.ok(/\bheader-fs-btn\b/.test(btnTag), 'слот .header-fs-btn потерян');
 assert.ok(/@click="toggleFullscreen\(\)"/.test(btnTag),
-  'тап по мини-линзе не привязан к toggleFullscreen()');
+  'тап по ⛶ не привязан к toggleFullscreen()');
 assert.ok(/v-if="me && fsSlot !== 'hidden'"/.test(btnTag),
   'слот-гвард v-if потерян (мёртвый контрол/скрытие политики)');
 assert.ok(/:aria-pressed="fsAriaPressed"/.test(btnTag),
   'aria-pressed по ACK потерян (U07.2d)');
-/* Ровно один экземпляр класса в разметке — нет дублей/клонов контрола. */
-assert.strictEqual((INDEX.match(/\blg-mini-lens\b/g) || []).length, 1,
-  'lg-mini-lens должен применяться ровно к одному узлу (кнопка ⛶)');
 
 /* ── 2. Действие: toggleFullscreen маршрутизирует в политику ───────────── */
 const toggleFn =
@@ -63,11 +59,21 @@ assert.ok(/_lgGlassSelector: function \(\) \{[\s\S]{0,400}?\.lg-mini-lens/
 assert.ok(/SURFACE_SELECTOR = [^;]*\.lg-mini-lens/.test(REFRACTION),
   'glass-refraction.js::SURFACE_SELECTOR потерял .lg-mini-lens');
 
-/* ── 4. Материал в CSS: круг + rim; hit-цель ≥44×44 сохранена ──────────── */
+/* ── 4. Материал в CSS сохранён (тест-стенд), кнопка — ghost ───────────── */
 assert.ok(/\.lg-mini-lens \{[^}]*border-radius:\s*50%/.test(CSS),
-  'материал: .lg-mini-lens не круглый');
+  'материал: .lg-mini-lens не круглый (нужен glass-тест-стенду)');
 assert.ok(/\.lg-mini-lens::after \{[^}]*var\(--lg-rim\)/.test(CSS),
   'материал: rim (::after) потерян');
+/* Кнопка: прозрачная hit-цель ≥44×44, объявленного материала нет. */
+{
+  const m = /\n\.header-fs-btn\s*\{([^}]*)\}/.exec(CSS);
+  assert.ok(m, 'правило .header-fs-btn не найдено');
+  const decl = m[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/background:\s*transparent/.test(decl),
+    'кнопка ⛶: прозрачная область нажатия не объявлена');
+  assert.ok(!/radial-gradient|rgba\(|border-radius:\s*50%/.test(decl),
+    'кнопка ⛶ снова несёт декоративный материал линзы');
+}
 assert.ok(/\.header-fs-btn\s*\{[^}]*min-width:\s*44px/.test(CSS) &&
           /\.header-fs-btn\s*\{[^}]*min-height:\s*44px/.test(CSS),
   'тач-цель ⛶ ≥44×44 потеряна (U07.2)');

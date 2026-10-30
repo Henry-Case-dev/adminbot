@@ -7,15 +7,19 @@
 Проверяется:
   * desktop 1280 — компактный topbar (контент начинается сразу под шапкой,
     перекрытия нет), имя РАЗДЕЛА в шапке, дубль заголовка убран, ОДИН
-    переключатель области;
+    переключатель области, ⛶ — ghost-icon (computed: прозрачная подложка,
+    без градиента/рамки/тени/blur, hit-цель 44×44);
   * выпадающая панель области: не уезжает под sidebar/за вьюпорт, читаемая
-    подложка (alpha ≥ .9), поиск, Esc, длинные названия;
+    подложка (alpha ≥ .9), поиск, Esc, длинные названия, Esc из поиска
+    возвращает фокус в триггер (ревью F2);
   * rail постоянной панели (сворачивание, персист) и возврат к полной;
   * tablet 900 — drawer: фокус внутрь, Esc, возврат фокуса, без h-скролла;
   * mobile 390 — шапка/область/«Ещё» в границах вьюпорта, без h-скролла;
   * 320 и zoom 200% — нет горизонтального скролла всей страницы;
   * модалка модуля — в пределах вьюпорта, внутренний скролл, фокус в диалоге;
-  * медленный API — каркас не ломается (нет overflow/перекрытия).
+  * медленный API — каркас не ломается (нет overflow/перекрытия);
+  * машинная инвентаризация EVOL-024: 19 маршрутов × 6 вьюпортов
+    (320/390/768/1024/1280/1920) → `w7-nav-inventory.json`.
 
 Запуск: .venv\\Scripts\\python.exe tools\\ui_evol_w7_nav_e2e.py [--out DIR]
 Артефакты по умолчанию: plans/features/evol/audit/evidence/
@@ -51,6 +55,62 @@ LONG_CHAT = {
     "title": "Очень длинное название рабочего чата с уточнением и подписью",
     "type": "supergroup", "is_dm": False,
 }
+
+# EVOL-024: машинная инвентаризация «19 маршрутов × 6 вьюпортов» (канонический
+# список маршрутов — из матрицы §71, чтобы не заводить второй реестр).
+INV_ROUTES = list(M.ROUTES)
+INV_VIEWPORTS = ((320, 700), (390, 844), (768, 1024), (1024, 768),
+                 (1280, 800), (1920, 1080))
+
+INV_PROBE = r"""
+() => {
+  const de = document.documentElement;
+  const vw = window.innerWidth;
+  const label = (el) => {
+    const cls = (el.className && el.className.toString
+      ? el.className.toString() : '').split(/\s+/).filter(Boolean).slice(0, 3);
+    return el.tagName.toLowerCase() + (cls.length ? '.' + cls.join('.') : '');
+  };
+  // Элемент внутри горизонтального скроллера — намеренная прокрутка, не дефект.
+  const inScroller = (el) => {
+    let p = el.parentElement;
+    while (p && p !== document.body) {
+      const ox = getComputedStyle(p).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+      p = p.parentElement;
+    }
+    return false;
+  };
+  const off = [];
+  const clip = [];
+  const all = document.querySelectorAll('body *');
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    if (el.closest('[aria-hidden="true"]')) continue;
+    const tn = el.tagName;
+    if (tn === 'CANVAS' || tn === 'SCRIPT' || tn === 'STYLE'
+        || tn === 'TEMPLATE' || tn === 'LINK') continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    if (parseFloat(cs.opacity) === 0) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    if ((r.right > vw + 1 || r.left < -1) && !inScroller(el)) {
+      off.push(label(el) + '@' + Math.round(r.left) + '..' + Math.round(r.right));
+    }
+    const txt = (el.textContent || '').trim();
+    if (txt && el.children.length === 0
+        && (cs.overflowX === 'hidden' || cs.overflowX === 'clip')
+        && el.scrollWidth > el.clientWidth + 1
+        && cs.textOverflow !== 'ellipsis') {
+      clip.push(label(el) + ':' + el.clientWidth + '<' + el.scrollWidth);
+    }
+  }
+  return {vw: vw, sw: de.scrollWidth, hScroll: de.scrollWidth > vw + 1,
+          offCount: off.length, offscreen: off.slice(0, 5),
+          clippedCount: clip.length, clipped: clip.slice(0, 5)};
+}
+"""
 
 
 class _Handler(M._Handler):
@@ -130,9 +190,21 @@ PROBE_SHELL = r"""
       const b = document.querySelector('.header-fs-btn');
       if (!b) return null;
       const r = b.getBoundingClientRect();
+      const cs = getComputedStyle(b);
       return {w: Math.round(r.width), h: Math.round(r.height),
               title: b.getAttribute('title'),
-              right: Math.round(r.right), vw: window.innerWidth}; })(),
+              right: Math.round(r.right), vw: window.innerWidth,
+              // EVOL-023 §4 (ревью F1): ghost-icon — прозрачная hit-цель,
+              // никакого декоративного материала (линза снята с узла).
+              bg: cs.backgroundColor,
+              bgImage: (cs.backgroundImage || 'none').slice(0, 80),
+              shadow: (cs.boxShadow || 'none').slice(0, 80),
+              border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
+              blur: (cs.backdropFilter || cs.webkitBackdropFilter
+                     || 'none').slice(0, 60),
+              radius: cs.borderTopLeftRadius,
+              color: cs.color,
+              lens: b.classList.contains('lg-mini-lens')}; })(),
     topnav: (() => {
       const n = document.querySelector('.mobile-topnav');
       if (!n) return null;
@@ -187,6 +259,44 @@ def _backdrop_alpha(bg: str) -> float:
         return 1.0 if bg.startswith("rgb(") else 0.0
 
 
+def _ghost_fails(btn, where):
+    """⛶ должен быть compact ghost-icon (EVOL-023 §4, ревью F1).
+
+    Проверяется ФАКТИЧЕСКИЙ computed-стиль: прозрачная подложка, отсутствие
+    градиента/рамки/тени/blur/скругления-линзы и класса `.lg-mini-lens`.
+    """
+    if not btn:
+        return ["%s: кнопка ⛶ не найдена" % where]
+    out = []
+    if btn["w"] < 44 or btn["h"] < 44:
+        out.append("%s: hit-цель ⛶ %sx%s < 44x44" % (where, btn["w"], btn["h"]))
+    if btn["bg"] not in ("rgba(0, 0, 0, 0)", "transparent"):
+        out.append("%s: у ⛶ непрозрачная подложка %s" % (where, btn["bg"]))
+    if btn["bgImage"] not in ("none", ""):
+        out.append("%s: у ⛶ декоративный градиент %s" % (where, btn["bgImage"]))
+    if btn["shadow"] not in ("none", ""):
+        out.append("%s: у ⛶ тень/блики %s" % (where, btn["shadow"]))
+    if btn["blur"] not in ("none", ""):
+        out.append("%s: у ⛶ backdrop-filter %s" % (where, btn["blur"]))
+    if not str(btn["border"]).startswith("0px"):
+        out.append("%s: у ⛶ рамка %s" % (where, btn["border"]))
+    if btn["radius"] not in ("0px", "0%", "0"):
+        out.append("%s: у ⛶ скругление линзы %s" % (where, btn["radius"]))
+    if btn["lens"]:
+        out.append("%s: на ⛶ снова висит .lg-mini-lens" % where)
+    # Иконка должна остаться видимой: ghost ≠ невидимая кнопка.
+    rgb = btn.get("color") or ""
+    try:
+        nums = [float(x) for x in rgb[rgb.index("(") + 1:rgb.index(")")]
+                .replace("/", ",").split(",")][:3]
+        bright = sum(nums) / 3.0
+    except Exception:  # noqa: BLE001
+        bright = -1
+    if bright < 120:
+        out.append("%s: иконка ⛶ не читается (color=%s)" % (where, rgb))
+    return out
+
+
 def run(out_dir: str) -> int:
     from playwright.sync_api import sync_playwright
 
@@ -233,6 +343,9 @@ def run(out_dir: str) -> int:
             fails.append("desktop: ⛶ меньше 44×44 или отсутствует")
         if d["fsBtn"] and not d["fsBtn"]["title"]:
             fails.append("desktop: у ⛶ нет tooltip")
+        fails.extend(_ghost_fails(d["fsBtn"], "desktop"))
+        page.locator("header.header-sticky").screenshot(
+            path=os.path.join(out_dir, "w7-nav-fs-ghost-header-1280.png"))
         shot(page, "desktop-modules")
 
         # панель области: геометрия/подложка/длинное имя
@@ -259,10 +372,39 @@ def run(out_dir: str) -> int:
             if pj["badgeOverlapsName"]:
                 fails.append("desktop: имя наезжает на бейдж области")
         shot(page, "desktop-scope-panel")
+        # F2 (ревью 31.10.2026): Esc из поиска возвращает фокус в триггер,
+        # а не бросает клавиатурного пользователя на BODY.
+        page.locator('.scope-panel input[type="search"]').click()
+        focused_in_search = page.evaluate(
+            """() => {
+                const a = document.activeElement;
+                const p = document.querySelector('.scope-panel');
+                return !!(a && p && p.contains(a) && a.matches('input'));
+            }""")
+        if not focused_in_search:
+            fails.append("desktop: фокус не встал в поиск панели области")
         page.keyboard.press("Escape")
         page.wait_for_timeout(250)
-        if page.evaluate("() => !!document.querySelector('.scope-panel')"):
+        after_esc = page.evaluate(
+            """() => {
+                const a = document.activeElement;
+                return {panel: !!document.querySelector('.scope-panel'),
+                        tag: a ? a.tagName : null,
+                        isTrigger: !!(a && a.classList &&
+                                      a.classList.contains('scope-trigger')),
+                        expanded: (() => {
+                          const t = document.querySelector('.scope-trigger');
+                          return t ? t.getAttribute('aria-expanded') : null;
+                        })()};
+            }""")
+        report["desktop_scope_escape"] = after_esc
+        if after_esc["panel"]:
             fails.append("desktop: Esc не закрывает панель области")
+        if not after_esc["isTrigger"] or after_esc["tag"] == "BODY":
+            fails.append("desktop: после Esc фокус не вернулся в .scope-trigger "
+                         "(activeElement=%s)" % after_esc["tag"])
+        if after_esc["expanded"] != "false":
+            fails.append("desktop: aria-expanded триггера не сброшен после Esc")
 
         # rail: сворачивание + персист
         page.click("[data-sidebar-collapse]")
@@ -389,6 +531,10 @@ def run(out_dir: str) -> int:
             fails.append("mobile: контент под шапкой")
         if d3["headerH"] > HEAD_MAX_MOBILE:
             fails.append("mobile: шапка %s px" % d3["headerH"])
+        fails.extend(_ghost_fails(d3["fsBtn"], "mobile"))
+        p3.locator("header.header-sticky").screenshot(
+            path=os.path.join(out_dir, "w7-nav-fs-ghost-header-390.png"))
+
         p3.click(".scope-trigger")
         p3.wait_for_timeout(400)
         pj3 = p3.evaluate(PROBE_PANEL)
@@ -447,6 +593,57 @@ def run(out_dir: str) -> int:
                 fails.append("%s: контент под шапкой" % key)
             shot(pg, "case-" + key)
             c.close()
+
+        # ── EVOL-024: машинная инвентаризация 19 маршрутов × 6 вьюпортов ──
+        # Ревью W7 (31.10.2026): «19×6» должен существовать как артефакт, а не
+        # как утверждение в отчёте. Пишем w7-nav-inventory.json (ячейка на
+        # маршрут×вьюпорт: h-скролл, элементы за вьюпортом, обрезанный текст).
+        inv = {"routes": INV_ROUTES, "viewports": [], "cells": [],
+               "failures": []}
+        for (vw, vh) in INV_VIEWPORTS:
+            c = browser.new_context(viewport={"width": vw, "height": vh})
+            c.add_init_script(M.TMA_STUB)
+            c.route("**/api/**", _routes())
+            pg = c.new_page()
+            pg.goto(_app() + "#/", wait_until="load")
+            pg.wait_for_selector(".app-shell", timeout=10000)
+            pg.wait_for_timeout(900)
+            vp = "%dx%d" % (vw, vh)
+            inv["viewports"].append(vp)
+            for route in INV_ROUTES:
+                pg.evaluate("(r) => { window.location.hash = r; }", route)
+                pg.wait_for_timeout(400)
+                cell = pg.evaluate(INV_PROBE)
+                cell["viewport"] = vp
+                cell["route"] = route
+                inv["cells"].append(cell)
+                if cell["hScroll"]:
+                    inv["failures"].append(
+                        "%s %s: горизонтальный скролл %s > %s"
+                        % (vp, route, cell["sw"], cell["vw"]))
+                if cell["offCount"]:
+                    inv["failures"].append(
+                        "%s %s: элементов за вьюпортом %s %s"
+                        % (vp, route, cell["offCount"], cell["offscreen"][:2]))
+                if cell["clippedCount"]:
+                    inv["failures"].append(
+                        "%s %s: обрезанный текст без ellipsis %s %s"
+                        % (vp, route, cell["clippedCount"], cell["clipped"][:2]))
+            c.close()
+        inv["summary"] = {
+            "routes": len(INV_ROUTES), "viewports": len(INV_VIEWPORTS),
+            "cells": len(inv["cells"]),
+            "hScroll": sum(1 for x in inv["cells"] if x["hScroll"]),
+            "offscreen": sum(1 for x in inv["cells"] if x["offCount"]),
+            "clipped": sum(1 for x in inv["cells"] if x["clippedCount"]),
+            "failures": len(inv["failures"]),
+        }
+        with open(os.path.join(out_dir, "w7-nav-inventory.json"), "w",
+                  encoding="utf-8") as f:
+            json.dump(inv, f, ensure_ascii=False, indent=1)
+        report["inventory_summary"] = inv["summary"]
+        print("[inventory] %s" % json.dumps(inv["summary"], ensure_ascii=False))
+        fails.extend(inv["failures"][:30])
 
         browser.close()
     httpd.shutdown()

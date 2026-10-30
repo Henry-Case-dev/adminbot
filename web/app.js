@@ -17012,9 +17012,31 @@
           }
         });
       },
+      // EVOL-023 §2 (ревью F2, 31.10.2026): закрытие панели возвращает фокус
+      // в триггер. Раньше Esc из поиска оставлял фокус на BODY: клавиатурный
+      // пользователь терял точку возврата (паттерн тот же, что closeDrawer).
+      // Фокус возвращаем ТОЛЬКО если он был в панели/уже потерян и закрытие
+      // реальное (повторный Esc по закрытой панели фокус не ворует).
       closeScope: function () {
+        var wasOpen = this.scopeOpen;
+        var active = null;
+        var inside = false;
+        try {
+          active = document.activeElement;
+          var panel = document.querySelector('.scope-panel');
+          inside = !!(panel && active && panel.contains(active));
+        } catch (e) { /* no DOM (юнит-стабы) */ }
         this.scopeOpen = false;
         this.scopeFocus = -1;
+        if (!wasOpen) return;
+        var lost = !active || active === document.body
+          || active === document.documentElement;
+        if (!inside && !lost) return;   // фокус уже на нужном контроле
+        try {
+          var trigger = document.querySelector('.scope-wrap > .scope-trigger')
+            || document.querySelector('.scope-trigger');
+          if (trigger && typeof trigger.focus === 'function') trigger.focus();
+        } catch (e2) { /* no-op */ }
       },
       // M2: стрелки/Enter по listbox (фокус-менеджмент).
       scopeMove: function (delta) {

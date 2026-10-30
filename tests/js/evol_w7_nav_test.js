@@ -149,8 +149,7 @@ assert.strictEqual(data.sidebarCollapsed, false,
 }
 
 // ── 6. _focusOpenedDialog: мягкий no-op без диалога ───────────────────────
-{
-  const ctx = { $nextTick(cb) { cb(); } };
+{  const ctx = { $nextTick(cb) { cb(); } };
   assert.doesNotThrow(function () {
     methods._focusOpenedDialog.call(ctx);
   }, 'F: без диалога нет исключения (unit-стаб/file://)');
@@ -164,6 +163,48 @@ assert.strictEqual(data.sidebarCollapsed, false,
   assert.strictEqual(first.focused, true,
     'F: фокус входит в первый элемент управления диалога');
   global.document.querySelector = oldQ;
+}
+
+// ── 7. closeScope: фокус возвращается в триггер (ревью F2) ────────────────
+{
+  const focusCalls = [];
+  const trigger = { focus() { focusCalls.push('trigger'); } };
+  const search = { tag: 'search' };
+  const panel = { contains(el) { return el === search; } };
+  const oldQ = global.document.querySelector;
+  const hadActive = Object.prototype.hasOwnProperty
+    .call(global.document, 'activeElement');
+  const oldActive = global.document.activeElement;
+  global.document.querySelector = function (sel) {
+    if (sel === '.scope-panel') return panel;
+    if (sel === '.scope-wrap > .scope-trigger') return trigger;
+    if (sel === '.scope-trigger') return trigger;
+    return null;
+  };
+  // 1) Esc из поиска внутри панели → фокус в триггер, панель закрыта.
+  global.document.activeElement = search;
+  const ctx = { scopeOpen: true, scopeFocus: 3 };
+  methods.closeScope.call(ctx);
+  assert.strictEqual(ctx.scopeOpen, false, 'F2: closeScope закрывает панель');
+  assert.strictEqual(ctx.scopeFocus, -1, 'F2: активная опция сброшена');
+  assert.deepStrictEqual(focusCalls, ['trigger'],
+    'F2: фокус из поиска возвращается в .scope-trigger (не остаётся на BODY)');
+  // 2) Повторное закрытие (панель уже закрыта) фокус не ворует.
+  methods.closeScope.call(ctx);
+  assert.deepStrictEqual(focusCalls, ['trigger'],
+    'F2: повторный Esc по закрытой панели фокус не дёргает (idempotent)');
+  // 3) Фокус на постороннем контроле не перебиваем.
+  global.document.activeElement = { tag: 'other' };
+  methods.closeScope.call({ scopeOpen: true, scopeFocus: 0 });
+  assert.deepStrictEqual(focusCalls, ['trigger'],
+    'F2: чужой фокус не отбирается');
+  // 4) Панели нет в DOM (юнит-стабы) — исключения нет.
+  global.document.querySelector = oldQ;
+  assert.doesNotThrow(function () {
+    methods.closeScope.call({ scopeOpen: true, scopeFocus: 0 });
+  }, 'F2: без DOM closeScope не падает');
+  if (hadActive) global.document.activeElement = oldActive;
+  else delete global.document.activeElement;
 }
 
 console.log('JS-UNIT-OK');

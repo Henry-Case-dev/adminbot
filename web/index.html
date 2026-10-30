@@ -227,13 +227,14 @@
           <!-- ЕДИНСТВЕННЫЙ узел ⛶. Слот (inline|hidden) решает -->
           <!-- fullscreen-policy.js (html.fs-hidden, data-fs-reason на <html>); -->
           <!-- hidden (вне Telegram/клиент без API) → кнопка не рендерится -->
-          <!-- вовсе (v-if, без мёртвого контрола). Материал — Tier B -->
-          <!-- мини-линза (U08.4d/U08.5.1, REV-W2-N1): rim + один блик, -->
-          <!-- материал из W2-GLASS (app.css); геометрия/тач-цель ≥44×44 — -->
-          <!-- за fullscreen-лейном. aria по ACK-состоянию; aria-pressed -->
-          <!-- только при подтверждённом факте (fsAriaPressed). -->
+          <!-- вовсе (v-if, без мёртвого контрола). Материал (EVOL-023 §4, -->
+          <!-- ревью F1 31.10.2026): compact GHOST-ICON — только иконка и -->
+          <!-- прозрачная hit-цель ≥44×44, БЕЗ декоративной мини-линзы -->
+          <!-- (.lg-mini-lens снят: в шапке читался как отдельный стеклянный -->
+          <!-- объект). aria по ACK-состоянию; aria-pressed — только при -->
+          <!-- подтверждённом факте (fsAriaPressed). -->
           <button v-if="me && fsSlot !== 'hidden'" type="button"
-                  class="text-xs shrink-0 header-fs-btn lg-mini-lens"
+                  class="text-xs shrink-0 header-fs-btn"
                   :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
                   :aria-label="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
                   :aria-pressed="fsAriaPressed"

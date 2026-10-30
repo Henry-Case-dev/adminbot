@@ -5,19 +5,24 @@
 Лейн: web/** (единственный UI-лейн этой волны). Оптика и данные вне `web/**`
 не затрагивались.
 
-Кандидат (worktree `evol/impl`): коммит-база `390cacaf`, файлы лейна
-(sha256, первые 16):
+Кандидат (worktree `evol/impl`): база `390cacaf` (первая редакция) →
+`ca15a2f6` + правки §review-fix (31.10.2026). Хеши (sha256, первые 16) — на
+состоянии ПОСЛЕ review-fix:
 
 | файл | sha256 |
 |---|---|
-| `web/index.html` | `ff85c6d39841345b` |
-| `web/app.js` | `2402e2d0b2b3c921` |
-| `web/static/app.css` | `0e50b38ef321efaa` |
-| `tests/test_webapp_evol_w7_nav.py` (new) | `f82c1285f1e38af4` |
-| `tests/js/evol_w7_nav_test.js` (new) | `3e1df45400136db0` |
-| `tools/ui_evol_w7_nav_e2e.py` (new) | `0ce13c4bc4e0966c` |
+| `web/index.html` | `fb15f4131375c792` |
+| `web/app.js` | `c1d726d18525f1e0` |
+| `web/static/app.css` | `f0fef08b855042d4` |
+| `tests/test_webapp_evol_w7_nav.py` (new) | `8b8d8063bc99131d` |
+| `tests/js/evol_w7_nav_test.js` (new) | `5b4c806bb14d257f` |
+| `tools/ui_evol_w7_nav_e2e.py` (new) | `bc54d51ed78cad73` |
 | `tests/test_webapp_ui_rework_round1020.py` (re-pin) | `5ffca4d659e163f6` |
 | `tests/js/evol032_health_glass_test.js` (re-pin) | `79b5bc9f693d78aa` |
+| `tests/js/asap8_u084d_mini_lens_binding_test.js` (re-pin §review-fix) | `40ca36d334330280` |
+| `tests/js/asap8_w2_fullscreen_policy_test.js` (re-pin §review-fix) | `faa4a7a19aadde14` |
+| `tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js` (re-pin §review-fix) | `01d7d4f216d9d199` |
+| `evidence/w7-nav-inventory.json` (new) | `2cd1f8459d45962f` |
 
 ---
 
@@ -103,11 +108,16 @@
 ### EVOL-023 §4 — fullscreen
 
 Механизм (`toggleFullscreen`, `fsSlot`, safe-area, восстановление) **не
-менялся**. Материал ⛶ — защищённая мини-линза U08.4d (EVOL-022: не менять
-физику/палитру стекла), сама кнопка уже ghost-icon: фон у `.header-fs-btn` не
-задаётся, есть `title`/`aria-label`, прозрачная область 44×44. Это
-зафиксировано тестом (`TestFullscreenContract`), а не «переделано» вслепую:
-менять линзу значило бы ломать принятый контракт W2-GLASS и 7 его пинов.
+менялся** — правки §review-fix касаются только внешнего вида кнопки и
+возврата фокуса в селекторе области.
+
+**Ревью W7 F1 (31.10.2026) — исправлено, см. §review-fix ниже.** Первая
+редакция оставляла на ⛶ защищённую мини-линзу `.lg-mini-lens` и объясняла это
+контрактом U08.4d/W2-GLASS. Ревью обоснованно отклонило: §4 требует
+компактный иконочный контрол, а линза давала в шапке отдельный стеклянный
+объект (радиальный градиент, рамка, rim `::after`, inset-блики,
+`backdrop-filter`, тень). Теперь ⛶ — ghost-icon: прозрачная hit-цель 44×44 без
+материала; `title`/`aria-label`/`aria-pressed` сохранены.
 
 ### EVOL-024 — сквозная очистка
 
@@ -217,8 +227,8 @@ more}.png`, `w7-nav-case-{320x700-z1,1280x800-z2,1280x800-z1-d900}.png`,
 * **Модалки** не перекрашивались: `.modal-card` — Tier A стекло (EVOL-022),
   единый вид обеспечен токенами радиуса/тени, а не новой подложкой. Фокус,
   скролл и границы вьюпорта проверены живьём.
-* **Кнопка ⛶** оставлена с защищённой мини-линзой (см. §EVOL-023 §4) —
-  сознательный отказ от косметической замены материала.
+* **Кнопка ⛶** — ghost-icon без декоративной линзы (см. §review-fix, F1);
+  материал `.lg-mini-lens` в CSS сохранён для glass-тест-стенда.
 * `#/modules/direct/models`: три кнопки «Проверить» — одинаковое действие по
   стадиям (не та неоднозначность, что в Vision EVOL-019); добавлено доступное
   имя «Проверить стадию: …», текст не менялся (пины).
@@ -234,6 +244,106 @@ more}.png`, `w7-nav-case-{320x700-z1,1280x800-z2,1280x800-z1-d900}.png`,
   переквалифицировать владелец каталога.
 
 ---
+
+## 6. §review-fix — блокеры ревью EVOL-023 (31.10.2026)
+
+Кандидат: worktree `evol/impl`, база `ca15a2f6` + правки этого раздела.
+Затронуто: `web/index.html`, `web/static/app.css`, `web/app.js`,
+`tests/test_webapp_evol_w7_nav.py`, `tests/js/evol_w7_nav_test.js`,
+`tools/ui_evol_w7_nav_e2e.py`, плюс осознанная переквалификация трёх пинов
+U08.4d/W2 (6.3). `web/static/glass.js`, `glass-refraction.js`,
+`aurora-flow.js`, polygon-фон и `services/**` — **нулевой дифф**
+(`git diff --stat` по ним пуст).
+
+### 6.1 F1 (BLOCKER) — ⛶ больше не стеклянная линза
+
+* **Было (замер до правки):** узел нёс `header-fs-btn lg-mini-lens`; computed:
+  `background-image` = `radial-gradient(...)`,
+  `border: 1px rgba(210,235,255,.35)`,
+  `box-shadow: 0 4px 14px … + inset 0 ±1px`, `backdrop-filter:
+  var(--lg-frost-hero)`, `border-radius: 50%`, плюс `::after`-rim. В шапке это
+  читалось отдельным стеклянным объектом → §4 («компактный control с
+  прозрачной областью нажатия») не выполнялся. Пин
+  `test_ghost_icon_with_hit_area` при этом ТРЕБОВАЛ `lg-mini-lens` и проверял
+  только отсутствие инлайнового `background` — то есть защищал дефект.
+* **Стало:** класс `.lg-mini-lens` с узла снят; `.header-fs-btn` объявляет
+  ghost-контракт (`background: transparent; border: 0; border-radius: 0;
+  box-shadow: none; backdrop-filter: none; color: inherit`) и сохраняет
+  `min-width/min-height: 44px`, `title`, `aria-label`, `aria-pressed`,
+  `@click="toggleFullscreen()"`. Иконка остаётся видимой (`currentColor` →
+  `rgb(244,247,251)`), hover/active — только `filter: brightness`.
+* **Живой замер после правки** (computed, Chrome, настоящий `index.html`):
+  * 1280 → `44×44 | rgba(0,0,0,0) | background-image none | shadow none |
+    blur none | radius 0px | color rgb(244,247,251) | class
+    "text-xs shrink-0 header-fs-btn" | title/aria «На весь экран»`;
+  * 390 → те же значения.
+  Скриншоты: `w7-nav-live-fs-ghost-1280.png`, `w7-nav-live-fs-ghost-390.png`,
+  крупно `w7-nav-live-fs-ghost-btn-1280.png`/`-390.png`; детерминированно —
+  `w7-nav-fs-ghost-header-1280.png`, `w7-nav-fs-ghost-header-390.png`.
+* Материал `.lg-mini-lens` из CSS не удалён: он нужен изолированному
+  `tests/glass-teststand` и Tier-A селекторам движка (`_lgGlassSelector`,
+  `SURFACE_SELECTOR` не менялись). Удалена только привязка материала к
+  функциональной кнопке.
+
+### 6.2 F2 — Esc из поиска возвращает фокус в триггер
+
+* **Было:** `closeScope()` только снимал `scopeOpen`; после Esc из поиска
+  панель исчезала вместе с полем ввода, и `document.activeElement` падал на
+  `BODY`. Клавиатурный пользователь терял точку возврата, а e2e проверял лишь
+  «панель закрылась».
+* **Стало:** `closeScope()` до снятия флага запоминает, был ли фокус внутри
+  `.scope-panel`, и после закрытия возвращает фокус в `.scope-trigger` — тот
+  же паттерн, что `closeDrawer` → `[data-drawer-trigger]`. Возврат только при
+  реальном закрытии и только если фокус был в панели или уже потерян: чужой
+  фокус не перебивается, повторный Esc идемпотентен, без DOM — no-op.
+* **Проверки:** юнит `tests/js/evol_w7_nav_test.js` §7 (фокус из поиска →
+  триггер, идемпотентность, чужой фокус, отсутствие DOM); e2e
+  `desktop_scope_escape` → `{panel:false, tag:"BUTTON", isTrigger:true,
+  expanded:"false"}`; живьём — клик в поле поиска, Esc → фокус на триггере с
+  видимым кольцом (`w7-nav-live-scope-esc-focus-1280.png`).
+
+### 6.3 Осознанно переквалифицированные пины (U08.4d/W2)
+
+| файл | что было | почему изменено |
+|---|---|---|
+| `tests/js/asap8_u084d_mini_lens_binding_test.js` | требовал `lg-mini-lens` на ⛶ и материал в CSS | требование §4 его отменяет: проверка стала отрицательной (материала на кнопке нет), материал в CSS/движке сохранён; `TEST-LIFECYCLE` помечен `superseded-by EVOL-023 §4` |
+| `tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js` | пинил точный `class="… header-fs-btn lg-mini-lens"` | класс снят: пин проверяет `header-fs-btn` и отсутствие линзы |
+| `tests/js/asap8_w2_fullscreen_policy_test.js` | «в правилах `.header-fs-btn` вообще нет `background:`» | ghost-контракт объявляет `background: transparent` явно; пин проверяет прозрачность + отсутствие градиента/рамки/тени/blur/скругления |
+| `tests/test_webapp_evol_w7_nav.py::TestFullscreenContract::test_ghost_icon_with_hit_area` | требовал линзу | требует ghost: прозрачный фон, `border: 0`, `box-shadow: none`, `backdrop-filter: none`, 44×44, `title`/`aria-label`/`@click` |
+
+Остальные пины не ослаблены: `round1025_design_tokens` (материал
+`.lg-mini-lens` в CSS), `glass_probe`, `_lgGlassSelector`/`SURFACE_SELECTOR` —
+зелёные без правок.
+
+### 6.4 Машинная инвентаризация EVOL-024 (запрос ревью)
+
+Раньше «19 маршрутов × 6 вьюпортов» было утверждением в отчёте без артефакта.
+Теперь `tools/ui_evol_w7_nav_e2e.py` строит инвентарь сам: **19 маршрутов ×
+6 вьюпортов = 114 ячеек** (320/390/768/1024/1280/1920; список маршрутов —
+канонический из матрицы §71, второй реестр не заводится). Артефакт:
+`evidence/w7-nav-inventory.json` — `cells[]` с `hScroll`, `offscreen`,
+`clipped` на каждую пару плюс `summary`. Результат прогона:
+`{"routes": 19, "viewports": 6, "cells": 114, "hScroll": 0, "offscreen": 0,
+"clipped": 0, "failures": 0}`. Элемент внутри намеренного горизонтального
+скроллера (табы «Аналитики», таблицы) дефектом не считается; обрезка текста
+без `ellipsis` — считается.
+
+### 6.5 Прогоны ревью-фикса
+
+| команда | результат |
+|---|---|
+| `pytest tests/test_webapp_evol_w7_nav.py` | **22 passed** |
+| `pytest tests/test_webapp_round1020_ui.py` | **24 passed** |
+| `pytest tests/test_webapp_ui_rework_round1020.py` | **28 passed** |
+| `node tests/js/evol_w7_nav_test.js` | `JS-UNIT-OK` |
+| `node tests/js/round1020_ui_test.js` | `JS-UNIT-OK` |
+| `node tests/js/round1020_ui_rework_test.js` | `JS-UNIT-OK` |
+| `node tests/js/asap8_u084d_mini_lens_binding_test.js` | `MINI-LENS-BINDING-OK` |
+| `node tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js` | `HOTFIX6-LENS-HEARTBEAT-SHELL-OK` |
+| `node tests/js/asap8_w2_fullscreen_policy_test.js` | `FS-POLICY-OK` |
+| `node tests/js/round1025_design_tokens_test.js` | `JS-UNIT-OK` |
+| `python tools/ui_evol_w7_nav_e2e.py` | `EVOL-W7-NAV OK`, инвентарь `failures: 0` |
+| `pytest tests/test_webapp_js_unit.py` | 37 passed, 2 failed — **предсуществующие** (`round1021_ui_audit` 27≠28 вкладок, `round1024_image_module`), воспроизводятся на базе, к `web/**` отношения не имеют |
 
 ## Коротко по-русски
 
@@ -251,3 +361,12 @@ more}.png`, `w7-nav-case-{320x700-z1,1280x800-z2,1280x800-z1-d900}.png`,
 зум 200 %) — горизонтального скролла и перекрытий нет; 22 новых теста зелёные,
 обязательные наборы зелёные, восемь падающих тестов — предсуществующие и
 воспроизводятся на базе.
+
+**Ревью-фикс (31.10.2026).** Кнопка «на весь экран» в шапке больше не выглядит
+стеклянным кружком: осталась только иконка и невидимая область нажатия 44×44
+(фон полностью прозрачный, без рамки, тени и размытия — проверено замером
+computed-стилей и скриншотами на 1280 и 390). В переключателе чатов Esc из
+поля поиска теперь возвращает фокус на сам переключатель, а не «теряет» его
+в никуда. Добавлен машинный инвентарь вёрстки: 19 маршрутов × 6 вьюпортов =
+114 ячеек, ни одной с горизонтальным скроллом, выходом за экран или обрезанным
+без многоточия текстом (`evidence/w7-nav-inventory.json`).

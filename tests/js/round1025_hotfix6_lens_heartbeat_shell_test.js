@@ -339,8 +339,10 @@ function firstPartyWeb() {
   }), false, 'D: UI_HEADER_COMPACT_V2=OFF → legacy');
   // Разметка: строка 2 обёрнута в .header-scope-row; ⛶ — правый верхний угол.
   assert.ok(INDEX.indexOf('header-scope-row') >= 0, 'D: обёртка строки 2 шапки');
-  assert.ok(/class="text-xs shrink-0 header-fs-btn lg-mini-lens"/
-    .test(INDEX), 'D: ⛶ помечен header-fs-btn + материал lg-mini-lens (U08.4d)');
+  assert.ok(/class="text-xs shrink-0 header-fs-btn"/
+    .test(INDEX), 'D: ⛶ помечен header-fs-btn (ghost-icon, EVOL-023 §4)');
+  assert.ok(!/class="text-xs shrink-0 header-fs-btn lg-mini-lens"/
+    .test(INDEX), 'D: декоративная мини-линза снова привязана к ⛶');
   assert.ok(/\.header-compact-v2 \.header-scope-row \{[\s\S]{0,120}flex: 1 1 100%/
     .test(CSS), 'D: строка 2 — flex-basis 100% (новая строка)');
   assert.ok(/header\.header-sticky\.header-compact-v2 \.header-fs-btn \{[\s\S]{0,120}min-height: 44px/
