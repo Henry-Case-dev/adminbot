@@ -51,13 +51,14 @@ def _media(file_id="f1", file_unique_id="u1", **kw):
 def _msg(text=None, caption=None, message_id=11, user_id=USER_A,
          chat_id=CHAT_ID, video=None, document=None, voice=None,
          video_note=None, reply_to_message=None, forward_origin=None,
-         thread_id=None):
+         thread_id=None, chat_type="group"):
     m = MagicMock()
     m.text = text
     m.caption = caption
     m.message_id = message_id
     m.chat = MagicMock()
     m.chat.id = chat_id
+    m.chat.type = chat_type
     m.from_user = MagicMock()
     m.from_user.id = user_id
     m.from_user.username = "user"
@@ -489,3 +490,136 @@ class TestPendingExpiry:
         assert await yt.youtube_handler(late, bot=bot) is UNHANDLED
         assert env.svc.summarize_media_url.await_count == 0
         assert bot.send_message.await_count == 1
+
+
+# ── 9. Review-fix: ожидание без слова «видео» и «чужая цель» ──────────
+
+class TestWaitingWithoutVideoWord:
+    """§4.5 #1 буквально: «Сделай выжимку» (без слова «видео») → ролик.
+
+    Раньше ожидание регистрировалось только при слове «видео/видос/ролик»
+    (или при уже активном ожидании) — формулировка из ТЗ уходила в LLM, а
+    присланный следом ролик не привязывался (0 анализов, 0 ответов)."""
+
+    @pytest.mark.asyncio
+    async def test_literal_request_without_video_word_then_forwarded_video(
+            self, env):
+        bot = _bot()
+        request = _msg(text="Сделай выжимку", message_id=900,
+                       chat_type="private")
+
+        assert await yt.youtube_handler(request, bot=bot) is None
+        assert bot.send_message.await_count == 0        # «видео нет» не отвечаем
+        corr = _corr_of_pending()
+
+        forwarded = _msg(message_id=901, chat_type="private",
+                         video=_media(file_id="fwd9", file_unique_id="fwd9u"),
+                         forward_origin=SimpleNamespace(type="channel"))
+        assert await yt.youtube_handler(forwarded, bot=bot) is None
+
+        assert env.svc.summarize_media_url.await_count == 1
+        assert bot.send_message.await_count == 1         # РОВНО один ответ
+        assert bot.send_message.await_args.kwargs.get(
+            "reply_to_message_id") == 901
+        assert not video_intent.has_pending(CHAT_ID)
+        names = [e["event"] for e in video_intent.recent_events()
+                 if e["correlation_id"] == corr]
+        assert names[0] == "request_seen"
+        assert "waiting_for_media" in names and "media_matched" in names
+
+    @pytest.mark.asyncio
+    async def test_prefixed_request_without_video_word_waits(self, env):
+        """«Бот, сделай выжимку» — тоже ожидание, без слова «видео»."""
+        bot = _bot()
+        assert await yt.youtube_handler(
+            _msg(text="Бот, сделай выжимку", message_id=910), bot=bot) is None
+        assert bot.send_message.await_count == 0
+        assert video_intent.has_pending(CHAT_ID)
+
+    @pytest.mark.asyncio
+    async def test_private_chat_question_is_not_hijacked(self, env):
+        """Обычный вопрос в личке («в чём суть?») ожидание НЕ создаёт."""
+        bot = _bot()
+        msg = _msg(text="в чём суть?", message_id=940, chat_type="private")
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert not video_intent.has_pending(CHAT_ID)
+
+
+class TestOtherTargetNotConsumed:
+    """Веб-ссылка (статья) — ЧУЖАЯ цель: 0f обслуживает её, 0e не перехватывает."""
+
+    @pytest.mark.asyncio
+    async def test_web_summary_not_consumed_while_pending_active(self, env):
+        bot = _bot()
+        await yt.youtube_handler(
+            _msg(text="Бот, сделай выжимку видео", message_id=920), bot=bot)
+        assert len(video_intent.pending_for(CHAT_ID)) == 1
+        corr = _corr_of_pending()
+        events_before = len(video_intent.recent_events())
+
+        web = _msg(text="Бот, сделай выжимку https://example.com/article",
+                   message_id=921)
+        assert await yt.youtube_handler(web, bot=bot) is UNHANDLED
+
+        assert bot.send_message.await_count == 0          # ответит 0f/LLM
+        assert len(video_intent.pending_for(CHAT_ID)) == 1  # не второе ожидание
+        assert _corr_of_pending() == corr
+        assert len(video_intent.recent_events()) == events_before
+
+    @pytest.mark.asyncio
+    async def test_web_summary_without_pending_not_consumed(self, env):
+        bot = _bot()
+        web = _msg(text="Бот, сделай выжимку https://example.com/article",
+                   message_id=930)
+        assert await yt.youtube_handler(web, bot=bot) is UNHANDLED
+        assert not video_intent.has_pending(CHAT_ID)
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_video_url_still_analyzed(self, env):
+        """Видео-URL — своя цель: как и раньше уходит в анализ."""
+        bot = _bot()
+        msg = _msg(text="Бот, сделай выжимку https://www.tiktok.com/@x/video/1",
+                   message_id=950)
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert not video_intent.has_pending(CHAT_ID)
+
+
+class TestAudioOnlyReplyHonesty:
+    """F2: STT/аудио-фолбэк не выдаёт себя за просмотренное видео."""
+
+    @pytest.mark.asyncio
+    async def test_audio_only_fallback_reply_marks_transcript_only(self, env,
+                                                                  monkeypatch):
+        monkeypatch.setattr(yt.media_share, "enabled", lambda: False)
+        bot = _bot()
+        note = _msg(message_id=730, video_note=_media(file_id="n730",
+                                                      file_unique_id="un730"))
+        request = _msg(text="Бот, сделай выжимку", message_id=731,
+                       reply_to_message=note)
+
+        assert await yt.youtube_handler(request, bot=bot) is None
+        assert env.svc.summarize_transcript.await_count == 1
+        assert env.svc.summarize_media_url.await_count == 0   # визуал не заявлен
+        assert bot.send_message.await_count == 1
+        text = bot.send_message.await_args.args[1]
+        assert yt.TRANSCRIPT_ONLY_NOTE in text
+        assert "аудиодорожк" in text.lower()
+        assert not _events("multimodal_success")
+        assert _events("transcript_fallback")[-1]["reason_code"] == \
+            "audio_only_source"
+
+    @pytest.mark.asyncio
+    async def test_multimodal_success_has_no_transcript_note(self, env):
+        """Мультимодальный путь НЕ получает пометку (видео реально смотрели)."""
+        bot = _bot()
+        target = _msg(message_id=740, video=_media(file_id="v740",
+                                                   file_unique_id="u740"))
+        request = _msg(text="Бот, сделай выжимку", message_id=741,
+                       reply_to_message=target)
+
+        assert await yt.youtube_handler(request, bot=bot) is None
+        assert env.svc.summarize_media_url.await_count == 1
+        text = bot.send_message.await_args.args[1]
+        assert yt.TRANSCRIPT_ONLY_NOTE not in text
+        assert _events("multimodal_success")

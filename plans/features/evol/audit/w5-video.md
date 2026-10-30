@@ -248,3 +248,122 @@ yield в direct_chat значило бы создать второго арби�
 * Создан вспомогательный чистый detached-worktree для сверки с HEAD:
   `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\evol-w5-video-baseline-81e00d6218f1-66e65637`
   (без уникальных коммитов; передать DevOps для `epic-close`/удаления).
+
+## 8. §review-fix (31.10.2026) — два блокера ревью
+
+Кандидат: `evol/impl` @ `3a0f89d2` + дельта этого review-fix. Офлайн-проверки,
+живых отправок в Telegram нет (bot — `AsyncMock`).
+
+### F1 (блокер). Ожидание регистрировалось только при слове «видео»
+
+**Воспроизведено до правки** (тесты RED, оба падали на текущем кандидате):
+
+* «Бот, сделай выжимку» → `UNHANDLED`, pending не создан; следующий update с
+  пересланным роликом → `UNHANDLED`, 0 анализов, 0 ответов. Причина — гейт
+  `not canonical and not mentions_video(text) and not has_pending(chat)`:
+  буквальная формулировка §4.5 #1 («Сделай выжимку») не содержит слова
+  «видео/видос/ролик» и отбрасывалась.
+* Регресс от глобального `has_pending(chat)`: при активном ожидании ЛЮБОЕ
+  адресованное сообщение со «суть/перескаж/выжимк» забиралось youtube-веткой.
+  «Бот, сделай выжимку <веб-ссылка на статью>» не получало ответа, создавало
+  ВТОРОЕ ожидание, и через TTL пользователь получал «перешли ролик» вместо
+  выжимки статьи.
+
+**Корень:** условие ожидания опиралось на наличие слова «видео» и на факт
+чужого ожидания в чате, а не на «есть ли у просьбы ДРУГАЯ цель».
+
+**Правка (`handlers/youtube.py`):**
+
+* `has_pending(chat)`-побег удалён полностью; `mentions_video` больше не
+  решает вопрос ожидания.
+* `_has_foreign_url(text)` — новая проверка «в сообщении есть ссылка, но ни
+  одна не видео-цель»: такая ссылка обслуживается 0f, ожиданием не
+  перехватывается (запрет при веб-URL сохранён, как требовалось).
+* Ожидание регистрируется для ПРОСЬБЫ об анализе без другой цели:
+  канонический триггер ЛИБО императивная просьба (`_ANALYSIS_REQUEST_RE`:
+  «сделай/перескажи/скинь/дай/…», «выжимка/транскрипт/краткое содерж» в
+  начале остатка команды).
+* `_addressed_to_bot` дополнен: в ЛИЧНОМ чате прямая императивная просьба об
+  анализе считается обращением к боту (он единственный собеседник) — так
+  работает буквальная формулировка §4.5 #1 без «Бот,». Обычная речь и вопросы
+  («в чём суть?», «Олег, помнишь транскрипт того созвона?», «Олег,
+  транскриптер») остаются обычной речью: императива в них нет, поэтому
+  существующие пины `test_command_registry_round1015` (R10.15-3) не тронуты и
+  зелёные.
+
+**Тесты (`tests/test_evol_video_intent.py`, +8):**
+
+* `TestWaitingWithoutVideoWord::test_literal_request_without_video_word_then_forwarded_video`
+  — «Сделай выжимку» (без слова «видео») → pending → пересланный ролик →
+  РОВНО один анализ и один ответ реплаем на ролик.
+* `…::test_prefixed_request_without_video_word_waits` — «Бот, сделай выжимку» →
+  pending без мгновенного «видео нет».
+* `…::test_private_chat_question_is_not_hijacked` — «в чём суть?» в личке →
+  `UNHANDLED`, ожидания нет.
+* `TestOtherTargetNotConsumed::test_web_summary_not_consumed_while_pending_active`
+  — при активном ожидании веб-выжимка статьи → `UNHANDLED`, ответ отдаёт
+  0f/LLM, второго ожидания нет, новых событий нет.
+* `…::test_web_summary_without_pending_not_consumed`,
+  `…::test_video_url_still_analyzed` — веб-ссылка не перехватывается, видео-URL
+  по-прежнему уходит в анализ.
+
+### F2 (блокер). STT/аудио-фолбэк маскировался под просмотренное видео
+
+**Воспроизведено:** честность была только в событиях
+(`transcript_fallback`/`audio_only_source`), а пользователю уходила обычная
+выжимка по транскрипту без пометки, что визуально видео не смотрели.
+
+**Правка (`handlers/youtube.py`):** константа `TRANSCRIPT_ONLY_NOTE`
+(«разбор по аудиодорожке — визуально видео не смотрел»); `_summarize_and_send`
+получил параметр `note` и дописывает эту строку к выжимке. Пометка ставится
+ТОЛЬКО на STT-ветках (`_process_video_media` — фолбэк файла/кружка/голосового
+и `_process_url_media` — фолбэк скачанной ссылки). Мультимодальный путь
+(`summarize_media_url`) не изменён и пометки не получает.
+
+**Тесты:** `TestAudioOnlyReplyHonesty::test_audio_only_fallback_reply_marks_transcript_only`
+(пометка в ответе, визуальный анализ не заявлен, `multimodal_success` нет) и
+`…::test_multimodal_success_has_no_transcript_note` (мультимодалка без пометки).
+
+**Вынужденное расширение правки тестов (вне исходного списка файлов).** Пометка
+— часть текста ответа, поэтому 5 старых пинов, сверявших ТОЧНЫЙ текст
+STT-выжимки, обновлены минимально (выжимка + `TRANSCRIPT_ONLY_NOTE`):
+`tests/test_youtube_video_media.py` (2: `test_other_triggers_llm_summary`,
+`test_caption_trigger_on_own_video`), `tests/test_video_router.py` (3:
+`test_native_summary_cascade_fail_stt_fallback`,
+`test_native_summary_no_publish_stt_fallback`,
+`test_direct_url_fallback_download_publish_stt`). Смысл пинов сохранён
+(«выжимка доставлена реплаем»), изменён только ожидаемый хвост-пометка.
+Иначе F2 физически несовместим с этими пинами.
+
+### Nonblocking (сделано в том же файле)
+
+Канонический путь (reply/own media, включая reply+«транскрипт») теперь тоже
+начинает цепочку §4.5 с `request_seen` → `media_matched` (reason
+`reply_media`/`own_media`), а не сразу с `analysis_started`. Путь
+pending-привязки не задет: там `request_seen` уже эмитился, точная
+последовательность событий из `TestLateVideo` не изменилась.
+
+### Проверки после правки (офлайн)
+
+| Набор | Итог |
+|---|---|
+| `tests/test_evol_video_intent.py` | **25 passed** (было 17 + 8 новых) |
+| `tests/test_epic37_router_isolation.py`, `test_command_registry_round1015.py`, `test_web_handlers.py`, `test_epic33_router_isolation.py`, `test_round106_gates.py`, `test_round106_ia_smoke.py`, `test_p0_delta_routing.py`, `test_direct_chat*.py` | **455 + 328 passed** |
+| `test_youtube_video_media`, `test_youtube_handlers`, `test_video_router`, `test_video_download`, `test_video_cascade`, `test_video_stt_timeouts`, `test_native_*_round1024`, `test_media_transcribe_tool_round1024`, `test_hotfix_round1025_media`, `test_media_share`, `test_media_download` | **422 passed** |
+| RED до правки | 5 падений (F1 ×2, F1-регресс, F2 ×2) → 0 после |
+
+### Остаточные риски §review-fix
+
+1. `_ANALYSIS_REQUEST_RE` — эвристика императивных формулировок; экзотическая
+   просьба без императива и без канонического триггера уйдёт в обычный путь
+   (деградация без ложного перехвата). Список глаголов — единственное место,
+   где он задан.
+2. В личном чате императивная просьба («перескажи», «сделай выжимку») теперь
+   создаёт ожидание и после TTL отвечает «перешли ролик». Это требуемое
+   поведение §4.3/§4.5 #1, но для просьб «перескажи <про прошлый разговор>»
+   ответ по TTL может быть не тем, что ждал пользователь — цена устранения
+   блокера, отмечена осознанно.
+3. Пометка `TRANSCRIPT_ONLY_NOTE` — статичная строка в `handlers/youtube.py`
+   (не пул редактируемых фраз): каталог фраз (`smartmodule_phrases`) в этой
+   правке не расширялся, чтобы не менять пины каталога.
+

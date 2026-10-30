@@ -42,6 +42,7 @@ import dataclasses
 import logging
 import os
 import random
+import re
 import tempfile
 from pathlib import Path
 
@@ -231,6 +232,11 @@ _LABEL_DIRECT = "direct-url"
 _LABEL_PLATFORM = "platform-url"
 # Раунд 10.24 (F16, ADR-1024-17): youtube+summary — файл, скачанный yt-dlp.
 _LABEL_YT_URL = "youtube-file"
+
+# §4.4 (review-fix F2): честная пометка к выжимке, построенной ТОЛЬКО по
+# транскрипту (STT/аудио-дорожка). Без неё аудиоразбор выглядел как
+# просмотренное видео. Одна строка, без имитации визуального анализа.
+TRANSCRIPT_ONLY_NOTE = "разбор по аудиодорожке — визуально видео не смотрел"
 
 
 # ── Раунд 10.24 (F16): «скачать → мультимодалка → фолбэк субтитры» ─────
@@ -668,16 +674,48 @@ def _classify_video_request_raw(message: types.Message) -> _VideoRequest | None:
 
 # ── EVOL §4: единое разрешение намерения/источника ───────────────────
 
+#: Императивная просьба об анализе (без обязательного обращения «Бот,»):
+#: «сделай выжимку», «перескажи», «транскрипт», «краткое содержание».
+#: Нужна только для ЛИЧНОГО чата (см. `_addressed_to_bot`): обычный вопрос
+#: «в чём суть?» императивом не является и остаётся обычной речью.
+_ANALYSIS_REQUEST_RE = re.compile(
+    r"(сделай|сделайте|перескажи|перескажите|расшифруй|расшифруйте|"
+    r"скинь|скиньте|дай|дайте|покажи|покажите|нужн[аоы]|хочу|"
+    r"^\s*(выжимк|транскрипт|расшифровк|краткое\s+содерж)(?![0-9a-zа-яё]))",
+    re.IGNORECASE)
+
+
 def _addressed_to_bot(message: types.Message) -> bool:
-    """Осознанное обращение к боту: префикс («Бот,/Имя,») или reply на бота."""
+    """Осознанное обращение к боту: префикс («Бот,/Имя,»), reply на бота или —
+    в ЛИЧНОМ чате — прямая императивная просьба об анализе.
+
+    §4.5 #1 буквально: «Сделай выжимку» (без слова «видео» и без «Бот,») в
+    личке адресована боту — он единственный собеседник. Обычная речь и
+    вопросы («в чём суть?») императивом не считаются и не перехватываются."""
     text = str(message.text or message.caption or "")
     if command_prefix.split_prefix(text)[0] is not None:
         return True
     reply = getattr(message, "reply_to_message", None)
     author = getattr(reply, "from_user", None) if reply is not None else None
     author_id = getattr(author, "id", None)
-    return (_media_bot_id is not None and isinstance(author_id, int)
-            and author_id == _media_bot_id)
+    if (_media_bot_id is not None and isinstance(author_id, int)
+            and author_id == _media_bot_id):
+        return True
+    chat_type = getattr(getattr(message, "chat", None), "type", None)
+    if chat_type == "private":
+        return bool(_ANALYSIS_REQUEST_RE.search(text))
+    return False
+
+
+def _has_foreign_url(text: str) -> bool:
+    """Есть ссылка, но НИ ОДНА не видео-цель (статья/обычная веб-страница).
+
+    Такая ссылка — цель веб-ветки 0f, а не видео-анализа: перехватывать её
+    ожиданием нельзя (иначе «Бот, сделай выжимку <статья>» уходит в pending,
+    не получает ответа и после TTL просит ролик вместо выжимки статьи)."""
+    if not extract_urls(str(text or "")):
+        return False
+    return not _has_video_target(text)
 
 
 def _request_from_intent(vintent: "video_intent.VideoIntent",
@@ -795,10 +833,14 @@ async def _handle_unclassified(bot, message: types.Message):
                          random.choice(VIDEO_INTENT_AMBIGUOUS_PHRASES),
                          message.message_id)
             return None
-        # WAITING: не отвечаем мгновенно «видео нет» (§4.3). Ожидание —
-        # только для явного видео-контекста, обычную речь не задерживаем.
-        if not canonical and not video_intent.mentions_video(text) \
-                and not video_intent.has_pending(message.chat.id):
+        # WAITING: не отвечаем мгновенно «видео нет» (§4.3). Ожидание — только
+        # для ПРОСЬБЫ об анализе (канонический триггер либо императив «сделай
+        # выжимку») БЕЗ другой цели. Обычная речь со словом-триггером
+        # («Олег, помнишь транскрипт того созвона?») и веб-ссылка (статья —
+        # цель 0f) не перехватываются.
+        if _has_foreign_url(text):
+            return UNHANDLED
+        if not canonical and not _ANALYSIS_REQUEST_RE.search(text):
             return UNHANDLED
         video_intent.emit_for(vintent, "request_seen", vintent.reason_code)
         video_intent.register_pending(vintent, notify=_pending_notifier(bot))
@@ -987,12 +1029,14 @@ async def _inject_url_memory(message: types.Message, author: str,
 # ── Раунд 3 (3.4, T-691): честная выжимка и отправка ответа ──────────
 
 async def _summarize_and_send(bot, chat_id: int, transcript: str,
-                              target_message_id: int) -> bool:
+                              target_message_id: int,
+                              note: str | None = None) -> bool:
     """«Честная выжимка»: транскрипт < limits.video_summary_min_chars →
     фраза пула 5.13 (БЕЗ RAG-памяти, поведение 02:45 исключено); иначе
     summarize_transcript (без RAG) → отправка. LLMBadResponseError → 🗿,
     LLMError/неожиданное → LLM_ERROR_PHRASES. False = выжимка не построена
-    (память-инъекцию НЕ вызывать)."""
+    (память-инъекцию НЕ вызывать). ``note`` — честная пометка под выжимкой
+    (STT-ветка: визуально видео не смотрели), мультимодалка её не получает."""
     if len(str(transcript or "").strip()) < _summary_min_chars():
         logger.info("[youtube] video-file speech too short — honest phrase | "
                     "chat=%s chars=%d", chat_id, len(str(transcript or "").strip()))
@@ -1023,6 +1067,8 @@ async def _summarize_and_send(bot, chat_id: int, transcript: str,
     if not (text_out or "").strip():
         await react_moai(bot, chat_id, target_message_id)
         return False
+    if note:
+        text_out = f"{text_out.rstrip()}\n\n{note}"
     await send_chunked_reply(bot, chat_id, text_out, target_message_id)
     return True
 
@@ -1235,7 +1281,8 @@ async def _process_url_media(bot, message: types.Message,
                       message_id=target_message_id)
             return
         if await _summarize_and_send(bot, chat_id, transcript,
-                                     target_message_id):
+                                     target_message_id,
+                                     note=TRANSCRIPT_ONLY_NOTE):
             await _inject_url_memory(message, author, transcript)
             _emit_req(request, "delivered", chat_id=chat_id,
                       message_id=target_message_id)
@@ -1463,7 +1510,8 @@ async def _process_video_media(bot, message: types.Message,
                           chat_id=chat_id, message_id=target_message_id)
                 return
             if await _summarize_and_send(bot, chat_id, transcript,
-                                         target_message_id):
+                                         target_message_id,
+                                         note=TRANSCRIPT_ONLY_NOTE):
                 author = _resolve_author(media.source)
                 await _inject_video_memory(media, author, transcript)
                 _emit_req(request, "delivered", chat_id=chat_id,
@@ -1745,6 +1793,17 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
     if await _observe_and_bind_pending(bot, message, own_operation):
         return None
     if request is not None:
+        # §4.5: цепочка канонического запроса тоже начинается с
+        # request_seen/media_matched (раньше — сразу analysis_started).
+        reply = getattr(message, "reply_to_message", None)
+        source = getattr(request, "source", None)
+        reason = (video_intent.REASON_REPLY_MEDIA
+                  if reply is not None and source is reply
+                  else video_intent.REASON_OWN_MEDIA)
+        _emit_req(request, "request_seen", reason, chat_id=message.chat.id,
+                  message_id=message.message_id)
+        _emit_req(request, "media_matched", reason, chat_id=message.chat.id,
+                  message_id=message.message_id)
         return await _dispatch_video_request(bot, message, request)
     # Раунд 10.15 (F6, T-1595): нет канонического триггера → решает намерение
     # (§4.2): анализ по окну/ожиданию, «скачай» — не наша ветка (4e).

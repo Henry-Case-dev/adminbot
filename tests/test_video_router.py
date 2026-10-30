@@ -382,7 +382,8 @@ class TestUrlSummaryFlows:
         # L1/L2 на /media тоже пуст → STT → выжимка по транскрипту
         transcriber.transcribe_voice.assert_awaited()
         svc.summarize_transcript.assert_awaited_once()
-        assert bot.send_message.await_args.args[1] == "выжимка файла"
+        assert bot.send_message.await_args.args[1] == (
+            "выжимка файла\n\n" + yt.TRANSCRIPT_ONLY_NOTE)
         # URL-режим: только memorize (L1-обновления нет)
         await asyncio.sleep(0)
         args, kwargs = memory.memorize_facts.call_args
@@ -564,7 +565,8 @@ class TestNativeSummary:
         assert kwargs["chat_id"] == CHAT_ID
         assert "rag_query" not in kwargs
         assert kwargs["transcript"] == _LONG_TEXT
-        assert bot.send_message.await_args.args[1] == "выжимка файла"
+        assert bot.send_message.await_args.args[1] == (
+            "выжимка файла\n\n" + yt.TRANSCRIPT_ONLY_NOTE)
         # двойная инъекция (native): update + memorize
         db.update_smart_message_text.assert_awaited()
         await asyncio.sleep(0)
@@ -584,7 +586,8 @@ class TestNativeSummary:
         await yt.youtube_handler(msg, bot=bot)
         svc.summarize_media_url.assert_not_awaited()
         transcriber.transcribe_voice.assert_awaited()
-        assert bot.send_message.await_args.args[1] == "выжимка файла"
+        assert bot.send_message.await_args.args[1] == (
+            "выжимка файла\n\n" + yt.TRANSCRIPT_ONLY_NOTE)
 
     @pytest.mark.asyncio
     async def test_native_summary_honest_phrase_on_mute_video(self, env,

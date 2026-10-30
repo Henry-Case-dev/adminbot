@@ -335,7 +335,10 @@ class TestMediaOutput:
         assert kwargs["chat_id"] == CHAT_ID
         assert "rag_query" not in kwargs       # честная выжимка без RAG (3.4)
         assert kwargs["transcript"] == _TRANSCRIPT
-        assert bot.send_message.await_args.args[1] == "выжимка видоса"
+        # review-fix F2: выжимка по транскрипту помечена честно (визуально
+        # видео не смотрели) — текст выжимки + одна строка-пометка.
+        assert bot.send_message.await_args.args[1] == (
+            "выжимка видоса\n\n" + youtube_mod.TRANSCRIPT_ONLY_NOTE)
 
     @pytest.mark.asyncio
     async def test_forward_repost_video_uses_source_author(
@@ -378,7 +381,8 @@ class TestMediaOutput:
         bot = _make_bot()
         await youtube_mod.youtube_handler(msg, bot=bot)
         svc.summarize_transcript.assert_awaited_once()
-        assert bot.send_message.await_args.args[1] == "выжимка видоса"
+        assert bot.send_message.await_args.args[1] == (
+            "выжимка видоса\n\n" + youtube_mod.TRANSCRIPT_ONLY_NOTE)
 
     @pytest.mark.asyncio
     async def test_empty_llm_answer_moai_silence(self, yv_cleanup,
