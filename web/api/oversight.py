@@ -392,7 +392,14 @@ async def dossier_feed(
 
     F4 (10.24, ADR-1024-8 D2/D3): аддитивно отдаём `user_id`/`user_name`
     (обратный резолв `target_user` → участник, read-time, без DDL). Нерезолвленное
-    имя/ошибка резолва → `user_id=null`, строка остаётся текстом (R16/R17)."""
+    имя/ошибка резолва → `user_id=null`, строка остаётся текстом (R16/R17).
+
+    EVOL-001..005: аддитивно отдаём то, что `graph_facts` УЖЕ вернула
+    (`id/kind/created_at/message_timestamp/last_confirmed_at`) + полный текст
+    (`text`; `excerpt` остаётся превью строки) и, read-only, адрес
+    первоисточника (`origin/tg_message_id/attribution_method`) — без этого
+    окно записи не может ни различить даты, ни открыть исходное сообщение.
+    Новых таблиц/полей/DDL нет; ошибка чтения → эти ключи null (fail-open)."""
     db = lore_runtime.get_lore_db()
     if db is None:
         return {"chat_id": chat_id, "items": []}
@@ -402,6 +409,23 @@ async def dossier_feed(
         logger.warning("[oversight] dossier_feed failed — пустая лента | "
                        "chat=%s", chat_id, exc_info=True)
         return {"chat_id": chat_id, "items": []}
+    # EVOL-003/004: provenance-адрес факта (origin, tg_message_id). Один
+    # read-only запрос на пачку id; неизвестная колонка/ошибка → null.
+    meta: dict = {}
+    fact_ids = [int(row.get("id")) for row in rows
+                if row.get("id") is not None]
+    if fact_ids:
+        try:
+            marks = ",".join("?" * len(fact_ids))
+            cursor = await db.db.execute(
+                "SELECT id, origin, tg_message_id, attribution_method "
+                "FROM graph_facts WHERE id IN (" + marks + ")", fact_ids)
+            for mark in await cursor.fetchall():
+                mrow = dict(mark)
+                meta[int(mrow["id"])] = mrow
+        except Exception:
+            logger.warning("[oversight] dossier_feed provenance read failed — "
+                           "origin/tg_message_id=null", exc_info=True)
     chat_ids: list = []
     for row in rows:
         cid = int(row.get("chat_id") or 0)
@@ -421,10 +445,27 @@ async def dossier_feed(
             continue
         cid = int(row.get("chat_id") or 0)
         hit = index.get(cid, {}).get(_feed_key(name))
+        fact_id = row.get("id")
+        extra = meta.get(int(fact_id)) if fact_id is not None else None
+        extra = extra or {}
         items.append({
             "chat_id": cid,
             "name": name,
+            # excerpt — превью строки (как раньше); text — полный факт
+            # (EVOL-003: длинная запись открывается целиком, не обрезается).
             "excerpt": excerpt[:240],
+            "text": excerpt,
+            # Поля graph_facts, которые ответ уже содержал (EVOL-003/005):
+            # даты НЕ подменяются одна другой, NULL остаётся NULL.
+            "id": int(fact_id) if fact_id is not None else None,
+            "kind": row.get("kind"),
+            "created_at": row.get("created_at"),
+            "message_timestamp": row.get("message_timestamp"),
+            "last_confirmed_at": row.get("last_confirmed_at"),
+            # Происхождение и адрес исходного сообщения (EVOL-003/004).
+            "origin": extra.get("origin"),
+            "tg_message_id": extra.get("tg_message_id"),
+            "attribution_method": extra.get("attribution_method"),
             # F4/R16: аддитивные поля; при неудаче резолва — null/имя как есть.
             "user_id": hit[0] if hit else None,
             "user_name": hit[1] if hit else name,

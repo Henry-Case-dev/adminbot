@@ -2301,6 +2301,15 @@
         temporalDetailBusy: false,
         dossierFeedBusy: false,
         dossierFeedError: '',
+        dossierFeedLoaded: false,     // EVOL-005: лента запрашивалась хотя бы раз
+        // ── EVOL-003/004/005: запись статусного виджета в модальном окне ──
+        // statusRecord — нормализованная запись ТОЙ ЖЕ сущности (тип, полный
+        // текст, даты с разным смыслом, provenance). null → окно закрыто.
+        statusRecord: null,
+        statusRecordExtra: null,      // цепочка/трасса первоисточника (EVOL-004)
+        statusRecordExtraBusy: false,
+        statusRecordExtraError: '',
+        statusRecordReturnFocus: null,  // строка-источник (возврат фокуса)
         // ── mca-17c (round 10.47, ADR-1028-23): витрина наблюдаемости ──
         oversightView: 'processes',   // processes|runs|incidents|learning
         // ── ASAP 6 Wave 2 UX: суб-вкладки внутри #/oversight (новых
@@ -5752,6 +5761,11 @@
       // F11 (§19/D5): «Новые факты» — стабильный ключ (позиция скролла не
       // сбрасывается); время/тип показываются ТОЛЬКО если есть в ответе
       // (follow-up F11-FU-DOSSIER-TS — не выдумываем).
+      // EVOL-001/003/004/005: та же строка дополнена полным текстом и
+      // адресами первоисточника (роут отдаёт их с EVOL-007/фактической
+      // раскладкой graph_facts). Даты НЕ подменяются одна другой:
+      // created_at — время записи экстракции, message_timestamp — дата
+      // события, last_confirmed_at — подтверждение. Чего нет — остаётся null.
       factsFeed: function () {
         var items = this.dossierFeed || [];
         return items.map(function (it) {
@@ -5763,6 +5777,20 @@
             text: it.excerpt || '',
             time: (t != null) ? t : null,
             kind: it.kind || it.type || null,
+            // Полный текст записи (excerpt — только превью строки).
+            full: it.text || it.fact || it.excerpt || '',
+            id: (it.id != null) ? it.id : null,
+            origin: it.origin || null,
+            tg_message_id: (it.tg_message_id != null) ? it.tg_message_id : null,
+            attribution_method: it.attribution_method || null,
+            chat_id: (it.chat_id != null) ? it.chat_id : null,
+            user_id: (it.user_id != null) ? it.user_id : null,
+            user_name: it.user_name || it.name || '',
+            created_at: (it.created_at != null) ? it.created_at : null,
+            event_at: (it.message_timestamp != null)
+              ? it.message_timestamp : null,
+            confirmed_at: (it.last_confirmed_at != null)
+              ? it.last_confirmed_at : null,
           };
         });
       },
@@ -5874,6 +5902,37 @@
       // тот же механизм `_ribbonLoop`, без дублирования (spec §0/§2).
       cognitionTraitsLoop: function () {
         return this._ribbonLoop(this.cognitionTraits);
+      },
+      // ── EVOL-003/004: окно записи и связанные записи ТОГО ЖЕ объекта ──────
+      statusRecordOpen: function () {
+        return this.statusRecord != null;
+      },
+      // EVOL-004: «связанные записи» — не общий раздел, а тот же объект:
+      // для факта — другие факты того же субъекта, для черты — другие черты.
+      statusRecordRelatedList: function () {
+        var r = this.statusRecord;
+        if (!r) return [];
+        var self = this;
+        var clip = function (v) {
+          return (typeof self._shortText === 'function')
+            ? self._shortText(v, 120) : String(v == null ? '' : v);
+        };
+        var out = [];
+        if (r.source === 'fact') {
+          (this.factsFeed || []).forEach(function (it) {
+            if (it.key === r.key) return;
+            if (r.subject && (it.name || '') !== r.subject) return;
+            out.push({ key: 'rel|' + it.key, source: 'fact', item: it,
+                       label: clip(it.text), at: it.created_at });
+          });
+        } else if (r.source === 'trait') {
+          (this.cognitionTraitsLoop || []).forEach(function (it) {
+            if (String(it.id) === String(r.id)) return;
+            out.push({ key: 'rel|' + it.key, source: 'trait', item: it,
+                       label: clip(it.fact), at: it.created_at });
+          });
+        }
+        return out.slice(0, 6);
       },
       // F8 (dead-extractor-paradigms-round1024, ADR-1024-5 D3/UPD3 №4):
       // пояснительный Empty State — понятная причина пустоты ленты.
@@ -10431,6 +10490,9 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // EVOL-003: окно записи статусного виджета — верхний слой (открывается
+        // из строки поверх страницы), Esc закрывает его первым.
+        if (this.statusRecordOpen) { this.closeStatusRecord(); return; }
         // W2-SHELL (U01.4): меню «Ещё» — верхний mobile-оверлей, Esc
         // закрывает его первым (как модалки ниже).
         if (this.moreMenuOpen) { this.closeMoreMenu(); return; }
@@ -10990,6 +11052,379 @@
           name: it.user_name || it.name || '',
         });
       },
+
+      // ═══ EVOL-001/002/003/004/005 — строки и модалка статусных виджетов ══
+      // Один тип записи отличается ЛЕЙБЛОМ и семантическим оттенком, а не
+      // вёрсткой/поведением: разметка, высота строки, типографика и движение
+      // общие (app.css → `.sfeed-*`).
+      statusSourceMeta: function (source) {
+        var map = {
+          fact: { label: 'Новый факт', section: 'Новые факты',
+                  badge: 'факт', glyph: 'bolt' },
+          belief: { label: 'Убеждение', section: 'Убеждения (Сон)',
+                    badge: 'убеждение', glyph: 'psychology' },
+          paradigm: { label: 'Парадигма', section: 'Парадигмы (Глубокий сон)',
+                      badge: 'парадигма', glyph: 'insights' },
+          trait: { label: 'Черта характера',
+                   section: 'Эволюция характера (Личность)',
+                   badge: 'черта', glyph: 'persona' },
+        };
+        return map[source] || { label: 'Запись', section: 'Статус',
+                                badge: 'запись', glyph: 'article' };
+      },
+      // EVOL-003: происхождение записи человеческими словами. Неизвестное
+      // значение показывается как есть (не переводим «в похожее»).
+      _statusOriginLabel: function (origin) {
+        var map = {
+          chat_history: 'сырое сообщение чата',
+          search_fact: 'факт из поиска',
+          youtube_content: 'контент YouTube',
+          web_content: 'контент веб-страницы',
+          bot_direct_reply: 'прямой ответ бота',
+          voice_transcript: 'транскрипт голоса',
+          video_transcript: 'транскрипт видео',
+          summary: 'Summary (сжатие истории)',
+          sleep: 'Сон (убеждения)',
+          dream: 'Сон (убеждения)',
+          deep_sleep: 'Глубокий сон (парадигмы)',
+          persona: 'Личность (саморефлексия)',
+          self_fact: 'self-факт (саморефлексия)',
+        };
+        if (origin == null || origin === '') return null;
+        var key = String(origin);
+        return map[key] || key;
+      },
+      _shortText: function (value, limit) {
+        var s = String(value == null ? '' : value);
+        var n = Math.max(1, Number(limit) || 90);
+        return s.length > n ? (s.slice(0, n - 1).trim() + '…') : s;
+      },
+      // EVOL-005: ненавязчивый возраст в строке. 0/null → '' (никаких
+      // выдуманных «0 мин назад»). Точный timestamp — в заголовке и деталях.
+      statusRowAgeLabel: function (ts) {
+        var t = Number(ts);
+        if (!t || isNaN(t)) return '';
+        var diff = Math.floor(Date.now() / 1000) - t;
+        if (diff < 0) return 'сейчас';
+        if (diff < 90) return 'сейчас';
+        if (diff < 3600) return Math.round(diff / 60) + ' мин';
+        if (diff < 86400) return Math.round(diff / 3600) + ' ч';
+        if (diff < 86400 * 31) return Math.round(diff / 86400) + ' дн';
+        return '';
+      },
+      // EVOL-005: точное время (не подменяет собой дату события).
+      statusRowTitle: function (ts, meaning) {
+        if (ts == null || Number(ts) === 0) return '';
+        var base = typeof this.fmtTs === 'function' ? this.fmtTs(ts) : String(ts);
+        return meaning ? (meaning + ': ' + base) : base;
+      },
+      // EVOL-005: компактная дата строки — одна и та же форма для всех четырёх
+      // источников: сегодня → время, иначе → день/месяц. Возраст и точный
+      // timestamp доступны в title/модалке, но НЕ подменяют дату записи.
+      statusRowDateLabel: function (ts) {
+        var t = Number(ts);
+        if (!t || isNaN(t)) return '';
+        var d = new Date(t * 1000);
+        var now = new Date();
+        var sameDay = d.getFullYear() === now.getFullYear()
+          && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+        if (sameDay && typeof this.fmtClock === 'function') {
+          return this.fmtClock(t);
+        }
+        if (typeof this.fmtDayMonth === 'function') return this.fmtDayMonth(t);
+        return d.toLocaleDateString();
+      },
+      // EVOL-005: пустое состояние — по ФАКТИЧЕСКОЙ причине, которая известна
+      // клиенту. Ответ ленты фактов сейчас не различает «пусто / отключено
+      // настройкой / нет новых результатов / задача ещё не наступала»
+      // (это конверт `memory_diagnostics.new_facts_widget`, HTTP-роут его
+      // пока не отдаёт — задокументированный пробел). Поэтому показываем то,
+      // что доказано данными на экране, а недостающее называем недостающим.
+      statusFeedEmptyTitle: function (source) {
+        if (source === 'fact') return 'Новых подтверждённых фактов нет';
+        return 'Записей нет';
+      },
+      statusFeedEmptyText: function (source) {
+        if (source !== 'fact') return '';
+        return 'В графе памяти нет подтверждённых фактов: виджет показывает '
+          + 'только записи со статусом confirmed.';
+      },
+      statusFeedEmptyReason: function (source) {
+        if (source !== 'fact') {
+          if (source === 'belief') {
+            var d = (this.cognition && this.cognition.dream) || null;
+            if (d && d.enabled === false) return 'сон выключен настройкой';
+            if (d && d.last_run_at == null) return 'задача ещё не наступала';
+            if (this.lastAttemptLabel && this.lastAttemptLabel()) {
+              return this.lastAttemptLabel();
+            }
+            return '';
+          }
+          return '';
+        }
+        if (this.dossierFeedLoaded !== true) return 'лента ещё не запрашивалась';
+        var mh = this.memoryHealth;
+        if (mh && (mh.facts_unconfirmed || mh.facts_overdue)) {
+          return 'не подтверждено: ' + mh.facts_unconfirmed
+            + ' · к переизвлечению: ' + mh.facts_overdue
+            + ' · причину запуска экстракции ответ ленты не передаёт';
+        }
+        return 'причину запуска экстракции ответ ленты не передаёт — '
+          + 'точное состояние в блоке «Здоровье памяти» ниже';
+      },
+      // EVOL-004: подпись якоря цепочки (без выдуманных ссылок).
+      recAnchorLabel: function (anchor) {
+        if (!anchor) return '—';
+        if (anchor.entity_type === 'message') {
+          return 'TG #' + (anchor.tg_message_id == null ? '—' : anchor.tg_message_id)
+            + ' · чат ' + (anchor.chat_id == null ? '—' : anchor.chat_id);
+        }
+        return 'id ' + (anchor.entity_id == null ? '—' : anchor.entity_id);
+      },
+      // Даты трассы приходят как epoch или строка — показываем как есть,
+      // не подменяя числовое значение «похожей» датой.
+      recTsLabel: function (value) {
+        if (value == null || value === '') return '—';
+        var n = Number(value);
+        if (!isNaN(n) && String(n) === String(value).trim()) {
+          return (typeof this.fmtTs === 'function') ? this.fmtTs(n) : String(n);
+        }
+        return String(value);
+      },
+      // EVOL-003/005: чат/область записи. Global-admin режим подписан явно.
+      _statusScopeLabel: function (chatId) {
+        if (chatId == null || Number(chatId) === 0) return 'Весь бот (GLOBAL)';
+        var titles = {};
+        var chats = (this.oversightData && this.oversightData.chats) || [];
+        chats.forEach(function (c) { titles[c.chat_id] = c.title; });
+        (this.accessChats || []).forEach(function (c) {
+          if (titles[c.chat_id] == null) titles[c.chat_id] = c.title;
+        });
+        return titles[chatId] || ('Чат ' + chatId);
+      },
+      // Нормализация записи: ровно те поля, что пришли от источника.
+      // Отсутствующее → missing:true («нет данных»), а не подстановка.
+      _statusRecordFrom: function (source, item) {
+        var self = this;
+        var meta = this.statusSourceMeta(source);
+        var it = item || {};
+        var sprint = function (ts) {
+          if (ts == null || Number(ts) === 0) return null;
+          return (typeof self.fmtTs === 'function')
+            ? self.fmtTs(ts) : String(ts);
+        };
+        var name = it.name || it.user_name
+          || (source === 'trait' ? 'Личность' : '');
+        var chatId = (it.chat_id != null) ? it.chat_id : null;
+        var origin = it.origin || it.source || null;
+        var tgId = (it.tg_message_id != null) ? it.tg_message_id : null;
+        var text = it.full || it.fact || it.text || '';
+        var fields = [];
+        var push = function (key, label, value, hint) {
+          fields.push({
+            key: key, label: label,
+            value: (value == null || value === '') ? null : value,
+            missing: (value == null || value === ''),
+            hint: hint || null,
+          });
+        };
+        push('text', 'Полный текст', text);
+        push('type', 'Тип записи', meta.label);
+        push('scope', 'Чат / область',
+             (chatId != null) ? this._statusScopeLabel(chatId) : null,
+             (chatId != null) ? ('chat_id ' + chatId) : null);
+        push('subject', 'Субъект', name || null);
+        push('user_id', 'Связанный Telegram user id',
+             (it.user_id != null) ? String(it.user_id) : null);
+        // Даты: смысл каждой РАЗНЫЙ, одна не заменяет другую.
+        push('created_at', 'Записано (извлечение)', sprint(it.created_at),
+             'graph_facts.created_at');
+        push('event_at', 'Дата события (сообщение)', sprint(it.event_at),
+             'graph_facts.message_timestamp');
+        push('confirmed_at', 'Подтверждено', sprint(it.confirmed_at),
+             'graph_facts.last_confirmed_at');
+        push('updated_at', 'Последнее обновление', sprint(it.updated_at), null);
+        push('origin', 'Происхождение',
+             this._statusOriginLabel(origin),
+             origin ? ('origin=' + String(origin)) : null);
+        push('status', 'Статус',
+             it.status ? String(it.status)
+               : ((source === 'fact') ? 'подтверждён (выборка виджета)' : null),
+             it.status ? null : 'dossier_feed: status=confirmed');
+        push('sources', 'Источники',
+             tgId ? ('TG-сообщение #' + tgId
+                     + (chatId != null ? (' · чат ' + chatId) : '')) : null,
+             tgId ? 'graph_facts.tg_message_id' : null);
+        // «Изменения»: supersedes/archived — реальные поля, не догадки.
+        var changes = [];
+        if (it.supersedes != null) changes.push('заменяет запись #'
+          + it.supersedes);
+        if (it.archived_at != null) changes.push('в архиве с '
+          + (sprint(it.archived_at) || it.archived_at));
+        push('changes', 'Изменения',
+             changes.length ? changes.join('; ') : null);
+        if (source === 'belief' || source === 'paradigm') {
+          push('weight', 'Вес', (it.weight != null) ? String(it.weight) : null);
+          push('importance', 'Важность',
+               (it.importance != null) ? String(it.importance) : null);
+        }
+        return {
+          source: source, key: it.key || null, id: (it.id != null) ? it.id : null,
+          section: meta.section, badge: meta.badge,
+          subject: name || null,
+          chat_id: chatId,
+          user_id: (it.user_id != null) ? it.user_id : null,
+          user_name: it.user_name || it.name || null,
+          tg_message_id: tgId,
+          text: text,
+          created_at: (it.created_at != null) ? it.created_at : null,
+          event_at: (it.event_at != null) ? it.event_at
+            : ((it.message_timestamp != null) ? it.message_timestamp : null),
+          confirmed_at: (it.confirmed_at != null) ? it.confirmed_at
+            : ((it.last_confirmed_at != null) ? it.last_confirmed_at : null),
+          source_ids: Array.isArray(it.source_ids) ? it.source_ids.slice() : [],
+          fields: fields,
+        };
+      },
+      // Открытие модалки ТОЙ ЖЕ сущности. Никакого нового окна браузера:
+      // один overlay внутри приложения, фон не скроллится.
+      openStatusRecord: function (source, item, ev) {
+        var rec = this._statusRecordFrom(source, item);
+        this.statusRecordExtra = null;
+        this.statusRecordExtraError = '';
+        this.statusRecordExtraBusy = false;
+        this.statusRecord = rec;
+        this.statusRecordReturnFocus = (ev && ev.currentTarget)
+          ? ev.currentTarget : null;
+        var self = this;
+        if (typeof this.$nextTick === 'function') {
+          this.$nextTick(function () {
+            var el = self.$refs && self.$refs.statusRecordDialog;
+            if (el && typeof el.focus === 'function') {
+              try { el.focus(); } catch (e) { /* no-op */ }
+            }
+          });
+        }
+      },
+      closeStatusRecord: function () {
+        var back = this.statusRecordReturnFocus;
+        this.statusRecord = null;
+        this.statusRecordExtra = null;
+        this.statusRecordExtraError = '';
+        this.statusRecordExtraBusy = false;
+        this.statusRecordReturnFocus = null;
+        if (back && typeof back.focus === 'function') {
+          try { back.focus(); } catch (e) { /* элемент уже удалён */ }
+        }
+      },
+      // Focus trap + Esc. Вне окна фокус не уходит (Tab по кругу).
+      statusRecordKeydown: function (ev) {
+        if (!ev) return;
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          this.closeStatusRecord();
+          return;
+        }
+        if (ev.key !== 'Tab') return;
+        var root = ev.currentTarget;
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        var nodes = root.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        var list = [];
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (n.disabled) continue;
+          list.push(n);
+        }
+        if (!list.length) return;
+        var first = list[0];
+        var last = list[list.length - 1];
+        if (ev.shiftKey && document.activeElement === first) {
+          ev.preventDefault();
+          try { last.focus(); } catch (e) { /* no-op */ }
+        } else if (!ev.shiftKey && document.activeElement === last) {
+          ev.preventDefault();
+          try { first.focus(); } catch (e) { /* no-op */ }
+        }
+      },
+      // EVOL-004: первоисточник записи.
+      //  * belief/paradigm → /api/memory/dream/chain (парадигма → основания →
+      //    факты → сообщения; тот же read-only API, что у «Памяти»);
+      //  * fact с адресом сообщения → /api/memory/attribution/trace.
+      // Ошибка/пусто → честный текст и причина, без выдуманных ссылок.
+      statusRecordDrill: async function () {
+        var rec = this.statusRecord;
+        if (!rec || this.statusRecordExtraBusy) return;
+        var kind = (rec.source === 'belief' || rec.source === 'paradigm')
+          ? 'chain' : 'trace';
+        var url = null;
+        if (kind === 'chain' && rec.id != null) {
+          url = '/api/memory/dream/chain?fact_id=' + encodeURIComponent(rec.id);
+          if (rec.chat_id != null) {
+            url += '&chat_id=' + encodeURIComponent(rec.chat_id);
+          }
+        } else if (kind === 'trace' && rec.tg_message_id != null
+                   && rec.chat_id != null) {
+          url = '/api/memory/attribution/trace?chat_id='
+            + encodeURIComponent(rec.chat_id) + '&tg_message_id='
+            + encodeURIComponent(rec.tg_message_id);
+        }
+        if (!url) {
+          this.statusRecordExtra = { kind: kind, empty: true, url: null };
+          this.statusRecordExtraError = '';
+          return;
+        }
+        this.statusRecordExtraBusy = true;
+        this.statusRecordExtraError = '';
+        try {
+          var data = await this.api(url);
+          this.statusRecordExtra = {
+            kind: kind, url: url, empty: false, data: data || null,
+          };
+        } catch (e) {
+          this.statusRecordExtra = null;
+          this.statusRecordExtraError = (typeof this.loreErrText === 'function')
+            ? this.loreErrText(e) : String(e && e.message ? e.message : e);
+        } finally {
+          this.statusRecordExtraBusy = false;
+        }
+      },
+      // Переход к связанной записи внутри окна — та же сущность, не раздел.
+      statusRecordPickRelated: function (rel) {
+        if (!rel || !rel.item) return;
+        var rec = this._statusRecordFrom(rel.source, rel.item);
+        this.statusRecordExtra = null;
+        this.statusRecordExtraError = '';
+        this.statusRecord = rec;
+      },
+      // Досье субъекта — существующий объект «Памяти» (не общий раздел):
+      // открывается тем же методом, что строка «Живой ленты досье».
+      statusRecordDossier: async function () {
+        var rec = this.statusRecord;
+        if (!rec || rec.user_id == null) return;
+        this.closeStatusRecord();
+        await this.openFeedDossier({
+          user_id: rec.user_id, chat_id: rec.chat_id,
+          user_name: rec.user_name || rec.subject || '',
+        });
+      },
+      // EVOL-004: почему внешняя ссылка в Telegram недоступна (если она
+      // недоступна). Не выдаём «кнопку в никуда» и не выдумываем username.
+      statusRecordTgNote: function () {
+        var rec = this.statusRecord;
+        if (!rec) return '';
+        if (rec.tg_message_id == null) {
+          return 'Адрес сообщения не передан этим ответом — внешняя ссылка '
+            + 'недоступна; внутренние источники перечислены выше.';
+        }
+        if (rec.chat_id == null) {
+          return 'Чат записи неизвестен — прямая ссылка в Telegram '
+            + 'невозможна; доступна внутренняя трасса сообщения.';
+        }
+        return 'Прямая ссылка t.me недоступна: username чата не передаётся '
+          + 'этим ответом. Доступен первоисточник по id сообщения '
+          + '(внутренняя трасса).';
+      },
       loadDossierFeed: async function () {
         if (this.dossierFeedBusy) return;
         this.dossierFeedBusy = true;
@@ -11001,9 +11436,12 @@
           var data = await this.api(url);
           this.dossierFeed = (data && data.items) || [];
           this.dossierFeedError = '';
+          // EVOL-005: пустое состояние отличается от «ещё не запрашивали».
+          this.dossierFeedLoaded = true;
         } catch (e) {
           this.dossierFeed = [];
           this.dossierFeedError = this.loreErrText(e);
+          this.dossierFeedLoaded = true;
         } finally {
           this.dossierFeedBusy = false;
         }
@@ -23204,26 +23642,41 @@
             id: (it.id != null ? it.id : (it.ts || i)),
             fact: it.text || '',
             created_at: it.ts || 0,
+            // EVOL-003: происхождение черты из ответа persona
+            // (`dynamic_traits[].source`). Поля нет → null (не выдумываем).
+            source: it.source || null,
           });
         }
         return out;
       },
-      // Лента с opacity-классами по позиции (T-1450); дублируется дважды
-      // для seamless вертикального скролла (CSS @keyframes translateY -50%).
+      // Лента с opacity-классами по позиции (T-1450).
+      // EVOL-002: ОДИН проход — дублирование строк нужно было только для
+      // CSS-marquee (`translateY(-50%)`). Движение теперь делает JS-контроллер
+      // на реальном `scrollTop`, поэтому дубль показывал бы каждую запись
+      // дважды и ломал ручную прокрутку («не дублировать рендер»).
       _ribbonLoop: function (items) {
         var src = (Array.isArray(items) ? items : []).slice(0, 12);
         var n = src.length;
         var out = [];
-        for (var pass = 0; pass < 2; pass++) {
-          for (var i = 0; i < n; i++) {
-            var it = src[i] || {};
-            out.push({
-              key: pass + '-' + i + '-' + (it.id != null ? it.id : i),
-              id: it.id, fact: it.fact || '',
-              created_at: it.created_at || 0,
-              op: this.ribbonItemClass(i, n),
-            });
-          }
+        for (var i = 0; i < n; i++) {
+          var it = src[i] || {};
+          out.push({
+            key: 's-' + i + '-' + (it.id != null ? it.id : i),
+            id: it.id, fact: it.fact || '',
+            created_at: it.created_at || 0,
+            op: this.ribbonItemClass(i, n),
+            // EVOL-003/004: поля записи, если источник их дал (иначе null).
+            kind: it.kind || null,
+            chat_id: (it.chat_id != null) ? it.chat_id : null,
+            source: it.source || null,
+            status: it.status || null,
+            weight: (it.weight != null) ? it.weight : null,
+            importance: (it.importance != null) ? it.importance : null,
+            supersedes: (it.supersedes != null) ? it.supersedes : null,
+            archived_at: (it.archived_at != null) ? it.archived_at : null,
+            source_ids: Array.isArray(it.source_ids) ? it.source_ids.slice() : [],
+            record_type: it.type || null,
+          });
         }
         return out;
       },
@@ -26043,6 +26496,407 @@
       '<span v-if="view.observedAt" class="health-glass-status__time">{{ view.observedAt }}</span>' +
       '</div><slot></slot></div>',
   });
+
+  // ═══ EVOL-001/002 — единый контроллер вертикальных лент «Статуса» ════════
+  // Один механизм на все четыре источника («Новые факты», «Убеждения (Сон)»,
+  // «Парадигмы (Глубокий сон)», «Эволюция характера (Личность)»):
+  //   * плавное вертикальное авто-движение по РЕАЛЬНОМУ `scrollTop`
+  //     (есть переполнение → движемся; нет → искусственно не двигаем);
+  //   * ручная прокрутка (wheel / touch / трекпад / клавиатура / скроллбар):
+  //     пауза авто-движения и плавное возобновление С ТЕКУЩЕЙ позиции;
+  //   * пауза на hover / focus / открытом модальном окне / выделении текста;
+  //   * `prefers-reduced-motion` → авто-движения нет (только ручная прокрутка);
+  //   * ровно один экземпляр на контейнер (флаг на DOM-узле): нет
+  //     конкурирующих таймеров/слушателей и дублирующего рендера.
+  var SFeed = (function () {
+    var DEFAULTS = {
+      speedPxS: 16,      // скорость авто-движения, px/сек
+      resumeMs: 2600,    // UX-пауза после ручного действия
+      endHoldMs: 1600,   // пауза в конце списка перед возвратом
+      rewindMs: 900,     // плавный возврат в начало
+      startHoldMs: 600,  // пауза в начале перед движением
+    };
+    var raf = (typeof requestAnimationFrame === 'function')
+      ? requestAnimationFrame
+      : function (fn) { return setTimeout(function () { fn(Date.now()); }, 16); };
+    var caf = (typeof cancelAnimationFrame === 'function')
+      ? cancelAnimationFrame
+      : function (id) { clearTimeout(id); };
+
+    // Чистое ядро движения: один шаг по времени, без DOM (юнит-тестируемо).
+    // Возвращает новое состояние; `moving` — позиция реально изменилась.
+    function step(prev, dtMs) {
+      var s = {
+        y: Number(prev && prev.y) || 0,
+        max: Number(prev && prev.max) || 0,
+        phase: (prev && prev.phase) || 'run',
+        holdLeft: Number(prev && prev.holdLeft) || 0,
+        fromY: Number(prev && prev.fromY) || 0,
+        elapsed: Number(prev && prev.elapsed) || 0,
+        speedPxS: (prev && prev.speedPxS) || DEFAULTS.speedPxS,
+        rewindMs: (prev && prev.rewindMs) || DEFAULTS.rewindMs,
+        endHoldMs: (prev && prev.endHoldMs) || DEFAULTS.endHoldMs,
+        startHoldMs: (prev && prev.startHoldMs) || DEFAULTS.startHoldMs,
+        moving: false,
+      };
+      var dt = Number(dtMs) > 0 ? Number(dtMs) : 0;
+      if (s.max <= 0) {
+        s.y = 0;
+        s.phase = 'idle';
+        s.holdLeft = 0;
+        return s;
+      }
+      if (s.y > s.max) s.y = s.max;
+      if (s.y < 0) s.y = 0;
+      var before = s.y;
+      if (s.phase === 'hold_end') {
+        s.holdLeft -= dt;
+        if (s.holdLeft <= 0) {
+          s.phase = 'rewind';
+          s.elapsed = 0;
+          s.fromY = s.y;
+        }
+      } else if (s.phase === 'rewind') {
+        s.elapsed += dt;
+        var p = s.rewindMs > 0 ? Math.min(1, s.elapsed / s.rewindMs) : 1;
+        var eased = 1 - Math.pow(1 - p, 3);          // easeOutCubic
+        s.y = s.fromY * (1 - eased);
+        if (p >= 1) {
+          s.y = 0;
+          s.phase = 'hold_start';
+          s.holdLeft = s.startHoldMs;
+        }
+      } else if (s.phase === 'hold_start') {
+        s.holdLeft -= dt;
+        if (s.holdLeft <= 0) s.phase = 'run';
+      } else {
+        s.phase = 'run';
+        s.y += s.speedPxS * dt / 1000;
+        if (s.y >= s.max) {
+          s.y = s.max;
+          s.phase = 'hold_end';
+          s.holdLeft = s.endHoldMs;
+        }
+      }
+      s.moving = Math.abs(s.y - before) > 0.001;
+      return s;
+    }
+
+    var viewports = [];
+    var reduced = false;
+    try {
+      var mq = (typeof window !== 'undefined' && window.matchMedia)
+        ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+      reduced = !!(mq && mq.matches);
+      if (mq && mq.addEventListener) {
+        // ОДИН слушатель на все ленты (не по одному на контейнер).
+        mq.addEventListener('change', function (e) {
+          reduced = !!(e && e.matches);
+          for (var i = 0; i < viewports.length; i++) viewports[i].syncMotion();
+        });
+      }
+    } catch (e) { reduced = false; }
+
+    function hasSelectionInside(el) {
+      try {
+        var sel = (typeof window !== 'undefined' && window.getSelection)
+          ? window.getSelection() : null;
+        if (!sel || !sel.rangeCount || sel.isCollapsed) return false;
+        var node = sel.getRangeAt(0).commonAncestorContainer;
+        return !!(node && (node === el || (el.contains && el.contains(node))));
+      } catch (e) { return false; }
+    }
+
+    function Viewport(el) {
+      this.el = el;
+      this.state = {
+        y: 0, max: 0, phase: 'run', holdLeft: 0, fromY: 0, elapsed: 0,
+        speedPxS: DEFAULTS.speedPxS, rewindMs: DEFAULTS.rewindMs,
+        endHoldMs: DEFAULTS.endHoldMs, startHoldMs: DEFAULTS.startHoldMs,
+      };
+      this.raf = null;
+      this.lastTs = 0;
+      this.resumeTimer = null;
+      this.manual = false;
+      this.hover = false;
+      this.focusIn = false;
+      this.modal = false;
+      this.destroyed = false;
+      this.expectY = -1;
+      this._rows = null;
+      this._activeRow = null;
+      this._refreshPending = false;
+      this._handlers = [];
+      this._bind();
+      this.refresh();
+    }
+
+    Viewport.prototype._listen = function (target, type, fn, opts) {
+      if (!target || !target.addEventListener) return;
+      target.addEventListener(type, fn, opts || false);
+      this._handlers.push([target, type, fn, opts || false]);
+    };
+
+    Viewport.prototype._bind = function () {
+      var self = this;
+      var el = this.el;
+      var pause = function () { self.pauseManual(); };
+      this._listen(el, 'wheel', pause, { passive: true });
+      this._listen(el, 'touchstart', pause, { passive: true });
+      this._listen(el, 'touchmove', pause, { passive: true });
+      this._listen(el, 'pointerdown', pause, { passive: true });
+      this._listen(el, 'keydown', function (ev) {
+        var k = ev && ev.key;
+        if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'PageUp'
+            || k === 'PageDown' || k === 'Home' || k === 'End'
+            || k === ' ' || k === 'Spacebar') {
+          self.pauseManual();
+        }
+      });
+      // Скролл: своё движение не считается ручным (сравнение с ожидаемым
+      // значением — без хрупкого «флага на кадр»).
+      this._listen(el, 'scroll', function () {
+        if (self.expectY >= 0
+            && Math.abs((el.scrollTop || 0) - self.expectY) < 1.5) {
+          return;
+        }
+        if (hasSelectionInside(el)) { self.selection = true; self.stop(); }
+        self.pauseManual();
+      }, { passive: true });
+      this._listen(el, 'mouseenter', function () {
+        self.hover = true; self.stop();
+      });
+      this._listen(el, 'mouseleave', function () {
+        self.hover = false; self.schedule();
+      });
+      this._listen(el, 'focusin', function () {
+        self.focusIn = true; self.stop();
+      });
+      this._listen(el, 'focusout', function () {
+        self.focusIn = false;
+        self.schedule();
+      });
+      this._listen(el, 'mouseup', function () {
+        self.selection = hasSelectionInside(el);
+        if (self.selection) self.stop();
+        else self.schedule();
+      });
+      // Список изменился (новые записи/перерисовка) — пересчёт без скачка.
+      if (typeof MutationObserver === 'function') {
+        this._mo = new MutationObserver(function () { self.refreshSoon(); });
+        try {
+          this._mo.observe(el, { childList: true, subtree: true,
+                                 characterData: true });
+        } catch (e) { /* нет наблюдения — refresh по resize */ }
+      }
+      if (typeof ResizeObserver === 'function') {
+        this._ro = new ResizeObserver(function () { self.refreshSoon(); });
+        try { this._ro.observe(el); } catch (e) { /* no-op */ }
+      }
+    };
+
+    Viewport.prototype.measure = function () {
+      var el = this.el;
+      var h = Number(el.scrollHeight) || 0;
+      var c = Number(el.clientHeight) || 0;
+      return Math.max(0, h - c);
+    };
+
+    Viewport.prototype.active = function () {
+      return !this.destroyed && !reduced && !this.modal && !this.manual
+        && !this.hover && !this.focusIn && !this.selection
+        && this.state.max > 0;
+    };
+
+    Viewport.prototype.stop = function () {
+      if (this.raf != null) {
+        caf(this.raf);
+        this.raf = null;
+      }
+      this.lastTs = 0;
+    };
+
+    Viewport.prototype.schedule = function () {
+      if (!this.active()) { this.stop(); return; }
+      if (this.raf != null) return;
+      var self = this;
+      this.lastTs = 0;
+      this.raf = raf(function (ts) { self.tick(ts); });
+    };
+
+    Viewport.prototype.tick = function (ts) {
+      this.raf = null;
+      if (!this.active()) return;
+      var dt = this.lastTs ? Math.min(120, Math.max(0, ts - this.lastTs)) : 16;
+      this.lastTs = ts;
+      var el = this.el;
+      // Текущая позиция — истина: возобновление идёт С НЕЁ (без прыжка),
+      // а изменение списка/ресайз уже отражены в scrollHeight.
+      if (this.state.phase !== 'rewind') {
+        this.state.y = Number(el.scrollTop) || 0;
+        this.state.max = this.measure();
+      }
+      var before = this.state.y;
+      this.state = step(this.state, dt);
+      if (this.state.phase === 'idle') { this.state.y = 0; return; }
+      if (this.state.phase === 'run' || this.state.phase === 'rewind') {
+        if (Math.abs(this.state.y - before) > 0.01) {
+          this.expectY = this.state.y;
+          el.scrollTop = this.state.y;
+          this.markActiveRow();
+        }
+      }
+      var self = this;
+      this.raf = raf(function (t2) { self.tick(t2); });
+    };
+
+    // «Подсветка активности» (EVOL-001): строка в центре видимой области —
+    // одна на ленту, ставится только при смене (без работы на каждом кадре).
+    Viewport.prototype.markActiveRow = function () {
+      var el = this.el;
+      if (!this._rows || this._rowsDirty) {
+        var found = (typeof el.querySelectorAll === 'function')
+          ? el.querySelectorAll('[data-sfeed-row]') : [];
+        var rows = [];
+        for (var i = 0; i < found.length; i++) rows.push(found[i]);
+        this._rows = rows;
+        this._rowsDirty = false;
+      }
+      var center = (Number(el.scrollTop) || 0) + (Number(el.clientHeight) || 0) / 2;
+      var hit = null;
+      for (var j = 0; j < this._rows.length; j++) {
+        var r = this._rows[j];
+        var top = r.offsetTop || 0;
+        var bottom = top + (r.offsetHeight || 0);
+        if (center >= top && center < bottom) { hit = r; break; }
+      }
+      if (hit === this._activeRow) return;
+      if (this._activeRow && this._activeRow.removeAttribute) {
+        this._activeRow.removeAttribute('data-sfeed-active');
+      }
+      this._activeRow = hit;
+      if (hit && hit.setAttribute) hit.setAttribute('data-sfeed-active', '1');
+    };
+
+    Viewport.prototype.refreshSoon = function () {
+      if (this._refreshPending || this.destroyed) return;
+      this._refreshPending = true;
+      var self = this;
+      raf(function () {
+        self._refreshPending = false;
+        self.refresh();
+      });
+    };
+
+    Viewport.prototype.refresh = function () {
+      if (this.destroyed) return;
+      this._rowsDirty = true;
+      var max = this.measure();
+      this.state.max = max;
+      if (max <= 0) {
+        this.state.phase = 'idle';
+        this.state.y = 0;
+        this.stop();
+        return;
+      }
+      var live = Number(this.el.scrollTop) || 0;
+      if (live > max) {
+        this.expectY = max;
+        this.el.scrollTop = max;
+        this.state.y = max;
+      } else {
+        this.state.y = live;
+      }
+      this.schedule();
+      this.markActiveRow();
+    };
+
+    // Ручное действие: пауза на UX-паузу, затем возврат движения с текущей
+    // позиции. Один таймер на контейнер (перезапускается, не накапливается).
+    Viewport.prototype.pauseManual = function () {
+      if (this.destroyed) return;
+      this.manual = true;
+      this.state.y = Number(this.el.scrollTop) || 0;
+      this.stop();
+      if (this.resumeTimer) clearTimeout(this.resumeTimer);
+      var self = this;
+      this.resumeTimer = setTimeout(function () {
+        self.resumeTimer = null;
+        self.manual = false;
+        self.selection = false;
+        self.schedule();
+      }, DEFAULTS.resumeMs);
+    };
+
+    Viewport.prototype.setModal = function (open) {
+      var v = !!open;
+      if (this.modal === v) return;
+      this.modal = v;
+      if (v) this.stop();
+      else this.schedule();
+    };
+
+    Viewport.prototype.syncMotion = function () {
+      if (reduced) this.stop();
+      else this.schedule();
+    };
+
+    Viewport.prototype.destroy = function () {
+      this.destroyed = true;
+      this.stop();
+      if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = null; }
+      for (var i = 0; i < this._handlers.length; i++) {
+        var h = this._handlers[i];
+        try { h[0].removeEventListener(h[1], h[2], h[3]); } catch (e) { /* no-op */ }
+      }
+      this._handlers = [];
+      if (this._mo) { try { this._mo.disconnect(); } catch (e) { /* no-op */ } }
+      if (this._ro) { try { this._ro.disconnect(); } catch (e) { /* no-op */ } }
+      var idx = viewports.indexOf(this);
+      if (idx >= 0) viewports.splice(idx, 1);
+    };
+
+    function attach(el) {
+      if (!el || typeof el.getAttribute !== 'function') return null;
+      if (el.__sfeed) return el.__sfeed;      // идемпотентно: один контроллер
+      var vp;
+      try { vp = new Viewport(el); } catch (e) { return null; }
+      el.__sfeed = vp;
+      viewports.push(vp);
+      return vp;
+    }
+
+    return {
+      DEFAULTS: DEFAULTS,
+      step: step,
+      attach: attach,
+      viewports: viewports,
+      isReduced: function () { return reduced; },
+    };
+  })();
+  try { window.__StatusFeed = SFeed; } catch (e) { /* нет window — тесты */ }
+
+  // Директива на контейнер ленты: один контроллер на элемент, корректное
+  // связывание с жизненным циклом Vue (без ручного сканирования DOM).
+  // Guard: в node-тестах `Vue.createApp` — стаб без `.directive`; проверка
+  // не меняет поведение в браузере (Vue 3 API присутствует всегда).
+  if (typeof app.directive === 'function') {
+    app.directive('sfeed', {
+      mounted: function (el, binding) {
+        var vp = SFeed.attach(el);
+        if (vp) vp.setModal(!!(binding && binding.value));
+      },
+      updated: function (el, binding) {
+        if (el && el.__sfeed) el.__sfeed.setModal(!!(binding && binding.value));
+      },
+      unmounted: function (el) {
+        if (el && el.__sfeed) {
+          try { el.__sfeed.destroy(); } catch (e) { /* no-op */ }
+          delete el.__sfeed;
+        }
+      },
+    });
+  }
 
   app.mount('#app');
 

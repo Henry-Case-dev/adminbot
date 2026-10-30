@@ -41,6 +41,10 @@ _SUCCESS_OUTCOMES = ("success", "all_duplicates", "partial",
 _NO_NEW_REASON = "no_new_contribution"
 # Счётчики прохода экстракции из usage_json (summary_memory.py:3759-3761).
 _EXTRACT_COUNT_KEYS = ("saved", "skipped", "deduped", "superseded")
+# Слагаемые кандидатов. `superseded` сюда не входит: писатель увеличивает его
+# в той же итерации до `saved += 1` (summary_memory.py:3682-3695), поэтому это
+# подмножество saved, а не отдельные кандидаты.
+_CANDIDATE_COUNT_KEYS = ("saved", "skipped", "deduped")
 
 _MEMORY_ERROR_EVENTS = (
     "FACTS_EXTRACT",
@@ -133,8 +137,12 @@ def _usage_dict(raw) -> dict | None:
 def _usage_counts(usage: dict | None) -> dict:
     """Счётчики прохода из usage_json (summary_memory.py:3759-3761).
 
-    `candidates` = saved + skipped + deduped + superseded. Нет usage_json —
-    все счётчики None: неизвестно, а не ноль.
+    `candidates` = saved + skipped + deduped. `superseded` в сумму НЕ входит:
+    писатель инкрементит его в той же итерации до `saved += 1`
+    (summary_memory.py:3682-3695), то есть замещённые старые факты — это
+    подмножество уже сохранённых замен, а не отдельные кандидаты. Сложив их,
+    получили бы двойной счёт. Нет usage_json — все счётчики None: неизвестно,
+    а не ноль.
     """
     def num(key: str) -> int | None:
         if usage is None:
@@ -143,7 +151,8 @@ def _usage_counts(usage: dict | None) -> dict:
 
     counts: dict = {key: num(key) for key in _EXTRACT_COUNT_KEYS}
     counts["text_only"] = num("text_only")
-    values = [counts[key] for key in _EXTRACT_COUNT_KEYS]
+    # superseded ⊆ saved (см. docstring) — в кандидаты не суммируется.
+    values = [counts[key] for key in _CANDIDATE_COUNT_KEYS]
     counts["candidates"] = (
         sum(values) if all(value is not None for value in values) else None)
     counts["usage_present"] = usage is not None
@@ -278,7 +287,7 @@ def schedule_view() -> dict:
             "trigger_mode_default": str(settings.DEEP_SLEEP_TRIGGER),
             "fixed_hour_default": int(settings.DEEP_SLEEP_HOUR),
             "cooldown_hours": cooldown,
-            "timezone": str(deep_tz or tz or "UTC"),
+            "timezone": str(deep_tz or "UTC"),
             "timezone_key": "limits.worker_budget_tz",
             "gate": "flags.deep_sleep_enabled",
             "default_enabled": bool(settings.DEEP_SLEEP_ENABLED),
@@ -744,9 +753,11 @@ async def _extract_usage(db, chat_id: int | None) -> dict:
     """EVOL-009: число кандидатов прохода экстракции из `usage_json`.
 
     Пишет их сам проход (`services/summary_memory.py:3759-3761` →
-    `mca_events.usage_json`). `candidates` = saved + skipped + deduped +
-    superseded, плюс `text_only` и исход прохода отдельно. Старое событие
-    без usage_json — None (честное «неизвестно»), не ноль.
+    `mca_events.usage_json`). `candidates` = saved + skipped + deduped;
+    `superseded` в сумму не входит (это подмножество saved: писатель
+    инкрементит его до `saved += 1`, summary_memory.py:3682-3695), отдаётся
+    отдельным полем. Плюс `text_only` и исход прохода отдельно. Старое
+    событие без usage_json — None (честное «неизвестно»), не ноль.
     `unconfirmed_facts` кандидатами не считается: это состояние фактов.
     """
     clause, params = _scope_clause(chat_id)

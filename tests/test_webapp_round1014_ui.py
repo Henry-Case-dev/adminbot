@@ -178,7 +178,11 @@ class TestTraitsRibbon:
         assert "Парадигмы" in block
         assert "Эволюция характера" in block
         assert "v-for=\"it in cognitionTraitsLoop\"" in block
-        assert "fmtDayMonth(it.created_at)" in block
+        # EVOL-005 (осознанная замена пина, не ослабление): дата/возраст
+        # строки теперь ОДНА форма для всех четырёх источников —
+        # `statusRowDateLabel` (сегодня → время, иначе → ДД.ММ); точный
+        # timestamp остаётся в title и в окне записи.
+        assert "statusRowDateLabel(it.created_at)" in block
         assert "Пул черт пуст." in block
         # ленты beliefs/paradigms не сломаны
         assert "cognitionBeliefsLoop" in block

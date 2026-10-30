@@ -267,7 +267,14 @@ async def test_extract_candidates_come_from_usage_json_not_unconfirmed_facts():
         assert last["usage_present"] is True
         total = usage["total"]
         assert total["terminal_passes"] == 2
-        assert total["candidates"] == 8           # 7 + 1
+        # superseded (1) — подмножество saved, в кандидаты не суммируется:
+        # (2+1+3) + (1+0+0) = 7, а не 8.
+        assert total["candidates"] == 7           # 6 + 1
+        assert total["candidates"] == (
+            total["saved"] + total["skipped"] + total["deduped"])
+        assert total["candidates"] != (
+            total["saved"] + total["skipped"] + total["deduped"]
+            + total["superseded"])
         assert total["saved"] == 3
         assert total["skipped"] == 1
         assert total["deduped"] == 3
@@ -421,3 +428,20 @@ async def test_schedule_deep_sleep_timezone_matches_its_own_day_math(monkeypatch
     assert schedule["extract"]["timezone"] == "Asia/Tokyo"
     assert schedule["extract"]["timezone_key"] == "limits.summary_timezone"
     assert schedule["deep_sleep"]["tick_minutes"] == 30
+
+
+def test_schedule_deep_sleep_empty_tz_falls_back_to_utc_not_summary_tz(
+        monkeypatch):
+    """Пустой WORKER_BUDGET_TZ → UTC, как в dream_worker._deep_tz_name,
+    а не SUMMARY_TIMEZONE: иначе диагностика показала бы не те сутки."""
+    from services import hot_config
+    values = {
+        "limits.summary_timezone": "Asia/Tokyo",
+        "limits.worker_budget_tz": "",
+        "memory.dream_tick_minutes": 30,
+    }
+    monkeypatch.setattr(hot_config, "get",
+                        lambda key, default=None: values.get(key, default))
+    schedule = schedule_view()
+    assert schedule["deep_sleep"]["timezone"] == "UTC"
+    assert schedule["sleep"]["timezone"] == "Asia/Tokyo"

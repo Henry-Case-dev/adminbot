@@ -278,7 +278,11 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "summary.l2.reviewer": "summary-l2-reviewer-w2a",
     "summary.l2.reviser": "summary-l2-reviser-w2a",
     "summary.l1.anchors": "summary-l1-anchors-w2a",
-    "memory.fact_extract": "fact-extract-w2a",
+    # EVOL-006 (W4): промпт-экстрактор фактов получил контракт
+    # «класс/долговечность/атрибуция» (durable_fact … communication_pattern,
+    # subject_type world|topic|character, basis/source_message_ids).
+    # Текст изменён → метка и печать подняты вместе (fail-closed §1.3).
+    "memory.fact_extract": "fact-extract-evol006",
     "internal.observer_digest": "observer-digest-w2a",
     "internal.experience.semantic": "experience-semantic-w2a",
     "style.metatext_retry": "metatext-retry-w2a",
@@ -418,7 +422,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "summary.l2.reviewer": ("summary-l2-reviewer-w2a", "ad56b7bcf655"),
     "summary.l2.reviser": ("summary-l2-reviser-w2a", "54ad7dd700b2"),
     "summary.l1.anchors": ("summary-l1-anchors-w2a", "fe0434bf0358"),
-    "memory.fact_extract": ("fact-extract-w2a", "01be6c765713"),
+    "memory.fact_extract": ("fact-extract-evol006", "c41914057333"),
     "internal.observer_digest": ("observer-digest-w2a", "018df26e2762"),
     "internal.experience.semantic": ("experience-semantic-w2a", "f614eb40d3fc"),
     "style.metatext_retry": ("metatext-retry-w2a", "8a78b8ce197f"),
@@ -2615,7 +2619,10 @@ def factory_set_fingerprint() -> str:
 #: инициативных мемов ``initiative.meme.image`` (дословный префикс
 #: «Создай мем с шрифтом импакт:») и ``initiative.meme.summary``.
 #: Было ``c1535d3d4252``, стало ``03776db327b4``.
-FACTORY_SET_SHA256_12 = "03776db327b4"
+#: Бамп EVOL-006 (W4, 30.10.2026): заводской текст ``memory.fact_extract``
+#: получил контракт класса/долговечности/атрибуции факта (метка
+#: ``fact-extract-evol006``). Было ``03776db327b4``, стало ``07ade6d16884``.
+FACTORY_SET_SHA256_12 = "07ade6d16884"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

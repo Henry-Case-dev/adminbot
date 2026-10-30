@@ -124,9 +124,20 @@ async def test_api_resolves_user_id_by_name(monkeypatch):
     assert item["chat_id"] == -100
     assert item["name"] == "Толян"
     assert item["excerpt"] == "любит мемы"
-    # Никаких лишних полей наружу (R17).
-    assert set(item.keys()) == {"chat_id", "name", "excerpt",
-                                "user_id", "user_name"}
+    # R17-safe: наружу только метаданные записи (без ключей/эмбеддингов).
+    # EVOL-001..005 (осознанное расширение, НЕ ослабление): окно записи не
+    # может различить даты/открыть первоисточник без этих полей. `text` —
+    # полный факт (excerpt остаётся превью строки), даты — как есть из
+    # graph_facts (NULL остаётся NULL), origin/tg_message_id — адрес
+    # первоисточника (в стабе без id → null).
+    assert set(item.keys()) == {
+        "chat_id", "name", "excerpt", "text", "id", "kind",
+        "created_at", "message_timestamp", "last_confirmed_at",
+        "origin", "tg_message_id", "attribution_method",
+        "user_id", "user_name"}
+    assert item["text"] == "любит мемы", "EVOL-003: полный текст записи"
+    assert item["created_at"] is None, "EVOL-005: нет даты — null, не 0"
+    assert item["tg_message_id"] is None
     assert db.writes == 0
 
 

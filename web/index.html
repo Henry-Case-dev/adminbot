@@ -82,7 +82,8 @@
                   (shellFlexV3 && shellLayoutV2) ? 'shell-flex-v3' : 'shell-layout-legacy',
                   shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy',
                   shellGraphiteV3 ? 'shell-v3' : 'shell-v3-off',
-                  moreMenuOpen ? 'more-menu-open' : '']">
+                  moreMenuOpen ? 'more-menu-open' : '',
+                  statusRecordOpen ? 'sfeed-modal-open' : '']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
            В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
       <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="shell" aria-label="Боковая навигация">
@@ -10338,21 +10339,35 @@
               <div class="cognition-ribbons">
                 <div class="ribbon">
                   <div class="ribbon-title">Убеждения <span class="text-gray-500">(Сон)</span></div>
-                  <div class="ribbon-viewport">
-                    <div v-if="!cognitionBeliefsLoop.length" class="text-xs text-gray-500 py-4">Пул убеждений пуст.</div>
-                    <div v-else class="ribbon-track">
-                      <div v-for="it in cognitionBeliefsLoop" :key="it.key"
-                           class="ribbon-item" :class="it.op">
-                        <span class="ribbon-ts">{{ fmtClock(it.created_at) }}</span>
-                        <span class="truncate">{{ it.fact }}</span>
-                      </div>
+                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                       v-sfeed="statusRecordOpen" tabindex="0" role="group"
+                       aria-label="Убеждения (Сон): лента записей, прокручивается">
+                    <div v-if="!cognitionBeliefsLoop.length" class="ribbon-empty sfeed-empty">
+                      <div class="ribbon-empty__title">Пул убеждений пуст.</div>
+                      <div class="ribbon-empty__text">Убеждения выводятся фоновым «Сном» из подтверждённых фактов и эпизодов. Пульт не наполняется сам по себе: пока условий нет, записи не выдумываются.</div>
+                      <div class="ribbon-empty__reason" v-if="statusFeedEmptyReason('belief')">Причина: {{ statusFeedEmptyReason('belief') }}</div>
+                    </div>
+                    <div v-else class="ribbon-track sfeed-track">
+                      <button v-for="it in cognitionBeliefsLoop" :key="it.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              data-sfeed-type="belief"
+                              :aria-label="'Убеждение: ' + it.fact"
+                              @click="openStatusRecord('belief', it, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge sfeed-item__badge--belief">убеждение</span>
+                          <span class="sfeed-item__date" :title="statusRowTitle(it.created_at, 'Записано')">{{ statusRowDateLabel(it.created_at) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">{{ it.fact }}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
                 <div class="ribbon">
                   <div class="ribbon-title">Парадигмы <span class="text-gray-500">(Глубокий сон)</span></div>
-                  <div class="ribbon-viewport">
-                    <div v-if="!cognitionParadigmsLoop.length" class="ribbon-empty">
+                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                       v-sfeed="statusRecordOpen" tabindex="0" role="group"
+                       aria-label="Парадигмы (Глубокий сон): лента записей, прокручивается">
+                    <div v-if="!cognitionParadigmsLoop.length" class="ribbon-empty sfeed-empty">
                       <div class="ribbon-empty__title">Пул парадигм пуст.</div>
                       <div class="ribbon-empty__text">Парадигмы — мета-факты о динамике («что было раньше и что стало»). Глубокий сон выводит их, сопоставляя свежие убеждения с историческими фактами: нужны минимум 2 опоры старше 90 дней. Пока условий нет, выводы не выдумываются.</div>
                       <!-- D14 (asap5-final-fixes, T-5264, §13A): gate ≠
@@ -10362,12 +10377,18 @@
                       <div class="ribbon-empty__reason" v-if="schedulerGateLabel()">Планировщик: {{ schedulerGateLabel() }}.</div>
                       <div class="ribbon-empty__reason" v-if="!lastAttemptLabel() && !schedulerGateLabel()">Причина: {{ cognitionParadigmsEmptyReason }}.</div>
                     </div>
-                    <div v-else class="ribbon-track">
-                      <div v-for="it in cognitionParadigmsLoop" :key="it.key"
-                           class="ribbon-item" :class="it.op">
-                        <span class="ribbon-ts">{{ fmtClock(it.created_at) }}</span>
-                        <span class="truncate">{{ it.fact }}</span>
-                      </div>
+                    <div v-else class="ribbon-track sfeed-track">
+                      <button v-for="it in cognitionParadigmsLoop" :key="it.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              data-sfeed-type="paradigm"
+                              :aria-label="'Парадигма: ' + it.fact"
+                              @click="openStatusRecord('paradigm', it, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge sfeed-item__badge--paradigm">парадигма</span>
+                          <span class="sfeed-item__date" :title="statusRowTitle(it.created_at, 'Записано')">{{ statusRowDateLabel(it.created_at) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">{{ it.fact }}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -10376,18 +10397,26 @@
                      («13.09: Стал более циничным...»), тот же _ribbonLoop. -->
                 <div class="ribbon">
                   <div class="ribbon-title">Эволюция характера <span class="text-gray-500">(Личность)</span></div>
-                  <div class="ribbon-viewport">
-                    <div v-if="!cognitionTraitsLoop.length" class="ribbon-empty">
+                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                       v-sfeed="statusRecordOpen" tabindex="0" role="group"
+                       aria-label="Эволюция характера (Личность): лента записей, прокручивается">
+                    <div v-if="!cognitionTraitsLoop.length" class="ribbon-empty sfeed-empty">
                       <div class="ribbon-empty__title">Пул черт пуст.</div>
                       <div class="ribbon-empty__text">Эволюция характера строится из саморефлексии: бот сжимает свои ответы в self-факты, а фоновый анализ выводит из них устойчивые черты (тон, привычки, склонности). Без self-фактов черты не придумываются.</div>
                       <div class="ribbon-empty__reason">Причина: {{ cognitionTraitsEmptyReason }}. Self-фактов за 30 дней: {{ cognitionSelfFactsCount == null ? '—' : cognitionSelfFactsCount }}.</div>
                     </div>
-                    <div v-else class="ribbon-track">
-                      <div v-for="it in cognitionTraitsLoop" :key="it.key"
-                           class="ribbon-item" :class="it.op">
-                        <span class="ribbon-ts">{{ fmtDayMonth(it.created_at) }}</span>
-                        <span class="truncate">{{ it.fact }}</span>
-                      </div>
+                    <div v-else class="ribbon-track sfeed-track">
+                      <button v-for="it in cognitionTraitsLoop" :key="it.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              data-sfeed-type="trait"
+                              :aria-label="'Черта характера: ' + it.fact"
+                              @click="openStatusRecord('trait', it, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge sfeed-item__badge--trait">черта</span>
+                          <span class="sfeed-item__date" :title="statusRowTitle(it.created_at, 'Дата записи')">{{ statusRowDateLabel(it.created_at) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">{{ it.fact }}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -10749,11 +10778,12 @@
             </div>
 
             <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 4 — «Новые факты» — 5 кол.
-                 reuse `dossierFeed`/`loadDossierFeed` (/api/oversight/dossier_feed);
-                 ТОЛЬКО вертикальный пользовательский скролл, позиция не
-                 сбрасывается (стабильный :key, без автопрокрутки). Полная
-                 работа с памятью остаётся в «Память»/«Аналитика».
-                 Время/тип — ТОЛЬКО если есть в ответе (не выдумываем). -->
+                 reuse `dossierFeed`/`loadDossierFeed` (/api/oversight/dossier_feed).
+                 EVOL-001/002/003/005: ТА ЖЕ система строк, что у трёх лент
+                 «Мониторинга Интеллекта» (`.sfeed-item`), авто-движение +
+                 ручная прокрутка одним контроллером (`v-sfeed`). Полный текст
+                 открывается в модальном окне записи (обрезание строки больше не
+                 прячет факт). Полная работа с памятью — в «Память»/«Аналитика». -->
             <div v-if="isGlobalAdmin" class="card p-4 status-facts sg-5">
               <div class="flex items-center gap-2 flex-wrap mb-1">
                 <div class="text-sm font-bold">Новые факты</div>
@@ -10761,21 +10791,161 @@
                 <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
                         @click="loadDossierFeed()">⟳</button>
               </div>
-              <div v-if="dossierFeedError" class="text-xs text-red-300">Ошибка ленты: {{ dossierFeedError }}</div>
-              <div v-else-if="!factsFeed.length" class="text-xs text-gray-500">
-                Пока нечего показать — в графе памяти нет подтверждённых фактов.
+              <div v-if="dossierFeedError" class="text-xs text-red-300" data-sfeed-error>
+                <span class="font-semibold">Не удалось загрузить ленту.</span>
+                Причина: {{ dossierFeedError }}
               </div>
-              <div v-else class="facts-list scroll-thin">
-                <div v-for="fact in factsFeed" :key="fact.key" class="facts-item">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <b>{{ fact.name }}</b>
-                    <span class="text-gray-500 text-[10px]" v-if="fact.time">{{ fmtLogTs(fact.time) }}</span>
-                    <span class="badge badge-muted text-[10px]" v-if="fact.kind">{{ fact.kind }}</span>
-                  </div>
-                  <div class="text-gray-300">{{ fact.text }}</div>
-                </div>
+              <div v-else-if="!factsFeed.length" class="ribbon-empty sfeed-empty" data-sfeed-empty>
+                <div class="ribbon-empty__title">{{ statusFeedEmptyTitle('fact') }}</div>
+                <div class="ribbon-empty__text">{{ statusFeedEmptyText('fact') }}</div>
+                <div class="ribbon-empty__reason" v-if="statusFeedEmptyReason('fact')">Причина: {{ statusFeedEmptyReason('fact') }}</div>
+              </div>
+              <div v-else class="facts-list scroll-thin sfeed-viewport"
+                   data-sfeed-viewport v-sfeed="statusRecordOpen"
+                   tabindex="0" role="group"
+                   aria-label="Новые факты: лента записей, прокручивается">
+                <button v-for="fact in factsFeed" :key="fact.key"
+                        type="button" class="sfeed-item" data-sfeed-row
+                        data-sfeed-type="fact"
+                        :aria-label="'Факт о ' + fact.name + ': ' + fact.text"
+                        @click="openStatusRecord('fact', fact, $event)">
+                  <span class="sfeed-item__head">
+                    <span class="sfeed-item__badge sfeed-item__badge--fact">{{ fact.kind || 'факт' }}</span>
+                    <b class="sfeed-item__subject">{{ fact.name }}</b>
+                    <span class="sfeed-item__date" :title="statusRowTitle(fact.created_at, 'Записано')">{{ statusRowDateLabel(fact.created_at) }}</span>
+                  </span>
+                  <span class="sfeed-item__text">{{ fact.text }}</span>
+                </button>
               </div>
             </div>
+
+            <!-- ═══ EVOL-003/004/005: модальное окно записи ══════════════════
+                 Та ЖЕ сущность, что в строке: полный текст, тип, чат/область,
+                 субъект + Telegram user id, раздельно даты (запись/событие/
+                 подтверждение/обновление), происхождение, статус/изменения и
+                 первоисточники. Отсутствующее поле помечено «нет данных» и не
+                 подменяется соседним. Одно окно внутри приложения (нового
+                 окна браузера нет): Esc / ✕ / клик вне, focus trap и возврат
+                 фокуса на исходную строку, фон не скроллится. -->
+            <transition name="sfeed-modal">
+              <div v-if="statusRecordOpen" class="modal-backdrop sfeed-modal-backdrop"
+                   @click.self="closeStatusRecord()">
+                <div class="modal-card card p-5 w-full max-w-2xl sfeed-modal"
+                     role="dialog" aria-modal="true" data-sfeed-modal
+                     aria-labelledby="sfeed-rec-title" tabindex="-1"
+                     ref="statusRecordDialog"
+                     @keydown="statusRecordKeydown($event)">
+                  <header class="modal-head flex items-start gap-2 mb-2">
+                    <div class="min-w-0">
+                      <h2 class="modal-title text-base font-bold" id="sfeed-rec-title">
+                        <span class="sfeed-item__badge" :data-sfeed-type="statusRecord.source">{{ statusRecord.badge }}</span>
+                        {{ statusRecord.subject || 'Запись' }}
+                      </h2>
+                      <div class="text-xs text-gray-500">
+                        {{ statusRecord.section }} ·
+                        запись {{ statusRecord.id == null ? 'без внутреннего id' : ('#' + statusRecord.id) }}
+                      </div>
+                    </div>
+                    <button class="modal-close btn-ghost text-sm px-2 ml-auto"
+                            @click="closeStatusRecord()"
+                            aria-label="Закрыть окно записи">✕</button>
+                  </header>
+                  <div class="modal-body sfeed-modal-body">
+                    <dl class="rec-grid">
+                      <template v-for="f in statusRecord.fields" :key="f.key">
+                        <div class="rec-row" :data-rec-field="f.key">
+                          <dt class="rec-label">{{ f.label }}</dt>
+                          <dd class="rec-val"
+                              :class="{ 'rec-missing': f.missing, 'rec-val--text': f.key === 'text' }">
+                            <template v-if="f.missing">нет данных</template>
+                            <template v-else>{{ f.value }}</template>
+                            <span v-if="f.hint" class="rec-hint">{{ f.hint }}</span>
+                          </dd>
+                        </div>
+                      </template>
+                    </dl>
+
+                    <!-- EVOL-004: первоисточник записи (внутренние ссылки). -->
+                    <section class="rec-section" data-rec-section="sources">
+                      <div class="rec-section__title">Первоисточники</div>
+                      <div class="rec-src-actions">
+                        <button class="btn-ghost text-xs" :disabled="statusRecordExtraBusy"
+                                data-rec-drill
+                                @click="statusRecordDrill()">
+                          {{ statusRecordExtraBusy ? 'Загружаю…' : 'Показать первоисточники' }}
+                        </button>
+                        <button v-if="statusRecord.user_id != null"
+                                class="btn-ghost text-xs" data-rec-dossier
+                                @click="statusRecordDossier()">Досье субъекта</button>
+                      </div>
+                      <div v-if="statusRecordExtraError" class="text-xs text-red-300">
+                        Не удалось загрузить первоисточники: {{ statusRecordExtraError }}
+                      </div>
+                      <div v-else-if="statusRecordExtra && statusRecordExtra.empty" class="text-xs text-gray-400">
+                        У записи нет адреса исходного сообщения — цепочку раскрыть
+                        не из чего (состояние источника, а не ошибка загрузки).
+                      </div>
+                      <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'chain'">
+                        <div class="rec-chain-delta" v-if="statusRecordExtra.data && statusRecordExtra.data.delta">
+                          <div v-if="statusRecordExtra.data.delta.old" class="text-xs text-gray-400">
+                            Было: {{ statusRecordExtra.data.delta.old }}
+                          </div>
+                          <div class="text-xs text-gray-300">
+                            Стало: {{ statusRecordExtra.data.delta.new }}
+                          </div>
+                        </div>
+                        <div class="text-xs text-gray-400"
+                             v-if="!statusRecordExtra.data || !statusRecordExtra.data.anchors || !statusRecordExtra.data.anchors.length">
+                          Основания не найдены: запись не связана с якорями
+                          (это состояние источника, а не ошибка загрузки).
+                        </div>
+                        <ul v-else class="rec-src">
+                          <li v-for="(a, ai) in statusRecordExtra.data.anchors" :key="'a' + ai">
+                            <span class="rec-src__kind">{{ a.entity_type || a.store || 'источник' }}</span>
+                            <span class="rec-src__id">{{ recAnchorLabel(a) }}</span>
+                            <span class="rec-src__note" v-if="a.resolution">{{ a.resolution }}</span>
+                          </li>
+                        </ul>
+                        <div class="text-xs text-gray-500" v-if="statusRecordExtra.data">
+                          Сообщений в цепочке: {{ (statusRecordExtra.data.messages || []).length }}<template v-if="statusRecordExtra.data.truncated"> · цепочка усечена</template>
+                        </div>
+                      </template>
+                      <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'trace'">
+                        <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.trigger">
+                          Сообщение #{{ statusRecordExtra.data.trigger.row_id }} ·
+                          отправлено {{ recTsLabel(statusRecordExtra.data.trigger.sent_at) }} ·
+                          автор (entity) {{ statusRecordExtra.data.trigger.author_entity_id == null ? '—' : statusRecordExtra.data.trigger.author_entity_id }} ·
+                          ревизия {{ statusRecordExtra.data.trigger.revision }}
+                        </div>
+                        <div class="text-xs text-gray-400" v-else>
+                          Сообщение не найдено в импортированном сырье — только
+                          запись графа.
+                        </div>
+                        <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.facts">
+                          Фактов из этого сообщения: {{ statusRecordExtra.data.facts.length }}
+                        </div>
+                      </template>
+                      <div class="rec-src-note">{{ statusRecordTgNote() }}</div>
+                    </section>
+
+                    <!-- EVOL-004: связанные записи ТОГО ЖЕ объекта. -->
+                    <section class="rec-section" data-rec-section="related"
+                             v-if="statusRecordRelatedList.length">
+                      <div class="rec-section__title">Связанные записи</div>
+                      <button v-for="rel in statusRecordRelatedList" :key="rel.key"
+                              type="button" class="rec-rel" data-rec-related
+                              @click="statusRecordPickRelated(rel)">
+                        <span class="rec-rel__date">{{ statusRowDateLabel(rel.at) }}</span>
+                        <span class="rec-rel__text">{{ rel.label }}</span>
+                      </button>
+                    </section>
+                  </div>
+                  <footer class="modal-actions">
+                    <button class="btn-ghost text-sm" @click="closeStatusRecord()">Закрыть</button>
+                  </footer>
+                </div>
+              </div>
+            </transition>
 
             <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5 — «Бюджеты
                  интеллекта» — 12 кол. reuse /api/status.context, /api/workers/budget,

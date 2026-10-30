@@ -96,3 +96,6 @@ Per-chat override читается, только если вызывающий �
 * `deep_sleep.timezone` = `WORKER_BUDGET_TZ`, `sleep`/`extract` = `SUMMARY_TIMEZONE`.
 
 Прогон: `pytest tests/test_evol009_memory_diagnostics.py tests/test_evol007_new_facts_widget.py -q` — 18 passed. Коммитов нет, правки в рабочем дереве `evol/impl` (33a14034).
+
+Уточнение к строке 83 по второму вердикту Reviewer: `candidates = saved+skipped+deduped`, `superseded` НЕ суммируется — писатель делает `superseded += 1` в той же итерации до `saved += 1` (`summary_memory.py:3682-3695`), т.е. замещённые старые факты входят в уже посчитанный `saved` (иначе двойной счёт: было `8`, стало `7`). `superseded` остаётся отдельным полем `last_terminal`/`total`, добавлено явное утверждение в тесте, что он не входит в `candidates`.
+`deep_sleep.timezone` при пустом `WORKER_BUDGET_TZ` теперь `UTC` (`str(deep_tz or "UTC")`), как `dream_worker._deep_tz_name`, а не `SUMMARY_TIMEZONE`; добавлен тест на пустой `limits.worker_budget_tz`. Прогон: `pytest tests/test_evol009_memory_diagnostics.py tests/test_evol007_new_facts_widget.py -q` — 19 passed.

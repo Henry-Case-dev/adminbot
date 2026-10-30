@@ -1659,18 +1659,21 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(mcUnlimited.red, false,
       'D-7: безлимит → не красный (нет ложных 100%)');
 
-    // Модель ленты: дублируется для seamless-скролла + op-класс.
+    // Модель ленты: ОДИН проход (EVOL-002: дублирование строк нужно было
+    // только для CSS-marquee `translateY(-50%)`; движение теперь делает
+    // JS-контроллер на реальном scrollTop — дубль показывал бы каждую запись
+    // дважды и ломал ручную прокрутку) + op-класс по позиции.
     const loop = computed.cognitionBeliefsLoop.call({
       cognitionBeliefs: [{ id: 1, fact: 'a', created_at: 100 },
                          { id: 2, fact: 'b', created_at: 200 }],
       _ribbonLoop: methods._ribbonLoop,
       ribbonItemClass: methods.ribbonItemClass,
     });
-    assert.strictEqual(loop.length, 4, 'F5: лента дублируется (2×2)');
+    assert.strictEqual(loop.length, 2, 'EVOL-002: лента без дублей (2×1)');
     assert.ok(loop[0].op.indexOf('ribbon-op-') === 0,
       'F5: op-класс в модели ленты');
-    assert.strictEqual(loop[0].key !== loop[2].key, true,
-      'F5: ключи дублей уникальны');
+    assert.strictEqual(loop[0].key !== loop[1].key, true,
+      'F5: ключи строк уникальны');
 
     // Форматтеры виджета.
     assert.strictEqual(methods.fmtTokens.call({}, 45000), '45k',
@@ -1832,13 +1835,16 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(methods.fmtDayMonth.call({}, 0), '—',
       'F4: пустой ts → —');
 
-    // _traitsAdapter: {ts,text,source} → {id,fact,created_at}.
+    // _traitsAdapter: {ts,text,source} → {id,fact,created_at,source}.
     const adapted = methods._traitsAdapter.call({}, [
       { ts: 1757750400, text: 'Стал более циничным', source: 'deep_sleep' },
     ]);
+    // EVOL-003: адаптер сохраняет происхождение черты (`source`) — без него
+    // окно записи не может показать provenance. Поля нет → null.
     assert.deepStrictEqual(adapted, [
-      { id: 1757750400, fact: 'Стал более циничным', created_at: 1757750400 },
-    ], 'F4: адаптер traits {ts,text}→{id,fact,created_at}');
+      { id: 1757750400, fact: 'Стал более циничным', created_at: 1757750400,
+        source: 'deep_sleep' },
+    ], 'F4: адаптер traits {ts,text,source}→{id,fact,created_at,source}');
     assert.deepStrictEqual(methods._traitsAdapter.call({}, null), [],
       'F4: не-массив → [] (fail-open)');
 
@@ -1850,7 +1856,7 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       _ribbonLoop: methods._ribbonLoop,
       ribbonItemClass: methods.ribbonItemClass,
     });
-    assert.strictEqual(loop.length, 2, 'F4: лента дублируется (1×2)');
+    assert.strictEqual(loop.length, 1, 'EVOL-002: лента без дублей (1×1)');
     assert.strictEqual(loop[0].fact, 'Стал более циничным',
       'F4: факт в модели ленты');
     assert.ok(loop[0].op.indexOf('ribbon-op-') === 0,

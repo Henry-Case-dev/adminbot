@@ -154,7 +154,51 @@ FACT_EXTRACT_PROMPT = PREV_FACT_EXTRACT_PROMPT + """
 ФОКУС НА СОДЕРЖАНИИ:
 - Фокусируйся на СУТИ и СОДЕРЖАНИИ сообщений, а не на их формате.
 - Факт отправки «голосового», «кружочка», «видеосообщения», «фото», «ссылки», «стикера» извлекай ТОЛЬКО если вокруг формата идёт явное обсуждение (например, кто-то ругается на спам голосовыми).
-- Если это обычное сообщение — игнорируй его формат."""
+- Если это обычное сообщение — игнорируй его формат.
+
+КЛАССИФИКАЦИЯ И АТРИБУЦИЯ (обязательно для КАЖДОГО факта):
+- Поле "kind" — класс записи, ровно одно значение из списка: durable_fact, one_off_request, world_news, quote, hypothetical_character, temporary_event, communication_pattern.
+- durable_fact: устойчивая или полезная для будущего контекста информация о человеке либо сообществе (привычки, роль, отношения, постоянные интересы, факты биографии, устройство и участники проекта, устойчивый сленг).
+- one_off_request: разовая просьба, поручение или намерение («сделай», «нарисуй», «найди», «переведи», «ответь»). Это НЕ свойство человека: не превращай просьбу в черту характера, привычку или биографию. Просьба остаётся в истории сообщений, но в долговременный пул не идёт.
+- world_news: сведения о внешнем мире (новости, события, курсы, погода, содержание пересланного поста, статьи, видео). Принадлежат миру или источнику, а НЕ автору сообщения.
+- quote: цитата, чужие слова, пересказ чужой реплики. Автор слов — тот, кого цитируют, а не тот, кто процитировал.
+- hypothetical_character: выдуманный или описываемый персонаж (описание для картинки, роль в игре, пример, «представь, что…»). Это не биография автора запроса и не биография адресата.
+- temporary_event: событие с временной привязкой (сегодня, вчера, на этой неделе, разовая встреча). Время — в поле "context"; единичное событие не выдавай за постоянное свойство.
+- communication_pattern: наблюдение о манере общения (стиль, привычные шутки, тон, любимые обороты). Допустимо ТОЛЬКО при опоре на конкретные сообщения: перечисли их номера в "basis". Нет опоры — не извлекай.
+- Поля "subject_type" и "object_type": user — реальный участник чата; world — внешний мир или источник; topic — тема, предмет, вещь; character — выдуманный персонаж. Публичные и новостные сведения получают world, а не user.
+- Публичный факт не становится личным фактом участника только потому, что участник его принёс или переслал.
+- Описание персонажа не становится биографией: не приписывай персонажу автора запроса и наоборот.
+- Поле "source_message_ids": номера конкретных сообщений входа, на которых основан факт (целые числа, только реальные номера из входных данных). Не выдумывай номера: нет опоры — не извлекай факт.
+- Предикат — устойчивое отношение или свойство, а не пересказ реплики; служебные пометки о формате сообщения фактом не являются.
+- Лучше пустой список, чем запись ради количества: не добавляй факт, если он не несёт смысла для будущего контекста.
+
+ФОРМАТ (СТРОГО JSON-массив, без текста вокруг):
+[{"subject": "Имя", "subject_type": "user", "predicate": "устойчивое отношение", "object": "объект", "object_type": "topic", "context": "пояснение или дата", "kind": "durable_fact", "source_message_ids": [123, 124], "basis": []}]"""
+
+# ── EVOL-006: словарь классов факта (семантика промпта выше; здесь — только
+# структурные константы разбора/атрибуции). Никаких лексических black/whitelist:
+# классификацию делает модель ОДНИМ существующим вызовом, код проверяет лишь
+# структуру (класс ∈ enum, наличие basis у обобщений, типы сущностей) и решает,
+# куда кандидат попадает (долговременный пул / только эпизоды).
+FACT_KIND_DURABLE = "durable_fact"
+FACT_KIND_ONE_OFF = "one_off_request"
+FACT_KIND_WORLD_NEWS = "world_news"
+FACT_KIND_QUOTE = "quote"
+FACT_KIND_HYPOTHETICAL = "hypothetical_character"
+FACT_KIND_TEMPORARY = "temporary_event"
+FACT_KIND_PATTERN = "communication_pattern"
+FACT_KINDS = frozenset({
+    FACT_KIND_DURABLE, FACT_KIND_ONE_OFF, FACT_KIND_WORLD_NEWS, FACT_KIND_QUOTE,
+    FACT_KIND_HYPOTHETICAL, FACT_KIND_TEMPORARY, FACT_KIND_PATTERN,
+})
+#: Классы, которые НЕ являются долговременным сведением о человеке: разовая
+#: просьба и выдуманный персонаж остаются в сырой истории/эпизодах, но место в
+#: пуле долговременных фактов не занимают.
+FACT_EPISODIC_KINDS = frozenset({FACT_KIND_ONE_OFF, FACT_KIND_HYPOTHETICAL})
+FACT_ENTITY_TYPES = frozenset({"user", "world", "topic", "character"})
+#: Классы, которые не приписываются спрашивающему/чату как личный факт.
+FACT_NONPERSONAL_KINDS = frozenset({FACT_KIND_WORLD_NEWS, FACT_KIND_QUOTE})
+_FACT_BASIS_MAX_IDS = 20
 
 _FACT_ORIGINS = ("chat_history", "search_fact", "youtube_content", "web_content",
                  "bot_direct_reply",
@@ -1092,9 +1136,106 @@ def parse_fact_list_ex(raw, *, warn: bool = True) -> tuple[list[dict], str]:
     return [], PARSE_INVALID
 
 
+def _is_json_list(raw) -> bool:
+    """EVOL-006: ответ модели — структурно валидный JSON-массив (не проза).
+
+    Прозаический fallback (`_fallback_parse_facts`) существует для прозы,
+    буллетов и сломанного JSON. Если модель вернула валидный список, но ни
+    один элемент не прошёл контракт (например неизвестный класс факта), это
+    дрейф ответа, а не свободный текст: «дотягивать» факты из самого текста
+    ответа нельзя — иначе дрейф превращается в выдуманные записи."""
+    text = str(raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```\s*$", "", text)
+    try:
+        return isinstance(json.loads(text), list)
+    except (ValueError, TypeError):
+        return False
+
+
 def parse_fact_list(raw: str) -> list[dict]:
     """Совместимая обёртка над `parse_fact_list_ex` (результат — как раньше)."""
     return parse_fact_list_ex(raw)[0]
+
+
+def _fact_entity_type(value) -> str | None:
+    """EVOL-006: тип сущности из ответа модели (`user|world|topic|character`).
+
+    Неизвестное/пустое значение → None (тип не заявлен; факт не выбрасывается
+    из-за синонима вроде "person" — классификация остаётся за `kind`)."""
+    if not isinstance(value, str):
+        return None
+    token = value.strip().casefold()
+    return token if token in FACT_ENTITY_TYPES else None
+
+
+def _fact_id_list(value) -> tuple[int, ...]:
+    """EVOL-006: структурный список id (`basis`/`source_message_ids`).
+
+    Только целые неотрицательные числа из списка, ≤ `_FACT_BASIS_MAX_IDS`.
+    Строки/мусор не «додумываются»: невалидный элемент просто не считается
+    опорой (никакого угадывания id)."""
+    if not isinstance(value, (list, tuple)):
+        return ()
+    ids: list[int] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int):
+            continue
+        if item < 0:
+            continue
+        ids.append(int(item))
+        if len(ids) >= _FACT_BASIS_MAX_IDS:
+            break
+    return tuple(ids)
+
+
+def fact_durability_decision(fact: dict) -> dict:
+    """EVOL-006: решение по кандидату факта — БЕЗ новых вызовов модели.
+
+    Смысловую оценку делает LLM в том же вызове (класс `kind`, типы сущностей,
+    опора `basis`, `source_message_ids`); здесь только структурные последствия:
+
+    * `episodic_not_durable` — разовая просьба/выдуманный персонаж: в
+      долговременный пул не пишем (сырая история и эпизоды не трогаются);
+    * `pattern_without_basis` — обобщение о манере общения без опоры на
+      конкретные сообщения не сохраняется (не выдумываем личность);
+    * `world_attributed_to_person` — новость, чьим субъектом модель объявила
+      участника: публичное сведение не превращается в личный факт;
+    * `personal` — попадает ли запись в пул сведений о человеке
+      (`target_user`); новости и цитаты — нет.
+
+    Возвращает ``{"store", "reason", "personal", "attribution"}``, где
+    ``attribution`` — заявленная структурная атрибуция для
+    `graph_facts.attribution_method/assertion_kind` (или None → прежняя
+    эвристика `services.provenance`)."""
+    kind = str(fact.get("kind") or FACT_KIND_DURABLE).strip().casefold()
+    subject_type = fact.get("subject_type")
+    if kind in FACT_EPISODIC_KINDS:
+        return {"store": False, "reason": "episodic_not_durable",
+                "personal": False, "attribution": None}
+    if kind == FACT_KIND_PATTERN and not fact.get("basis"):
+        return {"store": False, "reason": "pattern_without_basis",
+                "personal": False, "attribution": None}
+    if kind == FACT_KIND_WORLD_NEWS and subject_type == "user":
+        return {"store": False, "reason": "world_attributed_to_person",
+                "personal": False, "attribution": None}
+    if kind == FACT_KIND_QUOTE:
+        return {"store": True, "reason": "",
+                "personal": False,
+                "attribution": ("third_party", "opinion")}
+    if kind in FACT_NONPERSONAL_KINDS:
+        return {"store": True, "reason": "",
+                "personal": False,
+                "attribution": ("world_knowledge", "world_knowledge")}
+    personal = subject_type in (None, "", "user")
+    if kind == FACT_KIND_DURABLE and not personal:
+        # Устойчивое сведение о внешнем мире/теме/персонаже — не биография
+        # участника: сохраняем, но не в личном пуле.
+        return {"store": True, "reason": "", "personal": False,
+                "attribution": ("world_knowledge", "world_knowledge")}
+    return {"store": True, "reason": "", "personal": personal,
+            "attribution": None}
 
 
 def _validate_fact(item) -> dict | None:
@@ -1118,9 +1259,25 @@ def _validate_fact(item) -> dict | None:
         return None
     if norm_s == norm_o:
         return None
+    # EVOL-006: класс/атрибуция кандидата. Неизвестный (не перечисленный в
+    # контракте промпта) класс — это дрейф ответа модели, а не новый класс:
+    # элемент отклоняется честно, а не превращается в «обычный факт».
+    kind_raw = item.get("kind")
+    kind = FACT_KIND_DURABLE
+    if isinstance(kind_raw, str) and kind_raw.strip():
+        kind_token = kind_raw.strip().casefold()
+        if kind_token not in FACT_KINDS:
+            return None
+        kind = kind_token
     ctx = re.sub(r"\s+", " ", context).strip() if context else ""
     return {"subject": norm_s, "predicate": norm_p, "object": norm_o,
-            "context": ctx[:_FACT_MAX_CONTEXT_CHARS]}
+            "context": ctx[:_FACT_MAX_CONTEXT_CHARS],
+            "kind": kind,
+            "subject_type": _fact_entity_type(item.get("subject_type")),
+            "object_type": _fact_entity_type(item.get("object_type")),
+            "basis": _fact_id_list(item.get("basis")),
+            "source_message_ids": _fact_id_list(
+                item.get("source_message_ids", item.get("source_ids")))}
 
 
 def _fallback_parse_facts(raw) -> list[dict]:
@@ -3487,11 +3644,13 @@ class MemoryManager:
             facts, status = parse_fact_list_ex(raw, warn=False)
             if not facts and status != PARSE_EMPTY_VALID:
                 # F-15 (§4.2): толерантность к прозе/буллетам/кривому JSON —
-                # fallback-парсер до ретрая.
-                facts = _fallback_parse_facts(raw)
-                if facts:
-                    status = PARSE_OK
-                else:
+                # fallback-парсер до ретрая. EVOL-006: только для НЕ-списка —
+                # валидный список без годных элементов это дрейф контракта.
+                if not _is_json_list(raw):
+                    facts = _fallback_parse_facts(raw)
+                    if facts:
+                        status = PARSE_OK
+                if not facts:
                     status = PARSE_INVALID
                     reason = _memorize_reason(raw)
         if not facts and status != PARSE_EMPTY_VALID:
@@ -3504,7 +3663,8 @@ class MemoryManager:
             if retry_raw is not None:
                 facts, r_status = parse_fact_list_ex(retry_raw, warn=False)
                 if not facts and r_status != PARSE_EMPTY_VALID:
-                    facts = _fallback_parse_facts(retry_raw)
+                    if not _is_json_list(retry_raw):
+                        facts = _fallback_parse_facts(retry_raw)
                     r_status = PARSE_OK if facts else PARSE_INVALID
                 retry_empty_valid = (r_status == PARSE_EMPTY_VALID)
             if facts:
@@ -3571,11 +3731,49 @@ class MemoryManager:
         skipped = 0
         deduped = 0
         superseded = 0
+        # EVOL-006: структурные исходы классификации кандидатов (без новых
+        # вызовов модели). Не «потеря» и не «пустой факт ради KPI»: кандидат
+        # сознательно не занимает место в долговременном пуле.
+        episodic_skipped = 0        # разовая просьба / выдуманный персонаж
+        pattern_without_basis = 0   # обобщение без опоры на сообщения
+        world_attributed_to_person = 0
+        nonpersonal = 0             # сохранено, но не в личном пуле
         # T-4878: batch circuit breaker — одно доказанное control-plane state
         # на logical batch; дальше факты идут text-only без embed-попыток.
         batch = _EmbedBatchState()
         for i, fact in enumerate(facts, 1):
             try:
+                # ── EVOL-006: что делать с кандидатом (класс/атрибуция) ──
+                verdict = fact_durability_decision(fact)
+                if not verdict["store"]:
+                    if verdict["reason"] == "episodic_not_durable":
+                        episodic_skipped += 1
+                    elif verdict["reason"] == "pattern_without_basis":
+                        pattern_without_basis += 1
+                    elif verdict["reason"] == "world_attributed_to_person":
+                        world_attributed_to_person += 1
+                    # Сырые сообщения и эпизоды не удаляются: отказ касается
+                    # только записи в долговременный пул фактов.
+                    logger.debug(
+                        "graphrag memorize: candidate not durable | reason=%s "
+                        "| kind=%s | chat_id=%s", verdict["reason"],
+                        fact.get("kind"), chat_id)
+                    continue
+                # Личный пул (`target_user`) — только сведения О человеке:
+                # новость/цитата/описание персонажа не приписываются
+                # спрашивающему.
+                fact_target_user = target_user if verdict["personal"] else None
+                if not verdict["personal"]:
+                    nonpersonal += 1
+                declared_attr = verdict["attribution"]
+                # Временное событие не становится вечным: у chat_history
+                # expires_at = NULL, поэтому такому классу даём обычный TTL.
+                fact_expiry = expiry
+                if fact.get("kind") == FACT_KIND_TEMPORARY and fact_expiry is None:
+                    fact_expiry = int(
+                        time.time()
+                        + (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0)
+                        * 86400.0 * (0.5 + weight))
                 # Epic 60 (66.9, T-487): привязка к людям по алиасам —
                 # subject/object приводятся к канон-имени алиаса (карточки
                 # /persona агрегируются по одному имени).
@@ -3626,19 +3824,20 @@ class MemoryManager:
                 status = ("unconfirmed" if decision["action"] == "supersede"
                           else "confirmed")
                 # Epic 60 (66.4, T-482): квота прямых фактов на человека —
-                # сверх лимита вытесняется самый лёгкий и старый.
-                if hot.get("flags.graph_user_quota_enabled", settings.GRAPH_USER_QUOTA_ENABLED) and target_user and \
+                # сверх лимита вытесняется самый лёгкий и старый. EVOL-006:
+                # квота личного пула не касается не-личных записей.
+                if hot.get("flags.graph_user_quota_enabled", settings.GRAPH_USER_QUOTA_ENABLED) and fact_target_user and \
                         (hot.get("limits.graph_facts_per_user_quota", settings.GRAPH_FACTS_PER_USER_QUOTA) or 0) > 0:
                     try:
-                        await self._enforce_user_quota(chat_id, target_user)
+                        await self._enforce_user_quota(chat_id, fact_target_user)
                     except Exception:
                         logger.warning(
                             "graphrag quota: eviction failed — insert proceeds "
                             "| chat_id=%s", chat_id, exc_info=True)
                 sid = await self.db.upsert_node(
-                    chat_id, subject, "fact", origin=source_type, expires_at=expiry)
+                    chat_id, subject, "fact", origin=source_type, expires_at=fact_expiry)
                 oid = await self.db.upsert_node(
-                    chat_id, obj, "fact", origin=source_type, expires_at=expiry)
+                    chat_id, obj, "fact", origin=source_type, expires_at=fact_expiry)
                 # F3 (T-1774, ADR-1018-3 D1): СНАЧАЛА факт, ЗАТЕМ ребро — чтобы
                 # у ребра появился fact_id (provenance для скоринга Σ importance).
                 # Порядок важен: upsert_edge получает id только что созданного факта.
@@ -3648,12 +3847,14 @@ class MemoryManager:
                 # D09/§18F.5 (M12): неудачная запись получает bounded retry
                 # (1 повтор той же транзакции) до честного write_failed —
                 # единичный БД-сбой больше не теряет факт молча.
+                declared_method, declared_kind = (
+                    declared_attr if declared_attr else (None, None))
                 async def _write_fact_pair() -> int:
                     async with self.db.serialized():
                         try:
                             fid = await self.db.insert_graph_fact(
-                                chat_id, sentence, source_type, expiry,
-                                target_user=target_user,
+                                chat_id, sentence, source_type, fact_expiry,
+                                target_user=fact_target_user,
                                 status=status, weight=weight,
                                 supersedes=(decision["old_id"]
                                             if decision["action"] == "supersede"
@@ -3661,10 +3862,12 @@ class MemoryManager:
                                 subject=subject, object=obj,
                                 tg_message_id=tg_message_id,
                                 forward_from=forward_from,
+                                attribution_method=declared_method,
+                                assertion_kind=declared_kind,
                                 commit=False)
                             await self.db.upsert_edge(
                                 sid, oid, fact["predicate"],
-                                origin=source_type, expires_at=expiry,
+                                origin=source_type, expires_at=fact_expiry,
                                 fact_id=fid, commit=False)
                             await self.db.db.commit()
                             return fid
@@ -3690,7 +3893,7 @@ class MemoryManager:
                     superseded += 1
                 if self._vec_available:
                     await self._save_graph_fact_embedding(
-                        fact_id, chat_id, sentence, source_type, expiry,
+                        fact_id, chat_id, sentence, source_type, fact_expiry,
                         vector=vector, batch=batch)
                 saved += 1
                 # MCA-04a (ADR-1027-6 D9, T-3823): producer — новый факт пишет
@@ -3700,7 +3903,9 @@ class MemoryManager:
                     try:
                         await self._attach_fact_provenance(
                             chat_id, fact_id, source_type, subject,
-                            target_user, tg_message_id, display_canons)
+                            fact_target_user, tg_message_id, display_canons,
+                            declared_method=declared_method,
+                            declared_kind=declared_kind)
                     except Exception:
                         logger.warning(
                             "graphrag provenance: attach failed — fail-open | "
@@ -3731,8 +3936,11 @@ class MemoryManager:
                                   "dedup_vector_skipped": batch.dedup_skipped})
         logger.info(
             "graphrag memorize: saved=%d skipped=%d deduped=%d superseded=%d "
-            "text_only=%d | chat_id=%s | source=%s",
-            saved, skipped, deduped, superseded, batch.text_only,
+            "text_only=%d nonpersonal=%d episodic_skipped=%d "
+            "pattern_without_basis=%d world_attributed_to_person=%d "
+            "| chat_id=%s | source=%s",
+            saved, skipped, deduped, superseded, batch.text_only, nonpersonal,
+            episodic_skipped, pattern_without_basis, world_attributed_to_person,
             chat_id, source_type)
         # ── D09/§18F.5 (M12): единый исход прогона — из ФАКТИЧЕСКОЙ
         # персистенции. Дубликаты — не потеря (нейтральный исход);
@@ -3754,11 +3962,22 @@ class MemoryManager:
                 chat_id, source_type, saved, skipped)
         elif saved > 0 and batch.text_only > 0:
             outcome = "text_only_vector_deferred"
+        elif (saved == 0 and deduped == 0
+              and (episodic_skipped or pattern_without_basis
+                   or world_attributed_to_person)):
+            # EVOL-006: модель нашла кандидатов, но все они по контракту не
+            # являются долговременными сведениями — честный «нет новых
+            # фактов», а не «success без записей» и не пустая запись ради KPI.
+            outcome = "no_new_facts"
         else:
             outcome = "success"
         return {"status": outcome, "saved": saved, "skipped": skipped,
                 "deduped": deduped, "superseded": superseded,
-                "text_only": batch.text_only}
+                "text_only": batch.text_only,
+                "nonpersonal": nonpersonal,
+                "episodic_skipped": episodic_skipped,
+                "pattern_without_basis": pattern_without_basis,
+                "world_attributed_to_person": world_attributed_to_person}
 
     def _canon_fact_name(self, name: str) -> str:
         """66.9 (T-487): имя → канон-алиас (обратная карта). Без aliases —
@@ -3769,12 +3988,20 @@ class MemoryManager:
 
     async def _attach_fact_provenance(self, chat_id, fact_id, origin, subject,
                                       target_user, tg_message_id,
-                                      display_canons) -> None:
+                                      display_canons, *,
+                                      declared_method: str | None = None,
+                                      declared_kind: str | None = None) -> None:
         """MCA-04a (ADR-1027-6 D9, T-3823): producer-хук — типизированный
         SourceRef/EvidenceLink для нового факта. Субъект-атрибуция:
         participant → self_report/third_party; иначе world_knowledge (общие
         знания не становятся личным фактом). Fail-open. При provenance=OFF —
-        no-op (паритет baseline)."""
+        no-op (паритет baseline).
+
+        EVOL-006: `declared_method`/`declared_kind` — атрибуция, заявленная
+        извлечением (например `world_knowledge` для новости/цитаты). Явное
+        решение извлечения приоритетнее эвристики по тексту: иначе новость,
+        принесённая участником, снова стала бы его личным фактом. None →
+        ровно прежняя эвристика (поведение старых путей не меняется)."""
         from services import provenance
         if not provenance.provenance_enabled():
             return
@@ -3782,11 +4009,12 @@ class MemoryManager:
         if target_user:
             canons.add(str(target_user))
         speaker = target_user if target_user else None
-        method = ("self_report" if origin == "user_memory"
-                  else provenance.classify_attribution_method(
-                      origin=origin, subject=subject, speaker=speaker,
-                      canon=self._canon_fact_name, participants=canons))
-        kind = provenance.classify_assertion_kind(
+        method = declared_method or (
+            "self_report" if origin == "user_memory"
+            else provenance.classify_attribution_method(
+                origin=origin, subject=subject, speaker=speaker,
+                canon=self._canon_fact_name, participants=canons))
+        kind = declared_kind or provenance.classify_assertion_kind(
             subject, None, canon=self._canon_fact_name, participants=canons)
         subject_ref_id = None
         if method in ("self_report", "third_party") \

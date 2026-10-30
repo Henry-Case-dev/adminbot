@@ -1060,6 +1060,531 @@ async def probe_connection(route: VisionRoute | None = None, *,
     return _finish(_transient(f"http_{status}/http_{t_status}"))
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# EVOL-019: «Проверить распознавание» — РАЗДЕЛЬНЫЕ состояния вместо одного
+# «HTTP 200 = распознавание работает».
+#
+# Существующая capability-проба (`probe_connection`) доказывает только то, что
+# провайдер принял запрос и вернул schema-valid ответ с `choices`; содержимое
+# распознавания она не читает. Для кнопки проверки этого мало: HTTP 200 с
+# пустым/битым/не соответствующим схеме ответом ≠ «распознавание работает».
+#
+# Состояния, которые нельзя склеивать (EVOL-019 §«Разделение состояний»):
+#   1) `config_ok`             — маршрут (адрес/модель/ключ/тип) валиден ЛОКАЛЬНО;
+#   2) `provider_reachable`    — провайдер ответил по сети (любой HTTP-статус);
+#   3) `media_accepted`        — провайдер принял ИЗОБРАЖЕНИЕ (2xx; отказ
+#                                модальности/декодирования → False);
+#   4) `recognition_completed` — ответ содержит schema-valid completion
+#                                (`choices[0].message.content` — строка);
+#   5) `content_received`      — в completion есть НЕПУСТОЙ текст (+ безопасный
+#                                короткий образец, без секретов/полного OCR);
+#   6) `pipeline`              — производная готовность модуля/типа медиа
+#                                (НЕ доказательство реального пользовательского
+#                                пути: честная приписка в `note`).
+#
+# Проверка идёт по ДЕЙСТВУЮЩЕМУ маршруту Vision (`resolve_route`) на локальной
+# детерминированной фикстуре (`probe_images()`): в Telegram ничего не
+# отправляется, данные пользователей не используются. Это РЕАЛЬНЫЙ (платный)
+# запрос к провайдеру — `paid_call`/`budget_note` говорят об этом прямо, чтобы
+# проверка не списывала бюджет молча.
+# ════════════════════════════════════════════════════════════════════════════
+
+#: Терминальные причины проверки распознавания (закрытый набор; наружу —
+#: стабильные коды, RU-текст — только из `recognition_reason_label`).
+RC_RECOGNIZED = "recognized"
+RC_NOT_CONFIGURED = "not_configured"
+RC_API_TYPE_UNSUPPORTED = "api_type_unsupported"
+RC_KEY_MISSING = "vision_key_missing"
+RC_TIMEOUT = "timeout"
+RC_TRANSPORT = "transport_error"
+RC_ACCESS_DENIED = "access_denied"
+RC_RATE_LIMITED = "rate_limited"
+RC_PROVIDER_ERROR = "provider_error"
+RC_MODEL_MISSING = "model_not_found"
+RC_MODALITY = "image_modality_unsupported"
+RC_MEDIA_REJECTED = "image_rejected"
+RC_CLIENT_ERROR = "client_error"
+RC_EMPTY_BODY = "empty_body"
+RC_RESPONSE_NOT_JSON = "response_not_json"
+RC_SCHEMA_INVALID = "response_schema_invalid"
+RC_EMPTY_CHOICES = "empty_choices"
+RC_EMPTY_CONTENT = "empty_content"
+
+#: Причина → (код состояния витрины, RU-текст). Состояние — это группа, а
+#: причина — конкретика: «да» никогда не выводится из одного HTTP-статуса.
+RECOGNITION_REASONS: dict[str, tuple[str, str]] = {
+    RC_RECOGNIZED: (
+        "recognized",
+        "Распознавание выполнено: получен непустой результат модели"),
+    RC_NOT_CONFIGURED: (
+        "misconfigured", "Маршрут Vision не настроен: нет адреса или модели"),
+    RC_API_TYPE_UNSUPPORTED: (
+        "misconfigured", "Тип подключения Vision не поддерживается"),
+    RC_KEY_MISSING: (
+        "misconfigured",
+        "У отдельного Vision-подключения нет своего ключа"),
+    RC_TIMEOUT: (
+        "unreachable", "Провайдер не ответил: таймаут запроса"),
+    RC_TRANSPORT: (
+        "unreachable", "Сетевая ошибка при обращении к провайдеру"),
+    RC_ACCESS_DENIED: (
+        "access_denied", "Провайдер отклонил авторизацию (401/403)"),
+    RC_RATE_LIMITED: (
+        "rate_limited", "Провайдер ограничил частоту запросов (429)"),
+    RC_PROVIDER_ERROR: (
+        "provider_error", "Ошибка на стороне провайдера (5xx)"),
+    RC_MODEL_MISSING: (
+        "misconfigured", "Модель Vision не найдена у провайдера"),
+    RC_MODALITY: (
+        "not_accepted",
+        "Модель не принимает изображения (отказ модальности провайдера)"),
+    RC_MEDIA_REJECTED: (
+        "not_accepted", "Провайдер не принял тестовое изображение"),
+    RC_CLIENT_ERROR: (
+        "client_error",
+        "Провайдер отклонил запрос без признаков медиа-отказа"),
+    RC_EMPTY_BODY: (
+        "content_empty", "Пустой ответ провайдера: тела нет"),
+    RC_RESPONSE_NOT_JSON: (
+        "schema_invalid",
+        "Ответ провайдера не является JSON — HTTP 200 этого не доказывает"),
+    RC_SCHEMA_INVALID: (
+        "schema_invalid",
+        "Ответ не соответствует схеме completion (нет choices/message)"),
+    RC_EMPTY_CHOICES: (
+        "content_empty", "Ответ без вариантов завершения (choices пуст)"),
+    RC_EMPTY_CONTENT: (
+        "content_empty", "Модель вернула пустой текст распознавания"),
+}
+
+#: Причина проверки → reason_code единого словаря mca-13 (событие).
+#: Только существующие коды: второй словарь причин не вводится.
+_RECOGNITION_EVENT_REASON = {
+    RC_RECOGNIZED: "",
+    RC_NOT_CONFIGURED: "not_configured",
+    RC_API_TYPE_UNSUPPORTED: "not_configured",
+    RC_KEY_MISSING: "connection_missing",
+    RC_TIMEOUT: "timeout",
+    RC_TRANSPORT: "provider_unavailable",
+    RC_ACCESS_DENIED: "auth_failed",
+    RC_RATE_LIMITED: "rate_limit",
+    RC_PROVIDER_ERROR: "provider_unavailable",
+    RC_MODEL_MISSING: "model_unavailable",
+    RC_MODALITY: "vision_unsupported",
+    RC_MEDIA_REJECTED: "vision_unreadable",
+    RC_CLIENT_ERROR: "validation_failed",
+    RC_EMPTY_BODY: "empty_content",
+    RC_RESPONSE_NOT_JSON: "validation_failed",
+    RC_SCHEMA_INVALID: "validation_failed",
+    RC_EMPTY_CHOICES: "empty_content",
+    RC_EMPTY_CONTENT: "empty_content",
+}
+
+#: Безопасный образец содержимого: короткий, однострочный (R17: полный OCR/
+#: приватные данные в диагностику не уходят).
+_CONTENT_SAMPLE_MAX = 160
+
+#: Покрытие типов медиа — честно: проверка подтверждает ТОЛЬКО фото/PNG-фикстуру
+#: (тот же маршрут Vision); остальные типы требуют своего преобразования и
+#: одной проверкой не подтверждаются.
+RECOGNITION_MEDIA_COVERAGE = (
+    ("photo_docs", "фото и изображения-документы", True,
+     "Проверено этой проверкой: PNG-фикстура идёт тем же маршрутом Vision"),
+    ("static_stickers", "статические стикеры", False,
+     "Другой формат исходника — этой проверкой не подтверждено"),
+    ("gif_animations", "GIF и анимации", False,
+     "Нужно извлечение кадра — этой проверкой не подтверждено"),
+    ("animated_stickers", "анимированные и видеостикеры", False,
+     "Нужно извлечение кадра — этой проверкой не подтверждено"),
+    ("video_previews", "превью видео и видеосообщений", False,
+     "Нужно извлечение кадра — этой проверкой не подтверждено"),
+)
+
+
+def recognition_reason_label(reason: str) -> str:
+    """RU-текст причины проверки (единый источник для UI/событий)."""
+    entry = RECOGNITION_REASONS.get(str(reason or ""))
+    if entry is None:
+        return "Состояние распознавания не определено"
+    return entry[1]
+
+
+def recognition_state_for(reason: str) -> str:
+    """Код состояния витрины по причине (`recognized` | `content_empty` |
+    `schema_invalid` | `not_accepted` | `client_error` | `access_denied` |
+    `rate_limited` | `provider_error` | `unreachable` | `misconfigured`)."""
+    entry = RECOGNITION_REASONS.get(str(reason or ""))
+    return entry[0] if entry else "unknown"
+
+
+def _iso_utc(ts: float) -> str:
+    """UTC-метка времени без локали/секундных дробей (JSON-safe)."""
+    try:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(float(ts)))
+    except Exception:
+        return ""
+
+
+def _safe_content_sample(text) -> str:
+    """Безопасный однострочный образец ответа модели (≤160 симв.).
+    R17: переводы строк/управляющие символы схлопываются, полный текст
+    распознавания в диагностику не отдаётся."""
+    collapsed = " ".join(str(text or "").split())
+    cleaned = "".join(ch for ch in collapsed if ch.isprintable())
+    return cleaned[:_CONTENT_SAMPLE_MAX]
+
+
+def _completion_content(body) -> tuple[str, str]:
+    """Содержимое первого completion → (content, reason).
+
+    `reason` различает: `ok` | `schema_invalid` | `empty_choices` |
+    `empty_content`. Ключевое: HTTP 200 сам по себе ничего не доказывает —
+    форму ответа проверяем явно."""
+    if not isinstance(body, dict):
+        return "", RC_RESPONSE_NOT_JSON
+    choices = body.get("choices")
+    if not isinstance(choices, list):
+        return "", RC_SCHEMA_INVALID
+    if not choices:
+        return "", RC_EMPTY_CHOICES
+    first = choices[0]
+    if not isinstance(first, dict):
+        return "", RC_SCHEMA_INVALID
+    message = first.get("message")
+    if not isinstance(message, dict):
+        return "", RC_SCHEMA_INVALID
+    content = message.get("content")
+    if not isinstance(content, str):
+        return "", RC_SCHEMA_INVALID
+    if not content.strip():
+        return "", RC_EMPTY_CONTENT
+    return content, RC_RECOGNIZED
+
+
+async def _default_recognition_transport(url: str, *, payload: dict,
+                                         headers: dict, timeout: float
+                                         ) -> tuple[int, object, str]:
+    """Транспорт проверки распознавания: возвращает (status, body, raw_text).
+
+    В отличие от `_default_transport`, СОХРАНЯЕТ сырое тело: 200 с не-JSON
+    ответом должен быть отличим от 200 с валидным completion, иначе «неверная
+    схема» маскируется под успех. Ключ/URL не логируются (TH-3/R17)."""
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, json=payload, headers=headers)
+    raw = response.text or ""
+    try:
+        body = response.json()
+    except Exception:
+        body = None
+    return response.status_code, body, raw
+
+
+def _unpack_recognition_result(result) -> tuple[int, object, str | None]:
+    """Транспорт → (status, body, raw). Совместимость: тесты/вызывающие могут
+    отдавать и прежнюю пару (status, body) — тогда сырое тело неизвестно
+    (`None`), а не «пустое»."""
+    if isinstance(result, tuple):
+        if len(result) >= 3:
+            try:
+                status = int(result[0] or 0)
+            except (TypeError, ValueError):
+                status = 0
+            raw = result[2]
+            return status, result[1], (None if raw is None else str(raw))
+        if len(result) == 2:
+            try:
+                status = int(result[0] or 0)
+            except (TypeError, ValueError):
+                status = 0
+            return status, result[1], None
+    return 0, None, None
+
+
+async def _recognition_context(chat_id: int | None
+                               ) -> tuple[dict, list[dict]]:
+    """Производный контекст: готовность модуля + покрытие типов медиа.
+
+    Это НЕ сетевая проверка: те же effective-значения, что у витрины. Любая
+    ошибка чтения → пустой контекст (честное «неизвестно», не «выключено»)."""
+    pipeline: dict = {}
+    try:
+        state = await resolve_effective_state(chat_id)
+        pipeline = {
+            "module_requested": bool(state.requested),
+            "module_effective": bool(state.effective_enabled),
+            "module_reason": str(state.reason or ""),
+        }
+    except Exception:
+        logger.debug("[vision] recognition context failed", exc_info=True)
+        pipeline = {}
+    coverage: list[dict] = []
+    for type_key, label, tested, note in RECOGNITION_MEDIA_COVERAGE:
+        try:
+            enabled = bool(await resolve_media_type_enabled(chat_id, type_key))
+        except Exception:
+            enabled = None
+        coverage.append({"type": type_key, "label": label,
+                         "enabled": enabled,
+                         "tested_by_this_check": bool(tested),
+                         "note": note})
+    return pipeline, coverage
+
+
+def _pipeline_readiness(pipeline: dict, coverage: list[dict],
+                        content_ok: bool) -> dict:
+    """Готовность к рабочему pipeline — ПРОИЗВОДНАЯ и ограниченная.
+
+    Условия: модуль фактически включён, тип медиа «фото» включён и проверка
+    реально получила содержимое. Даже при `ready` это не доказывает
+    маршрутизацию реальных пользовательских медиа — приписка в `note`."""
+    note = ("Готовность выведена из состояния модуля/типа медиа и факта "
+            "полученного содержимого. Проверка не подтверждает обработку "
+            "реальных пользовательских сообщений.")
+    if not pipeline:
+        return {"ready": None, "reason": "unknown",
+                "label": "Состояние модуля неизвестно", "note": note}
+    if not pipeline.get("module_effective"):
+        reason = str(pipeline.get("module_reason") or "")
+        if not pipeline.get("module_requested"):
+            return {"ready": False, "reason": "module_disabled",
+                    "label": "Модуль распознавания выключен",
+                    "detail": reason, "note": note}
+        if reason == "capability_check_pending":
+            return {"ready": False, "reason": "module_check_pending",
+                    "label": "Модуль включён, но подключение не подтверждено",
+                    "detail": reason, "note": note}
+        return {"ready": False, "reason": "module_not_effective",
+                "label": "Модуль включён, но фактически не работает",
+                "detail": reason, "note": note}
+    photos = next((m for m in coverage if m.get("type") == "photo_docs"), {})
+    if photos and photos.get("enabled") is False:
+        return {"ready": False, "reason": "media_type_disabled",
+                "label": "Тип «фото и изображения» выключен", "note": note}
+    if not content_ok:
+        return {"ready": False, "reason": "recognition_not_proven",
+                "label": "Распознавание не подтверждено содержимым",
+                "note": note}
+    return {"ready": True, "reason": "recognition_proven",
+            "label": "Модуль включён, получено содержимое распознавания",
+            "note": note}
+
+
+def _emit_recognition_check(result: dict, route: VisionRoute) -> None:
+    """R17-safe событие проверки: коды/стадии/длительность, без тела и ключа.
+    Образец содержимого в телеметрию НЕ пишется (только длина)."""
+    try:
+        reason = _RECOGNITION_EVENT_REASON.get(
+            str(result.get("terminal_reason") or ""), "")
+        ok = bool(result.get("content_received"))
+        mca_events.emit_mca_event(
+            "vision_recognition_check",
+            outcome=("success" if ok else "failed"),
+            level=("INFO" if ok else "WARN"),
+            reason_code=reason or None,
+            stage=route.source,
+            component="vision.media",
+            model=route.model,
+            duration_ms=int(result.get("duration_ms") or 0),
+            error_json=None if ok else {
+                "state": str(result.get("state") or ""),
+                "terminal_reason": str(result.get("terminal_reason") or ""),
+                "media_accepted": result.get("media_accepted"),
+                "recognition_completed": bool(
+                    result.get("recognition_completed")),
+                "content_chars": int(result.get("content_chars") or 0),
+            },
+        )
+    except Exception:      # pragma: no cover - событие не роняет проверку
+        logger.debug("[vision] recognition check event failed", exc_info=True)
+
+
+async def recognition_check(route: VisionRoute | None = None, *,
+                            transport=None, chat_id: int | None = None,
+                            fixture_image: bytes | None = None) -> dict:
+    """«Проверить распознавание» (EVOL-019): структурированный результат
+    вместо одного «ок» по HTTP 200.
+
+    Выполняет ОДИН реальный запрос к действующему маршруту Vision с локальной
+    детерминированной фикстурой (никаких Telegram-отправок и пользовательских
+    данных) и честно разделяет: конфигурация → доступность провайдера →
+    принятие медиа → завершённость распознавания → полученное содержимое →
+    производную готовность pipeline. Пустой ответ, не-JSON, неверная схема,
+    401/403/429, таймаут и отказ модальности дают РАЗНЫЕ причины.
+
+    `paid_call` = True только если запрос ДЕЙСТВИТЕЛЬНО уходил провайдеру
+    (малый, но потенциально платный вызов): проверка не тратит бюджет молча.
+    """
+    route = route or resolve_route()
+    transport = transport or _default_recognition_transport
+    started_monotonic = time.monotonic()
+    started_ts = time.time()
+    sent = {"count": 0}
+
+    images = tuple(x for x in (fixture_image,) if isinstance(x, bytes)) \
+        or probe_images()
+    fixture = images[0]
+    try:
+        sniffed = sniff_image(fixture) or ("", 0, 0)
+    except Exception:
+        sniffed = ("", 0, 0)
+    fixture_info = {"kind": "local_fixture", "mime": str(sniffed[0] or ""),
+                    "width": int(sniffed[1] or 0),
+                    "height": int(sniffed[2] or 0),
+                    "bytes": len(fixture),
+                    "source": "generated_in_process"}
+    pipeline_ctx, coverage = await _recognition_context(chat_id)
+
+    def _result(*, terminal_reason: str, config_ok: bool,
+                provider_reachable=None, media_accepted=None,
+                recognition_completed: bool = False,
+                content: str = "", http_class: str = "",
+                stage: str = "") -> dict:
+        duration_ms = int(max(0.0, (time.monotonic() - started_monotonic))
+                          * 1000)
+        sample = _safe_content_sample(content)
+        state = recognition_state_for(terminal_reason)
+        result = {
+            "check": "recognition",
+            "state": state,
+            "config_ok": bool(config_ok),
+            "provider_reachable": provider_reachable,
+            "media_accepted": media_accepted,
+            "recognition_completed": bool(recognition_completed),
+            "content_received": bool(sample),
+            "content_sample": sample,
+            "content_chars": len(str(content or "").strip()),
+            "duration_ms": duration_ms,
+            "model": route.model,
+            "provider": provider_host(route.base_url),
+            "source": route.source,
+            "api_type": normalized_api_type(route),
+            "config_revision": route.config_revision,
+            "timestamp": _iso_utc(started_ts),
+            "checked_at": int(started_ts),
+            "terminal_reason": terminal_reason,
+            "terminal_reason_label": recognition_reason_label(
+                terminal_reason),
+            "http_class": http_class,
+            "stage": stage,
+            "paid_call": bool(sent["count"]),
+            "budget_note": (
+                "Проверка выполняет реальный запрос к провайдеру "
+                "распознавания (малый, но платный вызов)."),
+            "fixture": fixture_info,
+            "pipeline": _pipeline_readiness(
+                pipeline_ctx, coverage, bool(sample)),
+            "media_coverage": coverage,
+        }
+        _emit_recognition_check(result, route)
+        return result
+
+    # 1) Конфигурация (локально, без сети).
+    problem = route_config_problem(route)
+    if problem:
+        reason = {
+            "not_configured": RC_NOT_CONFIGURED,
+            "api_type_unsupported": RC_API_TYPE_UNSUPPORTED,
+            "vision_key_missing": RC_KEY_MISSING,
+        }.get(problem, RC_NOT_CONFIGURED)
+        return _result(terminal_reason=reason, config_ok=False,
+                       stage="config")
+
+    url = chat_completions_url(route.base_url)
+    key = api_key_for(route)
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+
+    def _http_class(status: int) -> str:
+        return f"http_{status}" if status else ""
+
+    async def _call(payload: dict, timeout: float):
+        """(status, body, raw, error_kind); error_kind ∈ ok|timeout|transport."""
+        sent["count"] += 1
+        try:
+            result = await transport(url, payload=payload, headers=headers,
+                                     timeout=timeout)
+        except (httpx.TimeoutException, TimeoutError):
+            return 0, None, None, "timeout"
+        except httpx.HTTPError:
+            return 0, None, None, "transport"
+        except Exception as exc:
+            # R17: только класс ошибки (сообщение httpx может содержать URL).
+            logger.debug("[vision] recognition transport failed | class=%s",
+                         type(exc).__name__)
+            return 0, None, None, "transport"
+        status, body, raw = _unpack_recognition_result(result)
+        return status, body, raw, "ok"
+
+    status, body, raw, err = await _call(
+        _image_probe_payload(route, fixture), _PROBE_TIMEOUT_SECONDS)
+    if err == "timeout":
+        return _result(terminal_reason=RC_TIMEOUT, config_ok=True,
+                       stage="recognition")
+    if err == "transport":
+        return _result(terminal_reason=RC_TRANSPORT, config_ok=True,
+                       stage="recognition")
+    http_class = _http_class(status)
+
+    # 2) Провайдер ответил — сеть в порядке. Дальше состояния разные.
+    if 200 <= status < 300:
+        provider_reachable = True
+        text = _probe_error_text(body if isinstance(body, dict) else {})
+        if text and _looks_like_modality_refusal(text):
+            return _result(terminal_reason=RC_MODALITY, config_ok=True,
+                           provider_reachable=True, media_accepted=False,
+                           http_class=http_class, stage="recognition")
+        if text and _looks_like_model_missing(text):
+            return _result(terminal_reason=RC_MODEL_MISSING, config_ok=True,
+                           provider_reachable=True, media_accepted=None,
+                           http_class=http_class, stage="recognition")
+        if raw is not None and not str(raw).strip():
+            return _result(terminal_reason=RC_EMPTY_BODY, config_ok=True,
+                           provider_reachable=True, media_accepted=True,
+                           http_class=http_class, stage="recognition")
+        if body is None:
+            return _result(terminal_reason=RC_RESPONSE_NOT_JSON, config_ok=True,
+                           provider_reachable=True, media_accepted=True,
+                           http_class=http_class, stage="recognition")
+        if isinstance(body, dict) and body.get("error"):
+            return _result(terminal_reason=RC_PROVIDER_ERROR, config_ok=True,
+                           provider_reachable=True, media_accepted=None,
+                           http_class=http_class, stage="recognition")
+        content, completion_reason = _completion_content(body)
+        if completion_reason != RC_RECOGNIZED:
+            return _result(terminal_reason=completion_reason, config_ok=True,
+                           provider_reachable=True, media_accepted=True,
+                           http_class=http_class, stage="recognition")
+        return _result(terminal_reason=RC_RECOGNIZED, config_ok=True,
+                       provider_reachable=True, media_accepted=True,
+                       recognition_completed=True, content=content,
+                       http_class=http_class, stage="recognition")
+
+    # 3) Не-2xx: провайдер достижим, но запрос отклонён — класс разный.
+    if status in (401, 403):
+        return _result(terminal_reason=RC_ACCESS_DENIED, config_ok=True,
+                       provider_reachable=True, media_accepted=None,
+                       http_class=http_class, stage="recognition")
+    if status == 429:
+        return _result(terminal_reason=RC_RATE_LIMITED, config_ok=True,
+                       provider_reachable=True, media_accepted=None,
+                       http_class=http_class, stage="recognition")
+    text = _probe_error_text(body if isinstance(body, dict) else {})
+    if text and _looks_like_modality_refusal(text):
+        return _result(terminal_reason=RC_MODALITY, config_ok=True,
+                       provider_reachable=True, media_accepted=False,
+                       http_class=http_class, stage="recognition")
+    if status >= 500:
+        return _result(terminal_reason=RC_PROVIDER_ERROR, config_ok=True,
+                       provider_reachable=True, media_accepted=None,
+                       http_class=http_class, stage="recognition")
+    if text and _looks_like_image_rejection(text):
+        return _result(terminal_reason=RC_MEDIA_REJECTED, config_ok=True,
+                       provider_reachable=True, media_accepted=False,
+                       http_class=http_class, stage="recognition")
+    return _result(terminal_reason=RC_CLIENT_ERROR, config_ok=True,
+                   provider_reachable=True, media_accepted=None,
+                   http_class=http_class, stage="recognition")
+
+
 # ── D8: автоматическая bounded-проба (singleflight) ─────────────────────────
 
 _PROBE_LOCKS: dict[str, asyncio.Lock] = {}
