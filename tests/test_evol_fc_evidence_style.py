@@ -851,6 +851,11 @@ BLOCK_EVENT_ONLY = ("Alphabet (GOOGL) shares fell on October 30\n"
 BLOCK_WRONG_SCALE = ("Alphabet (GOOGL) loses $658 million in market value\n"
                      "Shares fell as investors repriced the complex\n"
                      "https://markets.example.com/alphabet-mn")
+#: Верный факт, но валюта словом: «658 billion dollars» = $658 млрд.
+BLOCK_ALPHABET_DOLLARS = (
+    "Alphabet lost 658 billion dollars of market value\n"
+    "Investors repriced the whole complex\n"
+    "https://news.example.com/alphabet-dollars")
 
 
 def test_review_f1a_units_must_match_scale(planner_on):
@@ -948,6 +953,39 @@ def test_review_f1d_direction_morphology(planner_on):
                                  claim_type=claim.claim_type)
         assert rel.opposite is True, body
         assert rel.role != sa.EVIDENCE_ROLE_SUPPORTS
+
+
+def test_review_f1e_currency_words_in_sources(planner_on):
+    """RED: валюты словами не токенизировались → верный источник = расхождение.
+
+    PASS: «658 billion dollars» даёт те же классы (billion+usd), верный источник
+    подтверждает тезис, а два верных источника (символ/слово) не превращаются
+    в «источники расходятся».
+    """
+    assert sa._unit_classes("658 billion dollars") == {"billion", "usd"}
+    assert sa._unit_classes("gold rose to 4,200 dollars") == {"usd"}
+    assert sa._unit_classes("3 rubles") == {"rub"}
+
+    unit = "Alphabet (GOOGL) потерял $658 млрд капитализации."
+    plan = _plan(unit)
+    claim = plan.claims[0]
+    rel = sa.claim_relevance(
+        BLOCK_ALPHABET_DOLLARS, claim_text=claim.vocabulary(),
+        anchor_terms=claim.foreign_terms, metrics=claim.metrics,
+        entities=claim.entities, claim_type=claim.claim_type)
+    assert rel.number_mismatch is False
+    assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS and rel.strong is True
+
+    cov = asyncio_run(_retrieve(plan, RoutedAggregator(
+        (("alphabet", BLOCK_ALPHABET_DOLLARS),)))).claims[0]
+    assert cov.outcome == fsp.CLAIM_OUTCOME_CONFIRMED
+    assert cov.status_detail == fsp.CLAIM_STATUS_VERIFIED
+
+    both = asyncio_run(_retrieve(plan, RoutedAggregator(
+        (("alphabet", BLOCK_ALPHABET + "\n\n" + BLOCK_ALPHABET_DOLLARS),))))
+    cov_both = both.claims[0]
+    assert {e.role for e in cov_both.evidence} == {sa.EVIDENCE_ROLE_SUPPORTS}
+    assert cov_both.outcome == fsp.CLAIM_OUTCOME_CONFIRMED
 
 
 @pytest.mark.asyncio

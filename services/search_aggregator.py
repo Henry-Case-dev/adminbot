@@ -290,6 +290,9 @@ _NUMBER_TOKEN_RE = re.compile(r"\d+(?:[.,]\d+)?")
 _UNIT_TOKEN_RE = re.compile(
     r"(млрд|млр|млн|мл|трлн|тыс|%|процент\w*|п\.п\.?|пункт\w*|руб\w*|"
     r"доллар\w*|долл\.?|юан\w*|фунт\w*|евро|\$|€|£|₽|"
+    # валюты/проценты словами в источниках: «658 billion dollars» — это млрд
+    # долларов, а не «billion» без валюты (иначе верный источник = расхождение)
+    r"dollars?|euros?|pounds?|cents?|rubles?|percentage|"
     r"billion|trillion|million|thousand|percent|pct|points?|usd|eur|gbp|"
     r"rub|bn|mn)", re.IGNORECASE)
 

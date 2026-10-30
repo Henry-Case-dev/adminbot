@@ -441,3 +441,8 @@ reason_code/queries_count/candidates/opened/roles/citation_ids/providers`.
 (например, «market cap loss» vs «price drop» различаются только тезисом и
 якорем, не семантическим парсером) — это по-прежнему консервативная
 детерминированная проверка, а не вывод LLM.
+
+### F1e (RELATED_SMALL, review round 3) — валюты словами в источнике
+
+**RED:** `_UNIT_TOKEN_RE` без `dollars/euros/pounds/cents/rubles/percentage` → `_unit_classes("658 billion dollars") == {"billion"}`, верный источник «658 billion dollars» против тезиса «$658 млрд» = `qualifies/mismatch` и `conflicting_evidence` («расходятся в числе/единице»), два верных источника `$658 billion`+`658 billion dollars` = «есть данные за и против». **PASS:** обе репродукции `supports/strong` → `confirmed/verified`, оба источника `supports` без конфликта, `gold rose to 4,200 dollars` → `{"usd"}`; фикс — только альтернативы валют в `_UNIT_TOKEN_RE` (классы уже в `_unit_class`), тест `test_review_f1e_currency_words_in_sources`.
+Проверки: `tests/test_evol_fc_evidence_style.py` **24 passed**; `-k "factcheck or fc_evidence"` **609 passed**; широкий срез **1496 passed** (2 падения `test_factcheck_post_release_w1.py::TestAggregatorFailureTaxonomy` воспроизводятся на неизменённом `2033a2c0` — тесты патчат только tavily/exa, уровень DDG ходит в сеть; предсуществующая среда). Остаток вне скоупа: `pounds`/`cents` токенизируются, но записи `pound`/`cent` в `_CURRENCY_CLASSES` нет (класс пуст — консервативно, ложного подтверждения нет); `4,200` в источнике ≠ `4200` — предсуществующая консервативность `_numbers_in`.
