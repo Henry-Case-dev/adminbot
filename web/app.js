@@ -9221,7 +9221,13 @@
         var self = this;
         var openNow = function () {
           self.episodesApplyDeepLink();
-          self.openEpisodeCard(episodeId);
+          // `openEpisodeCard` — ТУМБЛЕР: повторный вызов по тому же id
+          // закрывает карточку. «Открыть в памяти» обязана карточку
+          // ПОКАЗЫВАТЬ, поэтому тумблер здесь не переиспользуется.
+          if (!self.episodeCard
+              || String(self.episodeCard.episode_id) !== String(episodeId)) {
+            self.openEpisodeCard(episodeId);
+          }
         };
         if (this.route === '#/memory' || this.route === '#/memory/rag') {
           // Уже в «Памяти»: адресуем эпизод без смены экрана (pushState —
@@ -9311,21 +9317,31 @@
           var n = parseInt(v, 10);
           return isNaN(n) ? null : n;
         };
-        var body = {
-          enabled: d.enabled === true,
-          summarizer_model: String(d.summarizer_model || ''),
-          quiet_hours: String(d.quiet_hours || ''),
+        // Отправляем ТОЛЬКО изменённые поля: сервер пишет per-chat override,
+        // поэтому отправка всех полей подряд материализовала бы каждый ключ и
+        // чат потерял бы наследование глобальных значений после 1-го сохранения.
+        var eff = (this.memeSettings && this.memeSettings.settings) || {};
+        var body = {};
+        var put = function (field, value, current) {
+          if (value !== current) body[field] = value;
         };
-        var win = num(d.window_messages);
-        if (win != null) body.window_messages = win;
-        var limit = num(d.daily_limit);
-        if (limit != null) body.daily_limit = limit;
-        var cool = num(d.cooldown_seconds);
-        if (cool != null) body.cooldown_seconds = cool;
-        var minm = num(d.min_messages);
-        if (minm != null) body.min_messages = minm;
-        var len = num(d.length_limit);
-        if (len != null) body.length_limit = len;
+        put('enabled', d.enabled === true, eff.enabled === true);
+        put('summarizer_model', String(d.summarizer_model || ''),
+            String(eff.summarizer_model || ''));
+        put('quiet_hours', String(d.quiet_hours || ''),
+            String(eff.quiet_hours || ''));
+        put('window_messages', num(d.window_messages),
+            num(eff.window_messages));
+        put('daily_limit', num(d.daily_limit), num(eff.daily_limit));
+        put('cooldown_seconds', num(d.cooldown_seconds),
+            num(eff.cooldown_seconds));
+        put('min_messages', num(d.min_messages), num(eff.min_messages));
+        put('length_limit', num(d.length_limit), num(eff.length_admin));
+        if (!Object.keys(body).length) {
+          // Ничего не менялось: пустое тело сервер честно отклонил бы (422).
+          this.toast('Настройки мемов не изменены', 'ok');
+          return;
+        }
         this.memeSettingsSaving = true;
         this.memeSettingsError = '';
         try {

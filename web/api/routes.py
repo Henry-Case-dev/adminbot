@@ -3878,7 +3878,11 @@ async def get_episode_card(
 # ключ (`flags.meme_initiative_enabled`), отдельный от текстовой инициативы.
 # Запись идёт тем же per-chat override-путём, что и остальные настройки чата
 # (POST /api/config не подходит: `initiative.meme_*` — не ключи каталога).
-_MEME_QUIET_HOURS_RE = r"^(?:[0-2]?\d:[0-5]\d-[0-2]?\d:[0-5]\d)?$"
+# Тихие часы: `HH:MM-HH:MM` (пусто = не заданы). Часы строго 00–23, минуты
+# 00–59 — «25:00-26:00» не время суток и отклоняется (422), а не сохраняется.
+_MEME_QUIET_HOURS_RE = (
+    r"^(?:(?:[01]?\d|2[0-3]):[0-5]\d-(?:[01]?\d|2[0-3]):[0-5]\d)?$"
+)
 
 
 class MemeSettingsUpdate(BaseModel):

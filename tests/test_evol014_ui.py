@@ -199,9 +199,25 @@ def test_quiet_hours_validation(client):
     resp = client.post(ENDPOINT, json={"quiet_hours": "25:99"},
                        headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
     assert resp.status_code == 422
+    # Часы вне суток недопустимы даже при корректных минутах: раньше
+    # «25:00-26:00» сохранялось как «тихие часы» и никогда не срабатывало.
+    for bad in ("25:00-26:00", "24:00-01:00", "23:00-07:60", "7:5-9:0",
+                "07:00", "07:00-"):
+        resp = client.post(ENDPOINT, json={"quiet_hours": bad},
+                           headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
+        assert resp.status_code == 422, (bad, resp.text)
     ok = client.post(ENDPOINT, json={"quiet_hours": "23:00-07:30"},
                      headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
     assert ok.status_code == 200, ok.text
+    # Пустая строка = тихие часы не заданы (снять настройку можно).
+    empty = client.post(ENDPOINT, json={"quiet_hours": ""},
+                        headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["settings"]["quiet_hours"] in (None, "")
+    # Границы суток допустимы.
+    assert client.post(ENDPOINT, json={"quiet_hours": "00:00-23:59"},
+                       headers={**_hdr(), "X-Chat-Id": str(CHAT_A)}
+                       ).status_code == 200
 
 
 def test_post_writes_chat_override_without_touching_master(client):

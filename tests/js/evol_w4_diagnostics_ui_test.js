@@ -290,23 +290,88 @@ for (const name of ['loadExperiencePipeline', 'toggleExpStage',
 })();
 
 // ── 5. Адресный переход «Открыть в памяти» ────────────────────────────────
-(function () {
-  const calls = [];
-  const ctx = {
-    episodeFocusId: '',
-    route: '#/status',
-    navigateTo: function (r) { calls.push(r); },
-    $nextTick: function (fn) { fn(); },
-    episodesApplyDeepLink: function () { calls.push('deep'); },
-    openEpisodeCard: function (id) { calls.push('card:' + id); },
+// Проверяется РЕАЛЬНЫЙ путь (настоящий `openEpisodeCard`-тумблер и настоящий
+// `episodesApplyDeepLink`), а не заглушка: иначе дефект «клик закрывает уже
+// открытую карточку того же эпизода» тестом не ловится.
+async function deepLinkSection() {
+  const urls = [];
+  global.history.pushState = function (state, title, url) {
+    urls.push(url);
+    global.window.location.hash = url;
   };
-  methods.openEpisodeInMemory.call(ctx, 'ep-9');
-  assert.strictEqual(ctx.episodeFocusId, 'ep-9');
-  assert.strictEqual(calls[0], '#/memory');
-  assert.strictEqual(calls[1], 'deep');
-  assert.strictEqual(calls[2], 'card:ep-9');
+  global.history.replaceState = function (state, title, url) {
+    urls.push(url);
+    global.window.location.hash = url;
+  };
 
-  // Ссылка читается из hash: ?episode=<id>.
+  const makeCtx = function (card) {
+    const calls = [];
+    const ctx = {
+      episodeFocusId: '', route: '#/memory', episodeCard: card || null,
+      episodeCardBusy: false, episodeCardError: '', episodeTechOpen: false,
+      scopeEpoch: 7, calls: calls,
+      navigateTo: function (r) { calls.push('nav:' + r); },
+      $nextTick: function (fn) { fn(); },
+      api: async function (url) {
+        calls.push('api:' + url);
+        return { episode_id: url.split('/').pop() };
+      },
+      _scopeGuard: function (epoch) { return epoch === this.scopeEpoch; },
+    };
+    ctx.episodesApplyDeepLink = methods.episodesApplyDeepLink;
+    ctx.openEpisodeCard = methods.openEpisodeCard;
+    ctx.openEpisodeInMemory = methods.openEpisodeInMemory;
+    return ctx;
+  };
+  const apiCalls = function (ctx) {
+    return ctx.calls.filter(function (c) { return c.indexOf('api:') === 0; });
+  };
+  const flush = function () {
+    return new Promise(function (r) { setImmediate(r); });
+  };
+
+  // (а) Карточка того же эпизода УЖЕ открыта: клик её НЕ закрывает.
+  global.window.location.hash = '#/memory?episode=ep-9';
+  let ctx = makeCtx({ episode_id: 'ep-9' });
+  methods.openEpisodeInMemory.call(ctx, 'ep-9');
+  await flush();
+  assert.ok(ctx.episodeCard, 'карточка закрылась вместо показа');
+  assert.strictEqual(ctx.episodeCard.episode_id, 'ep-9');
+  assert.strictEqual(urls[urls.length - 1], '#/memory?episode=ep-9');
+  assert.deepStrictEqual(apiCalls(ctx), [], 'лишний запрос карточки');
+
+  // (б) Карточки нет: клик загружает и показывает ровно этот эпизод.
+  global.window.location.hash = '#/memory';
+  ctx = makeCtx(null);
+  methods.openEpisodeInMemory.call(ctx, 'ep-5');
+  await flush();
+  assert.strictEqual(ctx.episodeFocusId, 'ep-5');
+  assert.ok(ctx.episodeCard, 'карточка не открылась');
+  assert.strictEqual(ctx.episodeCard.episode_id, 'ep-5');
+  assert.strictEqual(urls[urls.length - 1], '#/memory?episode=ep-5');
+  assert.deepStrictEqual(apiCalls(ctx), ['api:/api/episodes/ep-5']);
+
+  // (в) Открыта карточка ДРУГОГО эпизода: клик переключает на нужный.
+  global.window.location.hash = '#/memory?episode=ep-1';
+  ctx = makeCtx({ episode_id: 'ep-1' });
+  methods.openEpisodeInMemory.call(ctx, 'ep-2');
+  await flush();
+  assert.ok(ctx.episodeCard);
+  assert.strictEqual(ctx.episodeCard.episode_id, 'ep-2');
+
+  // (г) Вне «Памяти»: навигация на экран + replaceState на адресный hash.
+  global.window.location.hash = '';
+  const calls = [];
+  ctx = makeCtx(null);
+  ctx.route = '#/status';
+  ctx.navigateTo = function (r) { calls.push(r); };
+  methods.openEpisodeInMemory.call(ctx, 'ep-9');
+  await flush();
+  assert.strictEqual(calls[0], '#/memory');
+  assert.strictEqual(urls[urls.length - 1], '#/memory?episode=ep-9');
+  assert.strictEqual(ctx.episodeCard.episode_id, 'ep-9');
+
+  // (д) Ссылка читается из hash: ?episode=<id>.
   global.window.location.hash = '#/memory?episode=ep-42';
   const parsed = methods.episodesApplyDeepLink.call({
     episodeFocusId: '', episodeCard: null,
@@ -318,6 +383,57 @@ for (const name of ['loadExperiencePipeline', 'toggleExpStage',
   assert.strictEqual(methods.episodesApplyDeepLink.call({
     episodeFocusId: 'x', episodeCard: null, openEpisodeCard() {},
   }), null);
-})();
+}
 
-console.log('EVOL-W4-UI-OK');
+// ── 6. Сохранение мемов: ТОЛЬКО изменённые поля ───────────────────────────
+// Сервер пишет per-chat override, поэтому отправка всего черновика
+// материализовала бы каждый ключ и чат потерял бы наследование глобальных
+// значений уже после первого сохранения.
+async function memeSaveSection() {
+  const eff = {
+    enabled: false, window_messages: 300, daily_limit: 3,
+    cooldown_seconds: 3600, min_messages: 5,
+    summarizer_model: '', quiet_hours: '', length_admin: 400,
+  };
+  const bodies = [];
+  const ctx = {
+    activeChatId: -100111, memeSettingsSaving: false, memeSettingsError: '',
+    memeSettings: { settings: eff },
+    memeDraft: methods.memeDraftFromSettings.call({}, { settings: eff }),
+    memeDraftFromSettings: methods.memeDraftFromSettings,
+    api: async function (url, opts) {
+      bodies.push(JSON.parse(opts.body));
+      return { settings: Object.assign({}, eff) };
+    },
+    toast: function () {},
+  };
+
+  // (а) Ничего не менялось — запрос не отправляется вовсе.
+  await methods.saveMemeSettings.call(ctx);
+  assert.deepStrictEqual(bodies, []);
+
+  // (б) Изменено одно поле — уходит ровно оно.
+  ctx.memeDraft.daily_limit = 5;
+  await methods.saveMemeSettings.call(ctx);
+  assert.deepStrictEqual(bodies, [{ daily_limit: 5 }]);
+
+  // (в) Снятие непустых значений — явная отправка пустого (наследование).
+  ctx.memeSettings = { settings: Object.assign({}, eff, {
+    summarizer_model: 'gemini-2.5-flash', quiet_hours: '23:00-07:00',
+  }) };
+  ctx.memeDraft = methods.memeDraftFromSettings.call({}, ctx.memeSettings);
+  ctx.memeDraft.quiet_hours = '';
+  ctx.memeDraft.summarizer_model = '';
+  await methods.saveMemeSettings.call(ctx);
+  assert.deepStrictEqual(bodies[bodies.length - 1],
+                         { summarizer_model: '', quiet_hours: '' });
+}
+
+(async function () {
+  await deepLinkSection();
+  await memeSaveSection();
+  console.log('EVOL-W4-UI-OK');
+})().catch(function (e) {
+  console.error((e && e.stack) || e);
+  process.exit(1);
+});
