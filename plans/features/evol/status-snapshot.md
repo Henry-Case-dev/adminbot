@@ -1,7 +1,8 @@
 # EVOL — статус по требованиям (снимок 31.10.2026)
 
-Карта: `plans/features/evol/requirements-map.json` (50 обязательных требований: EVOL-001..045 + EVOL-DoD + 4 дельты аддендума 31.10:
-`EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-GLASS-SEAM`).
+Карта: `plans/features/evol/requirements-map.json` (53 обязательных требования: EVOL-001..045 + EVOL-DoD + 4 дельты аддендума 31.10
+`EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-GLASS-SEAM` + три поставленных в очередь поручения 31.10
+`EVOL-SRC-READER`, `EVOL-COG-MAP`, `ASAP-FC-ADMISSION-01`).
 Ветка реализации: `evol/impl`, вершина `18baa36b`. Деплой не выполнялся.
 
 ## Как записан статус
@@ -47,6 +48,8 @@
 
 Итого привязано доказательств: **24 требования** (001..022, 031, 032). Не начато: 23 требования (023..030, 033..045) + DoD.
 Дополнительно из аддендума 31.10: 3 требования в работе (`BUILDING`), 1 не начато (`PENDING`) — доказательств пока нет.
+Дополнительно из поручений 31.10: 3 требования поставлены в очередь (`PENDING`, доказательств нет) — `EVOL-SRC-READER`, `EVOL-COG-MAP`,
+`ASAP-FC-ADMISSION-01`. Итоговый знаменатель обязательных требований: **53**, из них с привязанными доказательствами — 24.
 
 ## Аддендум 31.10.2026 — четыре дельты активного эпика (OI-2026-10-31-EVOL-ADDENDUM)
 
@@ -67,22 +70,47 @@
 Оговорка по §5.3: UI-часть настройки живёт в `web/app.js` — этот файл остаётся за UI-цепочкой, отдельного параллельного писателя нет
 (зафиксировано в `depends_note` узла).
 
+## Поручения 31.10.2026 — SRC/COG и ASAP-FC-ADMISSION (поставлены в очередь, не начаты)
+
+Два отдельных более поздних поручения владельца, не входящих в аддендум 911-1155. Обе записи зарегистрированы в
+`plans/progress_scope.json` как `OI-2026-10-31-EVOL-SRC-COG` и `OI-2026-10-31-ASAP-FC-ADMISSION` (обе `reconciled: false` —
+глобальный индекс обновляет Orchestrator; здесь только карта/граф/снимок).
+
+| Слайс (req_id) | Строки источника | Что закрывает | Зависит от (уже поставлено) | Волна | Статус |
+|---|---|---|---|---|---|
+| `EVOL-SRC-READER` | 1158-1235 (§1) | Source Code Reader: discovery → locator → verified fetch → bounded follow-up → Evidence Contract, безопасность (§1.2), поведение при неоднозначности (§1.3), правила доказательности §1.4, 7 конечных сценариев §1.5 | `EVOL-W0-AUDIT`, `EVOL-B-QUOTE`, `EVOL-B-TELEMETRY`, `EVOL-B-PROMPTREG`, `EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT` | W6 | `PENDING` (конец очереди) |
+| `EVOL-COG-MAP` | 1238-1348 (§2) | Когнитивная карта вместо «Графа связей»: адаптер данных §2.3, визуальная система §2.4, легенда/LOD §2.4, drilldown к источнику §2.5, паритет старого графа §2.6, mobile-first embedded+fullscreen §2.7, производительность §2.8, проверки §2.9; `/api/memory/graph` и `/api/memory/stats` сохраняются | `EVOL-UI-FULLDOD`, `EVOL-UI-HEALTHGLASS` (EVOL-032), `EVOL-UI-STORIES` (EVOL-021), `EVOL-UI-DESIGN` (EVOL-022), `EVOL-B-EXP`, `EVOL-B-FACTS`, `EVOL-B-MEMCYCLES`, `EVOL-B-TELEMETRY`, `EVOL-SRC-READER` | W7 | `PENDING` (конец очереди) |
+| `ASAP-FC-ADMISSION-01` | 1363-1426 (§1-§5) | Механизм допуска фактчека (явное намерение важнее «ерундовости», три различаемых исхода, §2) + cooldown после ложного отказа (§3 этапы A-E), 8 детерминированных сценариев §5 | `EVOL-W0-AUDIT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-B-QUOTE`, `EVOL-B-PROMPTREG`, `EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT` | W5-ADMISSION | `QUEUED` → в карте `PENDING` |
+
+Порядок по указанию владельца: **ASAP-FC-ADMISSION-01** берётся сразу после завершения фактических правок фактчека и Reviewer-приёмки
+`EVOL-FACTCHECK-CRITICAL` (не параллельно, без повторного большого аудита). **EVOL-SRC-READER** и **EVOL-COG-MAP** — строго в конец
+очереди, после текущих UI-волн; оба добавлены в `EVOL-RELEASE.depends_on`, чтобы релиз не опережал поручение. Доказательств у трёх
+новых требований нет: `PENDING`, без `VERIFIED` и без `review_verdict`.
+
+Классификация строк 1158-1430: **124** записи (88 `required` + 23 `duplicate` + 13 `context`); непокрытых строк нет.
+Прозаические абзацы (1225, 1242/1244/1246/1248, 1302, 1339-1347, 1395/1397/1399/1401/1403, 1360) не входят в построчный инвентарь
+гейта, поэтому их обязательства закреплены в `acceptance` соответствующих req и в `reason` ближайших строк — проверять их нужно по
+тексту acceptance, а не по числу строк.
+
 ## Гейт плана
 
 `py C:\Users\main\.config\opencode\tools\requirements_gate.py check --map plans/features/evol/requirements-map.json --stage plan --repo .`
-→ **EXIT 1**, `inventory=406 manual=279 errors=124`.
+→ **EXIT 0**, `stage=plan inventory=530 manual=279 scoped=0 errors=0`.
 Запускать **из корня основного репозитория** (`C:\Code\Python\adminbot`): `plans/current_task.md` в `.gitignore` и в worktree отсутствует,
 иначе гейт даёт `source not present` и лавину ложных «gone or edited».
 
-Состав ошибок сейчас — **только** `source item not mapped` для строк **1166-1428**: это отдельное более позднее поручение владельца
-§SRC/COG (`plans/owner_inputs/2026-10-31-evol-src-cog.md`, строки 1158-1430), не входящее в аддендум 911-1155.
+Состав ошибок сейчас — **0**. Ранее падавшие 124 ошибки `source item not mapped` для строк **1166-1428** закрыты этим проходом:
+строки 1158-1430 разложены как `OI-2026-10-31-EVOL-SRC-COG` (SRC/COG) и `OI-2026-10-31-ASAP-FC-ADMISSION`.
 Ошибок внутри 911-1155 — **0**; расхождения sha источника — **0**; ошибок графа (циклы/пересечение write_scope/отсутствующие узлы) — **0**.
 Прежние 103 ошибки (1 × `authoritative source changed` + 102 × `source item not mapped` в 911-1155) закрыты.
 
 ## Что дальше
 
 1. Orchestrator: перенести обновлённую карту в ветку `evol/impl` (в `master` каталог `plans/features/evol/` сейчас **untracked**, правка живёт только в рабочей копии).
-2. Orchestrator: дельта аддендума 911-1155 разложена по карте и графу (эта секция выше); остаётся закрыть **другое** поручение
-   §SRC/COG (строки 1158-1430, `plans/owner_inputs/2026-10-31-evol-src-cog.md`) — именно на нём сейчас падает гейт плана.
+2. Orchestrator: выставить `reconciled: true` для `OI-2026-10-31-EVOL-SRC-COG` и `OI-2026-10-31-ASAP-FC-ADMISSION` в `plans/progress_scope.json`
+   (карта/граф/снимок уже покрывают оба поручения; строки 1158-1430 классифицированы, гейт плана EXIT 0) и учесть 3 новых требования в знаменателе прогресса.
 3. Ревью `18baa36b` → снять `ui_review: pending` у 014/019/020/021 и привязать UI-доказательства.
 4. Затем EVOL-033 как интеграционный гейт, после него — релиз и `VERIFIED` (для 010/031 плюс live-проверка на проде).
+5. Порядок очереди после текущих волн: `ASAP-FC-ADMISSION-01` (сразу после Reviewer-приёмки `EVOL-FACTCHECK-CRITICAL`) → `EVOL-SRC-READER` (W6) → `EVOL-COG-MAP` (W7) → `EVOL-RELEASE`.
+   Параллельно эти три слайса с текущими писателями не запускать: у SRC/COG пересечение по `handlers/**`, `web/**`, у ASAP — по `services/factcheck_*`.
+

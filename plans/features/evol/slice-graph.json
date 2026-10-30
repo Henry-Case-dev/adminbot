@@ -1,6 +1,6 @@
 {
  "schema": "openworkflow-slices-v1",
- "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода). Аддендум 31.10.2026 (OI-2026-10-31-EVOL-ADDENDUM): четыре дельты активного эпика вынесены в отдельные W5-слайсы EVOL-SOCIAL-FRAME / EVOL-VIDEO-INTENT / EVOL-FACTCHECK-CRITICAL / EVOL-GLASS-SEAM; они зависят от уже поставленных слайсов (QUOTE/SMARTCACHE/PROMPTREG/PROMPTCONV/HEALTHGLASS), входят в EVOL-RELEASE и (стекло) в EVOL-UI-FULLDOD.",
+ "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода). Аддендум 31.10.2026 (OI-2026-10-31-EVOL-ADDENDUM): четыре дельты активного эпика вынесены в отдельные W5-слайсы EVOL-SOCIAL-FRAME / EVOL-VIDEO-INTENT / EVOL-FACTCHECK-CRITICAL / EVOL-GLASS-SEAM; они зависят от уже поставленных слайсов (QUOTE/SMARTCACHE/PROMPTREG/PROMPTCONV/HEALTHGLASS), входят в EVOL-RELEASE и (стекло) в EVOL-UI-FULLDOD. Поручение 31.10.2026 (OI-2026-10-31-EVOL-SRC-COG): EVOL-SRC-READER (W6) и EVOL-COG-MAP (W7) — конец очереди по указанию владельца; SRC зависит от существующего tool router/safe fetch/WebContentExtractor и писателей handlers/**+direct_chat_service+agentic_events, COG — от UI-цепочки (через EVOL-UI-FULLDOD), HEALTHGLASS/STORIES/DESIGN и источников данных лент, при сохранении /api/memory/graph. Оба входят в EVOL-RELEASE.depends_on. Отдельное поручение OI-2026-10-31-ASAP-FC-ADMISSION: ASAP-FC-ADMISSION-01 (W5-ADMISSION) — сразу после EVOL-FACTCHECK-CRITICAL и его Reviewer-приёмки, не параллельно с правками фактчека.",
  "slices": [
   {
    "id": "EVOL-W0-AUDIT",
@@ -713,7 +713,9 @@
     "EVOL-SOCIAL-FRAME",
     "EVOL-VIDEO-INTENT",
     "EVOL-FACTCHECK-CRITICAL",
-    "EVOL-GLASS-SEAM"
+    "EVOL-GLASS-SEAM",
+    "EVOL-SRC-READER",
+    "EVOL-COG-MAP"
    ],
    "write_scope": [
     "plans/features/evol/release/**",
@@ -855,6 +857,92 @@
    "next_role": "Builder",
    "rationale": "Один дефект отрисовки с одной причиной и визуальной before/after-приёмкой внутри уже принятого стеклянного фундамента EVOL-032.",
    "depends_note": "Опирается на поставленный фундамент EVOL-032 (EVOL-UI-HEALTHGLASS); оптика/refraction не переделываются, шов не маскируется градиентом/blur."
+  },
+  {
+   "id": "EVOL-SRC-READER",
+   "title": "EVOL-SRC-*: универсальное нахождение и проверенное чтение исходного кода (discovery → locator → verified fetch → bounded follow-up → evidence contract) + правила доказательности §1.4",
+   "wave": "W6",
+   "depends_on": [
+    "EVOL-W0-AUDIT",
+    "EVOL-B-QUOTE",
+    "EVOL-B-TELEMETRY",
+    "EVOL-B-PROMPTREG",
+    "EVOL-SOCIAL-FRAME",
+    "EVOL-VIDEO-INTENT"
+   ],
+   "write_scope": [
+    "services/source_reader.py",
+    "services/tool_router.py",
+    "services/web_content_extractor.py",
+    "services/direct_chat_service.py",
+    "services/agentic_events.py",
+    "handlers/direct_chat.py",
+    "tests/test_evol_source_reader.py",
+    "plans/features/evol/audit/w6-source-reader.md"
+   ],
+   "acceptance": "read_source_code (или эквивалент по naming-контракту проекта) переиспользует существующий tool router/safe fetch/WebContentExtractor и SSRF-защиту; 7 сценариев §1.5 проходят на детерминированных фикстурах (blob-ссылка, только имя репозитория, только описание, цепочка смежных классов, 403/404/rate limit/timeout/HTML/сниппет, неверная дата реплики, отсутствие лишних вызовов и утечек); Evidence Contract возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance и не объявляет verified по сниппетам; события discovery/locator/fetch различимы в телеметрии; правила §1.4 проверены в тех же сценариях; имена GregTech/файлы/ветки/модели не зашиты в runtime.",
+   "req_ids": [
+    "EVOL-SRC-READER"
+   ],
+   "depends_note": "Владелец: выполнять последним в очереди. Зависимости — реальные писатели в тех же файлах: handlers/** (EVOL-B-QUOTE), handlers/direct_chat.py (EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT), services/direct_chat_service.py (EVOL-B-SMARTCACHE через SOCIAL-FRAME), services/agentic_events.py (EVOL-B-TELEMETRY), services/prompt_* (EVOL-B-PROMPTREG). Новый search/fetch-пайплайн не создаётся."
+  },
+  {
+   "id": "EVOL-COG-MAP",
+   "title": "EVOL-COG-*: Когнитивная карта вместо виджета «Граф связей» — адаптер данных, визуальная система, легенда/LOD, drilldown к источнику, mobile-first embedded+fullscreen, паритет старого графа, производительность",
+   "wave": "W7",
+   "depends_on": [
+    "EVOL-UI-FULLDOD",
+    "EVOL-UI-HEALTHGLASS",
+    "EVOL-UI-STORIES",
+    "EVOL-UI-DESIGN",
+    "EVOL-B-EXP",
+    "EVOL-B-FACTS",
+    "EVOL-B-MEMCYCLES",
+    "EVOL-B-TELEMETRY",
+    "EVOL-SRC-READER"
+   ],
+   "write_scope": [
+    "web/index.html",
+    "web/app.js",
+    "web/static/app.css",
+    "web/static/cognitive-map.js",
+    "web/static/design-tokens.css",
+    "web/api/memory_graph.py",
+    "web/api/memory_agi.py",
+    "tests/js/evol_cognitive_map_test.js",
+    "plans/features/evol/audit/w7-cognitive-map.md"
+   ],
+   "acceptance": "Виджет «Граф связей» на «Статусе» заменён Когнитивной картой на реальных данных с сохранением GET /api/memory/graph и /api/memory/stats (аддитивный адаптер, старый контракт не перепрофилирован); четыре ленты (Факты/Убеждения/Парадигмы/Эволюция, EVOL-021/EVOL-032) собраны в одном стеклянном блоке сразу под картой без регрессии дат/модалок/автодвижения; проверки §2.9 закрыты: данные/права (2 чата + global, изолированные узлы, нет выдуманных рёбер, нет доступа к чужому чату), интерактивность (поиск/фильтры/reset/pan/zoom/выбор узла и ребра/источник или честный fallback/история/переход в Память/сохранение камеры/легенда), визуал (нет массового наложения подписей на масштабе старого графа, читаемые важные подписи, тонкие кромки, стекло/фон/red tint не деградировали), responsive (реальные скриншоты/e2e 360/390/768/1440, портрет/landscape, Mini App с клавиатурой, safe areas, BackButton, embedded↔fullscreen), регрессия (рендер без LLM-вызовов и без пересборки эмбеддингов, smoke на сотнях узлов/тысячах рёбер); паритет §2.6 сохранён.",
+   "req_ids": [
+    "EVOL-COG-MAP"
+   ],
+   "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет."
+  },
+  {
+   "id": "ASAP-FC-ADMISSION-01",
+   "title": "ASAP-FC-ADMISSION-01: ложный отказ фактчека при проверяемом тезисе — политика допуска (явное намерение важнее «ерундовости») и cooldown после раннего отказа",
+   "wave": "W5-ADMISSION",
+   "depends_on": [
+    "EVOL-W0-AUDIT",
+    "EVOL-FACTCHECK-CRITICAL",
+    "EVOL-B-QUOTE",
+    "EVOL-B-PROMPTREG",
+    "EVOL-SOCIAL-FRAME",
+    "EVOL-VIDEO-INTENT"
+   ],
+   "write_scope": [
+    "services/factcheck_suitability.py",
+    "services/factcheck_orchestrator.py",
+    "services/smartmodule_phrases.py",
+    "handlers/factcheck.py",
+    "tests/test_evol_factcheck_admission.py",
+    "plans/features/evol/audit/w5-factcheck-admission.md"
+   ],
+   "acceptance": "8 детерминированных сценариев §5 проходят вместе с релевантной регрессией (reply на пересылку о заражении → тезис принят; разговорный/матерный/саркастичный тезис; факт+оценка; два тезиса в посте; пустая цель → честный отказ; неоднозначные соседние сообщения → уточнение; нет доказательств → insufficient_evidence; повтор после раннего отказа + параллельные вызовы → нет необоснованного полного cooldown при работающих антиспаме и single-flight); логированный путь этапов A–E (target_resolved, explicit_request, claim_items_count, admission_decision, reason_code, pipeline_path, cooldown_outcome, verdict_stage) без утечки содержимого чатов; правка первопричины без замены пула фраз, без отдельного LLM-фильтра и без живых публикаций; Reviewer PASS.",
+   "req_ids": [
+    "ASAP-FC-ADMISSION-01"
+   ],
+   "depends_note": "Владелец: QUEUED строго после завершения фактических правок фактчека и Reviewer-приёмки EVOL-FACTCHECK-CRITICAL — не параллельно. Зависимости-писатели: services/factcheck_* (EVOL-FACTCHECK-CRITICAL), services/smartmodule_phrases.py (EVOL-SOCIAL-FRAME), handlers/factcheck.py внутри handlers/** (EVOL-B-QUOTE, EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT)."
   }
  ]
 }
