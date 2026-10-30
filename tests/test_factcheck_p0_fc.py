@@ -245,8 +245,8 @@ class _Agg:
         return self.text
 
 
-SECONDARY = ("Вторичная публикация о событии\n"
-             "Подтверждает ключевые факты своими словами\n"
+SECONDARY = ("Вторичная публикация о событии Telegram\n"
+             "Claude и ChatGPT подключат через API силами Telegram\n"
              "https://news.example.org/a")
 
 

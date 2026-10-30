@@ -186,7 +186,11 @@ class TestSchemaFreeze:
         import dataclasses
         assert tuple(f.name for f in dataclasses.fields(
             orch.EvidenceRef)) == (
-            "evidence_id", "url", "support", "source_kind", "published_at")
+            "evidence_id", "url", "support", "source_kind", "published_at",
+            # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§3.3: claim-привязка ссылки и
+            # дата события (аддитивно, дефолты) — frozen-схема расширена
+            # осознанно, потребители без новых полей работают как прежде.
+            "claims", "event_at")
         assert tuple(f.name for f in dataclasses.fields(
             orch.EvidenceMap)) == ("refs", "allowlist")
 
@@ -200,7 +204,10 @@ class TestSchemaFreeze:
             "already_delivered",
             # fcv3 (FC-RENDER, owner 21.10.2026 §3.6): цитаты/части для
             # привязки ссылок к утверждениям; internal, в egress не входят
-            "evidence_refs", "parts")
+            "evidence_refs", "parts",
+            # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§6: покрытие по claim
+            # (internal — в FactcheckPresentation не попадает)
+            "claims")
 
     def test_presentation_fields_frozen_and_service_free(self):
         import dataclasses

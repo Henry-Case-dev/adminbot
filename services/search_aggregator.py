@@ -17,6 +17,7 @@ ASAP-VISION-SYNC-01 §4 (другие потребители): агрегато�
 изображения, собирается потребителем ДО вызова агрегатора).
 """
 import asyncio
+import dataclasses
 import inspect
 import logging
 import re
@@ -204,6 +205,174 @@ def is_relevant_result(text: str, relevance_terms,
     return matched >= min(floor, len(seen)) and matched >= 0.2 * len(seen)
 
 
+# ── ASAP-FC-EVIDENCE-STYLE-02 §3.3: релевантность КОНКРЕТНОМУ claim ────────
+# Роли доказательства для claim (закрытый набор §3.1). Оценка — лёгкая
+# детерминированная (без LLM/ранжировщика): привязка якоря тезиса (число/
+# метрика/латинское имя/тикер) + overlap содержательных терминов. Совпадение
+# 1–2 слов/домена/общей темы доказательством НЕ является — поэтому роль
+# background_only/irrelevant не попадает в «Источники».
+EVIDENCE_ROLE_SUPPORTS = "supports"
+EVIDENCE_ROLE_CONTRADICTS = "contradicts"
+EVIDENCE_ROLE_QUALIFIES = "qualifies"
+EVIDENCE_ROLE_BACKGROUND = "background_only"
+EVIDENCE_ROLE_IRRELEVANT = "irrelevant"
+
+EVIDENCE_ROLES = (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS,
+                  EVIDENCE_ROLE_QUALIFIES, EVIDENCE_ROLE_BACKGROUND,
+                  EVIDENCE_ROLE_IRRELEVANT)
+
+#: Роли, которые можно показывать рядом с тезисом (background/irrelevant —
+#: контекст, а не доказательство).
+DISPLAYABLE_EVIDENCE_ROLES = (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS,
+                              EVIDENCE_ROLE_QUALIFIES)
+
+#: Общеязыковые пары противоположных направлений (не предметный словарь:
+#: рост/падение, дороже/дешевле, gained/lost). Нужны, чтобы источник,
+#: утверждающий обратное, не выдавался за подтверждение.
+_OPPOSITE_PAIRS = (
+    ("упал", "вырос"), ("падени", "рост"), ("снизил", "повысил"),
+    ("снижени", "увеличени"), ("подешевел", "подорожал"),
+    ("потерял", "получил"), ("подешев", "подорож"),
+    ("fell", "rose"), ("fall", "rise"), ("fell", "gained"),
+    ("drop", "gain"), ("declin", "rose"), ("declin", "grew"),
+    ("lost", "gained"), ("loss", "gain"),
+    # межъязыковые пары: русская формулировка тезиса против англоязычного
+    # источника (международные новости) — источник «наоборот» не считается
+    # подтверждением.
+    ("упал", "rose"), ("упал", "rise"), ("упал", "gained"),
+    ("упал", "grew"), ("падени", "rose"), ("падени", "gain"),
+    ("вырос", "fell"), ("вырос", "dropped"), ("вырос", "lost"),
+    ("вырос", "slumped"), ("снизил", "rose"), ("снизил", "gained"),
+)
+
+_NUMBER_TOKEN_RE = re.compile(r"\d+(?:[.,]\d+)?")
+_UNIT_TOKEN_RE = re.compile(
+    r"(млрд|млн|тыс|трлн|%|процент\w*|п\.п\.|руб\w*|доллар\w*|\$|€|"
+    r"billion|trillion|million|percent|points?|пункт\w*)", re.IGNORECASE)
+
+
+def _unit_tokens(text: str) -> set[str]:
+    """Единицы измерения текста (млрд/%/$/billion …) — для сверки метрик."""
+    return {m.group(1).lower() for m in _UNIT_TOKEN_RE.finditer(str(text or ""))}
+
+
+def _numbers_in(text: str) -> set[str]:
+    """Нормализованные числа текста (658 / 0,8 → 658 / 0.8)."""
+    out: set[str] = set()
+    for raw in _NUMBER_TOKEN_RE.findall(str(text or "").lower()):
+        out.add(raw.replace(",", ".").lstrip("0") or "0")
+    return out
+
+
+def _opposite_direction(claim_low: str, text_low: str) -> bool:
+    """Источник утверждает ПРОТИВОПОЛОЖНОЕ направление тезиса."""
+    for positive, negative in _OPPOSITE_PAIRS:
+        if positive in claim_low and negative in text_low \
+                and positive not in text_low:
+            return True
+        if negative in claim_low and positive in text_low \
+                and negative not in text_low:
+            return True
+    return False
+
+
+@dataclasses.dataclass(frozen=True)
+class ClaimRelevance:
+    """Оценка одного источника относительно одного claim (§3.3)."""
+    role: str
+    score: int = 0
+    word_hits: int = 0
+    number_hits: int = 0
+    entity_hit: bool = False
+    opposite: bool = False
+    #: тема/сущность совпали, но число тезиса в источнике ДРУГОЕ
+    #: (расхождение оценок: «2,8%» против заявленных «3,4%»)
+    number_mismatch: bool = False
+
+    @property
+    def displayable(self) -> bool:
+        return self.role in DISPLAYABLE_EVIDENCE_ROLES
+
+    @property
+    def strong(self) -> bool:
+        """Источник покрывает ИМЕННО тезис: якорь + связь по содержанию."""
+        return self.role == EVIDENCE_ROLE_SUPPORTS and not self.opposite \
+            and (self.entity_hit or self.word_hits >= 2)
+
+
+def claim_relevance(text: str, *, claim_text: str = "",
+                    anchor_terms=(), metrics=(), entities=()) -> ClaimRelevance:
+    """Релевантность источника КОНКРЕТНОМУ claim (§3.3), затем пригодность.
+
+    Порядок: сначала связь с тезисом (якоря: числа/метрики тезиса, латинские
+    имена и тикеры, содержательные термины), и только потом роль источника.
+    Смысл: «золото» в статье о золоте не подтверждает потерю капитализации
+    Alphabet; заголовок о падении индекса не подтверждает конкретную сумму.
+
+    Детерминированно, без LLM. Никогда не бросает.
+    """
+    try:
+        body = str(text or "")
+        body_low = body.lower()
+        claim_low = str(claim_text or "").lower()
+        if not body_low.strip():
+            return ClaimRelevance(role=EVIDENCE_ROLE_IRRELEVANT)
+        vocab = _term_keys(claim_text)
+        body_keys = _term_keys(body)
+        matched = vocab & body_keys
+        word_hits = sum(1 for k in matched if not k.isdigit())
+        body_numbers = _numbers_in(body)
+        claim_numbers = {n for m in (metrics or ())
+                         for n in _numbers_in(str(m))}
+        number_hits = len(claim_numbers & body_numbers)
+        anchors = [str(a).lower() for a in (anchor_terms or ()) if str(a)]
+        entity_hit = any(a and a in body_low for a in anchors)
+        entity_hit = entity_hit or any(
+            str(e).lower() in body_low for e in (entities or ())
+            if len(str(e)) >= 3)
+        opposite = _opposite_direction(claim_low, body_low) if claim_low else False
+
+        def _result(role: str, *, mismatch: bool = False) -> ClaimRelevance:
+            return ClaimRelevance(role=role, score=len(matched) + number_hits,
+                                  word_hits=word_hits, number_hits=number_hits,
+                                  entity_hit=entity_hit, opposite=opposite,
+                                  number_mismatch=mismatch)
+
+        if claim_numbers:
+            if number_hits:
+                if word_hits >= 1 or entity_hit:
+                    return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
+                                   else EVIDENCE_ROLE_SUPPORTS)
+                # совпало только число — совпадение, а не доказательство
+                return _result(EVIDENCE_ROLE_BACKGROUND)
+            if entity_hit or word_hits >= 2:
+                # событие/тема те же, но заявленного числа в источнике нет:
+                # либо другой период/методология (это не подтверждение), либо
+                # другое число С ТОЙ ЖЕ единицей — расхождение оценок.
+                claim_units = {u for m in (metrics or ())
+                               for u in _unit_tokens(str(m))}
+                body_units = _unit_tokens(body)
+                numbers_differ = bool(_numbers_in(body)) and bool(
+                    claim_units & body_units)
+                return _result(EVIDENCE_ROLE_QUALIFIES,
+                               mismatch=numbers_differ and not opposite)
+            if word_hits == 1 or entity_hit:
+                return _result(EVIDENCE_ROLE_BACKGROUND)
+            return _result(EVIDENCE_ROLE_IRRELEVANT)
+        if entity_hit and (word_hits >= 1 or opposite):
+            return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
+                           else EVIDENCE_ROLE_SUPPORTS)
+        if word_hits >= 2:
+            return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
+                           else EVIDENCE_ROLE_SUPPORTS)
+        if word_hits == 1 or entity_hit:
+            return _result(EVIDENCE_ROLE_BACKGROUND)
+        return _result(EVIDENCE_ROLE_IRRELEVANT)
+    except Exception:      # pragma: no cover — оценка не рвёт контур
+        logger.debug("[search_aggregator] claim relevance failed", exc_info=True)
+        return ClaimRelevance(role=EVIDENCE_ROLE_IRRELEVANT)
+
+
 _PRIMARY_HOST_RE = re.compile(r"\.(?:gov(?:\.[a-z]{2})?|edu|mil)(?:/|:|$)",
                               re.IGNORECASE)
 _RESEARCH_HOST_RE = re.compile(
@@ -267,7 +436,8 @@ class SearchAggregator:
 
     async def search(self, query: str, max_symbols: int,
                      relevance_terms: list[str] | None = None,
-                     timeout_budget: float | None = None) -> str:
+                     timeout_budget: float | None = None,
+                     trace: dict | None = None) -> str:
         """Каскад: Tavily → Exa → DDG. Возвращает агрегированный текст
         (обрезка до max_symbols). Raises AllSearchEnginesFailedException.
 
@@ -279,7 +449,11 @@ class SearchAggregator:
         ``timeout_budget`` (P0-FACTCHECK §3.3): остаток общего бюджета
         запроса в секундах — per-engine таймауты урезаются до остатка,
         чтобы один медленный провайдер не съедал бюджет следующих запросов.
-        None → прежние таймауты."""
+        None → прежние таймауты.
+
+        ``trace`` (ASAP-FC-EVIDENCE-STYLE-02 §6): необязательный словарь для
+        телеметрии хода — заполняется фактическим ``provider``/``latency_ms``/
+        ``reason``/``levels``. None → прежнее поведение байт-в-байт."""
         levels: list[tuple[str, Callable[[str], Awaitable[str]], str | None]] = [
             ("tavily", self._search_tavily, self._tavily_api_key),
             ("exa", self._search_exa, self._exa_api_key),
@@ -344,15 +518,29 @@ class SearchAggregator:
                     "SearchAggregator: level ok | provider=%s | latency_ms=%.0f | chars=%d",
                     name, latency_ms, len(text),
                 )
+                if trace is not None:
+                    trace.update({
+                        "provider": name, "reason": "ok",
+                        "latency_ms": round(latency_ms, 1),
+                        "levels": list(reasons) + [f"{name}:ok"]})
                 return self._truncate(text, max_symbols)
             except Exception as exc:
                 # §5.1/§5.3: реальная причина уровня — в техническом логе
+                cause = level_failure_reason(exc)
                 logger.warning(
                     "SearchAggregator: level failed → fallback | provider=%s | "
                     "cause=%s | error=%s",
-                    name, level_failure_reason(exc), exc,
+                    name, cause, exc,
                 )
-                reasons.append(level_failure_reason(exc))
+                reasons.append(cause)
+                if trace is not None:
+                    trace.update({"provider": name, "reason": cause,
+                                  "latency_ms": round(
+                                      (time.monotonic() - started) * 1000.0, 1),
+                                  "levels": list(reasons)})
+        if trace is not None:
+            trace.update({"provider": "", "reason": "provider_error",
+                          "levels": list(reasons)})
         raise AllSearchEnginesFailedException(
             f"all search engines failed (tavily → exa → ddg) | query={query!r}",
             reason=_most_informative_reason(reasons),
@@ -360,14 +548,15 @@ class SearchAggregator:
 
     async def search_relevant(self, query: str, max_symbols: int,
                               relevance_terms: list[str] | None = None,
-                              timeout_budget: float | None = None
+                              timeout_budget: float | None = None,
+                              trace: dict | None = None
                               ) -> str:
         """Явный relevance-вход контура фактчека (FC-EVIDQ): тот же каскад
         с проверкой содержательной релевантности выдачи. Существующие
         вызовы `search()` (сводки и пр.) не меняются."""
         return await self.search(query, max_symbols,
                                  relevance_terms=relevance_terms,
-                                 timeout_budget=timeout_budget)
+                                 timeout_budget=timeout_budget, trace=trace)
 
 
     async def close(self) -> None:

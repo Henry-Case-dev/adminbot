@@ -138,12 +138,20 @@ class FactcheckPlan:
 
 @dataclasses.dataclass(frozen=True)
 class EvidenceRef:
-    """Стабильная ссылка доказательства (W4/W5 потребляют; форма = ev-N)."""
+    """Стабильная ссылка доказательства (W4/W5 потребляют; форма = ev-N).
+
+    ASAP-FC-EVIDENCE-STYLE-02 §3.1/§3.3: ``claims`` — claim ID текущего
+    прогона, к которым ИМЕННО относится доказательство (аддитивное поле с
+    дефолтом: старая схема совместима). Доказательство без claim-привязки
+    появляется только у не-claim путей (атрибуция/чат).
+    """
     evidence_id: str
     url: str | None
     support: str
     source_kind: str = "secondary"
     published_at: int | None = None
+    claims: tuple[str, ...] = ()
+    event_at: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -187,6 +195,10 @@ class CheckedVerdict:
     # необязательные с дефолтами — совместимость с fcv2-потребителями.
     evidence_refs: tuple = ()            # цитированные ev-N текущего прогона
     parts: tuple = ()                    # части вердикта (словари) с цитатами
+    #: ASAP-FC-EVIDENCE-STYLE-02 §3.1/§6: покрытие по claim (claim_id, статус
+    #: поиска, роль/ссылки, причина пробела) — INTERNAL, в Presentation не
+    #: попадает (egress-whitelist по построению).
+    claims: tuple = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -403,7 +415,8 @@ def _apply_delivery_guard(presentation: FactcheckPresentation,
 # ── Оркестратор ──────────────────────────────────────────────────────────────
 
 async def _apply_critique_section_setting(chat_id: int | None,
-                                          verdict: CheckedVerdict
+                                          verdict: CheckedVerdict,
+                                          *, resolved=None
                                           ) -> CheckedVerdict:
     """EVOL §5 (W5): снять раздел «Критический разнос» при настройке OFF.
 
@@ -412,13 +425,18 @@ async def _apply_critique_section_setting(chat_id: int | None,
     global → заводской дефолт ON), мастер-тумблер модуля не дублируется.
     Раздел распознаётся в тексте Writer'а и удаляется детерминированно:
     факты/источники/оговорки не меняются, «лишней секции» не остаётся.
+    ``resolved`` — уже прочитанная настройка этого хода ``(enabled, source)``
+    (телеметрия §6), повторного чтения не требуется.
     Любой сбой резолва/разбора → вердикт как есть (fail-open, доставку не
     рвёт).
     """
     try:
         from services.factcheck_renderer import split_critique_section
         from services.factcheck_service import resolve_critique_section
-        enabled, source = await resolve_critique_section(chat_id)
+        if resolved is not None:
+            enabled, source = resolved
+        else:
+            enabled, source = await resolve_critique_section(chat_id)
         logger.info("[factcheck_v2] critique section | chat=%s | enabled=%s | "
                     "source=%s", chat_id, enabled, source)
         if enabled:
@@ -1026,7 +1044,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         verdict = await _run_legacy_branch(req, service, feed,
                                            search_results=search_results,
                                            target_text=external_claim,
-                                           cache_input_text=claim_text)
+                                           cache_input_text=claim_text,
+                                           retrieval=retrieval_outcome)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -1058,7 +1077,17 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # default ON внутри включённого фактчека; мастер-тумблер модуля не
     # дублируется). OFF → раздел снимается ДО презентации: факты, источники и
     # оговорки остаются, лишней секции нет.
-    verdict = await _apply_critique_section_setting(req.chat_id, verdict)
+    critique_enabled: bool | None = None
+    try:
+        from services.factcheck_service import resolve_critique_section
+        critique_enabled, _critique_source = await resolve_critique_section(
+            req.chat_id)
+    except Exception:          # pragma: no cover — настройка не рвёт доставку
+        critique_enabled = None
+    verdict = await _apply_critique_section_setting(
+        req.chat_id, verdict,
+        resolved=((critique_enabled, _critique_source)
+                  if critique_enabled is not None else None))
     presentation = build_presentation(
         verdict, reply_to_message_id=req.target_tg_message_id,
         notice=_notice)
@@ -1092,6 +1121,16 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     verdict_stage = ("insufficient_evidence"
                      if str(getattr(verdict, "factual_verdict", "") or "")
                      == "insufficient_evidence" else "verdict_issued")
+    # ASAP-FC-EVIDENCE-STYLE-02 §6: трасса покрытия по claim + итог подачи
+    # (какой Writer/renderer реально дошёл до отправки, включён ли разгром).
+    await _emit_claim_coverage(
+        chat_id=req.chat_id, outcome=retrieval_outcome, verdict=verdict,
+        verbalizer_path=("envelope_temporal" if use_envelope
+                         else "legacy_single"),
+        renderer_path=("skipped_already_delivered"
+                       if verdict.already_delivered else "telegram_html"),
+        critical_section_enabled=critique_enabled,
+        fallback_reason=("fallback_used" if verdict.fallback_used else ""))
     return _finish(OUTCOME_VERDICT, f"v2:{verdict.route}", verdict_stage)
 
 
@@ -1119,7 +1158,9 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
                     url=r.get("url"), support=str(r.get("support") or ""),
                     source_kind=str(r.get("source_kind") or "secondary"),
-                    published_at=r.get("published_at"))
+                    published_at=r.get("published_at"),
+                    claims=((str(r.get("claim_part")),)
+                            if r.get("claim_part") else ()))
         for r in (run.evidence_rows or ()))
     return CheckedVerdict(
         verdict_text=run.verdict_text, route="envelope_temporal",
@@ -1132,13 +1173,15 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
         reason_code=run.verdict.reason, as_of=run.verdict.as_of,
         fallback_used=run.fallback_used,
         evidence_refs=tuple(run.verdict.evidence_refs or ()),
-        parts=tuple(run.verdict.parts or ()))
+        parts=tuple(run.verdict.parts or ()),
+        claims=tuple(getattr(retrieval, "claims", ()) or ()))
 
 
 async def _run_legacy_branch(req: FactcheckRequest, service,
                              feed, *, search_results: str | None = None,
                              target_text: str | None = None,
-                             cache_input_text: str | None = None
+                             cache_input_text: str | None = None,
+                             retrieval=None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки). Кеш готовых
@@ -1150,14 +1193,19 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
     (один поиск на прогон); None → внутренний поиск ветки (честный fallback),
     в этом случае план не выполнен и EvidenceMap не наполняется.
     06G.3: ``target_text`` — privacy-клейм (тезис без участников чата);
-    None → req.target_text (байт-паритет неатрибуционных прогонов)."""
+    None → req.target_text (байт-паритет неатрибуционных прогонов).
+    ASAP-FC-EVIDENCE-STYLE-02 §6: ``retrieval`` — покрытие по claim для
+    телеметрии хода (публичный текст этой ветки формирует существующий
+    Writer по search_results; сигнатура ``check_claim`` не меняется)."""
     claim_text = str(target_text if target_text is not None
                      else req.target_text)
     verdict = await service.check_claim(
         claim_text, req.user_hint, req.forward_source,
         chat_id=req.chat_id, chat_context=feed or None,
         search_results=search_results)
-    return CheckedVerdict(verdict_text=verdict, route="legacy_single")
+    return CheckedVerdict(
+        verdict_text=verdict, route="legacy_single",
+        claims=tuple(getattr(retrieval, "claims", ()) or ()))
 
 
 def _log_retrieval_metrics(chat_id: int, outcome) -> None:
@@ -1194,3 +1242,92 @@ def _log_retrieval_metrics(chat_id: int, outcome) -> None:
             planner_version=outcome.planner_version)
     except Exception:      # события не рвут вердикт
         pass
+
+
+# ── ASAP-FC-EVIDENCE-STYLE-02 §6: телеметрия покрытия и подачи ──────────────
+
+async def _style_revisions(chat_id: int) -> dict:
+    """Эффективные ревизии Core/Expression/Style (fail-open, без текстов)."""
+    fields = {"core_revision": "", "expression_revision": "",
+              "style_revision": ""}
+    try:
+        from services import prompt_composer as pc
+        core = await pc.resolve_core_ref(int(chat_id))
+        fields["core_revision"] = str(getattr(core, "revision", "") or "")
+    except Exception:
+        fields["core_revision"] = "unavailable"
+    try:
+        from services import prompt_composer as pc
+        expr = await pc.resolve_expression_settings(int(chat_id))
+        fields["expression_revision"] = str(getattr(expr, "revision", "") or "")
+    except Exception:
+        fields["expression_revision"] = "unavailable"
+    try:
+        from services import prompt_composer as pc
+        style = await pc.resolve_style_policy_ref(int(chat_id))
+        fields["style_revision"] = str(getattr(style, "revision", "") or "")
+    except Exception:
+        fields["style_revision"] = "unavailable"
+    return fields
+
+
+async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
+                               verbalizer_path: str, renderer_path: str,
+                               critical_section_enabled: bool | None,
+                               fallback_reason: str = "") -> dict:
+    """§6: одна трасса покрытия на ход — claim → запросы → провайдеры →
+    кандидаты → открытые → роль/привязка → причина → показанные citation IDs,
+    плюс компактный итог хода. Только метаданные: без текстов чатов, ссылок
+    и секретов. Никогда не бросает."""
+    coverage = tuple(getattr(outcome, "claims", ()) or ()) \
+        if outcome is not None else ()
+    summary = (outcome.coverage_summary() if outcome is not None
+               and hasattr(outcome, "coverage_summary") else {})
+    styles = await _style_revisions(chat_id)
+    fields = {
+        **summary,
+        "verdict_route": str(getattr(verdict, "route", "") or "")
+        if verdict is not None else "",
+        "factual_verdict": str(getattr(verdict, "factual_verdict", "") or "")
+        if verdict is not None else "",
+        "reason_code": str(getattr(verdict, "reason_code", "") or "")
+        if verdict is not None else "",
+        "verbalizer_path": str(verbalizer_path or ""),
+        "renderer_path": str(renderer_path or ""),
+        "critical_section_enabled": bool(critical_section_enabled)
+        if critical_section_enabled is not None else "",
+        "fallback_reason": str(fallback_reason or ""),
+        **styles,
+    }
+    try:
+        logger.info(
+            "[factcheck_claims] chat=%s | total=%s | searched=%s | direct=%s | "
+            "partial=%s | deadline=%s | off_topic=%s | stale=%s | refine=%s | "
+            "verbalizer=%s | renderer=%s | critical=%s | fallback=%s | "
+            "core=%s | expression=%s | style=%s",
+            chat_id, fields.get("total_claims"),
+            fields.get("claims_searched"),
+            fields.get("claims_with_direct_evidence"),
+            fields.get("claims_partial"),
+            fields.get("claims_unchecked_due_to_deadline"),
+            fields.get("off_topic_sources_dropped"),
+            fields.get("stale_sources_dropped"),
+            fields.get("refine_calls"), fields["verbalizer_path"],
+            fields["renderer_path"], fields["critical_section_enabled"],
+            fields["fallback_reason"], fields["core_revision"],
+            fields["expression_revision"], fields["style_revision"])
+    except Exception:
+        pass
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "factcheck_claims", outcome="success", level="INFO",
+            component="factcheck.claims", chat_id=chat_id,
+            entity_ids={
+                **fields,
+                "claims": [cov.as_dict() for cov in coverage
+                           if hasattr(cov, "as_dict")],
+            })
+    except Exception:      # события не рвут доставку
+        logger.debug("[factcheck_claims] event emit failed", exc_info=True)
+    return fields

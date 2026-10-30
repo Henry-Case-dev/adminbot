@@ -21,6 +21,7 @@ import dataclasses
 import datetime
 import json
 import logging
+import re
 import time
 
 from config.settings import settings
@@ -1110,6 +1111,206 @@ def _verdict_is_substantive(verdict) -> bool:
         return False
 
 
+# ── ASAP-FC-EVIDENCE-STYLE-02 §3/§4: покрытие ПО КАЖДОМУ claim ──────────────
+# Сервер не выдумывает подтверждение: роль/итог берутся из retrieval-слоя
+# (claim → привязанные EvidenceRef с ролью), модель сохраняет право не
+# подтверждать часть. Задача этой стадии — не потерять подтверждённые части
+# и дать КАЖДОМУ пробелу конкретную причину вместо общего «данных
+# недостаточно».
+
+#: §4: детализированный исход → человеческая формулировка (публичная речь
+#: различает технический сбой, отсутствие источников и недоказанное число).
+CLAIM_STATUS_HUMAN = {
+    "verified": "источник подтверждает",
+    "refuted": "источники утверждают обратное",
+    "partial": "подтверждено частично",
+    "evidence_conflicting": "источники расходятся",
+    "evidence_insufficient_for_exact_number":
+        "конкретное число/сумма не подтверждены",
+    "no_relevant_sources": "подходящих источников не нашлось",
+    "source_extract_failed": "источник не удалось открыть (технический исход)",
+    "provider_error": "поиск не ответил — технический сбой",
+    "deadline_exceeded": "поиск прерван по лимиту времени",
+    "search_not_started": "пункт не проверялся",
+    "claim_unidentified": "проверяемая часть не опознана",
+}
+
+_CLAIM_POSITIVE = ("supported", "refuted", "mixed")
+
+
+def _part_text_key(text) -> str:
+    """Нормализованный ключ текста части (для сопоставления с claim)."""
+    return re.sub(r"\s+", " ", str(text or "").strip().lower())[:80]
+
+
+def _claim_part_match(part: dict, claim) -> bool:
+    part_id = str(part.get("part_id") or "")
+    if part_id and part_id == str(getattr(claim, "claim_id", "")):
+        return True
+    key = _part_text_key(part.get("text"))
+    claim_key = _part_text_key(getattr(claim, "text", ""))
+    if not key or not claim_key:
+        return False
+    return key == claim_key or key.startswith(claim_key[:40]) \
+        or claim_key.startswith(key[:40])
+
+
+def claim_payload_rows(coverage) -> list[dict]:
+    """Компактные строки покрытия для payload вербализатора (§5: подача)."""
+    rows: list[dict] = []
+    for cov in coverage or ():
+        claim = getattr(cov, "claim", None)
+        rows.append({
+            "claim_id": str(getattr(claim, "claim_id", "") or ""),
+            "text": str(getattr(claim, "text", "") or ""),
+            "outcome": str(getattr(cov, "outcome", "") or ""),
+            "search_status": str(getattr(cov, "search_status", "") or ""),
+            "status": CLAIM_STATUS_HUMAN.get(
+                str(getattr(cov, "status_detail", "") or ""), ""),
+            "gap": str(getattr(cov, "gap_note", "") or ""),
+            "sources": len([e for e in (getattr(cov, "evidence", ()) or ())
+                            if getattr(e, "role", "") in
+                            ("supports", "contradicts", "qualifies")]),
+        })
+    return rows
+
+
+def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
+                         ) -> tf.TemporalVerdict:
+    """§3.1/§3.5: свести покрытие частей с вердиктом модели.
+
+    Правила (no-false-acceptance в обе стороны):
+
+    * подтверждённая часть остаётся подтверждённой — две проблемные части не
+      превращают остальные в «данных недостаточно»;
+    * часть без подтверждающего ИМЕННО её источника не может остаться
+      положительной (понижение до существующего enum);
+    * ссылки части ограничиваются claim-привязанными evidence текущего
+      прогона (чужая ссылка не приписывается тезису);
+    * каждый пробел получает конкретную причину/пояснение из retrieval-слоя.
+    """
+    parts = [dict(p) for p in (verdict.parts or ()) if isinstance(p, dict)]
+    # Единственный владелец сопоставления «итог claim → существующий enum» —
+    # планировщик (параллельной системы вердиктов не создаём).
+    from services.factcheck_planner import CLAIM_OUTCOME_TO_VERDICT
+    matched: set[int] = set()
+    for cov in coverage or ():
+        claim = getattr(cov, "claim", None)
+        if claim is None:
+            continue
+        bound = [str(x) for x in (getattr(cov, "citation_ids", ()) or ())]
+        # Роль ссылки важнее её наличия: «событие есть, числа нет»
+        # (qualifies) не может удерживать положительный вердикт части (§3.3/§6).
+        supporting = [str(getattr(e, "evidence_id", "") or "")
+                      for e in (getattr(cov, "displayable_evidence", ()) or ())
+                      if str(getattr(e, "role", "")) == "supports"]
+        contradicting = [str(getattr(e, "evidence_id", "") or "")
+                         for e in (getattr(cov, "displayable_evidence", ()) or ())
+                         if str(getattr(e, "role", "")) == "contradicts"]
+        index = next((i for i, part in enumerate(parts)
+                      if _claim_part_match(part, claim)), None)
+        detail = str(getattr(cov, "status_detail", "") or "")
+        gap = str(getattr(cov, "gap_note", "") or "")
+        metadata = {
+            "claim_id": str(getattr(claim, "claim_id", "") or ""),
+            "claim_type": str(getattr(claim, "claim_type", "") or ""),
+            "search_status": str(getattr(cov, "search_status", "") or ""),
+            "claim_outcome": str(getattr(cov, "outcome", "") or ""),
+            "status_detail": detail,
+            "gap_note": gap,
+            "claim_reason": str(getattr(cov, "reason_code", "") or ""),
+        }
+        if index is None:
+            outcome_verdict = CLAIM_OUTCOME_TO_VERDICT.get(
+                str(getattr(cov, "outcome", "") or ""),
+                "insufficient_evidence")
+            parts.append({
+                "part_id": str(getattr(claim, "claim_id", "") or ""),
+                "text": str(getattr(claim, "text", "") or ""),
+                "factual_verdict": outcome_verdict,
+                "evidence_refs": list(bound),
+                **metadata})
+            continue
+        matched.add(index)
+        part = parts[index]
+        part_refs = [str(r) for r in (part.get("evidence_refs") or ())
+                     if isinstance(r, str)]
+        if part_refs:
+            # §3.3: часть цитирует только доказательства СВОЕГО тезиса.
+            allowed = [r for r in part_refs if r in bound] or (
+                [] if bound else part_refs)
+            part["evidence_refs"] = allowed
+        elif bound:
+            part["evidence_refs"] = list(bound)
+        part_verdict = str(part.get("factual_verdict") or "")
+        part_ids = {str(r) for r in (part.get("evidence_refs") or ())
+                    if isinstance(r, str)}
+        if part_verdict == "supported":
+            backed = bool(part_ids & set(supporting))
+        elif part_verdict == "refuted":
+            backed = bool(part_ids & set(contradicting))
+        elif part_verdict == "mixed":
+            backed = bool(part_ids)
+        else:
+            backed = True
+        if not backed:
+            # Исключение — помеченное основание самостоятельной проверки
+            # (расчёт/логика), а не «ссылка на похожую тему».
+            basis_marked = any(
+                str(k).startswith("basis")
+                for k in (verdict.uncertainty or {}))
+            if not basis_marked:
+                part["factual_verdict"] = "insufficient_evidence"
+                part.setdefault(
+                    "gap_note",
+                    gap or "источника, подтверждающего именно этот пункт, "
+                           "не нашлось")
+                if not part.get("status_detail"):
+                    part["status_detail"] = detail or "no_relevant_sources"
+        part.update(metadata)
+        if part.get("factual_verdict") == "insufficient_evidence" and not \
+                part.get("gap_note"):
+            part["gap_note"] = gap
+    if not matched and not parts:
+        return verdict
+    factual = tf._aggregate_factual_verdict(verdict.factual_verdict,
+                                           tuple(parts))
+    reason = verdict.reason
+    if factual in _CLAIM_POSITIVE and str(reason or "") in \
+            _TECHNICAL_RETRIEVAL_REASONS:
+        # Содержательный разбор частей не маскируется техническим заголовком
+        # (реальная оговорка остаётся в uncertainty).
+        reason = None
+    return dataclasses.replace(verdict, factual_verdict=factual, parts=tuple(parts),
+                               reason=reason)
+
+
+def _claim_coverage_payload(coverage) -> str:
+    """`<claim_coverage>` для analyst-payload (§3.1): статус каждой части ДО
+    вердикта — чтобы анализ не смешивал «не проверено технически» с «нет
+    данных», а спорное число разбирал отдельно от события."""
+    rows = []
+    for cov in coverage or ():
+        claim = getattr(cov, "claim", None)
+        if claim is None:
+            continue
+        rows.append({
+            "claim_id": getattr(claim, "claim_id", ""),
+            "text": getattr(claim, "text", ""),
+            "claim_type": getattr(claim, "claim_type", ""),
+            "timeframe": getattr(claim, "timeframe", ""),
+            "search_status": getattr(cov, "search_status", ""),
+            "status_detail": getattr(cov, "status_detail", ""),
+            "outcome": getattr(cov, "outcome", ""),
+            "gap": getattr(cov, "gap_note", ""),
+            "evidence_ids": list(getattr(cov, "citation_ids", ()) or ()),
+        })
+    if not rows:
+        return ""
+    return ("<claim_coverage>" + escape_xml_text(json.dumps(
+        rows, ensure_ascii=False)) + "</claim_coverage>")
+
+
 def _analysis_context_for_empty_evidence(retrieval_state: str | None) -> str:
     """§2.4/§2.5: analyst-payload при пустом внешнем evidence — статус
     поиска + явное разрешение самостоятельной проверки + рамка
@@ -1667,6 +1868,21 @@ class FactCheckService:
             evidence = tf.evidence_rows_from_refs(
                 retrieval_refs, fallback_results=results,
                 max_rows=_temporal_max_evidence()) if retrieval_refs else ()
+            if retrieval_refs and evidence:
+                # §3.3: выдержка связана с claim-частью, к которой привязана
+                # на retrieval-слое (иначе в хранинном evidence claim_part
+                # всегда null и связь «тезис ↔ источник» теряется).
+                claim_by_evidence = {
+                    str(getattr(ref, "evidence_id", "")): str(
+                        (getattr(ref, "claims", ()) or ("",))[0])
+                    for ref in retrieval_refs
+                    if (getattr(ref, "claims", ()) or ())}
+                if claim_by_evidence:
+                    evidence = tuple(
+                        {**row, "claim_part": claim_by_evidence.get(
+                            str(row.get("evidence_id")))} if claim_by_evidence.get(
+                            str(row.get("evidence_id"))) else row
+                        for row in evidence)
         else:
             # Внутренний поиск ветки: строки без URL тоже не доказательство
             # (их нельзя открыть и проверить).
@@ -1731,9 +1947,16 @@ class FactCheckService:
         analysis_context = ("" if evidence
                             else _analysis_context_for_empty_evidence(
                                 retrieval_state))
+        # ASAP-FC-EVIDENCE-STYLE-02 §3.1: покрытие частей известно ДО вердикта
+        # (retrieval уже отработал) — аналитик получает статус каждого пункта,
+        # чтобы не смешивать технический сбой с «нет данных» и разбирать
+        # спорное число отдельно от события.
+        claim_coverage = tuple(getattr(retrieval, "claims", ()) or ()) \
+            if retrieval is not None else ()
         user_payload = self._temporal_user_payload(env, parts, evidence,
                                                    chat_context,
-                                                   analysis_context)
+                                                   analysis_context,
+                                                   coverage=claim_coverage)
         allowed_refs = ({str(r.get("evidence_id")) for r in evidence
                          if r.get("evidence_id")}
                         if evidence else set())
@@ -1843,6 +2066,14 @@ class FactCheckService:
             uncertainty = dict(verdict.uncertainty or {})
             uncertainty["retrieval_state"] = caveat
             verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
+        # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§4: покрытие ПО КАЖДОЙ части —
+        # подтверждённые части не растворяются в общем «данных недостаточно»,
+        # каждый пробел получает конкретную причину, ссылки части — только
+        # claim-привязанные evidence этого прогона.
+        if claim_coverage:
+            verdict = merge_claim_coverage(verdict, claim_coverage, evidence)
+            tf.stage_event("claim_coverage", "success",
+                           reason_code=verdict.reason, chat_id=env.chat_id)
         tf.stage_event("verdict", "success", reason_code=verdict.reason,
                        chat_id=env.chat_id)
 
@@ -1851,7 +2082,7 @@ class FactCheckService:
         # (включая fallback) получают один envelope.
         verdict_text = await self._temporal_verbalize(
             env, verdict, fallback_used, correlation_id,
-            retrieval_state=retrieval_state)
+            retrieval_state=retrieval_state, coverage=claim_coverage)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
@@ -1867,13 +2098,16 @@ class FactCheckService:
     def _temporal_user_payload(
         self, env: tf.TemporalClaimEnvelope, parts, evidence,
         chat_context: str | None, analysis_context: str = "",
+        coverage=(),
     ) -> str:
         """User-content вердиктной стадии: <claim> + <temporal_context>
         (даты/периоды/режим — серверные метаданные, D2) + <evidence> +
         <chat_context> (НЕ доказательства — подпись как в legacy).
         P0-FACTCHECK-CORRECTIVE (§2.4): при пустом evidence добавляется
         <analysis_context> — статус поиска и рамка самостоятельной
-        проверки (серверный текст, не доказательства)."""
+        проверки (серверный текст, не доказательства).
+        ASAP-FC-EVIDENCE-STYLE-02 §3.1: <claim_coverage> — что именно уже
+        проверено по каждой части и чего не хватает (серверные метаданные)."""
         sections = [
             "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
             "<temporal_context>" + escape_xml_text(json.dumps({
@@ -1897,14 +2131,20 @@ class FactCheckService:
             # §18G.3/§18G.5: каждая выдержка — со стабильным ID и датой
             # публикации (unknown — честно); model evidence_refs ссылаются
             # только на эти ID (allowlist проверяется сервером).
+            # §3.3: выдержка помечается claim-частью, к которой привязана.
             sections.append("<evidence>" + escape_xml_text("\n\n".join(
-                "[%s] published: %s%s\n%s" % (
+                "[%s]%s published: %s%s\n%s" % (
                     r.get("evidence_id") or "?",
+                    (" claim=%s" % r["claim_part"])
+                    if r.get("claim_part") else "",
                     _fmt_evidence_date(r.get("published_at")),
                     (" (%s)" % r["published_at_source"])
                     if r.get("published_at_source") else "",
                     r["support"])
                 for r in evidence)) + "</evidence>")
+        coverage_section = _claim_coverage_payload(coverage)
+        if coverage_section:
+            sections.append(coverage_section)
         if analysis_context:
             sections.append(analysis_context)
         if chat_context:
@@ -1964,7 +2204,7 @@ class FactCheckService:
     async def _temporal_verbalize(
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
-        *, retrieval_state: str | None = None,
+        *, retrieval_state: str | None = None, coverage=(),
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -2003,6 +2243,12 @@ class FactCheckService:
         if caveats:
             payload["caveats"] = caveats
         payload["parts"] = list(verdict.parts)
+        # §3.1/§5: покрытие частей — вербализатор пишет КОНКРЕТНЫЕ пробелы
+        # (техсбой/нет источников/недоказанное число), а не общее «данных
+        # недостаточно» после каждого пункта.
+        claim_rows = claim_payload_rows(coverage)
+        if claim_rows:
+            payload["claims"] = claim_rows
         payload["claim"] = env.claim_text
         situation = _RETRIEVAL_SITUATION.get(str(retrieval_state or ""))
         if situation:
