@@ -19,7 +19,9 @@ release-258116/diff.md (+ verify_delta.py, 30/30 checks).
 
 Дополнительно доказывается независимость OFF-пути от композера: при
 искусственно сломанном `compose_prompt` OFF-сборка не меняется, а ON-ветка
-при отсутствии новых слоёв даёт те же байты, что легаси-склейка хвоста.
+при отсутствии новых слоёв даёт те же байты, что легаси-склейка хвоста,
+ПЛЮС ровно один спроектированный слой `<Speech_Base>` (см.
+``_speech_base_layer``) — и ничего больше.
 
 TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (шов 2) + ASAP-W1/ASAP2 переснятия
 """
@@ -206,6 +208,27 @@ PLAN_MICRO = _extent.ResponsePlan(
     delivery_hint="plain", tool_policy="none", source="l1")
 
 
+def _speech_base_layer() -> str:
+    """Единственный спроектированный слой ON-контура сверх легаси-хвоста.
+
+    P0 SPEECH-SIMPLIFY (§2.1-2.3/§5, коммиты 109bb770 -> 0a88c991, 25.10.2026)
+    вынес короткий блок манеры/юмора/длины/достоверности из базы в отдельный
+    слой композера — слой 7 `speech_base`, сразу после `response_plan` и перед
+    Expression (`plans/features/asap-speech-arch/evidence/speech-simplify/
+    impl.md` §2). Легаси-склейка (`prompt_style_blocks.compose_verbalizer_system`)
+    этого слоя не содержит и не может содержать: OFF-путь обязан оставаться
+    байт-в-байт (см. дамп `fixtures/soul1/direct-runtime-assembly-asap2.txt`,
+    где `<Speech_Base>` нет).
+
+    Поэтому паритет ON проверяется строго: «легаси-хвост + РОВНО этот один
+    слой», байт-в-байт. Любой другой лишний/потерянный блок по-прежнему
+    ломает тест — намерение паритета не ослаблено. До 25.10.2026 тесты этого
+    файла пинились на байты до появления слоя, поэтому падали на актуальной
+    сборке (дефект теста, не рантайма).
+    """
+    return psb.speech_base_block()
+
+
 @pytest.fixture(autouse=True)
 def _pg_down():
     """Зеркало условий дампа: локальный PG недоступен (код-каноны)."""
@@ -385,6 +408,10 @@ async def test_tool_phase_on_equals_legacy_tail_without_new_layers():
     Порядок tool-phase: база → личность → scoped-просьбы → уроки → сигнал
     речи → план. Он совпадает с порядком слоёв контракта, поэтому Core
     вставляется, ничего не переставляя.
+
+    Единственный слой сверх легаси-хвоста — спроектированный `speech_base`
+    (`_speech_base_layer`); сравнение остаётся байт-в-байт, поэтому любой
+    другой лишний или потерянный блок тест по-прежнему роняет.
     """
     Stub, D = build_service()
     svc = Stub(StubLLM())
@@ -399,7 +426,9 @@ async def test_tool_phase_on_equals_legacy_tail_without_new_layers():
     legacy = "\n\n".join(p for p in (
         "КАНАЛ", CHARACTER_BLOCK, STYLE_DIRECTIVES, LESSONS, SPEECH,
         _extent.render_extent_block(PLAN_DETAILED)) if p)
-    assert manifest_system == legacy
+    assert manifest_system == legacy + "\n\n" + _speech_base_layer()
+    assert manifest_system.startswith(legacy), "легаси-порядок переставлен"
+    assert manifest_system.count(psb.SPEECH_BASE_OPEN) == 1
     layers = [t.layer for t in manifest.layers]
     assert list(dict.fromkeys(layers)) == list(pc.LAYER_ORDER)
     # Блоки одного слоя идут подряд (никакого перемешивания уровней).
@@ -444,7 +473,11 @@ async def test_tool_phase_on_and_off_scrub_identically_on_longform():
     legacy = "\n\n".join(p for p in (
         base, CHARACTER_BLOCK, _extent.render_extent_block(longform)) if p)
     assert _extent.scrub_for_plan(legacy, longform)[1] == removed
-    assert scrubbed == _extent.scrub_for_plan(legacy, longform)[0]
+    legacy_scrubbed = _extent.scrub_for_plan(legacy, longform)[0]
+    # Нормализация не трогает спроектированный слой `speech_base` (P0
+    # SPEECH-SIMPLIFY §2): ON отличается от OFF ровно этим одним блоком.
+    assert _extent.scrub_for_plan(_speech_base_layer(), longform)[1] == 0
+    assert scrubbed == legacy_scrubbed + "\n\n" + _speech_base_layer()
     assert pc.get_manifest(12345, run_id="run-cap",
                            writer="tool_phase").manifest_id == \
         manifest.manifest_id
@@ -457,6 +490,7 @@ async def test_l2_on_keeps_block_set_and_applies_designed_order():
     Ни один блок не теряется и не дублируется (включая lessons/speech — пробел,
     из-за которого review-w2 не поймал F2 в этом тесте); extent/plan переезжает
     на своё место после личности и lessons (OFF-порядок — легаси).
+    Состав блоков = легаси-хвост + спроектированный слой `speech_base`.
     """
     Stub, D = build_service()
     svc = Stub(StubLLM())
@@ -474,10 +508,12 @@ async def test_l2_on_keeps_block_set_and_applies_designed_order():
         "КАНАЛ", _l1.plan_response_mode(PLAN_DETAILED), "plain",
         html_safe=True, character_block=CHARACTER_BLOCK,
         style_directives=STYLE_DIRECTIVES, extent_block=extent)
-    assert sorted(composed.split("\n\n")) == sorted(
-        (legacy + "\n\n" + LESSONS + "\n\n" + SPEECH).split("\n\n"))
+    expected = (legacy + "\n\n" + LESSONS + "\n\n" + SPEECH
+                + "\n\n" + _speech_base_layer())
+    assert sorted(composed.split("\n\n")) == sorted(expected.split("\n\n"))
     for block in (CHARACTER_BLOCK, STYLE_DIRECTIVES, LESSONS, SPEECH, extent):
         assert composed.count(block) == 1, block
+    assert composed.count(psb.SPEECH_BASE_OPEN) == 1
     assert composed.index(CHARACTER_BLOCK) < composed.index(extent)
     assert composed.index(STYLE_DIRECTIVES) < composed.index(extent)
     assert [t.layer for t in manifest.layers
@@ -491,8 +527,8 @@ async def test_l2_on_without_plan_keeps_mode_block():
     """ON + plan=None: legacy MODE-блок НЕ теряется (блок в блок как на OFF).
 
     Самая частая legacy-ветка (нет ResponsePlan) обязана собираться ровно
-    так же, как `compose_verbalizer_system`, — с точностью до отсутствия
-    новых слоёв.
+    так же, как `compose_verbalizer_system`, — с точностью до одного
+    спроектированного слоя `speech_base` (`_speech_base_layer`).
     """
     Stub, D = build_service()
     svc = Stub(StubLLM())
@@ -506,7 +542,7 @@ async def test_l2_on_without_plan_keeps_mode_block():
     legacy = psb.compose_verbalizer_system(
         "КАНАЛ", "casual", "plain", html_safe=True,
         character_block=CHARACTER_BLOCK)
-    assert composed == legacy
+    assert composed == legacy + "\n\n" + _speech_base_layer()
     mode_trace = [t for t in manifest.layers
                   if t.block_id == "mode_block"][0]
     assert mode_trace.rendered is True
