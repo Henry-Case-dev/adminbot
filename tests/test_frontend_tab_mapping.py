@@ -190,9 +190,9 @@ class TestTabMappingAudit:
         # SMART_CACHE_TTL_SECONDS/SMART_CACHE_MAX_ROWS/CHAT_DEDUP_ENABLED/
         # CHAT_DEDUP_TTL_SECONDS), −2 GROUPS (limits_smart_cache/
         # flags_smart_cache), −2 mapped → фактические 581/119/117.
-        assert len(pc._TAB_BY_GROUP) == 117
-        assert len(GROUPS) == 119
-        assert len(pc.REGISTRY) == 581
+        assert len(pc._TAB_BY_GROUP) == 118
+        assert len(GROUPS) == 120
+        assert len(pc.REGISTRY) == 583
 
 
 class TestModuleTabs:
@@ -259,9 +259,11 @@ class TestModuleTabs:
 
     def test_mod_factcheck_and_search(self):
         # MCA-20 (round 10.44): +temporal_factcheck (in-place, TAB_RULES 22).
+        # EVOL §5 W5 review-fix B1 (31.10.2026): +flags_factcheck_delivery
+        # (подача ответа/стиль фактчека; in-place, TAB_RULES 22 без роста).
         assert tab_group_ids(TAB_MOD_FACTCHECK) == {
-            "flags_module_factcheck", "limits_factcheck",
-            "temporal_factcheck"}
+            "flags_module_factcheck", "flags_factcheck_delivery",
+            "limits_factcheck", "temporal_factcheck"}
         assert tab_group_ids(TAB_MOD_SEARCH) == {
             "flags_module_search", "limits_search"}
 

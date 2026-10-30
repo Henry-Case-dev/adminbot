@@ -863,6 +863,23 @@ _PG_BLOCK_META: dict[str, dict] = {
         composition_point="speech_plain/factcheck_publication",
         enabled_by="", speech=True, legacy_persona=True, scope="global",
         ui="catalog"),
+    # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): речевая директива раздела
+    # «Критический разнос» — теперь PG-управляемый заводской промпт каталога
+    # (ключ `prompts.factcheck_critique_directive`, группа prompts_factcheck).
+    # Единственная точка объявления блока: метадата каталога ниже (без второго
+    # `declare_prompt` в _CODE_BLOCKS — иначе блок был бы объявлен дважды).
+    # Читается `factcheck_prompts.resolve_critique_directive` через реестр.
+    "prompts.factcheck_critique_directive": dict(
+        block_id="factcheck.critique.directive", family="factcheck",
+        purpose="Речевая директива раздела «Критический разнос» публичного "
+                "ответа фактчека: как резко и в каком голосе критиковать "
+                "УЖЕ установленную ошибку тезиса. Семантический guard "
+                "(только ошибочные части, без выдуманного разгрома) живёт в "
+                "коде, не в этом тексте.",
+        consumers=("factcheck_prompts.py:resolve_critique_directive",),
+        composition_point="speech_plain/factcheck_critique_section",
+        enabled_by="flags.factcheck_critique_section_enabled", speech=True,
+        scope="code", owner_lane="W5-EVOL", ui="catalog"),
     "prompts.summary_system_prompt": dict(
         block_id="summary.base.single", family="summary",
         purpose="Legacy-саммари одним вызовом (OFF/LEVEL-3): события и "
@@ -1810,24 +1827,11 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         composition_point="initiative/meme_summary",
         migration="factory", owner_lane="W3-EVOL014", speech=False,
         ui="catalog_pending"),
-    # EVOL §5 (W5, 31.10.2026): речевая директива раздела «Критический
-    # разнос» публичного фактчека — редактируемый заводской промпт (дословный
-    # текст владельца). PG-ключ каталога заводит лейн настроек; до этого
-    # действует эта заводская редакция, скрытого второго хранилища нет
-    # (``factcheck_prompts.resolve_critique_directive`` читает реестр).
-    declare_prompt(
-        block_id="factcheck.critique.directive",
-        purpose="Речевая директива раздела «Критический разнос» публичного "
-                "ответа фактчека: как резко и в каком голосе критиковать "
-                "УЖЕ установленную ошибку тезиса. Семантический guard "
-                "(только ошибочные части, без выдуманного разгрома) живёт в "
-                "коде, не в этом тексте.",
-        family="factcheck", scope="code",
-        code_source="services.factcheck_prompts.FACTCHECK_CRITIQUE_DIRECTIVE",
-        consumers=("factcheck_prompts.py:resolve_critique_directive",),
-        composition_point="speech_plain/factcheck_critique_section",
-        migration="factory", owner_lane="W5-EVOL", speech=True,
-        ui="catalog_pending"),
+    # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок
+    # ``factcheck.critique.directive`` больше НЕ объявляется здесь — он стал
+    # PG-управляемым промптом каталога (``prompts.factcheck_critique_directive``)
+    # и объявляется одной точкой в ``_PG_BLOCK_META`` (раздел «Сборка реестра»).
+    # Два объявления одного блока = скрытая инструкция (контракт EVOL-018).
 )
 
 

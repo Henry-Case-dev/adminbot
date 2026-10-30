@@ -476,6 +476,17 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Тумблеры шага планирования прямого чата: включение L1 Planner "
               "и разрешение fallback на основную модель при его отказе. "
               "Аварийный env DIRECT_L1_ENABLED важнее UI.", 28),
+    # ── flags (22; EVOL §5 W5, 31.10.2026, review-fix B1): ПОДАЧА ответа
+    # фактчека, а НЕ мастер-тумблер модуля (`flags_module_factcheck` остаётся
+    # единственным мастером). Ключ `flags.factcheck_critique_section_enabled`
+    # (per-chat, default ON внутри уже включённого фактчека); вкладка
+    # mod_factcheck — TAB_RULES in-place. Порядковый номер 22 освободился
+    # после снятия вкладки smart_cache (EVOL-031), соседей не смещаем.
+    GroupSpec("flags_factcheck_delivery", "flags",
+              "Подача ответа / стиль фактчека",
+              "Как оформлен ответ фактчека: раздел «Критический разнос». "
+              "Действует только внутри включённого модуля «Фактчек» и по "
+              "умолчанию включён.", 22),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -616,6 +627,18 @@ _PROMPTS: list[tuple] = [
      "services.factcheck_prompts.FACTCHECK_VERBALIZER_SYSTEM_PROMPT", "prompts_factcheck",
      "Превращает разбор фактчека в финальный текст. Изменения применяются сразу.",
      "advanced", "verbalizer"),
+    # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): речевая директива раздела
+    # «Критический разнос» — PG-редактируемый заводской промпт (дословный текст
+    # владельца, реестровый блок `factcheck.critique.directive`). Читает
+    # `factcheck_prompts.resolve_critique_directive`; пустое значение = заводская
+    # редакция (политика версий ADR-1013-3). Группа prompts_factcheck (та же
+    # карточка «Фактчек», что у вербализатора), стадия — публичный Writer.
+    ("prompts.factcheck_critique_directive", "Директива раздела «Критический разнос»",
+     "services.factcheck_prompts.FACTCHECK_CRITIQUE_DIRECTIVE", "prompts_factcheck",
+     "Как резко и в каком голосе бот критикует уже установленную ошибку тезиса "
+     "в разделе «Критический разнос». Пусто — заводская редакция. Изменения "
+     "применяются сразу.",
+     "", "verbalizer"),
     ("prompts.summary_editor_system_prompt", "Legacy Editor",
      "services.summary_prompts.SUMMARY_EDITOR_SYSTEM_PROMPT", "prompts_summary",
      "Legacy fallback, не основной Hybrid writer: сжимает историю в выжимку "
@@ -2479,6 +2502,26 @@ _TEMPORAL: list[ParamSpec] = [
 ]
 
 
+# ── EVOL §5 (W5, 31.10.2026, review-fix B1): подача ответа фактчека.
+# Ключ `flags.factcheck_critique_section_enabled` (per-chat, PG-only bool:
+# Settings-поля нет — заводской дефолт ON живёт в резолвере
+# `factcheck_service.critique_section_default` и в зеркале
+# `config_cache._PG_ONLY_BOOL_DEFAULTS`). Это НЕ мастер модуля: раздел
+# «Критический разнос» живёт только внутри уже включённого фактчека
+# (`flags.factcheck_enabled` не дублируется).
+_FACTCHECK_DELIVERY: list[ParamSpec] = [
+    ParamSpec(None, None, CATEGORY_FLAGS,
+              "Раздел «Критический разнос» включён", "bool",
+              secret=False, pg_id="flags.factcheck_critique_section_enabled",
+              group="flags_factcheck_delivery",
+              description="Отдельный раздел «Критический разнос» в публичном "
+                          "ответе фактчека: жёсткая критика уже доказанной "
+                          "ошибки тезиса. Выключено — факты, источники и "
+                          "оговорки остаются, раздела нет. Мастер-тумблер "
+                          "модуля «Фактчек» эта настройка не заменяет."),
+]
+
+
 # ── CFG-06 v2 (кандидат 5af56d8b, каталогизация 20.10.2026): 3 тумблера
 # фактчек-конвейера v2 (вкладка mod_factcheck, группа flags_module_factcheck
 # in-place). Рантайм читает hot-ключи БЕЗ суффикса _enabled
@@ -2983,6 +3026,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     # (pg_id-ренейм hot-ключей flags.factcheck_*; REGISTRY 579→582).
     for spec in _FACTCHECK_V2:
         add(spec)
+    # EVOL §5 (W5, review-fix B1): +1 PG-only per-chat bool подачи ответа
+    # фактчека (группа flags_factcheck_delivery, вкладка mod_factcheck).
+    for spec in _FACTCHECK_DELIVERY:
+        add(spec)
     return registry
 
 
@@ -3317,7 +3364,12 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_REACTIONS, frozenset({"reactions_chat"})),
     )),
     (TAB_MOD_FACTCHECK, (
-        (CATEGORY_FLAGS, frozenset({"flags_module_factcheck"})),
+        (CATEGORY_FLAGS, frozenset({"flags_module_factcheck",
+                                    # EVOL §5 (W5, review-fix B1): группа
+                                    # подачи ответа/стиля фактчека — IN-PLACE
+                                    # (TAB_RULES 22 без роста, прецедент
+                                    # mod_sleep/temporal_factcheck).
+                                    "flags_factcheck_delivery"})),
         (CATEGORY_LIMITS, frozenset({"limits_factcheck"})),
         # Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): группа «Временной
         # фактчек» — IN-PLACE (TAB_RULES 22 без роста; прецедент mod_sleep).

@@ -587,3 +587,87 @@ async def test_case8_routes_keep_core_and_consistent_genre(monkeypatch):
     assert pr.factory_text(spec.block_id) == DIRECTIVE
     assert pr.seal_integrity() == {}
     assert pr.factory_revision(spec.block_id).startswith(pr.FACTORY_PREFIX)
+
+
+# ═══ 9. каталог: обе ручки владельца существуют (POST ≠ 422) ═══════════════
+# REVIEW-FIX B1: `flags.factcheck_critique_section_enabled` и
+# `prompts.factcheck_critique_directive` обязаны быть в каталоге — иначе
+# POST /api/config отвечает 422 «неизвестный ключ», а вкладка «Фактчек»
+# (рендерится только из каталога) не показывает ни тумблер раздела, ни
+# редактор директивы, то есть владелец физически не может их изменить.
+
+def test_case9_catalog_exposes_both_owner_controls():
+    from services import config_cache
+    from services import param_catalog as pcat
+
+    # (а) тумблер раздела: per-chat bool в СВОЕЙ группе подачи ответа
+    flag = pcat.get_by_pg_key(CRITIQUE_SECTION_KEY)
+    assert flag is not None, ("флага нет в каталоге → POST /api/config "
+                              "вернёт 422 «неизвестный ключ»")
+    assert flag.category == pcat.CATEGORY_FLAGS and flag.type == "bool"
+    assert flag.per_chat is True and flag.hidden is False
+    assert flag.group == "flags_factcheck_delivery"
+    assert pcat.group_tab(flag.group) == pcat.TAB_MOD_FACTCHECK
+    # это НЕ второй мастер-тумблер модуля: мастер остаётся единственным
+    assert CRITIQUE_SECTION_KEY != "flags.factcheck_enabled"
+    assert pcat.get_by_pg_key("flags.factcheck_enabled") is not None
+    # default ON зеркалится в /api/config (иначе в UI был бы null, не «вкл»)
+    assert config_cache._PG_ONLY_BOOL_DEFAULTS[CRITIQUE_SECTION_KEY] is True
+
+    # (б) директива: PG-ключ привязан к реестровому блоку, группа фактчека
+    spec = pr.block(fp.FACTCHECK_CRITIQUE_BLOCK_ID)
+    assert spec is not None
+    assert spec.pg_key == "prompts.factcheck_critique_directive"
+    entry = pcat.get_by_pg_key(spec.pg_key)
+    assert entry is not None, "промпт-ключа нет в каталоге → 422 в POST"
+    assert entry.category == pcat.CATEGORY_PROMPTS and entry.type == "str"
+    assert entry.per_chat is True
+    assert entry.code_source == \
+        "services.factcheck_prompts.FACTCHECK_CRITIQUE_DIRECTIVE"
+    assert pcat.group_tab(entry.group) == pcat.TAB_PROMPTS
+    # блок объявлен ровно один раз (нет второго объявления/скрытой копии)
+    assert pr.unregistered_catalog_keys() == ()
+    assert [b.block_id for b in pr.all_blocks()].count(
+        spec.block_id) == 1
+
+
+# ═══ 10. правка владельца директивы реально доходит до Writer ══════════════
+# REVIEW-FIX B2: реестр читался только при непустом `spec.pg_key`; без него
+# `resolve_critique_directive` всегда возвращал литерал, то есть правка
+# владельца не могла повлиять на ответ.
+
+@pytest.mark.asyncio
+async def test_case10_owner_directive_revision_reaches_writer_prompt(
+        monkeypatch):
+    from services import hot_config as hot
+
+    spec = pr.block(fp.FACTCHECK_CRITIQUE_BLOCK_ID)
+    assert spec is not None and spec.pg_key
+    key = spec.pg_key
+
+    owner_revision = "Разнеси тезис по пунктам и назови, где именно подмена."
+    monkeypatch.setattr(
+        hot, "get",
+        lambda name, default=None: owner_revision if name == key else default)
+    assert fp.resolve_critique_directive() == owner_revision
+
+    # правка владельца доходит до ФАКТИЧЕСКОГО system-промпта Writer'а
+    llm = StepLLM(verdict={"factual_verdict": "refuted",
+                           "temporal_status": "unknown"},
+                  text="Тезис не подтверждается.\n\n" + HEADING
+                       + ": цифры взяты с потолка.")
+    await _run_temporal(llm)
+    payload = llm.system_of("temporal_verbalize")
+    assert owner_revision in payload
+    assert DIRECTIVE not in payload      # заводская редакция вытеснена правкой
+
+    # пустое/пробельное значение → заводской литерал (пустота не обнуляет)
+    monkeypatch.setattr(hot, "get",
+                        lambda name, default=None: "   ")
+    assert fp.resolve_critique_directive() == DIRECTIVE
+
+    # заводской текст и печать ревизии не изменились (не подмена канона)
+    assert pr.factory_text(spec.block_id) == DIRECTIVE
+    assert pr.FACTORY_REVISION_SEALS[spec.block_id] == (
+        "factcheck-critique-w5", pr.sha12(DIRECTIVE))
+    assert pr.seal_integrity() == {}

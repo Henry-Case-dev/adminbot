@@ -582,7 +582,7 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 581
+        assert len(pc.REGISTRY) == 583
         # MCA-19 Wave 1 (ADR-1028-19 §8.2): +9 vision-ключей → Settings 450
         # (evidence-pin Wave 1; fixture-бампы см. tools/_mca19_reissue_f8.py).
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
@@ -590,9 +590,9 @@ class TestCanon:
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
             == 465
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 556
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+                    if s.category is not None]) == 558
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
 

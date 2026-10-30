@@ -176,4 +176,7 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # PREV_*_1027W1; было 986108f6d63c, стало fbc44eb0f879).
     # EVOL-014 (30.10.2026): зарегистрированы initiative.meme.image/summary.
     # Было c1535d3d4252, стало 03776db327b4.
-    assert pr.FACTORY_SET_SHA256_12 == "03776db327b4"
+    # EVOL §5 W5 (31.10.2026, d036707a): +1 заводской промпт «Критический
+    # разнос» (factcheck.critique.directive) → 519663a57eb6 (осознанный
+    # re-pin L-F11S-1).
+    assert pr.FACTORY_SET_SHA256_12 == "519663a57eb6"

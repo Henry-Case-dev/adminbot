@@ -703,9 +703,9 @@ class TestR17AndBoundaries:
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/121/119.
-        assert len(pc.REGISTRY) == 581
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 583
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
     def test_no_ddl_in_a2_sources(self):

@@ -106,7 +106,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # живых LLM-инструкций (temporal/memory-rerank/search/cover) ->
     # c1535d3d4252.
     # EVOL-014 (30.10.2026): +2 заводских промпта мемов → 03776db327b4.
-    assert pr.FACTORY_SET_SHA256_12 == "03776db327b4"
+    # EVOL §5 W5 (31.10.2026, d036707a): +1 заводской промпт «Критический
+    # разнос» (factcheck.critique.directive, дословный текст владельца) →
+    # 519663a57eb6. Пин переутверждён осознанно (L-F11S-1), не ослаблен.
+    assert pr.FACTORY_SET_SHA256_12 == "519663a57eb6"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

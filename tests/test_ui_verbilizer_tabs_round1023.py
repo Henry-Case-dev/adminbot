@@ -80,9 +80,9 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 581
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 583
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
     def test_new_group_bound_to_prompts_tab(self):
@@ -110,7 +110,9 @@ class TestCatalogDelta:
         # 10.26 (S5/ADR-1026-7 D3): +1 — prompts.summary_l2_writer_system_prompt.
         # SOUL-1 mobile-prompts (2026-10-16): +1 — prompts.direct_l1_planner_
         # system_prompt (читался рантаймом без записи каталога) = 25.
-        assert len(prompts) == 25
+        # EVOL §5 W5 review-fix B1 (31.10.2026): +1 — prompts.factcheck_
+        # critique_directive (директива «Критического разноса») = 26.
+        assert len(prompts) == 26
         for spec in prompts:
             assert spec.code_source
             assert spec.stage in (None, "synthesizer", "verbalizer", "mode")

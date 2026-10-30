@@ -976,12 +976,12 @@ class TestCanon:
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
         # (Settings-поля сохранены no-op; дрейф 466→465 — внешний, EVOL-016/012).
-        assert len(pc.REGISTRY) == 581
+        assert len(pc.REGISTRY) == 583
         assert len({f.name for f in dataclasses.fields(Settings)}) == 465
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 556
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+                    if s.category is not None]) == 558
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
     def test_migration_step_present(self):

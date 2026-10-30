@@ -101,6 +101,10 @@ _PG_ONLY_BOOL_DEFAULTS: dict[str, bool] = {
     "memory.random_uses_conversation_variant": True,
     "memory.random_uses_memory_recall": True,
     "memory.random_uses_ui_visualization": True,
+    # EVOL §5 (W5, 31.10.2026, review-fix B1): раздел «Критический разнос»
+    # внутри включённого фактчека — default ON (зеркало
+    # `factcheck_service.critique_section_default`).
+    "flags.factcheck_critique_section_enabled": True,
 }
 
 

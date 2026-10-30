@@ -310,7 +310,10 @@ class TestPromptsContentPgOnly:
         # + prompts.summary_cover_style_id (EXTRA round1028, ADR-1028-4 D3) = 24.
         # SOUL-1 mobile-prompts (2026-10-16): +1 — prompts.direct_l1_planner_
         # system_prompt (ключ читался рантаймом, записи каталога не имел) = 25.
-        assert len(prompts) == 25
+        # EVOL §5 W5 review-fix B1 (31.10.2026): +1 — prompts.factcheck_
+        # critique_directive (директива раздела «Критический разнос»; ключ
+        # реестрового блока factcheck.critique.directive) = 26.
+        assert len(prompts) == 26
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -438,7 +441,7 @@ class TestGroups8424:
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
         # EVOL-031 (30.10.2026): −2 группы (smart_cache flags/limits) → 119.
-        assert len(GROUPS) == 119
+        assert len(GROUPS) == 120
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -587,8 +590,11 @@ class TestGroups8424:
         # Итого categorized 561.
         # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → flags 105, limits 223,
         # итого categorized 556.
-        assert counts == {"prompts": 25, "models": 74, "keys": 35,
-                          "limits": 223, "flags": 105, "reactions": 39,
+        # EVOL §5 W5 review-fix B1 (31.10.2026): +1 prompt (директива
+        # «Критического разноса») +1 flags (тумблер раздела, группа
+        # flags_factcheck_delivery) → prompts 26, flags 106, итого 558.
+        assert counts == {"prompts": 26, "models": 74, "keys": 35,
+                          "limits": 223, "flags": 106, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

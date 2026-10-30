@@ -82,9 +82,9 @@ class TestCatalogContract:
         # Санкция §13.2: +13/+2/+2, TAB_RULES 21 in-place.
         # ASAP 7 (F3, §3.2): +9 REGISTRY / +2 GROUPS / +2 mapped /
         # TAB_RULES 23 (+mod_initiative) — см. test_param_catalog/frontend.
-        assert len(pc.REGISTRY) == 581
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 583
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
     def test_per_chat_vs_global(self):

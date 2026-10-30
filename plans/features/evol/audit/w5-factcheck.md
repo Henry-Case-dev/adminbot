@@ -137,11 +137,11 @@ FactcheckRequest → resolve_claim_publication → retrieval (один поис�
 ## 7. Вне этого лейна (сознательно)
 
 * **UI-настройка** «Критический разнос» (переключатель + редактор директивы с
-  версиями + превью структуры) — отдельный лейн настроек (`web/**`,
-  `services/param_catalog.py`: ключи `flags.factcheck_critique_section_enabled`
-  и `prompts.factcheck_critique_directive`). Рантайм уже читает оба механизма,
-  UI-зависимости в сервисе нет. Каталог не трогал: добавление ключей меняет
-  пиннутые счётчики каталога и вкладок (чужой лейн).
+  версиями + превью структуры) — отдельный лейн настроек (`web/**`).
+  **Обновление review-fix:** backend-часть ключей каталога
+  (`flags.factcheck_critique_section_enabled`,
+  `prompts.factcheck_critique_directive`) уже заведена — см. §9; остаётся
+  только отрисовка в `web/**` (чужой лейн).
 * `handlers/factcheck.py` не менялся: настройка резолвится в сервисе по
   `chat_id`, поэтому legacy- и v2-маршруты получают её одинаково.
 
@@ -158,3 +158,88 @@ FactcheckRequest → resolve_claim_publication → retrieval (один поис�
    `test_expression_isolation_followup.py` ожидают `03776db327b4`) уже падали на
    HEAD (`1ce70bfedd8c`) и остаются красными; актуальный отпечаток набора —
    `519663a57eb6` (мой бамп). Это бухгалтерия чужого лейна, не поведение W5.
+   **Закрыто в §9** (оба пина переутверждены на `519663a57eb6`).
+
+## 9. Review-fix B1/B2 (31.10.2026)
+
+Ревью кандидата `03b57f0e` (delta `d036707a`) дало два блокера по одному
+корню: **ручки владельца существовали только на бумаге**.
+
+### B2 — правка владельца не могла попасть в промпт
+
+`services/prompt_registry.py`: блок `factcheck.critique.directive` был объявлен
+без `pg_key` → `spec.pg_key is None`; `factcheck_prompts.resolve_critique_directive`
+читает значение только при непустом ключе → всегда возвращался литерал.
+
+Исправление: блок стал обычным PG-управляемым промптом каталога —
+единственная точка объявления `_PG_BLOCK_META["prompts.factcheck_critique_directive"]`
+(`block_id="factcheck.critique.directive"`, `ui="catalog"`,
+`owner_lane="W5-EVOL"`), отдельный `declare_prompt` из `_CODE_BLOCKS` убран
+(два объявления одного блока = «скрытая инструкция», контракт EVOL-018;
+`unregistered_catalog_keys() == ()`).
+
+### B1 — ключей не было в каталоге
+
+`services/param_catalog.py`: +2 ParamSpec / +1 GroupSpec.
+
+| Ключ | Тип | Группа / вкладка | Заводское значение |
+| --- | --- | --- | --- |
+| `flags.factcheck_critique_section_enabled` | bool, per-chat, PG-only | `flags_factcheck_delivery` («Подача ответа / стиль фактчека») / `mod_factcheck` | ON внутри включённого фактчека |
+| `prompts.factcheck_critique_directive` | str, per-chat | `prompts_factcheck` / `prompts` | дословный текст владельца (§5.1) |
+
+`services/config_cache.py`: `_PG_ONLY_BOOL_DEFAULTS["flags.factcheck_critique_section_enabled"] = True`
+(зеркало резолвера — контракт-тест требует покрытия ВСЕХ PG-only bool каталога,
+иначе в `/api/config` был бы `null` вместо «включено»).
+
+Мастер-тумблер модуля НЕ дублируется: `flags.factcheck_enabled` остаётся
+единственным мастером, новый флаг действует только внутри него.
+`TAB_RULES` — in-place (22 без роста), новых вкладок нет, DDL = 0,
+routes = 0, Settings-поля не менялись.
+
+### Переиздание счётчиков (L-F11S-1, осознанно)
+
+`REGISTRY 581→583`, `categorized 556→558`, `GROUPS 119→120`,
+`_TAB_BY_GROUP 117→118`, `TAB_RULES 22`, `delta 175→177`, TSV `581→583`.
+Артефакты `plans/docs/param-registry-round1025.*` + `screen-map` — штатным
+генератором (`tools/gen_param_registry_round1025.py`, `--check` EXIT 0);
+фикстуры — `tools/_evol_w5_reissue_f8.py`; пины legacy-тестов — 
+`tools/_evol_w5_reissue_pins.py` (53 файла, контекстные замены только
+пин-паттернов). Переутверждены `PARAM_CATALOG_SHA256_FOLLOWUP` (новый sha
+каталога) и provenance-пины `.meta.md` (583/177).
+
+Также закрыты два stale-пина отпечатка реестра (`03776db327b4` →
+`519663a57eb6`, коммит `d036707a`) в `test_p0_prompts_core.py` и
+`test_expression_isolation_followup.py` — п. 8.3 больше не актуален.
+
+### Проверка (cwd = рабочее дерево, интерпретатор `.venv`)
+
+* `tests/test_evol_factcheck_critical.py` → **11 passed** (добавлены кейс 9 —
+  оба ключа есть в каталоге, `per_chat`, группа/вкладка, нет дубля мастера,
+  default ON в `/api/config`; кейс 10 — непустая правка владельца доходит до
+  **фактического** system-промпта Writer'а, пустая → заводской литерал,
+  `factory_text`/печать реестра не изменились);
+* `tests/test_p0_prompts_core.py` + `tests/test_expression_isolation_followup.py`
+  + `tests/test_evol018_prompt_audit.py` → green;
+* `tests/test_round1025_f8_registry.py` + `tests/test_param_catalog.py` +
+  `tests/test_budget_settings_round1019.py` → green, кроме 4 **pre-existing**
+  падений (см. ниже);
+* 53 переизданных legacy-файла (1634 passed) — падения только pre-existing
+  (классификация ниже);
+* фактчек/промпт-регресс (prompts/service/two-call/renderer/orchestrator/
+  post-release W1-W2/unified_core/registry-completeness/config_cache) →
+  **177 passed, 3 failed** — все три `TestAggregatorFailureTaxonomy`
+  (живой DuckDuckGo в провайдер-каскаде), уже зафиксированы как pre-existing
+  в `d036707a`.
+
+### Pre-existing RED на HEAD `03b57f0e` (НЕ мой дельта, не маскирую)
+
+| Класс | Доказательство |
+| --- | --- |
+| Settings-поля 465 → 468 + «не покрыты `VIDEO_INTENT_*`» (34 кейса в legacy-пинах) | `config/settings.py` не изменялся; в `HEAD:services/param_catalog.py` этих ключей нет → лейн видео-интента добавил 3 Settings-поля без каталога/пинов |
+| `web/api/routes.py` byte-freeze (`ROUTES_SHA256_F11`, 3 кейса) | sha файла на HEAD `708f5327…` ≠ пин `ce5951d7…`; routes.py мной не тронут (sha == HEAD) |
+| SQLite `user_version` 38 ≠ 39 (`test_mca17c_invariants`) | v39 добавлена `011fe8ff` (EVOL-016), пин не обновлён |
+| `Speech_Base` в payload L1-кластеризатора (`test_summary_l1_clusterizer`) | слой SPEECH-SIMPLIFY добавлен до EVOL (отмечено в `834dca00`) |
+| `>✕</button>` 6 ≠ 5 (`test_webapp_round1010_ui`) | HTML-кнопка добавлена ранее, пин не обновлён; мой diff `web/**` не трогает |
+
+Отдельное наблюдение: `web/index.html` в этом worktree изменён **параллельным
+лейном** (EVOL-032 §6, SVG-фильтр линзы) — не мой diff, не откатывал.

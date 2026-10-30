@@ -939,12 +939,12 @@ class TestBounds:
         assert APP_VERSION == "2.58.141"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
-        assert len(pc.REGISTRY) == 581
+        assert len(pc.REGISTRY) == 583
         assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 556   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+                    if s.category is not None]) == 558   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
 
     def test_canon_twelve_tools(self):

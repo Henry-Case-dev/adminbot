@@ -46,9 +46,9 @@ def test_catalog_counts_sanctioned():
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
     # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
-    assert len(pc.REGISTRY) == 581          # 510 → 519 (+9) → 586 → 581
-    assert len(pc.GROUPS) == 119            # 108 → 112 (+4) → 121 → 119
-    assert len(pc._TAB_BY_GROUP) == 117     # 106 → 110 → 119 → 117
+    assert len(pc.REGISTRY) == 583          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.GROUPS) == 120            # 108 → 112 (+4) → 121 → 119
+    assert len(pc._TAB_BY_GROUP) == 118     # 106 → 110 → 119 → 117
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
     # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23);
     # EVOL-031: tab smart_cache удалён → 22.
@@ -121,13 +121,15 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # TEMPORAL_FRESHNESS_* → 586+header=587 (reissue по фактическому
     # каталогу дерева; пин 588 на базе расходился с TSV — W1 incidental #1).
     # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581+header=582.
-    assert len(tsv) == 582
+    assert len(tsv) == 584
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
     # ASAP 7 F2: reissue под 560/149 (см. meta.md); FC-06C: 586/175;
     # EVOL-031: 581/175 (снятые ключи исторические — delta-набор не менялся).
-    assert "581" in meta and "411" in meta and "175" in meta
+    # EVOL §5 W5 review-fix B1 (31.10.2026): reissue под 583/177 (+2 ключа
+    # подачи фактчека: флаг раздела + директива «Критического разноса»).
+    assert "583" in meta and "411" in meta and "177" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

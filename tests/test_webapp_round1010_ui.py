@@ -193,8 +193,8 @@ class TestCatalog1010:
         # prompts.direct_l1_planner_system_prompt (читался рантаймом,
         # записи каталога не имел) → REGISTRY 571→572; группы/табы/
         # Settings без изменений.
-        assert len(pc.REGISTRY) == 581
-        assert len(pc.GROUPS) == 119
-        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.REGISTRY) == 583
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
         assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
