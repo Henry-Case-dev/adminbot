@@ -803,6 +803,7 @@ HISTORY_PARTIAL_INLINE = "более ранняя история не перед
 def build_l1_context(*, query, current_question: str = "",
                      reply_block: str = "", window=None,
                      speaker: str = "", addressee: str = "",
+                     social_frame: str = "",
                      memory_hints: str = "", speech_hints: str = "",
                      capabilities=(), force_line: str = "",
                      persona_frame: str = "",
@@ -848,8 +849,16 @@ def build_l1_context(*, query, current_question: str = "",
             sections.append((HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE))
         speaker = str(speaker or "неизвестно").strip()
         addressee = str(addressee or "чат").strip()
-        sections.append(("УЧАСТНИКИ",
-                         f"Говорящий: {speaker}\nАдресат: {addressee}"))
+        participants = f"Говорящий: {speaker}\nАдресат: {addressee}"
+        # EVOL social (доп. директива §§1–3, 31.10.2026): кадр хода —
+        # структурные факты адресации (reply/цитата/ветка) из уже собранного
+        # окна. Это ДАННЫЕ того же защищённого блока УЧАСТНИКИ (отдельного
+        # «бюджета на социальность» нет: блок входит в protected-набор
+        # `_cap_context`); пустая строка → payload байт-в-байт прежний.
+        social_line = str(social_frame or "").strip()
+        if social_line:
+            participants = f"{participants}\n{social_line}"
+        sections.append(("УЧАСТНИКИ", participants))
         if str(memory_hints or "").strip():
             sections.append(("ПАМЯТЬ (срез)", str(memory_hints).strip()))
         if str(speech_hints or "").strip():
@@ -1141,7 +1150,8 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         include_delivery: bool = False,
                         include_analysis: bool = False,
                         include_delta: bool = False,
-                        modes_on: bool = True) -> str:
+                        modes_on: bool = True,
+                        social_hint: str = "") -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -1227,6 +1237,15 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         note = rejected_note(rejected)
         if note:
             lines.append(note)
+        # ── EVOL social (доп. директива §§1–3, 31.10.2026): короткая
+        # ИСТОЧНИКОВАЯ подсказка текущего хода (адресат/ветка/цитата +
+        # статус атрибуции) из `SocialTurnFrame`. Это данные хода, а не новая
+        # инструкция: выбранные действие/тон уже несут строки плана выше, а
+        # личность/характер участника здесь не описывается. Пустая строка →
+        # payload Writer'а байт-в-байт прежний (обратная совместимость).
+        _social = str(social_hint or "").strip()
+        if _social:
+            lines.append(_social)
         # ── SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): дословные
         # тексты анализа/Writer в plan-блоке для serious-разбора. Один
         # источник (`prompt_style_blocks`), deep-режим их уже несёт.

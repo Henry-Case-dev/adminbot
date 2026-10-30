@@ -102,6 +102,7 @@ from services import bot_output_ledger as _ledger   # MCA-22 (C2, D2)
 from services import graphrag_provenance as _gprov  # MCA-22 (C5/C8, D6/D9)
 from services import provenance as _prov            # MCA-22 (C8: reuse 04a)
 from services import quote_resolver as _qres        # MCA-22 (C3, D3; fix M-2)
+from services import social_turn_frame as _stf      # EVOL social (§§1–3, 0 LLM)
 from services import claim_envelope as _ce          # MCA-08 (D6/D7, T-4898)
 from services import mca_events as _mca_events      # MCA-08 (notable-only)
 from services import mca_style_scope as _style_scope  # MCA-08 (D3–D5, C)
@@ -2284,6 +2285,47 @@ def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
     return facts, ranks
 
 
+async def _social_frame_for_turn(chat_id, message=None, *, bundle=None,
+                                 window=None, opportunity=None,
+                                 requester_user_id=None):
+    """EVOL social (доп. директива §§1–3): кадр текущего хода.
+
+    Дешёвый ДЕТЕРМИНИРОВАННЫЙ адаптер: собирает `SocialTurnFrame` из уже
+    загруженных данных (Telegram reply/quote сообщения, существующий MCA-22
+    bundle, окно чата) + существующий RelationsService (только стаж/
+    активность/ручные пометки). 0 LLM-вызовов, 0 новых запросов на
+    участника, 0 второго store. Любая ошибка/выключенный kill-switch →
+    пустой кадр (`None`), прежний путь ответа продолжается. Никогда не
+    бросает.
+
+    Модульная функция (не метод сервиса): `_plan_direct_l1` вызывается и на
+    частично собранных DI-двойниках — адаптер не должен требовать нового
+    метода у объекта сервиса."""
+    try:
+        if not _stf.feature_enabled():
+            return None
+        relations = None
+        if int(chat_id) < 0 and hot.get(
+                "flags.relations_tone_enabled",
+                settings.RELATIONS_TONE_ENABLED):
+            # Тот же гейт, что у блока `<user_relations>`: сервис берётся из
+            # существующего lore_runtime, ленивое чтение — одно (RAM-TTL 60 c),
+            # без обхода всех сообщений/участников.
+            try:
+                from services import lore_runtime
+                relations = lore_runtime.get_relations_service()
+            except Exception:
+                relations = None
+        return await _stf.build_social_turn_frame(
+            chat_id=chat_id, message=message, bundle=bundle, window=window,
+            opportunity=opportunity, relations=relations,
+            relation_skip_user_id=requester_user_id)
+    except Exception:
+        logger.warning("[social] frame unavailable — legacy path | chat=%s",
+                       chat_id, exc_info=True)
+        return None
+
+
 def _rag_item_key(item) -> object:
     """Стабильный ключ факта-кортежа для rank-таблицы (item_id или текст)."""
     try:
@@ -4188,7 +4230,11 @@ class DirectChatService:
                         include_delta=_l1.delta_instruction_needed(l1_plan),
                         modes_on=bool(getattr(
                             settings, "SMART_VERBALIZER_MODES_ENABLED",
-                            True)))
+                            True)),
+                        # EVOL social (§§1–3): короткая источниковая строка
+                        # кадра хода (адресат/ветка/цитата + статус) в том же
+                        # реальном plan-блоке Writer'а; пусто → байт-паритет.
+                        social_hint=str(l1_meta.get("social_hint") or ""))
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -4711,6 +4757,19 @@ class DirectChatService:
             window = []
         # T10-BOUNDARY: честная граница истории (факт из БД, не эвристика).
         history_partial = await self._history_partial(chat_id, window)
+        # ── EVOL social (доп. директива §§1–3, 31.10.2026): кадр хода —
+        # из уже полученного окна/bundle, 0 LLM-вызовов. Подаётся L1 как
+        # ДАННЫЕ (адресат/reply/цитата/ветка) и Writer'у короткой строкой
+        # плана; семантику (тон/response_act/reply|react|silent) решает
+        # прежний L1. Ошибка адаптера → пустой кадр (старый путь).
+        _social_frame = await _social_frame_for_turn(
+            chat_id, message, bundle=bundle, window=window,
+            requester_user_id=user_id)
+        _social_line = _stf.render_context_lines(_social_frame)
+        _social_hint = _stf.render_writer_hint(_social_frame)
+        meta["social_attribution"] = (
+            str(getattr(_social_frame, "attribution_status", "")) or "")
+        meta["social_hint"] = _social_hint
         # §1.4: список доступных capability (по активному набору tools).
         try:
             announced = {t["function"]["name"] for t in
@@ -4750,6 +4809,7 @@ class DirectChatService:
             reply_block=self._l1_reply_block(message),
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
+            social_frame=_social_line,
             memory_hints=_bundle_scoped_slice(bundle),
             speech_hints=self._l1_speech_hints(message, query, bundle),
             capabilities=available_caps,
@@ -10354,6 +10414,9 @@ class DirectChatService:
         goal = str(row.get("goal") or "").strip()
         kind = str(row.get("kind") or "")
         origin = str(row.get("origin") or "")
+        # EVOL social (§2.4): существующая причина повода наблюдателя —
+        # данные для решения, не команда; пусто → прежний текст байт-в-байт.
+        rationale = str(row.get("rationale") or "").strip()[:200]
         # L1D: смысловой адресат от наблюдателя — КОНТЕКСТ для решения, не
         # команда: имя в окне + id, чтобы L1 могла выбрать форму обращения
         # (обычное сообщение с обращением ИЛИ reply на его сообщение).
@@ -10387,11 +10450,12 @@ class DirectChatService:
             "Никто бота не звал: решается уместность ИНИЦИАТИВЫ. "
             f"Предложение наблюдателя (можешь отклонить; kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}. "
-            "Оцени контекст чата и выбери форму участия: написать "
-            "в чат обычным сообщением, ответить как reply на конкретное "
-            "сообщение, поставить реакцию или промолчать. Умерший повод, "
-            "ответ на него в контексте или нечего добавить - silent; "
-            "бессмыслица и шум участников не обязаны становиться репликой.")
+            + (f"Причина повода: {rationale}. " if rationale else "")
+            + ("Оцени контекст чата и выбери форму участия: написать "
+               "в чат обычным сообщением, ответить как reply на конкретное "
+               "сообщение, поставить реакцию или промолчать. Умерший повод, "
+               "ответ на него в контексте или нечего добавить - silent; "
+               "бессмыслица и шум участников не обязаны становиться репликой."))
         # L1D: УСЛОВИЯ — равноправие форм + существующий allowed-набор
         # реакций (той же строкой, что прямой L1; прецедент P3 rootcause).
         _init_conditions = [_l1.INITIATIVE_LINE]
@@ -10461,6 +10525,9 @@ class DirectChatService:
         goal = str(row.get("goal") or "").strip()
         kind = str(row.get("kind") or "")
         origin = str(row.get("origin") or "")
+        # EVOL social (§2.4): причина повода наблюдателя доезжает до Writer'а
+        # как ДАННЫЕ (не команда); пусто → прежний блок байт-в-байт.
+        rationale = str(row.get("rationale") or "").strip()[:200]
         context_block = (
             "<Initiative_Context>\n"
             "Ты проявляешь инициативу сам (никто бота не звал). Держись "
@@ -10468,7 +10535,8 @@ class DirectChatService:
             "не устраивай доклад.\n"
             f"Предложение наблюдателя (kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}\n"
-            "Не переспрашивай то, на что в свежем контексте уже ответили.\n"
+            + (f"Причина повода: {rationale}\n" if rationale else "")
+            + "Не переспрашивай то, на что в свежем контексте уже ответили.\n"
             "</Initiative_Context>")
         # L1D: окно Writer с теми же [msg:N]/[user:UID] id, что видел L1, —
         # форма доставки из плана ссылается на конкретное сообщение.
@@ -10487,6 +10555,18 @@ class DirectChatService:
             plan = l1_plan or _l1.L1Plan()
             response_plan = plan.to_response_plan() \
                 if hasattr(plan, "to_response_plan") else None
+            # EVOL social (§2.4): тот же дешёвый адаптер — адресат повода и
+            # реальные ID окна. Инициатива не имеет trigger-сообщения, поэтому
+            # кадр ссылается на существующий повод/окно (без выдуманного id).
+            # Ошибка адаптера → пустая подсказка (fail-open, прежний путь).
+            _init_hint = ""
+            try:
+                _init_frame = await _social_frame_for_turn(
+                    chat_id, None, window=window, opportunity=row,
+                    requester_user_id=None)
+                _init_hint = _stf.render_writer_hint(_init_frame)
+            except Exception:
+                _init_hint = ""
             plan_block = _l1.build_l2_plan_block(
                 plan,
                 rejected=(),
@@ -10502,7 +10582,10 @@ class DirectChatService:
                 # инструкцию, casual-инициатива остаётся лёгкой.
                 include_delta=_l1.delta_instruction_needed(plan),
                 modes_on=bool(getattr(
-                    settings, "SMART_VERBALIZER_MODES_ENABLED", True))) \
+                    settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
+                # EVOL social: адресат повода/ветка — данные плана; пусто →
+                # байт-паритет инициативного Writer'а.
+                social_hint=_init_hint) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             result = await self._l2_write_answer(
