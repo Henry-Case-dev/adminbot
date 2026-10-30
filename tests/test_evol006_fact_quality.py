@@ -16,7 +16,11 @@
      без опоры отклоняется;
   4. мусорный/дрейфовый ответ модели отклоняется честно (не «пустой факт ради
      KPI»); сырые сообщения и эпизоды не удаляются;
-  5. provenance (tg_message_id/forward_from) сохраняется у записанного факта.
+  5. provenance (tg_message_id/forward_from) сохраняется у записанного факта;
+  6. путь восстановления после сбоя первичной экстракции (LLMError/timeout →
+     один retry `_FACT_RETRY_SYSTEM_PROMPT`) несёт тот же контракт класса и
+     атрибуции: классификация выживает при восстановлении, а не сбрасывается
+     в «обычный факт».
 
 TEST-LIFECYCLE: CONTRACT owner=EVOL-006 (W4)
 """
@@ -30,12 +34,14 @@ import pytest_asyncio
 
 from config.settings import settings
 from services.database import DatabaseService
+from services.llm_client import LLMError
 from services.summary_memory import (
     FACT_KIND_DURABLE,
     FACT_KINDS,
     FACT_EXTRACT_PROMPT,
     PREV_FACT_EXTRACT_PROMPT,
     MemoryManager,
+    _FACT_RETRY_SYSTEM_PROMPT,
     fact_durability_decision,
     parse_fact_list_ex,
 )
@@ -85,14 +91,28 @@ PATTERN_WITH_BASIS = dict(PATTERN_NO_BASIS, basis=[11, 12])
 
 
 class FactsLLM:
-    """Заглушка LLM: отдаёт заранее заданный ответ экстрактора."""
+    """Заглушка LLM: отдаёт заранее заданный ответ экстрактора.
 
-    def __init__(self, response: str):
+    ``retry_response`` позволяет смоделировать путь восстановления: ответ на
+    ретрай-промпт отличается от ответа первичной экстракции.
+    """
+
+    def __init__(self, response: str, retry_response: str | None = None,
+                 primary_error: Exception | None = None):
         self.response = response
+        self.retry_response = retry_response
+        self.primary_error = primary_error
         self.system_prompts: list[str] = []
 
     async def generate(self, messages):
-        self.system_prompts.append(messages[0]["content"])
+        system = messages[0]["content"]
+        self.system_prompts.append(system)
+        if system == _FACT_RETRY_SYSTEM_PROMPT:
+            if self.retry_response is not None:
+                return self.retry_response
+            return self.response
+        if self.primary_error is not None:
+            raise self.primary_error
         return self.response
 
     async def embed(self, texts):  # pragma: no cover — vec в :memory: выключен
@@ -169,6 +189,30 @@ class TestPromptContract:
         enum_line = next(line for line in block.splitlines()
                          if "\"kind\"" in line)
         assert all(kind in enum_line for kind in FACT_KINDS)
+
+    def test_retry_prompt_carries_same_class_contract(self):
+        """Ретрай — обычный путь восстановления, а не «бесклассовая» форма.
+
+        Иначе восстановленный ответ дефолтится в durable_fact и разовая просьба
+        снова занимает личный пул (репро ревью: «попросил нарисовать кота» →
+        target_user).
+        """
+        for kind in FACT_KINDS:
+            assert kind in _FACT_RETRY_SYSTEM_PROMPT, kind
+        for token in ("\"kind\"", "subject_type", "object_type", "basis",
+                      "user", "world", "topic", "character"):
+            assert token in _FACT_RETRY_SYSTEM_PROMPT, token
+        # Форма ответа остаётся машинной: JSON-массив, ничего вокруг.
+        assert "JSON-массив" in _FACT_RETRY_SYSTEM_PROMPT
+        assert "верни []" in _FACT_RETRY_SYSTEM_PROMPT
+
+    def test_retry_prompt_has_no_lexical_blacklist(self):
+        low = _FACT_RETRY_SYSTEM_PROMPT.casefold()
+        for forbidden in ("blacklist", "whitelist", "стоп-слов", "стопслов",
+                          "запрещённые слова", "regex", "регекс", "регулярн"):
+            assert forbidden not in low, forbidden
+        assert not re.search(r"нарисуй кота|рисует кота|бренд товара|"
+                             r"выведен из url", low)
 
 
 class TestParsingAndAttribution:
@@ -322,6 +366,64 @@ class TestStorageConsequences:
         assert rows[0]["target_user"] == USER
         assert result["pattern_without_basis"] == 1
         assert result["saved"] == 1
+
+
+class TestRecoveryPathKeepsClassification:
+    """Путь восстановления (LLMError/timeout → retry) не теряет класс факта.
+
+    Ретрай — не аварийная экзотика: при таймауте провайдера это обычный путь
+    записи фактов. Поэтому классификация обязана выживать при восстановлении,
+    иначе разовая просьба снова попадает в личный пул (репро ревью).
+    """
+
+    @pytest.mark.asyncio
+    async def test_retry_one_off_request_not_in_long_term_pool(self, db):
+        retry = json.dumps([ONE_OFF], ensure_ascii=False)
+        memory = MemoryManager(
+            db, FactsLLM("[]", retry_response=retry,
+                         primary_error=LLMError("nano-gpt timeout")))
+        result = await memory._memorize_facts_inner(
+            CHAT_ID, "Вася попросил нарисовать кота", "bot_direct_reply", USER)
+        assert memory.llm.system_prompts[0] == FACT_EXTRACT_PROMPT
+        # Первичная экстракция исчерпала bounded-повторы (LLMError), затем
+        # ровно один вызов ретрай-промпта.
+        assert memory.llm.system_prompts.count(_FACT_RETRY_SYSTEM_PROMPT) == 1
+        assert memory.llm.system_prompts[-1] == _FACT_RETRY_SYSTEM_PROMPT
+        assert await _graph_facts(db) == []            # ни записи, ни target_user
+        assert result["episodic_skipped"] == 1
+        assert result["saved"] == 0
+        assert result["status"] == "no_new_facts"
+
+    @pytest.mark.asyncio
+    async def test_drift_then_retry_keeps_classification(self, db):
+        drifted = json.dumps([dict(DURABLE, kind="almost_durable")],
+                             ensure_ascii=False)
+        retry = json.dumps([DURABLE, ONE_OFF], ensure_ascii=False)
+        memory = MemoryManager(db, FactsLLM(drifted, retry_response=retry))
+        result = await memory._memorize_facts_inner(
+            CHAT_ID, "Вася работает на заводе, попросил нарисовать кота",
+            "bot_direct_reply", USER)
+        assert memory.llm.system_prompts == [FACT_EXTRACT_PROMPT,
+                                             _FACT_RETRY_SYSTEM_PROMPT]
+        rows = await _graph_facts(db)
+        assert [row["fact"] for row in rows] == ["вася работает на заводе"]
+        assert rows[0]["target_user"] == USER
+        assert result["episodic_skipped"] == 1
+        assert result["saved"] == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_news_not_attributed_to_person(self, db):
+        retry = json.dumps([WORLD_NEWS], ensure_ascii=False)
+        memory = MemoryManager(
+            db, FactsLLM("[]", retry_response=retry,
+                         primary_error=LLMError("nano-gpt timeout")))
+        await memory._memorize_facts_inner(
+            CHAT_ID, "переслал новость про ставку", "bot_direct_reply", USER)
+        assert memory.llm.system_prompts[-1] == _FACT_RETRY_SYSTEM_PROMPT
+        rows = await _graph_facts(db)
+        assert len(rows) == 1
+        assert rows[0]["target_user"] is None          # не личный пул
+        assert rows[0]["attribution_method"] == "world_knowledge"
 
 
 class TestHonestRejection:

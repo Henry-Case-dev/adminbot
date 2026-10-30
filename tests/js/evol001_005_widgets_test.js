@@ -327,6 +327,108 @@ assert(SFeed && typeof SFeed.step === 'function',
     'Новых подтверждённых фактов нет');
 })();
 
+// ═══ EVOL-002 (review-fix): дробная позиция кадра при квантованном scrollTop
+(function () {
+  // Браузер квантует `scrollTop`: дробная запись превращается в целое.
+  // Раньше контроллер перечитывал `scrollTop` каждый кадр и терял остаток
+  // (16 px/с ÷ 60 ≈ 0.27 px < 1) — авто-движение «замирало».
+  const el = {
+    _top: 0, scrollHeight: 900, clientHeight: 168,
+    get scrollTop() { return this._top; },
+    set scrollTop(v) { this._top = Math.round(v); },   // квантование браузера
+    getAttribute() { return null; }, setAttribute() {},
+    removeAttribute() {},
+    addEventListener() {}, removeEventListener() {},
+  };
+  const vp = new SFeed.Viewport(el);
+  assert.ok(vp, 'EVOL-002: окно контроллера создаётся');
+  vp.stop();
+  vp.lastTs = 0;
+  el._top = 0; vp.state.y = 0; vp.written = 0;
+
+  // Пять кадров (≈83 мс) — при потере остатка позиция осталась бы нулевой.
+  let ts = 0;
+  for (let i = 0; i < 5; i++) {
+    ts += 16.667;
+    vp.tick(ts);
+    vp.stop(); vp.lastTs = ts;
+  }
+  assert.ok(el.scrollTop >= 1,
+    'EVOL-002: позиция растёт уже за 5 кадров (было 0 при перечитывании DOM)');
+  assert.ok(vp.state.y > el.scrollTop,
+    'EVOL-002: дробный остаток хранится внутри контроллера (state.y=' +
+    vp.state.y + ' > записанного ' + el.scrollTop + ')');
+
+  // Секунда кадров → ≈16 px (накопление дроби, а не «0.27 → 0»).
+  for (let i = 0; i < 55; i++) {
+    ts += 16.667;
+    vp.tick(ts);
+    vp.stop(); vp.lastTs = ts;
+  }
+  const moved = el.scrollTop;
+  assert.ok(moved >= 14 && moved <= 18,
+    'EVOL-002: ≈16 px/сек при квантованном scrollTop, получено ' + moved);
+  assert.ok(Math.abs(vp.state.y - moved) < 1,
+    'EVOL-002: внутренняя позиция и записанная согласованы (остаток < 1px)');
+
+  // Ручное/внешнее изменение DOM — единственный повод пересинхронизироваться.
+  el._top = 300;
+  vp.tick(ts + 16.667);
+  vp.stop(); vp.lastTs = ts + 16.667;
+  assert.ok(Math.abs(vp.state.y - 300) < 2,
+    'EVOL-002: внешняя прокрутка подхватывается без потери позиции');
+  vp.destroy();
+})();
+
+// ═══ EVOL-003 (review-fix): фокус окна записи не уходит наружу ════════════
+(function () {
+  function ctl() {
+    return { disabled: false, focused: false, focus() { this.focused = true; } };
+  }
+  // 1) Открытие: фокус сразу на первом элементе управления, а не на корне
+  //    (`tabindex="-1"`), с которого Shift+Tab уводил фокус за пределы окна.
+  const close = ctl(), drill = ctl();
+  const root = {
+    focused: false, focus() { this.focused = true; },
+    querySelectorAll() { return [close, drill]; },
+  };
+  const ctx = {
+    _statusRecordFrom: function () { return { source: 'fact', fields: [] }; },
+    $refs: { statusRecordDialog: root },
+    $nextTick: function (fn) { fn(); },
+    statusRecordExtra: null, statusRecordExtraError: '',
+    statusRecordExtraBusy: false, statusRecord: null,
+    statusRecordReturnFocus: null,
+  };
+  methods.openStatusRecord.call(ctx, 'fact', {}, null);
+  assert.strictEqual(close.focused, true,
+    'EVOL-003: при открытии фокус на первом элементе управления');
+  assert.strictEqual(root.focused, false,
+    'EVOL-003: корень окна не забирает фокус');
+
+  // 2) Корень — часть цикла: Shift+Tab с корня ведёт на последний элемент,
+  //    Tab с корня — на первый (фокус не покидает окно).
+  const lastCtl = ctl(), firstCtl = ctl();
+  const root2 = {
+    focus() {},
+    querySelectorAll() { return [firstCtl, lastCtl]; },
+  };
+  let prevented = 0;
+  const ev = (shift) => ({
+    key: 'Tab', shiftKey: shift, currentTarget: root2,
+    preventDefault() { prevented++; },
+  });
+  global.document.activeElement = root2;
+  methods.statusRecordKeydown.call({ closeStatusRecord() {} }, ev(true));
+  assert.strictEqual(lastCtl.focused, true,
+    'EVOL-003: Shift+Tab с корня окна — на последний элемент (не наружу)');
+  global.document.activeElement = root2;
+  methods.statusRecordKeydown.call({ closeStatusRecord() {} }, ev(false));
+  assert.strictEqual(firstCtl.focused, true,
+    'EVOL-003: Tab с корня окна — на первый элемент');
+  assert.strictEqual(prevented, 2, 'EVOL-003: уход фокуса предотвращён');
+})();
+
 // ═══ Маркеры разметки/CSS (структурный контракт) ══════════════════════════
 (function () {
   const viewports = (INDEX.match(/v-sfeed="statusRecordOpen"/g) || []).length;

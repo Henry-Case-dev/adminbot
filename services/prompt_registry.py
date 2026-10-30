@@ -292,7 +292,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "temporal.analyst": "temporal-analyst-fc08",
     "temporal.validator": "temporal-validator-fc08",
     "temporal.fallback": "temporal-fallback-fc08",
-    "memory.fact_retry": "fact-retry-w2b",
+    "memory.fact_retry": "fact-retry-evol006",
     "memory.memorize_compress": "memorize-compress-w2b",
     "memory.chat_rag_rerank": "chat-rag-rerank-w2b",
     "search.rerank": "search-rerank-w2b",
@@ -433,7 +433,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "temporal.analyst": ("temporal-analyst-fc08", "cd212371aa22"),
     "temporal.validator": ("temporal-validator-fc08", "d5418d060fdc"),
     "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
-    "memory.fact_retry": ("fact-retry-w2b", "4719f303d725"),
+    "memory.fact_retry": ("fact-retry-evol006", "e04f4b32ef63"),
     "memory.memorize_compress": ("memorize-compress-w2b", "fe2747b1f5cc"),
     "memory.chat_rag_rerank": ("chat-rag-rerank-w2b", "eb60769a4d16"),
     "search.rerank": ("search-rerank-w2b", "09a8999edd2d"),
@@ -1726,10 +1726,12 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
     declare_prompt(
         block_id="memory.fact_retry",
         purpose="Повтор извлечения фактов (батч-ретрай после мягкого сбоя "
-                "первой попытки ETL).",
+                "первой попытки ETL); несёт тот же контракт класса/"
+                "долговечности/атрибуции, что и основной экстрактор "
+                "(EVOL-006).",
         family="memory", scope="code",
         code_source="services.summary_memory._FACT_RETRY_SYSTEM_PROMPT",
-        consumers=("summary_memory.py:3446",),
+        consumers=("summary_memory.py:3620",),
         composition_point="machine_json/fact_extract_retry",
         migration="factory", owner_lane="W2B-EVOL016", speech=False),
     declare_prompt(
@@ -2622,7 +2624,11 @@ def factory_set_fingerprint() -> str:
 #: Бамп EVOL-006 (W4, 30.10.2026): заводской текст ``memory.fact_extract``
 #: получил контракт класса/долговечности/атрибуции факта (метка
 #: ``fact-extract-evol006``). Было ``03776db327b4``, стало ``07ade6d16884``.
-FACTORY_SET_SHA256_12 = "07ade6d16884"
+#: Бамп EVOL-006 review-fix (W4, 30.10.2026): ретрай-промпт ``memory.fact_retry``
+#: получил тот же контракт класса/атрибуции (метка ``fact-retry-evol006``) —
+#: путь восстановления после LLMError больше не возвращает бесклассовые тройки.
+#: Было ``07ade6d16884``, стало ``1ce70bfedd8c``.
+FACTORY_SET_SHA256_12 = "1ce70bfedd8c"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

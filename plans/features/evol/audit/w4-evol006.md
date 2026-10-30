@@ -124,7 +124,10 @@
 | `FACTORY_REVISION_LABELS["memory.fact_extract"]` | `fact-extract-w2a` | `fact-extract-evol006` |
 | `FACTORY_REVISION_SEALS["memory.fact_extract"]` | `("fact-extract-w2a", "01be6c765713")` | `("fact-extract-evol006", "c41914057333")` |
 | идентичность ревизии | `fac:sha12(fact-extract-w2a)` | `fac:30514648e135` |
-| `FACTORY_SET_SHA256_12` | `03776db327b4` | `07ade6d16884` |
+| `FACTORY_REVISION_LABELS["memory.fact_retry"]` (ревью-фикс, §10) | `fact-retry-w2b` | `fact-retry-evol006` |
+| `FACTORY_REVISION_SEALS["memory.fact_retry"]` (ревью-фикс) | `("fact-retry-w2b", "4719f303d725")` | `("fact-retry-evol006", "e04f4b32ef63")` |
+| идентичность ревизии ретрая | `fac:sha12(fact-retry-w2b)` | `fac:77fcd2519326` |
+| `FACTORY_SET_SHA256_12` | `03776db327b4` | `07ade6d16884` → `1ce70bfedd8c` (ревью-фикс) |
 
 Хеши посчитаны из кода (`pr.sha12(factory_text(...))`,
 `pr.factory_set_fingerprint()`), не выдуманы; `seal_integrity()` → `{}`.
@@ -134,7 +137,7 @@
 
 ## 6. Тесты
 
-Новый постоянный файл `tests/test_evol006_fact_quality.py` (21 тест,
+Новый постоянный файл `tests/test_evol006_fact_quality.py` (26 тестов,
 offline, LLM-заглушка, `:memory:` БД):
 
 * контракт промпта: все 7 классов, типы сущностей, правила атрибуции,
@@ -149,18 +152,22 @@ offline, LLM-заглушка, `:memory:` БД):
   получает непустой `expires_at`; обобщение без опоры отклоняется, с опорой —
   пишется; провенанс (`tg_message_id`) сохранён;
 * честный отказ: не-JSON → `skipped/parse_error` + WARNING `facts lost`;
-  валидный `[]` → `no_new_facts`; дрейф класса → нет записи.
+  валидный `[]` → `no_new_facts`; дрейф класса → нет записи;
+* путь восстановления (§10): ретрай-промпт несёт тот же контракт класса;
+  разовая просьба из ретрая не попадает в `graph_facts`/`target_user`;
+  дрейф первичного ответа → ретрай сохраняет классификацию; новость из
+  ретрая не приписывается человеку.
 
 Прогоны (worktree, `.venv\Scripts\python.exe -m pytest`, cwd = worktree):
 
 ```
-pytest tests/test_evol006_fact_quality.py -q                      → 21 passed
+pytest tests/test_evol006_fact_quality.py -q                      → 26 passed
 pytest tests/test_evol006_fact_quality.py tests/test_evol018_prompt_audit.py \
   tests/test_evol007_new_facts_widget.py tests/test_evol009_memory_diagnostics.py \
   tests/test_graphrag_memory.py tests/test_metafact_penalty_round1018.py \
   tests/test_mca17_summary_instrumentation.py tests/test_summary_memory.py \
   tests/test_summary_prompts.py tests/test_evol016_prompt_activation.py -q
-                                                                  → 384 passed
+                                                                  → 389 passed
 + tests/test_asap44_graphrag_batch_breaker.py tests/test_history_retention_toggle.py
                                                                   → 409 passed,
                                                                     1 failed (см. §8)
@@ -189,10 +196,11 @@ python -m compileall -q services                                  → exit 0
    `tg_message_id`/`forward_from`, а `basis` используется как структурный
    признак опоры для `communication_pattern`. Выдавать модельные id за
    провенанс было бы выдумыванием.
-2. **Retry-промпт** `_FACT_RETRY_SYSTEM_PROMPT` (блок `memory.fact_retry`) не
-   менялся: он восстанавливает форму JSON, факты из него дефолтятся в
-   `durable_fact`. Менять его — отдельное решение по реестру (второй бамп), на
-   acceptance EVOL-006 не влияет.
+2. **Retry-промпт** `_FACT_RETRY_SYSTEM_PROMPT` (блок `memory.fact_retry`) в
+   первой итерации не менялся: он восстанавливал только форму JSON, факты из
+   него дефолтились в `durable_fact`. Это оказалось **блокирующим дефектом**
+   (ретрай — обычный путь восстановления после таймаута), а не наблюдением:
+   исправлено в §10 (контракт класса в ретрае + второй бамп реестра).
 3. **Счётчик кандидатов EVOL-009** (`services/memory_diagnostics.py`, вне моего
    write scope) считает `candidates = saved+skipped+deduped+superseded` и новых
    полей не знает: отброшенные по классу кандидаты видны отдельно в
@@ -227,6 +235,91 @@ python -m compileall -q services                                  → exit 0
 сообщения отклоняется. Это сделано в том же самом вызове модели без новых
 затрат: тот же промпт-вызов, тот же разбор, плюс честные счётчики отказов.
 Промпт получил новую заводскую ревизию (`fact-extract-evol006`, печать
-`c41914057333`), поэтому релиз подхватит его штатно. Тесты: 21 новый, набор по
-памяти и промптам — 409 зелёных; два падения в каталоге/персона-канонах
+`c41914057333`), поэтому релиз подхватит его штатно. Тесты: 26 новых, набор по
+памяти и промптам — 389 зелёных; два падения в каталоге/персона-канонах
 существовали до правки и к задаче не относятся.
+
+## 10. §review-fix — путь восстановления больше не обходит контракт
+
+**Блокирующая находка ревью (подтверждена).** `_memorize_facts_inner` при
+`LLMError` первичной экстракции (таймаут провайдера — известное прод-условие)
+идёт в `_safe_retry` с `_FACT_RETRY_SYSTEM_PROMPT`, который требовал только
+`subject/predicate/object`. Восстановленный ответ не несёт `kind`,
+`_validate_fact` дефолтит его в `durable_fact`, `fact_durability_decision`
+считает такой факт личным → запись в `graph_facts` с `target_user`.
+
+**Воспроизведение (до фикса, реальный код воркtree, `:memory:`):**
+
+```
+LLM: primary → LLMError("nano-gpt timeout"); retry → [{"subject":"Вася",
+     "predicate":"попросил нарисовать","object":"кота"}]
+RESULT: {'status': 'success', 'saved': 1, ...}
+GRAPH_FACTS: [{'fact': 'вася попросил нарисовать кота',
+               'target_user': 'Вася', 'attribution_method': None}]
+```
+
+То есть ровно тот мусор, который EVOL-006 обязан убрать, возвращался по
+**штатному** пути восстановления: исправление основного промпта работало только
+пока модель не падала.
+
+**Корень.** Не в разборе/решении (они уже класс-зависимы), а в тексте
+ретрай-промпта: единственная точка пути записи, которая не запрашивала класс.
+Правка — на этом же слое, без новых вызовов модели и без изменения числа
+запросов.
+
+**Что сделано.**
+
+1. `_FACT_RETRY_SYSTEM_PROMPT` требует тот же закрытый `kind` (7 классов), что и
+   основной экстрактор, плюс `subject_type`/`object_type` (`user|world|topic|
+   character`) и `basis` для `communication_pattern`; правила те же и без
+   лексических списков. Машинная форма (`JSON-массив`, `верни []`) сохранена.
+2. Совместимость сохранена осознанно: старый ответ без `kind` по-прежнему
+   принимается и дефолтится в `durable_fact` — иначе сломались бы все прочие
+   вызывающие пути и исторические эталоны (`_validate_fact` не менялся).
+3. Реестр: `memory.fact_retry` → метка `fact-retry-evol006`, печать
+   `e04f4b32ef63` (sha12 текста), идентичность ревизии `fac:77fcd2519326`;
+   `FACTORY_SET_SHA256_12` `07ade6d16884` → `1ce70bfedd8c`. Значения посчитаны
+   из кода (`pr.sha12(pr.factory_text(...))`, `pr.factory_set_fingerprint()`);
+   `seal_integrity()` → `{}`. Канон R46-2 (`plans/docs/canon/backlog.md`) и
+   `FACT_EXTRACT_PROMPT` не тронуты — байт-эталоны не двигались
+   (`test_metafact_penalty_round1018.py`, `test_summary_memory.py`,
+   `test_summary_prompts.py` зелёные).
+
+**Новые тесты** (`tests/test_evol006_fact_quality.py`, +5):
+
+| Тест | Что доказывает |
+|---|---|
+| `test_retry_prompt_carries_same_class_contract` | в ретрай-промпте все 7 классов, `subject_type`/`object_type`/`basis`, машинная форма; RED до фикса |
+| `test_retry_prompt_has_no_lexical_blacklist` | ретрай тоже без стоп-слов/регексов и прод-фраз |
+| `test_retry_one_off_request_not_in_long_term_pool` | `LLMError` → ретрай с `one_off_request` → `graph_facts` пуст, `target_user` нет, `episodic_skipped=1`, `no_new_facts` |
+| `test_drift_then_retry_keeps_classification` | дрейф класса в первичном ответе → ретрай сохраняет классификацию: пишется только `durable_fact` с `target_user`, просьба отброшена |
+| `test_retry_news_not_attributed_to_person` | новость из ретрая: `target_user IS NULL`, `world_knowledge` |
+
+**Прогоны после фикса** (cwd = worktree):
+
+```
+pytest tests/test_evol006_fact_quality.py -q                → 26 passed
++ test_evol018_prompt_audit, test_graphrag_memory, test_mca17_summary_instrumentation,
+  test_metafact_penalty_round1018, test_summary_memory, test_summary_prompts,
+  test_evol007_new_facts_widget, test_evol009_memory_diagnostics,
+  test_evol016_prompt_activation                            → 389 passed
++ test_asap44_graphrag_batch_breaker, test_soul1_registry_completeness
+                                                            → 62 passed, 1 failed
+python -m compileall -q services                            → exit 0
+```
+
+Единственное падение — `test_soul1_registry_completeness.py::
+test_legacy_persona_canons_are_registered_with_revision_labels`
+(`verbilizer.mode.deep_research`), то же предсуществующее, что и в §8.5:
+блок verbilizer не входит в мои правки (диф — `summary_memory.py`,
+`prompt_registry.py`, тест, этот отчёт), а `test_evol018` подтверждает, что все
+печати и отпечаток набора согласованы.
+
+**Честная граница фикса.** Если модель проигнорирует и ретрай-промпт и вернёт
+тройку без `kind`, элемент всё равно будет принят как `durable_fact` — это
+сознательно сохранённая совместимость старого формата (тот же дефолт, что и в
+основном пути, `test_legacy_shape_defaults_to_durable`). Отличие от дефекта:
+теперь класс **запрошен** и в ретрае, поэтому дрейф — исключение, а не
+гарантированное поведение восстановления; дополнительное ужесточение (отклонять
+бесклассовые ответы) — отдельное решение по канону/совместимости, а не
+молчаливое изменение контракта.

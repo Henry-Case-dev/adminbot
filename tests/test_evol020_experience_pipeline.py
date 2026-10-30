@@ -7,17 +7,26 @@ TEST-LIFECYCLE: CONTRACT (plans/current_task.md EVOL-020).
 применений» выводятся из данных, уроки/применения не фабрикуются, два чата
 не смешиваются. Сети/LLM нет — только существующие durable-таблицы.
 """
+import json
 import time
 
 import pytest
 
+from services import mca_events
+from services import mca_experience as me
 from services.database import DatabaseService
 from services.experience_diagnostics import (
     REASON_APPLICATIONS_FLOWING,
+    REASON_APPLICATIONS_NOT_IN_WINDOW,
     REASON_CONTEXT_OFF,
+    REASON_LESSONS_PROPOSED_ONLY,
+    REASON_NOTHING_MATCHED,
+    REASON_NO_APPLICATIONS,
     REASON_NO_REVIEW_RUNS,
     REASON_NO_SELECTION_RUN,
     REASON_NO_WORTHY_LESSONS,
+    REASON_OUTCOME_NOT_MEASURED,
+    REASON_SELECTION_EMPTY,
     STATE_BROKEN,
     STATE_DISABLED,
     STATE_IDLE,
@@ -92,11 +101,24 @@ async def _job(db, status, finished_at, *, error_code=None, chat_id=None):
 
 
 async def _event(db, name, ts, outcome="success", reason=None,
-                 chat_id=None):
+                 chat_id=None, payload=None):
     await db.db.execute(
         "INSERT INTO mca_events (ts, level, event_name, outcome, chat_id, "
-        "reason_code) VALUES (?, 'INFO', ?, ?, ?, ?)",
-        (ts, name, outcome, chat_id, reason))
+        "reason_code, usage_json) VALUES (?, 'INFO', ?, ?, ?, ?, ?)",
+        (ts, name, outcome, chat_id, reason,
+         None if payload is None else json.dumps(payload)))
+    await db.db.commit()
+
+
+async def _current_compat(db, lesson_id):
+    """Сделать урок совместимым с текущим окружением (иначе отбор его
+    исключает как `stale_context`, а не по релевантности)."""
+    await db.db.execute(
+        "UPDATE mca_lessons SET compat_tool_schema_hash = ?, "
+        "compat_model_fingerprint = ?, compat_config_version = ? "
+        "WHERE lesson_id = ?",
+        (me.current_tool_schema_hash(), me.current_model_fingerprint(),
+         me.current_config_version(), lesson_id))
     await db.db.commit()
 
 
@@ -330,5 +352,175 @@ async def test_reasons_surface_skip_codes_from_events():
             "insufficient_evidence"
         assert items["validation_failed"]["windows"]["24h"] == 1
         assert body["window_seconds"] == 7 * DAY
+    finally:
+        await db.close()
+
+
+# ═══ review-fix: три блокера витрины «Опыт» ═══════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_candidates_without_validation_are_idle_not_working():
+    """B1: «работает» нельзя выводить из одних предложенных кандидатов.
+
+    Сценарий ревью: 2 кандидата (проверка не запускалась), 5 эпизодов,
+    review-job завершён 30 минут назад. Раньше цепочка показывала working /
+    «уроки создаются/проверяются в окне» при validation/activation/application
+    = never_run и 0 применений."""
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-cand-1", status="candidate",
+                      created_at=NOW - 900)
+        await _lesson(db, lesson_id="l-cand-2", status="candidate",
+                      created_at=NOW - 1200)
+        for index in range(5):
+            await _episode(db, -100, NOW - 300 - index * 60)
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        assert body["state"] == STATE_IDLE
+        assert body["state"] != STATE_WORKING
+        assert body["reason"] == REASON_LESSONS_PROPOSED_ONLY
+        label = body["reason_label"]
+        assert "предложены" in label
+        assert "ещё не проходила" in label
+        # Подпись не должна обещать проверку, которой не было.
+        assert "проверяются" not in label
+        assert body["stages"]["candidate"]["total"] == 2
+        for stage in ("validation", "activation", "retrieval", "application"):
+            assert body["stages"][stage]["state"] == STATE_NEVER_RUN, stage
+        assert body["stages"]["application"]["windows"]["24h"] == 0
+        assert body["evidence"]["validated_in_window"] == 0
+        assert body["evidence"]["activated_in_window"] == 0
+        assert body["evidence"]["proposed_in_window"] == 2
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_validated_lesson_without_activation_is_working_but_not_activated():
+    """B1 (обратная сторона): подтверждённая проверка — уже не «простаивает».
+
+    Проверка прошла в окне, активации нет → `working` с честной причиной
+    «проверены, активации пока не было», а не «применяются».
+    """
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-val", status="validated",
+                      created_at=NOW - 900, last_validated_at=NOW - 600)
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        assert body["state"] == STATE_WORKING
+        assert body["reason"] == "lessons_validated"
+        assert body["reason"] != REASON_APPLICATIONS_FLOWING
+        assert "проверку" in body["reason_label"]
+        assert body["evidence"]["validated_in_window"] == 1
+        assert body["evidence"]["activated_in_window"] == 0
+        assert body["stages"]["activation"]["total"] == 0
+        assert body["stages"]["application"]["windows"]["24h"] == 0
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_application_reason_is_windowed_and_outcome_is_separate():
+    """B2: причина применения — по окну, а «исход не измерен» — отдельно.
+
+    Сценарий ревью: одно применение 40 дней назад (total=1, окна нулевые).
+    Раньше этап заявлял applications_flowing, а outcome/utility — что
+    «применений не записывалось», хотя строка применения есть."""
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-old", status="active",
+                      created_at=NOW - 40 * DAY, applications=1)
+        await _application(db, lesson_id="l-old", applied_at=NOW - 40 * DAY,
+                           outcome="unknown")
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        application = body["stages"]["application"]
+        assert application["total"] == 1
+        assert application["windows"] == {"24h": 0, "7d": 0, "30d": 0}
+        assert application["reason"] == REASON_APPLICATIONS_NOT_IN_WINDOW
+        assert application["reason"] != REASON_APPLICATIONS_FLOWING
+        assert "раньше" in application["reason_label"]
+        # Старая строка не делает цепочку зелёной.
+        assert body["state"] != STATE_WORKING
+        outcome = body["stages"]["outcome"]
+        assert outcome["total"] == 0
+        assert outcome["reason"] == REASON_OUTCOME_NOT_MEASURED
+        assert outcome["reason"] != REASON_NO_APPLICATIONS
+        assert "не измерен" in outcome["reason_label"]
+        utility = body["stages"]["utility"]
+        assert utility["total"] == 1
+        assert utility["reason"] == REASON_OUTCOME_NOT_MEASURED
+        assert "не записывались" not in utility["reason_label"]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_empty_selection_counts_as_run_not_as_never_run():
+    """B3: отбор запускался, но ничего не прошло — это не «не запускался».
+
+    Реальный путь: активный урок есть, запрос нерелевантен → отбор возвращает
+    `retrieval_empty`. Событие отбора должно дойти до `mca_events`, попасть в
+    счётчик прогонов и объяснить исключение по коду."""
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-rel", status="active",
+                      created_at=NOW - 900)
+        await _current_compat(db, "l-rel")
+        svc = me.get_service(db)
+        result = await svc.lesson.select_for_context(
+            chat_id=-100, user_id=7,
+            query="совершенно другая тема: погода и отпуск")
+        assert result.lessons == ()
+        assert result.reason_code == "retrieval_empty"
+        assert result.excluded
+        assert result.excluded[0]["reason_code"] == "no_relevant_memory"
+        # Никаких выдуманных уроков/применений.
+        assert await _count(db, "mca_lesson_applications") == 0
+        assert await mca_events.flush_events(db) >= 1
+
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        retrieval = body["stages"]["retrieval"]
+        assert retrieval["state"] == STATE_IDLE
+        assert retrieval["state"] != STATE_NEVER_RUN
+        assert retrieval["reason"] == REASON_SELECTION_EMPTY
+        assert "отбор" in retrieval["reason_label"].lower()
+        assert retrieval["total"] == 1
+        assert retrieval["selected_runs_7d"] == 0
+        assert retrieval["empty_runs_7d"] == 1
+        assert retrieval["last_selection_outcome"] == "skipped"
+        codes = {row["reason_code"]
+                 for row in retrieval["excluded_reasons"]}
+        assert "no_relevant_memory" in codes
+        # Причина применения больше не «отбор ни разу не запускался».
+        application = body["stages"]["application"]
+        assert application["reason"] != REASON_NO_SELECTION_RUN
+        assert application["reason"] == REASON_NOTHING_MATCHED
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_selection_failure_is_not_reported_as_nothing_matched():
+    """B3 (край): сбой чтения кандидатов — прогон, но не «ничего не прошло»."""
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _event(db, "retrieved", NOW - 600, outcome="failed",
+                     reason="retrieval_empty", chat_id=-100)
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        retrieval = body["stages"]["retrieval"]
+        assert retrieval["state"] == STATE_IDLE
+        assert retrieval["reason"] == "selection_failed"
+        assert retrieval["failed_runs_7d"] == 1
+        assert retrieval["empty_runs_7d"] == 0
     finally:
         await db.close()

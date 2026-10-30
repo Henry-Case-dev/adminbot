@@ -214,9 +214,30 @@ _FACT_MAX_CONTEXT_CHARS = 400
 # НЕ PG, НЕ REGISTRY; каноны plans/docs/canon/ и prompts.extract_system_prompt
 # НЕ меняются). Один дополнительный вызов ТОЛЬКО в fire-and-forget-ветке
 # _memorize_facts_inner (крон _extract_and_save_graph НЕ ретраится).
+# EVOL-006 (ревью-фикс): ретрай — это ОБЫЧНЫЙ путь восстановления после
+# LLMError/timeout, поэтому он обязан нести тот же контракт класса/атрибуции,
+# что и основной экстрактор. Иначе восстановленный ответ возвращался к форме
+# «subject/predicate/object» без класса, `_validate_fact` дефолтил его в
+# durable_fact, и разовая просьба («попросил нарисовать кота») снова попадала
+# в личный пул с target_user. Старый формат без `kind` по-прежнему принимается
+# (совместимость, дефолт durable_fact) — промпт лишь требует класс явно.
 _FACT_RETRY_SYSTEM_PROMPT = (
     "Верни СТРОГО один JSON-массив объектов "
-    "{\"subject\": …, \"predicate\": …, \"object\": …}. "
+    "{\"subject\": …, \"subject_type\": …, \"predicate\": …, \"object\": …, "
+    "\"object_type\": …, \"kind\": …, \"basis\": …}. "
+    "Поле kind — ровно одно значение из списка: durable_fact, one_off_request, "
+    "world_news, quote, hypothetical_character, temporary_event, "
+    "communication_pattern. "
+    "Разовая просьба или поручение — one_off_request, это не свойство человека. "
+    "Новость, пересказ чужого поста, внешние сведения — world_news, а не факт "
+    "автора сообщения. Чужие слова — quote. Выдуманный или описываемый "
+    "персонаж — hypothetical_character. Событие с временной привязкой — "
+    "temporary_event. Наблюдение о манере общения — communication_pattern "
+    "с номерами сообщений в basis; без опоры такой факт не извлекай. Устойчивое "
+    "или полезное для будущего контекста сведение о человеке либо сообществе — "
+    "durable_fact. "
+    "subject_type/object_type: user — реальный участник чата, world — внешний "
+    "мир или источник, topic — тема или вещь, character — выдуманный персонаж. "
     "Никакого текста, пояснений, списков, кавычек-ёлочек и длинных тире. "
     "Нечего запомнить — верни []"
 )

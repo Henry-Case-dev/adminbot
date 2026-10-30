@@ -25,6 +25,14 @@
   `nothing_matched`, `context_off`) выводится из данных отдельно;
 * «scheduler существует» НЕ равен «работает»: состояние берётся из реальных
   прогонов и их исходов;
+* «урок предложен» НЕ равен «цепочка работает»: `working` — только по
+  подтверждённым downstream-событиям в окне (проверка/активация/применение),
+  кандидаты без проверки — `idle` с отдельной причиной;
+* «отбор запускался, но ничего не прошло» НЕ равен «отбор ни разу не
+  запускался»: пустая попытка отбора — тоже прогон (событие `retrieved`,
+  `outcome=skipped`);
+* причина применения считается по ОКНУ, а `total` объясняет разницу отдельной
+  причиной, а не выдаётся за свежее применение;
 * R17: наружу — id/коды/числа/enum, без текста уроков и приватных данных.
 
 DX/UI-слой (роут/карточка) — отдельная полоса: здесь только сервисные функции
@@ -32,6 +40,7 @@ DX/UI-слой (роут/карточка) — отдельная полоса: 
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 
@@ -100,6 +109,18 @@ REASON_RUN_IN_PROGRESS = "run_in_progress"
 REASON_LESSONS_FLOWING = "lessons_flowing"
 REASON_APPLICATIONS_FLOWING = "applications_flowing"
 REASON_OUTCOMES_MEASURED = "outcomes_measured"
+#: Подтверждённая проверка БЕЗ активации (working, но не «проверяются»).
+REASON_LESSONS_VALIDATED = "lessons_validated"
+#: Только предложенные кандидаты: проверка ещё не проходила (idle).
+REASON_LESSONS_PROPOSED_ONLY = "lessons_proposed_only"
+#: Применения есть в total, но ни одного в окне (окно ≠ всё время).
+REASON_APPLICATIONS_NOT_IN_WINDOW = "applications_not_in_window"
+#: Применения есть, исход ещё не измерен (не «нет применений»).
+REASON_OUTCOME_NOT_MEASURED = "outcome_not_measured"
+#: Отбор запускался, но ни один урок не прошёл (≠ «не запускался»).
+REASON_SELECTION_EMPTY = "selection_empty"
+#: Отбор падал (чтение кандидатов/БД), а не «ничего не прошло».
+REASON_SELECTION_FAILED = "selection_failed"
 
 REASON_LABELS = {
     REASON_NO_ACTIVE_LESSONS: (
@@ -122,9 +143,21 @@ REASON_LABELS = {
     REASON_NO_REVIEW_RUNS: "Прогонов review ещё не было",
     REASON_DISABLED: "Обучение выключено настройкой — новые уроки не пишутся",
     REASON_RUN_IN_PROGRESS: "Прогон review выполняется прямо сейчас",
-    REASON_LESSONS_FLOWING: "Уроки создаются/проверяются в окне",
+    REASON_LESSONS_FLOWING: "Уроки проверены и активированы в окне",
     REASON_APPLICATIONS_FLOWING: "Уроки применяются в окне",
     REASON_OUTCOMES_MEASURED: "Измеренные исходы появились в окне",
+    REASON_LESSONS_VALIDATED: (
+        "Уроки прошли проверку в окне (активации пока не было)"),
+    REASON_LESSONS_PROPOSED_ONLY: (
+        "Уроки предложены, проверка ещё не проходила"),
+    REASON_APPLICATIONS_NOT_IN_WINDOW: (
+        "Применения были раньше, но в этом окне новых нет"),
+    REASON_OUTCOME_NOT_MEASURED: (
+        "Применения есть, но исход ещё не измерен — полезность не считается"),
+    REASON_SELECTION_EMPTY: (
+        "Отбор уроков запускался, но ни один урок не прошёл по релевантности"),
+    REASON_SELECTION_FAILED: (
+        "Отбор уроков падал: последняя попытка завершилась ошибкой чтения"),
 }
 
 _TERMINAL_JOB_STATES = ("completed", "failed")
@@ -154,6 +187,17 @@ def _row(row) -> dict:
         return dict(row)
     except (TypeError, ValueError):
         return {}
+
+
+def _json_payload(raw) -> dict:
+    """`usage_json` события → dict (битый/пустой → {}, без исключений)."""
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 async def _fetch_all(db, sql: str, params=()) -> list[dict]:
@@ -197,7 +241,10 @@ async def _experience_events(db, *, chat_id: int | None,
     """Последняя строка и число событий по каждому имени (bounded).
 
     Счётчики — по окнам 24ч/7д/30д из тех же строк `mca_events`; отсутствие
-    окна не подменяется нулём-догадкой (0 значит «в этом окне не было»)."""
+    окна не подменяется нулём-догадкой (0 значит «в этом окне не было»).
+    Дополнительно — разбивка по `outcome` (для отбора это разделяет реальный
+    отбор и честную пустую попытку) и payload последней строки (`usage_json`).
+    """
     ts = _now(now)
     placeholders = ",".join("?" * len(EXPERIENCE_EVENT_NAMES))
     chat_clause = " AND chat_id = ?" if chat_id is not None else ""
@@ -205,7 +252,8 @@ async def _experience_events(db, *, chat_id: int | None,
     try:
         last_rows = await _fetch_all(
             db,
-            "SELECT event_name, ts, outcome, reason_code FROM mca_events "
+            "SELECT event_name, ts, outcome, reason_code, usage_json "
+            "FROM mca_events "
             f"WHERE id IN (SELECT MAX(id) FROM mca_events WHERE event_name IN "
             f"({placeholders}){chat_clause} GROUP BY event_name)",
             (*EXPERIENCE_EVENT_NAMES, *chat_params))
@@ -219,30 +267,54 @@ async def _experience_events(db, *, chat_id: int | None,
             f"{chat_clause} GROUP BY event_name",
             (ts - WINDOW_24H, ts - WINDOW_7D, ts - WINDOW_30D,
              *EXPERIENCE_EVENT_NAMES, *chat_params))
+        by_outcome_rows = await _fetch_all(
+            db,
+            "SELECT event_name, outcome, COUNT(*) AS c, MAX(ts) AS last_ts, "
+            "SUM(CASE WHEN ts >= ? THEN 1 ELSE 0 END) AS w24, "
+            "SUM(CASE WHEN ts >= ? THEN 1 ELSE 0 END) AS w7, "
+            "SUM(CASE WHEN ts >= ? THEN 1 ELSE 0 END) AS w30 "
+            f"FROM mca_events WHERE event_name IN ({placeholders}) "
+            f"{chat_clause} GROUP BY event_name, outcome",
+            (ts - WINDOW_24H, ts - WINDOW_7D, ts - WINDOW_30D,
+             *EXPERIENCE_EVENT_NAMES, *chat_params))
     except Exception:
         logger.warning("[exp_diag] события опыта недоступны", exc_info=True)
         return {}
     by_name = {str(r.get("event_name")): r for r in counts}
+    outcomes: dict[str, dict[str, dict]] = {}
+    for r in by_outcome_rows:
+        name = str(r.get("event_name") or "")
+        outcome = str(r.get("outcome") or "")
+        if not name or not outcome:
+            continue
+        outcomes.setdefault(name, {})[outcome] = {
+            "total": _int(r.get("c")),
+            "count_window": _int(r.get("w7")),
+            "last_ts": _opt_ts(r.get("last_ts")),
+            "windows": {"24h": _int(r.get("w24")),
+                        "7d": _int(r.get("w7")),
+                        "30d": _int(r.get("w30"))}}
     out: dict[str, dict] = {}
+
+    def _entry(name: str, row: dict | None) -> dict:
+        windows = by_name.get(name) or {}
+        row = row or {}
+        return {"last_ts": _opt_ts(row.get("ts")),
+                "last_outcome": row.get("outcome"),
+                "last_reason": row.get("reason_code"),
+                "last_payload": _json_payload(row.get("usage_json")),
+                "count_window": _int(windows.get("w7")),
+                "windows": {"24h": _int(windows.get("w24")),
+                            "7d": _int(windows.get("w7")),
+                            "30d": _int(windows.get("w30"))},
+                "by_outcome": dict(outcomes.get(name) or {})}
+
     for r in last_rows:
         name = str(r.get("event_name") or "")
-        if not name:
-            continue
-        windows = by_name.get(name) or {}
-        out[name] = {"last_ts": _opt_ts(r.get("ts")),
-                     "last_outcome": r.get("outcome"),
-                     "last_reason": r.get("reason_code"),
-                     "count_window": _int(windows.get("w7")),
-                     "windows": {"24h": _int(windows.get("w24")),
-                                 "7d": _int(windows.get("w7")),
-                                 "30d": _int(windows.get("w30"))}}
-    for name, windows in by_name.items():
-        out.setdefault(name, {"last_ts": None, "last_outcome": None,
-                              "last_reason": None,
-                              "count_window": _int(windows.get("w7")),
-                              "windows": {"24h": _int(windows.get("w24")),
-                                          "7d": _int(windows.get("w7")),
-                                          "30d": _int(windows.get("w30"))}})
+        if name:
+            out[name] = _entry(name, r)
+    for name in by_name:
+        out.setdefault(name, _entry(name, None))
     return out
 
 
@@ -341,14 +413,24 @@ def _lesson_status_counts(rows: list[dict]) -> dict:
 
 def classify_experience_state(*, enabled: bool, cadence_seconds: int,
                               now: int, last_run_at, last_success_at,
-                              last_error_at, learned_in_window: int,
-                              applied_in_window: int, captured_in_window: int,
+                              last_error_at, proposed_in_window: int,
+                              validated_in_window: int,
+                              activated_in_window: int,
+                              applied_in_window: int,
+                              captured_in_window: int,
                               job_active: bool = False) -> dict:
     """Состояние цепочки по ФАКТИЧЕСКИМ отметкам (без догадок).
 
     Порядок решений важен и однозначен:
     выключено → нет прогонов → последний прогон с ошибкой → давно не
-    запускалось → есть свежие результаты → простаивает (нет достойных уроков).
+    запускалось → есть подтверждённые результаты вниз по цепочке (применение
+    → активация → проверка) → простаивает (кандидаты без проверки / нет
+    достойных уроков / нет новых наблюдений).
+
+    «Урок предложен» НЕ равен «цепочка работает»: `working` ставится только по
+    подтверждённым downstream-событиям в окне (проверка/активация/применение).
+    Одни лишь кандидаты — это `idle` с честной причиной «проверка ещё не
+    проходила», иначе мёртвая проверка выглядела бы зелёной.
     «Ноль применений» само по себе НЕ делает цепочку сломанной: причины
     разбираются на уровне этапов."""
     stale_after = max(2 * max(1, int(cadence_seconds)), 2 * 3600)
@@ -357,7 +439,9 @@ def classify_experience_state(*, enabled: bool, cadence_seconds: int,
     last_err = _opt_ts(last_error_at)
     evidence = {"last_run_at": last_run, "last_success_at": last_ok,
                 "last_error_at": last_err, "stale_after_seconds": stale_after,
-                "learned_in_window": int(learned_in_window),
+                "proposed_in_window": int(proposed_in_window),
+                "validated_in_window": int(validated_in_window),
+                "activated_in_window": int(activated_in_window),
                 "applied_in_window": int(applied_in_window),
                 "captured_in_window": int(captured_in_window),
                 "job_active": bool(job_active)}
@@ -382,20 +466,31 @@ def classify_experience_state(*, enabled: bool, cadence_seconds: int,
         return _result(STATE_STALE, REASON_NO_RECENT_RUNS)
     if applied_in_window > 0:
         return _result(STATE_WORKING, REASON_APPLICATIONS_FLOWING)
-    if learned_in_window > 0:
+    if activated_in_window > 0:
         return _result(STATE_WORKING, REASON_LESSONS_FLOWING)
+    if validated_in_window > 0:
+        return _result(STATE_WORKING, REASON_LESSONS_VALIDATED)
+    if proposed_in_window > 0:
+        return _result(STATE_IDLE, REASON_LESSONS_PROPOSED_ONLY)
     if captured_in_window > 0:
         return _result(STATE_IDLE, REASON_NO_WORTHY_LESSONS)
     return _result(STATE_IDLE, REASON_NO_NEW_OBSERVATIONS)
 
 
 def _application_reason(*, active_lessons: int, context_enabled: bool,
-                        selection_runs: int, applications: int) -> str:
-    """Почему применений нет (или есть) — по данным, а не по догадке."""
-    if applications > 0:
+                        selection_runs: int, applications_in_window: int,
+                        applications_total: int) -> str:
+    """Почему применений нет (или есть) — по данным, а не по догадке.
+
+    «Применяется» — только по окну: старые строки в `total` не делают этап
+    живым, но и не превращаются в «применений не было» — для них отдельная
+    причина `applications_not_in_window`."""
+    if applications_in_window > 0:
         return REASON_APPLICATIONS_FLOWING
     if not context_enabled:
         return REASON_CONTEXT_OFF
+    if applications_total > 0:
+        return REASON_APPLICATIONS_NOT_IN_WINDOW
     if active_lessons <= 0:
         return REASON_NO_ACTIVE_LESSONS
     if selection_runs <= 0:
@@ -501,6 +596,9 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                                                    "suspended")]
     active_rows = [r for r in lesson_rows
                    if str(r.get("status")) == "active"]
+    activation_ts = [_opt_ts(r.get("updated_at")) for r in active_rows]
+    activation_ts = [t for t in activation_ts if t]
+    application_windows = _windows(applied_ts)
 
     jobs = await _review_jobs(db)
     job_info = _review_job_info(jobs)
@@ -538,12 +636,43 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                        + _int(r.get("counters_failure"))
                        + _int(r.get("counters_unknown"))) == 0]
 
-    selection_runs = _int((events.get("retrieved") or {}).get("count_window"))
+    selection_events = events.get("retrieved") or {}
+    selection_by_outcome = selection_events.get("by_outcome") or {}
+
+    def _selection_out(outcome: str) -> dict:
+        return dict(selection_by_outcome.get(outcome) or {})
+
+    # «Отбор запускался» — любая попытка (успешная ИЛИ честно пустая/сбойная);
+    # «отобрал» — только успешные. Иначе пустой отбор выдавался за «ни разу».
+    selection_runs = _int(selection_events.get("count_window"))
+    selected_runs = _int(_selection_out("success").get("count_window"))
+    empty_runs = _int(_selection_out("skipped").get("count_window"))
+    failed_runs = _int(_selection_out("failed").get("count_window"))
+    selection_last_success = _opt_ts(_selection_out("success").get("last_ts"))
+    context_on = bool(flags.get("context_enabled"))
+    retrieval_enabled = enabled and context_on
+    if not retrieval_enabled:
+        retrieval_state = STATE_DISABLED
+        retrieval_reason = REASON_CONTEXT_OFF
+    elif selection_runs <= 0:
+        retrieval_state = STATE_NEVER_RUN
+        retrieval_reason = REASON_NO_SELECTION_RUN
+    elif selected_runs > 0:
+        retrieval_state = STATE_WORKING
+        retrieval_reason = ""
+    elif failed_runs > 0 and empty_runs <= 0:
+        retrieval_state = STATE_IDLE
+        retrieval_reason = REASON_SELECTION_FAILED
+    else:
+        retrieval_state = STATE_IDLE
+        retrieval_reason = REASON_SELECTION_EMPTY
+
     application_reason = _application_reason(
         active_lessons=len(active_rows),
-        context_enabled=bool(flags.get("context_enabled")),
+        context_enabled=context_on,
         selection_runs=selection_runs,
-        applications=len(application_rows))
+        applications_in_window=application_windows["7d"],
+        applications_total=len(application_rows))
 
     stages = {
         "observation": _stage(
@@ -598,42 +727,39 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
         "activation": _stage(
             key="activation", enabled=enabled,
             counters={"total": status_counts.get("active", 0),
-                      "windows": _windows(
-                          [_opt_ts(r.get("updated_at")) for r in active_rows
-                           if _opt_ts(r.get("updated_at"))])},
+                      "windows": _windows(activation_ts)},
             last_run_at=_event_ts("activated"),
-            last_success_at=max([t for t in
-                                 (_opt_ts(r.get("updated_at"))
-                                  for r in active_rows) if t],
-                                default=None),
+            last_success_at=max(activation_ts, default=None),
             extra={"suspended": status_counts.get("suspended", 0),
                    "recheck_required": sum(
                        1 for r in lesson_rows
                        if _int(r.get("recheck_required")))}),
         "retrieval": _stage(
-            key="retrieval", enabled=enabled
-            and bool(flags.get("context_enabled")),
+            key="retrieval", enabled=retrieval_enabled,
             counters={"total": selection_runs,
-                      "windows": dict((events.get("retrieved") or {})
-                                      .get("windows") or {})},
+                      "windows": dict(selection_events.get("windows") or {})},
             last_run_at=_event_ts("retrieved"),
-            last_success_at=_event_ts("retrieved"),
-            reason=(REASON_CONTEXT_OFF
-                    if not flags.get("context_enabled")
-                    else REASON_NO_SELECTION_RUN if selection_runs <= 0
-                    else ""),
-            extra={"excluded_reasons": _retrieval_excluded(events)}),
+            last_success_at=selection_last_success,
+            reason=retrieval_reason,
+            state=retrieval_state,
+            extra={"excluded_reasons": _retrieval_excluded(selection_events),
+                   "selected_runs_7d": selected_runs,
+                   "empty_runs_7d": empty_runs,
+                   "failed_runs_7d": failed_runs,
+                   "last_selection_outcome": selection_events.get(
+                       "last_outcome")}),
         "application": _stage(
             key="application", enabled=enabled,
             counters={"total": len(application_rows),
-                      "windows": _windows(applied_ts)},
+                      "windows": application_windows},
             last_run_at=_event_ts("applied"),
             last_success_at=max(applied_ts, default=None),
             reason=application_reason,
             extra={"unique_lessons": len({str(r.get("lesson_id"))
                                           for r in application_rows}),
                    "active_lessons": len(active_rows),
-                   "selection_runs_7d": selection_runs}),
+                   "selection_runs_7d": selection_runs,
+                   "applications_in_window_7d": application_windows["7d"]}),
         "outcome": _stage(
             key="outcome", enabled=enabled,
             counters={"total": len(linked_rows),
@@ -646,7 +772,9 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
             last_success_at=max([t for t in
                                  (_opt_ts(r.get("linked_at"))
                                   for r in linked_rows) if t], default=None),
-            reason=("" if linked_rows else REASON_NO_APPLICATIONS),
+            reason=("" if linked_rows
+                    else REASON_OUTCOME_NOT_MEASURED if application_rows
+                    else REASON_NO_APPLICATIONS),
             extra={"counters": counters_sums,
                    "applications_unknown": len(application_rows)
                    - len(linked_rows)}),
@@ -655,7 +783,7 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
             counters={"total": len(unmeasured), "windows": {}},
             last_run_at=_event_ts("utility_updated"),
             last_success_at=_event_ts("utility_updated"),
-            reason=("" if not unmeasured else REASON_NO_APPLICATIONS),
+            reason=("" if not unmeasured else REASON_OUTCOME_NOT_MEASURED),
             extra={"applications_without_outcome": len(unmeasured)}),
     }
 
@@ -663,7 +791,12 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
         enabled=enabled, cadence_seconds=cadence_seconds, now=ts,
         last_run_at=last_run, last_success_at=last_success,
         last_error_at=last_error,
-        learned_in_window=sum(1 for t in created_ts if t >= ts - WINDOW_24H),
+        proposed_in_window=sum(1 for t in created_ts
+                               if t >= ts - WINDOW_24H),
+        validated_in_window=sum(1 for t in validated_ts
+                                if t >= ts - WINDOW_24H),
+        activated_in_window=sum(1 for t in activation_ts
+                                if t >= ts - WINDOW_24H),
         applied_in_window=sum(1 for t in applied_ts if t >= ts - WINDOW_24H),
         captured_in_window=(episodes["windows"]["24h"]
                             + feedback["windows"]["24h"]),
@@ -720,19 +853,34 @@ def _lesson_reason_codes(events: dict[str, dict]) -> dict[str, str]:
     return out
 
 
-def _retrieval_excluded(events: dict[str, dict]) -> list[dict]:
-    """Причины исключения уроков из отбора — из событий отбора.
+#: Коды отбора, которые действительно означают «урок исключён» (не «успех»).
+_SELECTION_EXCLUSION_CODES = frozenset({
+    "no_relevant_memory", "budget_exceeded", "stale_context",
+    "retrieval_empty"})
 
-    Отбор эмитит `retrieved` только при успехе; причины пропуска приходят
-    кодами отбора внутри payload события `retrieved`. Если событий нет —
-    пустой список (честное «неизвестно»), а не выдуманные причины."""
+
+def _retrieval_excluded(info: dict) -> list[dict]:
+    """Причины исключения уроков — из payload последней попытки отбора.
+
+    Отбор эмитит `retrieved` и при пустом результате (`outcome=skipped`,
+    `reason_code=retrieval_empty`) и кладёт в `usage_json` bounded-сводку
+    `excluded_codes` (top-5). Если payload нет (старые события) — честный
+    пустой список, а не выдуманные причины."""
     rows: list[dict] = []
-    info = events.get("retrieved") or {}
-    reason = info.get("last_reason")
-    if reason:
-        rows.append({"reason_code": str(reason),
-                     "last_ts": _opt_ts(info.get("last_ts"))})
-    return rows
+    last_ts = _opt_ts((info or {}).get("last_ts"))
+    payload = (info or {}).get("last_payload") or {}
+    codes = payload.get("excluded_codes") if isinstance(payload, dict) else None
+    if isinstance(codes, dict):
+        for code, count in codes.items():
+            rows.append({"reason_code": str(code), "count": _int(count),
+                         "last_ts": last_ts})
+    if not rows:
+        reason = (info or {}).get("last_reason")
+        if reason and str(reason) in _SELECTION_EXCLUSION_CODES:
+            rows.append({"reason_code": str(reason), "count": None,
+                         "last_ts": last_ts})
+    rows.sort(key=lambda r: (-_int(r.get("count")), str(r.get("reason_code"))))
+    return rows[:5]
 
 
 async def experience_pipeline_reasons(db, *, now: int | None = None,

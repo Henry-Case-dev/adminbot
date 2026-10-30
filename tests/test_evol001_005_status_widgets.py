@@ -97,6 +97,59 @@ class TestSharedRowSystem:
                 "EVOL-001: строка не добавляет слой стекла (%s)" % forbidden)
 
 
+# ── EVOL-002 (review-fix): РЕАЛЬНАЯ разметка «Новых фактов» ────────────────
+class TestRealMarkupRowGeometry:
+    """Блокер Reviewer: в реальном шаблоне «Новые факты» — единственная лента
+    БЕЗ обёртки `.sfeed-track` (строки — прямые дети окна), и на контейнер
+    действует legacy-правило `.status-facts .facts-list` с `display:flex`.
+    Во flex-контейнере строка с `flex-shrink:1` сжималась с 64px до ~13px,
+    текст факта получал высоту 0. Здесь проверяется настоящий фрагмент
+    `index.html` (с предком `.status-facts`, без `.ribbon-track`) и CSS-
+    каскад: строка не сжимается, legacy-правило не задаёт строке размеров.
+    """
+
+    @staticmethod
+    def _facts_card() -> str:
+        return _section(
+            '<div v-if="isGlobalAdmin" class="card p-4 status-facts',
+            "<!-- ═══ EVOL-003/004/005: модальное окно записи", INDEX)
+
+    def test_real_markup_has_no_track_wrapper(self):
+        card = self._facts_card()
+        assert "status-facts" in card, "предок .status-facts — часть реальной разметки"
+        assert "ribbon-track" not in card, (
+            "в «Новых фактах» нет обёртки .sfeed-track: строки — прямые дети "
+            "окна (именно поэтому сжатие flex-контейнера видно здесь)")
+        assert 'class="facts-list scroll-thin sfeed-viewport"' in card
+        assert "data-sfeed-viewport" in card
+        assert 'class="sfeed-item" data-sfeed-row' in card
+        assert "sfeed-item__text" in card, "текст факта — часть строки"
+
+    def test_row_cannot_shrink_in_flex_container(self):
+        row_css = _section(".sfeed-item {", "}", CSS)
+        assert "flex: 0 0 var(--sfeed-row-h)" in row_css, (
+            "EVOL-002: строка не сжимается и не растягивается — иначе во "
+            "flex-контейнере «Новых фактов» 64px сжимаются до ~13px")
+        assert "height: var(--sfeed-row-h)" in row_css
+
+    def test_legacy_facts_rule_does_not_own_row_size(self):
+        legacy = _section(".status-facts .facts-list {", "}", CSS)
+        # Контейнеру нужна колоночная раскладка (строки — прямые дети), но
+        # размеры строк задаёт только общий слой `.sfeed-*`.
+        for forbidden in ("height", "max-height", "flex:", "flex-shrink",
+                          "flex-basis"):
+            assert forbidden not in legacy, (
+                "legacy-правило не должно задавать размеры окна/строки: %s"
+                % forbidden)
+        assert "gap: var(--sfeed-gap)" in legacy, "шаг строк — общий токен"
+        # Никаких правил, переопределяющих геометрию строки по этому предку.
+        assert re.search(
+            r"\.status-facts \.facts-list \.sfeed-item \{[^}]*"
+            r"(flex|height)", CSS) is None, (
+            "нет legacy-переопределений размера строки по предку .status-facts")
+
+
+
 # ── EVOL-002: движение и ручная прокрутка ──────────────────────────────────
 class TestMotionAndManualScroll:
     def test_container_is_real_scroller(self):

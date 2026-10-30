@@ -1540,9 +1540,15 @@
        РУЧНАЯ тоже (движение — JS-контроллер `.sfeed-viewport`), позиция не
        сбрасывается (стабильный :key). Строки — общий `.sfeed-item`
        (EVOL-001: та же система, что у трёх лент «Мониторинга интеллекта»). */
-    .status-facts .facts-list { max-height: 260px; overflow-y: auto;
-      display: flex; flex-direction: column; gap: .4rem; }
-    .status-facts .facts-list .sfeed-item { max-width: 100%; }
+    /* EVOL-002 (review-fix): «Новые факты» — единственная лента БЕЗ обёртки
+       `.sfeed-track`: строки `.sfeed-item` — прямые дети окна. Поэтому
+       колоночная раскладка нужна здесь (иначе пропадёт шаг между строками),
+       но она создаёт flex-контекст: без явного `flex` строка сжималась с 64px
+       до ~13px и текст факта становился невидимым. Сжатие запрещено на самой
+       строке (`flex: 0 0 var(--sfeed-row-h)`), а шаг берётся из общего
+       токена, а не из локального значения. */
+    .status-facts .facts-list { overflow-y: auto;
+      display: flex; flex-direction: column; gap: var(--sfeed-gap); }
     /* §19 «Бюджеты интеллекта». */
     .status-budgets .budget-row { margin-bottom: .6rem; }
     .status-budgets .budget-row:last-child { margin-bottom: 0; }
@@ -5341,6 +5347,10 @@ html.cover-editor-open { overflow: hidden; }
    «кликабельного хвоста»); полный текст открывается в окне записи. */
 .sfeed-item {
   display: flex; flex-direction: column; gap: 2px;
+  /* Строка НЕ сжимается и не растягивается: во flex-контейнере (в «Новых
+     фактах» строки — прямые дети окна) значение по умолчанию `flex-shrink:1`
+     сжимало 64px до ~13px и текст факта исчезал. */
+  flex: 0 0 var(--sfeed-row-h);
   width: 100%; height: var(--sfeed-row-h);
   margin: 0; padding: 6px 8px;
   text-align: left; font: inherit; font-size: .78rem; line-height: 1.3;

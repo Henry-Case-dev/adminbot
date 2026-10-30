@@ -526,6 +526,25 @@ def _emit(event_name: str, *, outcome: str, reason_code: str | None = None,
         return
 
 
+def _exclusion_summary(excluded, *, selected: int,
+                       considered: int) -> dict:
+    """Bounded-сводка причин исключения (top-5 кодов) для payload события.
+
+    R17-safe: только коды и числа, без текста уроков. Нужна, чтобы «отбор
+    был, но ничего не прошло» можно было объяснить по данным."""
+    counts: dict[str, int] = {}
+    for item in tuple(excluded or ()):
+        try:
+            code = str((item or {}).get("reason_code") or "")
+        except AttributeError:
+            code = ""
+        if code:
+            counts[code] = counts.get(code, 0) + 1
+    top = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+    return {"selected": int(selected), "considered": int(considered),
+            "excluded_codes": dict(top)}
+
+
 def _db_ready(db) -> bool:
     return (db is not None and hasattr(db, "db")
             and hasattr(db, "write_transaction"))
@@ -1412,6 +1431,11 @@ class LessonService:
         except Exception:
             logger.warning("[mca16] lesson candidates read failed",
                            exc_info=True)
+            # Сбой чтения — тоже попытка отбора (иначе витрина скажет
+            # «отбор ни разу не запускался», что неправда).
+            _emit("retrieved", outcome="failed",
+                  reason_code="retrieval_empty", chat_id=chat_id,
+                  trace_id=trace_id)
             return SelectionResult(reason_code="retrieval_empty")
         min_score = ExperiencePolicy.relevance_min_score()
         excluded: list[dict] = []
@@ -1456,11 +1480,20 @@ class LessonService:
             refs.append(ref)
             used_tokens += line_tokens
         if not refs:
+            # Пустая попытка — тоже прогон отбора: без события витрина
+            # ложно сообщала «отбор ни разу не запускался».
+            _emit("retrieved", outcome="skipped",
+                  reason_code="retrieval_empty", chat_id=chat_id,
+                  trace_id=trace_id,
+                  usage_json=_exclusion_summary(
+                      excluded, selected=0, considered=len(rows)))
             return SelectionResult(excluded=tuple(excluded),
                                    reason_code="retrieval_empty")
         _emit("retrieved", outcome="success", reason_code="retrieved",
               chat_id=chat_id, trace_id=trace_id,
-              entity_ids=[r.lesson_id for r in refs])
+              entity_ids=[r.lesson_id for r in refs],
+              usage_json=_exclusion_summary(
+                  excluded, selected=len(refs), considered=len(rows)))
         return SelectionResult(lessons=tuple(refs), excluded=tuple(excluded))
 
     # ── evidence (mca-04a; не второй контракт связей) ───────────────────────

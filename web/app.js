@@ -11300,8 +11300,21 @@
         if (typeof this.$nextTick === 'function') {
           this.$nextTick(function () {
             var el = self.$refs && self.$refs.statusRecordDialog;
-            if (el && typeof el.focus === 'function') {
-              try { el.focus(); } catch (e) { /* no-op */ }
+            if (!el) return;
+            // EVOL-003 (review-fix): фокус сразу на первом элементе управления,
+            // а не на корне окна (`tabindex="-1"`): с корня Shift+Tab уводил
+            // фокус за пределы окна. Корень остаётся фолбэком, если элементов
+            // управления нет.
+            var target = el;
+            try {
+              var nodes = el.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+              for (var i = 0; i < nodes.length; i++) {
+                if (!nodes[i].disabled) { target = nodes[i]; break; }
+              }
+            } catch (e) { target = el; }
+            if (target && typeof target.focus === 'function') {
+              try { target.focus(); } catch (e) { /* no-op */ }
             }
           });
         }
@@ -11339,6 +11352,14 @@
         if (!list.length) return;
         var first = list[0];
         var last = list[list.length - 1];
+        // Корень окна (`tabindex="-1"`) — часть цикла: фокус мог остаться на
+        // нём (нет элементов управления/программный фокус), и тогда Tab /
+        // Shift+Tab не должны выпускать фокус наружу.
+        if (document.activeElement === root || document.activeElement === null) {
+          ev.preventDefault();
+          try { (ev.shiftKey ? last : first).focus(); } catch (e) { /* no-op */ }
+          return;
+        }
         if (ev.shiftKey && document.activeElement === first) {
           ev.preventDefault();
           try { last.focus(); } catch (e) { /* no-op */ }
@@ -26623,6 +26644,11 @@
       this.modal = false;
       this.destroyed = false;
       this.expectY = -1;
+      // Последнее ЦЕЛОЕ значение, записанное в `scrollTop`. Дробная позиция
+      // живёт во `state.y` между кадрами: браузер квантует `scrollTop`, и
+      // перечитывание его каждый кадр теряло остаток (16 px/с ÷ 60 ≈ 0.27 px
+      // < 1 → позиция не росла вообще, авто-движение «замирало»).
+      this.written = -1;
       this._rows = null;
       this._activeRow = null;
       this._refreshPending = false;
@@ -26730,19 +26756,27 @@
       var dt = this.lastTs ? Math.min(120, Math.max(0, ts - this.lastTs)) : 16;
       this.lastTs = ts;
       var el = this.el;
-      // Текущая позиция — истина: возобновление идёт С НЕЁ (без прыжка),
-      // а изменение списка/ресайз уже отражены в scrollHeight.
-      if (this.state.phase !== 'rewind') {
-        this.state.y = Number(el.scrollTop) || 0;
-        this.state.max = this.measure();
+      this.state.max = this.measure();
+      // Позиция кадра — ВНУТРЕННЯЯ дробная (`state.y`), а не прочитанный
+      // `scrollTop`: браузер квантует записанное значение, поэтому при
+      // 16 px/с шаг кадра ≈ 0.27 px и остаток терялся бы каждый кадр
+      // (позиция не росла вовсе). Из DOM пересинхронизируемся только когда
+      // значение изменилось НЕ нами (ручная прокрутка скроллбаром/клавишами,
+      // ресайз, обрезка `max`) — тогда дробный остаток уже неактуален.
+      var live = Number(el.scrollTop) || 0;
+      if (this.written < 0 || Math.abs(live - this.written) > 2) {
+        this.state.y = live;
+        this.written = live;
+        this.expectY = live;
       }
-      var before = this.state.y;
       this.state = step(this.state, dt);
       if (this.state.phase === 'idle') { this.state.y = 0; return; }
       if (this.state.phase === 'run' || this.state.phase === 'rewind') {
-        if (Math.abs(this.state.y - before) > 0.01) {
-          this.expectY = this.state.y;
-          el.scrollTop = this.state.y;
+        var next = Math.round(this.state.y);
+        if (next !== this.written) {
+          this.expectY = next;
+          el.scrollTop = next;
+          this.written = next;
           this.markActiveRow();
         }
       }
@@ -26796,16 +26830,21 @@
       if (max <= 0) {
         this.state.phase = 'idle';
         this.state.y = 0;
+        this.written = 0;
         this.stop();
         return;
       }
+      // Пересчёт — «внешний повод»: берём реальную позицию и начинаем новый
+      // отсчёт дробной позиции с неё (дальше она ведётся внутри кадра).
       var live = Number(this.el.scrollTop) || 0;
       if (live > max) {
         this.expectY = max;
         this.el.scrollTop = max;
         this.state.y = max;
+        this.written = max;
       } else {
         this.state.y = live;
+        this.written = live;
       }
       this.schedule();
       this.markActiveRow();
@@ -26816,7 +26855,11 @@
     Viewport.prototype.pauseManual = function () {
       if (this.destroyed) return;
       this.manual = true;
-      this.state.y = Number(this.el.scrollTop) || 0;
+      // Ручное действие — тоже «внешний повод»: синхронизация с DOM законна.
+      var live = Number(this.el.scrollTop) || 0;
+      this.state.y = live;
+      this.written = live;
+      this.expectY = live;
       this.stop();
       if (this.resumeTimer) clearTimeout(this.resumeTimer);
       var self = this;
@@ -26871,6 +26914,8 @@
       step: step,
       attach: attach,
       viewports: viewports,
+      // Конструктор окна — для юнит-проверок кадра (квантование `scrollTop`).
+      Viewport: Viewport,
       isReduced: function () { return reduced; },
     };
   })();
