@@ -724,6 +724,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     from services import temporal_factcheck as tf
     from services import factcheck_context as fcx
     from services import factcheck_suitability as fsg
+    from services import usage_events
+
+    # §6 (Reviewer F4): один id прогона для LLM-логов и телеметрии покрытия.
+    pipeline_run_id = usage_events.new_correlation_id()
 
     # 0. P0-FACTCHECK MEDIA (owner 25.10.2026 §3/§4): публикация целиком —
     # durable элементы альбома (smart_messages.media_group_id) + все подписи
@@ -1036,7 +1040,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             envelope = fat.with_external_claim(envelope, external_claim)
         verdict = await _run_envelope_branch(req, service, db, bot,
                                              envelope, feed, tf, mca_gates,
-                                             retrieval_outcome)
+                                             retrieval_outcome,
+                                             run_id=pipeline_run_id)
     else:
         search_results = (retrieval_outcome.search_text
                           if retrieval_outcome is not None
@@ -1130,13 +1135,31 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         renderer_path=("skipped_already_delivered"
                        if verdict.already_delivered else "telegram_html"),
         critical_section_enabled=critique_enabled,
-        fallback_reason=("fallback_used" if verdict.fallback_used else ""))
+        fallback_reason=("fallback_used" if verdict.fallback_used else ""),
+        trace_id=pipeline_run_id, pipeline_run_id=pipeline_run_id)
     return _finish(OUTCOME_VERDICT, f"v2:{verdict.route}", verdict_stage)
+
+
+def _accepts_run_id(fn) -> bool:
+    """Принимает ли ``check_claim_envelope`` kwarg ``run_id`` (телеметрия §6).
+
+    Прецедент — ``search_aggregator._accepts_budget``: фейки/двойники без
+    нового необязательного аргумента не ломают доставку, а реальный сервис
+    получает id прогона (Reviewer F4).
+    """
+    try:
+        import inspect
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):      # pragma: no cover
+        return False
+    return ("run_id" in params
+            or any(p.kind is inspect.Parameter.VAR_KEYWORD
+                   for p in params.values()))
 
 
 async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
                                envelope, feed, tf, mca_gates,
-                               retrieval=None
+                               retrieval=None, run_id: str | None = None
                                ) -> CheckedVerdict:
     """Envelope-ветка: актуальная проверка + запись run (исторические
     записи сохраняются). Кеш готовых вердиктов удалён (P0-FACTCHECK-
@@ -1147,12 +1170,15 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
     v2 (planner CFG-06), передаётся в сервис; сервис не строит второй
     поиск. None → внутренний fallback-поиск сервиса (смысловые запросы)."""
     scope = f"chat:{req.chat_id}"
+    run_kwargs = {"run_id": run_id} if (
+        run_id and _accepts_run_id(service.check_claim_envelope)) else {}
     if retrieval is not None:
         run = await service.check_claim_envelope(
-            envelope, chat_context=feed or None, retrieval=retrieval)
+            envelope, chat_context=feed or None, retrieval=retrieval,
+            **run_kwargs)
     else:
         run = await service.check_claim_envelope(
-            envelope, chat_context=feed or None)
+            envelope, chat_context=feed or None, **run_kwargs)
     await tf.record_temporal_run(db, run, scope=scope, cache_hit=False)
     refs = tuple(
         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
@@ -1271,14 +1297,48 @@ async def _style_revisions(chat_id: int) -> dict:
     return fields
 
 
+def _claim_telemetry_row(cov) -> dict:
+    """§6 (Reviewer F4): только метаданные — id/статусы/роли/причина/цитаты.
+
+    Ни текста тезиса, ни URL: обычные логи и событие не должны нести
+    содержимое чатов и ссылки (§6: «не писать сырой текст/секретные URL»).
+    """
+    claim = getattr(cov, "claim", None)
+    evidence = tuple(getattr(cov, "evidence", ()) or ())
+    roles: dict[str, int] = {}
+    for item in evidence:
+        role = str(getattr(item, "role", "") or "")
+        if role:
+            roles[role] = roles.get(role, 0) + 1
+    return {
+        "claim_id": str(getattr(claim, "claim_id", "") or ""),
+        "claim_type": str(getattr(claim, "claim_type", "") or ""),
+        "search_status": str(getattr(cov, "search_status", "") or ""),
+        "status_detail": str(getattr(cov, "status_detail", "") or ""),
+        "outcome": str(getattr(cov, "outcome", "") or ""),
+        "reason_code": str(getattr(cov, "reason_code", "") or ""),
+        "queries_count": int(getattr(cov, "queries_count", 0) or 0),
+        "candidates": int(getattr(cov, "candidates", 0) or 0),
+        "opened": int(getattr(cov, "opened", 0) or 0),
+        "roles": roles,
+        "citation_ids": [str(x) for x in
+                         (getattr(cov, "citation_ids", ()) or ())],
+        "providers": [str(x) for x in
+                      (getattr(cov, "provider_status", ()) or ())][:8],
+    }
+
+
 async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
                                verbalizer_path: str, renderer_path: str,
                                critical_section_enabled: bool | None,
-                               fallback_reason: str = "") -> dict:
+                               fallback_reason: str = "",
+                               trace_id: str = "",
+                               pipeline_run_id: str = "") -> dict:
     """§6: одна трасса покрытия на ход — claim → запросы → провайдеры →
     кандидаты → открытые → роль/привязка → причина → показанные citation IDs,
     плюс компактный итог хода. Только метаданные: без текстов чатов, ссылок
-    и секретов. Никогда не бросает."""
+    и секретов (Reviewer F4); ``trace_id``/``pipeline_run_id`` связывают
+    событие с прогоном и его LLM-логами. Никогда не бросает."""
     coverage = tuple(getattr(outcome, "claims", ()) or ()) \
         if outcome is not None else ()
     summary = (outcome.coverage_summary() if outcome is not None
@@ -1301,11 +1361,11 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
     }
     try:
         logger.info(
-            "[factcheck_claims] chat=%s | total=%s | searched=%s | direct=%s | "
-            "partial=%s | deadline=%s | off_topic=%s | stale=%s | refine=%s | "
-            "verbalizer=%s | renderer=%s | critical=%s | fallback=%s | "
-            "core=%s | expression=%s | style=%s",
-            chat_id, fields.get("total_claims"),
+            "[factcheck_claims] trace=%s | chat=%s | total=%s | searched=%s | "
+            "direct=%s | partial=%s | deadline=%s | off_topic=%s | stale=%s | "
+            "refine=%s | verbalizer=%s | renderer=%s | critical=%s | "
+            "fallback=%s | core=%s | expression=%s | style=%s",
+            trace_id or "-", chat_id, fields.get("total_claims"),
             fields.get("claims_searched"),
             fields.get("claims_with_direct_evidence"),
             fields.get("claims_partial"),
@@ -1323,10 +1383,11 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
         mca_events.emit_mca_event(
             "factcheck_claims", outcome="success", level="INFO",
             component="factcheck.claims", chat_id=chat_id,
+            trace_id=str(trace_id or "") or None,
+            pipeline_run_id=str(pipeline_run_id or trace_id or "") or None,
             entity_ids={
-                **fields,
-                "claims": [cov.as_dict() for cov in coverage
-                           if hasattr(cov, "as_dict")],
+                **summary,
+                "claims": [_claim_telemetry_row(cov) for cov in coverage],
             })
     except Exception:      # события не рвут доставку
         logger.debug("[factcheck_claims] event emit failed", exc_info=True)

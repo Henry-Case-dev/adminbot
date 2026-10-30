@@ -278,3 +278,166 @@ plans/features/evol/audit/w10-fc-evidence-style.md
    первым; при падении уровня записывается последний неудачный уровень и причина.
    Индивидуальные latency всех промежуточных уровней не собираются (только лог
    агрегатора) — это существующая граница, не новая.
+
+## §8. review-fix (Reviewer, round 2) — 5 блокеров, RED → PASS
+
+Кандидат: `303e18e8` + правки этого раунда (файлы ниже). Каждый блокер сначала
+воспроизведён probe-скриптом (значения RED приведены дословно), затем
+исправлен и закрыт тестом; тесты — офлайн, провайдеры/LLM — фейки.
+
+### F1 (BLOCKER) — подтверждение не проверяло семантику тезиса
+
+**RED (probe):**
+```
+metrics: ('658 м',) units: ()          # «$658 млрд» разобрано как «658 м»
+role: supports strong: True number_hits: 1
+coverage: confirmed verified
+merged verdict: supported
+public: Подтверждается   (тезис «$658 млрд» при источнике «$658 million»)
+```
+**Причина:** в `_NUMERIC_PHRASE_RE` альтернатива `м` стояла перед `млн/млрд`,
+поэтому масштаб терялся; `claim_relevance` засчитывал совпадение числа без
+сверки единицы/валюты; закрытый список направлений не ловил «вырос» против
+«подешевел/снизился»; причинный тезис подтверждался обычной статьёй о событии;
+`merge_claim_coverage` синтезировал `supported` поверх вывода модели
+`insufficient_evidence`.
+
+**PASS (probe после фикса):**
+```
+metrics: ('$658 млрд',) units: ('$', 'млрд')
+role: qualifies strong: False number_hits: 1 mismatch: True
+coverage: conflicting_evidence evidence_conflicting
+merged verdict: insufficient_evidence
+public: Недостаточно данных для проверки
+        • …$658 млрд… — данных недостаточно (источники расходятся в числе/единице…)
+```
+Что изменено:
+* `_NUMERIC_PHRASE_RE` — длинные единицы раньше коротких (`млрд|млн|трлн|тыс` …),
+  валютный префикс `$€£₽`, единицы `процент/п.п./доллар/юан/фунт`; `_UNIT_RE`
+  расширен теми же токенами;
+* `search_aggregator`: классы единиц `scale/percent/currency` (`_unit_class`,
+  `_unit_classes`), `supports` требует `claim_classes ⊆ body_classes`; то же
+  число с другим масштабом/валютой → `qualifies` + `number_mismatch`;
+* направление — общая морфология (`_DOWN_RE`/`_UP_RE`: упал/паден/сниз/сниж/
+  дешев/подешев/обвал/рухн/потеря и fell/drop/declin/… против вырос/раст/рост/
+  повыс/повыш/подорож/grow/rose/gain/…, включая межъязыковые пары); двунаправленный
+  источник опровержением не считается;
+* `claim_type="cause"` проходит в `claim_relevance`: без причинной связки
+  (`_CAUSAL_RE`) тезис-причина получает `qualifies`, а не `supports`;
+* `merge_claim_coverage`: если модель по существу НЕ дала положительного вывода
+  (ни верхний enum, ни одна её часть), серверные части не становятся
+  положительными и агрегат не поднимается — вывод остаётся
+  `insufficient_evidence`, конкретные пробелы видны в частях. Если модель сама
+  подтвердила часть, её вывод не переписывается (сценарий 2: 4 подтверждения +
+  2 пробела → `mixed`).
+
+Тесты: `test_review_f1a_units_must_match_scale`,
+`test_review_f1b_server_does_not_upgrade_insufficient`,
+`test_review_f1c_cause_requires_causal_link`,
+`test_review_f1d_direction_morphology`.
+
+### F2 (BLOCKER) — расходящиеся оценки не становились конфликтом
+
+**RED (probe):** `Nasdaq упал 3,4%`, источники 2,8 % и 3,1 % →
+`insufficient_evidence / evidence_insufficient_for_exact_number`, «источники
+расходятся» отсутствовало.
+**PASS:** `conflicting_evidence / evidence_conflicting`,
+`gap=«источники расходятся в числе/единице: заявленное значение не совпадает с
+тем, что дают источники»`, обе оценки остаются в покрытии.
+**Причина/фикс:** `mismatched` учитывался только при уже сильном подтверждении.
+В `_finalize_claim` добавлена ветка: нет сильного подтверждения + `qualifies`
+с `number_mismatch` (в т.ч. ≥2 разных числа с той же единицей) → конфликт;
+`_gap_note` различает «расходятся в числе/единице» и «за/против».
+Тест: `test_review_f2_diverging_estimates_become_conflicting` (+ сценарий 7
+переведён на расходящиеся числа 2,8/3,1).
+
+### F3 (BLOCKER-small) — технический сбой назывался «недостатком данных»
+
+**RED (probe):** при пустом `reason_code` прогона заголовок
+«Недостаточно данных для проверки», а строки частей —
+«… — данных недостаточно (поиск не ответил (технический сбой)…)».
+**PASS:**
+```
+<b>Проверка не завершена: поиск недоступен</b>
+• Индекс упал — поиск не завершён: технический сбой (проверяемой ссылки нет)
+• Nasdaq вырос — поиск не завершён: лимит времени (проверяемой ссылки нет)
+```
+Фикс: `factcheck_renderer` — `_TECHNICAL_PART_LABELS` по `status_detail`
+(`provider_error|deadline_exceeded|source_extract_failed|search_not_started|
+claim_unidentified`) и `_technical_headline_from_parts` (технический заголовок,
+когда содержательного разбора нет, даже без `reason_code`); «данных
+недостаточно» остаётся только для `no_relevant_sources`/
+`evidence_insufficient_for_exact_number`. Соответствие сценария 8 усилено:
+`assert "данных недостаточно" not in visible`.
+Тест: `test_review_f3_technical_failure_not_called_insufficient`.
+
+### F4 (BLOCKER-small) — телеметрия нарушала §6
+
+**RED (probe):** событие `factcheck_claims` несло `claims: [cov.as_dict()]` —
+тексты тезисов и URL; `trace_id`/`pipeline_run_id` отсутствовали.
+**PASS:** `trace_id=tr-123` и `pipeline_run_id=tr-123` в событии; ни текста
+тезиса, ни URL (`"Nasdaq" not in line`, `"http" not in line`), строки claim
+содержат только `claim_id/claim_type/search_status/status_detail/outcome/
+reason_code/queries_count/candidates/opened/roles/citation_ids/providers`.
+Фикс: `_claim_telemetry_row` (метаданные вместо `as_dict()`), параметры
+`trace_id`/`pipeline_run_id` в `_emit_claim_coverage`; `_run_inner` генерирует
+один `pipeline_run_id` (`usage_events.new_correlation_id()`), прокидывает его
+в `check_claim_envelope(run_id=…)` (тот же id в LLM-логах) и в событие;
+`_accepts_run_id` (прецедент `_accepts_budget`) не ломает сервисы-двойники без
+нового необязательного аргумента.
+Тест: `test_review_f4_telemetry_has_no_texts_and_has_trace_id`.
+
+### F5 (RELATED_SMALL) — уточнение не запускалось для неподтверждённого числа
+
+**RED (probe):** «событийная» ссылка (`qualifies`) считалась покрытием →
+`calls: 1, refine_calls: 0`, исход
+`insufficient_evidence / evidence_insufficient_for_exact_number`.
+**PASS:** `calls: 2, refine_calls: 1`, исход `confirmed / verified`.
+Фикс: `_claim_settled(run)` — уточнение пропускается только при сильном
+`supports` или `contradicts`; `refinement_query_for` для спорного числа
+добавляет вариант единицы (млрд→billion, $→dollars, %→percent), поэтому
+уточнение не повторяет базовую формулировку (плюс прежняя защита от повторов).
+Тест: `test_review_f5_qualifies_does_not_stop_refinement`.
+
+### Nonblocking (сделано, т.к. дёшево)
+
+* **>8 claim units больше не теряются молча:** `build_claim_units` собирает до
+  `_CLAIM_UNITS_HARD_CAP = 16`; части сверх бюджета запросов получают
+  `deadline_exceeded`/`CLAIM_STATUS_DEADLINE` и честный gap «поиск прерван по
+  лимиту времени»; renderer печатает «…и ещё N: не показаны (лимит разбора)».
+  Тест: `test_review_claims_beyond_query_budget_are_marked_honestly`.
+* **Новые лимиты через `hot_config`:** ключи `limits.factcheck_max_queries_total`,
+  `limits.factcheck_retrieval_seconds`, `limits.factcheck_retrieval_seconds_max`,
+  `limits.factcheck_refine_calls` читаются существующим конфиг-слоем с
+  заводскими дефолтами в модулях. `services/param_catalog.py` вне скоупа этого
+  раунда — **patch note для волны каталога:** добавить эти четыре ключа в
+  группу лимитов фактчека с теми же дефолтами (12 / 10.0 / 45.0 / 3), после чего
+  они появятся в админке; поведение без каталога уже рабочее и проверено.
+* **Слабые утверждения усилены:** сценарий 8 — точное число частей без проверки
+  (`claims_unchecked_due_to_deadline == len(deadline_claims)`) и запрет ярлыка
+  «данных недостаточно» для технического исхода; сценарий 9 — `or True` убран,
+  проверяются claim-привязка каждой ссылки и `off_topic_sources_dropped == 0`;
+  сценарий 11 — вместо `or True` проверяется отсутствие выдуманного
+  подтверждения в fallback-тексте.
+
+### Проверки этого раунда (кандидат `303e18e8` + правки)
+
+| Набор | Результат |
+| --- | --- |
+| `tests/test_evol_fc_evidence_style.py` | **23 passed** (было 14: +9 тестов ревью) |
+| 13 именованных наборов (новый файл, admission, vision-sync core, media, handlers, prompts, b07 temporal, attribution, deep context, orchestrator, service, renderer, critical) | **353 passed** |
+| `pytest tests -k "factcheck or fc_evidence"` | **610 passed** |
+| Широкий срез `-k "factcheck or fc_evidence or renderer or temporal or prompt or egress or unified_core or search_aggregator or orchestrator"` | **1497 passed** |
+
+Изменённые файлы раунда: `services/search_aggregator.py`,
+`services/factcheck_planner.py`, `services/factcheck_renderer.py`,
+`services/factcheck_orchestrator.py`, `services/factcheck_service.py`
+(минимально — снятие апгрейда вывода модели и `run_id` для телеметрии; блокер F1
+прямо называет это поведение), `tests/test_evol_fc_evidence_style.py`,
+этот отчёт. `web/**`, другие лейны, схема БД, `param_catalog` не тронуты.
+
+Остаточное ограничение F1 после фикса: масштаб/валюта сверяются по классам
+(`млрд↔billion`, `$↔доллар/usd`), а не по точной методологии источника
+(например, «market cap loss» vs «price drop» различаются только тезисом и
+якорем, не семантическим парсером) — это по-прежнему консервативная
+детерминированная проверка, а не вывод LLM.

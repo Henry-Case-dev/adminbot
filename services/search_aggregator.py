@@ -226,34 +226,72 @@ EVIDENCE_ROLES = (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS,
 DISPLAYABLE_EVIDENCE_ROLES = (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_CONTRADICTS,
                               EVIDENCE_ROLE_QUALIFIES)
 
-#: Общеязыковые пары противоположных направлений (не предметный словарь:
-#: рост/падение, дороже/дешевле, gained/lost). Нужны, чтобы источник,
-#: утверждающий обратное, не выдавался за подтверждение.
-_OPPOSITE_PAIRS = (
-    ("упал", "вырос"), ("падени", "рост"), ("снизил", "повысил"),
-    ("снижени", "увеличени"), ("подешевел", "подорожал"),
-    ("потерял", "получил"), ("подешев", "подорож"),
-    ("fell", "rose"), ("fall", "rise"), ("fell", "gained"),
-    ("drop", "gain"), ("declin", "rose"), ("declin", "grew"),
-    ("lost", "gained"), ("loss", "gain"),
-    # межъязыковые пары: русская формулировка тезиса против англоязычного
-    # источника (международные новости) — источник «наоборот» не считается
-    # подтверждением.
-    ("упал", "rose"), ("упал", "rise"), ("упал", "gained"),
-    ("упал", "grew"), ("падени", "rose"), ("падени", "gain"),
-    ("вырос", "fell"), ("вырос", "dropped"), ("вырос", "lost"),
-    ("вырос", "slumped"), ("снизил", "rose"), ("снизил", "gained"),
+#: Общеязыковые признаки НАПРАВЛЕНИЯ (не предметный словарь): морфология
+#: падения/снижения/удешевления против роста/повышения/подорожания. Закрытый
+#: список конкретных словоформ заменён на основы — иначе «вырос» против
+#: «подешевел/снизился» не распознавался (Reviewer F1).
+_DOWN_RE = re.compile(
+    r"\b(?:упал\w*|пада\w*|паден\w*|сниз\w*|сниж\w*|дешев\w*|подешев\w*|"
+    r"обвал\w*|рухн\w*|потеря\w*|потерь|fell|fallen|fall|falls|drop\w*|"
+    r"declin\w*|sank|slump\w*|plunge\w*|lost|loss\w*|down|lower)\b",
+    re.IGNORECASE)
+_UP_RE = re.compile(
+    r"\b(?:вырос\w*|раст\w*|рост\w*|повыс\w*|повыш\w*|подорож\w*|дорож\w*|"
+    r"grow\w*|grew|rose|rise|rises|risen|gain\w*|jump\w*|surge\w*|"
+    r"higher|up)\b", re.IGNORECASE)
+
+#: Причинная связка тезиса («из-за …») — отдельное требование к привязке:
+#: статья о падении рынка не доказывает приписанную причину (Reviewer F1).
+_CAUSAL_RE = re.compile(
+    r"\b(?:из-за|потому что|в результате|вследствие|на фоне|причин\w*|"
+    r"связан\w*|because|due to|caused|driven by|as a result)\b",
+    re.IGNORECASE)
+
+#: Классы единиц измерения: масштаб/валюта/проценты. Число без совместимого
+#: класса НЕ подтверждает метрику (658 «млрд» ≠ 658 «million»).
+_SCALE_CLASSES = (
+    ("млрд", "billion"), ("млр", "billion"), ("billion", "billion"),
+    ("bn", "billion"),
+    ("трлн", "trillion"), ("trillion", "trillion"), ("tn", "trillion"),
+    ("млн", "million"), ("million", "million"), ("mn", "million"),
+    ("тыс", "thousand"), ("thousand", "thousand"),
 )
+_PERCENT_CLASSES = (
+    ("%", "percent"), ("процент", "percent"), ("percent", "percent"),
+    ("pct", "percent"), ("п.п", "pp"), ("пп", "pp"),
+    ("пункт", "points"), ("point", "points"),
+)
+_CURRENCY_CLASSES = (
+    ("$", "usd"), ("usd", "usd"), ("доллар", "usd"), ("долл", "usd"),
+    ("dollar", "usd"), ("евро", "eur"), ("eur", "eur"), ("€", "eur"),
+    ("фунт", "gbp"), ("gbp", "gbp"), ("£", "gbp"),
+    ("руб", "rub"), ("rub", "rub"), ("₽", "rub"),
+)
+
+
+def _unit_class(token: str) -> str:
+    """Канонический класс единицы/валюты токена (пустой → не класс)."""
+    low = str(token or "").strip().lower()
+    if not low:
+        return ""
+    for prefix, cls in (_SCALE_CLASSES + _PERCENT_CLASSES
+                        + _CURRENCY_CLASSES):
+        if low.startswith(prefix) or low == prefix:
+            return cls
+    return ""
+
+
+def _unit_classes(text: str) -> set[str]:
+    """Классы единиц/валют текста (масштаб/проценты/валюта)."""
+    return {cls for token in _UNIT_TOKEN_RE.findall(str(text or "").lower())
+            for cls in (_unit_class(token),) if cls}
 
 _NUMBER_TOKEN_RE = re.compile(r"\d+(?:[.,]\d+)?")
 _UNIT_TOKEN_RE = re.compile(
-    r"(млрд|млн|тыс|трлн|%|процент\w*|п\.п\.|руб\w*|доллар\w*|\$|€|"
-    r"billion|trillion|million|percent|points?|пункт\w*)", re.IGNORECASE)
-
-
-def _unit_tokens(text: str) -> set[str]:
-    """Единицы измерения текста (млрд/%/$/billion …) — для сверки метрик."""
-    return {m.group(1).lower() for m in _UNIT_TOKEN_RE.finditer(str(text or ""))}
+    r"(млрд|млр|млн|мл|трлн|тыс|%|процент\w*|п\.п\.?|пункт\w*|руб\w*|"
+    r"доллар\w*|долл\.?|юан\w*|фунт\w*|евро|\$|€|£|₽|"
+    r"billion|trillion|million|thousand|percent|pct|points?|usd|eur|gbp|"
+    r"rub|bn|mn)", re.IGNORECASE)
 
 
 def _numbers_in(text: str) -> set[str]:
@@ -264,15 +302,26 @@ def _numbers_in(text: str) -> set[str]:
     return out
 
 
+def _directions(text: str) -> tuple[bool, bool]:
+    """(есть_падение, есть_рост) по морфологии направления."""
+    low = str(text or "").lower()
+    return bool(_DOWN_RE.search(low)), bool(_UP_RE.search(low))
+
+
 def _opposite_direction(claim_low: str, text_low: str) -> bool:
-    """Источник утверждает ПРОТИВОПОЛОЖНОЕ направление тезиса."""
-    for positive, negative in _OPPOSITE_PAIRS:
-        if positive in claim_low and negative in text_low \
-                and positive not in text_low:
-            return True
-        if negative in claim_low and positive in text_low \
-                and negative not in text_low:
-            return True
+    """Источник утверждает ПРОТИВОПОЛОЖНОЕ направление тезиса.
+
+    Общая морфология, а не закрытый список пар: «вырос» против
+    «подешевел/снизился» распознаётся так же, как «упал» против «rose».
+    Двунаправленный текст (в источнике есть и рост, и падение) опровержением
+    не считается — консервативно.
+    """
+    c_down, c_up = _directions(claim_low)
+    t_down, t_up = _directions(text_low)
+    if c_down and not c_up and t_up and not t_down:
+        return True
+    if c_up and not c_down and t_down and not t_up:
+        return True
     return False
 
 
@@ -295,19 +344,26 @@ class ClaimRelevance:
 
     @property
     def strong(self) -> bool:
-        """Источник покрывает ИМЕННО тезис: якорь + связь по содержанию."""
+        """Источник покрывает ИМЕННО тезис: якорь + совместимые единицы."""
         return self.role == EVIDENCE_ROLE_SUPPORTS and not self.opposite \
+            and not self.number_mismatch \
             and (self.entity_hit or self.word_hits >= 2)
 
 
 def claim_relevance(text: str, *, claim_text: str = "",
-                    anchor_terms=(), metrics=(), entities=()) -> ClaimRelevance:
+                    anchor_terms=(), metrics=(), entities=(),
+                    claim_type: str = "") -> ClaimRelevance:
     """Релевантность источника КОНКРЕТНОМУ claim (§3.3), затем пригодность.
 
     Порядок: сначала связь с тезисом (якоря: числа/метрики тезиса, латинские
     имена и тикеры, содержательные термины), и только потом роль источника.
     Смысл: «золото» в статье о золоте не подтверждает потерю капитализации
     Alphabet; заголовок о падении индекса не подтверждает конкретную сумму.
+
+    Reviewer F1: совпадение числа без совместимой ЕДИНИЦЫ/ВАЛЮТЫ не является
+    подтверждением («$658 млрд» ≠ «$658 million»), а тезис-причина
+    (`claim_type="cause"`) подтверждается только при наличии причинной связки
+    в источнике.
 
     Детерминированно, без LLM. Никогда не бросает.
     """
@@ -331,6 +387,14 @@ def claim_relevance(text: str, *, claim_text: str = "",
             str(e).lower() in body_low for e in (entities or ())
             if len(str(e)) >= 3)
         opposite = _opposite_direction(claim_low, body_low) if claim_low else False
+        # §F1: единицы/валюта тезиса против источника
+        claim_classes = _unit_classes(" ".join(str(m) for m in
+                                               (metrics or ())))
+        body_classes = _unit_classes(body)
+        units_ok = (not claim_classes) or claim_classes <= body_classes
+        units_conflict = bool(claim_classes and not units_ok)
+        causal_missing = (str(claim_type or "") == "cause"
+                          and not _CAUSAL_RE.search(body))
 
         def _result(role: str, *, mismatch: bool = False) -> ClaimRelevance:
             return ClaimRelevance(role=role, score=len(matched) + number_hits,
@@ -339,30 +403,36 @@ def claim_relevance(text: str, *, claim_text: str = "",
                                   number_mismatch=mismatch)
 
         if claim_numbers:
-            if number_hits:
+            if number_hits and units_ok:
                 if word_hits >= 1 or entity_hit:
+                    if causal_missing and not opposite:
+                        return _result(EVIDENCE_ROLE_QUALIFIES)
                     return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
                                    else EVIDENCE_ROLE_SUPPORTS)
                 # совпало только число — совпадение, а не доказательство
                 return _result(EVIDENCE_ROLE_BACKGROUND)
+            if number_hits and units_conflict:
+                # то же число, но другая единица/масштаб/валюта — расхождение
+                return _result(EVIDENCE_ROLE_QUALIFIES, mismatch=True)
             if entity_hit or word_hits >= 2:
                 # событие/тема те же, но заявленного числа в источнике нет:
-                # либо другой период/методология (это не подтверждение), либо
+                # либо другой период/методология (не подтверждение), либо
                 # другое число С ТОЙ ЖЕ единицей — расхождение оценок.
-                claim_units = {u for m in (metrics or ())
-                               for u in _unit_tokens(str(m))}
-                body_units = _unit_tokens(body)
-                numbers_differ = bool(_numbers_in(body)) and bool(
-                    claim_units & body_units)
+                numbers_differ = bool(body_numbers) and bool(
+                    claim_classes & body_classes)
                 return _result(EVIDENCE_ROLE_QUALIFIES,
                                mismatch=numbers_differ and not opposite)
             if word_hits == 1 or entity_hit:
                 return _result(EVIDENCE_ROLE_BACKGROUND)
             return _result(EVIDENCE_ROLE_IRRELEVANT)
         if entity_hit and (word_hits >= 1 or opposite):
+            if causal_missing and not opposite:
+                return _result(EVIDENCE_ROLE_QUALIFIES)
             return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
                            else EVIDENCE_ROLE_SUPPORTS)
         if word_hits >= 2:
+            if causal_missing and not opposite:
+                return _result(EVIDENCE_ROLE_QUALIFIES)
             return _result(EVIDENCE_ROLE_CONTRADICTS if opposite
                            else EVIDENCE_ROLE_SUPPORTS)
         if word_hits == 1 or entity_hit:

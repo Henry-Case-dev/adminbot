@@ -1187,9 +1187,17 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
       положительной (понижение до существующего enum);
     * ссылки части ограничиваются claim-привязанными evidence текущего
       прогона (чужая ссылка не приписывается тезису);
-    * каждый пробел получает конкретную причину/пояснение из retrieval-слоя.
+    * каждый пробел получает конкретную причину/пояснение из retrieval-слоя;
+    * Reviewer F1: если МОДЕЛЬ по существу сказала `insufficient_evidence`,
+      серверные части покрытия НЕ делают вывод положительным — никакого
+      апгрейда `insufficient → mixed/supported` от синтезированных частей.
     """
     parts = [dict(p) for p in (verdict.parts or ()) if isinstance(p, dict)]
+    model_factual = str(verdict.factual_verdict or "")
+    # Положителен ли вывод МОДЕЛИ по существу: либо верхний enum, либо хотя бы
+    # одна её часть. Если нет — серверные части не делают вывод положительным.
+    model_positive = model_factual in _CLAIM_POSITIVE or any(
+        str(p.get("factual_verdict") or "") in _CLAIM_POSITIVE for p in parts)
     # Единственный владелец сопоставления «итог claim → существующий enum» —
     # планировщик (параллельной системы вердиктов не создаём).
     from services.factcheck_planner import CLAIM_OUTCOME_TO_VERDICT
@@ -1224,12 +1232,18 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
             outcome_verdict = CLAIM_OUTCOME_TO_VERDICT.get(
                 str(getattr(cov, "outcome", "") or ""),
                 "insufficient_evidence")
+            if not model_positive and \
+                    outcome_verdict in _CLAIM_POSITIVE:
+                # §F1: серверная часть не поднимает общий вывод модели.
+                outcome_verdict = "insufficient_evidence"
+                gap = gap or ("источники по этому пункту есть, но общий "
+                              "вывод проверки — недостаточно данных")
             parts.append({
                 "part_id": str(getattr(claim, "claim_id", "") or ""),
                 "text": str(getattr(claim, "text", "") or ""),
                 "factual_verdict": outcome_verdict,
                 "evidence_refs": list(bound),
-                **metadata})
+                **{**metadata, "gap_note": gap}})
             continue
         matched.add(index)
         part = parts[index]
@@ -1275,6 +1289,10 @@ def merge_claim_coverage(verdict: tf.TemporalVerdict, coverage, evidence
         return verdict
     factual = tf._aggregate_factual_verdict(verdict.factual_verdict,
                                            tuple(parts))
+    if not model_positive:
+        # §F1: агрегация не поднимает вывод модели за счёт серверных частей;
+        # честная неопределённость остаётся, конкретные пробелы видны в parts.
+        factual = "insufficient_evidence"
     reason = verdict.reason
     if factual in _CLAIM_POSITIVE and str(reason or "") in \
             _TECHNICAL_RETRIEVAL_REASONS:
@@ -1760,6 +1778,7 @@ class FactCheckService:
         chat_context: str | None = None,
         stage_trace: tf.StageTrace | None = None,
         retrieval=None,
+        run_id: str | None = None,
     ) -> tf.TemporalRunResult:
         """Сквозной пайплайн `temporal.factcheck` (8 стадий, D15).
 
@@ -1907,7 +1926,8 @@ class FactCheckService:
                        else "temporal_insufficient_evidence",
                        chat_id=env.chat_id)
 
-        correlation_id = usage_events.new_correlation_id()
+        correlation_id = str(run_id) if run_id else \
+            usage_events.new_correlation_id()
         fallback_used = False
         verdict_reason = search_reason
         # P0-FACTCHECK (§3.6): технический класс исхода retrieval. Раньше

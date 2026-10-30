@@ -321,6 +321,12 @@ def _hrefs(markup: str) -> list[str]:
     return re.findall(r'href="([^"]+)"', markup)
 
 
+def asyncio_run(coro):
+    """Мини-исполнитель корутины в sync-тесте (без pytest-asyncio)."""
+    import asyncio
+    return asyncio.run(coro)
+
+
 # ═══ 1. Составная новость: попытка у КАЖДОЙ части ═══════════════════════════
 
 @pytest.mark.asyncio
@@ -518,15 +524,20 @@ async def test_sc5_stale_article_not_fresh_confirmation(planner_on):
 
 def _verdict_only(outcome) -> orch.CheckedVerdict:
     """Минимальный вердикт из покрытия (без LLM) для проверок рендера."""
-    lines = [c.gap_note for c in outcome.claims if c.gap_note]
     return orch.CheckedVerdict(
         verdict_text="Источник оказался старше заявленного события.",
         route="envelope_temporal", factual_verdict="insufficient_evidence",
-        parts=tuple({"part_id": c.claim.claim_id, "text": c.claim.text,
-                     "factual_verdict": "insufficient_evidence",
-                     "evidence_refs": list(c.citation_ids),
-                     "gap_note": c.gap_note, "claim_id": c.claim.claim_id}
-                    for c in outcome.claims),
+        parts=tuple({
+            "part_id": c.claim.claim_id,
+            "text": c.claim.text,
+            "factual_verdict": fsp.CLAIM_OUTCOME_TO_VERDICT.get(
+                c.outcome, "insufficient_evidence"),
+            "evidence_refs": list(c.citation_ids),
+            "gap_note": c.gap_note,
+            "claim_id": c.claim.claim_id,
+            "status_detail": c.status_detail,
+            "search_status": c.search_status,
+        } for c in outcome.claims),
         evidence=outcome.evidence_map or orch.EvidenceMap())
 
 
@@ -616,13 +627,20 @@ async def test_sc8_provider_and_deadline_are_technical(planner_on):
     assert by_id["c2"].status_detail == fsp.CLAIM_STATUS_PROVIDER_ERROR
     assert by_id["c3"].status_detail in (fsp.CLAIM_STATUS_DEADLINE,
                                          fsp.CLAIM_STATUS_PROVIDER_ERROR)
-    assert outcome.coverage_summary()["claims_unchecked_due_to_deadline"] >= 0
+    deadline_claims = [cov for cov in outcome.claims
+                       if cov.status_detail == fsp.CLAIM_STATUS_DEADLINE]
+    assert outcome.coverage_summary()["claims_unchecked_due_to_deadline"] == \
+        len(deadline_claims)
 
     verdict = _verdict_only(outcome)
     verdict = dataclasses.replace(verdict, factual_verdict="mixed")
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
-    assert "технический сбой" in visible or "поиск не ответил" in visible
+    # Reviewer F3: технические части называются техническим исходом, а не
+    # «данных недостаточно» (сбой поиска ≠ отсутствие фактов).
+    assert "поиск не завершён: технический сбой" in visible or \
+        "поиск не завершён: лимит времени" in visible
+    assert "данных недостаточно" not in visible
     assert "в интернете данных нет" not in visible.lower()
     # успешная часть сохранилась вместе со своей ссылкой
     assert any("markets.example.com/sp500" in url for url in _hrefs(markup))
@@ -649,7 +667,12 @@ async def test_sc9_displayed_links_are_real_refs_of_this_run(planner_on):
             ref = refs_by_id[evidence_id]
             assert claim_id in (ref.claims or ()), (
                 "ссылка показана рядом с чужим тезисом")
-    assert "metals.example.com/gold" not in " ".join(hrefs) or True
+    # каждая показанная ссылка действительно поддержана своим claim-ом:
+    # off-topic/background в текущем прогоне не выводятся вовсе
+    assert checked.evidence.refs
+    for ref in checked.evidence.refs:
+        assert ref.claims, "ссылка без claim-привязки не должна попадать в ответ"
+    assert outcome.off_topic_sources_dropped == 0
 
 
 # ═══ 10. Частичный вердикт, стиль включён ══════════════════════════════════
@@ -747,7 +770,10 @@ async def test_sc11_style_isolation_and_fallback(planner_on, monkeypatch):
     run, llm = await _run_service(outcome, units=units, llm=llm)
     assert run.fallback_used is True
     assert HEADING not in llm.systems()          # раздел не инструктируется
-    assert "Недостаточно данных" not in (run.verdict_text or "")[:40] or True
+    # fallback не симулирует проверенный фактчек: нет выдуманного подтверждения
+    fallback_text = (run.verdict_text or "").lower()
+    assert "подтверждается" not in fallback_text
+    assert "источник подтверждает" not in fallback_text
 
 
 # ═══ 12. Доставка и кеш ════════════════════════════════════════════════════
@@ -813,3 +839,251 @@ async def test_telemetry_claim_trace_and_turn_summary(planner_on, caplog):
     payload_rows = claim_payload_rows(outcome.claims)
     assert payload_rows and all("status" in row for row in payload_rows)
     assert CLAIM_STATUS_HUMAN["provider_error"]
+
+
+# ═══ Reviewer fixes F1–F5 (ASAP-FC-EVIDENCE-STYLE-02, round 2) ═════════════
+
+#: Блок «событие есть, суммы нет»: подтверждает тему, но не масштаб.
+BLOCK_EVENT_ONLY = ("Alphabet (GOOGL) shares fell on October 30\n"
+                    "Market wrap without the claimed figure\n"
+                    "https://markets.example.com/wrap")
+#: Блок с тем же числом, но ДРУГИМ масштабом ($658 million вместо млрд).
+BLOCK_WRONG_SCALE = ("Alphabet (GOOGL) loses $658 million in market value\n"
+                     "Shares fell as investors repriced the complex\n"
+                     "https://markets.example.com/alphabet-mn")
+
+
+def test_review_f1a_units_must_match_scale(planner_on):
+    """RED: «$658 млрд» → ('658 м',) и источник «$658 million» подтверждал.
+
+    PASS: длинные единицы разбираются целиком, масштаб/валюта обязаны
+    совпадать, иначе это расхождение, а не подтверждение.
+    """
+    unit = "Alphabet (GOOGL) потерял $658 млрд капитализации."
+    plan = _plan(unit)
+    claim = plan.claims[0]
+    assert "$658 млрд" in claim.metrics
+    assert {"$", "млрд"} <= set(claim.units)
+
+    rel = sa.claim_relevance(BLOCK_WRONG_SCALE, claim_text=claim.vocabulary(),
+                             anchor_terms=claim.foreign_terms,
+                             metrics=claim.metrics, entities=claim.entities,
+                             claim_type=claim.claim_type)
+    assert rel.role != sa.EVIDENCE_ROLE_SUPPORTS
+    assert rel.strong is False
+    assert rel.number_mismatch is True
+
+    # полный прогон: «confirmed verified» и подтверждение $658 млрд невозможны
+    outcome = asyncio_run(_retrieve(plan, RoutedAggregator(
+        (("alphabet", BLOCK_WRONG_SCALE),))))
+    cov = outcome.claims[0]
+    assert cov.outcome != fsp.CLAIM_OUTCOME_CONFIRMED
+    assert cov.status_detail != fsp.CLAIM_STATUS_VERIFIED
+    assert "расходятся" in cov.gap_note
+    run, _llm = asyncio_run(_run_service(outcome, units=(unit,)))
+    assert run.verdict.factual_verdict != "supported"
+    visible = fr.visible_text(_publish(_checked(run)))
+    assert "Подтверждается\n" not in visible
+    assert "расходятся" in visible
+
+
+def test_review_f1b_server_does_not_upgrade_insufficient(planner_on):
+    """RED: серверная часть поднимала вывод «недостаточно данных» до mixed.
+
+    PASS: если модель сказала insufficient_evidence, синтезированная часть не
+    становится подтверждением.
+    """
+    unit = "Индекс S&P 500 упал 30 октября 2026 года."
+    plan = _plan(unit)
+    outcome = asyncio_run(_retrieve(plan, RoutedAggregator(
+        (("s&p", BLOCK_SP),))))
+    assert outcome.claims[0].outcome == fsp.CLAIM_OUTCOME_CONFIRMED
+    llm = StepLLM(verdict={"factual_verdict": "insufficient_evidence",
+                           "temporal_status": "current"})
+    run, _llm = asyncio_run(_run_service(outcome, units=(unit,), llm=llm))
+    assert run.verdict.factual_verdict == "insufficient_evidence"
+    part = next(p for p in run.verdict.parts if p.get("claim_id") == "c1")
+    assert part["factual_verdict"] == "insufficient_evidence"
+
+
+def test_review_f1c_cause_requires_causal_link(planner_on):
+    """RED: «из-за …» подтверждалось обычной статьёй о падении.
+
+    PASS: причинный тезис подтверждается только источником с причинной
+    связкой, иначе — qualifies (тема есть, причина не подтверждена).
+    """
+    unit = "Индекс упал из-за отчёта Alphabet."
+    plan = _plan(unit)
+    claim = plan.claims[0]
+    assert claim.claim_type == fsp.CLAIM_TYPE_CAUSE
+    no_cause = "Индекс упал на 2,1% в среду\nТорги закрылись снижением\n"
+    with_cause = ("Индекс упал на 2,1% из-за слабого отчёта Alphabet\n"
+                  "Торги закрылись снижением\n")
+    rel_plain = sa.claim_relevance(no_cause, claim_text=claim.vocabulary(),
+                                   anchor_terms=claim.foreign_terms,
+                                   metrics=claim.metrics, entities=claim.entities,
+                                   claim_type=claim.claim_type)
+    rel_causal = sa.claim_relevance(with_cause, claim_text=claim.vocabulary(),
+                                    anchor_terms=claim.foreign_terms,
+                                    metrics=claim.metrics, entities=claim.entities,
+                                    claim_type=claim.claim_type)
+    assert rel_plain.role != sa.EVIDENCE_ROLE_SUPPORTS
+    assert rel_causal.role == sa.EVIDENCE_ROLE_SUPPORTS
+
+
+def test_review_f1d_direction_morphology(planner_on):
+    """RED: закрытый список пар не ловил «вырос» против «подешевел/снизился».
+
+    PASS: направление определяется морфологией, источник «наоборот» — не
+    подтверждение.
+    """
+    unit = "Золото выросло до 4200 долларов за унцию."
+    plan = _plan(unit)
+    claim = plan.claims[0]
+    for body in ("Золото подешевело до 4000 долларов за унцию\nРынок металлов\n",
+                 "Золото снизилось до 4000 долларов за унцию\nРынок металлов\n"):
+        rel = sa.claim_relevance(body, claim_text=claim.vocabulary(),
+                                 anchor_terms=claim.foreign_terms,
+                                 metrics=claim.metrics, entities=claim.entities,
+                                 claim_type=claim.claim_type)
+        assert rel.opposite is True, body
+        assert rel.role != sa.EVIDENCE_ROLE_SUPPORTS
+
+
+@pytest.mark.asyncio
+async def test_review_f2_diverging_estimates_become_conflicting(planner_on):
+    """RED: 2,8 % и 3,1 % против заявленных 3,4 % → «число не подтверждено».
+
+    PASS: расходящиеся оценки — conflicting_evidence с объяснением.
+    """
+    unit = "Nasdaq упал 3,4% 30 октября 2026 года."
+    plan = _plan(unit)
+    blocks = ("Nasdaq fell 2.8% on October 30\n"
+              "Tech sell-off deepened\n"
+              "https://markets.example.com/a\n\n"
+              "Nasdaq fell 3.1% on October 30\n"
+              "Later revisions\n"
+              "https://markets.example.com/b")
+    outcome = await _retrieve(plan, RoutedAggregator((("nasdaq", blocks),)))
+    cov = outcome.claims[0]
+    assert cov.outcome == fsp.CLAIM_OUTCOME_CONFLICTING
+    assert cov.status_detail == fsp.CLAIM_STATUS_CONFLICTING
+    assert "расходятся" in cov.gap_note
+    assert len(cov.evidence) >= 2           # обе оценки не замолчаны
+    visible = fr.visible_text(_publish(_verdict_only(outcome)))
+    assert "расходятся" in visible
+
+
+def _technical_verdict() -> orch.CheckedVerdict:
+    """Вердикт, где обе части упали технически, reason-код прогона пуст."""
+    return orch.CheckedVerdict(
+        verdict_text="Поиск не дал материалов.",
+        route="envelope_temporal", factual_verdict="insufficient_evidence",
+        parts=(
+            {"part_id": "p1", "text": "Индекс упал",
+             "factual_verdict": "insufficient_evidence",
+             "status_detail": "provider_error", "evidence_refs": []},
+            {"part_id": "p2", "text": "Nasdaq вырос",
+             "factual_verdict": "insufficient_evidence",
+             "status_detail": "deadline_exceeded", "evidence_refs": []},
+        ))
+
+
+def test_review_f3_technical_failure_not_called_insufficient(planner_on):
+    """RED: provider_error → «Недостаточно данных для проверки» и
+    «данных недостаточно (поиск не ответил…)».
+
+    PASS: технический сбой получает технический заголовок и подпись части;
+    «данных недостаточно» остаётся только для реального отсутствия данных.
+    """
+    markup = _publish(_technical_verdict())
+    visible = fr.visible_text(markup)
+    assert "Проверка не завершена: поиск недоступен" in visible
+    assert "Недостаточно данных для проверки" not in visible
+    assert "данных недостаточно" not in visible
+    assert "поиск не завершён: технический сбой" in visible
+    assert "поиск не завершён: лимит времени" in visible
+
+
+@pytest.mark.asyncio
+async def test_review_f4_telemetry_has_no_texts_and_has_trace_id(
+        planner_on, caplog):
+    """RED: событие несло тексты тезисов и URL, без trace_id/run_id.
+
+    PASS: в событии только id/счётчики/роли/причина/цитаты + trace_id.
+    """
+    import logging
+    plan = _plan(*CLAIM_MARKETS)
+    outcome = await _retrieve(plan, RoutedAggregator())
+    run, _llm = await _run_service(outcome)
+    checked = _checked(run)
+    with caplog.at_level(logging.INFO, logger="services.mca_events"):
+        await orch._emit_claim_coverage(
+            chat_id=CHAT_ID, outcome=outcome, verdict=checked,
+            verbalizer_path="envelope_temporal", renderer_path="telegram_html",
+            critical_section_enabled=True, trace_id="tr-f4-1",
+            pipeline_run_id="tr-f4-1")
+    event_lines = [r.getMessage() for r in caplog.records
+                   if "mca_event=factcheck_claims" in r.getMessage()]
+    assert event_lines, "событие factcheck_claims не записано"
+    line = event_lines[-1]
+    assert "trace_id=tr-f4-1" in line
+    assert "pipeline_run_id=tr-f4-1" in line
+    # ни текстов тезисов, ни URL
+    assert "мировые рынки" not in line.lower()
+    assert "http" not in line
+    assert "example.com" not in line
+    # строки claim в событии не содержат text/url
+    assert '"text"' not in line and '"url"' not in line
+    assert "citation_ids" in line and "status_detail" in line
+
+
+@pytest.mark.asyncio
+async def test_review_f5_qualifies_does_not_stop_refinement(planner_on):
+    """RED: одна «событийная» ссылка (qualifies) отменяла уточнение по числу.
+
+    PASS: уточнение выполняется, пока нет сильного подтверждения.
+    """
+    unit = "Alphabet (GOOGL) потеряла $658 млрд капитализации."
+    plan = _plan(unit)
+    base_queries = {q.text for q in plan.queries
+                    if q.purpose == fsp.QUERY_PURPOSE_BASE}
+
+    class NumberOnRefine:
+        def __init__(self):
+            self.calls: list[str] = []
+
+        async def search(self, query, max_symbols):
+            self.calls.append(query)
+            if query in base_queries:
+                return BLOCK_EVENT_ONLY
+            return ("Alphabet (GOOGL) market value fell by $658 billion\n"
+                    "Confirmed by the filing\n"
+                    "https://markets.example.com/filing")
+
+    agg = NumberOnRefine()
+    outcome = await _retrieve(plan, agg)
+    assert outcome.refine_calls >= 1
+    assert len(agg.calls) > len(base_queries)
+    cov = outcome.claims[0]
+    assert cov.outcome == fsp.CLAIM_OUTCOME_CONFIRMED
+    assert cov.status_detail == fsp.CLAIM_STATUS_VERIFIED
+
+
+@pytest.mark.asyncio
+async def test_review_claims_beyond_query_budget_are_marked_honestly(
+        planner_on):
+    """Nonblocking: части сверх бюджета запросов не исчезают молча."""
+    units = tuple(f"Утверждение {i} про рынок и индекс." for i in range(14))
+    plan = _plan(*units)
+    assert len(plan.claims) == 14
+    outcome = await _retrieve(
+        plan, RoutedAggregator((), default=""))
+    unchecked = [cov for cov in outcome.claims
+                 if cov.search_status == fsp.CLAIM_SEARCH_DEADLINE]
+    assert len(unchecked) == 14 - len(plan.queries)
+    for cov in unchecked:
+        assert cov.status_detail == fsp.CLAIM_STATUS_DEADLINE
+        assert "лимит" in cov.gap_note
+    summary = outcome.coverage_summary()
+    assert summary["total_claims"] == 14

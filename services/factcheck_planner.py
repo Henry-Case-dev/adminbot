@@ -152,8 +152,16 @@ _EXCERPT_MAX_CHARS = 600
 
 
 _NUMERIC_PHRASE_RE = re.compile(
-    r"\d+(?:[.,]\d+)?\s*(?:мм|см|дм|км|м|кг|г|тонн|тыс\.?|млн|млрд|%|"
-    r"градус\w*|человек|чел)?", re.IGNORECASE)
+    # §F1: длинные единицы ИДУТ ПЕРЕД короткими (млрд/млн/тыс раньше «м»,
+    # иначе «658 млрд» распознавалось как «658 м»), плюс валютный префикс.
+    r"(?:[$€£₽]\s*)?\d+(?:[.,]\d+)?\s*(?:"
+    r"млрд|млн|трлн|тыс\.?|"
+    r"градус\w*|процент\w*|человек|чел|"
+    r"руб\w*|доллар\w*|долл\.?|юан\w*|фунт\w*|евро|"
+    r"мм|см|дм|км|кг|тонн|"
+    r"%|п\.п\.?|"
+    r"м|г"
+    r")?", re.IGNORECASE)
 _CAPITALIZED_RE = re.compile(
     r"(?<![.!?…]\s)(?<!^)\b[А-ЯЁA-Z][а-яёa-z]{3,}\b", re.UNICODE)
 _QUOTED_RE = re.compile(r"[«\"]([^«»\"]{12,160})[»\"]")
@@ -497,7 +505,10 @@ def _numeric_refinements(unit: str, years: list[str]) -> list[str]:
 
 # ── §3.1/§3.2: разбор claim-единицы (сущности/метрики/интервал/тип) ──────────
 
-_MAX_CLAIM_UNITS = 8
+#: Жёсткий предел декомпозиции: части сверх бюджета запросов не исчезают, а
+#: честно помечаются непроверенными (`deadline_exceeded`) — Reviewer
+#: nonblocking «>8 частей молча выбрасывались».
+_CLAIM_UNITS_HARD_CAP = 16
 
 #: Латинские имена/тикеры/варианты термина (международные новости: «Alphabet
 #: (GOOGL)», «S&P 500», «Nasdaq»). Именно они уходят в англоязычный запрос —
@@ -545,8 +556,10 @@ _CHANGE_RE = re.compile(
     r"fell|dropped|declined|slumped|rose|gained|lost|plunge\w*)\b",
     re.IGNORECASE)
 _UNIT_RE = re.compile(
-    r"(млрд|млн|тыс|трлн|%|процент\w*|п\.п\.|руб\w*|доллар\w*|\$|€|"
-    r"billion|trillion|million|percent|points?|пункт\w*)", re.IGNORECASE)
+    r"(млрд|млр|млн|мл|тыс\.?|трлн|%|процент\w*|п\.п\.?|пункт\w*|"
+    r"руб\w*|доллар\w*|долл\.?|юан\w*|фунт\w*|евро|\$|€|£|₽|"
+    r"billion|trillion|million|thousand|percent|pct|points?|usd|eur|gbp|"
+    r"rub|bn|mn)", re.IGNORECASE)
 
 
 def _latin_terms(text: str) -> list[str]:
@@ -677,10 +690,15 @@ def build_claim_units(items, claim: str, *, authors: tuple[str, ...] = (),
     Переиспользует существующую декомпозицию (`_claim_units`, те же
     claim_items/предложения), добавляя контракт: сущности, метрики/единицы,
     временной интервал/часовой пояс, тип утверждения и связь с сообщением.
+
+    Reviewer (nonblocking): части сверх бюджета запросов больше не исчезают
+    молча — они остаются в плане (до ``_CLAIM_UNITS_HARD_CAP``), получают
+    ``deadline_exceeded`` в покрытии и честно называются как непроверенные.
     """
     claim_years = _years(claim)
     units: list[ClaimUnit] = []
-    for index, raw_unit in enumerate(_claim_units(items, claim)):
+    for index, raw_unit in enumerate(
+            _claim_units(items, claim, cap=_CLAIM_UNITS_HARD_CAP)):
         unit, _dropped = _strip_privacy(raw_unit, authors)
         if not unit:
             continue
@@ -710,8 +728,6 @@ def build_claim_units(items, claim: str, *, authors: tuple[str, ...] = (),
             claim_type=_claim_type(unit, metrics),
             foreign_terms=tuple(_latin_terms(unit)),
             event_at=event_at))
-        if len(units) >= _MAX_CLAIM_UNITS:
-            break
     return tuple(units)
 
 
@@ -739,11 +755,24 @@ def _max_queries_total() -> int:
         return _MAX_QUERIES_TOTAL_DEFAULT
 
 
+#: Варианты единиц измерения для уточняющего запроса (§3.2: «варианты
+#: термина»). Это общеязыковые единицы, а не предметный словарь.
+_UNIT_VARIANTS = {
+    "млрд": "billion", "млр": "billion", "млн": "million", "мл": "million",
+    "тыс": "thousand", "трлн": "trillion",
+    "$": "dollars", "usd": "dollars", "€": "euros", "eur": "euros",
+    "%": "percent",
+}
+
+
 def refinement_query_for(claim: ClaimUnit) -> SearchQuery | None:
     """§3.2: уточняющий запрос ТОЛЬКО для непокрытой части.
 
     Сохраняет метрику с единицей и временной интервал (или латинское имя/
     тикер для международной новости) — то, чего не хватило базовой попытке.
+    Reviewer F5: для спорного ЧИСЛА добавляется вариант единицы
+    (млрд→billion, $→dollars, %→percent), поэтому уточнение не повторяет
+    базовую формулировку и реально может найти первоисточник с суммой.
     """
     try:
         if claim.foreign_terms:
@@ -752,10 +781,17 @@ def refinement_query_for(claim: ClaimUnit) -> SearchQuery | None:
             terms = _expand_terms(
                 (list(claim.entities[:2])
                  + _claim_terms(claim.text, limit=6))[:8])
-        tail_bits = list(claim.metrics[:2])
+        tail_bits: list[str] = []
+        if claim.metrics:
+            numbers = [re.sub(r"[^\d.,]", "", str(m)) for m in claim.metrics]
+            tail_bits.extend(n for n in numbers if n)
+            for unit in claim.units:
+                variant = _UNIT_VARIANTS.get(str(unit).lower())
+                if variant:
+                    tail_bits.append(variant)
         if claim.timeframe:
             tail_bits.append(claim.timeframe)
-        tail = " ".join(tail_bits).strip()
+        tail = " ".join(dict.fromkeys(tail_bits)).strip()
         intent = INTENT_NUMERIC if claim.metrics else INTENT_ENTITY_CHECK
         return _make_query(terms, intent, tail=tail,
                            claim_id=claim.claim_id,
@@ -1192,24 +1228,44 @@ def _is_stale(ref: EvidenceRef, claim: ClaimUnit) -> bool:
 
 def _relevance_for(ref: EvidenceRef, claim: ClaimUnit) -> ClaimRelevance:
     """Роль доказательства для КОНКРЕТНОЙ части (словарь: текст части +
-    латинские имена/тикеры + метрики)."""
+    латинские имена/тикеры + метрики; тип тезиса — причина требует причинной
+    связки в источнике)."""
     return claim_relevance(
         str(getattr(ref, "support", "") or ""),
         claim_text=claim.vocabulary(),
         anchor_terms=claim.foreign_terms,
         metrics=claim.metrics,
-        entities=claim.entities)
+        entities=claim.entities,
+        claim_type=claim.claim_type)
 
 
 def _strong_binding(ref: EvidenceRef, claim: ClaimUnit) -> bool:
     return _relevance_for(ref, claim).strong
 
 
-def _gap_note(status_detail: str, *, stale: bool = False) -> str:
+def _claim_settled(run: "_ClaimRun") -> bool:
+    """Тезис уже покрыт по существу: сильное подтверждение или опровержение.
+
+    Reviewer F5: `qualifies` (событие без числа) — НЕ покрытие, иначе спорная
+    сумма никогда не получает уточняющего запроса.
+    """
+    for ref, role, _note in run.bound.values():
+        if role == EVIDENCE_ROLE_CONTRADICTS:
+            return True
+        if role == EVIDENCE_ROLE_SUPPORTS and _strong_binding(ref, run.claim):
+            return True
+    return False
+
+
+def _gap_note(status_detail: str, *, stale: bool = False,
+              number_mismatch: bool = False) -> str:
     """§3.1/§4: КОНКРЕТНАЯ причина пробела (не «данных недостаточно»)."""
     notes = {
-        CLAIM_STATUS_CONFLICTING: ("источники расходятся: есть данные и за "
-                                   "тезис, и против него"),
+        CLAIM_STATUS_CONFLICTING: (
+            "источники расходятся в числе/единице: заявленное значение не "
+            "совпадает с тем, что дают источники"
+            if number_mismatch else
+            "источники расходятся: есть данные и за тезис, и против него"),
         CLAIM_STATUS_PARTIAL: ("найдено только косвенное подтверждение — "
                                "прямого источника по этому пункту нет"),
         CLAIM_STATUS_EXACT_NUMBER: ("источник по событию есть, но конкретная "
@@ -1244,7 +1300,7 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
                  == EVIDENCE_ROLE_QUALIFIES]
     strong_supports = [r for r, _n in supports if _strong_binding(r, claim)]
     mismatched = any(_relevance_for(r, claim).number_mismatch
-                     for r, _n in qualifies)
+                     for r, _n in qualifies + supports)
     stale = run.stale_hit or any("старше" in (n or "")
                                  for _r, _role, n in roles)
 
@@ -1254,6 +1310,10 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         outcome, detail = CLAIM_OUTCOME_CONFLICTING, CLAIM_STATUS_CONFLICTING
     elif contradicts and not supports:
         outcome, detail = CLAIM_OUTCOME_REFUTED, CLAIM_STATUS_REFUTED
+    elif mismatched:
+        # Reviewer F2: расходящиеся оценки (2,8 % и 3,1 % против заявленных
+        # 3,4 %) — конфликт, а не «число не подтверждено» в вакууме.
+        outcome, detail = CLAIM_OUTCOME_CONFLICTING, CLAIM_STATUS_CONFLICTING
     elif supports or qualifies:
         has_metric_hit = any(_relevance_for(r, claim).number_hits
                              for r, _n in supports)
@@ -1297,7 +1357,8 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         detail_for_note = CLAIM_STATUS_NO_RELEVANT_SOURCES
     note = "" if outcome in (CLAIM_OUTCOME_CONFIRMED,
                              CLAIM_OUTCOME_REFUTED) else _gap_note(
-        detail_for_note, stale=stale)
+        detail_for_note, stale=stale,
+        number_mismatch=bool(mismatched and not strong_supports))
     evidence_items = tuple(ClaimEvidence(
         claim_id=claim.claim_id, evidence_id=str(getattr(ref, "evidence_id", "")
                                                 or ""),
@@ -1493,7 +1554,10 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     for run in runs:
         if refine_left <= 0 or loop.time() >= deadline:
             break
-        if run.bound:
+        # Reviewer F5: уточнение нужно, пока тезис НЕ подтверждён сильно и не
+        # опровергнут. Любая показанная ссылка (в т.ч. `qualifies` — «событие
+        # есть, числа нет») покрытием не считается.
+        if _claim_settled(run):
             continue
         if run.attempts == 0 and not run.provider_failed:
             continue
