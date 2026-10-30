@@ -97,6 +97,7 @@
     <div class="app-shell"
          :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
                   iaV2 ? 'ia-v2' : 'ia-legacy',
+                  (sidebarCollapsed && hasSidebar) ? 'sidebar-collapsed' : '',
                   (shellFlexV3 && shellLayoutV2) ? 'shell-flex-v3' : 'shell-layout-legacy',
                   shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy',
                   shellGraphiteV3 ? 'shell-v3' : 'shell-v3-off',
@@ -104,12 +105,26 @@
                   statusRecordOpen ? 'sfeed-modal-open' : '']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
            В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
-      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="shell" aria-label="Боковая навигация">
+      <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="shell"
+             data-nav-sidebar
+             :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+             aria-label="Боковая навигация">
         <div class="sidebar-brand">
           <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
           <span class="sidebar-brand-title">AdminBot</span>
+          <!-- EVOL-023 §3: сворачивание постоянной панели на desktop — только
+               иконки (rail 68 px), состояние персистится (localStorage),
+               подписи остаются в title/aria-label. Маршруты/RBAC не меняются;
+               на 768–1199 по-прежнему drawer, на <768 — mobile-topnav. -->
+          <button type="button" class="sidebar-collapse" data-sidebar-collapse
+                  :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
+                  :aria-label="sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+                  :title="sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+                  @click="toggleSidebarCollapse()">
+            <span class="msr" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+          </button>
         </div>
-        <nav class="sidebar-nav">
+        <nav class="sidebar-nav" aria-label="Основные разделы">
           <button v-for="n in sidebarGroups.pub" :key="'sb-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
@@ -154,6 +169,7 @@
              экземпляр, без дублирования). -->
           <!-- F1 (§7, drawer 768–1199): кнопка временной навигации. -->
           <button v-if="iaV2 && isCompactShell" class="btn-ghost text-base px-2 shrink-0"
+                  data-drawer-trigger
                   title="Навигация" aria-label="Открыть навигацию"
                   aria-haspopup="menu" :aria-expanded="drawerOpen ? 'true' : 'false'"
                   @click="toggleDrawer()">
@@ -241,26 +257,29 @@
           <!-- T-1127 (§15.1.3): кастомный scope-dropdown (a11y listbox) с
                аватарами ВНУТРИ опций; заменяет нативный <select>. -->
           <div v-if="accessChats.length" class="scope-wrap shrink-0"
+               data-nav-scope="unified"
                @keydown.esc="closeScope()"
                @keydown.down.prevent="scopeMove(1)"
                @keydown.up.prevent="scopeMove(-1)"
                @keydown.enter.prevent="scopePickFocused()">
             <button class="scope-trigger field text-xs"
                     :aria-expanded="scopeOpen ? 'true' : 'false'"
-                    aria-haspopup="listbox" :title="scopeTriggerTitle"
+                    aria-haspopup="listbox" aria-controls="scope-panel"
+                    :title="scopeTriggerTitle"
                     aria-label="Выбор контекста"
                     @click="toggleScope()">
               <img v-if="scopeTriggerAvatar" :src="scopeTriggerAvatar" alt=""
                    class="w-5 h-5 rounded-full object-cover shrink-0">
               <span v-else class="scope-initial">{{ scopeTriggerInitial }}</span>
-              <span class="truncate max-w-[150px]">{{ scopeTriggerTitle }}</span>
+              <span class="scope-name truncate">{{ scopeTriggerTitle }}</span>
               <span class="badge"
                     :class="scopeKind === 'global' ? 'badge-muted' : 'badge-info'">
                 {{ scopeLabel }}
               </span>
               <span aria-hidden="true">▾</span>
             </button>
-            <div v-if="scopeOpen" class="scope-panel card-solid" role="listbox"
+            <div v-if="scopeOpen" id="scope-panel"
+                 class="scope-panel card-solid glass-overlay" role="listbox"
                  aria-label="Выбор контекста" :style="scopePanelStyle">
               <!-- F3 (§5, reviewer Low): поиск в селекторе доступен ВСЕГДА,
                    а не только при >8 опциях (единый способ найти чат/ЛС). -->
@@ -844,6 +863,7 @@
                   <div class="flex items-center gap-2 flex-wrap">
                     <button class="btn-accent prov-test-btn text-xs"
                             :disabled="blockTesting['direct_main']"
+                            :aria-label="'Проверить стадию: ' + c.title"
                             @click="testDirectStage(c)">Проверить</button>
                     <span v-if="blockResults['direct_main']" class="prov-test-status text-xs"
                           :class="blockResults['direct_main'].ok ? 'text-green-400' : 'text-red-400'">
@@ -3459,7 +3479,7 @@
                        : ('уроков: ' + (lessonsData.count || 0)) }}
                   </span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="lessonsBusy"
-                          @click="loadLessons()">⟳</button>
+                          @click="loadLessons()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <!-- D05 (§18E.7/U8): человеческая цепочка + полезность —
                      read-only из существующей воронки oversight (глобальный
@@ -3785,7 +3805,7 @@
                   </span>
                   <span v-if="!storiesManageEnabled" class="badge badge-warn">только просмотр (мутации отключены)</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="storiesTableBusy"
-                          @click="loadStoriesTable(true)">⟳</button>
+                          @click="loadStoriesTable(true)" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <!-- Фильтры (серверные; период/обнаружение — unix ts; подсказка
                      формата честная). -->
@@ -5203,7 +5223,7 @@
                       </span>
                       <button class="btn-ghost text-xs ml-auto shrink-0"
                               :disabled="memoryRagBusy"
-                              @click="loadDreamBeliefs(); loadDreamLog()">⟳</button>
+                              @click="loadDreamBeliefs(); loadDreamLog()" aria-label="Обновить" title="Обновить">⟳</button>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap mb-3">
                       <button class="btn-accent text-sm" :disabled="dreamBusy
@@ -5280,7 +5300,7 @@
                       <span class="text-xs text-gray-500">слой B — воспоминания по истории чата</span>
                       <button class="btn-ghost text-xs ml-auto shrink-0"
                               :disabled="memoryRagBusy"
-                              @click="loadNostalgiaLog()">⟳</button>
+                              @click="loadNostalgiaLog()" aria-label="Обновить" title="Обновить">⟳</button>
                     </div>
                     <div v-if="nostalgiaLog.length === 0"
                          class="text-xs text-gray-500 py-2">
@@ -5380,7 +5400,7 @@
                   <div class="text-sm font-bold">Модели и автобюджеты</div>
                   <span class="text-xs text-gray-500">что система определила автоматически · токены — технические единицы текста модели</span>
                   <button class="btn-ghost text-sm ml-auto" :disabled="budgetsAutoBusy"
-                          @click="loadBudgetsAuto()">⟳</button>
+                          @click="loadBudgetsAuto()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="budgetsAutoBusy && !budgetsAuto" class="spinner my-2"></div>
                 <div v-else-if="budgetsAutoError" class="text-xs text-amber-300">
@@ -5438,7 +5458,7 @@
                     длительность каждой полосы — реальные мс</span>
                   <button class="btn-ghost text-xs ml-auto"
                           :disabled="vizPipelineBusy"
-                          @click="vizLoadPipelineWaterfall(true)">⟳</button>
+                          @click="vizLoadPipelineWaterfall(true)" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="vizPipelineBusy && !vizPipeline" class="spinner my-2"></div>
                 <div v-else-if="vizPipelineError" class="text-xs text-amber-300">
@@ -5499,17 +5519,28 @@
               <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('radar') }}</span> Аналитика</div>
                 <span class="text-xs text-gray-500">сводка всех чатов (кэш 60 с)</span>
-                <div class="ml-auto flex items-center gap-2">
-                  <input class="field w-40" placeholder="Поиск: имя/id" v-model="oversightSearch">
-                  <select class="field w-36" v-model="oversightSort">
-                    <option value="chat_id">по chat_id</option>
-                    <option value="is_active">активность</option>
-                    <option value="gates_opt_in">Opt-In</option>
-                    <option value="key_status">ключ</option>
-                    <option value="admins_count">админы</option>
-                  </select>
+                <div class="oversight-controls">
+                  <input class="field w-40" placeholder="Поиск: имя/id" v-model="oversightSearch"
+                         aria-label="Поиск чата по имени или id">
+                  <!-- EVOL-024 §4: тот же принцип ясности, что и у разделённых
+                       кнопок «Проверить» (EVOL-019) — управляющий элемент без
+                       подписи читался как второй выбор области («по chat_id»
+                       рядом с селектором области в шапке). Теперь у него
+                       видимое имя и человекочитаемые значения; value
+                       (chat_id/is_active/…) не меняется — это ключ сортировки. -->
+                  <label class="oversight-sort">
+                    <span class="oversight-sort__label">Сортировка</span>
+                    <select class="field w-36" v-model="oversightSort"
+                            aria-label="Сортировка списка чатов">
+                      <option value="chat_id">по ID чата</option>
+                      <option value="is_active">активность</option>
+                      <option value="gates_opt_in">Opt-In</option>
+                      <option value="key_status">ключ</option>
+                      <option value="admins_count">админы</option>
+                    </select>
+                  </label>
                   <button class="btn-ghost text-sm" :disabled="oversightBusy"
-                          @click="loadOversight()">⟳</button>
+                          @click="loadOversight()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
               </div>
               <!-- 10.9 (п.6, ADR-109-5): компактная полоса «Бюджет фона»
@@ -5521,7 +5552,7 @@
                     {{ budgetInfo && budgetInfo.day }} · {{ budgetInfo && budgetInfo.timezone }}
                   </span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
-                          @click="loadBudgetInfo()">⟳</button>
+                          @click="loadBudgetInfo()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="budgetBusy" class="spinner my-2"></div>
                 <div v-else-if="budgetInfo && budgetInfo.global">
@@ -5586,7 +5617,7 @@
                     <option :value="30">30 дн</option>
                   </select>
                   <button class="btn-ghost text-xs" :disabled="vizActivityBusy"
-                          @click="vizLoadActivity(true)">⟳</button>
+                          @click="vizLoadActivity(true)" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="vizActivityBusy && !vizActivity" class="spinner my-2"></div>
                 <div v-else-if="vizActivityError" class="text-xs text-amber-300">
@@ -5640,7 +5671,7 @@
                     даты и статусы честные</span>
                   <div class="ml-auto">
                     <button class="btn-ghost text-xs" :disabled="temporalRunsBusy"
-                            @click="loadTemporalRuns(true)">⟳</button>
+                            @click="loadTemporalRuns(true)" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                 </div>
                 <div v-if="temporalRunsBusy" class="spinner my-2"></div>
@@ -5722,7 +5753,7 @@
                     процессов за окно</span>
                   <button class="btn-ghost text-xs ml-auto"
                           :disabled="mca17cActivityBusy"
-                          @click="vizLoadProcessActivity(true)">⟳</button>
+                          @click="vizLoadProcessActivity(true)" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="vizFlowNote()" class="text-xs text-gray-500">{{ vizFlowNote() }}</div>
                 <div v-else class="viz-flow">
@@ -5769,7 +5800,7 @@
                             :class="oversightView === 'learning' ? 'font-bold underline' : ''"
                             @click="oversightSetView('learning')">Самообучение</button>
                     <button class="btn-ghost text-xs" title="Перечитать (только чтение)"
-                            @click="oversightRefreshView()">⟳</button>
+                            @click="oversightRefreshView()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                 </div>
                 <div class="text-xs text-gray-500 mb-2">
@@ -5926,7 +5957,7 @@
                         ширина полосы — доля от самой активной ветви</span>
                       <button class="btn-ghost text-xs ml-auto"
                               :disabled="mca17cActivityBusy"
-                              @click="vizLoadProcessActivity(true)">⟳</button>
+                              @click="vizLoadProcessActivity(true)" aria-label="Обновить" title="Обновить">⟳</button>
                     </div>
                     <div v-if="!mca17cActivity && mca17cActivityBusy" class="spinner my-1"></div>
                     <div v-else-if="!mca17cActivity || mca17cActivity.available === false"
@@ -6368,7 +6399,7 @@
                     <button class="btn-ghost text-xs" :class="{ 'font-bold': execMode === 'month' }"
                             @click="setExecMode('month')">Месяц</button>
                     <button class="btn-ghost text-xs" :disabled="tokenAnalyticsBusy"
-                            @click="loadTokenAnalytics()">⟳</button>
+                            @click="loadTokenAnalytics()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                 </div>
                 <div v-if="tokenAnalyticsBusy" class="spinner my-2"></div>
@@ -6559,7 +6590,7 @@
                             :class="{ 'font-bold': pipelineMode === '7d' }"
                             @click="setPipelineMode('7d')">7 дней</button>
                     <button class="btn-ghost text-xs" :disabled="pipelineBusy"
-                            @click="loadPipelineInspector()">⟳</button>
+                            @click="loadPipelineInspector()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                 </div>
                 <div v-if="pipelineBusy && !pipelineData" class="spinner my-2"></div>
@@ -6897,7 +6928,7 @@
                             :class="{ 'font-bold': responsePipelineMode === '7d' }"
                             @click="setResponsePipelineMode('7d')">7 дней</button>
                     <button class="btn-ghost text-xs" :disabled="responsePipelineBusy"
-                            @click="loadResponsePipeline()">⟳</button>
+                            @click="loadResponsePipeline()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                 </div>
                 <div v-if="responsePipelineBusy && !responsePipeline && !responseSummary"
@@ -7023,7 +7054,7 @@
                   <div class="text-xs font-bold">Embeddings и векторная память</div>
                   <span class="text-xs text-gray-500">только алиасы, без ключей</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="embeddingsBusy"
-                          @click="loadEmbeddingsPanel()">⟳</button>
+                          @click="loadEmbeddingsPanel()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="embeddingsBusy && !embeddingsPanel" class="spinner my-2"></div>
                 <template v-else-if="embeddingsPanel">
@@ -7133,7 +7164,7 @@
                   <div class="text-xs font-bold">Интеллект и Память</div>
                   <span class="text-xs text-gray-500">пульс · лимиты · Timeline</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="memoryWidgetBusy"
-                          @click="loadMemoryWidget()">⟳</button>
+                          @click="loadMemoryWidget()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="memoryWidgetBusy" class="spinner my-2"></div>
                 <template v-else>
@@ -7225,7 +7256,7 @@
                   <span class="badge" :class="personaExtractorBadge.cls"
                         :title="personaHealth && personaHealth.extractor_status ? personaHealth.extractor_status : 'never'"
                         :style="{ marginLeft: 'auto' }">Экстрактор: {{ personaExtractorBadge.text }}</span>
-                  <button class="btn-ghost text-xs" @click="loadPersonaHealth()">⟳</button>
+                  <button class="btn-ghost text-xs" @click="loadPersonaHealth()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div class="flex flex-wrap gap-2 text-xs">
                   <span class="badge badge-muted">Черт сгенерировано: {{ personaHealth && personaHealth.traits_count != null ? personaHealth.traits_count : '—' }}</span>
@@ -7249,7 +7280,7 @@
                     {{ activeChatId == null ? 'по всем чатам' : 'только этот чат' }}
                   </span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
-                          @click="loadDossierFeed()">⟳</button>
+                          @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <div v-if="dossierFeedError" class="text-xs text-red-300">Ошибка ленты: {{ dossierFeedError }}</div>
                 <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
@@ -7843,7 +7874,7 @@
                           v-if="relationsBusy && chatRelations.length === 0">загрузка…</span>
                     <button class="btn-ghost text-xs shrink-0"
                             :disabled="relationsBusy"
-                            @click="loadRelations(activeChatId)">⟳</button>
+                            @click="loadRelations(activeChatId)" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                   <div class="text-xs text-gray-500 mb-3">
                     Авто-стадия считается по активности в чате; ручная
@@ -8048,7 +8079,7 @@
                     <span class="text-xs text-gray-500">{{ chatLoreChats.length }}</span>
                     <button class="btn-ghost text-xs ml-auto shrink-0"
                             title="Обновить список чатов" :disabled="chatLoreLoading"
-                            @click="loadChats()">⟳</button>
+                            @click="loadChats()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                   <div v-if="chatLoreLoading" class="spinner my-4"></div>
                   <div v-else-if="chatLoreChats.length === 0"
@@ -10843,7 +10874,7 @@
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold">Сон / Глубокий сон</div>
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
-                        @click="loadCognition()">⟳</button>
+                        @click="loadCognition()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <div class="flex flex-wrap gap-1 mb-2">
                 <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
@@ -10883,7 +10914,7 @@
                      заголовка УДАЛЁН — каноническая панель «Сон / Глубокий
                      сон» выше на этой же странице; дублей фаз нет. -->
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
-                        @click="loadCognition()">⟳</button>
+                        @click="loadCognition()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <div class="cognition-ribbons">
                 <div class="ribbon">
@@ -10991,7 +11022,7 @@
                   </span>
                   <span class="text-xs text-gray-500">смысловые результаты · технические счётчики</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="memoryHealthBusy"
-                          @click="loadMemoryHealth()">⟳</button>
+                          @click="loadMemoryHealth()" aria-label="Обновить" title="Обновить">⟳</button>
                 </div>
                 <!-- B03 (v6.3): блок «Просрочено N» — честная раскладка
                      expired-памяти (W1: expired_memory_overview). Недоступно
@@ -11187,7 +11218,7 @@
                     <span class="text-gray-500">durable счётчики · события 24ч/7д</span>
                     <span v-if="initiativeFunnel.liveLabel" class="badge badge-muted">{{ initiativeFunnel.liveLabel }}</span>
                     <button class="btn-ghost text-xs ml-auto" :disabled="intelFunnelsBusy"
-                            @click="loadIntelFunnels()">⟳</button>
+                            @click="loadIntelFunnels()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                   <div class="funnel-grid">
                     <div v-for="st in initiativeFunnel.stages" :key="'if-' + st.label"
@@ -11309,7 +11340,7 @@
               <div class="flex items-center gap-2 flex-wrap mb-1">
                 <span class="text-xs font-bold">Последний вызов</span>
                 <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
-                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()">⟳</button>
+                <button class="btn-ghost text-xs ml-auto" @click="loadExecPreview()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <template v-if="!execPreview.empty">
                 <div class="flex flex-wrap items-center gap-1 text-xs mb-1">
@@ -11338,7 +11369,7 @@
                 <div class="text-sm font-bold">Новые факты</div>
                 <span class="text-xs text-gray-500">Что бот недавно запомнил</span>
                 <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
-                        @click="loadDossierFeed()">⟳</button>
+                        @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <div v-if="dossierFeedError" class="text-xs text-red-300" data-sfeed-error>
                 <span class="font-semibold">Не удалось загрузить ленту.</span>
@@ -11505,7 +11536,7 @@
                 <div class="text-sm font-bold">Бюджеты интеллекта</div>
                 <span class="text-xs text-gray-500">контекст · фон · сон</span>
                 <button class="btn-ghost text-xs ml-auto" :disabled="budgetBusy"
-                        @click="loadBudgetInfo()">⟳</button>
+                        @click="loadBudgetInfo()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <div class="budget-row">
                 <div class="flex justify-between text-xs text-gray-400">
@@ -11571,7 +11602,7 @@
                         :aria-pressed="storiesFeedPaused ? 'true' : 'false'"
                         @click="toggleStoriesFeedPause()">{{ storiesFeedPaused ? 'Продолжить' : 'Пауза' }}</button>
                 <button class="btn-ghost text-xs" :disabled="storiesFeedBusy"
-                        @click="loadStoriesSummary(); loadStoriesFeed()">⟳</button>
+                        @click="loadStoriesSummary(); loadStoriesFeed()" aria-label="Обновить" title="Обновить">⟳</button>
                 <button class="btn-ghost text-xs" @click="openStoriesTable()">Открыть таблицу в «Памяти»</button>
               </div>
               <!-- F7 (ASAP 8 §14): человеческое объяснение — что это такое и
@@ -11708,7 +11739,7 @@
             <div class="card p-4 sg-12" data-key-strip>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('key') }}</span> Доступность ключей</div>
-                <button class="btn-ghost text-xs ml-auto" @click="loadStatus()">⟳</button>
+                <button class="btn-ghost text-xs ml-auto" @click="loadStatus()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
               <div v-if="!statusData" class="spinner my-3"></div>
               <div v-else class="space-y-2" data-key-strip-rows>
@@ -12036,7 +12067,7 @@
                   <div class="flex items-center gap-2 flex-wrap mb-1">
                     <div class="font-bold">За 24ч / 7д</div>
                     <button class="btn-ghost text-xs ml-auto" :disabled="expWindowsBusy"
-                            @click="loadExperienceWindows()">⟳</button>
+                            @click="loadExperienceWindows()" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
                   <div class="exp-windows">
                     <div v-for="w in expWindows" :key="'exw-' + w.key" class="exp-window"
@@ -12560,7 +12591,8 @@
              class="app-drawer" :class="{ open: drawerOpen }"
              :inert="drawerOpen ? null : ''"
              :aria-hidden="drawerOpen ? 'false' : 'true'"
-             aria-label="Навигация">
+             aria-label="Навигация"
+             @keydown.esc="closeDrawer()">
         <nav class="sidebar-nav">
           <button v-for="n in sidebarGroups.pub" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
@@ -12865,7 +12897,7 @@
             чат {{ chatLoreProfile.chat_id }}
           </span>
           <button class="btn-ghost text-xs ml-auto" :disabled="chatLoreHistoryLoading"
-                  @click="loadHistory()">⟳</button>
+                  @click="loadHistory()" aria-label="Обновить" title="Обновить">⟳</button>
         </div>
         <div class="text-xs text-gray-500 mb-3 shrink-0">
           последние 100 записей, новые сверху

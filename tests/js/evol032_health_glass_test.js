@@ -33,7 +33,13 @@ assert.ok(CSS.includes('background-color: rgba(141, 74, 85, 0.85);'),
 assert.ok(CSS.includes('--glass-bg: rgba(21, 27, 42, 0.5)'),
   'normal glass-bg unchanged');
 const healthMark = CSS.indexOf('EVOL-032 / CONTRACT 2 — тонирование');
-const healthCss = CSS.slice(CSS.lastIndexOf('/*', healthMark));
+// EVOL-023 (W7) добавила СВОЮ секцию в конец app.css, поэтому «до конца
+// файла» больше не равно «правила здоровья». Границу секции задаём явно:
+// от маркера до следующего баннера-раздела — инварианты (никакого внешнего
+// glow/backdrop-filter именно в health-правилах) сохранены и стали точнее.
+const _afterMark = CSS.slice(CSS.lastIndexOf('/*', healthMark));
+const _nextSection = _afterMark.search(/\/\*\s*═+\s*EVOL-023/);
+const healthCss = _nextSection >= 0 ? _afterMark.slice(0, _nextSection) : _afterMark;
 const healthRules = healthCss.replace(/\/\*[\s\S]*?\*\//g, '');
 assert.ok(!/\[data-health-state="normal"\]/.test(healthRules), 'normal has no fill rule');
 assert.ok(!/\[data-health-state="unknown"\]/.test(healthRules), 'unknown has no fill rule');

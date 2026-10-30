@@ -174,7 +174,17 @@ def _resolve(classes, prop: str, tag=None):
 
 GLASS_SET = [
     ".card", ".modal-card", ".module-card", ".hub-card", ".prov-block",
-    "details.advanced", ".scope-panel", ".glass-panel", ".oversight-panel",
+    "details.advanced", ".glass-panel", ".oversight-panel",
+    # EVOL-023 §2 (осознанная переквалификация, 31.10.2026): `.scope-panel`
+    # больше НЕ стеклянная карточка, а слой overlay. Причина — фактический
+    # дефект: панель живёт внутри backdrop-root шапки, app.js помечает её
+    # `data-glass-nested="1"`, и CSS гасил её до плоской белой .04 без blur —
+    # текст выпадающего меню не читался на движущемся фоне. Теперь у overlay
+    # собственный плотный токен `--overlay-bg` (+ hairline/тень), который
+    # защищён отдельной проверкой
+    # `test_webapp_evol_w7_nav.py::test_overlay_layer_contract`.
+    # Blur/refraction у панели внутри чужого backdrop-root физически
+    # недостижимы, поэтому фальшивую рефракцию не имитируем.
 ]
 LOOSE_ALPHA_RE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\.?\d+)\s*\)")
 

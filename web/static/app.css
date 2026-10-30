@@ -171,6 +171,25 @@
       --btn-hairline: var(--border-hairline);
       --toggle-h: 24px;
       --toggle-hit: var(--control-h-touch);
+      /* EVOL-023 — слой overlay: «фон → поверхность → интерактивный элемент →
+         overlay». Плавающие меню (scope-switcher, «Ещё», ID-поповер) живут
+         ПОВЕРХ контента, поэтому им нужна собственная плотная подложка, а не
+         «стекло в стекле» (там blur предка делает рефракцию недостижимой, а
+         flat .04 оставлял текст на движущемся фоне нечитаемым). Значения —
+         отдельные имена, вторая палитра не заводится. */
+      --overlay-bg: rgba(23, 28, 42, 0.94);
+      --overlay-border: 1px solid rgba(170, 182, 200, 0.18);
+      --overlay-shadow: 0 18px 40px rgba(3, 7, 18, 0.55),
+                        0 4px 12px rgba(3, 7, 18, 0.32);
+      --overlay-radius: var(--radius-lg);
+      --overlay-z: 50;
+      /* Видимый фокус (клавиатура) — единый контур для навигации/контролов. */
+      --focus-ring: 2px solid var(--indigo-300);
+      --focus-ring-offset: 2px;
+      /* Ширина rail-состояния постоянной панели (EVOL-023 §3). Полная
+         панель по-прежнему 216 px (§4: 208–224). */
+      --sidebar-w: 216px;
+      --sidebar-w-rail: 68px;
     }
     /* Реальный фолбэк высоты shell (ADR-1025-17 D1): апгрейд
        `--app-usable-height` до `100dvh` разрешён ТОЛЬКО при доказанной
@@ -5627,4 +5646,179 @@ html.cover-editor-open { overflow: hidden; }
 @media (max-width: 420px) {
   .vr-fact__label { flex-basis: 100%; }
   .exp-stage__count { margin-left: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVOL-023 / EVOL-024 — навигация, topbar, единый scope-switcher и очистка
+   интерфейса. Аддитивный слой: существующие правила, маршруты/RBAC и
+   защищённая оптика (liquid-glass, полигональный фон, мини-линза ⛶) НЕ
+   переопределяются — меняется геометрия каркаса и слой overlay.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Topbar: одна компактная строка на desktop (≥1200) ─────────────────
+   ADR-1025-12 D5 (двухстрочная шапка) остаётся для 768–1199, где ширины
+   реально не хватает. С ≥1200 вторая строка (scope/ID/пользователь)
+   возвращается в тот же flex-ряд через `display: contents` — ровно тот
+   приём, что уже используется legacy-веткой; разметка не дублируется,
+   селектор остаётся ОДНИМ экземпляром. */
+@media (min-width: 1200px) {
+  header.header-sticky.header-compact-v2 .header-scope-row { display: contents; }
+  header.header-sticky.header-compact-v2 .header-scope-row .scope-trigger {
+    max-width: min(18rem, 26vw);
+  }
+  header.header-sticky.header-compact-v2 .header-fs-btn { order: 9; }
+  header.header-sticky.header-compact-v2 .breadcrumb { margin-bottom: 1px; }
+}
+
+/* ── 2. Дубли заголовков: имя раздела живёт в topbar ──────────────────────
+   С ≥768 заголовок шапки уже показывает раздел, а `.hub-title` внутри
+   контента повторял его («Модули» дважды). Содержимое (subtitle, счётчики,
+   поиск/фильтры) остаётся — убирается только дубль имени. На <768 заголовок
+   шапки скрыт намеренно (U01.5) — там `.hub-title` единственный. */
+@media (min-width: 768px) {
+  .app-shell.ia-v2 .hub-head .hub-title { display: none; }
+}
+
+/* ── 3. Scope-switcher: геометрия выпадающей панели ───────────────────────
+   Базовая панель якорилась `right: 0` от триггера и уезжала ВЛЕВО под
+   sidebar/шапку (замер 1280: panel x=152 при sidebar 0–216). Якорь — левый
+   край триггера; кламп по вьюпорту остаётся в JS (positionScopePanel). */
+@media (min-width: 768px) {
+  .scope-panel {
+    left: 0; right: auto;
+    min-width: min(260px, calc(100vw - 2 * var(--space-2, 8px)));
+    max-width: min(380px, calc(100vw - 2 * var(--space-2, 8px)));
+  }
+}
+.scope-panel {
+  max-height: min(60vh, calc(100dvh - var(--header-h, 96px)
+               - 2 * var(--space-3, 12px)));
+  overscroll-behavior: contain;
+  z-index: var(--overlay-z);
+}
+/* Тип области (глобально/чат/ЛС) и ▾ не сжимаются; имя чата обрезается
+   само и не наезжает на бейдж (длинные названия, русский текст, зум). */
+.scope-trigger { min-width: 0; }
+.scope-trigger .scope-name {
+  min-width: 0; flex: 1 1 auto; max-width: 11rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scope-trigger .badge,
+.scope-trigger > span[aria-hidden="true"] { flex: 0 0 auto; }
+.scope-option { min-width: 0; }
+.scope-option > .min-w-0 { min-width: 0; }
+
+/* ── 4. Overlay-слой: читаемая подложка вместо «стекла в стекле» ────────── */
+.glass-overlay,
+.scope-panel,
+.scope-tech-body,
+.more-menu-panel {
+  background-color: var(--overlay-bg);
+  border: var(--overlay-border);
+  border-radius: var(--overlay-radius);
+  box-shadow: var(--overlay-shadow);
+}
+/* app.js помечает вложенные стеклянные узлы `data-glass-nested="1"`, и CSS
+   гасит их до плоской белой .04. Для ПЛАВАЮЩЕГО overlay это неверно: он
+   лежит поверх контента в движении и обязан быть читаемым. Специфичность
+   (0,2,0) выше базового `[data-glass-nested="1"]` (0,1,0); рефракцию не
+   имитируем (внутри backdrop-root предка она недостижима). */
+[data-glass-nested="1"].glass-overlay,
+[data-glass-nested="1"].scope-panel,
+[data-glass-nested="1"].scope-tech-body,
+[data-glass-nested="1"].more-menu-panel {
+  background-color: var(--overlay-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.scope-tech-body { color: var(--text-2); }
+/* Прочие плавающие меню того же слоя — единый overlay-контракт вместо
+   трёх разных «почти одинаковых» рецептов (было --surface-1/2/#11182a). */
+.viz-ovpop,
+.cover-menu {
+  background-color: var(--overlay-bg);
+  border: var(--overlay-border);
+  box-shadow: var(--overlay-shadow);
+  border-radius: var(--overlay-radius);
+}
+/* Подпись управляющего элемента «Аналитики»: мелкая, но постоянная —
+   контроль перестаёт выглядеть как второй селектор области. Строка
+   управления переносится по доступной ширине, поэтому селектор больше не
+   сжимается до нечитаемого «по …» на телефоне. */
+.oversight-controls {
+  margin-left: auto; display: flex; align-items: center;
+  gap: var(--space-2, 8px); flex-wrap: wrap; min-width: 0;
+}
+.oversight-controls > .field { flex: 0 0 auto; }
+/* `.field` объявляет width:100% — в flex-ряду это растягивало поиск на всю
+   строку и выталкивало сортировку на вторую. Ограничиваем базовой шириной. */
+.oversight-controls > input.field { flex: 0 0 10rem; width: 10rem; }
+.oversight-sort {
+  display: inline-flex; align-items: center; gap: var(--space-2, 8px);
+  min-width: 0; flex: 0 0 auto;
+}
+.oversight-sort__label {
+  font-size: .68rem; color: var(--text-3); white-space: nowrap;
+}
+.oversight-sort > select { width: 9rem; min-width: 9rem; }
+@media (max-width: 767px) {
+  .oversight-controls { margin-left: 0; width: 100%; }
+  .oversight-controls > .field { flex: 1 1 7rem; min-width: 0; }
+  .oversight-sort { flex: 1 1 10rem; }
+  .oversight-sort__label { flex: 0 0 auto; }
+  .oversight-sort > select { width: auto; flex: 1 1 auto; min-width: 7.5rem; }
+}
+
+/* ── 5. Sidebar: rail-состояние (desktop ≥1200) ─────────────────────────── */
+.sidebar-collapse {
+  margin-left: auto; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--control-h-touch, 44px); height: var(--control-h-touch, 44px);
+  background: transparent; border: 1px solid transparent; border-radius: .6rem;
+  color: var(--text-3); cursor: pointer;
+}
+.sidebar-collapse:hover { color: var(--text-1); background: rgba(255,255,255,.06); }
+.sidebar-collapse .msr { font-size: 20px; }
+/* В самодельном субсете Material Symbols нет `chevron_left` (ICONS: только
+   chevron_right) — направление задаётся поворотом глифа, а не новой иконкой.
+   Развёрнутая панель → стрелка влево («свернуть»), rail → вправо. */
+.sidebar-collapse .msr { transform: rotate(180deg); }
+.sidebar-collapsed .sidebar-collapse .msr { transform: none; }
+.sidebar-collapse:focus-visible,
+.sidebar-link:focus-visible,
+.scope-trigger:focus-visible,
+.scope-option:focus-visible,
+.mobile-topnav-link:focus-visible,
+.breadcrumb-link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+@media (min-width: 1200px) {
+  .app-shell.ia-v2 { padding-left: var(--sidebar-w); }
+  .app-shell.ia-v2.sidebar-collapsed { padding-left: var(--sidebar-w-rail); }
+  .app-shell.ia-v2 .app-sidebar {
+    width: var(--sidebar-w);
+    transition: width .16s ease;
+  }
+  .app-shell.ia-v2.sidebar-collapsed .app-sidebar {
+    width: var(--sidebar-w-rail);
+    padding-left: .35rem; padding-right: .35rem;
+  }
+  /* В rail 68 px иконка бренда и кнопка сворачивания вместе не помещаются:
+     верхним якорем остаётся кнопка «Развернуть меню» (44×44), подписи
+     разделов скрыты, полные имена — в title/aria-label. */
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand { justify-content: center; }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand > .msr { display: none; }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand-title { display: none; }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-collapse { margin-left: 0; }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-label { display: none; }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-link {
+    justify-content: center; gap: 0; padding-left: 0; padding-right: 0;
+  }
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-sep {
+    margin-left: .35rem; margin-right: .35rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell.ia-v2 .app-sidebar { transition: none; }
 }

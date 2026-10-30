@@ -2046,6 +2046,11 @@
             : (window.innerWidth < 1200 ? 'compact' : 'desktop'))
           : 'desktop',
         drawerOpen: false,   // 768–1199: временная навигация (не персистится)
+        // EVOL-023 §3: свёрнутая постоянная панель (rail с иконками) на
+        // desktop ≥1200. Состояние персистится (`adminbot.sidebar_collapsed`),
+        // потому что это пользовательская настройка плотности, а не разовый
+        // оверлей. Мобильные режимы (drawer/mobile-topnav) не затрагиваются.
+        sidebarCollapsed: false,
         // ═══ W2-SHELL (asap8-v6.3, REQ-U01.4/REQ-U02): состояние мобильных
         // оверлеев навигации. «Ещё» — popover поверх контента (<768);
         // oversight-mobile-dropdown — компактный выбор суб-вкладки
@@ -3036,6 +3041,12 @@
       headerTitle: function () {
         var bc = this.breadcrumb;
         if (bc && bc.current) return bc.current;
+        // EVOL-023 §1: topbar называет ТЕКУЩИЙ РАЗДЕЛ (канонический реестр
+        // navItems), а не подпись config-вкладки: на хабе «ИИ» в шапке
+        // стояло «LLM Провайдеры» — имя подстраницы вместо раздела.
+        var r = this.route || '#/';
+        var rl = this._routeLabel(r);
+        if (rl && rl !== r) return rl;
         return this.currentTabLabel;
       },
       // F24 (ADR-1024-24 D2/§4.1): реактивные аксессоры `:open`. computed читает
@@ -3246,12 +3257,15 @@
         return { pub: pub, admin: admin, local: local };
       },
       // UPD §8.4: «текущий раздел + путь назад» на вложенных страницах.
+      // EVOL-023 §1: у ВЕРХНЕУРОВНЕВОГО раздела нет «родителя» — «Статус»
+      // не является путём к «Аналитике»/«Модулям». Крошка живёт только на
+      // реально вложенных маршрутах (parent ≠ '#/'): имя раздела в topbar —
+      // единственный заголовок страницы, дублей нет.
       breadcrumb: function () {
         var r = this.route || '#/';
         var parent = routeParent(r);
-        if (!parent) return null;
+        if (!parent || parent === '#/') return null;
         var home = { label: 'Статус', route: '#/' };
-        if (parent === '#/') return { root: home, current: this._routeLabel(r) };
         return { root: home, mid: { label: this._routeLabel(parent),
           route: parent }, current: this._routeLabel(r) };
       },
@@ -6528,6 +6542,7 @@
     created: function () {
       getInitData();                       // кэш initData ДО записи hash
       this._syncShellMode();               // F1: shell-режим по ширине
+      this.initSidebarCollapsed();         // EVOL-023 §3: rail на desktop
       this.initExpandState();              // F24: реактивный стейт аккордеонов
       this.initQuickpicks();               // F4 D4: избранное модулей (fail-open)
       var r = initialRoute();
@@ -7074,6 +7089,9 @@
       _preserveOnViewportChange: function () {
         var self = this;
         this._preserveEditViewport(function () { self._syncShellMode(); });
+        // EVOL-023 §2: открытый scope-dropdown не «застревает» со старой
+        // геометрией после изменения ширины/зума.
+        if (this.scopeOpen) this.positionScopePanel();
       },
 
       toast: function (text, kind) {
@@ -10925,9 +10943,43 @@
       },
       toggleDrawer: function () {
         this.drawerOpen = !this.drawerOpen;
+        if (this.drawerOpen) {
+          // EVOL-023 §3: фокус уходит в drawer (a11y), Esc закрывает,
+          // возврат фокуса — в кнопку «Навигация» шапки (см. closeDrawer).
+          this.$nextTick(function () {
+            try {
+              var first = document.querySelector('.app-drawer .sidebar-link');
+              if (first && typeof first.focus === 'function') first.focus();
+            } catch (e) { /* no-op */ }
+          });
+        }
       },
       closeDrawer: function () {
+        var wasOpen = this.drawerOpen;
         this.drawerOpen = false;
+        if (wasOpen) {
+          try {
+            var btn = document.querySelector('[data-drawer-trigger]');
+            if (btn && typeof btn.focus === 'function') btn.focus();
+          } catch (e) { /* no-op */ }
+        }
+      },
+      // ═══ EVOL-023 §3: сворачивание постоянной панели (desktop ≥1200) ═══
+      // Только иконки (rail 68 px) + title/aria-label; маршруты, RBAC и
+      // состав разделов не меняются. Состояние персистится. Отдельный
+      // kill-switch не нужен: это плотность интерфейса, не новый функционал.
+      initSidebarCollapsed: function () {
+        try {
+          this.sidebarCollapsed =
+            localStorage.getItem('adminbot.sidebar_collapsed') === '1';
+        } catch (e) { this.sidebarCollapsed = false; }
+      },
+      toggleSidebarCollapse: function () {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        try {
+          localStorage.setItem('adminbot.sidebar_collapsed',
+            this.sidebarCollapsed ? '1' : '');
+        } catch (e) { /* quota/private mode — состояние живёт в памяти */ }
       },
       // F1 (UPD §8.4/T-2399): путь назад на родителя (in-app + TMA BackButton).
       goParent: function () {
@@ -11173,6 +11225,33 @@
         // T-1900: baseline для sticky-save — момент открытия модалки
         // (guard — unit-стабы openModuleWindow).
         if (typeof this._snapshotConfig === 'function') this._snapshotConfig();
+        // EVOL-024 §3: keyboard/screen-reader — фокус переносится в диалог
+        // (tabindex="-1") при открытии; Esc/возврат фокуса на триггер уже
+        // работают (closeModule + statusRecordReturnFocus-паттерн). Guard —
+        // unit-стабы дергают метод на частичном ctx (как соседний _snapshotConfig).
+        if (typeof this._focusOpenedDialog === 'function') {
+          this._focusOpenedDialog();
+        }
+      },
+      // Общий помощник модалок: фокус внутрь `role="dialog"` — сначала на
+      // первый элемент управления (Shift+Tab не уводит за окно), иначе на
+      // сам контейнер (`tabindex="-1"`). Намеренно мягкий: нет диалога
+      // (unit-стаб/file://) — тихий no-op.
+      _focusOpenedDialog: function () {
+        this.$nextTick(function () {
+          try {
+            var el = document.querySelector('[role="dialog"][tabindex="-1"]');
+            if (!el) return;
+            var target = el;
+            var nodes = el.querySelectorAll(
+              'button, [href], input, select, textarea,' +
+              ' [tabindex]:not([tabindex="-1"])');
+            for (var i = 0; i < nodes.length; i++) {
+              if (!nodes[i].disabled) { target = nodes[i]; break; }
+            }
+            if (target && typeof target.focus === 'function') target.focus();
+          } catch (e) { /* no DOM */ }
+        });
       },
       // MAJOR-2: операционные панели Сон/Ностальгия живут в модалке —
       // данные грузятся при открытии (не только по activeTab).
@@ -11342,6 +11421,12 @@
       openDossier: async function (row) {
         if (!row || row.user_id == null || this.activeChatId == null) return;
         this.dossierOpen = true;
+        // EVOL-024 §3: та же клавиатурная семантика, что у окна модуля/записи
+        // статуса — фокус входит в диалог, Esc закрывает (closeDossier).
+        // Guard — unit-стабы вызывают метод на частичном ctx.
+        if (typeof this._focusOpenedDialog === 'function') {
+          this._focusOpenedDialog();
+        }
         this.dossierBusy = true;
         this.dossierUserId = row.user_id;
         this.dossierName = this.resolveRelationName(row) || '';

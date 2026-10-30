@@ -1,0 +1,229 @@
+{
+ "desktop": {
+  "vw": 1280,
+  "vh": 800,
+  "sw": 1280,
+  "over": false,
+  "headerH": 64,
+  "headerBottom": 64,
+  "mainTop": 64,
+  "overlap": 0,
+  "title": "Модули",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": "none",
+  "sidebar": {
+   "x": 0,
+   "w": 216
+  },
+  "sidebarLabels": true,
+  "mainX": 216,
+  "collapsed": false,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 1264,
+   "vw": 1280
+  },
+  "topnav": null
+ },
+ "desktop_panel": {
+  "open": true,
+  "x": 764,
+  "right": 1144,
+  "top": 55,
+  "bottom": 230,
+  "vw": 1280,
+  "vh": 800,
+  "insideViewport": true,
+  "overlapsSidebar": false,
+  "hitTestInside": true,
+  "bg": "rgba(23, 28, 42, 0.94)",
+  "search": true,
+  "options": 3,
+  "nameTruncated": true,
+  "badgeOverlapsName": false,
+  "triggerInsideViewport": true
+ },
+ "desktop_rail": {
+  "vw": 1280,
+  "vh": 800,
+  "sw": 1280,
+  "over": false,
+  "headerH": 64,
+  "headerBottom": 64,
+  "mainTop": 64,
+  "overlap": 0,
+  "title": "Модули",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": "none",
+  "sidebar": {
+   "x": 0,
+   "w": 68
+  },
+  "sidebarLabels": false,
+  "mainX": 68,
+  "collapsed": true,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 1264,
+   "vw": 1280
+  },
+  "topnav": null
+ },
+ "desktop_rail_persisted": {
+  "vw": 1280,
+  "vh": 800,
+  "sw": 1280,
+  "over": false,
+  "headerH": 64,
+  "headerBottom": 64,
+  "mainTop": 64,
+  "overlap": 0,
+  "title": "Модули",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": "none",
+  "sidebar": {
+   "x": 0,
+   "w": 68
+  },
+  "sidebarLabels": false,
+  "mainX": 68,
+  "collapsed": true,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 1264,
+   "vw": 1280
+  },
+  "topnav": null
+ },
+ "desktop_modal": {
+  "modal": true,
+  "inViewport": true,
+  "bodyScroll": "auto",
+  "focusInside": true,
+  "overflowPage": false
+ },
+ "desktop_console": [],
+ "tablet": {
+  "vw": 900,
+  "vh": 700,
+  "sw": 900,
+  "over": false,
+  "headerH": 113,
+  "headerBottom": 113,
+  "mainTop": 113,
+  "overlap": 0,
+  "title": "Память",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": "none",
+  "sidebar": null,
+  "sidebarLabels": null,
+  "mainX": 0,
+  "collapsed": false,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 884,
+   "vw": 900
+  },
+  "topnav": null
+ },
+ "tablet_drawer": {
+  "open": true,
+  "w": 280,
+  "x": 0,
+  "focusInside": true,
+  "ariaHidden": "false"
+ },
+ "tablet_drawer_closed": {
+  "open": false,
+  "triggerFocused": true
+ },
+ "mobile": {
+  "vw": 390,
+  "vh": 844,
+  "sw": 390,
+  "over": false,
+  "headerH": 116,
+  "headerBottom": 116,
+  "mainTop": 116,
+  "overlap": 0,
+  "title": "Аналитика",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": null,
+  "sidebar": null,
+  "sidebarLabels": null,
+  "mainX": 0,
+  "collapsed": false,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 374,
+   "vw": 390
+  },
+  "topnav": {
+   "h": 47,
+   "bottom": 106
+  }
+ },
+ "mobile_panel": {
+  "open": true,
+  "x": 16,
+  "right": 316,
+  "top": 56,
+  "bottom": 231,
+  "vw": 390,
+  "vh": 844,
+  "insideViewport": true,
+  "overlapsSidebar": false,
+  "hitTestInside": true,
+  "bg": "rgba(23, 28, 42, 0.94)",
+  "search": true,
+  "options": 3,
+  "nameTruncated": true,
+  "badgeOverlapsName": false,
+  "triggerInsideViewport": true
+ },
+ "mobile_more": {
+  "inside": true,
+  "bottom": 472,
+  "vh": 844
+ },
+ "case_320x700-z1-d0": {
+  "vw": 320,
+  "sw": 320,
+  "over": false,
+  "headerH": 116,
+  "overlap": 0,
+  "mainX": 0
+ },
+ "case_1280x800-z2-d0": {
+  "vw": 1280,
+  "sw": 1280,
+  "over": false,
+  "headerH": 219,
+  "overlap": 0,
+  "mainX": 432
+ },
+ "case_1280x800-z1-d900": {
+  "vw": 1280,
+  "sw": 1280,
+  "over": false,
+  "headerH": 64,
+  "overlap": 0,
+  "mainX": 216
+ },
+ "failures": []
+}
