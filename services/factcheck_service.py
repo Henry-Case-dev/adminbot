@@ -605,9 +605,19 @@ class ClaimPublication:
     album_incomplete: bool = False
     forward_source: str | None = None
     reply_to_tg_id: int | None = None     # цель отвечает на это сообщение
+    # ASAP-VISION-SYNC-01 F2 (review): слабая связь с изображением —
+    # `media_linked_adjacent` (найдено фото рядом по автору/ветке) и
+    # `media_ambiguous` (кандидатов ≥2 или чужое фото без структурной связи:
+    # нужен короткий вопрос-уточнение, а не «нечего проверять»).
+    media_linked_adjacent: bool = False
+    media_ambiguous: bool = False
 
     def notice(self) -> str:
         parts: list[str] = []
+        if self.media_ambiguous:
+            parts.append("Не понял, какое изображение проверять: рядом "
+                         "несколько подходящих (или чужое фото без ответа на "
+                         "него) — ответь на нужное фото или пришли его сюда.")
         if self.album_incomplete:
             parts.append("Элементы альбома прочитаны не полностью — проверено "
                          "то, что сохранилось.")
@@ -664,7 +674,11 @@ async def resolve_claim_publication(
         use_stored_target_text: bool = True,
         render_async=None,
         max_chars: int = 2000,
-        media_wait_seconds: float | None = None) -> ClaimPublication:
+        media_wait_seconds: float | None = None,
+        trigger_tg_message_id: int | None = None,
+        requester_user_id: int | None = None,
+        requester_name: str = "",
+        allow_adjacent: bool = True) -> ClaimPublication:
     """Восстановить публикацию: durable элементы альбома + изображения.
 
     P0-FACTCHECK media (owner 25.10.2026 §3): ответ на ЛЮБОЙ элемент
@@ -847,6 +861,55 @@ async def resolve_claim_publication(
     if tg_id is not None and tg_id not in image_ids:
         image_ids.append(tg_id)
     image_ids.sort()
+    # ASAP-VISION-SYNC-01 F2 (review): «фото, затем отдельное „фактчек“».
+    # Если у цели НЕТ собственных изображений, ищем слабую связь тем же
+    # резолвером, что и остальные потребители: единственное фото ТОГО ЖЕ
+    # автора рядом (чужое фото без структурной связи → честная
+    # неоднозначность, а не приписывание).
+    adjacent_ids: list[int] = []
+    media_ambiguous = False
+    if (allow_adjacent and db is not None and chat_id is not None
+            and not expected_ids and not hint_image):
+        anchor_id = tg_id if tg_id is not None else trigger_tg_message_id
+        if anchor_id:
+            try:
+                from services import media_readiness
+                resolved = await media_readiness.resolve_target_media(
+                    db, chat_id=int(chat_id), message_id=int(anchor_id),
+                    allow_adjacent=True,
+                    author_user_id=requester_user_id,
+                    author_name=str(requester_name or ""))
+            except Exception:
+                resolved = {}
+                logger.warning("[factcheck] adjacent media resolve failed | "
+                               "chat=%s", chat_id, exc_info=True)
+            if resolved.get("association_status") == "resolved":
+                adjacent_ids = [int(v) for v in
+                                (resolved.get("source_message_ids") or ())
+                                if v][:_MAX_ALBUM_ELEMENTS]
+            elif resolved.get("association_status") == "ambiguous":
+                media_ambiguous = True
+                logger.info("[factcheck] adjacent media ambiguous | chat=%s | "
+                            "candidates=%s", chat_id,
+                            len(resolved.get("source_message_ids") or ()))
+    if adjacent_ids:
+        for extra_id in adjacent_ids:
+            if extra_id not in image_ids:
+                image_ids.append(extra_id)
+        image_ids.sort()
+        # Подпись найденного фото — часть публикации (иначе тезис потеряется).
+        for extra_id in adjacent_ids:
+            try:
+                extra_row = await db.get_smart_message_by_tg_id(
+                    int(chat_id), int(extra_id))
+            except Exception:
+                extra_row = None
+            value = (str(_row_value(extra_row, "caption") or "").strip()
+                     or str(_row_value(extra_row, "text") or "").strip())
+            if value and value not in caption_values:
+                caption_values.append(value)
+        if caption_values:
+            caption_text = "\n\n".join(v for v in caption_values if v)
     media = await load_claim_media(
         db, chat_id, tg_id, render_async=render_async, max_chars=max_chars,
         message_ids=image_ids or None, expected_images=len(expected_ids),
@@ -883,7 +946,9 @@ async def resolve_claim_publication(
         message_ids=tuple(image_ids), media_group_id=media_group_id,
         has_image=has_image, augmented=bool(text) and text != base,
         album_incomplete=album_incomplete, forward_source=forward_source,
-        reply_to_tg_id=reply_to_tg_id)
+        reply_to_tg_id=reply_to_tg_id,
+        media_ambiguous=media_ambiguous,
+        media_linked_adjacent=bool(adjacent_ids))
 
 
 # ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────

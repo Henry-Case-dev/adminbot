@@ -368,8 +368,16 @@ async def _assets_for_group(db, chat_id: int, media_group_id: str) -> list:
 
 
 async def _adjacent_candidates(db, chat_id: int, *, before: bool,
-                               anchor_id: int, window_seconds: int) -> list:
-    """Кандидаты-изображения рядом с запросом в ТОМ ЖЕ чате (§3.4/§3.5)."""
+                               anchor_id: int, window_seconds: int,
+                               author_user_id: int | None = None,
+                               author_name: str = "",
+                               branch_message_id: int | None = None) -> list:
+    """Кандидаты-изображения рядом с запросом в ТОМ ЖЕ чате (§3.4/§3.5).
+
+    Слабая связь учитывает не только время: авторство и ветку (reply-цепочку)
+    из `smart_messages`. Фильтр по автору НЕ отбрасывает кандидатов молча —
+    он возвращает фактические данные, а решение (resolved/ambiguous) принимает
+    `resolve_target_media`, чтобы чужое фото не приписывалось запросу."""
     if db is None or not anchor_id:
         return []
     cutoff = int(time.time()) - max(1, int(window_seconds))
@@ -377,10 +385,13 @@ async def _adjacent_candidates(db, chat_id: int, *, before: bool,
     order = "DESC" if before else "ASC"
     try:
         cur = await db.db.execute(
-            f"SELECT asset_id, tg_message_id, asset_kind, media_group_id, "
-            f"created_at FROM mca_media_assets WHERE chat_id=? AND "
-            f"tg_message_id {comparison} ? AND created_at>=? "
-            f"ORDER BY tg_message_id {order} LIMIT 25",
+            f"SELECT a.asset_id, a.tg_message_id, a.asset_kind, "
+            f"a.media_group_id, a.created_at, m.author_name, m.user_id, "
+            f"m.reply_to_id FROM mca_media_assets a "
+            f"LEFT JOIN smart_messages m ON m.chat_id = a.chat_id AND "
+            f"m.tg_message_id = a.tg_message_id "
+            f"WHERE a.chat_id=? AND a.tg_message_id {comparison} ? "
+            f"AND a.created_at>=? ORDER BY a.tg_message_id {order} LIMIT 25",
             (int(chat_id), int(anchor_id), cutoff))
         rows = await cur.fetchall()
     except Exception:
@@ -394,6 +405,62 @@ async def _adjacent_candidates(db, chat_id: int, *, before: bool,
             continue
         out.append(item)
     return out
+
+
+def _same_author(candidate: dict, *, user_id: int | None,
+                 author_name: str) -> bool:
+    """Совпадает ли автор кандидата с автором запроса (без угадывания).
+
+    Приоритет — числовой `user_id` (устойчив к переименованию); имя
+    сравнивается только когда id недоступен с ОБЕИХ сторон. Неизвестное
+    авторство → False (слабая связь не превращается в уверенную)."""
+    cand_id = candidate.get("user_id")
+    try:
+        cand_id = int(cand_id) if cand_id is not None else None
+    except (TypeError, ValueError):
+        cand_id = None
+    if user_id is not None and cand_id is not None:
+        return int(cand_id) == int(user_id)
+    requester = " ".join(str(author_name or "").split()).casefold()
+    candidate_name = " ".join(str(candidate.get("author_name") or "")
+                              .split()).casefold()
+    if user_id is None and not requester:
+        # Личность запроса неизвестна (инструмент/legacy-вызов) — авторство
+        # не доказательство «чужого фото»: решение остаётся по структуре.
+        return True
+    if requester and candidate_name:
+        return requester == candidate_name
+    return False
+
+
+def _in_branch(candidate: dict, branch_message_id: int | None) -> bool:
+    if branch_message_id is None:
+        return True
+    try:
+        reply_to = int(candidate.get("reply_to_id") or 0)
+    except (TypeError, ValueError):
+        reply_to = 0
+    return reply_to == int(branch_message_id) or \
+        int(candidate.get("tg_message_id") or 0) == int(branch_message_id)
+
+
+async def _asset_row_by_id(db, asset_id: str, chat_id: int | None = None):
+    """Строка реестра актива по asset_id (для постановки анализа из intent)."""
+    if db is None or not asset_id:
+        return None
+    try:
+        if chat_id:
+            cur = await db.db.execute(
+                "SELECT * FROM mca_media_assets WHERE chat_id=? AND "
+                "asset_id=?", (int(chat_id), str(asset_id)))
+        else:
+            cur = await db.db.execute(
+                "SELECT * FROM mca_media_assets WHERE asset_id=?",
+                (str(asset_id),))
+        row = await cur.fetchone()
+    except Exception:
+        return None
+    return dict(row) if row is not None else None
 
 
 async def _resolve_explicit(db, chat_id: int, reference: str) -> list:
@@ -422,13 +489,17 @@ async def resolve_target_media(db, *, chat_id: int, message_id=None,
                                caption: str = "",
                                media_group_id: str = "",
                                allow_adjacent: bool = False,
-                               window_seconds: int | None = None) -> dict:
+                               window_seconds: int | None = None,
+                               author_user_id: int | None = None,
+                               author_name: str = "",
+                               branch_message_id: int | None = None) -> dict:
     """Связанный медиа-объект запроса по приоритету сильных связей (§3).
 
     Возвращает `{"association_kind", "association_status", "assets",
     "media_group_id", "source_message_ids", "reason_code", "quote_text"}`.
     Слабые связи (соседство) НЕ угадываются: несколько равноценных
-    кандидатов → `ambiguous` (короткое уточнение), ноль → `missing`."""
+    кандидатов → `ambiguous`, фото ДРУГОГО участника без структурной связи
+    (reply/цитата/альбом) → тоже `ambiguous` (уточнение), ноль → `missing`."""
     window = int(window_seconds if window_seconds is not None
                  else association_window_seconds())
 
@@ -482,40 +553,62 @@ async def resolve_target_media(db, *, chat_id: int, message_id=None,
                 "assets": [], "media_group_id": str(media_group_id or ""),
                 "source_message_ids": (), "reason_code": "no_target",
                 "quote_text": str(quote_text or "")}
-    # 3.4: ближайшее изображение ДО запроса в той же ветке.
-    before = await _adjacent_candidates(db, chat_id, before=True,
-                                        anchor_id=int(message_id),
-                                        window_seconds=window)
+    # 3.4/3.5: слабые связи — учитываем авторство и ветку, а не только время.
+    def _weak_missing() -> dict:
+        return {"association_kind": "", "association_status": ASSOC_MISSING,
+                "assets": [], "media_group_id": str(media_group_id or ""),
+                "source_message_ids": (), "reason_code": "no_target",
+                "quote_text": str(quote_text or "")}
+
+    def _weak_ambiguous(kind: str, candidates: list, reason: str) -> dict:
+        return {"association_kind": kind,
+                "association_status": ASSOC_AMBIGUOUS, "assets": [],
+                "media_group_id": str(media_group_id or ""),
+                "source_message_ids": tuple(sorted({
+                    int(a.get("tg_message_id") or 0) for a in candidates})),
+                "reason_code": reason,
+                "quote_text": str(quote_text or "")}
+
+    before = await _adjacent_candidates(
+        db, chat_id, before=True, anchor_id=int(message_id),
+        window_seconds=window, author_user_id=author_user_id,
+        author_name=author_name, branch_message_id=branch_message_id)
+    if branch_message_id is not None:
+        before = [a for a in before if _in_branch(a, branch_message_id)]
     before_messages = {int(a.get("tg_message_id") or 0) for a in before}
     if len(before_messages) == 1:
         only = [a for a in before
                 if int(a.get("tg_message_id") or 0) == before_messages.pop()]
+        if not _same_author(only[0], user_id=author_user_id,
+                            author_name=author_name):
+            # Чужое фото без структурной связи (reply/цитата/альбом) НЕ
+            # приписывается запросу: короткое уточнение вместо догадки (§3).
+            return _weak_ambiguous(ASSOC_ADJACENT_BEFORE, only,
+                                   "ambiguous_target")
         return await _pack(ASSOC_ADJACENT_BEFORE, only)
     if len(before_messages) > 1:
         # Несколько равноценных изображений — НЕ берём случайное (§3).
-        return {"association_kind": ASSOC_ADJACENT_BEFORE,
-                "association_status": ASSOC_AMBIGUOUS,
-                "assets": [], "media_group_id": str(media_group_id or ""),
-                "source_message_ids": tuple(sorted(before_messages)),
-                "reason_code": "ambiguous_target",
-                "quote_text": str(quote_text or "")}
+        return _weak_ambiguous(ASSOC_ADJACENT_BEFORE, before,
+                               "ambiguous_target")
     # 3.5: изображение ПОСЛЕ запроса (объявлено, что оно сейчас последует).
-    after = await _adjacent_candidates(db, chat_id, before=False,
-                                       anchor_id=int(message_id),
-                                       window_seconds=window)
+    after = await _adjacent_candidates(
+        db, chat_id, before=False, anchor_id=int(message_id),
+        window_seconds=window, author_user_id=author_user_id,
+        author_name=author_name, branch_message_id=branch_message_id)
+    if branch_message_id is not None:
+        after = [a for a in after if _in_branch(a, branch_message_id)]
     after_messages = {int(a.get("tg_message_id") or 0) for a in after}
     if len(after_messages) == 1:
         only = [a for a in after
                 if int(a.get("tg_message_id") or 0) == after_messages.pop()]
+        if not _same_author(only[0], user_id=author_user_id,
+                            author_name=author_name):
+            return _weak_ambiguous(ASSOC_ADJACENT_AFTER, only,
+                                   "ambiguous_target")
         return await _pack(ASSOC_ADJACENT_AFTER, only)
-    return {"association_kind": ASSOC_MISSING if not after
-            else ASSOC_ADJACENT_AFTER,
-            "association_status": ASSOC_MISSING if not after
-            else ASSOC_AMBIGUOUS,
-            "assets": [], "media_group_id": str(media_group_id or ""),
-            "source_message_ids": tuple(sorted(after_messages)),
-            "reason_code": "no_target" if not after else "ambiguous_target",
-            "quote_text": str(quote_text or "")}
+    if not after:
+        return _weak_missing()
+    return _weak_ambiguous(ASSOC_ADJACENT_AFTER, after, "ambiguous_target")
 
 
 # ── Состояние анализа актива (§2: ready/pending/failed/…) ───────────────────
@@ -695,9 +788,10 @@ async def prepare_images_ready(db, *, chat_id: int, message_ids, consumer: str,
         remaining = max(0.0, deadline - time.monotonic())
         states = []
         for asset in assets:
+            asset_remaining = max(0.0, deadline - time.monotonic())
             states.append(await prepare_asset(
                 db, chat_id=chat_id, asset=asset,
-                wait_seconds=min(remaining, budget) if budget else 0.0,
+                wait_seconds=asset_remaining if budget else 0.0,
                 enqueue=enqueue))
         first = states[0]
         pending = any(s.pending for s in states)
@@ -893,6 +987,20 @@ async def link_pending_intent_for_message(db, *, chat_id: int,
                   "question": str(payload.get("question") or "")}
         logger.info("[media_readiness] pending intent linked | chat=%s | "
                     "trigger=%s | tg=%s", chat_id, trigger, tg_message_id)
+        # Потребитель уже попросил разбор — привязка обязана запустить анализ
+        # (single-flight), даже если авто-очередь выключена тумблером.
+        for asset_id in payload["linked"]["asset_ids"]:
+            asset = await _asset_row_by_id(db, str(asset_id))
+            if asset is None:
+                continue
+            try:
+                await ensure_asset_analysis(db, chat_id=int(chat_id),
+                                            asset=asset,
+                                            correlation_id=str(job.get("job_id")
+                                                               or ""))
+            except Exception:
+                logger.debug("[media_readiness] intent asset enqueue failed",
+                             exc_info=True)
         break
     return linked
 
@@ -960,7 +1068,9 @@ async def prepare_media_evidence(
         trace_id: str = "", wait_seconds: float | None = None,
         allow_adjacent: bool = False, enqueue: bool = True,
         own_media: bool | None = None, reply_media: bool | None = None,
-        force: bool = False) -> MediaReadiness | None:
+        force: bool = False, author_user_id: int | None = None,
+        author_name: str = "",
+        branch_message_id: int | None = None) -> MediaReadiness | None:
     """Связать медиа с запросом, дождаться анализа, отдать свидетельство.
 
     Возвращает None, когда ответ НЕ зависит от изображения (быстрый путь).
@@ -994,7 +1104,9 @@ async def prepare_media_evidence(
         db, chat_id=chat_id, message_id=message_id,
         reply_to_message_id=reply_to_message_id, quote_text=quote_text,
         explicit_reference=explicit_reference, caption=caption,
-        media_group_id=group, allow_adjacent=allow_adjacent)
+        media_group_id=group, allow_adjacent=allow_adjacent,
+        author_user_id=author_user_id, author_name=author_name,
+        branch_message_id=branch_message_id)
     assets = list(resolved.get("assets") or [])[:_MAX_ASSETS]
     if not assets:
         readiness = MediaReadiness(
@@ -1014,12 +1126,17 @@ async def prepare_media_evidence(
         _emit_readiness_event(readiness, stage="target_resolved",
                              reason_code=readiness.reason_code)
         return readiness
+    # F3 (review): ОДНО окно ожидания на весь запрос (альбом из 10 ожидающих
+    # картинок не превращается в 10×wait) — остаток считается от общего
+    # дедлайна, а не заново на каждый актив.
+    budget = float(wait_seconds if wait_seconds is not None
+                   else wait_seconds_default())
+    deadline = time.monotonic() + max(0.0, budget)
     states: list[MediaAssetState] = []
     for asset in assets:
+        remaining = max(0.0, deadline - time.monotonic())
         states.append(await prepare_asset(
-            db, chat_id=chat_id, asset=asset,
-            wait_seconds=(wait_seconds if wait_seconds is not None
-                          else wait_seconds_default()),
+            db, chat_id=chat_id, asset=asset, wait_seconds=remaining,
             correlation_id=correlation_id, enqueue=enqueue))
     first = states[0]
     pending = any(s.pending for s in states)
@@ -1141,7 +1258,14 @@ def mark_consumer_received(readiness: MediaReadiness | None,
 
 def _emit_readiness_event(readiness: MediaReadiness, *, stage: str,
                           reason_code: str = "", consumer: str = "") -> None:
-    """R17-safe событие стадии готовности (без текстов/OCR/ключей)."""
+    """R17-safe событие стадии готовности (без текстов/OCR/ключей).
+
+    F-шум (review): обычный «медиа в запросе, цели нет» НЕ пишет событие на
+    каждый ход — сигналом считаются разрешённая/неоднозначная привязка и
+    фактические смены состояния анализа."""
+    if stage == "target_resolved" and readiness.association_status == \
+            ASSOC_MISSING:
+        return
     try:
         from services import mca_events
         mca_events.emit_mca_event(
@@ -1187,13 +1311,23 @@ async def run_admin_check(db=None, *, chat_id: int = 0, transport=None,
                           consumer: str = "admin") -> dict:
     """Сервисная основа кнопки «Проверить» (§6): стадии, а не status 200.
 
-    Стадии: `provider` (вход принят / маршрут настроен) → `schema` (
-    structured-ответ валиден) → `content` (OCR/описание реально получены) →
-    `saved` (результат читается из хранилища) → `consumer` (блок доходит до
-    payload потребителя). `ok` — только если все стадии подтверждены; иначе
-    честный `stage` и `reason_code` (HTTP 200 с пустым `choices` НЕ «OK»)."""
+    Стадии: `provider` (вход принят / маршрут настроен) → `schema` (ответ
+    валиден) → `content` (OCR/описание реально получены) → `saved` → `consumer`
+    (блок доходит до payload потребителя). `ok` — только если провайдер, схема,
+    содержимое и внедрение подтверждены; иначе честный `stage` и `reason_code`
+    (HTTP 200 с пустым `choices` НЕ «OK»).
+
+    F5 (review): стадия `saved` в этой сервисной проверке НЕ подтверждается —
+    проба не создаёт ревизию актива (иначе «Проверить» писала бы в реестр
+    поддельный актив и мешала бы кешу). Возвращается честный `saved="n/a"` +
+    `saved_note`; UI-лейн (§6 админки) выполняет полный round-trip через
+    настоящую durable-джобу и настоящий актив — это зафиксировано в патч-ноте
+    отчёта (`plans/features/evol/audit/w8-vision-sync-core.md`)."""
     report = {"provider": "unknown", "schema": "unknown",
-              "content": "unknown", "saved": "not_checked",
+              "content": "unknown", "saved": "n/a",
+              "saved_note": ("проверка не пишет ревизию актива: сохранение "
+                             "подтверждается round-trip'ом через durable-"
+                             "джобу в UI-лейне"),
               "consumer": "unknown", "ok": False, "stage": "start",
               "reason_code": "", "model": "", "endpoint": "",
               "output_limit": None, "finish_reason": "", "tokens": {}}
@@ -1252,12 +1386,6 @@ async def run_admin_check(db=None, *, chat_id: int = 0, transport=None,
             else "failed"
         if not report["ok"]:
             return report
-    if db is not None and report.get("analysis_id"):
-        try:
-            row = await db.get_media_analysis(int(report["analysis_id"]))
-        except Exception:
-            row = None
-        report["saved"] = "ok" if row else "failed"
     # consumer: блок контракта строится из ФАКТИЧЕСКОГО анализа.
     probe_state = MediaAssetState(
         asset_id="probe", analysis_status=analysis.status,
@@ -1470,9 +1598,13 @@ async def _bump_fence_and_requeue(db, store, job_id: str, *, reason: str,
     now = int(time.time())
     try:
         async def _body(conn):
+            # attempt++ — «задачу так и не взяли в работу» тоже расходует
+            # попытку (review F-nb: queued-задача без исполнителя не могла
+            # дойти до терминала, т.к. attempt рос только в mark_running).
             cur = await conn.execute(
                 "UPDATE task_jobs SET fencing_token=fencing_token+1, "
-                "updated_at=? WHERE job_id=?", (now, str(job_id)))
+                "attempt=attempt+1, updated_at=? WHERE job_id=?",
+                (now, str(job_id)))
             return cur.rowcount or 0
         await db.write_transaction(_body, op_name="watchdog_fence")
     except Exception:
@@ -1642,7 +1774,7 @@ async def watchdog_sweep(db, *, now: int | None = None, store=None,
             _emit_watchdog_event("stalled", job_id=job_id, asset_id=asset_id,
                                  chat_id=chat_id, reason="deadline_exceeded",
                                  attempt=int(job.get("attempt") or 0),
-                                 stage=stage)
+                                 job_stage=stage)
             action = await recover_job(db, store, job,
                                        reason="deadline_exceeded", now=ts,
                                        dry_run=dry_run)
@@ -1664,7 +1796,7 @@ async def watchdog_sweep(db, *, now: int | None = None, store=None,
                                      asset_id=asset_id, chat_id=chat_id,
                                      reason="worker_lost",
                                      attempt=int(job.get("attempt") or 0),
-                                     stage=stage)
+                                     job_stage=stage)
                 action = await recover_job(db, store, job, reason="worker_lost",
                                            now=ts, dry_run=dry_run)
                 summary["actions"].append(action)
@@ -1683,7 +1815,7 @@ async def watchdog_sweep(db, *, now: int | None = None, store=None,
 
 def _emit_watchdog_event(stage: str, *, job_id: str, asset_id: str,
                          chat_id: int, reason: str, attempt: int = 0,
-                         level: str | None = None) -> None:
+                         level: str | None = None, job_stage: str = "") -> None:
     """Событие ЗНАЧИМОГО перехода (без спама на каждый проход watchdog)."""
     try:
         from services import mca_events
@@ -1700,7 +1832,8 @@ def _emit_watchdog_event(stage: str, *, job_id: str, asset_id: str,
             job_id=job_id or None,
             attempt=attempt,
             entity_ids={"asset_id": asset_id or None},
-            error_json={"cause": reason or None})
+            error_json={"cause": reason or None,
+                        "job_stage": job_stage or None})
     except Exception:      # pragma: no cover - телеметрия не рвёт watchdog
         logger.debug("[watchdog] event emit failed", exc_info=True)
 
@@ -1823,13 +1956,14 @@ def _emit_defer_event(readiness: MediaReadiness, stage: str, *, consumer: str
 
 
 async def claim_resume_for_turn(db, *, chat_id: int, message_id: int,
-                                consumer: str = "direct") -> dict | None:
-    """Возобновление «просьба → изображение» в рамках ТЕКУЩЕГО хода.
+                                consumer: str = "direct",
+                                consume: bool = False) -> dict | None:
+    """Отложенный запрос «просьба → изображение» для ТЕКУЩЕГО хода.
 
-    Если текущее сообщение — то самое поздно пришедшее медиа, к которому
-    привязан отложенный запрос, возвращает исходный вопрос (чтобы ответ был
-    на него, а не на пустую подпись). Потребление — ровно один раз (CAS по
-    статусу job)."""
+    Возвращает исходный вопрос, если текущее сообщение — поздно пришедшее
+    медиа связанного намерения. По умолчанию НЕ потребляет намерение: ход
+    обязан сначала доставить ответ, и только потом закрыть намерение
+    (`complete_resume_intent`) — иначе сбой хода «съедал» бы запрос."""
     if db is None or not message_id:
         return None
     intent = await take_pending_intent(db, chat_id=int(chat_id), consume=False)
@@ -1837,26 +1971,125 @@ async def claim_resume_for_turn(db, *, chat_id: int, message_id: int,
         return None
     if int(intent.get("tg_message_id") or 0) != int(message_id):
         return None
-    consumed = await take_pending_intent(db, chat_id=int(chat_id),
-                                         consume=True)
-    if consumed is None:
-        return None
-    consumed["resumed"] = True
-    consumed["resume_stage"] = "consumer_unblocked"
-    return consumed
+    if consume:
+        consumed = await take_pending_intent(db, chat_id=int(chat_id),
+                                             consume=True)
+        if consumed is None:
+            return None
+        intent = consumed
+    intent = dict(intent)
+    intent["resumed"] = True
+    intent["resume_stage"] = "consumer_unblocked"
+    return intent
+
+
+async def complete_resume_intent(db, job_id: str) -> bool:
+    """Закрыть возобновлённое намерение ПОСЛЕ успешной доставки ответа."""
+    return await _consume_intent(db, str(job_id or ""))
+
+
+async def expire_stale_intents(db, *, now: int | None = None,
+                               limit: int = 20) -> int:
+    """TTL-уборка ожидающих намерений (в рабочем sweep, а не только в тестах).
+
+    Истёкшие намерения закрываются честной причиной (`vision_skipped_expired`)
+    — без подвисших операций и без сообщений пользователю."""
+    if db is None:
+        return 0
+    ts = int(now if now is not None else time.time())
+    expired = 0
+    try:
+        cur = await db.db.execute(
+            "SELECT * FROM task_jobs WHERE kind=? AND status IN "
+            "('queued','running') ORDER BY created_at LIMIT ?",
+            (PENDING_INTENT_KIND, max(1, int(limit) * 3)))
+        rows = [dict(r) for r in await cur.fetchall() or []]
+    except Exception:
+        return 0
+    for job in rows[:max(1, int(limit))]:
+        payload = _job_payload(job)
+        expires = int(payload.get("expires_at") or 0)
+        if not expires or expires > ts:
+            continue
+        await _expire_intent(db, job, "vision_skipped_expired")
+        expired += 1
+    return expired
+
+
+def readiness_from_states(chat_id: int, states, *, intent: dict | None = None
+                          ) -> MediaReadiness:
+    """MediaReadiness из фактических состояний активов (для resume-хода)."""
+    states = tuple(s for s in (states or ()) if isinstance(s, MediaAssetState))
+    intent = dict(intent or {})
+    first = states[0] if states else MediaAssetState()
+    pending = any(s.pending for s in states)
+    failures = [s for s in states if s.terminal_failure]
+    status = (ANALYSIS_READY if states and all(s.ready for s in states)
+              else ANALYSIS_PENDING if pending or not states
+              else (failures[0].analysis_status if failures
+                    else ANALYSIS_PENDING))
+    return MediaReadiness(
+        chat_id=int(chat_id or 0),
+        target_message_id=int(intent.get("tg_message_id") or 0) or None,
+        source_message_ids=tuple(s.tg_message_id for s in states),
+        association_kind=str(intent.get("association_kind")
+                             or ASSOC_OWN_MEDIA),
+        association_status=ASSOC_RESOLVED if states else ASSOC_MISSING,
+        asset_id=first.asset_id,
+        media_group_id=str(first.media_group_id or ""),
+        analysis_status=status,
+        analysis_revision=first.analysis_revision,
+        analysis_id=first.analysis_id, model=first.model,
+        config_revision=first.config_revision,
+        ocr_blocks=tuple(b for s in states for b in (s.ocr_blocks or ())),
+        visual_description=" ".join(s.visual_description for s in states
+                                    if s.visual_description),
+        uncertainty=tuple(u for s in states for u in (s.uncertainty or ())),
+        reason_code=("" if status in READY_ANALYSIS
+                     else (failures[0].reason_code if failures
+                           else "vision_queued")),
+        actual_revision=True, cache_hit=all(s.cache_hit for s in states),
+        consumer_received=bool(any(s.ready for s in states)),
+        assets=states, consumer=str(intent.get("consumer") or "direct"))
+
+
+#: Шов потребителя для автоматического возобновления (§5): Direct/service
+#: регистрирует свою реализацию один раз, worker вызывает её из sweep.
+_RESUME_HANDLER = None
+
+
+def set_resume_handler(handler) -> None:
+    """Зарегистрировать обработчик возобновления (`async handler(intent,
+    states, bot) -> bool`). None — снять (тесты/рестарт)."""
+    global _RESUME_HANDLER
+    _RESUME_HANDLER = handler
 
 
 async def resume_deferred_requests(db, *, chat_id: int | None = None,
-                                   resume=None, limit: int = 5) -> dict:
+                                   resume=None, limit: int = 5,
+                                   bot=None) -> dict:
     """Возобновить отложенные запросы, чей анализ стал готовым (§5).
 
-    `resume(intent, readiness)` — отправка/продолжение у КОНКРЕТНОГО
-    потребителя. Терминальный отказ Vision тоже завершает запрос (честное
-    техническое сообщение делает потребитель); `None` — повтор при следующем
-    проходе. Возвращает сводку; дубликаты исключены CAS-потреблением."""
+    `resume(intent, states)` — доставка у КОНКРЕТНОГО потребителя (тесты/
+    явный вызов). Без него используется зарегистрированный потребителем
+    обработчик (`set_resume_handler`) — штатный путь: worker-sweep зовёт эту
+    функцию сам, отвечая на ИСХОДНОЕ сообщение. Терминальный отказ Vision
+    тоже завершает запрос (честное сообщение делает потребитель). Намерение
+    закрывается ТОЛЬКО после успешной доставки (CAS), поэтому повторный
+    проход не отправляет второй ответ."""
     summary = {"resumed": 0, "terminal": 0, "waiting": 0, "failed": 0}
-    if db is None or resume is None:
+    if db is None:
         return summary
+    dispatcher = resume
+    if dispatcher is None:
+        handler = _RESUME_HANDLER
+        if handler is None:
+            return summary
+
+        async def _dispatch(intent, states):
+            return await handler(intent, states, bot)
+
+        dispatcher = _dispatch
     try:
         cur = await db.db.execute(
             "SELECT * FROM task_jobs WHERE kind=? AND status IN "
@@ -1890,17 +2123,25 @@ async def resume_deferred_requests(db, *, chat_id: int | None = None,
                   for asset in assets]
         if all(s.ready for s in states):
             intent = {"job_id": str(job.get("job_id") or ""),
+                      "chat_id": job_chat,
                       "trigger_message_id": int(payload.get(
                           "trigger_message_id") or 0),
                       "tg_message_id": int(linked.get("tg_message_id") or 0),
                       "asset_ids": [s.asset_id for s in states],
                       "consumer": str(payload.get("consumer") or "direct"),
+                      "association_kind": str(
+                          linked.get("association_kind") or ""),
                       "question": str(payload.get("question") or "")}
             try:
-                await resume(intent, states)
+                delivered = await dispatcher(intent, states)
             except Exception:
                 logger.warning("[media_readiness] resume callback failed",
                                exc_info=True)
+                summary["failed"] += 1
+                continue
+            if delivered is False:
+                # Доставка не состоялась — намерение НЕ закрываем (повтор
+                # на следующем проходе), второй ответ не появится.
                 summary["failed"] += 1
                 continue
             summary["resumed"] += 1
@@ -1909,19 +2150,24 @@ async def resume_deferred_requests(db, *, chat_id: int | None = None,
             continue
         if any(s.terminal_failure for s in states):
             intent = {"job_id": str(job.get("job_id") or ""),
+                      "chat_id": job_chat,
                       "trigger_message_id": int(payload.get(
                           "trigger_message_id") or 0),
                       "tg_message_id": int(linked.get("tg_message_id") or 0),
                       "asset_ids": [s.asset_id for s in states],
                       "consumer": str(payload.get("consumer") or "direct"),
+                      "association_kind": str(
+                          linked.get("association_kind") or ""),
                       "question": str(payload.get("question") or ""),
                       "reason_code": next((s.reason_code for s in states
                                            if s.terminal_failure), "vision_failed")}
             try:
-                await resume(intent, states)
+                delivered = await dispatcher(intent, states)
             except Exception:
                 logger.debug("[media_readiness] terminal resume failed",
                              exc_info=True)
+                continue
+            if delivered is False:
                 continue
             summary["terminal"] += 1
             processed += 1

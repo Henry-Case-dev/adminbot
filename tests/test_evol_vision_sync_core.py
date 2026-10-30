@@ -266,6 +266,8 @@ async def test_sc3_request_then_photo_resumes_once(db):
 
     first = await mr.claim_resume_for_turn(db, chat_id=CHAT, message_id=301)
     assert first is not None and first["resumed"] is True
+    # потребление — только после доставки ответа (review F1d)
+    assert await mr.complete_resume_intent(db, first["job_id"]) is True
     second = await mr.claim_resume_for_turn(db, chat_id=CHAT, message_id=301)
     assert second is None          # ровно одно возобновление
 
@@ -821,3 +823,287 @@ async def test_watchdog_diagnostics_expose_stage_and_lease(db):
     assert row["lease_expires_in"] is not None
     assert set(row) >= {"job_id", "asset_id", "consumer", "stage",
                         "stage_seconds", "lease_expires_in"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# REVIEW-FIX (ASAP-VISION-SYNC-01, F1–F5 + неблокирующие)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _photo_message(tg_id: int, serial: int = 1, *, chat_id: int = CHAT,
+                   caption=None, media_group_id=None, user_id: int = USER_ID,
+                   first_name: str = "Сергей"):
+    """Реальное aiogram-сообщение с фото (intake-путь, без сети)."""
+    import datetime as _dt
+    from aiogram.types import Chat, Message, PhotoSize, User
+    return Message(
+        message_id=int(tg_id),
+        date=_dt.datetime(2026, 10, 31, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=chat_id, type="supergroup", title="T"),
+        from_user=User(id=user_id, is_bot=False, first_name=first_name),
+        photo=[PhotoSize(file_id=f"fid_{serial}",
+                         file_unique_id=f"uniq_{serial}",
+                         width=800, height=600, file_size=12345)],
+        caption=caption, media_group_id=media_group_id)
+
+
+def _text_message(tg_id: int, text: str, *, chat_id: int = CHAT,
+                  user_id: int = USER_ID, first_name: str = "Сергей"):
+    import datetime as _dt
+    from aiogram.types import Chat, Message, User
+    return Message(
+        message_id=int(tg_id),
+        date=_dt.datetime(2026, 10, 31, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=chat_id, type="supergroup", title="T"),
+        from_user=User(id=user_id, is_bot=False, first_name=first_name),
+        text=text)
+
+
+@pytest.mark.asyncio
+async def test_f1_request_then_photo_resumes_once_via_worker_sweep(db):
+    """F1 (BLOCKER): «сейчас скину скрин» → фото приходит → привязка создаётся
+    ПРИЁМОМ медиа, worker-sweep доставляет ответ РОВНО один раз."""
+    await _add_message(db, 2000, text="сейчас скину скрин, разбери")
+    mca_vision.bind_runtime(db)
+    intent = await mr.register_pending_intent(
+        db, chat_id=CHAT, trigger_message_id=2000, consumer="direct",
+        question="сейчас скину скрин, разбери", user_id=USER_ID,
+        ttl_seconds=600)
+    assert intent.get("job_id")
+    assert not await mr.take_pending_intent(db, chat_id=CHAT)   # цели ещё нет
+
+    # фото приходит отдельным сообщением — привязка живёт в продукте
+    msg = _photo_message(2001, serial=201)
+    mca_vision.bind_runtime(db)
+    assets = await mca_vision.register_intake_assets(db, msg)
+    assert assets
+    linked = await mr.take_pending_intent(db, chat_id=CHAT, consume=False)
+    assert linked is not None and linked["trigger_message_id"] == 2000
+    assert linked["asset_ids"] == assets
+    # привязка обязана запустить анализ (single-flight), даже если авто-очередь
+    # выключена: потребитель уже попросил разбор
+    store = await _store(db)
+    jobs = [j for j in await store.active()
+            if j.get("kind") == mca_vision.VISION_JOB_KIND]
+    assert any(json.loads(j["payload"]).get("asset_id") == assets[0]
+               for j in jobs)
+
+    # анализ готов (как после обработки джобы) — sweep доставляет один ответ
+    await _ready_analysis(db, assets[0], text="Скрин: перевод 15 000")
+    calls: list = []
+
+    async def _handler(intent_payload, states, bot):
+        calls.append(dict(intent_payload))
+        return True
+
+    mr.set_resume_handler(_handler)
+    try:
+        worker = mca_vision.VisionMediaWorker(db, None)
+        worker._store = TaskJobStore(db)
+        await worker._resume_intents()
+        await worker._resume_intents()      # повторный проход — no-op
+    finally:
+        mr.set_resume_handler(None)
+    assert len(calls) == 1
+    assert calls[0]["trigger_message_id"] == 2000
+    assert calls[0]["chat_id"] == CHAT
+    assert "скину" in calls[0]["question"]
+
+
+@pytest.mark.asyncio
+async def test_f1_pending_intent_expires_by_ttl(db):
+    """F1(c): ожидающее намерение закрывается по TTL в рабочем sweep."""
+    await _add_message(db, 2100, text="сейчас скину")
+    intent = await mr.register_pending_intent(
+        db, chat_id=CHAT, trigger_message_id=2100, consumer="direct",
+        question="сейчас скину", ttl_seconds=60)
+    expired = await mr.expire_stale_intents(db, now=int(time.time()) + 3600)
+    assert expired == 1
+    store = await _store(db)
+    row = await store.get(intent["job_id"])
+    assert row["status"] == "cancelled"
+    assert row["reason_code"] == "vision_skipped_expired"
+    assert await mr.take_pending_intent(db, chat_id=CHAT) is None
+
+
+@pytest.mark.asyncio
+async def test_f1_direct_registers_intent_when_no_target(db):
+    """F1(a): Direct сохраняет durable-намерение, когда запрос медиа-зависимый,
+    а цели ещё нет (иначе сценарий «фото позже» недостижим в продукте)."""
+    from services.direct_chat_service import DirectChatService
+
+    class _LLM:
+        async def generate(self, *a, **k):      # pragma: no cover - не зовётся
+            return ""
+
+    service = DirectChatService(memory=None, db=db, llm=_LLM(), aliases=None)
+    message = _text_message(2200, "бот, разбери скрин, сейчас скину")
+    readiness = await service._prepare_turn_media_evidence(
+        CHAT, message, query="бот, разбери скрин, сейчас скину")
+    assert readiness is not None
+    assert readiness.association_status == mr.ASSOC_MISSING
+    intents = await mr._load_intents(db, CHAT)
+    assert intents, "намерение «сейчас скину» не сохранено"
+    linked = mr._intent_payload(intents[0])
+    assert linked["trigger_message_id"] == 2200
+    assert "разбери скрин" in linked["question"]
+
+
+@pytest.mark.asyncio
+async def test_f2_foreign_photo_is_ambiguous_not_attributed(db):
+    """F2 (BLOCKER): фото от А → «бот, фактчек» от Б без reply — либо проверка,
+    либо честное уточнение; чужое фото НЕ приписывается запросу."""
+    await _add_message(db, 2300, media_type="photo", author="Аня")
+    asset_id = await _add_image(db, 2300, serial=230)
+    await _ready_analysis(db, asset_id, text="Курс вырос на 5%")
+    await _add_message(db, 2301, text="бот, фактчек", author="Боря")
+
+    publication = await fcs.resolve_claim_publication(
+        db, CHAT, 2301, base_text="бот, фактчек",
+        trigger_tg_message_id=2301, requester_user_id=777,
+        requester_name="Боря")
+    assert publication.media_ambiguous is True
+    assert publication.media_linked_adjacent is False
+    assert "Не понял, какое изображение проверять" in publication.notice()
+
+    # тот же автор — связь разрешается и OCR попадает в материал
+    same_author = await fcs.resolve_claim_publication(
+        db, CHAT, 2301, base_text="бот, фактчек",
+        trigger_tg_message_id=2301, requester_user_id=USER_ID,
+        requester_name="Сергей")
+    assert same_author.media_ambiguous is False
+    assert same_author.media_linked_adjacent is True
+    assert "Курс вырос на 5%" in same_author.text
+
+
+@pytest.mark.asyncio
+async def test_f2_handler_reaches_adjacent_photo(db, monkeypatch):
+    """F2: обработчик фактчека без reply/forward доходит до соседнего фото
+    того же автора (раньше запрос вообще не являлся триггером)."""
+    from handlers import factcheck as fch
+
+    await _add_message(db, 2400, media_type="photo", author="Сергей")
+    asset_id = await _add_image(db, 2400, serial=240)
+    await _ready_analysis(db, asset_id, text="Скрин счёта 1 234")
+    await _add_message(db, 2401, text="бот, фактчек")
+
+    monkeypatch.setattr(fch, "_db", db, raising=False)
+    target, ambiguous = await fch._adjacent_target_or_ambiguous(
+        _text_message(2401, "фактчек"))
+    assert ambiguous is False
+    assert target is not None and target.message_id == 2400
+
+    # чужое фото → уточнение, а не приписывание
+    await _add_message(db, 2402, media_type="photo", author="Аня")
+    second = await fch._adjacent_target_or_ambiguous(
+        _text_message(2403, "фактчек", user_id=999, first_name="Боря"))
+    assert second == (None, True)
+
+
+@pytest.mark.asyncio
+async def test_f3_single_wait_window_for_album(db):
+    """F3: окно ожидания ОДНО на запрос — альбом из 3 незавершённых картинок
+    с wait=1с не превращается в 3×1с."""
+    await _add_message(db, 2500, media_type="photo", media_group="alb-1")
+    for index, tg_id in enumerate((2500, 2501, 2502), start=1):
+        if tg_id != 2500:
+            await _add_message(db, tg_id, media_type="photo",
+                               media_group="alb-1")
+        asset_id = await _add_image(db, tg_id, serial=250 + index,
+                                    media_group="alb-1")
+        await _record(db, asset_id, status="running")
+
+    started = time.monotonic()
+    readiness = await mr.prepare_media_evidence(
+        db, chat_id=CHAT, message_id=2500, media_group_id="alb-1",
+        caption="альбом", query="альбом", consumer="direct",
+        wait_seconds=1.0, enqueue=False, own_media=True)
+    elapsed = time.monotonic() - started
+    assert readiness is not None
+    assert len(readiness.assets) == 3
+    assert readiness.pending is True
+    assert elapsed < 2.2, elapsed
+
+
+@pytest.mark.asyncio
+async def test_f4_structured_output_auto_trial_and_proof(db):
+    """F4: режим `auto` реально достижим — одна пробная structured-отправка,
+    затем доказанный маршрут шлёт response_format и дальше."""
+    image = mca_vision.validate_image_bytes(_image_bytes())
+    transport = Transport(default=(200, _body(_analysis_json("текст"))))
+    await mca_vision.analyze_image_bytes(image, chat_id=CHAT,
+                                        transport=transport)
+    first = transport.calls[0]["payload"]
+    assert first["response_format"]["type"] == "json_schema"
+    await mca_vision.analyze_image_bytes(image, chat_id=CHAT,
+                                        transport=transport)
+    assert "response_format" in transport.calls[1]["payload"]
+
+
+@pytest.mark.asyncio
+async def test_f4_structured_rejection_memoized(db):
+    """F4: отклонение маршрутом запоминается — параметр больше не шлётся,
+    запрос повторяется один раз без него."""
+    image = mca_vision.validate_image_bytes(_image_bytes())
+    transport = Transport(script=[
+        (400, {"error": {"message": "unsupported parameter: response_format"}}),
+        (200, _body(_analysis_json("текст после повтора"))),
+    ])
+    analysis = await mca_vision.analyze_image_bytes(image, chat_id=CHAT,
+                                                    transport=transport)
+    assert analysis.status == "ready"
+    assert "response_format" in transport.calls[0]["payload"]
+    assert "response_format" not in transport.calls[1]["payload"]
+
+    second = Transport(default=(200, _body(_analysis_json("другой текст"))))
+    await mca_vision.analyze_image_bytes(image, chat_id=CHAT,
+                                        transport=second)
+    assert "response_format" not in second.calls[0]["payload"]
+
+
+@pytest.mark.asyncio
+async def test_f5_admin_check_reports_saved_honestly(db):
+    """F5: стадия `saved` не подтверждается поддельной записью — честный
+    `n/a` с пояснением; HTTP 200 сам по себе по-прежнему не «OK»."""
+    transport = Transport(default=(200, _body(_analysis_json("Тест OCR"))))
+    report = await mr.run_admin_check(db, chat_id=CHAT, transport=transport)
+    assert report["provider"] == "ok"
+    assert report["schema"] == "ok"
+    assert report["content"] == "ok"
+    assert report["saved"] == "n/a"
+    assert report["saved_note"]
+    assert report["consumer"] == "ok"
+    assert report["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_nb_queued_without_executor_terminates(db):
+    """Неблокирующее: задача, которую так и не взяли в работу, тоже доходит до
+    терминала (раньше attempt рос только в mark_running)."""
+    await _add_message(db, 2600, media_type="photo")
+    asset_id = await _add_image(db, 2600, serial=260)
+    await _record(db, asset_id, status="running")
+    store = await _store(db)
+    job_id = await _queued_job(db, CHAT, asset_id,
+                               attempt=mr.max_recoveries(), status="queued",
+                               updated_age=10_000)
+    summary = await mr.watchdog_sweep(db, store=store)
+    assert summary["terminal"] >= 1
+    row = await store.get(job_id)
+    assert row["status"] == "failed"
+    assert row["reason_code"] == "worker_lost"
+
+
+@pytest.mark.asyncio
+async def test_nb_no_event_noise_for_missing_media_target(db, monkeypatch):
+    """Неблокирующее: обычный «медиа в запросе, цели нет» не пишет событие на
+    каждый ход (шум в телеметрии)."""
+    from services import mca_events
+    events: list = []
+    monkeypatch.setattr(mca_events, "emit_mca_event",
+                        lambda name, **kw: events.append((name, kw)))
+    readiness = await mr.prepare_media_evidence(
+        db, chat_id=CHAT, message_id=2700, query="что на скрине?",
+        consumer="direct", wait_seconds=0.0, allow_adjacent=True)
+    assert readiness is not None
+    assert readiness.association_status == mr.ASSOC_MISSING
+    assert not [e for e in events if e[0] == "vision_readiness"]

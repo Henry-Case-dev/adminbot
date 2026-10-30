@@ -14,6 +14,7 @@ import dataclasses
 import logging
 import random
 import re
+from types import SimpleNamespace
 
 from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -539,10 +540,72 @@ def _parse_trigger(message: types.Message) -> tuple[types.Message | None, str | 
     return target, hint
 
 
+def _is_factcheck_command(message: types.Message) -> bool:
+    """Текст сообщения — команда фактчека (даже без reply/forward-цели)."""
+    text = (message.text or message.caption or "").lstrip()
+    return bool(_FACTCHECK_TRIGGER_RE.match(text))
+
+
+def _adjacent_target(message: types.Message, tg_id: int,
+                     *, caption: str = "", media_group_id=None):
+    """Минимальный адаптер найденного слабой связью фото.
+
+    Отдельный ``types.Message`` не синтезируется (нечем заполнить
+    file_id/chat-поля честно): публикация и OCR читаются из durable-реестра
+    по `tg_id`, а адаптер даёт только идентификаторы/подпись. Ни один атрибут
+    не выдумывает содержимое изображения."""
+    return SimpleNamespace(
+        message_id=int(tg_id), chat=message.chat, from_user=None,
+        text="", caption=str(caption or ""),
+        media_group_id=media_group_id, reply_to_message=None, quote=None,
+        forward_origin=None, photo=None, document=None, sticker=None)
+
+
+async def _adjacent_target_or_ambiguous(message: types.Message):
+    """Фактчек без reply/forward: ищем фото того же автора рядом.
+
+    Возвращает `(target, None)` при однозначной связи, `(None, True)` при
+    неоднозначности (нужно уточнение) и `(None, False)` — цели нет вовсе
+    (прежнее поведение: запрос уходит другим обработчикам)."""
+    if _db is None or not _is_factcheck_command(message):
+        return None, False
+    try:
+        from services import media_readiness
+        requester = getattr(message, "from_user", None)
+        resolved = await media_readiness.resolve_target_media(
+            _db, chat_id=int(message.chat.id),
+            message_id=int(getattr(message, "message_id", 0) or 0),
+            allow_adjacent=True,
+            author_user_id=getattr(requester, "id", None),
+            author_name=str(getattr(requester, "first_name", "") or ""))
+    except Exception:
+        logger.warning("[factcheck] adjacent target resolve failed | chat=%s",
+                       message.chat.id, exc_info=True)
+        return None, False
+    status = resolved.get("association_status")
+    if status == media_readiness.ASSOC_AMBIGUOUS:
+        return None, True
+    if status != media_readiness.ASSOC_RESOLVED:
+        return None, False
+    ids = [int(v) for v in (resolved.get("source_message_ids") or ()) if v]
+    if not ids:
+        return None, False
+    caption = ""
+    media_group_id = str(resolved.get("media_group_id") or "") or None
+    try:
+        row = await _db.get_smart_message_by_tg_id(int(message.chat.id),
+                                                   int(ids[0]))
+        caption = str((row["caption"] if row is not None else "") or "")
+    except Exception:
+        caption = ""
+    logger.info("[factcheck] adjacent media target resolved | chat=%s | "
+                "tg=%s | kind=%s", message.chat.id, ids[0],
+                resolved.get("association_kind"))
+    return _adjacent_target(message, ids[0], caption=caption,
+                            media_group_id=media_group_id), False
+
+
 def _quoted_text(target: types.Message) -> str | None:
-    """Текст цитаты в ответе (Telegram ``Message.quote``): тезис может жить в
-    цитируемом материале, а не в первой строке цели (ASAP-FC-ADMISSION-01
-    §2.2). Отсутствие/ошибка → None (прежнее поведение)."""
     try:
         quote = getattr(target, "quote", None)
         text = getattr(quote, "text", None)
@@ -608,10 +671,17 @@ async def _resolve_publication(message: types.Message, target: types.Message):
         resolve_claim_publication,
     )
     base_text = _extract_target_text(message, target)
+    requester = getattr(message, "from_user", None)
     try:
         return await resolve_claim_publication(
             _db, message.chat.id, target.message_id,
             base_text=base_text, target=target,
+            # ASAP-VISION-SYNC-01 F2: «фото, затем отдельное «фактчек»» —
+            # слабая связь ищется общим резолвером; авторство и ветка
+            # передаются, чужое фото без структурной связи не приписывается.
+            trigger_tg_message_id=getattr(message, "message_id", None),
+            requester_user_id=getattr(requester, "id", None),
+            requester_name=str(getattr(requester, "first_name", "") or ""),
             # Репост-вариант (target is message): caption триггера — команда
             # «фактчек», а не текст публикации (D121 не меняется).
             use_stored_target_text=target is not message)
@@ -655,6 +725,10 @@ def _empty_content_phrase(publication, probe=None) -> str:
     затем — окружение проверено и тезиса нет → честный отказ с указанием
     окна (уточнение №2). «Пустота» без проверки окружения не выдаётся."""
     media = publication.media
+    if getattr(publication, "media_ambiguous", False):
+        # F2: несколько равнозначных кандидатов / чужое фото без структурной
+        # связи — короткое уточнение, а не отказ «нечего проверять».
+        return random.choice(FACTCHECK_CLARIFY_PHRASES)
     if _db is None:
         # DI-off (тесты/без БД): окружения нет — прежнее поведение.
         if publication.album_incomplete:
@@ -752,7 +826,17 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     user_id = message.from_user.id if message.from_user else 0
     target, user_hint = _parse_trigger(message)
     if target is None:
-        return UNHANDLED                       # не триггер → пропагация живёт
+        # ASAP-VISION-SYNC-01 F2: «фото прислали, потом отдельно „фактчек“» —
+        # слабая связь по автору/ветке. Неоднозначность → короткое уточнение
+        # (не «нечего проверять»); цели нет вовсе → прежний UNHANDLED.
+        target, ambiguous = await _adjacent_target_or_ambiguous(message)
+        if target is None:
+            if ambiguous:
+                await _reply(bot, message.chat.id,
+                             random.choice(FACTCHECK_CLARIFY_PHRASES),
+                             message.message_id)
+                return
+            return UNHANDLED
     logger.info("[factcheck] triggered | chat=%s user=%s", message.chat.id, user_id)
     # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
     cooldown_refresh(_cooldown, hot.get("limits.factcheck_cooldown_seconds",

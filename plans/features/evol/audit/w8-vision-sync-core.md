@@ -402,3 +402,144 @@ structured output и отключение reasoning отправляются т�
 диффа (сетевой поисковый тест, пин-аудиты database/registry и сборка
 video-лейн). Сценарии 7, 8, 9, 18, 19 — следующая волна; для v2-маршрута
 фактчека и админских настроек приложены точные патч-ноты.
+
+---
+
+# §review-fix — устранение блокеров Reviewer (F1–F5 + неблокирующие)
+
+Кандидат: рабочее дерево на базе `b6403881` (core + wave2 в коммитах, правки
+этого раунда НЕ закоммичены — запрет владельца). Изменены только: перечисленные
+в задании файлы scope.
+
+## F1 (BLOCKER) — «просьба → фото позже» и resume после рестарта в продукте
+
+Было: `register_pending_intent`/`resume_deferred_requests` вызывались только из
+тестов; Direct сохранял pending лишь когда изображение УЖЕ есть
+(`readiness.pending`), поэтому «сейчас скину скрин» (цели нет) не создавал
+намерение; привязывал намерение только `mca_vision`; TTL-уборки не было;
+возобновления по таймауту не было; `_claim_resume_intent` сжигал CAS до хода.
+
+Стало (продуктовый путь, без второго цикла):
+
+1. `DirectChatService._prepare_turn_media_evidence`: если запрос медиа-зависимый,
+   а цели нет (`association_status == missing` / нет активов) — durable
+   `register_pending_intent` (одна запись на сообщение, TTL из конфигурации).
+2. Приём медиа (`mca_vision.register_intake_assets`) связывает намерение
+   (`link_pending_intent_for_message`) независимо от авто-очереди и СРАЗУ ставит
+   анализ актива (single-flight), т.к. потребитель уже попросил разбор.
+3. Единственная точка возобновления — `VisionMediaWorker._maintenance_sweep`
+   (`_resume_intents` → `resume_deferred_requests(bot=...)`), плюс новая стадия
+   `_expire_intents` (`expire_stale_intents`) для TTL-уборки. Обработчик
+   регистрирует потребитель: `media_readiness.set_resume_handler(...)` вызывается
+   в `DirectChatService.__init__`; реализация —
+   `DirectChatService.resume_deferred_evidence` (ответ РЕПЛАЕМ на исходное
+   сообщение через тот же канон-шов `persona_short_reply`/`speech_owner_block`,
+   что у Вербализатора Stage-2).
+4. Намерение закрывается ТОЛЬКО после успешной доставки: resume-колбэк обязан
+   вернуть `True`; `False`/исключение → намерение остаётся (следующий проход),
+   дубля ответа нет. Ход Direct больше не потребляет намерение заранее —
+   `claim_resume_for_turn(consume=False)` + `complete_resume_intent` после
+   `_send_direct_answer` (F1d). Исходный вопрос не теряется при подписи у
+   поздно присланного фото: вопрос идёт первым в `query` и отдельным блоком
+   `<deferred_request>` в payload.
+
+Доказательства: `test_f1_request_then_photo_resumes_once_via_worker_sweep`
+(приём фото → привязка + постановка анализа → sweep доставляет РОВНО один раз,
+повторный проход no-op), `test_f1_pending_intent_expires_by_ttl`,
+`test_f1_direct_registers_intent_when_no_target`, обновлённый
+`test_sc3_request_then_photo_resumes_once` (peek → complete → второй claim None).
+
+## F2 (BLOCKER) — «фото, затем отдельное „фактчек“»; слабые связи учитывают автора/ветку
+
+Было: `resolve_target_media` не принимал автора/ветку; `_adjacent_candidates`
+фильтровал только chat+время; `resolve_claim_publication` собирал только цель и
+альбом; `_parse_trigger` без reply/forward не давал цели; Direct включал
+соседство только при явной ссылке.
+
+Стало:
+
+* `_adjacent_candidates` тянет автора/ветку из `smart_messages`
+  (`LEFT JOIN`), `resolve_target_media(author_user_id, author_name,
+  branch_message_id)`; `_same_author` (id приоритетнее имени; неизвестная
+  личность запроса → прежнее поведение) и `_in_branch`.
+* Чужое фото без структурной связи (reply/цитата/альбом) НЕ приписывается:
+  возвращается `ambiguous` с `reason_code=ambiguous_target`.
+* `resolve_claim_publication(trigger_tg_message_id, requester_user_id,
+  requester_name, allow_adjacent=True)`: если у цели нет своих изображений —
+  тот же общий резолвер ищет фото рядом; однозначно → ids/подпись фото входят в
+  публикацию (`media_linked_adjacent`), неоднозначно → `media_ambiguous`
+  (честное уточнение, не «нечего проверять»).
+* `handlers/factcheck.py`: `_adjacent_target_or_ambiguous` — команда «фактчек»
+  без reply/forward доходит до соседнего фото (адаптер с id/подписью, без
+  синтетического `Message` и без выдуманного содержимого); чужое фото/≥2
+  кандидата → короткое уточнение (`FACTCHECK_CLARIFY_PHRASES`) в
+  `_empty_content_phrase` по `media_ambiguous`.
+* Direct: `allow_adjacent` включается для медиа-зависимого текстового запроса
+  без своего медиа (с автором и веткой).
+
+Доказательства: `test_f2_foreign_photo_is_ambiguous_not_attributed` (фото А →
+«бот, фактчек» от Б → `media_ambiguous`, нотис-уточнение; тот же автор → связь
+разрешена и OCR в тезисе), `test_f2_handler_reaches_adjacent_photo`
+(обработчик находит фото того же автора; чужое → `(None, True)`).
+
+## F3 — одно окно ожидания на запрос
+
+`prepare_media_evidence` считает ОДИН дедлайн (`budget`) и передаёт каждому
+активу остаток (`deadline - now`); `prepare_images_ready` пересчитывает остаток
+на каждый актив альбома. Доказательство:
+`test_f3_single_wait_window_for_album` — 3 незавершённых актива с `wait=1.0`
+завершаются за < 2.2 с (раньше ≈3 с и линейно росло).
+
+## F4 — `auto`-режим structured output реально достижим
+
+Одна пробная отправка `response_format` на маршрут (`_STRUCTURED_TRIED`):
+успех → `mark_structured_output_proven` (дальше шлём всегда), отклонение
+провайдером → `mark_route_param_rejected` + однократный повтор без параметра и
+запоминание. `reset_route_param_memo()` очищает и пробу. Доказательства:
+`test_f4_structured_output_auto_trial_and_proof`,
+`test_f4_structured_rejection_memoized`.
+
+## F5 — стадия `saved` в админ-проверке честная
+
+`run_admin_check` больше не имитирует сохранение: возвращает `saved="n/a"` +
+`saved_note` («проверка не пишет ревизию актива: сохранение подтверждается
+round-trip'ом через durable-джобу в UI-лейне»); `ok` требует
+provider+schema+content+consumer. Доказательство:
+`test_f5_admin_check_reports_saved_honestly`. Патч-нота для UI-лейна обновлена
+ниже.
+
+## Неблокирующие
+
+* `queued`-задача без исполнителя теперь доходит до терминала: `attempt`
+  инкрементируется и при requeue из watchdog (`_bump_fence_and_requeue`), поэтому
+  `max_recoveries` ограничивает и «никто не взял в работу». Доказательство:
+  `test_nb_queued_without_executor_terminates`.
+* Телеметрический шум: `target_resolved` для «медиа в запросе, цели нет»
+  больше не пишет `vision_readiness` на каждый ход. Доказательство:
+  `test_nb_no_event_noise_for_missing_media_target`.
+
+## Обновлённые патч-ноты (файлы вне scope этого раунда)
+
+1. `services/factcheck_orchestrator.py` (v2-маршрут): после
+   `resolve_claim_publication` добавить
+   `if publication.media_ambiguous or publication.admission_blocked_by_pending_media():`
+   → существующий `OUTCOME_PENDING` с уточняющей/честной фразой (в wave2 уже
+   есть pending-ветка; теперь она должна покрывать и `media_ambiguous`).
+2. **UI-лейн, кнопка «Проверить»**: `media_readiness.run_admin_check` —
+   сервисная основа; стадия `saved` намеренно `n/a`. Полная проверка
+   «сохранено/читается» выполняется round-trip'ом через настоящую durable-джобу
+   и настоящий актив (создать актив → дождаться анализа → прочитать
+   `resolve_ready_for_asset`), а не записью поддельной ревизии из пробы.
+3. `web/**` — вывод стадий `provider/schema/content/consumer` + `saved_note`
+   без «зелёного OK» по одному HTTP 200.
+
+## Прогоны этого раунда
+
+| Набор | Результат |
+|---|---|
+| `tests/test_evol_vision_sync_core.py` (35 тестов: §8 1–6,10–17,20; watchdog 21–25; F1–F5 + неблокирующие) | **35 passed** |
+| + `tests/test_evol_vision_sync_wave2.py` | 46 passed |
+| + factcheck media/p0/fc-r1 | 154 passed |
+| direct: `test_direct_chat`, `..._handlers`, `..._two_call`, `..._context_scenarios`, `..._decision_matrix`, `test_asap7_direct_l1` | 337 passed |
+| vision/media ядро: `test_p0_vision_fix_core`, `test_evol011`, `test_evol019`, `test_mca19_block_b/c` (+ wave2 + core) | 260 passed |
+| Широкий `-k "vision or media or chat_context or factcheck or direct"` | падения ТОЛЬКО pre-existing (не мой дифф): `test_factcheck_post_release_w1` (2, сетевой DDG), `test_native_reply_media_context_round1024` (3, порядок/глобальное состояние — изолированно green), `test_asap7_direct_settings` migration v35 ожидает схему 35 (сейчас 39), `test_direct_fallback_recompose_asap32` (5; тестовый дубль `fb_retries()` без нового kwarg `sent`) |

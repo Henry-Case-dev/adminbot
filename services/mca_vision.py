@@ -2068,6 +2068,17 @@ async def register_intake_assets(db, message, *, message_row_id=None) -> list[st
         except Exception:
             logger.warning("[vision] intake asset upsert failed | chat=%s "
                            "tg=%s", chat_id, tg_message_id, exc_info=True)
+    if asset_ids:
+        # ASAP-VISION-SYNC-01 §3.5: связать пришедшее медиа с ожидающим
+        # намерением «сейчас скину» ЗДЕСЬ (реестр — канонический факт приёма),
+        # независимо от того, включена ли авто-очередь разбора.
+        try:
+            from services import media_readiness
+            await media_readiness.link_pending_intent_for_message(
+                db, chat_id=chat_id, tg_message_id=int(tg_message_id),
+                media_group_id=media_group_id, asset_ids=list(asset_ids))
+        except Exception:
+            logger.debug("[vision] pending-intent link failed", exc_info=True)
     return asset_ids
 
 
@@ -2241,6 +2252,7 @@ def mark_route_param_rejected(route: VisionRoute, param: str) -> None:
 def reset_route_param_memo() -> None:
     _REJECTED_ROUTE_PARAMS.clear()
     _STRUCTURED_PROVEN.clear()
+    _STRUCTURED_TRIED.clear()      # определён ниже; резолв при вызове
 
 
 #: Маршруты, реально принявшие `response_format` (structured output доказан
@@ -2254,6 +2266,22 @@ def _structured_output_proven(route: VisionRoute) -> bool:
 
 def mark_structured_output_proven(route: VisionRoute) -> None:
     _STRUCTURED_PROVEN.add(_route_config_key(route))
+
+
+#: Маршруты, у которых ОДНА пробная отправка `response_format` уже была
+#: (F4 review): в режиме `auto` structured output иначе никогда не включался
+#: бы (доказательство требовалось до первой отправки). Проба ровно одна на
+#: маршрут: отклонение запоминается (`mark_route_param_rejected`) и больше не
+#: повторяется, успех — доказательство (`mark_structured_output_proven`).
+_STRUCTURED_TRIED: set = set()
+
+
+def _structured_output_trial_available(route: VisionRoute) -> bool:
+    return _route_config_key(route) not in _STRUCTURED_TRIED
+
+
+def mark_structured_output_tried(route: VisionRoute) -> None:
+    _STRUCTURED_TRIED.add(_route_config_key(route))
 
 
 _ANALYSIS_JSON_SCHEMA = {
@@ -2533,6 +2561,11 @@ async def _vision_http_attempt(image: DownloadedImage, *, chat_id: int,
                 rejection_class = ""
             if rejection_class:
                 detail += f"/{rejection_class}"
+            rejected_param = unsupported_param_from_error(text)
+            if rejected_param:
+                # Класс «маршрут не принимает параметр» виден в detail —
+                # по нему принимается решение об однократном повторе без него.
+                detail += f"/param:{rejected_param}"
         raise VisionError("vision_failed", detail)
     usage = body.get("usage") or {}
     choices = body.get("choices") or []
@@ -2586,10 +2619,21 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
     transport = transport or _default_transport
 
     structured_mode = resolve_structured_output(route)
+    structured_trial = False
     structured = structured_mode == "on" or (
         structured_mode == "auto"
         and not route_param_rejected(route, "response_format")
         and _structured_output_proven(route))
+    if structured_mode == "auto" and not structured \
+            and not route_param_rejected(route, "response_format") \
+            and _structured_output_trial_available(route):
+        # F4 (review): в режиме `auto` шлём ОДНУ пробную structured-отправку
+        # на маршрут — иначе режим недостижим (доказательство требовалось до
+        # первой отправки). Отклонение провайдером обучает маршрут (повтор без
+        # параметра), успех — доказательство для последующих вызовов.
+        structured = True
+        structured_trial = True
+        mark_structured_output_tried(route)
     reasoning_mode = resolve_reasoning_mode(route)
     reasoning_off = (reasoning_mode == "off"
                      and not route_param_rejected(route, "reasoning_effort"))
@@ -2598,6 +2642,7 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
                          "route_source": route.source,
                          "config_revision": route.config_revision,
                          "structured_output": structured,
+                         "structured_trial": structured_trial,
                          "reasoning_mode": reasoning_mode,
                          "reasoning_off_sent": reasoning_off,
                          "output_limit": output_limit, "attempts": 0,
@@ -4348,7 +4393,9 @@ class VisionMediaWorker:
             return
         started = time.monotonic()
         for stage, factory in (("recover_stale", self._recover_stale),
-                               ("expire_deferred", self._expire_deferred)):
+                               ("expire_deferred", self._expire_deferred),
+                               ("resume_intents", self._resume_intents),
+                               ("expire_intents", self._expire_intents)):
             try:
                 await asyncio.wait_for(
                     factory(), timeout=VISION_SWEEP_STAGE_TIMEOUT_SECONDS)
@@ -4361,6 +4408,35 @@ class VisionMediaWorker:
         dur = time.monotonic() - started
         if dur >= float(VISION_TICK_SECONDS):
             logger.debug("[vision] maintenance sweep slow | dur=%.2fs", dur)
+
+    async def _resume_intents(self) -> None:
+        """Возобновление отложенных запросов «просьба → изображение» (§5).
+
+        Единственная продуктовая точка вызова `resume_deferred_requests`:
+        обработчик зарегистрирован потребителем (Direct); ответ уходит на
+        ИСХОДНОЕ сообщение, намерение закрывается только после доставки,
+        поэтому повторный проход не дублирует ответ."""
+        try:
+            from services import media_readiness
+            summary = await media_readiness.resume_deferred_requests(
+                self._db, bot=self._bot, limit=5)
+            if summary.get("resumed") or summary.get("terminal"):
+                logger.info("[vision] deferred requests resumed | resolved=%s "
+                            "terminal=%s waiting=%s", summary.get("resumed"),
+                            summary.get("terminal"), summary.get("waiting"))
+        except Exception:
+            logger.debug("[vision] resume intents failed", exc_info=True)
+
+    async def _expire_intents(self) -> None:
+        """TTL-уборка ожидающих намерений (без подвисших операций)."""
+        try:
+            from services import media_readiness
+            expired = await media_readiness.expire_stale_intents(self._db)
+            if expired:
+                logger.info("[vision] pending intents expired | count=%s",
+                            expired)
+        except Exception:
+            logger.debug("[vision] expire intents failed", exc_info=True)
 
     async def _recover_stale(self) -> None:
         """Рестарт-восстановление + WATCHDOG жизненного цикла.
@@ -5103,6 +5179,12 @@ VISION_INTENT_PATTERNS = (
     "опиши картинку", "опиши изображение", "прочитай скрин",
     "прочитай скриншот", "что тут написано", "что здесь написано",
     "что написано на", "распознай", "кто на картинке", "кто на фото",
+    # ASAP-VISION-SYNC-01 §3/F2 (review): обычные просьбы разобрать
+    # изображение без слова «распознай». Список — ОДИН канонический для всех
+    # потребителей (Direct/factcheck/поиск), без частных копий в обработчиках.
+    "что на скрине", "что на скриншоте", "разбери скрин", "разбери скриншот",
+    "разбери картинку", "разбери фото", "посмотри скрин", "посмотри картинку",
+    "глянь на скрин", "проверь картинку", "проверь скрин", "прочти скрин",
 )
 
 

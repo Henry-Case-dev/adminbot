@@ -2407,6 +2407,16 @@ class DirectChatService:
         # тесты и вызовы без инжекта не меняются; spec §3.9).
         self.chat_lore_cache = chat_lore_cache
         self._lore_cache_errors = 0       # дедуп WARNING (раз в 50 попыток)
+        # ASAP-VISION-SYNC-01 §5/§3.5: Direct регистрирует ЕДИНСТВЕННЫЙ
+        # обработчик возобновления отложенных медиа-запросов; его вызывает
+        # worker-sweep (`VisionMediaWorker._maintenance_sweep`) — второго
+        # цикла/таймера нет. Ошибка регистрации ход не ломает.
+        try:
+            from services import media_readiness as _mr
+            _mr.set_resume_handler(self.resume_deferred_evidence)
+        except Exception:
+            logger.debug("direct: resume handler registration failed",
+                         exc_info=True)
 
     # ── bot_replies (персистентная таблица; TTL 3600/cap 200 — 63.1) ──
 
@@ -2786,11 +2796,17 @@ class DirectChatService:
         # ASAP-VISION-SYNC-01 §3.5: «сначала просьба — потом изображение» —
         # если ЭТО сообщение и есть поздно пришедшее медиа, к которому привязан
         # отложенный запрос, ход отвечает на ИСХОДНЫЙ вопрос (после лимитов:
-        # отказ по лимиту не расходует возобновление). Потребление — ровно
-        # один раз (durable CAS), повторной отправки не будет.
+        # отказ по лимиту не расходует возобновление). Намерение НЕ
+        # потребляется здесь — только после доставки ответа (review F1d).
         _resume_intent = await self._claim_resume_intent(chat_id, message)
-        if _resume_intent is not None and not query:
-            query = str(_resume_intent.get("question") or "")
+        _deferred_question = ""
+        if _resume_intent is not None:
+            _deferred_question = str(_resume_intent.get("question") or "")
+            if _deferred_question and _deferred_question not in query:
+                # Подпись поздно присланного фото не должна подменять
+                # исходный вопрос: вопрос идёт первым, подпись — контекстом.
+                query = (f"{_deferred_question} {query}".strip()
+                         if query else _deferred_question)
         logger.info("[direct] triggered | chat=%s user=%s", chat_id, target_name)
         # Epic 53 (62.3.3): CB OPEN → БЕЗ вызова LLM (0 запросов в апстрим),
         # сразу человеческая фраза CHAT_LLM_DOWN_PHRASES. Throttle-заряд уже
@@ -2934,7 +2950,8 @@ class DirectChatService:
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
-                user_blocks, _media_readiness)
+                user_blocks, _media_readiness,
+                deferred_question=_deferred_question)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -3673,7 +3690,8 @@ class DirectChatService:
             # Writer получает актуальную ревизию (старый pending-снимок
             # заменяется), а не «не вижу изображение».
             user_blocks = await self._refresh_turn_media_evidence(
-                _media_readiness, user_blocks)
+                _media_readiness, user_blocks,
+                deferred_question=_deferred_question)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
@@ -4497,6 +4515,9 @@ class DirectChatService:
                 correlation_id=correlation_id)
             if sent_id is not None:
                 self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
+                # §3.5: отложенный запрос закрывается ТОЛЬКО после доставки
+                # (review F1d) — сбой хода не «съедает» возобновление.
+                await self._complete_resume_intent(_resume_intent)
                 # MCA-07 (T-3852, D11): `context_version`/число исключений —
                 # в наблюдаемость (R17: только версия/числа, без сырья).
                 if evidence_bundle is not None:
@@ -8133,6 +8154,8 @@ class DirectChatService:
     async def _claim_resume_intent(self, chat_id, message) -> dict | None:
         """Отложенный запрос «просьба → изображение» для ТЕКУЩЕГО сообщения.
 
+        Намерение НЕ потребляется здесь (review F1d): ход сначала доставляет
+        ответ, и только потом закрывает его (`_complete_resume_intent`).
         Безопасно: ошибка/нет БД → None (обычный ход)."""
         db = getattr(self, "db", None)
         if db is None:
@@ -8147,7 +8170,7 @@ class DirectChatService:
             from services import media_readiness
             intent = await media_readiness.claim_resume_for_turn(
                 db, chat_id=int(chat_id), message_id=message_id,
-                consumer="direct")
+                consumer="direct", consume=False)
         except Exception:
             logger.debug("[direct] resume intent claim failed — обычный ход",
                          exc_info=True)
@@ -8157,8 +8180,22 @@ class DirectChatService:
                         "trigger=%s | tg=%s", chat_id,
                         intent.get("trigger_message_id"),
                         intent.get("tg_message_id"))
-            return intent
-        return None
+        return intent
+
+    async def _complete_resume_intent(self, intent) -> None:
+        """Закрыть возобновлённое намерение ПОСЛЕ доставки ответа."""
+        if not intent:
+            return
+        db = getattr(self, "db", None)
+        if db is None:
+            return
+        try:
+            from services import media_readiness
+            await media_readiness.complete_resume_intent(
+                db, str(intent.get("job_id") or ""))
+        except Exception:
+            logger.debug("[direct] resume intent complete failed",
+                         exc_info=True)
 
     async def _prepare_turn_media_evidence(self, chat_id, message, *, query: str,
                                            correlation_id: str = "",
@@ -8167,7 +8204,12 @@ class DirectChatService:
 
         Возвращает `MediaReadiness` или None (ход не зависит от изображения).
         Никогда не бросает и никогда не «выдумывает» содержимое: pending и
-        терминальный отказ приходят как честное состояние."""
+        терминальный отказ приходят как честное состояние.
+
+        F1/F2 (review): для медиа-зависимого текстового запроса без своего
+        медиа включается слабая связь (соседнее фото ТОГО ЖЕ автора в ветке),
+        а при отсутствии цели сохраняется durable-намерение «сейчас скину» —
+        иначе сценарий «просьба → фото позже» недостижим в продукте."""
         db = getattr(self, "db", None)
         if db is None:
             return None
@@ -8188,10 +8230,19 @@ class DirectChatService:
                     reply_media=reply_media,
                     explicit_ref=bool(explicit_reference)):
                 return None
+            author = getattr(message, "from_user", None)
+            author_user_id = getattr(author, "id", None)
+            author_name = str(getattr(author, "first_name", "") or "")
+            reply_to_id = getattr(reply, "message_id", None)
+            # Слабая связь включается только когда своего медиа нет: вопрос
+            # «что на скрине?» без вложения должен найти фото того же автора
+            # рядом, но чужое фото без структурной связи не приписывается.
+            allow_adjacent = bool(explicit_reference) or (
+                not own_media and not reply_media)
             readiness = await media_readiness.prepare_media_evidence(
                 db, chat_id=int(chat_id),
                 message_id=getattr(message, "message_id", None),
-                reply_to_message_id=getattr(reply, "message_id", None),
+                reply_to_message_id=reply_to_id,
                 quote_text=str(getattr(message, "quote", None).text
                                if getattr(message, "quote", None) is not None
                                else ""),
@@ -8200,8 +8251,13 @@ class DirectChatService:
                 query=query,
                 media_group_id=str(getattr(message, "media_group_id", "") or ""),
                 consumer="direct", correlation_id=correlation_id,
-                allow_adjacent=bool(explicit_reference),
-                own_media=own_media, reply_media=reply_media)
+                allow_adjacent=allow_adjacent,
+                own_media=own_media, reply_media=reply_media,
+                author_user_id=(int(author_user_id)
+                                if isinstance(author_user_id, int) else None),
+                author_name=author_name,
+                branch_message_id=(int(reply_to_id)
+                                   if isinstance(reply_to_id, int) else None))
             if readiness is None:
                 return None
             logger.info("[direct] media readiness | chat=%s | assoc=%s/%s | "
@@ -8211,6 +8267,22 @@ class DirectChatService:
                         readiness.analysis_status,
                         readiness.analysis_revision,
                         readiness.reason_code or "-")
+            if readiness.association_status == media_readiness.ASSOC_MISSING \
+                    or (not readiness.assets and not readiness.ready):
+                # Цели ещё нет: сохраняем ожидающее намерение, чтобы ответ на
+                # поздно присланное изображение возобновился автоматически
+                # (одна запись на сообщение, TTL ограничен конфигурацией).
+                try:
+                    await media_readiness.register_pending_intent(
+                        db, chat_id=int(chat_id),
+                        trigger_message_id=int(getattr(message, "message_id",
+                                                       0) or 0),
+                        consumer="direct", question=query,
+                        user_id=(int(author_user_id)
+                                 if isinstance(author_user_id, int) else None))
+                except Exception:
+                    logger.debug("[direct] pending intent register failed",
+                                 exc_info=True)
             if readiness.pending:
                 # Интерактивный предел исчерпан, но Vision продолжает работать:
                 # запрос сохраняется durable и будет возобновлён; содержимое
@@ -8228,16 +8300,29 @@ class DirectChatService:
                            "chat=%s", chat_id, exc_info=True)
             return None
 
-    def _insert_media_evidence(self, user_blocks, readiness) -> list:
-        """Вставить блок медиа-свидетельства в payload (до Current_Question)."""
+    def _insert_media_evidence(self, user_blocks, readiness,
+                               deferred_question: str = "") -> list:
+        """Вставить блок медиа-свидетельства в payload (до Current_Question).
+
+        `deferred_question` — исходный вопрос отложенного запроса «сейчас
+        скину»: без него ход ответил бы только на подпись поздно присланного
+        фото (review F1d)."""
         blocks = list(user_blocks or [])
-        if readiness is None:
-            return blocks
-        try:
-            block = readiness.evidence_block()
-        except Exception:
-            logger.debug("[direct] evidence block build failed", exc_info=True)
-            return blocks
+        question = str(deferred_question or "").strip()
+        block = ""
+        if question:
+            block = ("<deferred_request>\n"
+                     "участник ранее просил (ожидалось изображение): "
+                     f"{question}\n</deferred_request>")
+        if readiness is not None:
+            try:
+                evidence = readiness.evidence_block()
+            except Exception:
+                logger.debug("[direct] evidence block build failed",
+                             exc_info=True)
+                evidence = ""
+            if evidence:
+                block = f"{block}\n{evidence}" if block else evidence
         if not block:
             return blocks
         index = next((i for i, candidate in enumerate(blocks)
@@ -8247,7 +8332,8 @@ class DirectChatService:
             return blocks + [block]
         return blocks[:index] + [block] + blocks[index:]
 
-    async def _refresh_turn_media_evidence(self, readiness, user_blocks) -> list:
+    async def _refresh_turn_media_evidence(self, readiness, user_blocks,
+                                           deferred_question: str = "") -> list:
         """Актуальная ревизия ПЕРЕД финальной сборкой payload (§4.4).
 
         Ошибка/нет состояния → payload не меняется (паритет)."""
@@ -8276,7 +8362,8 @@ class DirectChatService:
             if not replaced and not any(
                     str(c).lstrip().startswith(f"<{self.MEDIA_EVIDENCE_TAG}")
                     for c in blocks):
-                blocks = self._insert_media_evidence(blocks, fresh)
+                blocks = self._insert_media_evidence(
+                    blocks, fresh, deferred_question=deferred_question)
             media_readiness.mark_consumer_received(fresh, consumer="direct")
             if fresh.ready and readiness.analysis_status != fresh.analysis_status:
                 logger.info("[direct] media revision applied before writer | "
@@ -8287,6 +8374,85 @@ class DirectChatService:
             logger.warning("[direct] media refresh failed — прежний payload",
                            exc_info=True)
             return blocks
+
+    # ── ASAP-VISION-SYNC-01 §5: возобновление отложенного медиа-запроса ─────
+
+    #: Канон-инструкция короткого ответа на возобновлённый запрос (тот же
+    #: шов `speech_owner_block`, что у Вербализатора Stage-2).
+    MEDIA_RESUME_INSTRUCTION = (
+        "Ты отвечаешь на ранее отложенный запрос участника: изображение уже "
+        "распознано. Опирайся ТОЛЬКО на приведённое содержимое изображения; "
+        "ничего не додумывай, не выдумывай цифры, даты и подписи. Если данных "
+        "недостаточно — скажи это прямо и коротко. Отвечай по-русски, коротко.")
+
+    MEDIA_RESUME_FALLBACK = (
+        "Изображение распознал, но сформулировать ответ по нему не вышло — "
+        "спроси ещё раз, и я разберу.",
+    )
+
+    async def resume_deferred_evidence(self, intent, states, bot=None) -> bool:
+        """Доставить ответ на отложенный запрос «сейчас скину скрин» (§5).
+
+        Вызывается worker-sweep'ом ровно один раз на намерение: ответ уходит
+        РЕПЛАЕМ на исходное сообщение; намерение закрывается вызывающим
+        только после успешной доставки (`return True`). Ошибка/нет бота →
+        False (намерение остаётся, повторит следующий проход)."""
+        if bot is None or not intent:
+            return False
+        db = getattr(self, "db", None)
+        if db is None:
+            return False
+        chat_id = 0
+        trigger_id = int(intent.get("trigger_message_id") or 0)
+        try:
+            from services import media_readiness
+            chat_id = int(intent.get("chat_id") or 0)
+            if not chat_id:
+                # Намерение хранит chat_id в payload; при отсутствии —
+                # сообщение не отправляем (не угадываем чат).
+                return False
+            readiness = media_readiness.readiness_from_states(
+                chat_id, states, intent=intent)
+            evidence = readiness.evidence_block()
+            if not evidence:
+                return False
+            question = str(intent.get("question") or "").strip()
+            attempt_note = ""
+            if intent.get("reason_code"):
+                attempt_note = ("\n(распознавание завершилось техническим "
+                                "отказом: "
+                                + media_readiness.reason_text(
+                                    str(intent.get("reason_code"))) + ")")
+            situation = (
+                (f"Запрос участника: «{question}».\n" if question else "")
+                + "Содержимое изображения:\n"
+                + evidence
+                + attempt_note
+                + "\nОтветь на запрос участника.")
+            text = ""
+            try:
+                from services.factcheck_orchestrator import persona_short_reply
+                text = await persona_short_reply(
+                    self, chat_id,
+                    instruction=self.MEDIA_RESUME_INSTRUCTION,
+                    situation=situation,
+                    fallback_phrases=self.MEDIA_RESUME_FALLBACK)
+            except Exception:
+                logger.warning("[direct] resume short reply failed — canned",
+                               chat_id=chat_id, exc_info=True)
+            if not text:
+                text = self.MEDIA_RESUME_FALLBACK[0]
+            await bot.send_message(chat_id, text,
+                                   reply_to_message_id=trigger_id or None)
+        except Exception:
+            logger.warning("[direct] deferred resume delivery failed | "
+                           "chat=%s | trigger=%s", chat_id, trigger_id,
+                           exc_info=True)
+            return False
+        logger.info("[direct] deferred request resumed and delivered | "
+                    "chat=%s | trigger=%s | assets=%s", chat_id, trigger_id,
+                    [getattr(s, "asset_id", "")[:12] for s in states or ()])
+        return True
 
     @staticmethod
     def _is_reply_trigger(message) -> bool:
