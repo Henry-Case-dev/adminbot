@@ -694,8 +694,11 @@ _VIDEO_SUMMARY_LEXICON_RE = re.compile(
     r"транскрипт\w*|расшифровк\w*|текст\w*)\s+" + _VIDEO_WORD_RX + r"|"
     # (б) просьба + предмет-выжимка (без слова «видео»)
     + _REQUEST_VERB_RX + r"[^.!?\n]{0,40}?" + _SUMMARY_OBJECT_RX + r"|"
-    # (в) голая выжимка/транскрипт в начале сообщения
-    r"^\s*(?:выжимк|транскрипт|расшифровк|краткое\s+содерж)"
+    # (в) голая выжимка/транскрипт в начале сообщения. Стем доопределён
+    # ``\w*``: иначе «Выжимка»/«Расшифровка»/«Краткое содержание» не ловились
+    # (после усечённого стема граница ``(?![0-9a-zа-яё])`` видела букву
+    # окончания) и просьба уходила в обычный LLM-ответ (review-fix3).
+    r"^\s*(?:выжимк\w*|транскрипт\w*|расшифровк\w*|краткое\s+содерж\w*)"
     r"(?![0-9a-zа-яё])",
     re.IGNORECASE)
 
@@ -829,9 +832,15 @@ async def _handle_unclassified(bot, message: types.Message):
         return UNHANDLED
     canonical = _triggered_body(message) is not None
     addressed = canonical or _addressed_to_bot(message)
-    # Окно соседства применяем ТОЛЬКО при видео-контексте запроса: иначе
-    # «Бот, <веб-ссылка> выжимка» привязалось бы к чужому ролику из истории.
-    video_context = canonical or video_intent.mentions_video(text)
+    # Окно соседства применяем при видео-контексте запроса ЛИБО когда в тексте
+    # НЕТ чужой веб-ссылки: §4.5 #1 — ролик уже лежит в чате, и «Сделай
+    # выжимку» без слова «видео» относится именно к нему. Раньше такой запрос
+    # окно не смотрел: уходил в ожидание и после TTL просил ролик, который уже
+    # был в чате (review-fix3). Веб-гейт цел: статья/обычная страница — цель
+    # 0f, окно для неё не открываем (иначе «Бот, выжимка <статья>» привязалось
+    # бы к чужому ролику из истории).
+    video_context = (canonical or video_intent.mentions_video(text)
+                     or not _has_foreign_url(text))
     if intent in video_intent.ANALYSIS_INTENTS and addressed:
         vintent = video_intent.resolve_request(message, intent,
                                                allow_window=video_context)
