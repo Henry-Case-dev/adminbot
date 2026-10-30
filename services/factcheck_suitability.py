@@ -31,6 +31,25 @@ contextual_checkable | genuinely_uncheckable | insufficient_context``.
 Границы W2-лейна: маршруты ``no_claim_after_context`` отвечают короткой
 готовой репликой (пул smartmodule_phrases, БЕЗ LLM); персона-озвученная
 короткая реплика через speech_owner_block — W3 (единый Writer).
+
+ASAP-FC-ADMISSION-01 (31.10.2026) — допуск при ЯВНОЙ команде фактчека:
+
+* явный ``фактчек`` — сильный сигнал намерения: грубость/ирония/мнение/
+  технический термин/пересылка/ссылка/отсутствие глагольных маркеров НЕ
+  превращают запрос в ``no_claim`` (политика §2.1);
+* проверяемое ядро определяется отдельно и recall-ориентированно
+  (``has_checkable_core``): числа/даты, структурный предикат, глагольная
+  форма + содержательные токены, ссылка/материал. Это НЕ словарь терминов и
+  НЕ отдельный LLM-фильтр (политика §2.7);
+* при явном запросе и хотя бы одном правдоподобно проверяемом утверждении
+  решение допуска — ``checkable`` (``_REASON_EXPLICIT_CORE``): сомнение
+  классификатора не становится отказом, а обычный конвейер может закончить
+  ``insufficient_evidence`` — это НЕ ``no_claim`` (политика §2.3);
+* три исхода разделены: ``no_identifiable_claim`` (после корректного
+  разрешения цели утверждения нет), ``insufficient_context`` /
+  ``ambiguous_target`` (неизвестно, что проверять), а
+  ``checkable_but_insufficient_evidence`` — вердикт-слой пайплайна, не гейт
+  (политика §2.4, ``admission_label``).
 """
 from __future__ import annotations
 
@@ -91,6 +110,40 @@ _REASON_PREDICATE = "obvious_checkable_predicate"
 _REASON_HINT = "explicit_check_request"
 _REASON_REFERENTIAL = "referential_claim_resolved"
 _REASON_FALLBACK = "fallback_checkable"
+# ASAP-FC-ADMISSION-01: явный запрос + найденное проверяемое ядро / его нет.
+_REASON_EXPLICIT_CORE = "explicit_request_checkable_core"
+_REASON_EXPLICIT_NO_CORE = "explicit_request_no_checkable_core"
+
+# Канонические метки допуска (политика §2.4, диагностика §E):
+#   checkable / no_identifiable_claim / insufficient_context /
+#   ambiguous_target / unavailable_target. Вердикт-слой
+#   (``checkable_but_insufficient_evidence``) — НЕ гейт: его ставит пайплайн.
+ADMISSION_CHECKABLE = "checkable"
+ADMISSION_NO_IDENTIFIABLE_CLAIM = "no_identifiable_claim"
+ADMISSION_INSUFFICIENT_CONTEXT = "insufficient_context"
+ADMISSION_AMBIGUOUS_TARGET = "ambiguous_target"
+ADMISSION_UNAVAILABLE_TARGET = "unavailable_target"
+ADMISSION_NOT_APPLIED = "gate_not_applied"
+
+_ADMISSION_BY_DECISION = {
+    DECISION_CHECKABLE: ADMISSION_CHECKABLE,
+    DECISION_NO_CLAIM: ADMISSION_NO_IDENTIFIABLE_CLAIM,
+    DECISION_NEEDS_CONTEXT: ADMISSION_INSUFFICIENT_CONTEXT,
+    DECISION_AMBIGUOUS: ADMISSION_AMBIGUOUS_TARGET,
+    DECISION_CONTEXT_UNAVAILABLE: ADMISSION_UNAVAILABLE_TARGET,
+}
+
+
+def admission_label(decision: "SuitabilityDecision | None") -> str:
+    """Метка допуска для телеметрии/админки (§2.4, §E).
+
+    Отличает ложный отказ (``no_identifiable_claim`` при существующем тезисе)
+    от честного «проверяемых фактов нет» и от «неизвестно, что проверять».
+    ``None`` = гейт не применялся (откат) — не выдумываем решение."""
+    if decision is None:
+        return ADMISSION_NOT_APPLIED
+    return _ADMISSION_BY_DECISION.get(str(getattr(decision, "decision", "")),
+                                      ADMISSION_CHECKABLE)
 
 
 def suitability_gate_enabled() -> bool:
@@ -214,6 +267,70 @@ def _is_prediction(text: str) -> bool:
     return bool(_PREDICTION_RE.search(str(text or "")))
 
 
+def _has_factual_marker(text: str) -> bool:
+    """Структурный фактический маркер части тезиса (числа/даты/сказуемое/
+    цитата) — БЕЗ копулы. Нужен, чтобы отличить фактическую предпосылку от
+    чистой оценки: «это отвратительно» копулой проверяемым не становится
+    (ASAP-FC-ADMISSION-01 §2.5, оценка отделяется от факта)."""
+    clean = str(text or "").strip()
+    if not clean:
+        return False
+    if _PREDICATE_NUMERIC_RE.search(clean):
+        return True
+    low = clean.lower()
+    for marker in _PREDICATE_LEXICON:
+        if marker in low:
+            return True
+    return bool(_QUOTE_RE.search(clean))
+
+
+# ASAP-FC-ADMISSION-01 (§2.2/§2.7): recall-ориентированный признак
+# «правдоподобно проверяемого ядра». Механизм — структурный (числа/даты,
+# предикат, глагольная форма, содержательные токены, ссылка/материал), а НЕ
+# словарь предметных терминов и НЕ LLM-фильтр: разговорная, грубая или
+# ироничная формулировка тезиса не мешает допуску.
+_LINK_RE = re.compile(r"(https?://|www\.|\bt\.me/)", re.IGNORECASE)
+_CORE_MIN_TOKENS = 3
+
+
+def _is_link_only(text: str) -> bool:
+    """Часть тезиса — только ссылка/адрес (материал, не утверждение).
+
+    Такая часть не становится проверяемым пунктом: она остаётся материалом
+    для контекста/источника, а не тезисом (иначе в claim_items попадал бы
+    «Подробнее: https://…»)."""
+    raw = str(text or "")
+    if not _LINK_RE.search(raw):
+        return False
+    residue = re.sub(r"\S*?(?:https?://|www\.|t\.me/)\S*", " ", raw)
+    return len(tokenize_for_relevance(residue)) < 2
+
+
+def has_checkable_core(text: str) -> bool:
+    """Есть ли в тексте правдоподобно проверяемое утверждение (§2.2).
+
+    Порядок (дешёвый → дорогой, без внешних вызовов):
+    * структурный claim-like предикат W1/W2 (``_claim_like_text``: числа/
+      даты, фактические сказуемые, глагольная форма + содержательные токены);
+    * ссылка/материал (пересылка, caption, «пруф» рядом) — тезис может жить
+      в связанном материале, а не в первой строке цели;
+    * ≥3 содержательных токена при непустом, не филлерном тексте.
+
+    Возвращает False ТОЛЬКО для пустого/филлерного текста («лол», «ага»,
+    эмодзи) — там проверять нечего. Решение «проверяемо/нет» принимает
+    вызывающий (явный запрос → ``checkable``, §2.3)."""
+    clean = str(text or "").strip()
+    if not clean:
+        return False
+    if _claim_like_text(clean):
+        return True
+    if _LINK_RE.search(clean):
+        return True
+    if is_conservatively_irrelevant(clean):
+        return False
+    return len(tokenize_for_relevance(clean)) >= _CORE_MIN_TOKENS
+
+
 def _is_referential(text: str) -> bool:
     """Референциальная/эллиптичная цель: содержание — в контексте."""
     clean = str(text or "").strip()
@@ -310,7 +427,7 @@ def _dispute_scores(ctx: ConversationContext,
         overlap = stems & probe_tokens
         if not overlap:
             continue
-        if not (_has_predicate(m.text) or len(stems) >= 6):
+        if not (_claim_like_text(m.text) or len(stems) >= 6):
             continue
         score = 0.0
         for _stem in overlap:
@@ -339,7 +456,7 @@ def _dominant_dispute(ctx: ConversationContext
             replies_to[m.reply_to_tg_id] = replies_to.get(
                 m.reply_to_tg_id, 0) + 1
     candidates = [m for m in messages
-                  if _has_predicate(m.text)
+                  if _claim_like_text(m.text)
                   or len(tokenize_for_relevance(m.text)) >= 6]
     if not candidates:
         return None, 0.0, 0.0
@@ -425,6 +542,10 @@ def _claim_like_text(text: str) -> bool:
     if len(clean) < _CONTEXT_CLAIM_MIN_CHARS:
         return False
     if re.search(r"\d", clean):
+        return True
+    if _LINK_RE.search(clean):
+        # ASAP-FC-ADMISSION-01 §2.2: материал-ссылка (пересылка/caption/«пруф»)
+        # — тезис может жить в связанном материале, а не в первой строке.
         return True
     if _has_predicate(clean):
         return True
@@ -562,7 +683,7 @@ def _contextual_item(ctx: ConversationContext, m: ContextMessage,
     return ClaimItem(
         text=m.text.strip(),
         claim_type=_classify_literal(m.text),
-        verifiable=_has_predicate(m.text),
+        verifiable=_claim_like_text(m.text),
         source=source,
         author=m.author,
         anchor_tg_message_id=m.tg_message_id,
@@ -584,7 +705,7 @@ def _resolve_contextual(ctx: ConversationContext, claim_text: str,
     if replied_tg:
         for m in ctx.messages:
             if m.tg_message_id == replied_tg and str(m.text or "").strip():
-                if _has_predicate(m.text) or len(
+                if _claim_like_text(m.text) or len(
                         tokenize_for_relevance(m.text)) >= 3:
                     item = _contextual_item(ctx, m, "reply_to", 0.8)
                     items.append(item)
@@ -628,13 +749,43 @@ def _resolve_contextual(ctx: ConversationContext, claim_text: str,
 
 # ── Stage 3: решение ─────────────────────────────────────────────────────────
 
+def _core_items(claim: str, claim_type: str, target_ref: dict) -> list[ClaimItem]:
+    """Части тезиса, которые действительно несут проверяемое ядро (§2.2/§2.5).
+
+    Атомизация существующая (``_split_atomic``); отбор — ``has_checkable_core``
+    (структурный, без словарей). Оценочные/эмоциональные части в проверяемые
+    пункты НЕ попадают: смешанное высказывание проверяется по фактической
+    части, оценка остаётся оценкой (политика §2.5)."""
+    items: list[ClaimItem] = []
+    for part in _split_atomic(claim):
+        if not has_checkable_core(part) or _is_link_only(part):
+            continue
+        if _is_subjective(part) and not _has_factual_marker(part):
+            continue                     # чистая оценка — не тезис
+        items.append(ClaimItem(
+            text=part,
+            claim_type=(MIXED_CLAIM if claim_type == MIXED_CLAIM
+                        else CHECKABLE_FACTUAL_CLAIM),
+            verifiable=True, source="literal",
+            anchor_tg_message_id=target_ref.get("target_tg_message_id"),
+            anchor_chat_id=target_ref.get("chat_id")))
+    return items
+
+
 def evaluate_suitability(claim_text: str | None, user_hint: str | None,
                          ctx: ConversationContext | None, *,
                          target_ref: dict | None = None,
                          allow_needs_context: bool = True,
+                         explicit_request: bool = False,
                          ) -> SuitabilityDecision:
     """Типизированное решение гейта (06B.6). Никогда не бросает; no_claim
-    возможен ТОЛЬКО после изучения контекста (06J.1)."""
+    возможен ТОЛЬКО после изучения контекста (06J.1).
+
+    ``explicit_request`` (ASAP-FC-ADMISSION-01 §2.1/§2.3) — пользователь явно
+    попросил фактчек (команда «фактчек»). Тогда сомнение классификатора НЕ
+    превращается в отказ: при наличии правдоподобно проверяемого ядра
+    (``has_checkable_core``) решение — ``checkable``, а честный «доказательств
+    не хватило» остаётся вердикт-слою пайплайна."""
     target_ref = dict(target_ref or {})
     claim = str(claim_text or "").strip()
 
@@ -661,7 +812,10 @@ def evaluate_suitability(claim_text: str | None, user_hint: str | None,
                      or tf._DATE_POINT_RE.search(claim) is not None)
 
     # 1. Явная просьба «проверь, что X» — проверяемое X важнее формы (06B.2).
-    if user_hint and _has_predicate(user_hint):
+    #    ASAP-FC-ADMISSION-01: для явного запроса достаточно проверяемого
+    #    ядра, а не глагольного маркера из узкого списка.
+    if user_hint and (has_checkable_core(user_hint) if explicit_request
+                      else _has_predicate(user_hint)):
         item = ClaimItem(text=user_hint.strip(),
                          claim_type=CHECKABLE_FACTUAL_CLAIM, verifiable=True,
                          source="literal",
@@ -686,22 +840,44 @@ def evaluate_suitability(claim_text: str | None, user_hint: str | None,
     if claim_type in (CHECKABLE_FACTUAL_CLAIM, MIXED_CLAIM):
         items: list[ClaimItem] = []
         for part in _split_atomic(claim):
-            if _has_predicate(part) and not _is_prediction(part):
-                items.append(ClaimItem(
-                    text=part, claim_type=CHECKABLE_FACTUAL_CLAIM,
-                    verifiable=True, source="literal",
-                    anchor_tg_message_id=target_ref.get(
-                        "target_tg_message_id"),
-                    anchor_chat_id=target_ref.get("chat_id")))
+            if not _has_predicate(part) or _is_prediction(part):
+                continue
+            if _is_link_only(part):
+                continue                 # ссылка — материал, не тезис
+            # ASAP-FC-ADMISSION-01 §2.5: в смешанном высказывании чисто
+            # оценочные части не становятся проверяемыми пунктами — факт
+            # проверяется, оценка остаётся оценкой.
+            if _is_subjective(part) and not _has_factual_marker(part):
+                continue
+            items.append(ClaimItem(
+                text=part, claim_type=CHECKABLE_FACTUAL_CLAIM,
+                verifiable=True, source="literal",
+                anchor_tg_message_id=target_ref.get(
+                    "target_tg_message_id"),
+                anchor_chat_id=target_ref.get("chat_id")))
         if items:
             return _decide(DECISION_CHECKABLE, claim_type, tuple(items),
                            SCOPE_WEB, _REASON_PREDICATE, 0.8,
                            temporal_hint=temporal_hint)
         # Все «проверяемые» части оказались предсказаниями будущего:
         # структурно непроверяемо в настоящем, контекст этого не меняет.
-        if _is_prediction(claim):
+        if _is_prediction(claim) and not explicit_request:
             return _decide(DECISION_NO_CLAIM, PERSONAL_PREDICTION, (),
                            SCOPE_NONE, _REASON_NO_CLAIM, 0.75,
+                           temporal_hint=temporal_hint)
+
+    # 2b. ASAP-FC-ADMISSION-01 §2.1/§2.3: ЯВНЫЙ запрос + правдоподобно
+    #     проверяемое ядро → допуск ``checkable``. Грубость, ирония, мнение,
+    #     технический термин, пересылка, ссылка и отсутствие глагольных
+    #     маркеров отказом не являются; «доказательств не хватило» — честный
+    #     исход пайплайна (``insufficient_evidence``), не ``no_claim``.
+    if explicit_request and has_checkable_core(claim):
+        core = _core_items(claim, claim_type, target_ref)
+        if core:
+            admitted_type = (MIXED_CLAIM if claim_type == MIXED_CLAIM
+                             else CHECKABLE_FACTUAL_CLAIM)
+            return _decide(DECISION_CHECKABLE, admitted_type, tuple(core),
+                           SCOPE_WEB, _REASON_EXPLICIT_CORE, 0.65,
                            temporal_hint=temporal_hint)
 
     # 3. Дальше нужен контекст (06J.1: одна строка не отказывает).
@@ -739,8 +915,12 @@ def evaluate_suitability(claim_text: str | None, user_hint: str | None,
                        temporal_hint=temporal_hint)
     if claim_type in (SUBJECTIVE_OPINION, PERSONAL_PREDICTION, NONSENSE,
                       JOKE_IRONY):
+        # ASAP-FC-ADMISSION-01 §2.6: no_claim — только после корректного
+        # определения цели и контекста, когда проверяемого ядра нет.
         return _decide(DECISION_NO_CLAIM, claim_type, (), SCOPE_NONE,
-                       _REASON_NO_CLAIM, 0.7, temporal_hint=temporal_hint)
+                       (_REASON_EXPLICIT_NO_CORE if explicit_request
+                        else _REASON_NO_CLAIM), 0.7,
+                       temporal_hint=temporal_hint)
     # 5. Неклассифицированный остаток — осторожный checkable-фолбэк
     #    (06J.2: ложный отказ дороже лишнего прохода пайплайна).
     return _decide(DECISION_CHECKABLE, claim_type, (), SCOPE_WEB,
@@ -768,12 +948,18 @@ async def evaluate_with_expansion(db, chat_id: int, *, claim_text: str,
                                   target_tg_message_id=None,
                                   trigger_tg_message_id=None,
                                   cache=None,
+                                  explicit_request: bool = False,
                                   ) -> tuple[SuitabilityDecision,
                                              ConversationContext | None]:
     """Протокол двух проходов (06J.1): сбор → решение; needs_context →
     ОДНО ограниченное расширение → повторное решение. Второй needs_context
     честно деградирует в context_unavailable (без выдуманных тезисов).
-    Возврат: (финальное решение, финальный контекст для рендера)."""
+    Возврат: (финальное решение, финальный контекст для рендера).
+
+    ``explicit_request`` (ASAP-FC-ADMISSION-01) — явная команда «фактчек»:
+    передаётся в оба прохода, чтобы сомнение классификатора не превращалось
+    в отказ на действующем маршруте (в т.ч. в v2, где suitability
+    вызывается напрямую, без отдельного флага путей)."""
     target_ref = {"chat_id": chat_id,
                   "target_tg_message_id": target_tg_message_id,
                   "trigger_tg_message_id": trigger_tg_message_id}
@@ -782,10 +968,12 @@ async def evaluate_with_expansion(db, chat_id: int, *, claim_text: str,
         trigger_tg_message_id=trigger_tg_message_id, claim_text=claim_text,
         cache=cache)
     decision = evaluate_suitability(claim_text, user_hint, ctx,
-                                    target_ref=target_ref)
+                                    target_ref=target_ref,
+                                    explicit_request=explicit_request)
     if decision.decision == DECISION_NEEDS_CONTEXT:
         ctx = await expand_context_once(db, ctx, cache=cache)
         decision = evaluate_suitability(claim_text, user_hint, ctx,
                                         target_ref=target_ref,
-                                        allow_needs_context=False)
+                                        allow_needs_context=False,
+                                        explicit_request=explicit_request)
     return decision, ctx

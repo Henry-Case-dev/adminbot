@@ -51,6 +51,7 @@ from services.smartmodule_phrases import (
     FACTCHECK_CLARIFY_PHRASES,
     FACTCHECK_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
+    FACTCHECK_TARGET_UNAVAILABLE_PHRASES,
     LLM_ERROR_PHRASES,
 )
 from services.llm_client import LLMBadResponseError, LLMError
@@ -68,6 +69,21 @@ logger = logging.getLogger(__name__)
 PIPELINE_VERSION = "fcv4"      # fcv4: P0-FACTCHECK — per-part запросы fp3,
                                # классы исхода retrieval, image-материал,
                                # кеш старого вердикта не скрывает новую проверку
+
+# ── ASAP-FC-ADMISSION-01: исход прогона для вызывающего (handler) ────────────
+# Возврат run_factcheck: нужен handler'у, чтобы НЕ расходовать полный лимит
+# пользователя на ранний отказ/сбой (политика §2.4/D) и при этом сохранить
+# антиспам и single-flight для реальных проверок.
+OUTCOME_VERDICT = "verdict"            # вердикт доставлен — кулдаун остаётся
+OUTCOME_NO_CLAIM = "no_claim"          # проверяемого ядра нет (после цели)
+OUTCOME_AMBIGUOUS = "ambiguous"        # непонятно, что проверять — уточнение
+OUTCOME_UNAVAILABLE = "unavailable"    # цель пуста/недоступна — честный ответ
+OUTCOME_ERROR = "error"                # сбой поиска/LLM/неожиданный
+OUTCOME_BUSY = "busy"                  # нет слота пула (параллельный дубль)
+# Ранние исходы НЕ должны съедать пользовательский лимит (повтор обоснован).
+REFUNDABLE_OUTCOMES = frozenset({OUTCOME_NO_CLAIM, OUTCOME_AMBIGUOUS,
+                                 OUTCOME_UNAVAILABLE, OUTCOME_ERROR,
+                                 OUTCOME_BUSY})
 
 # ── Фриз-схемы (join-barrier; изменение полей = bump + review W4/W5) ────────
 
@@ -195,6 +211,47 @@ def build_presentation(verdict: CheckedVerdict, *,
         text=text, links=verdict.evidence.links(),
         reply_to_message_id=reply_to_message_id, parse_mode=None,
         notice=str(notice or ""))
+
+
+# ── ASAP-FC-ADMISSION-01 §E: безопасная структурированная диагностика ───────
+# Только служебные поля: НИ текстов сообщений, НИ авторов, НИ ссылок. Значения
+# позволяют в админке/аналитике отличить ложный отказ (admission=
+# no_identifiable_claim при существующем тезисе) от честного «проверяемых
+# фактов нет» и от «тезис есть, доказательств не хватило» (verdict_stage=
+# insufficient_evidence).
+def _emit_admission(*, chat_id: int | None, target_resolved: bool,
+                    explicit_request: bool, claim_items: int,
+                    admission_decision: str, reason_code: str | None,
+                    pipeline_path: str, verdict_stage: str | None = None,
+                    cooldown_outcome: str = "not_applicable") -> dict:
+    """Одно диагностическое событие допуска (fail-open, никогда не бросает)."""
+    fields = {
+        "target_resolved": bool(target_resolved),
+        "explicit_request": bool(explicit_request),
+        "claim_items_count": int(claim_items or 0),
+        "admission_decision": str(admission_decision or ""),
+        "reason_code": str(reason_code or ""),
+        "pipeline_path": str(pipeline_path or ""),
+        "verdict_stage": str(verdict_stage or ""),
+        "cooldown_outcome": str(cooldown_outcome or ""),
+    }
+    logger.info(
+        "[factcheck_admission] chat=%s | target_resolved=%s | "
+        "explicit_request=%s | claim_items=%s | admission=%s | reason=%s | "
+        "pipeline_path=%s | verdict_stage=%s | cooldown=%s",
+        chat_id, fields["target_resolved"], fields["explicit_request"],
+        fields["claim_items_count"], fields["admission_decision"],
+        fields["reason_code"], fields["pipeline_path"],
+        fields["verdict_stage"], fields["cooldown_outcome"])
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "factcheck_admission", outcome="success", level="INFO",
+            component="factcheck.admission", stage=fields["pipeline_path"],
+            chat_id=chat_id, entity_ids=fields)
+    except Exception:      # события не рвут прогон
+        logger.debug("[factcheck_admission] event emit failed", exc_info=True)
+    return fields
 
 
 def pipeline_v2_enabled() -> bool:
@@ -347,13 +404,19 @@ async def _apply_critique_section_setting(chat_id: int | None,
         return verdict
 
 async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
-                        cache=None) -> None:
+                        cache=None) -> str:
     """Единый вход W3 (06H.2): provenance → context+gate → план →
     внутренняя ветка → CheckedVerdict → Presentation → Delivery.
 
     Ошибки поиска/LLM обрабатываются теми же семантиками фраз, что и
     legacy-путь (5.4b/5.5/🗿); кулдаун/пул — забота вызывающего handler'а
-    (как сегодня)."""
+    (как сегодня).
+
+    Возврат (ASAP-FC-ADMISSION-01 §D): исход прогона (``OUTCOME_*``).
+    Handler использует его, чтобы не расходовать полный пользовательский
+    лимит на ранний отказ/сбой; для доставленного вердикта кулдаун остаётся
+    (антиспам и single-flight сохранены). Прежние вызывающие, игнорирующие
+    возврат, работают как раньше."""
     if cache is None:
         from services.smart_cache import get_smart_cache
         cache = get_smart_cache()
@@ -368,21 +431,23 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
                      _guard_outbound(random.choice(SMARTMODULE_BUSY_PHRASES),
                                      where="busy", chat_id=chat_id),
                      req.trigger_tg_message_id)
-        return
+        return OUTCOME_BUSY
     try:
         async with typing_active(bot, chat_id):
-            await _run_inner(req, service=service, db=db, bot=bot,
-                             cache=cache)
+            return await _run_inner(req, service=service, db=db, bot=bot,
+                                    cache=cache)
     except LLMBadResponseError:
         logger.warning("[factcheck_v2] empty answer — silence | chat=%s",
                        chat_id)
         await react_moai(bot, chat_id, req.target_tg_message_id)
+        return OUTCOME_ERROR
     except AllSearchEnginesFailedException:
         logger.exception("[factcheck_v2] search failed | chat=%s", chat_id)
         await _reply(bot, chat_id,
                      _guard_outbound(random.choice(FACTCHECK_ERROR_PHRASES),
                                      where="search_error", chat_id=chat_id),
                      req.target_tg_message_id)
+        return OUTCOME_ERROR
     except LLMError as exc:
         logger.warning("[factcheck_v2] LLM failed | chat=%s | error=%s",
                        chat_id, exc)
@@ -390,6 +455,7 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
                      _guard_outbound(random.choice(LLM_ERROR_PHRASES),
                                      where="llm_error", chat_id=chat_id),
                      req.target_tg_message_id)
+        return OUTCOME_ERROR
     except Exception:
         logger.exception("[factcheck_v2] unexpected error | chat=%s", chat_id)
         await _reply(bot, chat_id,
@@ -397,11 +463,13 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
                                      where="unexpected_error",
                                      chat_id=chat_id),
                      req.target_tg_message_id)
+        return OUTCOME_ERROR
     finally:
         permit.release()
 
 
-async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
+async def _run_inner(req: FactcheckRequest, *, service, db, bot,
+                     cache) -> str:
     from services import mca_gates
     from services import temporal_factcheck as tf
     from services import factcheck_context as fcx
@@ -417,6 +485,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         db, req.chat_id, req.target_tg_message_id, base_text=req.target_text)
     media = publication.media
     claim_text = publication.text
+    # ASAP-FC-ADMISSION-01 §2.1: ЯВНЫЙ запрос = пользователь/инструмент
+    # попросил проверку (reply/command/tool/ui). Только `kind="auto"`
+    # (автоматический вход без просьбы) сохраняет прежнюю строгую семантику.
+    # Схема FactcheckRequest при этом НЕ меняется (join-barrier W3/W4).
+    explicit_request = str(req.kind or "reply") != "auto"
     if media.image_present:
         logger.info("[factcheck_v2] media claim | chat=%s | analyzed=%s | "
                     "ocr_chars=%d | caption=%d | images=%d | notice=%s",
@@ -446,25 +519,75 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
             envelope = None
 
     # 2. Контекст + suitability (внутри v2 подразумеваются — консолидация).
+    #    ASAP-FC-ADMISSION-01: явный запрос пользователя передаётся в гейт —
+    #    сомнение классификатора не превращается в отказ (§2.1/§2.3).
     decision, ctx = await fsg.evaluate_with_expansion(
         db, req.chat_id, claim_text=claim_text, user_hint=req.user_hint,
         target_tg_message_id=req.target_tg_message_id,
-        trigger_tg_message_id=req.trigger_tg_message_id, cache=cache)
+        trigger_tg_message_id=req.trigger_tg_message_id, cache=cache,
+        explicit_request=explicit_request)
+    target_resolved = bool(str(claim_text or "").strip())
+
+    # 2b. ASAP-FC-ADMISSION-01 §2.2: тезис может жить в связанном материале
+    #     (пересылка/цитата/caption/соседнее сообщение), а не в первой строке
+    #     цели. Пустой текст цели при наличии окна — не «нечего проверять»:
+    #     ищем тезис в уже собранном контексте тем же детерминированным
+    #     механизмом (без нового LLM/поиска) и пересчитываем допуск.
+    if not target_resolved and ctx is not None:
+        try:
+            found = fsg.find_context_claim(
+                ctx, trigger_tg_message_id=req.trigger_tg_message_id)
+        except Exception:
+            logger.warning("[factcheck_v2] context claim lookup failed",
+                           exc_info=True)
+            found = None
+        if found is not None:
+            claim_text = str(found.text or "").strip()
+            target_resolved = bool(claim_text)
+            logger.info("[factcheck_v2] claim from related material | "
+                        "chat=%s | source=%s | anchor=%s", req.chat_id,
+                        found.source, found.tg_message_id)
+            decision = fsg.evaluate_suitability(
+                claim_text, req.user_hint, ctx,
+                target_ref={"chat_id": req.chat_id,
+                            "target_tg_message_id": req.target_tg_message_id,
+                            "trigger_tg_message_id":
+                                req.trigger_tg_message_id},
+                explicit_request=explicit_request)
+
     feed = ctx.render_feed() if ctx is not None else ""
     media_context = publication.material_context()
     if media_context:
         feed = f"{feed}\n\n{media_context}".strip()
 
+    admission = fsg.admission_label(decision)
+    claim_items = len(decision.claim_items) if decision is not None else 0
+
+    def _finish(outcome: str, pipeline_path: str,
+                verdict_stage: str | None = None) -> str:
+        """Единая точка диагностики §E + исход прогона (§D)."""
+        _emit_admission(
+            chat_id=req.chat_id, target_resolved=target_resolved,
+            explicit_request=explicit_request, claim_items=claim_items,
+            admission_decision=admission,
+            reason_code=(decision.reason_code if decision is not None
+                         else None),
+            pipeline_path=pipeline_path, verdict_stage=verdict_stage)
+        return outcome
+
     # 3. Gate-маршруты ДО платного поиска (06B.1/06J.3).
     scope = decision.scope if decision is not None else "web"
     if decision is not None and decision.decision == fsg.DECISION_NO_CLAIM:
+        # ASAP-FC-ADMISSION-01 §2.4: это именно «нет идентифицируемого
+        # тезиса» (после разрешения цели и контекста), НЕ «доказательств не
+        # хватило» и НЕ «непонятно, что проверять».
         text = _guard_outbound(random.choice(FACTCHECK_NO_CLAIM_PHRASES),
                                where="no_claim", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, text,
                                  req.target_tg_message_id)
         tf.stage_event("deliver", "skipped", reason_code="no_claim_after_context",
                        chat_id=req.chat_id)
-        return
+        return _finish(OUTCOME_NO_CLAIM, "v2_gate:no_claim")
     if decision is not None and decision.decision == fsg.DECISION_AMBIGUOUS:
         situation = (f"Сообщение участника: «{req.target_text}». "
                      "В контексте чата несколько тем спора — уточни тезис.")
@@ -477,7 +600,22 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         tf.stage_event("deliver", "skipped",
                        reason_code="ambiguous_needs_clarification",
                        chat_id=req.chat_id)
-        return
+        return _finish(OUTCOME_AMBIGUOUS, "v2_gate:ambiguous")
+    if (decision is not None
+            and decision.decision == fsg.DECISION_CONTEXT_UNAVAILABLE
+            and not target_resolved):
+        # ASAP-FC-ADMISSION-01 §2.4/§2.6: цель пуста/недоступна — честный
+        # ответ о недоступной цели БЕЗ выдуманного вердикта и без платного
+        # поиска (раньше здесь проваливалось в Writer с пустым тезисом).
+        text = _guard_outbound(
+            random.choice(FACTCHECK_TARGET_UNAVAILABLE_PHRASES),
+            where="target_unavailable", chat_id=req.chat_id)
+        await send_chunked_reply(bot, req.chat_id, text,
+                                 req.target_tg_message_id)
+        tf.stage_event("deliver", "skipped",
+                       reason_code="unsafe_or_unavailable_target",
+                       chat_id=req.chat_id)
+        return _finish(OUTCOME_UNAVAILABLE, "v2_gate:unavailable")
 
     # 3b. CFG-06 06G.3 — локальный tool «кто это сказал»: атрибуционный
     # спор («X сказал Y») решается ПО ConversationContext ДО любого
@@ -506,7 +644,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                 tf.stage_event("deliver", "skipped",
                                reason_code="attribution_not_found",
                                chat_id=req.chat_id)
-                return
+                return _finish(OUTCOME_NO_CLAIM, "v2_attribution:miss")
             external_claim = fat.external_safe_claim(req.target_text, ctx,
                                                      attribution)
             logger.info("[factcheck_v2] attribution resolved | chat=%s",
@@ -633,6 +771,13 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # `factcheck`) удалён — повторная проверка всегда выполняется заново.
     # Защита от двойной доставки того же Telegram update — уже СУЩЕСТВУЮЩАЯ
     # (`already_delivered` + кулдаун handler'а), она сохранена.
+    # ASAP-FC-ADMISSION-01 §2.4/§E: вердикт-слой отделён от допуска —
+    # «тезис есть, доказательств не хватило» помечается
+    # verdict_stage=insufficient_evidence и НЕ смешивается с no_claim.
+    verdict_stage = ("insufficient_evidence"
+                     if str(getattr(verdict, "factual_verdict", "") or "")
+                     == "insufficient_evidence" else "verdict_issued")
+    return _finish(OUTCOME_VERDICT, f"v2:{verdict.route}", verdict_stage)
 
 
 async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
