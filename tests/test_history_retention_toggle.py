@@ -168,6 +168,18 @@ class TestCatalogSeed:
         # тот же паттерн, что F3: env-ось AND-гейта через _env_bool,
         # product-оси живут в каталоге (реестр 529+); «лишними» не считаются.
         missing, extra = pc.settings_field_coverage()
+        # EVOL-031 (28d55bd1): 5 no-op полей снятого Exact Match Cache /
+        # direct_dedup остаются в Settings аддитивно, вне каталога (код их не
+        # читает) — «не покрытыми» не считаются (прецедент _CLASSVAR_CATALOGUED).
+        missing -= {"SMART_CACHE_ENABLED", "SMART_CACHE_TTL_SECONDS",
+                    "SMART_CACHE_MAX_ROWS", "CHAT_DEDUP_ENABLED",
+                    "CHAT_DEDUP_TTL_SECONDS"}
+        # EVOL-032 §4.3 (9dc6fba9): VIDEO_INTENT_* — env-only общая
+        # конфигурация VideoIntent (Settings + hot-хук limits.video_intent_*),
+        # не per-chat параметр каталога.
+        missing -= {"VIDEO_INTENT_PENDING_TTL_SECONDS",
+                    "VIDEO_INTENT_WINDOW_MESSAGES",
+                    "VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS"}
         extra -= {"CHAT_MODEL_CONTEXT_WINDOW", "EMBEDDING_QUOTA_GROUP_LABELS",
                   "MCA_INTENTS_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
                   "MCA_INTENT_DECISION_ENABLED", "MCA_SEND_RECHECK_ENABLED",

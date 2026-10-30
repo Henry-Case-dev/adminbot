@@ -7,6 +7,7 @@ DoD: полнота (каждое поле Settings покрыто), катег�
 """
 import dataclasses
 import importlib
+from pathlib import Path
 
 import pytest
 
@@ -20,6 +21,8 @@ from services.param_catalog import (
     iter_migratable,
     iter_pg_only,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestCompleteness:
@@ -83,13 +86,50 @@ class TestCompleteness:
         "SMART_CACHE_ENABLED", "SMART_CACHE_TTL_SECONDS",
         "SMART_CACHE_MAX_ROWS", "CHAT_DEDUP_ENABLED",
         "CHAT_DEDUP_TTL_SECONDS"})
+    # EVOL-032 §4.3 (31.10.2026, полоса видео 9dc6fba9): TTL/окно соседства
+    # VideoIntent — «через общую конфигурацию, не множество скрытых констант».
+    # Это env-уровень: именованные Settings-поля с env-именами + hot-хук
+    # `limits.video_intent_*` в services/video_intent.py (pending_ttl_seconds /
+    # window_messages / window_max_age_seconds). Каталог описывает per-chat
+    # параметры с UI-осью — здесь такой оси нет, поэтому записей в REGISTRY
+    # нет. Осознанное исключение из покрытия (прецедент _CLASSVAR_CATALOGUED /
+    # _EVOL031_RETIRED_NOOP), НЕ ослабление полноты: набор закрыт пином
+    # test_env_only_shared_config_pinned — новое поле сюда «молча» не попадёт.
+    _ENV_ONLY_SHARED_CONFIG = frozenset({
+        "VIDEO_INTENT_PENDING_TTL_SECONDS",
+        "VIDEO_INTENT_WINDOW_MESSAGES",
+        "VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
-        missing = missing - self._EVOL031_RETIRED_NOOP
+        missing = missing - self._EVOL031_RETIRED_NOOP \
+            - self._ENV_ONLY_SHARED_CONFIG
         assert missing == set(), f"не покрыты: {sorted(missing)}"
         extra = extra - self._CLASSVAR_CATALOGUED
         assert extra == set(), f"лишние записи: {sorted(extra)}"
+
+    def test_env_only_shared_config_pinned(self):
+        """EVOL-032 §4.3: env-only общая конфигурация — ровно три поля.
+
+        Пин держит и состав набора, и его смысл: каждое поле обязано быть
+        реальным полем Settings, отсутствовать в каталоге (иначе это уже
+        per-chat параметр) и читаться модулем-владельцем из Settings, то есть
+        оставаться общей конфигурацией, а не скрытой константой.
+        """
+        names = self._ENV_ONLY_SHARED_CONFIG
+        assert names == {"VIDEO_INTENT_PENDING_TTL_SECONDS",
+                         "VIDEO_INTENT_WINDOW_MESSAGES",
+                         "VIDEO_INTENT_WINDOW_MAX_AGE_SECONDS"}
+        fields = {f.name for f in dataclasses.fields(Settings)}
+        assert names <= fields, f"нет в Settings: {sorted(names - fields)}"
+        catalogued = {s.settings_field for s in REGISTRY.values()
+                      if s.settings_field}
+        assert not (names & catalogued), \
+            f"уже в каталоге: {sorted(names & catalogued)}"
+        owner = (ROOT / "services" / "video_intent.py").read_text(
+            encoding="utf-8")
+        for name in names:
+            assert f"settings.{name}" in owner, name
 
     def test_settings_field_count(self):
         fields = {f.name for f in dataclasses.fields(Settings)}
@@ -177,11 +217,18 @@ class TestCompleteness:
         #   не в счёте).
         #   P0-FACTCHECK §6.3 (FC-06C, 28.10.2026): −2 instance-поля
         #   TEMPORAL_FRESHNESS_* (кеш готовых вердиктов удалён W1) → 465.
-        assert len(fields) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
+        #   EVOL-032 §4.3 (31.10.2026, полоса видео 9dc6fba9): +3 instance-поля
+        #   VIDEO_INTENT_* (TTL pending-намерения, размер окна соседства, макс.
+        #   возраст соседнего медиа) → 468. Каталога не касаются — см.
+        #   _ENV_ONLY_SHARED_CONFIG выше (env-уровень, не per-chat ось).
+        assert len(fields) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов; EVOL-032 §4.3: +3 VIDEO_INTENT_*
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
+        # EVOL-032 §4.3: 3 env-only поля общей конфигурации VideoIntent — тоже
+        # сознательно вне каталога (per-chat оси нет).
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == \
-            fields - TestCompleteness._EVOL031_RETIRED_NOOP
+            fields - TestCompleteness._EVOL031_RETIRED_NOOP \
+            - TestCompleteness._ENV_ONLY_SHARED_CONFIG
 
     def test_categories_canonical(self):
         for spec in REGISTRY.values():

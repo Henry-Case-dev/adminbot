@@ -43,7 +43,7 @@ class TestCatalogDeltaF3:
         # F5 (10.24, ADR-1024-9 D3): +1 config-вкладка mod_images.
         assert len(pc.TAB_RULES) == 22
         assert len(pc.TAB_NAV) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
         assert len(categorized) == 558

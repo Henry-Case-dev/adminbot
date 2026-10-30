@@ -169,7 +169,9 @@ class TestRolesUi:
         # 10.8/10.9-инвариант: модальные ✕ не «плодятся».
         # 10.20 (T-1896): +1 — осознанная модалка «Досье участника»
         # (БЛОК 3.2); итого 5.
-        assert HTML.count(">✕</button>") == 5
+        # EVOL-021 (18baa36b): +1 — осознанное окно записи статуса/эпизода
+        # (aria-label «Закрыть окно записи», closeStatusRecord); итого 6.
+        assert HTML.count(">✕</button>") == 6
 
     def test_backend_enrichment_markers(self):
         assert "global_user_display_info" in AVATARS
@@ -197,4 +199,4 @@ class TestCatalog1010:
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10

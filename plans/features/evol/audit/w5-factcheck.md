@@ -12,7 +12,8 @@
 структуры проверенных утверждений: второго LLM-вызова, отдельной
 «модели-разносчика» и дополнительного web-search нет. Речевая директива —
 редактируемый заводской промпт с дословным текстом владельца, зарегистрированный
-в едином EVOL-реестре (`declare_prompt` + печать ревизии). Семантический guard
+в едином EVOL-реестре (единственное объявление `_PG_BLOCK_META`, см. §7
+review-fix, + печать ревизии). Семантический guard
 детерминированный и серверный: полностью подтверждённый тезис, неполные данные,
 технический сбой поиска и fallback раздела не получают.
 
@@ -25,7 +26,7 @@
 | `services/factcheck_renderer.py` | `split_critique_section`, `critique_publishable` (gate по вердикту), отдельный блок `<b>Критический разнос</b>` до разбора/источников, `allow_critique` (default True) в `render_factcheck`/`render_plain` |
 | `services/factcheck_orchestrator.py` | `_apply_critique_section_setting`: настройка OFF → раздел снимается ДО презентации (факты/источники/оговорки остаются) |
 | `services/prompt_composer.py` | `speech_style_hint(chat_id)` — активный Style Policy hint для речевых маршрутов вне композера (единственный владелец hint — `style_policy`) |
-| `services/prompt_registry.py` | блок `factcheck.critique.directive` (declare_prompt, `ui=catalog_pending`), метка `factcheck-critique-w5`, печать `cfcd9009df17`, бамп `FACTORY_SET_SHA256_12` → `519663a57eb6` |
+| `services/prompt_registry.py` | блок `factcheck.critique.directive` (единственное объявление `_PG_BLOCK_META`, после review-fix B1 `ui=catalog`; см. §7), метка `factcheck-critique-w5`, печать `cfcd9009df17`, бамп `FACTORY_SET_SHA256_12` → `519663a57eb6` |
 | `tests/test_evol_factcheck_critical.py` | новый контрактный набор §5.4 (8 кейсов, 9 тестов: кейс 4 параметризован) |
 | `tests/test_hot_config.py`, `tests/test_unified_core_route_coverage.py` | минимальная ре-база двух пинов, которые фиксировали **старую** сборку system-промпта одиночного пути (новая санкционированная инструкция §5 меняет состав; намерение тестов — «hot-канон применён», «второго Core нет» — сохранено) |
 
@@ -77,7 +78,8 @@ FactcheckRequest → resolve_claim_publication → retrieval (один поис�
    Writer'а на уровне renderer'а, а не новое поле egress-контракта. Это
    сохраняет все существующие frozen-тесты схем.
 5. **Реестр промптов.** Директива зарегистрирована как заводской блок
-   (`declare_prompt` + метка + печать + бамп отпечатка набора): правка текста
+   (единственное объявление `_PG_BLOCK_META` + метка + печать + бамп отпечатка
+   набора): правка текста
    без бампа метки/печати роняет CI-аудит EVOL-018. `resolve_critique_directive`
    читает активную редакцию через реестр: появится PG-ключ каталога — правка
    владельца начнёт применяться сразу; до этого действует опечатанная заводская

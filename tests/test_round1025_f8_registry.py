@@ -126,7 +126,22 @@ ROUTES_SHA256_F11 = (
     # GET /prompts/revisions/{id}/source, GET /prompts/revisions/diff,
     # POST /prompts/{key}/activate. Меню/вкладки не менялись. Хэш и набор
     # путей f8_baseline переутверждены осознанно.
-    "ce5951d747077900b194d77067865d0a48a965f21b84bae7380cbb7f85321cb9")
+    # EVOL-014/019/020/021 (30.10.2026, 18baa36b UI-полосы; L-F11S-1 conscious
+    # requalification): routes +7 — HTTP-слой над УЖЕ принятыми сервисами, в
+    # существующих разделах (новых вкладок меню нет): POST
+    # /vision/recognition-check (EVOL-019: отдельное действие «проверить
+    # распознавание», свой rate-limit, платный вызов помечен явно),
+    # GET /experience/pipeline (EVOL-020), GET /episodes/feed,
+    # GET /episodes/recovery, GET /episodes/{episode_id} (EVOL-021),
+    # GET+POST /initiative/meme-settings (EVOL-014: per-chat ось мемов).
+    # RBAC и маскировка (R17: ни ключ, ни base_url, ни сырое тело провайдера)
+    # не ослаблены. Набор путей f8_baseline переиздан 49→55 той же волной.
+    # EVOL-021 review-fix (30.10.2026, d31b8831): тихие часы мем-настроек
+    # получили строгую проверку `HH:MM-HH:MM` (часы 00–23, минуты 00–59;
+    # «25:00-26:00» → 422 вместо сохранения не-времени). Новых endpoint'ов
+    # нет (Δ routes=0), RBAC/маскировка/DDL не менялись. Хэш переутверждён
+    # осознанно (L-F11S-1).
+    "708f532768db3d1363157a67db74a32dfa19419534f8169bd08da71ce62872bd")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

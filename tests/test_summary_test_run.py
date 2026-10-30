@@ -465,7 +465,7 @@ def test_catalog_zero_delta():
     # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы
     # (REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103).
     assert len(pc.REGISTRY) == 583
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
     assert len([s for s in pc.REGISTRY.values()
                 if s.category is not None]) == 558
     assert len(pc.GROUPS) == 120

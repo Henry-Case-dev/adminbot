@@ -1160,7 +1160,7 @@ class TestFlagsAndCanon:
         # TTL-ключа TEMPORAL_FRESHNESS_*); поля Settings 466 → 465 (−2
         # TEMPORAL_FRESHNESS_* — кеш готовых вердиктов удалён W1).
         assert len(pc.REGISTRY) == 583
-        assert len(dataclasses.fields(Settings)) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
+        assert len(dataclasses.fields(Settings)) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22

@@ -72,7 +72,7 @@ class TestCatalogParity:
         # (NOSTALGIA_HISTORY_DEPTH_YEARS) → пин 467. EVOL-031 все 5
         # smart/dedup-ключей СОХРАЕНЫ (no-op); дрейф 467→465 внешний
         # (закоммиченный EVOL-016/012), не этой задачи.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 465
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 468
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():
