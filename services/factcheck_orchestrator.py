@@ -85,6 +85,22 @@ REFUNDABLE_OUTCOMES = frozenset({OUTCOME_NO_CLAIM, OUTCOME_AMBIGUOUS,
                                  OUTCOME_UNAVAILABLE, OUTCOME_ERROR,
                                  OUTCOME_BUSY})
 
+COOLDOWN_REFUND = "refund"
+COOLDOWN_KEPT = "kept"
+
+
+def cooldown_label(outcome: str) -> str:
+    """ASAP-FC-ADMISSION-01 §3.E: исход кулдауна для исхода прогона.
+
+    ``refund:<outcome>`` — ранний отказ/сбой: handler снимет слот (политика
+    ``REFUNDABLE_OUTCOMES``); ``kept:<outcome>`` — доставленный вердикт
+    сохраняет пользовательский лимит (антиспам/single-flight). Фактический
+    результат снятия пишет handler событием ``factcheck_cooldown``
+    (``refund:<outcome>`` | ``refund_failed:<outcome>`` | ``kept:<outcome>``)."""
+    return (f"{COOLDOWN_REFUND}:{outcome}"
+            if outcome in REFUNDABLE_OUTCOMES
+            else f"{COOLDOWN_KEPT}:{outcome}")
+
 # ── Фриз-схемы (join-barrier; изменение полей = bump + review W4/W5) ────────
 
 @dataclasses.dataclass(frozen=True)
@@ -224,7 +240,13 @@ def _emit_admission(*, chat_id: int | None, target_resolved: bool,
                     admission_decision: str, reason_code: str | None,
                     pipeline_path: str, verdict_stage: str | None = None,
                     cooldown_outcome: str = "not_applicable") -> dict:
-    """Одно диагностическое событие допуска (fail-open, никогда не бросает)."""
+    """Одно диагностическое событие допуска (fail-open, никогда не бросает).
+
+    ``cooldown_outcome`` — не константа: ``_finish`` передаёт детерминированную
+    метку политики (``refund:<outcome>`` / ``kept:<outcome>``), поэтому поле
+    отличает ранний отказ (слот вернут) от доставленного вердикта (лимит
+    сохранён). Фактический результат снятия слота — событие
+    ``factcheck_cooldown`` из handler'а (§3.E)."""
     fields = {
         "target_resolved": bool(target_resolved),
         "explicit_request": bool(explicit_request),
@@ -572,7 +594,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             admission_decision=admission,
             reason_code=(decision.reason_code if decision is not None
                          else None),
-            pipeline_path=pipeline_path, verdict_stage=verdict_stage)
+            pipeline_path=pipeline_path, verdict_stage=verdict_stage,
+            cooldown_outcome=cooldown_label(outcome))
         return outcome
 
     # 3. Gate-маршруты ДО платного поиска (06B.1/06J.3).

@@ -152,6 +152,12 @@ target_resolved | explicit_request | claim_items_count | admission_decision |
 reason_code | pipeline_path | verdict_stage | cooldown_outcome
 ```
 
+`cooldown_outcome` — не константа: `_finish` передаёт `cooldown_label(outcome)`
+→ `refund:<outcome>` (ранний отказ/сбой, слот будет снят) либо
+`kept:<outcome>` (доставленный вердикт, лимит сохранён). Фактический результат
+снятия слота пишет handler: событие `factcheck_cooldown`
+(`refund:<outcome>` | `refund_failed:<outcome>` | `kept:<outcome>`) — см. §11.
+
 Ни текстов сообщений, ни авторов, ни URL. Разделение случаев:
 
 * ложный/честный отказ — `admission_decision=no_identifiable_claim` +
@@ -182,7 +188,10 @@ reason_code | pipeline_path | verdict_stage | cooldown_outcome
 | 7 | Тезис определён, поиск ничего надёжного не подтвердил → `insufficient_evidence`, не `no_claim` | `TestScenario7InsufficientEvidence::test_insufficient_evidence_is_not_no_claim` | PASS |
 | 8 | Повтор после раннего отказа + одновременные вызовы → нет необоснованного полного cooldown, антиспам и single-flight работают | `TestScenario8CooldownAndSingleFlight::test_outcome_sets_match_orchestrator`, `…test_persistent_tracker_refund_deletes_slot`, `…test_retry_after_early_refusal_not_blocked`, `…test_single_flight_and_antispam_preserved` | PASS |
 
-Команда: `py -3 -m pytest tests/test_evol_fc_admission.py -q` → **18 passed**.
+Команда: `py -3 -m pytest tests/test_evol_fc_admission.py -q` → **22 passed**
+(18 базовых + 4 теста review-fix F1, см. §11).
+
+Полный разбор review-fix F1 (§3.E: `cooldown_outcome`) — §11 в конце документа.
 
 ## 8. Регрессия
 
@@ -192,6 +201,9 @@ reason_code | pipeline_path | verdict_stage | cooldown_outcome
 | Шесть именованных наборов §5 + новый файл: `test_factcheck_orchestrator_cfg06.py`, `test_factcheck_service.py`, `test_factcheck_gate_cfg06.py`, `test_factcheck_handlers.py`, `test_factcheck_renderer_cfg06.py`, `test_factcheck_prompts.py`, `test_evol_fc_admission.py` | **159 passed** |
 | Широкий срез `-k "factcheck or phrase or orchestrator or renderer or prompt or egress or unified_core or registry or config_cache or smartmodule"` | **2209 passed, 3 failed** — те же 3 падения воспроизводятся на чистом `14b67272` (отдельный worktree): **2208 passed, 3 failed** |
 | `TestAggregatorFailureTaxonomy` (ранее известные 2 падения «DDG + провайдер-каскад») | **4 passed** — на этом HEAD не воспроизводятся (исправлены `98a4254f`), мой лейн их не касается |
+
+Актуальные прогоны после review-fix F1 — в §11 (числа этой таблицы относятся к
+исходному кандидату до фикса телеметрии).
 
 Предсуществующие падения (не связаны с лейном, воспроизводятся на базовом
 HEAD):
@@ -250,3 +262,62 @@ plans/features/evol/audit/w7-fc-admission.md
 
 Не тронуты: `web/**`, `prompt_registry`/`prompt_composer` (закоммиченные лейны),
 video/social-файлы, схема БД (новых таблиц нет), `services/factcheck_service.py`.
+
+## §11. review-fix F1 — `cooldown_outcome` был мёртвым полем
+
+**Находка Reviewer.** В admission-телеметрии `cooldown_outcome` всегда
+равнялся дефолту `not_applicable`: `_emit_admission(...)` вызывался без этого
+аргумента, `_settle_cooldown`/`_refund_cooldown` (handlers/factcheck.py)
+писали generic `outcome=early_refusal`, а случай «слот сохранён» не писался
+вообще. §3.E требует измерять `cooldown_outcome` — отчёт заявлял поле, но
+наблюдаемого значения не было.
+
+**Причина.** Поле допуска эмитится в оркестраторе ДО расчёта кулдауна
+(handler ставит/снимает слот после возврата `run_factcheck`), поэтому никакой
+фактический исход туда не попадал, а собственного события кулдауна не было.
+
+**Исправление (минимальное, без новых текстов/авторов/ссылок и без изменения
+семантики снятия слота):**
+
+* `services/factcheck_orchestrator.py::cooldown_label(outcome)` — единый
+  словарь меток: `refund:<outcome>` для `REFUNDABLE_OUTCOMES`,
+  `kept:<outcome>` для остальных. `_finish` передаёт её в единственный вызов
+  `_emit_admission`, поэтому в admission-событии теперь реальное значение
+  (`refund:unavailable`, `kept:verdict`), а не константа.
+* `handlers/factcheck.py::_settle_cooldown` теперь **возвращает** фактическую
+  метку и пишет её: `refund:<outcome>` (слот снят), `refund_failed:<outcome>`
+  (снятие не удалось — fail-open, лимит остался), `kept:<outcome>` (слот
+  сохранён после доставленного вердикта). `_refund_cooldown` логирует
+  конкретный `outcome=` вместо `early_refusal`.
+* Новое короткое событие `factcheck_cooldown`
+  (`component="factcheck.cooldown"`, `entity_ids={"cooldown_outcome": ...,
+  "run_outcome": ...}`) + одна INFO-строка `[factcheck_cooldown]` — по одному
+  событию на прогон, обе ветки (раньше «kept» не писался). Логика допуска
+  осталась одна, семантика возврата слота не менялась.
+
+**Тесты (4 новых, всё офлайн):**
+
+| Тест | Что доказывает |
+| --- | --- |
+| `TestScenario8CooldownAndSingleFlight::test_settle_cooldown_reports_actual_outcome` | обе ветки фактического значения: `refund:no_claim` (слот снят) и `kept:verdict` (слот сохранён); метка есть в логе и в `entity_ids` mca-события, набор полей события — только `cooldown_outcome`/`run_outcome` |
+| `…test_settle_cooldown_reports_refund_failure` | fail-open снятия слота честно виден как `refund_failed:error` (не притворяется возвратом) |
+| `…test_cooldown_label_vocabulary_matches_orchestrator` | словарь меток handler'а и оркестратора совпадает |
+| `…test_admission_event_carries_non_default_cooldown_outcome` | в `[factcheck_admission]` реальное `cooldown=refund:unavailable`, строки `not_applicable` больше нет; `test_claim_found_in_related_material_is_checked` дополнительно закрепляет `cooldown=kept:verdict` на вердикт-ветке |
+
+**Проверки после фикса (текущий кандидат `fcdc69a8` + незакоммиченные правки
+лейна):**
+
+| Набор | Результат |
+| --- | --- |
+| `tests/test_evol_fc_admission.py` | **22 passed** |
+| шесть именованных наборов фактчека + новый файл (`test_factcheck_orchestrator_cfg06`, `test_factcheck_service`, `test_factcheck_gate_cfg06`, `test_factcheck_handlers`, `test_factcheck_renderer_cfg06`, `test_factcheck_prompts`, `test_evol_fc_admission`) | **163 passed** |
+| `tests -k factcheck` | **584 passed, 1 failed** — единственное падение `tests/test_evol_vision_sync_core.py::test_sc17_factcheck_pending_forbids_no_claim`: это новый untracked тест параллельного Vision-лейна, который правится в этом же worktree в те же минуты (вместе с `services/media_readiness.py`, `mca_vision.py`, `factcheck_service.py`); на базовом `fcdc69a8` файла не существует |
+
+Контрольная сверка с базой `fcdc69a8` в отдельном worktree: `-k "factcheck or
+orchestrator or smartmodule or suitability"` даёт **792 passed** (без моих
+изменений) — то есть фактчековые наборы не регрессировали; известные падения
+`test_declared_events_really_emitted_in_code` и
+`test_registry_event_names_exist_in_code` воспроизводятся и на базе (оба про
+`mca07_answer_cache` у `direct.reply`, к фактчеку и к новому событию
+`factcheck_cooldown` отношения не имеют — новое имя события не объявлено в
+реестре процессов, а реестр проверяется только в обратную сторону).

@@ -372,6 +372,10 @@ class TestScenario5EmptyTarget:
         assert any("target_resolved=True" in r.getMessage()
                    and "admission=checkable" in r.getMessage()
                    for r in caplog.records)
+        # §3.E (review-fix F1): доставленный вердикт — слот сохраняется,
+        # и это видно в admission-событии не как константа.
+        assert any("cooldown=kept:verdict" in r.getMessage()
+                   for r in caplog.records)
 
 
 # ── (6) Неоднозначные соседние сообщения ───────────────────────────────────
@@ -498,6 +502,99 @@ class TestScenario8CooldownAndSingleFlight:
         calls.clear()
         await hfc._settle_cooldown(CHAT_ID, USER_ID, orch.OUTCOME_VERDICT)
         assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_settle_cooldown_reports_actual_outcome(
+            self, monkeypatch, caplog):
+        """§3.E (review-fix F1): cooldown_outcome — ФАКТИЧЕСКИЙ исход.
+
+        Обе ветки: ранний отказ → ``refund:<outcome>`` (слот снят),
+        доставленный вердикт → ``kept:<outcome>`` (слот сохранён). Раньше
+        писался generic ``outcome=early_refusal``, а «слот сохранён»
+        не писалось вообще."""
+        events = []
+
+        def _capture(event_name, **fields):
+            events.append((event_name, fields))
+            return None
+
+        from services import mca_events
+        monkeypatch.setattr(mca_events, "emit_mca_event", _capture)
+        tracker = types.SimpleNamespace(_last={(CHAT_ID, USER_ID): 1.0})
+        monkeypatch.setattr(hfc, "_cooldown", tracker)
+
+        with caplog.at_level("INFO"):
+            label = await hfc._settle_cooldown(CHAT_ID, USER_ID,
+                                               orch.OUTCOME_NO_CLAIM)
+        assert label == "refund:no_claim"
+        assert (CHAT_ID, USER_ID) not in tracker._last      # слот снят
+        assert any("[factcheck_cooldown]" in r.getMessage()
+                   and "cooldown=refund:no_claim" in r.getMessage()
+                   and "outcome=no_claim" in r.getMessage()
+                   for r in caplog.records)
+
+        tracker._last[(CHAT_ID, USER_ID)] = 1.0
+        with caplog.at_level("INFO"):
+            label = await hfc._settle_cooldown(CHAT_ID, USER_ID,
+                                               orch.OUTCOME_VERDICT)
+        assert label == "kept:verdict"
+        assert (CHAT_ID, USER_ID) in tracker._last          # слот сохранён
+        assert any("[factcheck_cooldown]" in r.getMessage()
+                   and "cooldown=kept:verdict" in r.getMessage()
+                   for r in caplog.records)
+
+        # mca-событие несёт ту же метку (без текстов/авторов/ссылок)
+        assert [name for name, _ in events] == ["factcheck_cooldown"] * 2
+        for (_, fields), expected in zip(
+                events, ("refund:no_claim", "kept:verdict")):
+            assert fields["component"] == "factcheck.cooldown"
+            assert fields["chat_id"] == CHAT_ID
+            assert fields["entity_ids"]["cooldown_outcome"] == expected
+            assert set(fields["entity_ids"]) == {"cooldown_outcome",
+                                                 "run_outcome"}
+
+    @pytest.mark.asyncio
+    async def test_settle_cooldown_reports_refund_failure(self, monkeypatch):
+        """Fail-open снятия слота: лимит остался — это видно как
+        ``refund_failed:<outcome>``, а не как успешный возврат."""
+        class _DB:
+            async def write_transaction(self, op, *, op_name, chat_id):
+                raise RuntimeError("db down")
+
+        monkeypatch.setattr(
+            hfc, "_cooldown",
+            types.SimpleNamespace(_scope="factcheck", _db=_DB()))
+        label = await hfc._settle_cooldown(CHAT_ID, USER_ID,
+                                           orch.OUTCOME_ERROR)
+        assert label == "refund_failed:error"
+
+    def test_cooldown_label_vocabulary_matches_orchestrator(self):
+        """§3.E: единый словарь меток в handler'е и оркестраторе."""
+        assert hfc._COOLDOWN_REFUND == orch.COOLDOWN_REFUND == "refund"
+        assert hfc._COOLDOWN_KEPT == orch.COOLDOWN_KEPT == "kept"
+        for outcome in sorted(orch.REFUNDABLE_OUTCOMES):
+            assert orch.cooldown_label(outcome) == f"refund:{outcome}"
+        assert orch.cooldown_label(orch.OUTCOME_VERDICT) == "kept:verdict"
+
+    @pytest.mark.asyncio
+    async def test_admission_event_carries_non_default_cooldown_outcome(
+            self, caplog):
+        """§3.E (review-fix F1): в admission-событии ``cooldown_outcome`` —
+        реальное значение исхода, а не константа ``not_applicable``."""
+        service = _verdict_service()
+        req = orch.FactcheckRequest(
+            chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+            target_tg_message_id=TARGET_TG, target_text="", kind="reply")
+        with caplog.at_level("INFO"):
+            outcome = await orch.run_factcheck(
+                req, service=service, db=None, bot=AsyncMock(),
+                cache=FakeCache())
+        assert outcome == orch.OUTCOME_UNAVAILABLE
+        admission = [r.getMessage() for r in caplog.records
+                     if "[factcheck_admission]" in r.getMessage()]
+        assert admission
+        assert "cooldown=refund:unavailable" in admission[-1]
+        assert "not_applicable" not in admission[-1]
 
     @pytest.mark.asyncio
     async def test_retry_after_early_refusal_not_blocked(

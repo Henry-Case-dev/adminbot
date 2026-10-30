@@ -415,8 +415,19 @@ _EARLY_OUTCOMES = frozenset({"no_claim", "ambiguous", "unavailable", "error",
                              "busy"})
 _VERDICT_OUTCOME = "verdict"
 
+# ASAP-FC-ADMISSION-01 §3.E: метки ФАКТИЧЕСКОГО исхода кулдауна (не
+# «early_refusal»/«not_applicable»). Словарь совпадает с
+# `services.factcheck_orchestrator.cooldown_label` (равенство — в тесте):
+#   refund:<outcome>        — слот снят после раннего отказа/сбоя;
+#   refund_failed:<outcome> — снятие не удалось (fail-open: лимит остался);
+#   kept:<outcome>          — слот сохранён (доставленный вердикт, антиспам).
+_COOLDOWN_REFUND = "refund"
+_COOLDOWN_REFUND_FAILED = "refund_failed"
+_COOLDOWN_KEPT = "kept"
 
-async def _refund_cooldown(chat_id: int, user_id: int) -> bool:
+
+async def _refund_cooldown(chat_id: int, user_id: int,
+                           outcome: str = "early_refusal") -> bool:
     """Снять слот кулдауна после раннего отказа (политика §D).
 
     Кулдаун ставится ДО разрешения цели — это защита от параллельных дублей
@@ -450,7 +461,7 @@ async def _refund_cooldown(chat_id: int, user_id: int) -> bool:
             await _body(db.db)
             await db.db.commit()
         logger.info("[factcheck] cooldown refunded | chat=%s user=%s | "
-                    "outcome=early_refusal", chat_id, user_id)
+                    "outcome=%s", chat_id, user_id, outcome)
         return True
     except Exception:
         logger.warning("[factcheck] cooldown refund failed | chat=%s",
@@ -458,11 +469,41 @@ async def _refund_cooldown(chat_id: int, user_id: int) -> bool:
         return False
 
 
+def _emit_cooldown_outcome(chat_id: int, label: str,
+                           outcome: str | None) -> None:
+    """ASAP-FC-ADMISSION-01 §3.E: короткое событие фактического исхода
+    кулдауна — ровно одна строка лога + mca-событие `factcheck_cooldown`.
+    Только служебные поля: ни текстов сообщений, ни авторов, ни ссылок.
+    Fail-open: телеметрия не рвёт handler."""
+    logger.info("[factcheck_cooldown] chat=%s | cooldown=%s | outcome=%s",
+                chat_id, label, outcome or "")
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "factcheck_cooldown", outcome="success", level="INFO",
+            component="factcheck.cooldown", chat_id=chat_id,
+            entity_ids={"cooldown_outcome": label,
+                        "run_outcome": str(outcome or "")})
+    except Exception:      # события не рвут прогон
+        logger.debug("[factcheck_cooldown] event emit failed", exc_info=True)
+
+
 async def _settle_cooldown(chat_id: int, user_id: int, outcome: str | None
-                           ) -> None:
-    """Ранний исход → слот снимается; вердикт/неизвестно → остаётся (§D)."""
+                           ) -> str:
+    """Ранний исход → слот снимается; вердикт/неизвестно → остаётся (§D).
+
+    Возвращает фактическую метку исхода кулдауна (§3.E) и пишет её в
+    телеметрию: ``refund:<outcome>`` | ``refund_failed:<outcome>`` |
+    ``kept:<outcome>``. Отдельного «kept»-пути раньше не было вовсе —
+    сохранение слота теперь видно аналитике так же, как снятие."""
     if outcome in _EARLY_OUTCOMES:
-        await _refund_cooldown(chat_id, user_id)
+        refunded = await _refund_cooldown(chat_id, user_id, str(outcome))
+        label = (f"{_COOLDOWN_REFUND}:{outcome}" if refunded
+                 else f"{_COOLDOWN_REFUND_FAILED}:{outcome}")
+    else:
+        label = f"{_COOLDOWN_KEPT}:{outcome or 'unknown'}"
+    _emit_cooldown_outcome(chat_id, label, outcome)
+    return label
 
 _FACTCHECK_TRIGGER_RE = re.compile(r"^фактчек\b", re.IGNORECASE)   # слово целиком («фактчекинг» НЕ матчится)
 _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
