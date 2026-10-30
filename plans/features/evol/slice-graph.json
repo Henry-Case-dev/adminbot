@@ -1,948 +1,993 @@
 {
- "schema": "openworkflow-slices-v1",
- "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода). Аддендум 31.10.2026 (OI-2026-10-31-EVOL-ADDENDUM): четыре дельты активного эпика вынесены в отдельные W5-слайсы EVOL-SOCIAL-FRAME / EVOL-VIDEO-INTENT / EVOL-FACTCHECK-CRITICAL / EVOL-GLASS-SEAM; они зависят от уже поставленных слайсов (QUOTE/SMARTCACHE/PROMPTREG/PROMPTCONV/HEALTHGLASS), входят в EVOL-RELEASE и (стекло) в EVOL-UI-FULLDOD. Поручение 31.10.2026 (OI-2026-10-31-EVOL-SRC-COG): EVOL-SRC-READER (W6) и EVOL-COG-MAP (W7) — конец очереди по указанию владельца; SRC зависит от существующего tool router/safe fetch/WebContentExtractor и писателей handlers/**+direct_chat_service+agentic_events, COG — от UI-цепочки (через EVOL-UI-FULLDOD), HEALTHGLASS/STORIES/DESIGN и источников данных лент, при сохранении /api/memory/graph. Оба входят в EVOL-RELEASE.depends_on. Отдельное поручение OI-2026-10-31-ASAP-FC-ADMISSION: ASAP-FC-ADMISSION-01 (W5-ADMISSION) — сразу после EVOL-FACTCHECK-CRITICAL и его Reviewer-приёмки, не параллельно с правками фактчека.",
- "slices": [
-  {
-   "id": "EVOL-W0-AUDIT",
-   "title": "W0: read-only аудит — завершение предыдущих задач, HEAD/схема БД/конфигурация провайдеров, карта точек потребления EVOL, подтверждение диагностических гипотез",
-   "wave": "W0",
-   "depends_on": [],
-   "write_scope": [
-    "plans/features/evol/audit/**"
-   ],
-   "acceptance": "Аудит-отчёты в plans/features/evol/audit/ фиксируют исходную картину, фактические версии/конфигурацию и точки потребления до изменения кода; гипотезы раздела 3 сопоставлены с кодом/телеметрией.",
-   "req_ids": []
-  },
-  {
-   "id": "EVOL-B-EMBED",
-   "title": "EVOL-010: NameError embeddings — первопричина, индексация и backfill (P0)",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/embedding_control_plane.py",
-    "services/summary_memory.py",
-    "tests/embedding/**"
-   ],
-   "acceptance": "NameError устранён у первопричины; EmbeddingBudgetExhausted объяснён; backfill продвигается либо достоверно неблокирующ; векторный поиск работает или недоступность доказана; потери фактов нет; постдеплой-прод без повторяющегося NameError.",
-   "req_ids": [
-    "EVOL-010"
-   ]
-  },
-  {
-   "id": "EVOL-B-FACTS",
-   "title": "EVOL-006/007: качество фактов памяти и воронка обновления «Новых фактов»",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-B-EMBED",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "SmartModule/**",
-    "services/summary_memory.py",
-    "tests/memory/**"
-   ],
-   "acceptance": "Путь экстракции задокументирован; типы записей различаются на датасетах; разовые просьбы не попадают в долговременный пул; воронка по двум чатам с задержкой и честной датой последнего прохода.",
-   "req_ids": [
-    "EVOL-006",
-    "EVOL-007"
-   ]
-  },
-  {
-   "id": "EVOL-B-MEMCYCLES",
-   "title": "EVOL-008/009: актуальность убеждений/парадигм/личности и прозрачная диагностика здоровья памяти",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/dream_prompts.py",
-    "services/mca_dream_history.py",
-    "services/memory_health.py",
-    "services/memory_maintenance.py",
-    "tests/memcycles/**"
-   ],
-   "acceptance": "Расписание/enablement/даты прогонов проверены, причины простоя различаются без имитации активности; админ видит смысловые и технические признаки здоровья из реальных событий.",
-   "req_ids": [
-    "EVOL-008",
-    "EVOL-009"
-   ]
-  },
-  {
-   "id": "EVOL-B-PROMPTREG",
-   "title": "EVOL-016: единый реестр версий всех промптов и детерминированное применение заводских редакций",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/prompt_registry.py",
-    "services/prompt_factory.py",
-    "services/prompt_composer.py",
-    "config/prompts/**",
-    "tests/prompts/**"
-   ],
-   "acceptance": "Реестр всех промптов без исключений с журналом активаций; семантика приоритетов 1–5; атомарное применение до реального вызова модели; новые промпты — через единый контракт регистрации.",
-   "req_ids": [
-    "EVOL-016"
-   ]
-  },
-  {
-   "id": "EVOL-B-QUOTE",
-   "title": "EVOL-015: Telegram quote — сохранение выделенного фрагмента на всём маршруте (P1)",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "handlers/**",
-    "services/quote_resolver.py",
-    "services/canonical_context.py",
-    "services/canonical_messages.py",
-    "tests/quote/**"
-   ],
-   "acceptance": "Quote доходит дословно с связью с оригиналом до ответа; фикстура «если S Pen» трактуется по выделению; обычный reply не регрессирует; диагностика quote_* без приватных текстов.",
-   "req_ids": [
-    "EVOL-015"
-   ]
-  },
-  {
-   "id": "EVOL-B-SETREG",
-   "title": "EVOL-040: единая модель источников настроек и один канонический write path",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/chat_params.py",
-    "services/chat_settings_seed.py",
-    "services/config_migrations.py",
-    "services/param_catalog.py",
-    "tests/settings/**"
-   ],
-   "acceptance": "Реестр setting_id → storage → default → override → consumer → UI → права; дублей записывающих тумблеров нет; глобальный on/off модуля — в каталоге.",
-   "req_ids": [
-    "EVOL-040"
-   ]
-  },
-  {
-   "id": "EVOL-B-SMARTCACHE",
-   "title": "EVOL-031: вывод Smart Cache / Exact Match Cache готовых LLM-ответов из эксплуатации",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/smart_cache.py",
-    "services/direct_chat_service.py",
-    "web/api/smart_cache_admin.py",
-    "tests/smartcache/**"
-   ],
-   "acceptance": "Replay готовых ответов удалён из активного пути/UI/настроек без «мёртвых» флагов; техкеши и guards сохранены; эффект на latency/cost измерен; постдеплой без cache-hit в пользовательском пути.",
-   "req_ids": [
-    "EVOL-031"
-   ]
-  },
-  {
-   "id": "EVOL-B-TELEMETRY",
-   "title": "EVOL-013: общее качество статусов и телеметрии",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/agentic_events.py",
-    "services/betterstack_handler.py",
-    "tests/telemetry/**"
-   ],
-   "acceptance": "Диагностика отделяет failures/деградацию/pending/disabled с классом причины и влиянием; «transport error» не поглощает непредвиденные исключения; UI-состояния из runtime events.",
-   "req_ids": [
-    "EVOL-013"
-   ]
-  },
-  {
-   "id": "EVOL-B-VISION-ADAPT",
-   "title": "EVOL-011: vision_adapt failed с пустой причиной — сопоставление статусов и честная телеметрия",
-   "wave": "W1",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/mca_vision.py",
-    "services/postgen_vision.py",
-    "services/image_normalize.py",
-    "tests/vision/**"
-   ],
-   "acceptance": "Статусы vision_adapt разделены без выдуманных причин; реальный отказ исправлен либо ложный WARN исправлен в телеметрии; fallback/pending→ready сохранены.",
-   "req_ids": [
-    "EVOL-011"
-   ]
-  },
-  {
-   "id": "EVOL-B-EXP",
-   "title": "EVOL-020: «Опыт» — аудит живости pipeline и осмысленные показатели",
-   "wave": "W1/W3",
-   "depends_on": [
-    "EVOL-UI-VISION-CHECK",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/mca_experience.py",
-    "services/mca_experience_jobs.py",
-    "tests/experience/**",
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Цепочка опыта аудирована по этапам с датами/окнами; воронка жизненного цикла с честными индикаторами; working/idle/broken различимы; фиктивных уроков нет.",
-   "req_ids": [
-    "EVOL-020"
-   ]
-  },
-  {
-   "id": "EVOL-B-PROMPTCONV",
-   "title": "EVOL-018: общепроектный контракт версионирования, безопасный перенос текущих промптов и CI-проверки",
-   "wave": "W2",
-   "depends_on": [
-    "EVOL-B-PROMPTMIG"
-   ],
-   "write_scope": [
-    "services/prompt_*.py",
-    "config/prompts/**",
-    "tools/**",
-    "tests/prompts/**"
-   ],
-   "acceptance": "Стандарт закреплён в документации/CI; legacy/imported снимки с честным timestamp; обязательная тест-таблица переходов зелёная; непокрытые промпты выявляются проверками.",
-   "req_ids": [
-    "EVOL-018"
-   ]
-  },
-  {
-   "id": "EVOL-B-PROMPTMIG",
-   "title": "EVOL-012: устранение защиты «кастом юзера — НЕ трогаем» и ложных предупреждений",
-   "wave": "W2",
-   "depends_on": [
-    "EVOL-B-PROMPTREG"
-   ],
-   "write_scope": [
-    "services/prompt_migrations.py",
-    "tests/prompts/**"
-   ],
-   "acceptance": "Строковые каноны и защитный отказ обновления устранены; заводская редакция релиза активна при ручной; рестарт без релиза ничего не меняет; WARN-барьер исчез.",
-   "req_ids": [
-    "EVOL-012"
-   ]
-  },
-  {
-   "id": "EVOL-UI-DESIGN",
-   "title": "EVOL-022: премиальный визуальный стандарт — токены/компоненты при сохранении жидкого стекла и фона",
-   "wave": "W2",
-   "depends_on": [
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/design-tokens.css",
-    "plans/features/evol/design/**"
-   ],
-   "acceptance": "Референсы стекла/фона в движении зафиксированы; refraction/фон не изменены; единые токены/уровни поверхностей введены; одинаковый оптический вес границ у соседних панелей.",
-   "req_ids": [
-    "EVOL-022"
-   ]
-  },
-  {
-   "id": "EVOL-UI-NAV",
-   "title": "EVOL-023: навигация, верхняя панель и переключатель чатов",
-   "wave": "W2",
-   "depends_on": [
-    "EVOL-UI-RESPONSIVE"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/routes.py"
-   ],
-   "acceptance": "Sidebar/topbar/scope-switcher по контракту; контент не перекрывается; dropdown с корректной геометрией; клавиатурная доступность.",
-   "req_ids": [
-    "EVOL-023"
-   ]
-  },
-  {
-   "id": "EVOL-UI-RESPONSIVE",
-   "title": "EVOL-025: сквозная responsive/mobile-first система любого экрана и ориентации",
-   "wave": "W2",
-   "depends_on": [
-    "EVOL-UI-DESIGN"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Adaptive layout по доступному пространству для portrait/landscape/планшета/desktop; touch targets, safe-area, клавиатура, zoom; protected фон не изменён; эталонные viewport проверены.",
-   "req_ids": [
-    "EVOL-025"
-   ]
-  },
-  {
-   "id": "EVOL-UI-CONTROLS",
-   "title": "EVOL-043: единая дизайн-система интерактивных элементов и состояний редактирования",
-   "wave": "W2-W3",
-   "depends_on": [
-    "EVOL-UI-HEALTHGLASS"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/controls.js"
-   ],
-   "acceptance": "Единые кнопки/toggles/поля/dropdown/диалоги с серверным подтверждением и откатом; правила сохранения без смешивания; инвентаризация controls по всем разделам.",
-   "req_ids": [
-    "EVOL-043"
-   ]
-  },
-  {
-   "id": "EVOL-UI-HEALTHGLASS",
-   "title": "EVOL-032: реактивное окрашивание стекла по реальному здоровью подсистем",
-   "wave": "W2-W3",
-   "depends_on": [
-    "EVOL-UI-NAV",
-    "EVOL-B-TELEMETRY"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/health-glass.js",
-    "web/api/health_glass.py"
-   ],
-   "acceptance": "HealthGlassSurface: красный tint всей поверхности только при подтверждённой проблеме, текст/причина рядом, unknown/disabled без аварии, оптика/геометрия не изменены; матрица состояний пройдена.",
-   "req_ids": [
-    "EVOL-032"
-   ]
-  },
-  {
-   "id": "EVOL-UI-KEYBOARD",
-   "title": "EVOL-044: адаптивный редактор и навигация при открытой экранной клавиатуре",
-   "wave": "W2-W3",
-   "depends_on": [
-    "EVOL-UI-CONTROLS"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Компоновка от visualViewport; caret/черновики/sticky-save достижимы; overlay не под клавиатурой; матрица viewport/клавиатуры пройдена.",
-   "req_ids": [
-    "EVOL-044"
-   ]
-  },
-  {
-   "id": "EVOL-UI-MOTION",
-   "title": "EVOL-045: достоверные progress bars и ненавязчивые motion-сигналы",
-   "wave": "W2-W3",
-   "depends_on": [
-    "EVOL-UI-KEYBOARD",
-    "EVOL-UI-HEALTHGLASS"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/motion.js"
-   ],
-   "acceptance": "Determinate/indeterminate только от реальных состояний; пульс только подтверждённой активности; reduced-motion fallback; protected фон не изменён.",
-   "req_ids": [
-    "EVOL-045"
-   ]
-  },
-  {
-   "id": "EVOL-UI-PROMPTHIST",
-   "title": "EVOL-017: история версий, сравнение, откат и возврат вперёд в админке",
-   "wave": "W2-W3",
-   "depends_on": [
-    "EVOL-UI-AI",
-    "EVOL-B-PROMPTREG"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/prompt_history.py"
-   ],
-   "acceptance": "История/diff/активация в редакторе каждого зарегистрированного промпта, включая внутренние; кейс ручная→заводская→откат→возврат проверен на обоих чатах и mobile.",
-   "req_ids": [
-    "EVOL-017"
-   ]
-  },
-  {
-   "id": "EVOL-B-INITFLAGS",
-   "title": "EVOL-035: семантическая инвентаризация тумблеров Initiative и сведение алиасов",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-MODULES",
-    "EVOL-B-SETREG"
-   ],
-   "write_scope": [
-    "services/initiative_diagnostics.py",
-    "services/initiative_observer.py",
-    "web/api/initiative_vitality.py",
-    "tests/initiative/**",
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Карта флагов (key/scope/default/чтение/эффекты); один master-toggle в каталоге; группы функций; truth table проверена; случайная доставка исключена.",
-   "req_ids": [
-    "EVOL-035"
-   ]
-  },
-  {
-   "id": "EVOL-UI-ACCESS-OTHER",
-   "title": "EVOL-030: «Доступы», аналитика и второстепенные страницы в единой UX-системе",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-MEMORY"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/access.py"
-   ],
-   "acceptance": "Доступы: сводка/матрица/RBAC; аналитика: тренды/причины с advanced-сохранением trace_id; прочие страницы в общем контракте; regression-pass по всем экранам.",
-   "req_ids": [
-    "EVOL-030"
-   ]
-  },
-  {
-   "id": "EVOL-UI-AI",
-   "title": "EVOL-028: «ИИ» — единая рабочая панель моделей, речи, алиасов и версий промптов",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-B-INITFLAGS",
-    "EVOL-B-SMARTCACHE",
-    "EVOL-B-PROMPTREG"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Рабочая панель с провайдерами/моделями, каталогом промптов с версиями; 200 ≠ функциональная проверка; «Умный кеш» убран после EVOL-031; «Личность и стиль» переехала.",
-   "req_ids": [
-    "EVOL-028"
-   ]
-  },
-  {
-   "id": "EVOL-UI-CLEANUP",
-   "title": "EVOL-024: сквозная очистка интерфейса — кнопки, обрезания, рамки, модалки, плотность",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-SEARCH"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Инвентаризация всех основных экранов; layout/overflow/stacking исправлены в исходных компонентах; визуальный regression-pass в статике и движении.",
-   "req_ids": [
-    "EVOL-024"
-   ]
-  },
-  {
-   "id": "EVOL-UI-INSPECTOR",
-   "title": "EVOL-042: Effective Prompt Inspector — реальный payload vs предпросмотр",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-SPEECH"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Два режима (подтверждённый снимок/предпросмотр), три проекции одного снимка, причины пропуска слоёв, переходы к prompt_id/версиям; payload не изменяется.",
-   "req_ids": [
-    "EVOL-042"
-   ]
-  },
-  {
-   "id": "EVOL-UI-MEMORY",
-   "title": "EVOL-029: «Память» — читаемый каталог знаний вместо приборной панели",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-MODELS",
-    "EVOL-UI-SECTIONS-MOVE"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/memory_agi.py"
-   ],
-   "acceptance": "Поиск по типам знаний с человеческим содержанием; детальные карточки с источниками; технические инструменты — в расширенном режиме; адресное открытие эпизодов.",
-   "req_ids": [
-    "EVOL-029"
-   ]
-  },
-  {
-   "id": "EVOL-UI-MODELS",
-   "title": "EVOL-039: премиальная панель «Модели и подключения»",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-INSPECTOR"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Роли моделей с master-detail редактором; проверка соединения ≠ проверка функции; секреты маскированы; адаптивность всех форматов.",
-   "req_ids": [
-    "EVOL-039"
-   ]
-  },
-  {
-   "id": "EVOL-UI-MODULES",
-   "title": "EVOL-027/036: каталог модулей с master-toggles на карточках и единая анатомия деталей",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-SECTIONS-MOVE",
-    "EVOL-B-SETREG"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/modules.py"
-   ],
-   "acceptance": "Единый каталог с глобальным тумблером на карточке и без KPI-панели; в деталях нет второго master-toggle; единая анатомия/controls/диагностика всех модулей.",
-   "req_ids": [
-    "EVOL-027",
-    "EVOL-036"
-   ]
-  },
-  {
-   "id": "EVOL-UI-PROMPLIB",
-   "title": "EVOL-038: полная переделка «Библиотеки промптов» и внутренних редакторов",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-PROMPTHIST"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Каталог по реестру + один редактор на prompt_id; адаптивный редактор с diff/историей/полноэкранным режимом; дублей редакторов нет; 320–1920 px читабельно.",
-   "req_ids": [
-    "EVOL-038"
-   ]
-  },
-  {
-   "id": "EVOL-UI-SEARCH",
-   "title": "EVOL-037: единый глобальный поиск/command palette с адресным переходом",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-ACCESS-OTHER",
-    "EVOL-B-SETREG"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/search_index.py"
-   ],
-   "acceptance": "Поиск по структурному реестру (разделы/модули/настройки/промпты/модели) с фокусировкой элемента, RBAC на сервере, без секретов и LLM-вызовов.",
-   "req_ids": [
-    "EVOL-037"
-   ]
-  },
-  {
-   "id": "EVOL-UI-SECTIONS-MOVE",
-   "title": "EVOL-026: разведение Статуса и Аналитики и перенос указанных виджетов",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-STORIES",
-    "EVOL-UI-NAV"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/analytics.py",
-    "web/api/analytics_viz.py"
-   ],
-   "acceptance": "Активность по часам и лента досье в Статусе; истории — в Аналитике; routing/deeplinks/scope обновлены; дубликатов и битых ссылок нет.",
-   "req_ids": [
-    "EVOL-026"
-   ]
-  },
-  {
-   "id": "EVOL-UI-SPEECH",
-   "title": "EVOL-034/041: «Речь и характер» — единый рабочий центр и перенос «Личности и стиля»",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-PROMPLIB",
-    "EVOL-B-PROMPTREG",
-    "EVOL-B-SETREG"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/speech.py"
-   ],
-   "acceptance": "Шесть областей с интерактивной схемой пайплайна; один канонический редактор личности; аудит key→смысл→потребитель; короткие маршруты к действиям; без копий и второго источника истины.",
-   "req_ids": [
-    "EVOL-034",
-    "EVOL-041"
-   ]
-  },
-  {
-   "id": "EVOL-UI-STATUS-WIDGETS",
-   "title": "EVOL-001..005: виджеты статуса — единый дизайн, авто+ручное движение, модалки, первоисточник, честные метки",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-B-EXP",
-    "EVOL-B-FACTS",
-    "EVOL-B-MEMCYCLES"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/memory_overview.py",
-    "tests/ui_status/**"
-   ],
-   "acceptance": "Четыре источника единой системой; auto-scroll+ручная прокрутка с паузой/возобновлением; модалки с полными полями и provenance; переходы к первоисточникам; честные даты и пустые состояния по обоим чатам.",
-   "req_ids": [
-    "EVOL-001",
-    "EVOL-002",
-    "EVOL-003",
-    "EVOL-004",
-    "EVOL-005"
-   ]
-  },
-  {
-   "id": "EVOL-UI-STORIES",
-   "title": "EVOL-021: «Истории памяти» — смысл эпизодов и новое представление",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-STATUS-WIDGETS",
-    "EVOL-B-MEMCYCLES"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/stories.py"
-   ],
-   "acceptance": "Лента смысловых эпизодов с честными статусами; незавершённые — в «Требуют восстановления»; адресное открытие выбранного эпизода с возвратом.",
-   "req_ids": [
-    "EVOL-021"
-   ]
-  },
-  {
-   "id": "EVOL-UI-VISION-CHECK",
-   "title": "EVOL-019: кнопка «Проверить» Vision — подтверждение распознавания, а не HTTP 200",
-   "wave": "W3",
-   "depends_on": [
-    "EVOL-UI-MOTION",
-    "EVOL-B-VISION-ADAPT"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/api/vision_check.py"
-   ],
-   "acceptance": "Состояния конфигурация/провайдер/распознавание/интеграция различимы; проверка на media-fixture; одинаковых зелёных плашек нет; макет адаптивен.",
-   "req_ids": [
-    "EVOL-019"
-   ]
-  },
-  {
-   "id": "EVOL-F-MEMES",
-   "title": "EVOL-014 (W4): инициативная генерация мемов — подсервис Initiative с квотами и аналитикой",
-   "wave": "W4",
-   "depends_on": [
-    "EVOL-UI-CLEANUP",
-    "EVOL-B-PROMPTREG",
-    "EVOL-B-INITFLAGS",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/initiative_memes.py",
-    "services/image_generation.py",
-    "services/image_capabilities.py",
-    "web/api/initiative_memes.py",
-    "tests/memes/**",
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css"
-   ],
-   "acceptance": "Подсервис с квантовым random, лёгкой выжимкой под effective limit, литералом «Создай мем с шрифтом импакт:», зависимостью от image-provider, квотой 3/чат с атомарным учётом и отдельной аналитикой стадий; publish-gate соблюдён.",
-   "req_ids": [
-    "EVOL-014"
-   ]
-  },
-  {
-   "id": "EVOL-RELEASE",
-   "title": "W5: сквозная интеграция обоих чатов, DoD раздела 12, релиз и production read-only verification",
-   "wave": "W5",
-   "depends_on": [
-    "EVOL-UI-FULLDOD",
-    "EVOL-B-PROMPTCONV",
-    "EVOL-B-EMBED",
-    "EVOL-B-VISION-ADAPT",
-    "EVOL-B-QUOTE",
-    "EVOL-B-SMARTCACHE",
-    "EVOL-B-TELEMETRY",
-    "EVOL-B-FACTS",
-    "EVOL-B-MEMCYCLES",
-    "EVOL-B-SETREG",
-    "EVOL-SOCIAL-FRAME",
-    "EVOL-VIDEO-INTENT",
-    "EVOL-FACTCHECK-CRITICAL",
-    "EVOL-GLASS-SEAM",
-    "EVOL-SRC-READER",
-    "EVOL-COG-MAP"
-   ],
-   "write_scope": [
-    "plans/features/evol/release/**",
-    "docs/**"
-   ],
-   "acceptance": "Все 45 ID доказаны на интегрированном кандидате; матрица DONE/FAILED/NOT_OBSERVED с процентом; безопасный деплой и прод-проверка по логам/HTTP; отчёт владельцу простым языком.",
-   "req_ids": [
-    "EVOL-DoD"
-   ]
-  },
-  {
-   "id": "EVOL-UI-FULLDOD",
-   "title": "EVOL-033 (W5): полный визуально-функциональный дизайн-контракт всех экранов — интеграция",
-   "wave": "W5",
-   "depends_on": [
-    "EVOL-F-MEMES",
-    "EVOL-UI-HEALTHGLASS",
-    "EVOL-GLASS-SEAM"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/**",
-    "plans/features/evol/design/**"
-   ],
-   "acceptance": "Контракт 033 исполнен на всех маршрутах: tokens/слои/компоненты/поэкранная композиция; до/после на эталонных viewport в статике и движении; заводская оптика нетронута.",
-   "req_ids": [
-    "EVOL-033"
-   ]
-  },
-  {
-   "id": "EVOL-SOCIAL-FRAME",
-   "title": "Аддендум 31.10 §§1-3: ситуативный социальный контекст хода (SocialTurnFrameBuilder, 0 LLM) на существующих L1/Decision/Writer",
-   "wave": "W5",
-   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 915-1034",
-   "depends_on": [
-    "EVOL-B-QUOTE",
-    "EVOL-B-SMARTCACHE",
-    "EVOL-B-PROMPTREG",
-    "EVOL-B-PROMPTCONV",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/social_turn_frame.py",
-    "services/direct_l1.py",
-    "services/direct_chat_service.py",
-    "services/prompt_composer.py",
-    "services/prompt_registry.py",
-    "services/smartmodule_phrases.py",
-    "tests/test_evol_social_frame.py",
-    "plans/features/evol/audit/w5-social.md"
-   ],
-   "acceptance": "Frame собирается из существующих message_identity/quote_resolver/canonical_context без доп. LLM-вызова, доходит до Writer в фактическом payload; 10 сценариев §3 на моках L1/Writer PASS + релевантные регрессии адресации/relations/цитат/Initiative/Composer.",
-   "req_ids": [
-    "EVOL-SOCIAL-FRAME"
-   ],
-   "risk": "R2",
-   "next_role": "Builder",
-   "rationale": "Один контракт данных хода (frame) + его проводка в существующие Decision/Writer — проверяется 10 фиксированными сценариями; отдельно от видео/фактчека/стекла.",
-   "depends_note": "Зависимости — уже поставленные в ветке evol/impl слайсы (message_identity/quote_resolver/canonical_context, direct_chat_service, prompt registry/composer, W0-аудит): общий код не переписывается, только расширяется."
-  },
-  {
-   "id": "EVOL-VIDEO-INTENT",
-   "title": "Аддендум 31.10 §4: единый VideoIntent, связка «просьба → репост», single-flight и одна выжимка",
-   "wave": "W5",
-   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1036-1089",
-   "depends_on": [
-    "EVOL-B-QUOTE",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/video_intent.py",
-    "services/native_media.py",
-    "handlers/youtube.py",
-    "handlers/video_download.py",
-    "handlers/direct_chat.py",
-    "tests/test_evol_video_intent.py",
-    "tests/test_youtube_video_media.py",
-    "plans/features/evol/audit/w5-video.md"
-   ],
-   "acceptance": "request→media→intent→one job→one answer подтверждено 8 сценариями §4.5 без живых отправок: late media/pending TTL, ambiguous без случайного выбора, single-flight без повторного списания кулдауна, summary ≠ download; затронутые регрессии handlers/media/routing PASS.",
-   "req_ids": [
-    "EVOL-VIDEO-INTENT"
-   ],
-   "risk": "R2",
-   "next_role": "Builder",
-   "rationale": "Один сквозной исход «один запрос — один анализ — один ответ» на существующем media-пайплайне; отделим от социального слоя и фактчека.",
-   "depends_note": "handlers/** и canonical/media-примитивы уже принадлежат EVOL-B-QUOTE/W0: работа идёт внутри существующего маршрута, новый анализатор не вводится."
-  },
-  {
-   "id": "EVOL-FACTCHECK-CRITICAL",
-   "title": "Аддендум 31.10 §5: критический разнос в существующем фактчеке с семантическим guard и единым речевым контуром",
-   "wave": "W5",
-   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1091-1141",
-   "depends_on": [
-    "EVOL-B-PROMPTREG",
-    "EVOL-B-PROMPTCONV",
-    "EVOL-W0-AUDIT"
-   ],
-   "write_scope": [
-    "services/factcheck_orchestrator.py",
-    "services/factcheck_service.py",
-    "services/factcheck_prompts.py",
-    "services/factcheck_renderer.py",
-    "config/prompts/**",
-    "tests/test_evol_factcheck_critical.py",
-    "plans/features/evol/audit/w5-factcheck.md"
-   ],
-   "acceptance": "Отдельная критическая секция из того же checked verdict, директива в реестре версий промптов EVOL, настройка внутри модуля «Фактчек» (default ON); guard: true/insufficient_evidence без выдуманного разгрома; 8 offline-кейсов §5.4 PASS, Core/Expression в фактическом payload на всех маршрутах.",
-   "req_ids": [
-    "EVOL-FACTCHECK-CRITICAL"
-   ],
-   "risk": "R2",
-   "next_role": "Builder",
-   "rationale": "Одно поведение публичного ответа фактчека (структура + guard + стиль) поверх существующего пайплайна, проверяемое 8 фиксированными кейсами.",
-   "depends_note": "Директива и настройка опираются на единый реестр версий промптов (EVOL-016, уже поставлен); второй фактчек-пайплайн не создаётся. UI-часть §5.3 (переключатель внутри модуля «Фактчек» в web/app.js) правится совместно с владельцем этого файла — отдельного параллельного писателя web/app.js не заводится."
-  },
-  {
-   "id": "EVOL-GLASS-SEAM",
-   "title": "Аддендум 31.10 §6: устранение прямого внутреннего шва стеклянной поверхности в рамках EVOL-032",
-   "wave": "W5",
-   "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1143-1147",
-   "depends_on": [
-    "EVOL-UI-HEALTHGLASS"
-   ],
-   "write_scope": [
-    "web/static/glass.js",
-    "web/static/glass-refraction.js",
-    "web/static/glass-probe.js",
-    "tests/js/evol_glass_seam_test.js",
-    "plans/features/evol/audit/evidence/glass-seam/**"
-   ],
-   "acceptance": "Первопричина шва локализована в общем стеклянном слое и исправлена там же; before/after в движении фона на desktop+mobile для normal/alert без внутренних прямых швов; прозрачность, преломление, анимация и полигональный фон сохранены.",
-   "req_ids": [
-    "EVOL-GLASS-SEAM"
-   ],
-   "risk": "R2",
-   "next_role": "Builder",
-   "rationale": "Один дефект отрисовки с одной причиной и визуальной before/after-приёмкой внутри уже принятого стеклянного фундамента EVOL-032.",
-   "depends_note": "Опирается на поставленный фундамент EVOL-032 (EVOL-UI-HEALTHGLASS); оптика/refraction не переделываются, шов не маскируется градиентом/blur."
-  },
-  {
-   "id": "EVOL-SRC-READER",
-   "title": "EVOL-SRC-*: универсальное нахождение и проверенное чтение исходного кода (discovery → locator → verified fetch → bounded follow-up → evidence contract) + правила доказательности §1.4",
-   "wave": "W6",
-   "depends_on": [
-    "EVOL-W0-AUDIT",
-    "EVOL-B-QUOTE",
-    "EVOL-B-TELEMETRY",
-    "EVOL-B-PROMPTREG",
-    "EVOL-SOCIAL-FRAME",
-    "EVOL-VIDEO-INTENT"
-   ],
-   "write_scope": [
-    "services/source_reader.py",
-    "services/tool_router.py",
-    "services/web_content_extractor.py",
-    "services/direct_chat_service.py",
-    "services/agentic_events.py",
-    "handlers/direct_chat.py",
-    "tests/test_evol_source_reader.py",
-    "plans/features/evol/audit/w6-source-reader.md"
-   ],
-   "acceptance": "read_source_code (или эквивалент по naming-контракту проекта) переиспользует существующий tool router/safe fetch/WebContentExtractor и SSRF-защиту; 7 сценариев §1.5 проходят на детерминированных фикстурах (blob-ссылка, только имя репозитория, только описание, цепочка смежных классов, 403/404/rate limit/timeout/HTML/сниппет, неверная дата реплики, отсутствие лишних вызовов и утечек); Evidence Contract возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance и не объявляет verified по сниппетам; события discovery/locator/fetch различимы в телеметрии; правила §1.4 проверены в тех же сценариях; имена GregTech/файлы/ветки/модели не зашиты в runtime.",
-   "req_ids": [
-    "EVOL-SRC-READER"
-   ],
-   "depends_note": "Владелец: выполнять последним в очереди. Зависимости — реальные писатели в тех же файлах: handlers/** (EVOL-B-QUOTE), handlers/direct_chat.py (EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT), services/direct_chat_service.py (EVOL-B-SMARTCACHE через SOCIAL-FRAME), services/agentic_events.py (EVOL-B-TELEMETRY), services/prompt_* (EVOL-B-PROMPTREG). Новый search/fetch-пайплайн не создаётся."
-  },
-  {
-   "id": "EVOL-COG-MAP",
-   "title": "EVOL-COG-*: Когнитивная карта вместо виджета «Граф связей» — адаптер данных, визуальная система, легенда/LOD, drilldown к источнику, mobile-first embedded+fullscreen, паритет старого графа, производительность",
-   "wave": "W7",
-   "depends_on": [
-    "EVOL-UI-FULLDOD",
-    "EVOL-UI-HEALTHGLASS",
-    "EVOL-UI-STORIES",
-    "EVOL-UI-DESIGN",
-    "EVOL-B-EXP",
-    "EVOL-B-FACTS",
-    "EVOL-B-MEMCYCLES",
-    "EVOL-B-TELEMETRY",
-    "EVOL-SRC-READER"
-   ],
-   "write_scope": [
-    "web/index.html",
-    "web/app.js",
-    "web/static/app.css",
-    "web/static/cognitive-map.js",
-    "web/static/design-tokens.css",
-    "web/api/memory_graph.py",
-    "web/api/memory_agi.py",
-    "tests/js/evol_cognitive_map_test.js",
-    "plans/features/evol/audit/w7-cognitive-map.md"
-   ],
-   "acceptance": "Виджет «Граф связей» на «Статусе» заменён Когнитивной картой на реальных данных с сохранением GET /api/memory/graph и /api/memory/stats (аддитивный адаптер, старый контракт не перепрофилирован); четыре ленты (Факты/Убеждения/Парадигмы/Эволюция, EVOL-021/EVOL-032) собраны в одном стеклянном блоке сразу под картой без регрессии дат/модалок/автодвижения; проверки §2.9 закрыты: данные/права (2 чата + global, изолированные узлы, нет выдуманных рёбер, нет доступа к чужому чату), интерактивность (поиск/фильтры/reset/pan/zoom/выбор узла и ребра/источник или честный fallback/история/переход в Память/сохранение камеры/легенда), визуал (нет массового наложения подписей на масштабе старого графа, читаемые важные подписи, тонкие кромки, стекло/фон/red tint не деградировали), responsive (реальные скриншоты/e2e 360/390/768/1440, портрет/landscape, Mini App с клавиатурой, safe areas, BackButton, embedded↔fullscreen), регрессия (рендер без LLM-вызовов и без пересборки эмбеддингов, smoke на сотнях узлов/тысячах рёбер); паритет §2.6 сохранён.",
-   "req_ids": [
-    "EVOL-COG-MAP"
-   ],
-   "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет."
-  },
-  {
-   "id": "ASAP-FC-ADMISSION-01",
-   "title": "ASAP-FC-ADMISSION-01: ложный отказ фактчека при проверяемом тезисе — политика допуска (явное намерение важнее «ерундовости») и cooldown после раннего отказа",
-   "wave": "W5-ADMISSION",
-   "depends_on": [
-    "EVOL-W0-AUDIT",
-    "EVOL-FACTCHECK-CRITICAL",
-    "EVOL-B-QUOTE",
-    "EVOL-B-PROMPTREG",
-    "EVOL-SOCIAL-FRAME",
-    "EVOL-VIDEO-INTENT"
-   ],
-   "write_scope": [
-    "services/factcheck_suitability.py",
-    "services/factcheck_orchestrator.py",
-    "services/smartmodule_phrases.py",
-    "handlers/factcheck.py",
-    "tests/test_evol_factcheck_admission.py",
-    "plans/features/evol/audit/w5-factcheck-admission.md"
-   ],
-   "acceptance": "8 детерминированных сценариев §5 проходят вместе с релевантной регрессией (reply на пересылку о заражении → тезис принят; разговорный/матерный/саркастичный тезис; факт+оценка; два тезиса в посте; пустая цель → честный отказ; неоднозначные соседние сообщения → уточнение; нет доказательств → insufficient_evidence; повтор после раннего отказа + параллельные вызовы → нет необоснованного полного cooldown при работающих антиспаме и single-flight); логированный путь этапов A–E (target_resolved, explicit_request, claim_items_count, admission_decision, reason_code, pipeline_path, cooldown_outcome, verdict_stage) без утечки содержимого чатов; правка первопричины без замены пула фраз, без отдельного LLM-фильтра и без живых публикаций; Reviewer PASS.",
-   "req_ids": [
-    "ASAP-FC-ADMISSION-01"
-   ],
-   "depends_note": "Владелец: QUEUED строго после завершения фактических правок фактчека и Reviewer-приёмки EVOL-FACTCHECK-CRITICAL — не параллельно. Зависимости-писатели: services/factcheck_* (EVOL-FACTCHECK-CRITICAL), services/smartmodule_phrases.py (EVOL-SOCIAL-FRAME), handlers/factcheck.py внутри handlers/** (EVOL-B-QUOTE, EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT)."
-  }
- ]
+  "schema": "openworkflow-slices-v1",
+  "note": "EVOL wave graph. UI-слайсы (web/index.html + web/app.js — монолитный SPA shell) сериализованы одной цепью письменности в порядке сборки; backend-слайсы W1 независимы и могут идти параллельно UI-цепи после W0. Зависимости = реальные контракты документа (012/017/018←016; 014←016+035; 032←телеметрия 013; 033←032+платформа; 026←021; W0-аудит перед изменениями кода). Аддендум 31.10.2026 (OI-2026-10-31-EVOL-ADDENDUM): четыре дельты активного эпика вынесены в отдельные W5-слайсы EVOL-SOCIAL-FRAME / EVOL-VIDEO-INTENT / EVOL-FACTCHECK-CRITICAL / EVOL-GLASS-SEAM; они зависят от уже поставленных слайсов (QUOTE/SMARTCACHE/PROMPTREG/PROMPTCONV/HEALTHGLASS), входят в EVOL-RELEASE и (стекло) в EVOL-UI-FULLDOD. Поручение 31.10.2026 (OI-2026-10-31-EVOL-SRC-COG): EVOL-SRC-READER (W6) и EVOL-COG-MAP (W7) — конец очереди по указанию владельца; SRC зависит от существующего tool router/safe fetch/WebContentExtractor и писателей handlers/**+direct_chat_service+agentic_events, COG — от UI-цепочки (через EVOL-UI-FULLDOD), HEALTHGLASS/STORIES/DESIGN и источников данных лент, при сохранении /api/memory/graph. Оба входят в EVOL-RELEASE.depends_on. Отдельное поручение OI-2026-10-31-ASAP-FC-ADMISSION: ASAP-FC-ADMISSION-01 (W5-ADMISSION) — сразу после EVOL-FACTCHECK-CRITICAL и его Reviewer-приёмки, не параллельно с правками фактчека.",
+  "slices": [
+    {
+      "id": "EVOL-W0-AUDIT",
+      "title": "W0: read-only аудит — завершение предыдущих задач, HEAD/схема БД/конфигурация провайдеров, карта точек потребления EVOL, подтверждение диагностических гипотез",
+      "wave": "W0",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/evol/audit/**"
+      ],
+      "acceptance": "Аудит-отчёты в plans/features/evol/audit/ фиксируют исходную картину, фактические версии/конфигурацию и точки потребления до изменения кода; гипотезы раздела 3 сопоставлены с кодом/телеметрией.",
+      "req_ids": []
+    },
+    {
+      "id": "EVOL-B-EMBED",
+      "title": "EVOL-010: NameError embeddings — первопричина, индексация и backfill (P0)",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/embedding_control_plane.py",
+        "services/summary_memory.py",
+        "tests/embedding/**"
+      ],
+      "acceptance": "NameError устранён у первопричины; EmbeddingBudgetExhausted объяснён; backfill продвигается либо достоверно неблокирующ; векторный поиск работает или недоступность доказана; потери фактов нет; постдеплой-прод без повторяющегося NameError.",
+      "req_ids": [
+        "EVOL-010"
+      ]
+    },
+    {
+      "id": "EVOL-B-FACTS",
+      "title": "EVOL-006/007: качество фактов памяти и воронка обновления «Новых фактов»",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-B-EMBED",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "SmartModule/**",
+        "services/summary_memory.py",
+        "tests/memory/**"
+      ],
+      "acceptance": "Путь экстракции задокументирован; типы записей различаются на датасетах; разовые просьбы не попадают в долговременный пул; воронка по двум чатам с задержкой и честной датой последнего прохода.",
+      "req_ids": [
+        "EVOL-006",
+        "EVOL-007"
+      ]
+    },
+    {
+      "id": "EVOL-B-MEMCYCLES",
+      "title": "EVOL-008/009: актуальность убеждений/парадигм/личности и прозрачная диагностика здоровья памяти",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/dream_prompts.py",
+        "services/mca_dream_history.py",
+        "services/memory_health.py",
+        "services/memory_maintenance.py",
+        "tests/memcycles/**"
+      ],
+      "acceptance": "Расписание/enablement/даты прогонов проверены, причины простоя различаются без имитации активности; админ видит смысловые и технические признаки здоровья из реальных событий.",
+      "req_ids": [
+        "EVOL-008",
+        "EVOL-009"
+      ]
+    },
+    {
+      "id": "EVOL-B-PROMPTREG",
+      "title": "EVOL-016: единый реестр версий всех промптов и детерминированное применение заводских редакций",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/prompt_registry.py",
+        "services/prompt_factory.py",
+        "services/prompt_composer.py",
+        "config/prompts/**",
+        "tests/prompts/**"
+      ],
+      "acceptance": "Реестр всех промптов без исключений с журналом активаций; семантика приоритетов 1–5; атомарное применение до реального вызова модели; новые промпты — через единый контракт регистрации.",
+      "req_ids": [
+        "EVOL-016"
+      ]
+    },
+    {
+      "id": "EVOL-B-QUOTE",
+      "title": "EVOL-015: Telegram quote — сохранение выделенного фрагмента на всём маршруте (P1)",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "handlers/**",
+        "services/quote_resolver.py",
+        "services/canonical_context.py",
+        "services/canonical_messages.py",
+        "tests/quote/**"
+      ],
+      "acceptance": "Quote доходит дословно с связью с оригиналом до ответа; фикстура «если S Pen» трактуется по выделению; обычный reply не регрессирует; диагностика quote_* без приватных текстов.",
+      "req_ids": [
+        "EVOL-015"
+      ]
+    },
+    {
+      "id": "EVOL-B-SETREG",
+      "title": "EVOL-040: единая модель источников настроек и один канонический write path",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/chat_params.py",
+        "services/chat_settings_seed.py",
+        "services/config_migrations.py",
+        "services/param_catalog.py",
+        "tests/settings/**"
+      ],
+      "acceptance": "Реестр setting_id → storage → default → override → consumer → UI → права; дублей записывающих тумблеров нет; глобальный on/off модуля — в каталоге.",
+      "req_ids": [
+        "EVOL-040"
+      ]
+    },
+    {
+      "id": "EVOL-B-SMARTCACHE",
+      "title": "EVOL-031: вывод Smart Cache / Exact Match Cache готовых LLM-ответов из эксплуатации",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/smart_cache.py",
+        "services/direct_chat_service.py",
+        "web/api/smart_cache_admin.py",
+        "tests/smartcache/**"
+      ],
+      "acceptance": "Replay готовых ответов удалён из активного пути/UI/настроек без «мёртвых» флагов; техкеши и guards сохранены; эффект на latency/cost измерен; постдеплой без cache-hit в пользовательском пути.",
+      "req_ids": [
+        "EVOL-031"
+      ]
+    },
+    {
+      "id": "EVOL-B-TELEMETRY",
+      "title": "EVOL-013: общее качество статусов и телеметрии",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/agentic_events.py",
+        "services/betterstack_handler.py",
+        "tests/telemetry/**"
+      ],
+      "acceptance": "Диагностика отделяет failures/деградацию/pending/disabled с классом причины и влиянием; «transport error» не поглощает непредвиденные исключения; UI-состояния из runtime events.",
+      "req_ids": [
+        "EVOL-013"
+      ]
+    },
+    {
+      "id": "EVOL-B-VISION-ADAPT",
+      "title": "EVOL-011: vision_adapt failed с пустой причиной — сопоставление статусов и честная телеметрия",
+      "wave": "W1",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/mca_vision.py",
+        "services/postgen_vision.py",
+        "services/image_normalize.py",
+        "tests/vision/**"
+      ],
+      "acceptance": "Статусы vision_adapt разделены без выдуманных причин; реальный отказ исправлен либо ложный WARN исправлен в телеметрии; fallback/pending→ready сохранены.",
+      "req_ids": [
+        "EVOL-011"
+      ]
+    },
+    {
+      "id": "EVOL-B-EXP",
+      "title": "EVOL-020: «Опыт» — аудит живости pipeline и осмысленные показатели",
+      "wave": "W1/W3",
+      "depends_on": [
+        "EVOL-UI-VISION-CHECK",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/mca_experience.py",
+        "services/mca_experience_jobs.py",
+        "tests/experience/**",
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Цепочка опыта аудирована по этапам с датами/окнами; воронка жизненного цикла с честными индикаторами; working/idle/broken различимы; фиктивных уроков нет.",
+      "req_ids": [
+        "EVOL-020"
+      ]
+    },
+    {
+      "id": "EVOL-B-PROMPTCONV",
+      "title": "EVOL-018: общепроектный контракт версионирования, безопасный перенос текущих промптов и CI-проверки",
+      "wave": "W2",
+      "depends_on": [
+        "EVOL-B-PROMPTMIG"
+      ],
+      "write_scope": [
+        "services/prompt_*.py",
+        "config/prompts/**",
+        "tools/**",
+        "tests/prompts/**"
+      ],
+      "acceptance": "Стандарт закреплён в документации/CI; legacy/imported снимки с честным timestamp; обязательная тест-таблица переходов зелёная; непокрытые промпты выявляются проверками.",
+      "req_ids": [
+        "EVOL-018"
+      ]
+    },
+    {
+      "id": "EVOL-B-PROMPTMIG",
+      "title": "EVOL-012: устранение защиты «кастом юзера — НЕ трогаем» и ложных предупреждений",
+      "wave": "W2",
+      "depends_on": [
+        "EVOL-B-PROMPTREG"
+      ],
+      "write_scope": [
+        "services/prompt_migrations.py",
+        "tests/prompts/**"
+      ],
+      "acceptance": "Строковые каноны и защитный отказ обновления устранены; заводская редакция релиза активна при ручной; рестарт без релиза ничего не меняет; WARN-барьер исчез.",
+      "req_ids": [
+        "EVOL-012"
+      ]
+    },
+    {
+      "id": "EVOL-UI-DESIGN",
+      "title": "EVOL-022: премиальный визуальный стандарт — токены/компоненты при сохранении жидкого стекла и фона",
+      "wave": "W2",
+      "depends_on": [
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/design-tokens.css",
+        "plans/features/evol/design/**"
+      ],
+      "acceptance": "Референсы стекла/фона в движении зафиксированы; refraction/фон не изменены; единые токены/уровни поверхностей введены; одинаковый оптический вес границ у соседних панелей.",
+      "req_ids": [
+        "EVOL-022"
+      ]
+    },
+    {
+      "id": "EVOL-UI-NAV",
+      "title": "EVOL-023: навигация, верхняя панель и переключатель чатов",
+      "wave": "W2",
+      "depends_on": [
+        "EVOL-UI-RESPONSIVE"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/routes.py"
+      ],
+      "acceptance": "Sidebar/topbar/scope-switcher по контракту; контент не перекрывается; dropdown с корректной геометрией; клавиатурная доступность.",
+      "req_ids": [
+        "EVOL-023"
+      ]
+    },
+    {
+      "id": "EVOL-UI-RESPONSIVE",
+      "title": "EVOL-025: сквозная responsive/mobile-first система любого экрана и ориентации",
+      "wave": "W2",
+      "depends_on": [
+        "EVOL-UI-DESIGN"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Adaptive layout по доступному пространству для portrait/landscape/планшета/desktop; touch targets, safe-area, клавиатура, zoom; protected фон не изменён; эталонные viewport проверены.",
+      "req_ids": [
+        "EVOL-025"
+      ]
+    },
+    {
+      "id": "EVOL-UI-CONTROLS",
+      "title": "EVOL-043: единая дизайн-система интерактивных элементов и состояний редактирования",
+      "wave": "W2-W3",
+      "depends_on": [
+        "EVOL-UI-HEALTHGLASS"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/controls.js"
+      ],
+      "acceptance": "Единые кнопки/toggles/поля/dropdown/диалоги с серверным подтверждением и откатом; правила сохранения без смешивания; инвентаризация controls по всем разделам.",
+      "req_ids": [
+        "EVOL-043"
+      ]
+    },
+    {
+      "id": "EVOL-UI-HEALTHGLASS",
+      "title": "EVOL-032: реактивное окрашивание стекла по реальному здоровью подсистем",
+      "wave": "W2-W3",
+      "depends_on": [
+        "EVOL-UI-NAV",
+        "EVOL-B-TELEMETRY"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/health-glass.js",
+        "web/api/health_glass.py"
+      ],
+      "acceptance": "HealthGlassSurface: красный tint всей поверхности только при подтверждённой проблеме, текст/причина рядом, unknown/disabled без аварии, оптика/геометрия не изменены; матрица состояний пройдена.",
+      "req_ids": [
+        "EVOL-032"
+      ]
+    },
+    {
+      "id": "EVOL-UI-KEYBOARD",
+      "title": "EVOL-044: адаптивный редактор и навигация при открытой экранной клавиатуре",
+      "wave": "W2-W3",
+      "depends_on": [
+        "EVOL-UI-CONTROLS"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Компоновка от visualViewport; caret/черновики/sticky-save достижимы; overlay не под клавиатурой; матрица viewport/клавиатуры пройдена.",
+      "req_ids": [
+        "EVOL-044"
+      ]
+    },
+    {
+      "id": "EVOL-UI-MOTION",
+      "title": "EVOL-045: достоверные progress bars и ненавязчивые motion-сигналы",
+      "wave": "W2-W3",
+      "depends_on": [
+        "EVOL-UI-KEYBOARD",
+        "EVOL-UI-HEALTHGLASS"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/motion.js"
+      ],
+      "acceptance": "Determinate/indeterminate только от реальных состояний; пульс только подтверждённой активности; reduced-motion fallback; protected фон не изменён.",
+      "req_ids": [
+        "EVOL-045"
+      ]
+    },
+    {
+      "id": "EVOL-UI-PROMPTHIST",
+      "title": "EVOL-017: история версий, сравнение, откат и возврат вперёд в админке",
+      "wave": "W2-W3",
+      "depends_on": [
+        "EVOL-UI-AI",
+        "EVOL-B-PROMPTREG"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/prompt_history.py"
+      ],
+      "acceptance": "История/diff/активация в редакторе каждого зарегистрированного промпта, включая внутренние; кейс ручная→заводская→откат→возврат проверен на обоих чатах и mobile.",
+      "req_ids": [
+        "EVOL-017"
+      ]
+    },
+    {
+      "id": "EVOL-B-INITFLAGS",
+      "title": "EVOL-035: семантическая инвентаризация тумблеров Initiative и сведение алиасов",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-MODULES",
+        "EVOL-B-SETREG"
+      ],
+      "write_scope": [
+        "services/initiative_diagnostics.py",
+        "services/initiative_observer.py",
+        "web/api/initiative_vitality.py",
+        "tests/initiative/**",
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Карта флагов (key/scope/default/чтение/эффекты); один master-toggle в каталоге; группы функций; truth table проверена; случайная доставка исключена.",
+      "req_ids": [
+        "EVOL-035"
+      ]
+    },
+    {
+      "id": "EVOL-UI-ACCESS-OTHER",
+      "title": "EVOL-030: «Доступы», аналитика и второстепенные страницы в единой UX-системе",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-MEMORY"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/access.py"
+      ],
+      "acceptance": "Доступы: сводка/матрица/RBAC; аналитика: тренды/причины с advanced-сохранением trace_id; прочие страницы в общем контракте; regression-pass по всем экранам.",
+      "req_ids": [
+        "EVOL-030"
+      ]
+    },
+    {
+      "id": "EVOL-UI-AI",
+      "title": "EVOL-028: «ИИ» — единая рабочая панель моделей, речи, алиасов и версий промптов",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-B-INITFLAGS",
+        "EVOL-B-SMARTCACHE",
+        "EVOL-B-PROMPTREG"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Рабочая панель с провайдерами/моделями, каталогом промптов с версиями; 200 ≠ функциональная проверка; «Умный кеш» убран после EVOL-031; «Личность и стиль» переехала.",
+      "req_ids": [
+        "EVOL-028"
+      ]
+    },
+    {
+      "id": "EVOL-UI-CLEANUP",
+      "title": "EVOL-024: сквозная очистка интерфейса — кнопки, обрезания, рамки, модалки, плотность",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-SEARCH"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Инвентаризация всех основных экранов; layout/overflow/stacking исправлены в исходных компонентах; визуальный regression-pass в статике и движении.",
+      "req_ids": [
+        "EVOL-024"
+      ]
+    },
+    {
+      "id": "EVOL-UI-INSPECTOR",
+      "title": "EVOL-042: Effective Prompt Inspector — реальный payload vs предпросмотр",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-SPEECH"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Два режима (подтверждённый снимок/предпросмотр), три проекции одного снимка, причины пропуска слоёв, переходы к prompt_id/версиям; payload не изменяется.",
+      "req_ids": [
+        "EVOL-042"
+      ]
+    },
+    {
+      "id": "EVOL-UI-MEMORY",
+      "title": "EVOL-029: «Память» — читаемый каталог знаний вместо приборной панели",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-MODELS",
+        "EVOL-UI-SECTIONS-MOVE"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/memory_agi.py"
+      ],
+      "acceptance": "Поиск по типам знаний с человеческим содержанием; детальные карточки с источниками; технические инструменты — в расширенном режиме; адресное открытие эпизодов.",
+      "req_ids": [
+        "EVOL-029"
+      ]
+    },
+    {
+      "id": "EVOL-UI-MODELS",
+      "title": "EVOL-039: премиальная панель «Модели и подключения»",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-INSPECTOR"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Роли моделей с master-detail редактором; проверка соединения ≠ проверка функции; секреты маскированы; адаптивность всех форматов.",
+      "req_ids": [
+        "EVOL-039"
+      ]
+    },
+    {
+      "id": "EVOL-UI-MODULES",
+      "title": "EVOL-027/036: каталог модулей с master-toggles на карточках и единая анатомия деталей",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-SECTIONS-MOVE",
+        "EVOL-B-SETREG"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/modules.py"
+      ],
+      "acceptance": "Единый каталог с глобальным тумблером на карточке и без KPI-панели; в деталях нет второго master-toggle; единая анатомия/controls/диагностика всех модулей.",
+      "req_ids": [
+        "EVOL-027",
+        "EVOL-036"
+      ]
+    },
+    {
+      "id": "EVOL-UI-PROMPLIB",
+      "title": "EVOL-038: полная переделка «Библиотеки промптов» и внутренних редакторов",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-PROMPTHIST"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Каталог по реестру + один редактор на prompt_id; адаптивный редактор с diff/историей/полноэкранным режимом; дублей редакторов нет; 320–1920 px читабельно.",
+      "req_ids": [
+        "EVOL-038"
+      ]
+    },
+    {
+      "id": "EVOL-UI-SEARCH",
+      "title": "EVOL-037: единый глобальный поиск/command palette с адресным переходом",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-ACCESS-OTHER",
+        "EVOL-B-SETREG"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/search_index.py"
+      ],
+      "acceptance": "Поиск по структурному реестру (разделы/модули/настройки/промпты/модели) с фокусировкой элемента, RBAC на сервере, без секретов и LLM-вызовов.",
+      "req_ids": [
+        "EVOL-037"
+      ]
+    },
+    {
+      "id": "EVOL-UI-SECTIONS-MOVE",
+      "title": "EVOL-026: разведение Статуса и Аналитики и перенос указанных виджетов",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-STORIES",
+        "EVOL-UI-NAV"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/analytics.py",
+        "web/api/analytics_viz.py"
+      ],
+      "acceptance": "Активность по часам и лента досье в Статусе; истории — в Аналитике; routing/deeplinks/scope обновлены; дубликатов и битых ссылок нет.",
+      "req_ids": [
+        "EVOL-026"
+      ]
+    },
+    {
+      "id": "EVOL-UI-SPEECH",
+      "title": "EVOL-034/041: «Речь и характер» — единый рабочий центр и перенос «Личности и стиля»",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-PROMPLIB",
+        "EVOL-B-PROMPTREG",
+        "EVOL-B-SETREG"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/speech.py"
+      ],
+      "acceptance": "Шесть областей с интерактивной схемой пайплайна; один канонический редактор личности; аудит key→смысл→потребитель; короткие маршруты к действиям; без копий и второго источника истины.",
+      "req_ids": [
+        "EVOL-034",
+        "EVOL-041"
+      ]
+    },
+    {
+      "id": "EVOL-UI-STATUS-WIDGETS",
+      "title": "EVOL-001..005: виджеты статуса — единый дизайн, авто+ручное движение, модалки, первоисточник, честные метки",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-B-EXP",
+        "EVOL-B-FACTS",
+        "EVOL-B-MEMCYCLES"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/memory_overview.py",
+        "tests/ui_status/**"
+      ],
+      "acceptance": "Четыре источника единой системой; auto-scroll+ручная прокрутка с паузой/возобновлением; модалки с полными полями и provenance; переходы к первоисточникам; честные даты и пустые состояния по обоим чатам.",
+      "req_ids": [
+        "EVOL-001",
+        "EVOL-002",
+        "EVOL-003",
+        "EVOL-004",
+        "EVOL-005"
+      ]
+    },
+    {
+      "id": "EVOL-UI-STORIES",
+      "title": "EVOL-021: «Истории памяти» — смысл эпизодов и новое представление",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-STATUS-WIDGETS",
+        "EVOL-B-MEMCYCLES"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/stories.py"
+      ],
+      "acceptance": "Лента смысловых эпизодов с честными статусами; незавершённые — в «Требуют восстановления»; адресное открытие выбранного эпизода с возвратом.",
+      "req_ids": [
+        "EVOL-021"
+      ]
+    },
+    {
+      "id": "EVOL-UI-VISION-CHECK",
+      "title": "EVOL-019: кнопка «Проверить» Vision — подтверждение распознавания, а не HTTP 200",
+      "wave": "W3",
+      "depends_on": [
+        "EVOL-UI-MOTION",
+        "EVOL-B-VISION-ADAPT"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/api/vision_check.py"
+      ],
+      "acceptance": "Состояния конфигурация/провайдер/распознавание/интеграция различимы; проверка на media-fixture; одинаковых зелёных плашек нет; макет адаптивен.",
+      "req_ids": [
+        "EVOL-019"
+      ]
+    },
+    {
+      "id": "EVOL-F-MEMES",
+      "title": "EVOL-014 (W4): инициативная генерация мемов — подсервис Initiative с квотами и аналитикой",
+      "wave": "W4",
+      "depends_on": [
+        "EVOL-UI-CLEANUP",
+        "EVOL-B-PROMPTREG",
+        "EVOL-B-INITFLAGS",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/initiative_memes.py",
+        "services/image_generation.py",
+        "services/image_capabilities.py",
+        "web/api/initiative_memes.py",
+        "tests/memes/**",
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css"
+      ],
+      "acceptance": "Подсервис с квантовым random, лёгкой выжимкой под effective limit, литералом «Создай мем с шрифтом импакт:», зависимостью от image-provider, квотой 3/чат с атомарным учётом и отдельной аналитикой стадий; publish-gate соблюдён.",
+      "req_ids": [
+        "EVOL-014"
+      ]
+    },
+    {
+      "id": "EVOL-RELEASE",
+      "title": "W5: сквозная интеграция обоих чатов, DoD раздела 12, релиз и production read-only verification",
+      "wave": "W5",
+      "depends_on": [
+        "EVOL-UI-FULLDOD",
+        "EVOL-B-PROMPTCONV",
+        "EVOL-B-EMBED",
+        "EVOL-B-VISION-ADAPT",
+        "EVOL-B-QUOTE",
+        "EVOL-B-SMARTCACHE",
+        "EVOL-B-TELEMETRY",
+        "EVOL-B-FACTS",
+        "EVOL-B-MEMCYCLES",
+        "EVOL-B-SETREG",
+        "EVOL-SOCIAL-FRAME",
+        "EVOL-VIDEO-INTENT",
+        "EVOL-FACTCHECK-CRITICAL",
+        "EVOL-GLASS-SEAM",
+        "EVOL-SRC-READER",
+        "EVOL-COG-MAP",
+        "ASAP-VISION-SYNC-01"
+      ],
+      "write_scope": [
+        "plans/features/evol/release/**",
+        "docs/**"
+      ],
+      "acceptance": "Все 45 ID доказаны на интегрированном кандидате; матрица DONE/FAILED/NOT_OBSERVED с процентом; безопасный деплой и прод-проверка по логам/HTTP; отчёт владельцу простым языком.",
+      "req_ids": [
+        "EVOL-DoD"
+      ]
+    },
+    {
+      "id": "EVOL-UI-FULLDOD",
+      "title": "EVOL-033 (W5): полный визуально-функциональный дизайн-контракт всех экранов — интеграция",
+      "wave": "W5",
+      "depends_on": [
+        "EVOL-F-MEMES",
+        "EVOL-UI-HEALTHGLASS",
+        "EVOL-GLASS-SEAM"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/**",
+        "plans/features/evol/design/**"
+      ],
+      "acceptance": "Контракт 033 исполнен на всех маршрутах: tokens/слои/компоненты/поэкранная композиция; до/после на эталонных viewport в статике и движении; заводская оптика нетронута.",
+      "req_ids": [
+        "EVOL-033"
+      ]
+    },
+    {
+      "id": "EVOL-SOCIAL-FRAME",
+      "title": "Аддендум 31.10 §§1-3: ситуативный социальный контекст хода (SocialTurnFrameBuilder, 0 LLM) на существующих L1/Decision/Writer",
+      "wave": "W5",
+      "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 915-1034",
+      "depends_on": [
+        "EVOL-B-QUOTE",
+        "EVOL-B-SMARTCACHE",
+        "EVOL-B-PROMPTREG",
+        "EVOL-B-PROMPTCONV",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/social_turn_frame.py",
+        "services/direct_l1.py",
+        "services/direct_chat_service.py",
+        "services/prompt_composer.py",
+        "services/prompt_registry.py",
+        "services/smartmodule_phrases.py",
+        "tests/test_evol_social_frame.py",
+        "plans/features/evol/audit/w5-social.md"
+      ],
+      "acceptance": "Frame собирается из существующих message_identity/quote_resolver/canonical_context без доп. LLM-вызова, доходит до Writer в фактическом payload; 10 сценариев §3 на моках L1/Writer PASS + релевантные регрессии адресации/relations/цитат/Initiative/Composer.",
+      "req_ids": [
+        "EVOL-SOCIAL-FRAME"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "rationale": "Один контракт данных хода (frame) + его проводка в существующие Decision/Writer — проверяется 10 фиксированными сценариями; отдельно от видео/фактчека/стекла.",
+      "depends_note": "Зависимости — уже поставленные в ветке evol/impl слайсы (message_identity/quote_resolver/canonical_context, direct_chat_service, prompt registry/composer, W0-аудит): общий код не переписывается, только расширяется."
+    },
+    {
+      "id": "EVOL-VIDEO-INTENT",
+      "title": "Аддендум 31.10 §4: единый VideoIntent, связка «просьба → репост», single-flight и одна выжимка",
+      "wave": "W5",
+      "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1036-1089",
+      "depends_on": [
+        "EVOL-B-QUOTE",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/video_intent.py",
+        "services/native_media.py",
+        "handlers/youtube.py",
+        "handlers/video_download.py",
+        "handlers/direct_chat.py",
+        "tests/test_evol_video_intent.py",
+        "tests/test_youtube_video_media.py",
+        "plans/features/evol/audit/w5-video.md"
+      ],
+      "acceptance": "request→media→intent→one job→one answer подтверждено 8 сценариями §4.5 без живых отправок: late media/pending TTL, ambiguous без случайного выбора, single-flight без повторного списания кулдауна, summary ≠ download; затронутые регрессии handlers/media/routing PASS.",
+      "req_ids": [
+        "EVOL-VIDEO-INTENT"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "rationale": "Один сквозной исход «один запрос — один анализ — один ответ» на существующем media-пайплайне; отделим от социального слоя и фактчека.",
+      "depends_note": "handlers/** и canonical/media-примитивы уже принадлежат EVOL-B-QUOTE/W0: работа идёт внутри существующего маршрута, новый анализатор не вводится."
+    },
+    {
+      "id": "EVOL-FACTCHECK-CRITICAL",
+      "title": "Аддендум 31.10 §5: критический разнос в существующем фактчеке с семантическим guard и единым речевым контуром",
+      "wave": "W5",
+      "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1091-1141",
+      "depends_on": [
+        "EVOL-B-PROMPTREG",
+        "EVOL-B-PROMPTCONV",
+        "EVOL-W0-AUDIT"
+      ],
+      "write_scope": [
+        "services/factcheck_orchestrator.py",
+        "services/factcheck_service.py",
+        "services/factcheck_prompts.py",
+        "services/factcheck_renderer.py",
+        "config/prompts/**",
+        "tests/test_evol_factcheck_critical.py",
+        "plans/features/evol/audit/w5-factcheck.md"
+      ],
+      "acceptance": "Отдельная критическая секция из того же checked verdict, директива в реестре версий промптов EVOL, настройка внутри модуля «Фактчек» (default ON); guard: true/insufficient_evidence без выдуманного разгрома; 8 offline-кейсов §5.4 PASS, Core/Expression в фактическом payload на всех маршрутах.",
+      "req_ids": [
+        "EVOL-FACTCHECK-CRITICAL"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "rationale": "Одно поведение публичного ответа фактчека (структура + guard + стиль) поверх существующего пайплайна, проверяемое 8 фиксированными кейсами.",
+      "depends_note": "Директива и настройка опираются на единый реестр версий промптов (EVOL-016, уже поставлен); второй фактчек-пайплайн не создаётся. UI-часть §5.3 (переключатель внутри модуля «Фактчек» в web/app.js) правится совместно с владельцем этого файла — отдельного параллельного писателя web/app.js не заводится."
+    },
+    {
+      "id": "EVOL-GLASS-SEAM",
+      "title": "Аддендум 31.10 §6: устранение прямого внутреннего шва стеклянной поверхности в рамках EVOL-032",
+      "wave": "W5",
+      "origin": "OI-2026-10-31-EVOL-ADDENDUM, plans/current_task.md 1143-1147",
+      "depends_on": [
+        "EVOL-UI-HEALTHGLASS"
+      ],
+      "write_scope": [
+        "web/static/glass.js",
+        "web/static/glass-refraction.js",
+        "web/static/glass-probe.js",
+        "tests/js/evol_glass_seam_test.js",
+        "plans/features/evol/audit/evidence/glass-seam/**"
+      ],
+      "acceptance": "Первопричина шва локализована в общем стеклянном слое и исправлена там же; before/after в движении фона на desktop+mobile для normal/alert без внутренних прямых швов; прозрачность, преломление, анимация и полигональный фон сохранены.",
+      "req_ids": [
+        "EVOL-GLASS-SEAM"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "rationale": "Один дефект отрисовки с одной причиной и визуальной before/after-приёмкой внутри уже принятого стеклянного фундамента EVOL-032.",
+      "depends_note": "Опирается на поставленный фундамент EVOL-032 (EVOL-UI-HEALTHGLASS); оптика/refraction не переделываются, шов не маскируется градиентом/blur."
+    },
+    {
+      "id": "EVOL-SRC-READER",
+      "title": "EVOL-SRC-*: универсальное нахождение и проверенное чтение исходного кода (discovery → locator → verified fetch → bounded follow-up → evidence contract) + правила доказательности §1.4",
+      "wave": "W6",
+      "depends_on": [
+        "EVOL-W0-AUDIT",
+        "EVOL-B-QUOTE",
+        "EVOL-B-TELEMETRY",
+        "EVOL-B-PROMPTREG",
+        "EVOL-SOCIAL-FRAME",
+        "EVOL-VIDEO-INTENT"
+      ],
+      "write_scope": [
+        "services/source_reader.py",
+        "services/tool_router.py",
+        "services/web_content_extractor.py",
+        "services/direct_chat_service.py",
+        "services/agentic_events.py",
+        "handlers/direct_chat.py",
+        "tests/test_evol_source_reader.py",
+        "plans/features/evol/audit/w6-source-reader.md"
+      ],
+      "acceptance": "read_source_code (или эквивалент по naming-контракту проекта) переиспользует существующий tool router/safe fetch/WebContentExtractor и SSRF-защиту; 7 сценариев §1.5 проходят на детерминированных фикстурах (blob-ссылка, только имя репозитория, только описание, цепочка смежных классов, 403/404/rate limit/timeout/HTML/сниппет, неверная дата реплики, отсутствие лишних вызовов и утечек); Evidence Contract возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance и не объявляет verified по сниппетам; события discovery/locator/fetch различимы в телеметрии; правила §1.4 проверены в тех же сценариях; имена GregTech/файлы/ветки/модели не зашиты в runtime.",
+      "req_ids": [
+        "EVOL-SRC-READER"
+      ],
+      "depends_note": "Владелец: выполнять последним в очереди. Зависимости — реальные писатели в тех же файлах: handlers/** (EVOL-B-QUOTE), handlers/direct_chat.py (EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT), services/direct_chat_service.py (EVOL-B-SMARTCACHE через SOCIAL-FRAME), services/agentic_events.py (EVOL-B-TELEMETRY), services/prompt_* (EVOL-B-PROMPTREG). Новый search/fetch-пайплайн не создаётся."
+    },
+    {
+      "id": "EVOL-COG-MAP",
+      "title": "EVOL-COG-*: Когнитивная карта вместо виджета «Граф связей» — адаптер данных, визуальная система, легенда/LOD, drilldown к источнику, mobile-first embedded+fullscreen, паритет старого графа, производительность",
+      "wave": "W7",
+      "depends_on": [
+        "EVOL-UI-FULLDOD",
+        "EVOL-UI-HEALTHGLASS",
+        "EVOL-UI-STORIES",
+        "EVOL-UI-DESIGN",
+        "EVOL-B-EXP",
+        "EVOL-B-FACTS",
+        "EVOL-B-MEMCYCLES",
+        "EVOL-B-TELEMETRY",
+        "EVOL-SRC-READER"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "web/static/cognitive-map.js",
+        "web/static/design-tokens.css",
+        "web/api/memory_graph.py",
+        "web/api/memory_agi.py",
+        "tests/js/evol_cognitive_map_test.js",
+        "plans/features/evol/audit/w7-cognitive-map.md"
+      ],
+      "acceptance": "Виджет «Граф связей» на «Статусе» заменён Когнитивной картой на реальных данных с сохранением GET /api/memory/graph и /api/memory/stats (аддитивный адаптер, старый контракт не перепрофилирован); четыре ленты (Факты/Убеждения/Парадигмы/Эволюция, EVOL-021/EVOL-032) собраны в одном стеклянном блоке сразу под картой без регрессии дат/модалок/автодвижения; проверки §2.9 закрыты: данные/права (2 чата + global, изолированные узлы, нет выдуманных рёбер, нет доступа к чужому чату), интерактивность (поиск/фильтры/reset/pan/zoom/выбор узла и ребра/источник или честный fallback/история/переход в Память/сохранение камеры/легенда), визуал (нет массового наложения подписей на масштабе старого графа, читаемые важные подписи, тонкие кромки, стекло/фон/red tint не деградировали), responsive (реальные скриншоты/e2e 360/390/768/1440, портрет/landscape, Mini App с клавиатурой, safe areas, BackButton, embedded↔fullscreen), регрессия (рендер без LLM-вызовов и без пересборки эмбеддингов, smoke на сотнях узлов/тысячах рёбер); паритет §2.6 сохранён.",
+      "req_ids": [
+        "EVOL-COG-MAP"
+      ],
+      "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет."
+    },
+    {
+      "id": "ASAP-FC-ADMISSION-01",
+      "title": "ASAP-FC-ADMISSION-01: ложный отказ фактчека при проверяемом тезисе — политика допуска (явное намерение важнее «ерундовости») и cooldown после раннего отказа",
+      "wave": "W5-ADMISSION",
+      "depends_on": [
+        "EVOL-W0-AUDIT",
+        "EVOL-FACTCHECK-CRITICAL",
+        "EVOL-B-QUOTE",
+        "EVOL-B-PROMPTREG",
+        "EVOL-SOCIAL-FRAME",
+        "EVOL-VIDEO-INTENT"
+      ],
+      "write_scope": [
+        "services/factcheck_suitability.py",
+        "services/factcheck_orchestrator.py",
+        "services/smartmodule_phrases.py",
+        "handlers/factcheck.py",
+        "tests/test_evol_fc_admission.py",
+        "plans/features/evol/audit/w7-fc-admission.md"
+      ],
+      "acceptance": "8 детерминированных сценариев §5 проходят вместе с релевантной регрессией (reply на пересылку о заражении → тезис принят; разговорный/матерный/саркастичный тезис; факт+оценка; два тезиса в посте; пустая цель → честный отказ; неоднозначные соседние сообщения → уточнение; нет доказательств → insufficient_evidence; повтор после раннего отказа + параллельные вызовы → нет необоснованного полного cooldown при работающих антиспаме и single-flight); логированный путь этапов A–E (target_resolved, explicit_request, claim_items_count, admission_decision, reason_code, pipeline_path, cooldown_outcome, verdict_stage) без утечки содержимого чатов; правка первопричины без замены пула фраз, без отдельного LLM-фильтра и без живых публикаций; Reviewer PASS.",
+      "req_ids": [
+        "ASAP-FC-ADMISSION-01"
+      ],
+      "depends_note": "Владелец: QUEUED строго после завершения фактических правок фактчека и Reviewer-приёмки EVOL-FACTCHECK-CRITICAL — не параллельно. Зависимости-писатели: services/factcheck_* (EVOL-FACTCHECK-CRITICAL), services/smartmodule_phrases.py (EVOL-SOCIAL-FRAME), handlers/factcheck.py внутри handlers/** (EVOL-B-QUOTE, EVOL-SOCIAL-FRAME, EVOL-VIDEO-INTENT).",
+      "status_note": "Реализовано и независимо принято по поведению (432c7593): 18 тестов, 8/8 сценариев §5, 582 factcheck, 1388 импорт-зависимых; правка телеметрии допуска в полёте; деплой не выполнялся -> в карте PENDING + review_verdict=APPROVED_BEHAVIOR. Пути write_scope исправлены на фактические (tests/test_evol_fc_admission.py, audit/w7-fc-admission.md)."
+    },
+    {
+      "id": "ASAP-VISION-SYNC-01",
+      "title": "ASAP-VISION-SYNC-01: глобальная синхронизация медиаанализа с потребителями — MediaReadinessBarrier/prepare_media_evidence, разрешение целевого изображения (own/reply/quote/adjacent/album/ожидающее намерение), стадийная синхронизация L1/FactCheck/Writer, единая логика допуска с ASAP-FC-ADMISSION-01, выходной контракт Vision без магического max_tokens=1024, end-to-end проверка и цепочка телеметрии в админке",
+      "wave": "W8",
+      "depends_on": [
+        "EVOL-W0-AUDIT",
+        "EVOL-B-VISION-ADAPT",
+        "EVOL-B-TELEMETRY",
+        "EVOL-B-QUOTE",
+        "EVOL-B-SMARTCACHE",
+        "EVOL-SOCIAL-FRAME",
+        "EVOL-VIDEO-INTENT",
+        "EVOL-FACTCHECK-CRITICAL",
+        "EVOL-SRC-READER",
+        "ASAP-FC-ADMISSION-01",
+        "EVOL-UI-VISION-CHECK"
+      ],
+      "write_scope": [
+        "services/mca_vision.py",
+        "services/chat_context.py",
+        "services/native_media.py",
+        "services/direct_chat_service.py",
+        "services/factcheck_suitability.py",
+        "services/factcheck_orchestrator.py",
+        "services/agentic_events.py",
+        "handlers/direct_chat.py",
+        "handlers/factcheck.py",
+        "handlers/media_common.py",
+        "tests/vision/**",
+        "tests/test_evol_vision_sync.py",
+        "plans/features/evol/audit/w8-vision-sync.md"
+      ],
+      "acceptance": "20 детерминированных сценариев §8 (own_caption/reply/quote/adjacent_before/adjacent_after/album/ожидающее намерение, single-flight и один ответ на два одинаковых обращения, актуальная ревизия после L1 и до Writer, таймаут без фиктивного «не вижу», восстановление после рестарта по durable state, finish_reason=length и пустые choices, reasoning+длинный OCR, pending OCR у фактчека, потребители знания, cross-chat isolation, честный частичный ответ) проходят на существующих моках провайдера/БД; один переиспользуемый barrier/resolver поверх mca_vision/recognize_target/render_media_context_async/chat_context/durable jobs без второго воркера/БД/LLM-агента; контракт результата с association_kind|status, analysis_status|revision, нормализованным reason_code, coalescing key и correlation_id; фактчек не выдаёт no_claim при pending OCR и использует одну логику допуска с ASAP-FC-ADMISSION-01; магический max_tokens=1024 заменён конфигурируемым пределом, классы ошибок и transport_success/schema_valid/analysis_ready/consumer_received разделены; «Проверить» проверяет input→schema→OCR→saved→consumer injection, цепочка media_received→…→final_sent/final_deferred доступна без приватного контента; релевантные регрессии (Direct, media/vision, FactCheck, context, persistence, инициатива, consumer-интеграции) зелёные; Reviewer подтвердил подключение всех путей потребления, включая legacy/fallback, либо обоснованное отсутствие зависимости от изображений.",
+      "req_ids": [
+        "ASAP-VISION-SYNC-01"
+      ],
+      "depends_note": "Владелец: P0 corrective, ближайшая совместимая очередь после текущих правок Vision/FactCheck, без их прерывания и без откатов. Зависимости-писатели: services/mca_vision.py и tests/vision/** (EVOL-B-VISION-ADAPT), services/agentic_events.py (EVOL-B-TELEMETRY), handlers/** (EVOL-B-QUOTE), services/direct_chat_service.py (EVOL-B-SMARTCACHE/EVOL-SOCIAL-FRAME/EVOL-SRC-READER), handlers/direct_chat.py (EVOL-VIDEO-INTENT/EVOL-SRC-READER), services/factcheck_* и handlers/factcheck.py (EVOL-FACTCHECK-CRITICAL, ASAP-FC-ADMISSION-01). Одна логика допуска с ASAP-FC-ADMISSION-01 -> ребро зависимости, а не второй фильтр. web/api/vision_check.py, web/index.html, web/app.js и web/static/app.css НЕ входят в write_scope: это деливераблы UI-волны (EVOL-UI-VISION-CHECK), поэтому группа ADMIN сдаётся совместно — этот слайс поставляет backend-контракт, стадии диагностики и телеметрию, UI-часть «Проверить» и индикаторы стадий реализует тот же единственный UI-писатель; параллельного UI-писателя нет. handlers/youtube.py (видео-лейн) не трогать.",
+      "risks": "R2",
+      "next_role": "Builder",
+      "parallel_note": "CAN_PARALLEL_WITH: none (общие файлы с активными лейнами фактчека/видео/UI); запускать после их join.",
+      "live_required_evidence": "Не требуется живых отправок в рабочие чаты (§8). Проверка на проде — после релиза по телеметрии vision_* без приватного контента.",
+      "status_note": "IN PROGRESS: ядро (Vision output + консьюмеры) в работе в отдельном лейне; доказательств в карте нет."
+    }
+  ]
 }
