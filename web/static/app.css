@@ -5940,6 +5940,51 @@ html.cover-editor-open { overflow: hidden; }
   }
 }
 
+/* ── 2b. Тач-цели за пределами mobile shell (B2 review EVOL-025) ──────────
+   Правила 44 px были привязаны к `.app-shell.shell-mobile` — планшет
+   (768×1024) и тач-ландшафт (812×375, 932×430) живут в compact shell и
+   получали 32–40 px. Порог тот же (WCAG 2.5.5/2.5.8), источник — указатель
+   устройства, а не ширина окна. Инлайновые текстовые ссылки внутри абзацев
+   не раздуваются (они и в живом зонде исключены как исключение WCAG). */
+@media (pointer: coarse) {
+  .app-shell .scope-trigger { min-height: var(--control-h-touch, 44px); }
+  .app-shell .modal-actions button,
+  .app-shell .sticky-save button { min-height: var(--control-h-touch, 44px); }
+  .app-shell button[aria-label="Обновить"] {
+    min-width: var(--control-h-touch, 44px);
+    min-height: var(--control-h-touch, 44px);
+  }
+  .app-shell .scope-panel .scope-option { min-height: var(--control-h-touch, 44px); }
+  .app-shell .app-drawer .sidebar-link { min-height: var(--control-h-touch, 44px); }
+  .app-shell input.field,
+  .app-shell select.field { min-height: var(--control-h-touch, 44px); }
+  .app-shell .module-card .btn-ghost { min-height: var(--control-h-touch, 44px); }
+  /* Кнопки-действия и фильтры: 32–38 px в tablet-раскладке → 44. */
+  .app-shell .btn-ghost,
+  .app-shell .btn-accent,
+  .app-shell .btn-soft { min-height: var(--control-h-touch, 44px); }
+  /* Иконочные кнопки без подписи (⟳ и подобные) — ещё и по ширине. */
+  .app-shell .btn-ghost[aria-label],
+  .app-shell .btn-accent[aria-label],
+  .app-shell .modal-close { min-width: var(--control-h-touch, 44px); }
+  /* Фильтры каталога: текст узкий («Все»), поэтому ширина держится на
+     минимуме явно — иначе кириллица/шрифт устройства дают 43 px. */
+  .app-shell .module-filter-btn {
+    min-width: var(--control-h-touch, 44px);
+    min-height: var(--control-h-touch, 44px);
+  }
+  .app-shell .oversight-tab { min-height: var(--control-h-touch, 44px); }
+  /* Раскрывающиеся строки-«details» (например «Диагностика / расширенный
+     режим») — тоже цель тапа, а не 18 px текста. */
+  .app-shell main summary { min-height: var(--control-h-touch, 44px); }
+  /* Технические подробности области в шапке («ID»). */
+  header.header-sticky summary.badge {
+    min-width: var(--control-h-touch, 44px);
+    min-height: var(--control-h-touch, 44px);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+}
+
 /* ── 3. Низкий ландшафт: навигация не отнимает высоту ─────────────────────
    Портретная нижняя панель в landscape 320–520 px съедала бы ещё ~50 px
    полезной высоты. Здесь она становится плавающим вертикальным рейлом у
@@ -5999,12 +6044,20 @@ html.cover-editor-open { overflow: hidden; }
 /* ── 4. Меню «Ещё»: bottom sheet над нижней панелью (портрет) ─────────────
    Триггер теперь внизу, поэтому панель раскрывается ВВЕРХ от него, а не
    «под шапкой». Высота ограничена видимой областью, скролл — внутри панели
-   (никаких скролл-ловушек: overscroll-behavior уже contain). */
+   (никаких скролл-ловушек: overscroll-behavior уже contain).
+   ═══ B1 (review EVOL-025): считать от НИЗА SHELL, а не от низа вьюпорта.
+   В реальном Telegram `innerHeight` больше фактически используемой высоты
+   (нижняя системная зона/панель клиента), shell короче вьюпорта: при
+   `bottom: var(--bottom-nav-h)` от вьюпорта лист уезжал НИЖЕ панели
+   разделов и накрывал её. Тот же приём, что у модалок: shell =
+   `--app-usable-height`, остаток вьюпорта вычитается явно. */
 @media (max-width: 767px) {
   .app-shell.shell-mobile .more-menu-panel {
     top: auto;
-    bottom: calc(var(--bottom-nav-h, 56px) + 6px);
-    max-height: min(62vh, calc(100dvh - var(--header-h, 56px) - 96px));
+    bottom: calc(100dvh - var(--app-usable-height, 100dvh)
+                + var(--bottom-nav-h, 56px) + 6px);
+    max-height: min(62dvh, calc(var(--app-usable-height, 100dvh)
+                - var(--header-h, 56px) - 96px));
   }
 }
 
@@ -6109,6 +6162,32 @@ html.w9-sheet-bottom .modal-card {
      заполненной — уровень заливки; красная точка — были ошибки. */
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
 }
+/* ═══ F2 (review EVOL-026): уровни реально видны ═════════════════════════
+   Раньше `.viz-heat__row .viz-heat__cell { background: rgba(255,255,255,.05) }`
+   (0,2,0) перебивал `.viz-heat__cell--lN` (0,1,0) — все клетки были серыми,
+   и легенда тоже (её `.viz-heat__legend-cell` шёл позже уровней при равной
+   специфичности). Здесь уровни заданы с большей специфичностью, одинаково
+   для сетки и легенды; заливки различимы по насыщенности на тёмном стекле. */
+.viz-heat__row .viz-heat__cell--l0,
+.viz-heat__legend-cell.viz-heat__cell--l0 {
+  background-color: rgba(255, 255, 255, .06);
+}
+.viz-heat__row .viz-heat__cell--l1,
+.viz-heat__legend-cell.viz-heat__cell--l1 {
+  background-color: rgba(66, 214, 196, .30);
+}
+.viz-heat__row .viz-heat__cell--l2,
+.viz-heat__legend-cell.viz-heat__cell--l2 {
+  background-color: rgba(66, 214, 196, .52);
+}
+.viz-heat__row .viz-heat__cell--l3,
+.viz-heat__legend-cell.viz-heat__cell--l3 {
+  background-color: rgba(66, 214, 196, .76);
+}
+.viz-heat__row .viz-heat__cell--l4,
+.viz-heat__legend-cell.viz-heat__cell--l4 {
+  background-color: rgba(139, 111, 232, .88);
+}
 .viz-heat__row .viz-heat__cell:hover { outline: 1px solid rgba(210, 235, 255, .45); }
 .viz-heat__row .viz-heat__cell:focus-visible {
   outline: var(--focus-ring, 2px solid #a78bfa);
@@ -6117,13 +6196,44 @@ html.w9-sheet-bottom .modal-card {
 .viz-heat__row .viz-heat__cell.is-picked {
   box-shadow: 0 0 0 2px rgba(167, 139, 250, .85) inset;
 }
+/* Тач-геометрия (F2): на узком экране и на любом тач-устройстве клетка —
+   реальная тач-цель ≥24×24 (WCAG 2.5.8), сетка читается и прокручивается
+   ВНУТРИ виджета (страница горизонтальный скролл не получает).
+   Подсказка о прокрутке показывается только там, где сетка шире окна. */
+.viz-heat__scroll-hint { display: none; }
+@media (max-width: 480px), (pointer: coarse) {
+  .viz-heat__hours,
+  .viz-heat__row {
+    grid-template-columns: 34px repeat(24, minmax(24px, 1fr));
+    min-width: 0;
+  }
+  .viz-heat__row .viz-heat__cell {
+    min-width: 24px;
+    min-height: 24px;
+    max-height: 26px;
+  }
+  /* Легенда: специфичность выше базового `.viz-heat__legend-cell`
+     (0,2,0 > 0,1,0) — иначе образцы оставались 14 px. Легенда — сосед
+     сетки, а не её потомок, поэтому родитель в селекторе именно `__legend`. */
+  .viz-heat__legend .viz-heat__legend-cell { width: 16px; height: 16px; }
+}
+/* Подсказка о прокрутке — ТОЛЬКО там, где 24 тач-ячейки физически не влезают
+   (контейнер уже ~656 px). На планшете/десктопе с coarse-указателем сетка
+   помещается и подсказка не показывается — она не врёт про скролл. */
+@media (max-width: 480px) {
+  .viz-heat__scroll-hint { display: block; }
+}
+@media (pointer: coarse) and (max-width: 700px) {
+  .viz-heat__scroll-hint { display: block; }
+}
 .viz-heat__legend {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
 }
 .viz-heat__legend-cell {
-  width: 12px; height: 12px; border-radius: 3px;
+  width: 14px; height: 14px; border-radius: 3px;
   background: rgba(255, 255, 255, .05);
   display: inline-block;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
 }
 .viz-heat__legend-dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -6139,6 +6249,14 @@ html.w9-sheet-bottom .modal-card {
   .status-activity .viz-heat { max-height: 200px; }
   .viz-heat__legend { font-size: 11px; }
 }
+/* ── F4 (review EVOL-030): компактная строка аудита прав ───────────────── */
+.access-audit {
+  display: grid; gap: 2px;
+  padding: 6px 9px; border-radius: 8px;
+  background: rgba(148, 163, 184, .10);
+  color: var(--text-2, #AAB6C8);
+}
+.access-audit__k { color: var(--text-3, #8A97AB); }
 
 /* ── W10-2. «Статус»: живая лента досье (перенос из «Аналитики») ───────── */
 /* Компактная высота: на «Статусе» лента — превью (2–6 записей), а не

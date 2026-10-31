@@ -22,11 +22,214 @@
 from pathlib import Path
 
 import re
+import os
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 CSS = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")
+
+# ── JS-харнесс: app.js грузится в node с минимальными DOM-заглушками (тот же
+# приём, что в tests/js/evol_w9_responsive_test.js), затем вызвается РЕАЛЬНАЯ
+# vizHeatStep на фикстуре из четырёх часов с данными.
+_HEAT_JS = r"""
+'use strict';
+const path = require('path');
+const assert = require('assert');
+
+const focused = [];
+let queryResult = null;
+global.Vue = { createApp(opts) { global.__opts = opts;
+  return { component() {}, provide() {}, use() {}, mount() {} }; } };
+global.window = { location: { hash: '' }, addEventListener() {}, Telegram: null,
+                  innerWidth: 1280, innerHeight: 900 };
+global.document = {
+  documentElement: { setAttribute() {}, getAttribute() { return null; },
+                     classList: { toggle() {}, contains() { return false; } },
+                     style: { setProperty() {}, removeProperty() {} } },
+  addEventListener() {}, getElementById() { return null; },
+  createElement() { return { tagName: 'div', className: '', value: '', style: {},
+                             setAttribute() {}, focus() {}, select() {},
+                             remove() {} }; },
+  querySelector(sel) {
+    if (queryResult) return queryResult(sel);
+    return null;
+  },
+  querySelectorAll() { return []; },
+  body: { appendChild(el) { return el; }, removeChild(el) { return el; } },
+  execCommand() { return true; },
+};
+Object.defineProperty(global, 'navigator', { configurable: true,
+  value: { clipboard: { writeText: async () => { throw new Error('no'); } } } });
+global.sessionStorage = { _s: {}, getItem(k) { return this._s[k] || null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.localStorage = { _s: {}, getItem(k) {
+    return Object.prototype.hasOwnProperty.call(this._s, k) ? this._s[k] : null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.history = { replaceState() {} };
+global.Chart = function () {};
+global.fetch = async function () { throw new Error('no fetch in test'); };
+
+require(path.join(process.env.W10_REPO, 'web', 'app.js'));
+const methods = global.__opts.methods || {};
+
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const dkey = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-'
+  + pad(d.getDate());
+const now = new Date();
+const TODAY = dkey(now);
+const YDAY = dkey(new Date(now.getTime() - 86400000));
+
+// Фикстура: 4 часа с данными на двух днях (уровни l1..l4 при max=70).
+const vm = {
+  vizActivityDays: 14,
+  vizActivity: { available: true, total: 125, buckets: [
+    { d: YDAY, h: 9, c: 1, errs: 0 },
+    { d: YDAY, h: 10, c: 18, errs: 1 },
+    { d: TODAY, h: 9, c: 36, errs: 0 },
+    { d: TODAY, h: 10, c: 70, errs: 1 },
+  ] },
+  vizHeatSel: null,
+  $nextTick(fn) { fn(); },
+};
+vm.vizHeatCells = methods.vizHeatCells;
+vm.vizHeatIsPicked = methods.vizHeatIsPicked;
+vm.vizHeatPick = methods.vizHeatPick;
+vm.vizHeatStep = methods.vizHeatStep;
+vm._vizHeatAt = methods._vizHeatAt;
+vm._vizHeatFocus = methods._vizHeatFocus;
+vm._vizHeatFocused = methods._vizHeatFocused;
+
+assert.strictEqual(typeof methods.vizHeatStep, 'function',
+  'vizHeatStep существует (иначе шаблон падает TypeError)');
+
+// Фокус пишется в журнал — это то, что видит клавиатурный пользователь.
+queryResult = (sel) => {
+  focused.push(sel);
+  return { focus() { vm.__active = sel; } };
+};
+
+const cells = vm.vizHeatCells.call(vm);
+assert.strictEqual(cells.filter((c) => c.has).length, 4,
+  'фикстура: 4 заполненных часа');
+const sel = () => vm.vizHeatSel;
+const keyOf = (s) => (s ? s.d + ':' + s.h : null);
+
+// 1. Шаг вправо от 09:00 → 10:00 того же дня.
+vm.vizHeatSel = { d: TODAY, h: 9, c: 36, errs: 0 };
+vm.vizHeatStep.call(vm, 1, 0);
+assert.strictEqual(keyOf(sel()), TODAY + ':10', 'вправо: следующий час с данными');
+assert.ok(vm.vizHeatIsPicked.call(vm, sel()), 'выбранная ячейка отмечена');
+assert.ok(focused[focused.length - 1].indexOf(TODAY + ':10') >= 0,
+  'фокус переехал на выбранную кнопку: ' + focused[focused.length - 1]);
+
+// 2. Вправо от 10:00 — по кругу на 09:00 (часы не «упираются»).
+vm.vizHeatStep.call(vm, 1, 0);
+assert.strictEqual(keyOf(sel()), TODAY + ':9', 'вправо: часы идут по кругу');
+
+// 3. Влево от 09:00 — по кругу на 10:00.
+vm.vizHeatStep.call(vm, -1, 0);
+assert.strictEqual(keyOf(sel()), TODAY + ':10', 'влево: часы идут по кругу');
+
+// 4. Вниз за последний день окна — кламп (остаёмся на месте, не теряем фокус).
+vm.vizHeatStep.call(vm, 0, 1);
+assert.strictEqual(keyOf(sel()), TODAY + ':10', 'вниз за краем: остаёмся');
+
+// 5. Вверх — предыдущий день, тот же час (если там есть данные).
+vm.vizHeatStep.call(vm, 0, -1);
+assert.strictEqual(keyOf(sel()), YDAY + ':10', 'вверх: предыдущий день');
+
+// 6. Вверх от самого первого дня — тоже кламп.
+vm.vizHeatStep.call(vm, 0, -1);
+assert.strictEqual(keyOf(sel()), YDAY + ':10', 'вверх за краем: остаёмся');
+
+// 7. Без выбора и без фокуса — первый заполненный час (не пустой).
+vm.vizHeatSel = null;
+vm.__active = null;
+queryResult = null;
+vm.vizHeatStep.call(vm, 1, 0);
+assert.deepStrictEqual({ d: sel().d, h: sel().h }, { d: YDAY, h: 9 },
+  'первый шаг: первый час с данными');
+
+// 8. Нет данных — функция не падает и ничего не выбирает.
+const empty = { vizActivity: { available: false, buckets: [] },
+                vizActivityDays: 14, vizHeatSel: null, $nextTick(f) { f(); } };
+empty.vizHeatCells = methods.vizHeatCells;
+empty.vizHeatStep = methods.vizHeatStep;
+empty._vizHeatAt = methods._vizHeatAt;
+empty._vizHeatFocus = methods._vizHeatFocus;
+empty._vizHeatFocused = methods._vizHeatFocused;
+empty.vizHeatStep.call(empty, 1, 0);
+assert.strictEqual(empty.vizHeatSel, null, 'без данных шаг — no-op');
+
+console.log('EVOL-W10-HEAT-OK');
+"""
+
+_DEEPLINK_JS = r"""
+'use strict';
+const path = require('path');
+const assert = require('assert');
+
+global.Vue = { createApp(opts) { global.__opts = opts;
+  return { component() {}, provide() {}, use() {}, mount() {} }; } };
+global.window = { location: { hash: '' }, addEventListener() {}, Telegram: null,
+                  innerWidth: 1280, innerHeight: 900 };
+global.document = {
+  documentElement: { setAttribute() {}, getAttribute() { return null; },
+                     classList: { toggle() {}, contains() { return false; } },
+                     style: { setProperty() {}, removeProperty() {} } },
+  addEventListener() {}, getElementById() { return null; },
+  createElement() { return { tagName: 'div', className: '', value: '', style: {},
+                             setAttribute() {}, focus() {}, select() {},
+                             remove() {} }; },
+  querySelector() { return null; }, querySelectorAll() { return []; },
+  body: { appendChild(el) { return el; }, removeChild(el) { return el; } },
+  execCommand() { return true; },
+};
+Object.defineProperty(global, 'navigator', { configurable: true,
+  value: { clipboard: { writeText: async () => { throw new Error('no'); } } } });
+global.sessionStorage = { _s: {}, getItem(k) { return this._s[k] || null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.localStorage = { _s: {}, getItem(k) {
+    return Object.prototype.hasOwnProperty.call(this._s, k) ? this._s[k] : null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.history = { replaceState() {} };
+global.Chart = function () {};
+global.fetch = async function () { throw new Error('no fetch in test'); };
+
+require(path.join(process.env.W10_REPO, 'web', 'app.js'));
+const methods = global.__opts.methods || {};
+
+const order = [];
+const vm = {
+  vizHeatSel: { d: '2026-10-31', h: 10, c: 70, errs: 1 },
+  mca17cRunF: { days: '30', status: 'failed' },
+  oversightFocusNote: '',
+  oversightTab: 'overview',
+  oversightSetTab(tab) { order.push('setTab:' + tab); this.oversightTab = tab; },
+  navigateTo(route) { order.push('navigate:' + route); },
+};
+vm.vizHeatOpenEvents = methods.vizHeatOpenEvents;
+vm.vizHeatOpenEvents.call(vm);
+
+assert.deepStrictEqual(order, ['setTab:runs', 'navigate:#/oversight?tab=runs'],
+  'сначала суб-вкладка «Запуски», затем переход: ' + JSON.stringify(order));
+assert.ok(vm.oversightFocusNote.indexOf('2026-10-31 10:00') >= 0,
+  'подпись выбранного часа сохранена: ' + vm.oversightFocusNote);
+assert.strictEqual(vm.mca17cRunF.days, '7', 'период запусков = выбранный день');
+assert.strictEqual(vm.mca17cRunF.status, 'failed',
+  'остальные фильтры не затёрты');
+
+// Без выбора функция — no-op (никакой навигации «в никуда»).
+const empty = { vizHeatSel: null, oversightFocusNote: '',
+                oversightSetTab() { throw new Error('не должен зваться'); },
+                navigateTo() { throw new Error('не должен зваться'); } };
+empty.vizHeatOpenEvents = methods.vizHeatOpenEvents;
+empty.vizHeatOpenEvents.call(empty);
+
+console.log('EVOL-W10-DEEPLINK-OK');
+"""
 
 
 def _block(text: str, start: str, end: str) -> str:
@@ -75,13 +278,52 @@ class TestEvol026Widgets:
         assert "data-stories-feed" not in status
 
     def test_heatmap_keyboard_and_honest_states(self):
+        # F1 (review EVOL-026): шаблон вызывает vizHeatStep(dx, dy) — здесь
+        # проверяем САМУ функцию на фикстуре (раньше проверялась только строка
+        # шаблона, а функции не существовало → TypeError в Chromium).
         for marker in ("vizHeatStep(1, 0)", "vizHeatStep(-1, 0)",
                        "vizHeatStep(0, 1)", "@keydown.space.prevent"):
             assert marker in INDEX, marker
         block = _block(APP_JS, "vizHeatPick: function", "vizHeatOpenEvents:")
         assert "this.vizHeatSel = {" in block
+        assert "vizHeatStep: function" in APP_JS
         # нет фиктивных нулей: пустое окно объясняется причиной
         assert "empty_reason" in INDEX
+
+    def test_heat_cell_single_class_binding(self):
+        """F2: у ячейки часа РОВНО одна привязка class.
+
+        Два `:class` на одном элементе недопустимы: второй затирал первый,
+        поэтому в живом DOM терялся либо уровень заливки, либо `is-picked`
+        (проверено в реальном Chromium: className = `...--l1`, без is-picked).
+        """
+        block = _block(INDEX, "v-for=\"c in row.cells\"", "</button>")
+        assert block.count(":class=") == 1, block[:400]
+        assert "vizHeatClass(c)" in block
+        assert "'is-picked'" in block
+        assert "vizHeatIsPicked(c)" in block
+        # у легенды и прокрутки — свои маркеры, сетку не дублируют
+        assert "viz-heat__scroll-hint" in INDEX
+
+    def test_heatmap_keyboard_behaviour_js(self, tmp_path):
+        """Реальное поведение стрелок: шаг по часам с данными, фокус, aria."""
+        js = tmp_path / "w10_heatmap_kbd_test.js"
+        js.write_text(_HEAT_JS, encoding="utf-8")
+        out = subprocess.run(["node", str(js)], capture_output=True, text=True,
+                             encoding="utf-8",
+                             env={**os.environ, "W10_REPO": str(ROOT)})
+        assert "EVOL-W10-HEAT-OK" in (out.stdout or ""), \
+            (out.stdout or "") + (out.stderr or "")
+
+    def test_heat_deep_link_sets_tab_before_navigate_js(self, tmp_path):
+        """F3: вкладка «Запуски» выставляется ДО навигации (query теряется)."""
+        js = tmp_path / "w10_heat_deeplink_test.js"
+        js.write_text(_DEEPLINK_JS, encoding="utf-8")
+        out = subprocess.run(["node", str(js)], capture_output=True, text=True,
+                             encoding="utf-8",
+                             env={**os.environ, "W10_REPO": str(ROOT)})
+        assert "EVOL-W10-DEEPLINK-OK" in (out.stdout or ""), \
+            (out.stdout or "") + (out.stderr or "")
 
     def test_no_fake_updating_label(self):
         assert "dossierFeedStamp: function" in APP_JS
@@ -241,6 +483,30 @@ class TestEvol029MemoryCatalog:
         assert "не восстановлено" in src
         assert "когда: неизвестно" in src
 
+    def test_chat_title_instead_of_raw_id(self):
+        """F5: в человеческой карточке — название чата, сырой id только в raw."""
+        assert "chatTitleFor: function" in APP_JS
+        helper = _block(APP_JS, "chatTitleFor: function",
+                        "memoryCatalogTypeCount: function")
+        # источник подписи — реальные списки чатов, не догадки
+        assert "this.accessChats" in helper
+        assert "this.oversightData" in helper
+        src = _block(APP_JS, "memoryCatalogItems: function",
+                     "memoryCatalogFiltered: function")
+        assert "chatTitleFor" in src
+        # ни один источник каталога больше не печатает сырой id в meta
+        for raw in ("'чат: ' + f.chat_id", "'чат: ' + b.chat_id",
+                    "'чат: ' + it.chatId"):
+            assert raw not in APP_JS, raw
+        # технический id остаётся в «Диагностике» (поле raw)
+        assert "'chat_id: ' + f.chat_id" in src
+        assert "'episode_id: ' + it.id" in src
+        # тот же резолвер имени используется в живой ленте досье («Статус»):
+        # «Чат <id>» остаётся только как честный fallback без названия
+        feed = _block(APP_JS, "dossierFeedLoop: function",
+                      "dossierFeedSpeed:")
+        assert "chatTitleFor(it.chat_id)" in feed
+
 
 # ═══ EVOL-030: «Доступы», матрица, аналитика ═══════════════════════════════
 
@@ -288,6 +554,54 @@ class TestEvol030AccessAndAnalytics:
                        "loadCognition: async function")
         assert "this.oversightFocusNote" in block
         assert "navigateTo('#/oversight?tab=runs')" in block
+        # F3: вкладку ставим ДО перехода — navigateTo отбрасывает query.
+        assert "oversightSetTab('runs')" in block
+
+    def test_heat_levels_and_touch_size(self):
+        """F2: уровни заданы с нужной специфичностью, ячейка — тач-цель."""
+        for lvl in (0, 1, 2, 3, 4):
+            assert ".viz-heat__row .viz-heat__cell--l%d" % lvl in CSS
+            assert ".viz-heat__legend-cell.viz-heat__cell--l%d" % lvl in CSS
+        # правила уровней идут ПОСЛЕ базовой заливки ячейки (равная
+        # специфичность → иначе перекрыты); у легенды специфичность выше
+        # (составной селектор), поэтому порядок не важен — важно, что он есть.
+        base = CSS.index(".viz-heat__row .viz-heat__cell {")
+        assert CSS.index(".viz-heat__row .viz-heat__cell--l3") > base
+        i = CSS.index("@media (max-width: 480px), (pointer: coarse) {")
+        seg = CSS[i:i + 700]
+        assert "min-height: 24px" in seg, "ячейка часов ≥24 px на тач-экране"
+        assert "repeat(24, minmax(24px, 1fr))" in seg
+        # легенда крупнее базовой (0,2,0 против 0,1,0) и подсказка о прокрутке
+        # включается только в этой ветке
+        assert ".viz-heat__legend .viz-heat__legend-cell" in seg
+        # подсказка о прокрутке включается только там, где 24-тач-ячейки
+        # реально не влезают (иначе она врала бы про скролл на планшете)
+        assert ".viz-heat__scroll-hint { display: block; }" in CSS
+        assert "@media (pointer: coarse) and (max-width: 700px) {" in CSS
+        assert ".viz-heat__scroll-hint { display: none; }" in CSS
+
+    def test_audit_before_changing_rights(self):
+        """F4: до изменения прав видно кто/когда/что и где."""
+        for marker in ("matrixAuditWho: function", "matrixAuditWhen: function",
+                       "matrixAuditScope: function"):
+            assert marker in APP_JS, marker
+        assert "data-access-audit" in INDEX
+        assert "data-access-audit-summary" in INDEX
+        who = _block(APP_JS, "matrixAuditWho: function",
+                     "matrixAuditWhen: function")
+        assert "this.me" in who
+        assert "telegram_id" in who          # тот же id, что в журнале сервера
+        assert "role_name" in who
+        when = _block(APP_JS, "matrixAuditWhen: function",
+                      "matrixAuditScope: function")
+        assert "правки не сохранялись" in when   # честное «изменений не было»
+        # отметка времени ставится РЕАЛЬНЫМ сохранением, а не при загрузке
+        toggle = _block(APP_JS, "matrixRoleToggle: async function",
+                        "matrixReset: async function")
+        assert "matrixLastChange = {" in toggle
+        assert "Date.now()" in toggle
+        reset = _block(APP_JS, "matrixReset: async function", "applyTree:")
+        assert "matrixLastChange = {" in reset
 
 
 # ═══ Живой прогон (обязателен при визуальных изменениях) ═══════════════════

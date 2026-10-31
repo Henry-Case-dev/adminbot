@@ -369,3 +369,69 @@ hit-test внутри, длинное имя обрезано), меню «Ещ�
 байт-в-байт. Честные пробелы: у части широких таблиц нет выбора колонок (только
 прокрутка внутри таблицы), планшетная двухстрочная шапка сохранена как
 утверждённая схема, живая приёмка в настоящем Telegram-клиенте — за владельцем.
+
+---
+
+## §review-fix — блокеры ревью EVOL-025 (B1, B2)
+
+Кандидат: ветка `evol/impl` @ `d7eef0f9` + рабочие правки (не закоммичены,
+фиксирует ревьюер): `web/static/app.css` `cdc0f4cc0c91b9b4`,
+`web/index.html` `88c0ed10299f8893`, `web/app.js` `4cfc61d1f3136731`.
+
+### B1 — меню «Ещё» считается от низа shell, а не вьюпорта
+* `.app-shell.shell-mobile .more-menu-panel`: `bottom:
+  calc(100dvh - var(--app-usable-height, 100dvh) + var(--bottom-nav-h, 56px) + 6px)`
+  и `max-height: min(62dvh, calc(var(--app-usable-height, 100dvh) - header - 96px))`.
+  В реальном Telegram `innerHeight` больше фактически используемой высоты, и
+  прежний `bottom: calc(var(--bottom-nav-h) + 6px)` от вьюпорта уводил лист
+  НИЖЕ панели разделов — она оказывалась накрыта.
+* Живой Chromium (390×844, `--app-usable-height: 788px`): низ листа 732,
+  верх панели 738 → зазор 6 px, панель видна и доступна; shell низ 788.
+  То же в детерминированном прогоне: `usable 788` и `584` при 320/390 —
+  `aboveNav: true`, `gapToNav: 6`, `inside: true`, `clearOfRail: true`.
+* Тест: `test_more_menu_counts_from_shell_not_viewport`; e2e-блок
+  `USABLE_MORE` (844/788 и 640/584) проверяет shell = usable, зазор 0…12 px.
+
+### B2 — тач-цели 44 px по указателю, а не только в mobile shell
+* Новый блок `@media (pointer: coarse)` в `.app-shell`: `scope-trigger`,
+  кнопки модалок/сохранения, иконочные `aria-label`-кнопки (плюс ширина),
+  опции селектора области, пункты drawer, `input/select.field`, действия
+  карточки модуля, `btn-ghost/accent/soft`, `modal-close`, чипы фильтров
+  каталога, вкладки «Наблюдаемости», `main summary`, `summary.badge` в шапке.
+  Инлайновые текстовые ссылки не раздуваются (в зонде остаются исключением
+  WCAG 2.5.8).
+* Отдельно закрыт узкий чип «Все»: текст давал 43 px по ширине на реальном
+  шрифте — теперь `min-width: 44px` (замер 44×44 детерминированно).
+* Детерминированный прогон (`is_mobile + has_touch`, `pointer: coarse` = true)
+  на 768×1024, 812×375, 932×430, 1024×768: 0 целей `<44×44` на всех пяти
+  основных маршрутах (было 32–40 px). Живой Chromium с теми же метриками:
+  `total 67, bad 0` на каждом из 768/812/932, shell = `shell-compact`.
+* Плотная сетка часов — осознанное исключение из общего порога: ячейка
+  24×24 (WCAG 2.5.8) + клавиатурный доступ, проверяется отдельно и на всех
+  coarse-вьюпортах (25.8…36.5 × 26 px, `focusable: true`,
+  `cursor: pointer`).
+* Тест: `test_touch_targets_follow_pointer_not_shell`,
+  `test_review_cases_present`; e2e: зонд `PROBE_TOUCH` с исключением
+  `.viz-heat__cell`, замер чипа фильтра и ячейки часов на `#/` (раньше замер
+  молча возвращал `null`, теперь это провал проверки).
+
+### Что перепроверено (этот кандидат)
+* `pytest tests/test_webapp_evol_w9_responsive.py` → в составе 63 passed
+  (вместе с w10-файлом), общий прогон с `test_webapp_round1020_ui.py` и
+  `test_webapp_evol_w7_nav.py` → 109 passed.
+* `node tests/js/evol_w9_responsive_test.js` → `EVOL-W9-RESPONSIVE-OK`,
+  `node tests/js/round1020_ui_test.js` / `round1020_ui_rework_test.js` →
+  `JS-UNIT-OK`.
+* `python tools/ui_evol_w9_responsive_e2e.py` → `EVOL-W9-RESPONSIVE OK`
+  (инвентаризация: 19 маршрутов × 8 вьюпортов, hScroll 0, offscreen 0,
+  clipped 0; ошибок консоли 0).
+* Живой Chromium (CDP, реальное окно): меню «Ещё» при `usable 788 < 844`
+  (зазор 6 px, панель не накрыта), тач-цели на 768/812/932 — 0 целей <44 px,
+  чипы фильтров 44×44.
+
+### Остаточные ограничения (честно)
+* Приёмка в настоящем Telegram-клиенте (реальный WebView, системная нижняя
+  зона, поворот на устройстве) по-прежнему за владельцем: здесь использованы
+  эмуляция `device metrics`/`pointer: coarse` и реальный Chrome, не устройство.
+* Ячейка часов намеренно 24×24, а не 44×44: 24 часа в ряд иначе не читаются;
+  это отражено в исключении зонда и в проверке клавиатурного доступа.

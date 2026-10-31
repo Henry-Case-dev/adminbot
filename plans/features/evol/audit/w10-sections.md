@@ -15,11 +15,11 @@ v0.7/v0.8), **EVOL-028** (L391–402 + v0.8), **EVOL-029** (L404–412),
 
 | файл | sha256 (16) |
 |---|---|
-| `web/index.html` | `46312207292f5cab` |
-| `web/app.js` | `1fd767ddc6b4f972` |
-| `web/static/app.css` | `c9e65a4173817e1f` |
-| `tests/test_webapp_evol_w10_sections.py` (new) | `0e9e2d9f43d7a4bc` |
-| `tools/ui_evol_w10_sections_e2e.py` (new) | `fdf41f6461c293aa` |
+| `web/index.html` | `88c0ed10299f8893` |
+| `web/app.js` | `4cfc61d1f3136731` |
+| `web/static/app.css` | `cdc0f4cc0c91b9b4` |
+| `tests/test_webapp_evol_w10_sections.py` (new) | `82ec044dabaffc41` |
+| `tools/ui_evol_w10_sections_e2e.py` (new) | `ad950fd46de0bec4` |
 | `tools/_w10_live_stand.py` (new, стенд живого осмотра) | — |
 | `tests/js/routing_test.js` (re-pin) | `05a410ea9da9c080` |
 | `tests/js/round1025_f4_catalog_ui_test.js` (re-pin) | `bface00e333c1803` |
@@ -30,7 +30,10 @@ v0.7/v0.8), **EVOL-028** (L391–402 + v0.8), **EVOL-029** (L404–412),
 | `tests/test_mca12_stories_round1046.py` (re-pin) | `1c9acd4562ee7206` |
 | `tests/test_speech_mobile_entry_contract.py` (re-pin) | `5674bec7b9d9eab3` |
 | `tests/test_evol014_ui.py` (re-pin) | `5ec88501c816cb63` |
-| `evidence/w10-sec-probe.json` | `38d3ec458ea3d9c9` |
+| `evidence/w10-sec-probe.json` | `f177d51ecfbdbf95` |
+
+Хэши `web/**` и живого прогона — из §review-fix (кандидат `d7eef0f9` + правки
+блокеров F1–F5); набор re-pin'ов не менялся.
 
 ---
 
@@ -385,3 +388,116 @@ ERROR). К `web/**` отношения не имеют; часть из них �
 воспроизводятся на базе. Честные пробелы: нет серверного фильтра по часу у
 heatmap, настоящий Telegram WebView и часть кадров живого осмотра — за
 пределами доступного агенту.
+
+---
+
+## §review-fix — блокеры ревью EVOL-026/029/030 (F1–F5)
+
+Кандидат: ветка `evol/impl` @ `d7eef0f9` + рабочие правки (не закоммичены,
+фиксирует ревьюер): `web/app.js` `4cfc61d1f3136731`,
+`web/index.html` `88c0ed10299f8893`, `web/static/app.css` `cdc0f4cc0c91b9b4`.
+
+### F1 — клавиатура heatmap (`vizHeatStep`)
+* Функция реализована в `app.js` (`vizHeatStep(dx,dy)` + `_vizHeatAt`,
+  `_vizHeatFocused`, `_vizHeatFocus`): шаг только по ячейкам **с данными**
+  (`has`), часы идут по кругу (23→0), дни — клампом по окну виджета
+  (за краем фокус не теряется), после шага фокус переезжает на новую кнопку,
+  `aria-pressed`/`aria-label` пересчитываются из `vizHeatSel`.
+  Enter/Space — тот же выбор, что клик.
+* Тест больше не проверяет строку шаблона: `test_heatmap_keyboard_behaviour_js`
+  грузит настоящий `app.js` в node и прогоняет 8 сценариев (вправо/влево по
+  кругу, вниз/вверх с клампом, первый шаг без выбора, пустые данные).
+* Живой Chromium (CDP, реальное окно): фокус `2026-10-31 09:00` → ArrowRight →
+  `10:00` (событий 70), ArrowRight → `09:00` (круг), ArrowDown на последнем дне
+  — стоит, ArrowUp → `2026-10-30 10:00`; на каждом шаге `aria-pressed="true"`,
+  `aria-label` соответствует ячейке, подпись часа раскрыта.
+  Скриншот: `evidence/w10-sec-heat-picked-1280x900.png`,
+  `evidence/w10-sec-heat-events-1280x900.png`.
+
+### F2 — уровни заливки и тач-геометрия
+* Специфичность поднята: `.viz-heat__row .viz-heat__cell--lN` (0,2,0) и
+  `.viz-heat__legend-cell.viz-heat__cell--lN` (0,2,0) вместо проигрывавших
+  правил (0,1,0). Живой замер: l1 `rgba(66,214,196,.30)`,
+  l2 `.52`, l3 `.76`, l4 `rgba(139,111,232,.88)`, l0 `rgba(255,255,255,.06)` —
+  пять различимых ступеней, легенда отдаёт те же цвета (проверяется равенством
+  массивов, а не «есть элемент»).
+* **Найдено живым осмотром сверх ревью:** у ячейки часа было ДВА `:class`
+  подряд; второй затирал первый, поэтому в реальном DOM пропадал либо уровень,
+  либо `is-picked` (замер: `className = "…viz-heat__cell--l1"`, без `is-picked`).
+  Теперь одна привязка `[vizHeatClass(c), { 'is-picked': … }]`; проверено:
+  выбранная клетка одновременно `--l4` и `is-picked`, фокус-ринг 2 px.
+* 390 px: ячейка 24×24 (было 10.9×16), сетка прокручивается **внутри**
+  виджета (страница без h-скролла), легенда 16 px (`legacy` 14 px перебивался
+  базовым правилом — исправлено специфичностью `.viz-heat__legend`), подсказка
+  «↔ сетка прокручивается по часам» показывается только там, где прокрутка
+  реально есть (≤480 px или coarse ≤700 px); на 1280/768 подсказки нет и
+  скролла нет. Тест: `test_heat_cell_single_class_binding`,
+  `test_heat_levels_and_touch_size`; e2e сравнивает цвета двух уровней сетки и
+  легенды, размер ячейки, размер образца легенды и совпадение «подсказка ↔
+  реальная прокрутка».
+
+### F3 — «Показать события →» больше не теряет час
+* `vizHeatOpenEvents` вызывает существующий `oversightSetTab('runs')` ДО
+  `navigateTo('#/oversight?tab=runs')` (query нормализуется и отбрасывается,
+  как в `openStoriesAnalytics`), при этом остальные фильтры запусков не
+  затираются (`mca17cRunF` копируется, меняется только `days`).
+* Живой Chromium: клик по кнопке → hash `#/oversight`, `oversightTab="runs"`,
+  активная вкладка «Запуски», мета «Активные фильтры: период: 7 дней ·
+  Выбранный час: 2026-10-30 09:00 (время сервера)».
+* Тест: `test_heat_deep_link_sets_tab_before_navigate_js` (порядок вызовов
+  `setTab:runs` → `navigate`, подпись часа, сохранность прочих фильтров) +
+  e2e-проверка вкладки/подписи.
+
+### F4 — аудит прав ДО изменений
+* В сводке «Доступов» — строка «Права меняет: <имя> · <роль> · id <telegram_id>»
+  и «Область: <активный scope> · <что именно действует>»
+  (`data-access-audit-summary`), в редакторе матрицы — компактный блок
+  `data-access-audit` с «Кто меняет / Когда / Что и где».
+* Значения реальные: имя/роль/id из `initData` (`me`) — тот же id попадает в
+  серверный журнал; «Когда» — отметка фактического сохранения в этой сессии
+  (`matrixLastChange`, ставится только после успешного `POST`/`DELETE`), иначе
+  честное «в этой сессии правки не сохранялись». Ничего не додумывается.
+* Живой Chromium (390): «Права меняет: Audit · global_admin · id 5885953495»;
+  в редакторе — «Кто меняет… / Когда: в этой сессии правки не сохранялись /
+  Что и где: глобальная матрица параметров…». Тест:
+  `test_audit_before_changing_rights` + e2e-проверки в сводке и в матрице.
+
+### F5 — человеческое имя чата вместо сырого id
+* Добавлен `chatTitleFor(chatId)`: название из реального списка чатов
+  (`accessChats`, `oversightData.chats`) или активного scope; `chat_id`
+  остаётся только в поле «Диагностики» (`raw`).
+* Каталог памяти (факты/убеждения/эпизоды) показывает «чат: Audit Chat»,
+  сырого `-1001234567890` в человеческой строке нет.
+* **Сверх ревью (визуальный сосед):** та же подпись в «Живой ленте досье» на
+  «Статусе» бралась из локальной карты и падала в «Чат <id>»; теперь используется
+  тот же `chatTitleFor` («Толян (Audit Chat)»), «Чат <id>» остаётся только
+  честным fallback'ом, когда названия действительно нет.
+* Тест: `test_chat_title_instead_of_raw_id` (+ резолвер в ленте досье),
+  e2e: карточка памяти без сырого id, «Диагностика» на месте.
+
+### Что перепроверено (этот кандидат)
+* `pytest tests/test_webapp_evol_w10_sections.py tests/test_webapp_evol_w9_responsive.py`
+  → 63 passed (включая оба живых e2e-прогона).
+* `pytest tests/test_webapp_round1020_ui.py tests/test_webapp_evol_w7_nav.py
+  tests/test_webapp_evol_w10_sections.py tests/test_webapp_evol_w9_responsive.py`
+  → 109 passed.
+* `node tests/js/round1020_ui_test.js`, `node tests/js/round1020_ui_rework_test.js`,
+  `node tests/js/evol_w9_responsive_test.js` → JS-UNIT-OK / OK.
+* `python tools/ui_evol_w10_sections_e2e.py` → `EVOL-W10-SECTIONS OK`;
+  `python tools/ui_evol_w9_responsive_e2e.py` → `EVOL-W9-RESPONSIVE OK`
+  (инвентаризация 19 маршрутов × 8 вьюпортов: hScroll 0, offscreen 0, clipped 0).
+* Живой Chromium (CDP, не headless, реальное окно) на временном статик-сервере с
+  теми же фикстурами: heatmap-клавиатура, цвета уровней, ссылка в «Запуски»,
+  аудит прав, имя чата, меню «Ещё» при `usable 788 < innerHeight 844`
+  (зазор 6 px, панель не накрыта), тач-цели на 768/812/932 — 0 целей <44 px.
+  Скриншоты/лог: `evidence/w10-sec-heat-picked-1280x900.png`,
+  `evidence/w10-sec-heat-events-1280x900.png`.
+
+### Остаточные ограничения (честно)
+* Настоящий Telegram WebView по-прежнему недоступен агенту: тач-пороги и
+  usable-высота проверены эмуляцией указателя/метрик на реальном Chrome, не на
+  устройстве владельца.
+* На 390 px сетка часов требует горизонтальной прокрутки внутри виджета: 24
+  ячейки по 24 px физически не влезают в 341 px; подсказка об этом видима, но
+  это осознанный компромисс между тач-минимумом 24×24 (WCAG 2.5.8) и обзором
+  всех 24 часов сразу.

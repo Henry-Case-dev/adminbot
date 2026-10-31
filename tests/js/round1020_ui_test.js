@@ -306,6 +306,9 @@ const INDEX = fs.readFileSync(
       { chat_id: -200, name: 'B', excerpt: 'факт B' },
     ],
     oversightData: { chats: [{ chat_id: -100, title: 'Чат А' }] },
+    // F5 (review): подпись чата берёт общий резолвер имени (как в каталоге
+    // памяти); пустая строка = названия нет → fallback «Чат <id>».
+    chatTitleFor(id) { return id === -100 ? 'Чат А' : ''; },
   });
   assert.strictEqual(loop.length, 4, 'T-1897: лента дублируется (2×2)');
   assert.strictEqual(loop[0].chatLabel, 'Чат А', 'T-1897: подпись чата из кэша');

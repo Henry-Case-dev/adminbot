@@ -736,6 +736,14 @@
                     Права проверяются на сервере (RBAC): скрытые или запрещённые
                     действия недоступны, а не только невидимы.
                   </div>
+                  <!-- F4 (review EVOL-030): аудит до правок — видно, кто
+                       меняет и в какой области, ещё ДО открытия редактора. -->
+                  <div class="access-audit text-xs mt-2" data-access-audit-summary>
+                    <div><span class="access-audit__k">Права меняет:</span>
+                      {{ matrixAuditWho() }}</div>
+                    <div><span class="access-audit__k">Область:</span>
+                      {{ accessScopeLabel() }} · {{ matrixAuditScope() }}</div>
+                  </div>
                 </div>
                 <div class="card p-4 access-sections">
                   <div class="text-sm font-bold mb-1">Разделы</div>
@@ -8085,6 +8093,17 @@
                   <b>local_admin</b> (global admin — всегда всё). Дефолт ⊕
                   перекрытия; «Сбросить» возвращает к дефолту.
                 </div>
+                <!-- ═══ F4 (review EVOL-030): аудит ДО изменения — кто меняет,
+                     когда было последнее сохранение и что именно/где действует.
+                     Компактная строка, не отдельная панель. ═══ -->
+                <div class="access-audit text-xs mb-2" data-access-audit>
+                  <div><span class="access-audit__k">Кто меняет:</span>
+                    {{ matrixAuditWho() }}</div>
+                  <div><span class="access-audit__k">Когда:</span>
+                    {{ matrixAuditWhen() }}</div>
+                  <div><span class="access-audit__k">Что и где:</span>
+                    {{ matrixAuditScope() }}</div>
+                </div>
                 <div v-if="matrixLoading" class="spinner my-3"></div>
                 <div v-else-if="matrixError" class="text-red-300 text-sm py-2">
                   {{ matrixError }}
@@ -12234,6 +12253,12 @@
                 (честное пустое состояние — нули не рисуем).
               </div>
               <template v-else>
+                <!-- F2 (review EVOL-026): на узком экране сетка часов шире
+                     карточки — ячейки остаются тач-целью ≥24×24, поэтому окно
+                     прокручивается вбок; подсказка видна только там, где
+                     прокрутка реально есть (см. CSS). -->
+                <div class="viz-heat__scroll-hint text-xs text-gray-500 mb-1"
+                     aria-hidden="true">↔ сетка прокручивается по часам</div>
                 <div class="viz-heat" role="group"
                      aria-label="Тепловая карта активности: день на час, значения в кнопках">
                   <div class="viz-heat__hours" aria-hidden="true">
@@ -12244,9 +12269,11 @@
                   <div v-for="(row, di) in vizHeatRows" :key="'hr' + row.day"
                       class="viz-heat__row">
                     <span class="viz-heat__day">{{ di % 2 === 0 ? row.day.slice(5) : '' }}</span>
+                    <!-- F2 (review): ОДНА привязка class — два `:class` на одном
+                         элементе недопустимы (второй затирал первый, и
+                         `is-picked` / уровни не доезжали до DOM). -->
                     <button type="button" v-for="c in row.cells" :key="'hc' + c.d + ':' + c.h"
-                            :class="vizHeatClass(c)"
-                            :class="{ 'is-picked': vizHeatIsPicked(c) }"
+                            :class="[vizHeatClass(c), { 'is-picked': vizHeatIsPicked(c) }]"
                             :data-viz-cell="c.d + ':' + c.h"
                             :tabindex="c.has ? 0 : -1"
                             :aria-label="vizHeatTitle(c)"

@@ -15,7 +15,10 @@
   * планшет/десктоп: сетки по месту, нет «островка» фиксированной ширины;
   * модалки на узком экране — bottom sheet (низ, скругление сверху,
     safe-area, внутренний скролл, клавиатура), на десктопе — окно по центру;
-  * меню «Ещё» — лист НАД нижней панелью, в границах вьюпорта, Esc + фокус;
+  * меню «Ещё» — лист НАД нижней панелью, в границах вьюпорта, Esc + фокус,
+    в том числе когда реальная usable-высота меньше innerHeight (Telegram);
+  * тач-цели ≥44 и на тач-устройствах вне mobile shell (планшет, тач-ландшафт:
+    порог привязан к (pointer: coarse), а не к ширине окна);
   * инвентаризация: N маршрутов × M вьюпортов — нет h-скролла страницы,
     нет элементов за вьюпортом, нет обрезанного без ellipsis текста;
   * CLS: суммарный layout shift на загрузке в пределах бюджета;
@@ -26,6 +29,7 @@
         [--baseline REV]   # замерить базовую ревизию (git show) для сравнения
 Артефакты по умолчанию: plans/features/evol/audit/evidence/
 """
+import datetime
 import json
 import os
 import shutil
@@ -61,6 +65,18 @@ PHONES = ((320, 568), (360, 640), (390, 844), (430, 932))
 MIDS = ((600, 800), (768, 1024), (1024, 768))
 WIDES = ((1440, 900), (1920, 1080))
 LANDSCAPES = ((667, 375), (812, 375), (932, 430))
+# B2 (review EVOL-025): тач-устройства вне mobile shell — планшет и
+# тач-ландшафт. Порог тот же (44 px), но правило привязано к указателю
+# (pointer: coarse), а не к ширине окна.
+COARSE_TOUCH = ((768, 1024), (812, 375), (932, 430), (1024, 768))
+# Плотная сетка часов: 24 ячейки в ряд не могут быть 44 px без потери
+# читаемости, поэтому она проверяется отдельным порогом 24×24 (WCAG 2.5.8)
+# и клавиатурой, а из общего зонда исключается осознанно.
+COARSE_TOUCH_EXEMPT = '.viz-heat__cell'
+# B1 (review EVOL-025): реальный Telegram отдаёт usable-высоту меньше
+# innerHeight (нижняя системная зона). Меню «Ещё» обязано считать от низа
+# shell, а не от низа вьюпорта: (innerHeight, usable).
+USABLE_MORE = ((844, 788), (640, 584))
 ZOOMS = ((1280, 800), (390, 844))   # моделируются как CSS-вьюпорт / 2
 
 MAIN_ROUTES = ("#/", "#/modules", "#/memory", "#/oversight", "#/ai")
@@ -109,7 +125,11 @@ def _routes(extra_delay_ms=0):
         if url.endswith("/api/config") and extra_delay_ms:
             import time
             time.sleep(extra_delay_ms / 1000.0)
-        if url.endswith("/api/config"):
+        if url.endswith("/api/analytics/viz/activity"):
+            # B2: тач-замер ячейки часов требует РЕАЛЬНОЙ сетки — иначе
+            # виджет отдаёт пустое состояние и порог 24×24 не проверить.
+            payload = _heat_stub()
+        elif url.endswith("/api/config"):
             hdrs = route.request.headers or {}
             payload = (M.CONFIG_STUB_CHAT if hdrs.get("x-chat-id")
                        else M.CONFIG_STUB)
@@ -118,6 +138,17 @@ def _routes(extra_delay_ms=0):
         route.fulfill(status=200, content_type="application/json",
                       body=json.dumps(payload))
     return _route
+
+
+def _heat_stub():
+    """Минимальная, но настоящая сетка активности (сегодня/вчера)."""
+    today = datetime.date.today()
+    d1 = today.isoformat()
+    d0 = (today - datetime.timedelta(days=1)).isoformat()
+    return {"available": True, "days": 14, "telemetry_enabled": True,
+            "timezone": "server-local", "total": 4, "errors_total": 0,
+            "buckets": [{"d": d0, "h": 9, "c": 1, "errs": 0},
+                        {"d": d1, "h": 10, "c": 3, "errs": 0}]}
 
 
 # ── зонды ────────────────────────────────────────────────────────────────────
@@ -172,7 +203,7 @@ PROBE_SHELL = r"""
 """
 
 PROBE_TOUCH = r"""
-() => {
+(exemptSel) => {
   const sel = 'button, a[href], select, input[type="checkbox"], ' +
               'input[type="radio"], summary, [role="button"], ' +
               '[role="option"], [role="menuitem"], [role="switch"]';
@@ -185,6 +216,7 @@ PROBE_TOUCH = r"""
     if (parseFloat(cs.opacity) === 0) continue;
     if (el.closest('[aria-hidden="true"]')) continue;
     if (el.classList.contains('sr-only')) continue;
+    if (exemptSel && el.closest(exemptSel)) continue;
     if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
@@ -691,6 +723,147 @@ def run(out_dir, baseline=None, port=PORT):
                 pg.wait_for_timeout(250)
             shot(pg, key + "-modules")
             ctx.close()
+
+        # ── 2b. Тач-цели вне mobile shell (B2, планшет / тач-ландшафт) ──────
+        # Правила 44 px были под `.app-shell.shell-mobile`; планшет 768×1024 и
+        # тач-ландшафт 812×375/932×430 живут в compact shell и получали
+        # 32–40 px. Теперь порог привязан к указателю (pointer: coarse) —
+        # проверяем тем же зондом на тех же маршрутах.
+        for (w, h) in COARSE_TOUCH:
+            key = "coarse-%dx%d" % (w, h)
+            ctx = browser.new_context(viewport={"width": w, "height": h},
+                                     is_mobile=True, has_touch=True,
+                                     device_scale_factor=2)
+            ctx.add_init_script(M.TMA_STUB)
+            ctx.route("**/api/**", _routes())
+            pg = ctx.new_page()
+            cerrs = []
+            pg.on("console", lambda m: cerrs.append(m.text[:160])
+                  if m.type == "error" else None)
+            pg.on("pageerror", lambda e: cerrs.append("pageerror: " + str(e)[:200]))
+            pg.goto(base_url + "#/modules", wait_until="load")
+            pg.wait_for_selector(".app-shell", timeout=15000)
+            pg.wait_for_timeout(900)
+            d = pg.evaluate(PROBE_SHELL)
+            d["coarse"] = pg.evaluate(
+                "() => matchMedia('(pointer: coarse)').matches")
+            report["viewports"][key] = d
+            if not d["coarse"]:
+                fails.append("%s: контекст не тач (pointer: coarse не активен)" % key)
+            if d["hScroll"]:
+                fails.append("%s: горизонтальный скролл %s > %s"
+                             % (key, d["sw"], d["vw"]))
+            worst = {"route": None, "bad": 0, "sample": [], "total": 0}
+            heat = None
+            chip = None
+            for route in MAIN_ROUTES:
+                pg.evaluate("(r) => { window.location.hash = r; }", route)
+                pg.wait_for_timeout(900)
+                # Плотная сетка часов: порог 24×24 (WCAG 2.5.8) — замер там,
+                # где виджет реально отрисован (в «Статусе»), иначе null.
+                if route == "#/":
+                    heat = pg.evaluate(r"""() => {
+                        const el = document.querySelector(
+                          '.viz-heat__row .viz-heat__cell');
+                        if (!el) return null;
+                        const r = el.getBoundingClientRect();
+                        const cs = getComputedStyle(el);
+                        return {w: +r.width.toFixed(1), h: +r.height.toFixed(1),
+                                focusable: el.tabIndex >= 0
+                                  || el.tagName === 'BUTTON',
+                                cursor: cs.cursor,
+                                hint: (() => {
+                                  const h = document.querySelector(
+                                    '.viz-heat__scroll-hint');
+                                  return h ? getComputedStyle(h).display
+                                    !== 'none' : null;
+                                })()};
+                    }""")
+                # Узкие текстовые чипы («Все») держат минимум ширины: 43 px
+                # от шрифта устройства — не тач-цель. Проверяем явно.
+                if route == "#/modules":
+                    chip = pg.evaluate(r"""() => {
+                        const el = document.querySelector('.module-filter-btn');
+                        if (!el) return null;
+                        const r = el.getBoundingClientRect();
+                        return {w: +r.width.toFixed(1), h: +r.height.toFixed(1)};
+                    }""")
+                t = pg.evaluate(PROBE_TOUCH, COARSE_TOUCH_EXEMPT)
+                report["checks"].setdefault(key + "-touch", {})[route] = t
+                if t["bad"] > worst["bad"]:
+                    worst = {"route": route, "bad": t["bad"],
+                             "sample": t["sample"], "total": t["total"]}
+            if worst["bad"]:
+                fails.append("%s: контролы <44×44 на %s: %s"
+                             % (key, worst["route"], worst["sample"][:4]))
+            report["checks"][key + "-heat-cell"] = heat
+            if not heat:
+                fails.append("%s: heatmap-ячейка не найдена на «Статусе» — "
+                             "замер тач-цели не выполнен" % key)
+            elif heat["w"] < 24 or heat["h"] < 24:
+                fails.append("%s: ячейка часов %s×%s < 24×24 (тач-минимум)"
+                             % (key, heat["w"], heat["h"]))
+            report["checks"][key + "-filter-chip"] = chip
+            if chip and (chip["w"] < 44 or chip["h"] < 44):
+                fails.append("%s: чип фильтра %s×%s < 44×44"
+                             % (key, chip["w"], chip["h"]))
+            if cerrs:
+                fails.append("%s: console errors: %s" % (key, cerrs[:2]))
+            shot(pg, key + "-touch")
+            ctx.close()
+
+        # ── 2c. Меню «Ещё» при usable < innerHeight (B1, реальный Telegram) ─
+        # Лист раскрывается ВВЕРХ от панели разделов: низ листа считается от
+        # низа shell (`--app-usable-height`), а не от низа вьюпорта, иначе он
+        # накрывает саму панель.
+        for (vh, usable) in USABLE_MORE:
+            for w in (390, 320):
+                key = "more-usable-%dx%d-%d" % (w, vh, usable)
+                ctx = open_ctx(browser, w, vh)
+                pg = ctx.new_page()
+                pg.goto(base_url + "#/modules", wait_until="load")
+                pg.wait_for_selector(".app-shell", timeout=15000)
+                pg.wait_for_timeout(800)
+                pg.evaluate("(u) => document.documentElement.style"
+                            ".setProperty('--app-usable-height', u + 'px')",
+                            usable)
+                pg.wait_for_timeout(300)
+                nav_geo = pg.evaluate(r"""() => {
+                    const nav = document.querySelector('.mobile-topnav');
+                    const shell = document.querySelector('.app-shell');
+                    const nb = nav ? nav.getBoundingClientRect() : null;
+                    const sb = shell ? shell.getBoundingClientRect() : null;
+                    return {navTop: nb ? Math.round(nb.top) : null,
+                            navBottom: nb ? Math.round(nb.bottom) : null,
+                            shellBottom: sb ? Math.round(sb.bottom) : null,
+                            vh: window.innerHeight};
+                }""")
+                report["checks"][key + "-nav"] = nav_geo
+                if nav_geo["shellBottom"] is None or \
+                        abs(nav_geo["shellBottom"] - usable) > 2:
+                    fails.append("%s: shell не стал usable-высотой (%s vs %s)"
+                                 % (key, nav_geo["shellBottom"], usable))
+                click(pg, ".mobile-topnav-more", key)
+                pg.wait_for_timeout(320)
+                mm = pg.evaluate(PROBE_MORE)
+                report["checks"][key + "-more"] = mm
+                if not mm.get("open"):
+                    fails.append("%s: меню «Ещё» не открылось" % key)
+                else:
+                    if not mm["inside"]:
+                        fails.append("%s: меню «Ещё» вне вьюпорта" % key)
+                    if not mm["aboveNav"]:
+                        fails.append("%s: меню «Ещё» накрыло панель разделов "
+                                     "(низ листа %s > верх панели %s)"
+                                     % (key, mm.get("bottom"),
+                                        nav_geo.get("navTop")))
+                    if mm.get("gapToNav") is None or not (0 <= mm["gapToNav"] <= 12):
+                        fails.append("%s: зазор до панели %s px (ожидался "
+                                     "0…12)" % (key, mm.get("gapToNav")))
+                shot(pg, key + "-more")
+                pg.keyboard.press("Escape")
+                pg.wait_for_timeout(200)
+                ctx.close()
 
         # ── 3. Планшет / десктоп: сетки по месту, модалка по центру ─────────
         for (w, h) in MIDS + WIDES:

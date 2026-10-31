@@ -40,7 +40,33 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        "rgba(66, 214, 196, 0.3)",
+        "rgba(66, 214, 196, 0.52)",
+        "rgba(66, 214, 196, 0.76)",
+        "rgba(139, 111, 232, 0.88)"
+      ],
+      "heatLegend": [
+        "rgba(255, 255, 255, 0.06)",
+        "rgba(66, 214, 196, 0.3)",
+        "rgba(66, 214, 196, 0.52)",
+        "rgba(66, 214, 196, 0.76)",
+        "rgba(139, 111, 232, 0.88)"
+      ],
+      "heatCellBox": {
+        "w": 38,
+        "h": 16
+      },
+      "heatLegendBox": {
+        "w": 14,
+        "h": 14
+      },
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/modules",
@@ -70,7 +96,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/ai",
@@ -100,7 +146,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/memory",
@@ -130,7 +196,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": "фактподтверждение неизвестнокогда: 30.10.2025, 16:53:20чат: Audit Chatсообщение #4242",
+      "memDiagRaw": true,
+      "accessAuditSummary": null
     },
     {
       "route": "#/access",
@@ -160,7 +246,27 @@
       "accessSummary": 1,
       "accessSections": 3,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно"
     },
     {
       "route": "#/oversight",
@@ -190,7 +296,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/",
@@ -220,7 +346,33 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        "rgba(66, 214, 196, 0.3)",
+        "rgba(66, 214, 196, 0.52)",
+        "rgba(66, 214, 196, 0.76)",
+        "rgba(139, 111, 232, 0.88)"
+      ],
+      "heatLegend": [
+        "rgba(255, 255, 255, 0.06)",
+        "rgba(66, 214, 196, 0.3)",
+        "rgba(66, 214, 196, 0.52)",
+        "rgba(66, 214, 196, 0.76)",
+        "rgba(139, 111, 232, 0.88)"
+      ],
+      "heatCellBox": {
+        "w": 24,
+        "h": 24
+      },
+      "heatLegendBox": {
+        "w": 16,
+        "h": 16
+      },
+      "heatHintVisible": true,
+      "heatScrolls": true,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/modules",
@@ -250,7 +402,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/ai",
@@ -280,7 +452,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     },
     {
       "route": "#/memory",
@@ -310,7 +502,27 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": "фактподтверждение неизвестнокогда: 30.10.2025, 16:53:20чат: Audit Chatсообщение #4242",
+      "memDiagRaw": true,
+      "accessAuditSummary": null
     },
     {
       "route": "#/access",
@@ -340,7 +552,27 @@
       "accessSummary": 1,
       "accessSections": 3,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно"
     },
     {
       "route": "#/oversight",
@@ -370,14 +602,79 @@
       "accessSummary": 0,
       "accessSections": 0,
       "matrixEffective": 0,
-      "runsFilterMeta": 0
+      "runsFilterMeta": 0,
+      "heatLevels": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatLegend": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "heatCellBox": null,
+      "heatLegendBox": null,
+      "heatHintVisible": false,
+      "heatScrolls": false,
+      "memFactMeta": null,
+      "memDiagRaw": false,
+      "accessAuditSummary": null
     }
   ],
   "summary": {
     "heatPick": true,
+    "heatKeyboard": {
+      "steps": [
+        {
+          "cell": "2026-10-31:10",
+          "pressed": "true",
+          "label": "2026-10-31 10:00 — событий: 70 (ошибок: 1)",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        },
+        {
+          "cell": "2026-10-31:9",
+          "pressed": "true",
+          "label": "2026-10-31 09:00 — событий: 36",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        },
+        {
+          "cell": "2026-10-31:9",
+          "pressed": "true",
+          "label": "2026-10-31 09:00 — событий: 36",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        },
+        {
+          "cell": "2026-10-30:9",
+          "pressed": "true",
+          "label": "2026-10-30 09:00 — событий: 1",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        }
+      ],
+      "errors": []
+    },
+    "eventsLink": {
+      "route": "#/oversight",
+      "tab": "runs",
+      "view": "runs",
+      "activeTabText": "Запуски",
+      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-10-31 10:00 (время сервера)"
+    },
     "globalTogglePost": 1,
     "speechPersona": true,
     "matrixEffectiveMobile": true,
+    "matrixAudit": "Кто меняет: Audit · global_admin · id 5885953495Когда: в этой сессии правки не сохранялисьЧто и где: глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно",
     "failures": 0
   }
 }

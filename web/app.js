@@ -2236,6 +2236,9 @@
         matrixError: '',
         matrixSearch: '',
         matrixSaving: {},
+        // F4 (review EVOL-030): «кто/когда/что» последнего сохранения прав —
+        // реальная отметка успешной записи в этой сессии (не выдуманная дата).
+        matrixLastChange: null,
         // BYOK-UI (F-7 T-856): ключ чата — для локального админа
         ownKeyDraft: '',
         ownKeySaving: false,
@@ -6159,6 +6162,8 @@
           { id: 'episodes', label: 'Эпизоды' },
         ];
       },
+      // ── F5 (review EVOL-029): человеческое имя чата — см. methods
+      // chatTitleFor (подпись из реального списка чатов, без сырых id).
       memoryCatalogItems: function () {
         var out = [];
         var self = this;
@@ -6177,7 +6182,10 @@
               : 'подтверждение неизвестно',
             meta: [
               f.created_at ? ('когда: ' + stamp(f.created_at)) : 'когда: неизвестно',
-              f.chat_id != null ? ('чат: ' + f.chat_id) : 'чат: неизвестен',
+              f.chat_id != null
+                ? (self.chatTitleFor(f.chat_id)
+                  ? ('чат: ' + self.chatTitleFor(f.chat_id)) : '')
+                : 'чат: неизвестен',
               f.origin ? ('источник: ' + f.origin) : '',
               f.tg_message_id != null ? ('сообщение #' + f.tg_message_id) : '',
             ].filter(Boolean),
@@ -6241,7 +6249,10 @@
                 ? 'в архиве' : ('статус: ' + (b.status || 'неизвестен')),
               meta: [
                 b.created_at ? ('когда: ' + stamp(b.created_at)) : 'когда: неизвестно',
-                b.chat_id != null ? ('чат: ' + b.chat_id) : '',
+                b.chat_id != null
+                  ? (self.chatTitleFor(b.chat_id)
+                    ? ('чат: ' + self.chatTitleFor(b.chat_id)) : '')
+                  : '',
                 (b.source_ids && b.source_ids.length)
                   ? ('оснований: ' + b.source_ids.length) : 'оснований: 0',
               ].filter(Boolean),
@@ -6272,7 +6283,10 @@
                 : 'период: неизвестен',
               it.participantsCount ? ('участников: ' + it.participantsCount) : '',
               it.linkedCount ? ('сообщений: ' + it.linkedCount) : '',
-              (it.chatId != null ? ('чат: ' + it.chatId) : ''),
+              (it.chatId != null
+                ? (self.chatTitleFor(it.chatId)
+                  ? ('чат: ' + self.chatTitleFor(it.chatId)) : '')
+                : ''),
             ].filter(Boolean),
             raw: ['episode_id: ' + it.id,
                   (it.chatId != null ? ('chat_id: ' + it.chatId) : '')]
@@ -6375,6 +6389,7 @@
       dossierFeedLoop: function () {
         var items = this.dossierFeed || [];
         if (!items.length) return [];
+        var self = this;
         var titles = {};
         var chats = (this.oversightData && this.oversightData.chats) || [];
         chats.forEach(function (c) { titles[c.chat_id] = c.title; });
@@ -6386,7 +6401,11 @@
             user_id: (it.user_id == null ? null : it.user_id),
             chat_id: it.chat_id,
             excerpt: it.excerpt,
-            chatLabel: titles[it.chat_id] || ('Чат ' + it.chat_id),
+            // F5 (review): человеческое имя чата — тот же резолвер, что в
+            // каталоге памяти; «Чат <id>» остаётся честным fallback'ом, если
+            // названия действительно нет в списке чатов.
+            chatLabel: self.chatTitleFor(it.chat_id)
+              || titles[it.chat_id] || ('Чат ' + it.chat_id),
             // EVOL-026 (W10): на карточке Статуса нужны источник/дата/тип и
             // контекст записи — без выдуманных значений (нет даты → null).
             text: (it.text == null ? '' : String(it.text)),
@@ -7029,6 +7048,32 @@
           }
           if (el && el.focus) el.focus();
         });
+      },
+      // ── F5 (review EVOL-029): человеческое имя чата по id ───────────────
+      // Человекопонятная подпись первична: сначала реальный список чатов
+      // (accessChats / кэш «Аналитики»), затем активный scope. Если названия
+      // нет — пустая строка: сырой `chat_id` остаётся только в «Диагностике»
+      // (поле raw), а не в человеческой строке карточки.
+      chatTitleFor: function (chatId) {
+        if (chatId == null || chatId === '') return '';
+        var id = String(chatId);
+        var lists = [
+          this.accessChats || [],
+          (this.oversightData && this.oversightData.chats) || [],
+        ];
+        for (var l = 0; l < lists.length; l++) {
+          var rows = lists[l] || [];
+          for (var i = 0; i < rows.length; i++) {
+            var c = rows[i];
+            if (!c || c.chat_id == null) continue;
+            if (String(c.chat_id) === id && c.title) return c.title;
+          }
+        }
+        if (this.activeChatId != null && String(this.activeChatId) === id
+            && this.activeChatTitle && this.activeChatTitle !== 'Весь бот') {
+          return this.activeChatTitle;
+        }
+        return '';
       },
       memoryCatalogTypeCount: function (id) {
         if (id === 'all') return this.memoryCatalogItems.length;
@@ -13388,6 +13433,101 @@
         var s = this.vizHeatSel;
         return !!(s && cell && s.d === cell.d && s.h === cell.h);
       },
+      // ═══ F1 (review EVOL-026): клавиатурный шаг по часам ═══════════════
+      // Стрелки в шаблоне (`@keydown.right.prevent="vizHeatStep(1, 0)"` и т.д.)
+      // ведут СЮДА. Поведение:
+      //   * двигаемся только по ячейкам, где есть данные (`has`) — пустые часы
+      //     не ловят фокус (у них tabindex=-1), поэтому выбор не «проваливается
+      //     в никуда»;
+      //   * часы идут по кругу (23 → 0), дни — клампом по окну виджета (за
+      //     краем остаёмся на месте: фокус не теряется);
+      //   * после шага фокус переезжает на ту же кнопку, а aria-pressed/
+      //     aria-label пересчитываются из vizHeatSel (в шаблоне они производные).
+      vizHeatStep: function (dx, dy) {
+        var cells = this.vizHeatCells();
+        if (!cells || !cells.length) return;
+        var live = [];
+        var days = [];
+        cells.forEach(function (c) {
+          if (!c || !c.has) return;
+          live.push(c);
+          if (days.indexOf(c.d) < 0) days.push(c.d);
+        });
+        if (!live.length) return;
+        var sel = this.vizHeatSel;
+        var cur = null;
+        if (sel) {
+          for (var i = 0; i < live.length; i++) {
+            if (live[i].d === sel.d && live[i].h === sel.h) {
+              cur = live[i];
+              break;
+            }
+          }
+        }
+        if (!cur) cur = this._vizHeatFocused(live);
+        var stepX = parseInt(dx, 10) || 0;
+        var stepY = parseInt(dy, 10) || 0;
+        var next = null;
+        if (!cur) {
+          // Ни выбора, ни фокуса — ведём на первую заполненную ячейку окна.
+          next = live[0];
+        } else if (stepX) {
+          var dirX = stepX > 0 ? 1 : -1;
+          for (var k = 1; k <= 23 && !next; k++) {
+            var hh = ((cur.h + dirX * k) % 24 + 24) % 24;
+            next = this._vizHeatAt(live, cur.d, hh);
+          }
+        } else if (stepY) {
+          var dirY = stepY > 0 ? 1 : -1;
+          var di = days.indexOf(cur.d);
+          for (var q = 1; q <= days.length && !next; q++) {
+            var ni = di + dirY * q;
+            if (ni < 0 || ni >= days.length) break;   // край окна — кламп
+            next = this._vizHeatAt(live, days[ni], cur.h);
+          }
+        }
+        if (!next) return;                            // некуда шагнуть — стоим
+        this.vizHeatSel = {
+          d: next.d, h: next.h, c: next.c, errs: next.errs || 0,
+        };
+        this._vizHeatFocus(next);
+      },
+      _vizHeatAt: function (live, day, hour) {
+        for (var i = 0; i < live.length; i++) {
+          if (live[i].d === day && live[i].h === hour) return live[i];
+        }
+        return null;
+      },
+      // Ячейка под фокусом (пользователь мог прийти Tab'ом, без клика):
+      // шаг стрелкой продолжает движение от неё, а не «прыгает» в начало.
+      _vizHeatFocused: function (live) {
+        try {
+          if (typeof document === 'undefined' || !document
+              || typeof document.querySelector !== 'function') return null;
+          var a = document.activeElement;
+          if (!a || typeof a.getAttribute !== 'function') return null;
+          var key = a.getAttribute('data-viz-cell');
+          if (!key) return null;
+          var parts = String(key).split(':');
+          return this._vizHeatAt(live, parts[0], parseInt(parts[1], 10));
+        } catch (e) {
+          return null;
+        }
+      },
+      // Фокус на кнопку часа — после обновления DOM (aria-pressed уже новый).
+      _vizHeatFocus: function (cell) {
+        var move = function () {
+          try {
+            if (typeof document === 'undefined' || !document
+                || typeof document.querySelector !== 'function') return;
+            var el = document.querySelector(
+              '.viz-heat [data-viz-cell="' + cell.d + ':' + cell.h + '"]');
+            if (el && typeof el.focus === 'function') el.focus();
+          } catch (e) { /* unit-стабы без DOM — no-op */ }
+        };
+        if (typeof this.$nextTick === 'function') this.$nextTick(move);
+        else move();
+      },
       vizHeatSelLabel: function () {
         var s = this.vizHeatSel;
         if (!s) return '';
@@ -13409,6 +13549,18 @@
         });
         this.oversightFocusNote = 'Выбранный час: ' + s.d + ' '
           + ((s.h < 10 ? '0' : '') + s.h) + ':00 (время сервера)';
+        // ═══ F3 (review EVOL-026): вкладка «Запуски» ДО перехода ═══════════
+        // navigateTo нормализует hash и отбрасывает query (T-1099), поэтому
+        // `#/oversight?tab=runs` доезжает как `#/oversight` → пользователь
+        // попадал на «Обзор», а подпись выбранного часа (она живёт только в
+        // «Запусках») не показывалась. Ставим суб-вкладку существующим
+        // oversightSetTab — тем же способом, что openStoriesAnalytics.
+        if (typeof this.oversightSetTab === 'function') {
+          this.oversightSetTab('runs');
+        } else if (this.oversightTab !== 'runs') {
+          this.oversightTab = 'runs';
+          this.oversightView = 'runs';
+        }
         this.navigateTo('#/oversight?tab=runs');
       },
 
@@ -20251,6 +20403,37 @@
       // Подпись области для сводки «Доступов» (тот же активный scope).
       // ═══ EVOL-030 (W10): понятная подпись активных фильтров «Запусков» ═══
       // Ничего не выдумываем: только реально выставленные поля.
+      // ═══ F4 (review EVOL-030): «кто/когда/что» ДО изменения прав ═══════
+      // Все значения — реальные: имя/роль/Telegram ID берутся из initData
+      // (`me`) — тот же id попадает в серверный журнал (`[access]
+      // param_permission upsert | key=… by=<id>`); время — отметка
+      // фактически сохранённой правки в этой сессии, иначе честное
+      // «правок не сохранялось». Ничего не додумываем.
+      matrixAuditWho: function () {
+        var m = this.me || null;
+        if (!m) return 'текущий пользователь (профиль Telegram не загружен)';
+        var name = m.first_name || m.username
+          || ('@' + (m.username || m.telegram_id));
+        var out = name;
+        if (m.role_name) out += ' · ' + m.role_name;
+        if (m.telegram_id != null) out += ' · id ' + m.telegram_id;
+        return out;
+      },
+      matrixAuditWhen: function () {
+        var st = this.matrixLastChange;
+        if (!st) return 'в этой сессии правки не сохранялись';
+        var when = (typeof this.fmtLogTs === 'function')
+          ? this.fmtLogTs(st.ts)
+          : String(new Date(st.ts).toISOString());
+        return when + ' · ' + (st.title || st.key)
+          + (st.reset ? ' (сброс к дефолту)' : '');
+      },
+      // Подпись области действия: матрица — глобальная (общая для всех чатов),
+      // чатовые переопределения правятся отдельным окном.
+      matrixAuditScope: function () {
+        return 'глобальная матрица параметров — действует для всех чатов '
+          + 'сразу после сохранения; чатовые переопределения — отдельно';
+      },
       matrixRoleToggle: async function (key, field, role) {
         var item = this.matrixItems[key];
         if (!item) return;
@@ -20275,6 +20458,10 @@
             edit_roles: resp.edit_roles || body.edit_roles,
             default: false,
           });
+          this.matrixLastChange = {
+            ts: Date.now(), key: key,
+            title: item.title || (item.item && item.item.title) || key,
+          };
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');
         } finally {
@@ -20286,6 +20473,11 @@
           await this.api('/api/access/param_permissions/' + encodeURIComponent(key),
                          { method: 'DELETE' });
           this.toast('Сброшено на дефолт: ' + key, 'ok');
+          var prev = this.matrixItems[key] || {};
+          this.matrixLastChange = {
+            ts: Date.now(), key: key, reset: true,
+            title: prev.title || (prev.item && prev.item.title) || key,
+          };
           await this.loadMatrix();
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');

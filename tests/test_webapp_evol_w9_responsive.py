@@ -142,6 +142,16 @@ class TestLandscapeContract:
         assert "right: calc(58px + max(env(safe-area-inset-right" in seg
         assert "max-height: none" in seg
 
+    def test_more_menu_counts_from_shell_not_viewport(self):
+        # B1: низ листа считается от НИЗА shell (--app-usable-height), иначе
+        # в реальном Telegram (usable < innerHeight) лист накрывает панель.
+        seg = _section(".app-shell.shell-mobile .more-menu-panel {", 600)
+        assert "100dvh - var(--app-usable-height, 100dvh)" in seg, \
+            "низ листа привязан к фактически используемой высоте"
+        assert "var(--bottom-nav-h" in seg
+        assert "var(--app-usable-height, 100dvh)\n" in seg or \
+            "var(--app-usable-height, 100dvh)" in seg
+
 
 class TestTabletWideContract:
     """Планшет и широкий desktop: колонки по месту, без «островка»."""
@@ -224,6 +234,21 @@ class TestTouchContract:
         assert ".app-shell.shell-mobile .scope-trigger" in seg
         assert "min-height: var(--control-h-touch, 44px)" in seg
 
+    def test_touch_targets_follow_pointer_not_shell(self):
+        """B2: 44 px привязаны к указателю, а не только к mobile shell."""
+        seg = _section("@media (pointer: coarse) {", 2200)
+        assert ".app-shell .scope-trigger" in seg
+        assert "button[aria-label=\"Обновить\"]" in seg
+        assert "input.field," in seg and "select.field { min-height" in seg
+        assert ".app-shell .module-card .btn-ghost" in seg
+        assert ".app-shell .module-filter-btn" in seg
+        assert ".app-shell .oversight-tab" in seg
+        assert ".app-shell .btn-ghost," in seg
+        assert "main summary" in seg
+        assert seg.count("var(--control-h-touch, 44px)") >= 8
+        # инлайновые текстовые ссылки не раздуваются: правило не бьёт по <a>
+        assert ".app-shell a {" not in seg
+
 
 class TestProtectedOptics:
     """Защищённая оптика этой волной не меняется."""
@@ -264,6 +289,24 @@ class TestLiveTool:
                        "CONTENT_SHARE_LAND", "PROBE_CLS", "INV_PROBE",
                        "w9-responsive-inventory.json"):
             assert marker in TOOL, "проверка %s присутствует" % marker
+
+    def test_review_cases_present(self):
+        """B1/B2: тач вне mobile shell и меню «Ещё» при usable < innerHeight."""
+        assert "COARSE_TOUCH" in TOOL
+        assert "(768, 1024)" in TOOL and "(812, 375)" in TOOL and "(932, 430)" in TOOL
+        assert "has_touch=True" in TOOL
+        assert "USABLE_MORE" in TOOL
+        assert "(844, 788)" in TOOL and "(640, 584)" in TOOL
+        assert "--app-usable-height" in TOOL
+        assert "gapToNav" in TOOL
+        # плотная сетка часов проверяется отдельным порогом 24×24
+        assert "COARSE_TOUCH_EXEMPT" in TOOL
+        assert "24×24" in TOOL
+        # замер ячейки часов идёт на «Статусе» (иначе молчаливый null),
+        # а узкий чип фильтра держит минимум 44 px по ширине
+        assert "heatmap-ячейка не найдена" in TOOL
+        assert "filter-chip" in TOOL
+        assert "_heat_stub" in TOOL
 
     def test_js_unit_runs(self):
         out = subprocess.run(["node", "tests/js/evol_w9_responsive_test.js"],

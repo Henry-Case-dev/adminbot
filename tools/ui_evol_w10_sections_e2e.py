@@ -7,6 +7,13 @@
 Проверяется (plans/current_task.md L357–422):
   * EVOL-026: «Активность по часам» и «Живая лента досье» — в «Статусе»;
     полный виджет «Истории памяти» — в «Аналитике» (дубликатов нет);
+    ячейка часа — настоящая кнопка: стрелки/Enter/Space двигают выбор по
+    часам С ДАННЫМИ (реальный прогон, не проверка строки шаблона), уровни
+    заливки и легенда различимы, на узком экране ячейка ≥24×24, а
+    «Показать события →» открывает «Запуски» с подписью выбранного часа;
+  * EVOL-029: карточка памяти показывает НАЗВАНИЕ чата, сырой chat_id —
+    только в «Диагностике»;
+  * EVOL-030: аудит прав («кто/когда/что и где») виден до изменений.
   * EVOL-027: карточка модуля имеет ГЛОБАЛЬНЫй тумблер (v0.7), нет тяжёлой
     KPI-строки (v0.8), нет второго master-toggle в деталях модуля;
   * EVOL-028: «ИИ» — рабочая панель с моделями/health, ссылкой на единый
@@ -19,6 +26,7 @@
 Запуск: python tools/ui_evol_w10_sections_e2e.py [--out DIR]
 Артефакты по умолчанию: plans/features/evol/audit/evidence/
 """
+import datetime
 import json
 import os
 import sys
@@ -84,6 +92,54 @@ PROBE_PAGE = r"""
     accessSections: qa('[data-access-section]').length,
     matrixEffective: qa('[data-matrix-effective]').length,
     runsFilterMeta: qa('[data-runs-filter-meta]').length,
+    // EVOL-026 F2: уровни заливки реально различимы (сетка И легенда).
+    heatLevels: [1, 2, 3, 4].map((l) => {
+      const el = q('.viz-heat__row .viz-heat__cell--l' + l);
+      return el ? getComputedStyle(el).backgroundColor : null;
+    }),
+    heatLegend: [0, 1, 2, 3, 4].map((l) => {
+      const el = q('.viz-heat__legend-cell.viz-heat__cell--l' + l);
+      return el ? getComputedStyle(el).backgroundColor : null;
+    }),
+    heatCellBox: (() => {
+      const el = q('.viz-heat__row .viz-heat__cell');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {w: +r.width.toFixed(1), h: +r.height.toFixed(1)};
+    })(),
+    // F2: образцы легенды крупнее 14 px там, где включена тач-геометрия,
+    // и подсказка о прокрутке видна только при реальном h-скролле.
+    heatLegendBox: (() => {
+      const el = q('.viz-heat__legend-cell');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {w: +r.width.toFixed(1), h: +r.height.toFixed(1)};
+    })(),
+    heatHintVisible: (() => {
+      const el = q('.viz-heat__scroll-hint');
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && el.getBoundingClientRect().height > 0;
+    })(),
+    heatScrolls: (() => {
+      const el = q('.viz-heat');
+      return el ? el.scrollWidth > el.clientWidth + 1 : false;
+    })(),
+    // EVOL-029 F5: в человеческой карточке — название чата, не сырой id.
+    memFactMeta: (() => {
+      const el = q('[data-memory-item="facts"] .mem-item__meta')
+        || q('[data-memory-item] .mem-item__meta');
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
+    })(),
+    memDiagRaw: (() => {
+      const el = q('[data-memory-diagnostics]');
+      return !!el;
+    })(),
+    // EVOL-030 F4: аудит прав до изменений (сводка и редактор матрицы).
+    accessAuditSummary: (() => {
+      const el = q('[data-access-audit-summary]');
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
+    })(),
   };
 }
 """
@@ -97,11 +153,21 @@ def _start_server() -> ThreadingHTTPServer:
 
 
 # Детерминированные данные для живых виджетов (секретов нет).
+# Даты считаются от сегодняшнего дня: окно heatmap строится по последним
+# N суткам, поэтому «вчера/сегодня» — единственный надёжный способ получить
+# заполненные часы (уровни l1..l4 = 1/18/36/70 при максимуме 70).
+_TODAY = datetime.date.today()
+_D1 = _TODAY.isoformat()
+_D0 = (_TODAY - datetime.timedelta(days=1)).isoformat()
 _HEAT = {
     "available": True, "days": 14, "telemetry_enabled": True,
-    "timezone": "server-local", "total": 12, "errors_total": 2,
-    "buckets": [{"d": "2026-10-30", "h": 9, "c": 5, "errs": 1},
-                {"d": "2026-10-30", "h": 10, "c": 7, "errs": 1}],
+    "timezone": "server-local", "total": 125, "errors_total": 2,
+    "buckets": [
+        {"d": _D0, "h": 9, "c": 1, "errs": 0},
+        {"d": _D0, "h": 10, "c": 18, "errs": 1},
+        {"d": _D1, "h": 9, "c": 36, "errs": 0},
+        {"d": _D1, "h": 10, "c": 70, "errs": 1},
+    ],
 }
 _DOSSIER = {"chat_id": None, "items": [
     {"name": "Толян", "user_name": "Толян", "user_id": 5,
@@ -198,6 +264,44 @@ def run(out_dir: str) -> int:
                                          % (label, probe["heatmap"]))
                         elif probe["heatCells"] < 24:
                             fails.append("%s: у heatmap нет сетки часов" % label)
+                        # F2: четыре уровня данных дают ЧЕТЫРЕ разных цвета,
+                        # легенда показывает те же цвета (сетка и легенда).
+                        levels = probe["heatLevels"]
+                        legend = probe["heatLegend"]
+                        if any(not c for c in levels):
+                            fails.append("%s: в heatmap нет уровней l1..l4 "
+                                         "(данные/классы): %s" % (label, levels))
+                        elif len(set(levels)) != 4:
+                            fails.append("%s: уровни heatmap одного цвета — "
+                                         "заливка не видна: %s" % (label, levels))
+                        if any(not c for c in legend):
+                            fails.append("%s: легенда heatmap без образцов"
+                                         % label)
+                        elif legend[1:] != levels:
+                            fails.append("%s: легенда heatmap не совпадает с "
+                                         "сеткой: %s vs %s"
+                                         % (label, legend[1:], levels))
+                        elif len(set(legend)) < 5:
+                            fails.append("%s: образцы легенды неразличимы: %s"
+                                         % (label, legend))
+                        box = probe["heatCellBox"] or {}
+                        if w <= 430 and (box.get("w", 0) < 24
+                                         or box.get("h", 0) < 24):
+                            fails.append("%s: ячейка heatmap %s×%s < 24×24 "
+                                         "(тач-минимум)" % (label, box.get("w"),
+                                                            box.get("h")))
+                        # F2: образцы легенды читаемы (16 px там, где включена
+                        # тач-геометрия) и подсказка о прокрутке показывается
+                        # ТОЛЬКО когда сетка реально шире окна.
+                        lb = probe["heatLegendBox"] or {}
+                        if w <= 430 and lb.get("w", 0) < 16:
+                            fails.append("%s: образец легенды %s×%s < 16×16"
+                                         % (label, lb.get("w"), lb.get("h")))
+                        if probe["heatHintVisible"] != probe["heatScrolls"]:
+                            fails.append("%s: подсказка прокрутки не совпадает с "
+                                         "реальной прокруткой (hint=%s scroll=%s)"
+                                         % (label, probe["heatHintVisible"],
+                                            probe["heatScrolls"]))
                         if probe["dossier"] < 1:
                             fails.append("%s: нет живой ленты досье" % label)
                         if probe["storiesPreview"] != 1:
@@ -235,12 +339,29 @@ def run(out_dir: str) -> int:
                             fails.append("%s: каталог памяти не отрисован" % label)
                         if not probe["memoryDiag"]:
                             fails.append("%s: нет «Диагностики» памяти" % label)
+                        # F5: человеческая карточка показывает НАЗВАНИЕ чата,
+                        # сырой chat_id остаётся только в «Диагностике».
+                        meta = probe["memFactMeta"] or ""
+                        if "чат: Audit Chat" not in meta:
+                            fails.append("%s: карточка памяти без названия чата "
+                                         "(%s)" % (label, meta[:90]))
+                        if "-1001234567890" in meta:
+                            fails.append("%s: в карточке памяти сырой chat_id "
+                                         "(%s)" % (label, meta[:90]))
                     if route == "#/access":
                         if probe["accessSummary"] != 1:
                             fails.append("%s: нет сводки «Доступов»" % label)
                         if probe["accessSections"] < 3:
                             fails.append("%s: разделы «Доступов» не все (%d)"
                                          % (label, probe["accessSections"]))
+                        # F4: аудит прав виден ДО изменений (кто/область).
+                        summ = probe["accessAuditSummary"] or ""
+                        if "Права меняет" not in summ:
+                            fails.append("%s: нет строки аудита прав в сводке "
+                                         "(%s)" % (label, summ[:90]))
+                        if "Audit" not in summ and "audit" not in summ:
+                            fails.append("%s: строка аудита без реального "
+                                         "пользователя (%s)" % (label, summ[:90]))
                 report["viewports"].append({
                     "viewport": "%dx%d" % (w, h),
                     "consoleErrors": len(errors),
@@ -264,6 +385,8 @@ def run(out_dir: str) -> int:
             ctx.add_init_script(M.TMA_STUB)
             pg = ctx.new_page()
             pg.route("**/api/**", _routes2())
+            pageerrors = []
+            pg.on("pageerror", lambda e: pageerrors.append(str(e)[:200]))
             # EVOL-026: выбор часа в heatmap раскрывает подпись и ведёт к фильтру.
             pg.goto(BASE + "/#/", wait_until="load")
             pg.wait_for_timeout(900)
@@ -277,6 +400,121 @@ def run(out_dir: str) -> int:
             if not picked:
                 fails.append("heatmap: клик по часу не раскрывает подпись")
             _shot(pg, out_dir, "w10-sec-heat-picked-1280x900.png")
+
+            # ═══ F1 (review EVOL-026): клавиатура heatmap — РЕАЛЬНОЕ поведение.
+            # Раньше проверялось лишь наличие строки `vizHeatStep` в шаблоне,
+            # хотя самой функции не существовало (TypeError в Chromium).
+            kbd_errors_before = len(pageerrors)
+            pg.goto(BASE + "/#/", wait_until="load")
+            pg.wait_for_timeout(900)
+            keys = []
+            start = '[data-viz-cell="%s:9"]' % _D1
+            pg.focus(start)
+            pg.wait_for_timeout(150)
+            for keyname in ("ArrowRight", "ArrowRight", "ArrowDown", "ArrowUp"):
+                pg.keyboard.press(keyname)
+                pg.wait_for_timeout(200)
+                keys.append(pg.evaluate(r"""() => {
+                    const a = document.activeElement;
+                    const pickedEl = document.querySelector(
+                      '.viz-heat__row .viz-heat__cell.is-picked');
+                    return {
+                      cell: a && a.getAttribute ? a.getAttribute('data-viz-cell') : null,
+                      pressed: a && a.getAttribute
+                        ? a.getAttribute('aria-pressed') : null,
+                      label: a && a.getAttribute
+                        ? a.getAttribute('aria-label') : null,
+                      picked: !!document.querySelector('[data-viz-heat-picked]'),
+                      // F2: выбранная клетка реально помечена классом (одна
+                      // привязка class — два `:class` затирали это состояние).
+                      pickedClass: !!pickedEl
+                        && pickedEl === a,
+                      levelClass: a && a.className
+                        ? /viz-heat__cell--l[0-4]/.test(a.className) : false,
+                    };
+                }"""))
+            kbd = {"steps": keys,
+                   "errors": pageerrors[kbd_errors_before:]}
+            report["summary"]["heatKeyboard"] = kbd
+            # Вправо: 09:00 → 10:00 (следующий час с данными), затем по кругу
+            # 10:00 → 09:00; вниз за последний день окна — кламп (стоим),
+            # вверх — предыдущий день, тот же час.
+            expect = ["%s:10" % _D1, "%s:9" % _D1, "%s:9" % _D1,
+                      "%s:9" % _D0]
+            got = [s.get("cell") for s in keys]
+            if got != expect:
+                fails.append("heatmap: стрелки не ходят по часам с данными "
+                             "(%s != %s)" % (got, expect))
+            for st in keys:
+                if st.get("pressed") != "true":
+                    fails.append("heatmap: aria-pressed не обновлён после "
+                                 "стрелки (%s)" % st)
+                    break
+                if not st.get("picked"):
+                    fails.append("heatmap: подпись выбранного часа не появилась "
+                                 "после стрелки")
+                    break
+                if not st.get("label"):
+                    fails.append("heatmap: aria-label не обновлён (%s)" % st)
+                    break
+                if not st.get("levelClass"):
+                    fails.append("heatmap: у выбранной клетки пропал класс "
+                                 "уровня заливки (%s)" % st)
+                    break
+                if not st.get("pickedClass"):
+                    fails.append("heatmap: выбранная клетка без класса "
+                                 "is-picked — состояние не видно (%s)" % st)
+                    break
+                parts = (st.get("cell") or "").split(":")
+                hh = ("0" + parts[1]) if parts[1:2] and int(parts[1]) < 10 \
+                    else (parts[1] if parts[1:2] else "")
+                if parts[0] not in st["label"] or (hh + ":00") not in st["label"]:
+                    fails.append("heatmap: aria-label не соответствует "
+                                 "выбранной ячейке (%s vs %s)"
+                                 % (st.get("cell"), st.get("label")))
+                    break
+            if kbd["errors"]:
+                fails.append("heatmap: ошибка JS при клавиатуре: %s"
+                             % kbd["errors"][:2])
+            # Enter/Space выбирают час так же, как клик.
+            pg.focus('[data-viz-cell="%s:10"]' % _D1)
+            pg.wait_for_timeout(120)
+            pg.keyboard.press("Enter")
+            pg.wait_for_timeout(220)
+            enter_ok = pg.evaluate(
+                "() => !!document.querySelector('[data-viz-heat-picked]')")
+
+            # ═══ F3 (review EVOL-026): «Показать события →» сохраняет час ═══
+            # Кнопка живёт в подписи выбранного часа; переход обязан открыть
+            # суб-вкладку «Запуски» (там подпись часа), а не «Обзор».
+            pg.click("text=Показать события")
+            pg.wait_for_timeout(1200)
+            nav = pg.evaluate(r"""() => {
+                const vm = window.__adminbotVm;
+                const meta = document.querySelector('[data-runs-filter-meta]');
+                const tab = document.querySelector('.oversight-tab.is-active');
+                return {
+                  route: location.hash,
+                  tab: vm ? vm.oversightTab : null,
+                  view: vm ? vm.oversightView : null,
+                  activeTabText: tab ? tab.textContent.trim() : null,
+                  meta: meta
+                    ? meta.textContent.replace(/\s+/g, ' ').trim() : null,
+                };
+            }""")
+            report["summary"]["eventsLink"] = nav
+            if not enter_ok:
+                fails.append("heatmap: Enter не выбирает час")
+            if nav.get("tab") != "runs":
+                fails.append("heatmap: «Показать события» не открыл «Запуски» "
+                             "(tab=%s)" % nav.get("tab"))
+            if not (nav.get("activeTabText") or "").startswith("Запуски"):
+                fails.append("heatmap: активная вкладка не «Запуски» (%s)"
+                             % nav.get("activeTabText"))
+            if not nav.get("meta") or "Выбранный час" not in nav["meta"]:
+                fails.append("heatmap: подпись выбранного часа не показана в "
+                             "«Запусках» (%s)" % nav.get("meta"))
+            _shot(pg, out_dir, "w10-sec-heat-events-1280x900.png")
 
             # EVOL-027: глобальный тумблер в карточке → POST /api/config (global).
             global_posts = []
@@ -331,6 +569,25 @@ def run(out_dir: str) -> int:
             report["summary"]["matrixEffectiveMobile"] = shown
             if not shown:
                 fails.append("mobile: матрица прав не показывает эффективные роли")
+            # F4 (review EVOL-030): аудит «кто/когда/что» — в редакторе матрицы,
+            # до изменения прав; значения реальные (профиль + отметка сессии).
+            audit = mpg.evaluate(r"""() => {
+                const el = document.querySelector('[data-access-audit]');
+                return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
+            }""")
+            report["summary"]["matrixAudit"] = audit
+            if not audit:
+                fails.append("доступы: нет строки аудита в редакторе матрицы")
+            else:
+                for marker in ("Кто меняет", "Когда", "Что и где",
+                               "5885953495"):
+                    if marker not in audit:
+                        fails.append("доступы: в аудите нет %r (%s)"
+                                     % (marker, audit[:120]))
+                        break
+                if "правки не сохранялись" not in audit:
+                    fails.append("доступы: аудит без честной отметки времени "
+                                 "(%s)" % audit[:120])
             _shot(mpg, out_dir, "w10-sec-access-matrix-390x844.png")
             mctx.close()
             browser.close()
