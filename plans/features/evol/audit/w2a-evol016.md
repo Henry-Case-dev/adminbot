@@ -734,3 +734,149 @@ actor без checker'а → отказ; непустой actor без checker'а
 рабочего дерева чужого лейна (`AGENTS.md`, `docs/prompt-versioning-contract.md`,
 `plans/features/evol/audit/w2c-evol018.md`) сохранены без изменений.
 
+---
+
+# D. production-fix — crash-loop релиза 2.58.142 (31.10.2026)
+
+Инцидент: деплой `06283422` положил прод в crash-loop на САМОМ старте
+(`systemctl status` = auto-restart, `/healthz` = 502), прод откачен DevOps на
+2.58.141. Полный разбор деплоя — `plans/features/evol/audit/deploy-2.58.142.md`.
+Ниже — причина, фикс и доказательства.
+
+## D.1 Точная падающая SQL-константа
+
+`services/prompt_release_policy.py`, `_SET_CHAT_OVERRIDE_SQL` (было):
+
+```sql
+UPDATE chat_profiles
+SET chat_params = jsonb_set(
+        chat_params, '{overrides}',
+        COALESCE(chat_params -> 'overrides', '{}'::jsonb) ||
+        jsonb_build_object($2, $3::jsonb), true),   -- ← $2 БЕЗ типа
+    updated_at = now()
+WHERE chat_id = $1
+```
+
+Прод-трейс: `_apply_scope_release` → `_write_active_value` → `set_chat_override`
+→ `asyncpg.exceptions.IndeterminateDatatypeError: could not determine data type
+of parameter $2`.
+
+Почему: `jsonb_build_object(VARIADIC "any")` — полиморфный вариадик.
+PostgreSQL обязан знать фактический тип `$2` уже на Parse, но из контекста
+(`COALESCE(...) || ...`) тип не выводится: `unknown` не «дотягивается» до `text`.
+`$3` был приведён (`::jsonb`), `$2` — нет. Ошибка возникает на **prepare**,
+то есть при первом же `execute` — до любой записи, поэтому падал каждый старт.
+
+Почему не поймали тесты: весь контур EVOL-016 гоняется на памяти/SQLite-двойниках
+(`MemoryPromptJournal`, `_SqliteConn`), где типы параметров никто не выводит;
+живой PG в CI на этой машине не поднимался — ровно этот пробел закрыт ниже.
+
+## D.2 Фикс
+
+```sql
+jsonb_build_object($2::text, $3::jsonb)
+```
+
+Одно изменение в одной константе; семантика не меняется (ключ всегда `text`),
+поведение автомата активации не тронуто.
+
+## D.3 Аудит остальных параметров модуля на живом PostgreSQL
+
+Все SQL-константы модуля + DDL журнала прогнаны через **реальный**
+`asyncpg.prepare()` на `postgres:16-alpine` (локальный эфемерный контейнер
+`adminbot-pgtest-55332`, `127.0.0.1:55332`, отдельная БД; прод не затронут):
+
+```
+OK _UPSERT_BOT_SETTING_SQL params=3        OK _INSERT_REVISION_SQL params=15
+OK _NOTIFY_CHAT_SQL params=1               OK _INSERT_ACTIVATION_SQL params=10
+OK _DROP_CHAT_OVERRIDE_SQL params=2        OK _LAST_APPLIED_SQL params=3
+OK _SET_CHAT_OVERRIDE_SQL params=3   ← было FAIL IndeterminateDatatypeError $2
+OK _SELECT_CHAT_OVERRIDES_SQL params=1     OK _HAS_IMPORT_SQL / _HAS_CUTOVER_SQL
+OK _SELECT_BOT_SETTING_SQL params=1        OK _GET_REVISION_SQL / _LIST_*
+OK _KNOWN_BLOCK_IDS_SQL params=0           OK _MARK_RETIRED_SQL params=1 (= ANY($1) → text[])
+OK APPLY_LOCK_SQL params=0                 OK JOURNAL_DDL[0..3] params=0
+failed statements: 0/21
+```
+
+Проверено отдельно: `_DROP_CHAT_OVERRIDE_SQL` (`COALESCE(...) - $2`, `? $2`) и
+`_SELECT_CHAT_OVERRIDES_SQL` (`-> $2`, `? $2`) типизируются PostgreSQL
+однозначно — правки не требуют. `media_readiness.py` SQL с `jsonb_*`-функциями
+не содержит (весь контур — SQLite), полимофных параметров там нет.
+
+Дополнительно (чтобы следующий деплой не упал на соседнем стейтменте): на
+пустой БД того же PG 16 прогнан **настоящий** `pg_db.PgDatabase.init(
+seed_settings=False)` — весь прод-DDL (58 стейтментов) применяется без ошибок,
+после чего `prepare()` подтвердил типизацию всех констант `chat_params`
+(8), `prompt_release_policy` (18) и оставшихся DDL: `failed = 0` (6 «не
+prepare» — это многооператорные DDL-скрипты, им prepare и не нужен).
+
+
+## D.4 Регрессия, которая реально проходит через PG
+
+`tests/test_evol016_prompt_activation.py`:
+
+* `test_no_uncast_param_in_polymorphic_jsonb_builders` — статический барьер без
+  PG: каждый параметр внутри `jsonb_build_object(...)` во всех `*_SQL`-константах
+  модуля обязан иметь приведение типа. Проверено на обеих формах: старая
+  (`$2`) → offender `'$2'`; новая (`$2::text`) → пусто. Ловит класс ошибки в
+  любом CI.
+* `test_apply_release_on_live_postgres` — **сквозной `apply_release` на настоящем
+  PostgreSQL** (включается `ADMINBOT_TEST_PG_DSN`; без переменной честный
+  `skip`, а не подмена двойником). Что делает: изолированная схема на прогон,
+  `bot_settings` с legacy-текстом ≠ заводского + `chat_profiles` с override
+  того же ключа (именно путь `set_chat_override`), затем cutover и рестарт.
+  Утверждения: `applied=True` (до фикса — исключение), 2 снимка
+  `legacy_import` (global+chat), 2 `deploy_activate/applied`, активный текст в
+  `bot_settings` = заводской байт-эталон, override снят новой меткой, рестарт с
+  той же меткой — истинный no-op (0 новых строк активации).
+  Защита от прод-базы: если имя БД в DSN — `adminbot` (прод по
+  `docker-compose.yml`), тест честно `skip`, в прод-схему не пишет; схема
+  прогона создаётся отдельно и удаляется в `finally`.
+
+## D.5 Доказательства (RED → GREEN, один и тот же кандидат)
+
+* RED на реальном PG с **прежним** текстом SQL (без правки исходников, патч в
+  памяти): `IndeterminateDatatypeError: could not determine data type of
+  parameter $2` — точное совпадение с прод-трейсом.
+* GREEN с отгружаемым текстом: `apply_release` = `applied=True changed=4`.
+* `pytest tests/test_evol016_prompt_activation.py` (с `ADMINBOT_TEST_PG_DSN`) —
+  **23 passed** (было 21; +2 новых, живой PG реально выполнялся).
+* `pytest tests/test_evol016_prompt_journal_v39.py
+  tests/test_mca17c_invariants_round1047.py tests/test_evol014_meme_initiative.py
+  tests/test_pg_db.py` — **82 passed**.
+* Итоговый объединённый прогон обязанных файлов на финальном кандидате —
+  **105 passed, 0 skipped** (живой PG-тест выполнен, а не пропущен);
+  с DSN, указывающим на БД `adminbot`, тот же файл даёт `22 passed, 1 skipped`
+  (сработала защита прод-базы).
+* Полный прогон `pytest tests` на кандидате: 17 039 passed / 59 failed /
+  23 error. Те же файлы (35 шт.) на неизменённом `06283422` в отдельном
+  worktree дают **ровно тот же набор**: 33 failed / 862 passed — все падения
+  пре-существующие (порядко-зависимые и UI/e2e), новых относительно базы нет.
+
+Как воспроизвести локально (прод не затрагивается):
+
+```powershell
+docker run -d --name adminbot-pgtest-55332 -e POSTGRES_PASSWORD=pgtest `
+  -e POSTGRES_DB=adminbot_test -p 127.0.0.1:55332:5432 postgres:16-alpine
+$env:ADMINBOT_TEST_PG_DSN = "postgresql://postgres:pgtest@127.0.0.1:55332/adminbot_test"
+pytest tests/test_evol016_prompt_activation.py -q
+```
+
+## D.6 Пин user_version выровнен честно
+
+`tests/test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta`
+держал `user_version == 38`, хотя санкционированный хвост раннера уже 40:
+v39 `prompt_revision_journal` (EVOL-016) и v40 `meme_quota_journal` (EVOL-014,
+`services/database.py::migration_steps`). Пин приведён к фактическому хвосту
+(40) с NOTE про обе миграции; Δ каталога/KS/тулов остаётся нулевым.
+
+## D.7 Остаточный риск
+
+* Живой PG-тест по умолчанию `skip` (переменная не задана в обычных прогонах) —
+  в CI без PG работает только статический барьер; при наличии PG-сервиса
+  переменную достаточно выставить, менять код не нужно.
+* Проверка выполнена на PG 16 (та же мажорная версия, что в проде,
+  `docker-compose.yml`); на PG 17 поведение вариадик-функций не отличается, но
+  отдельно не прогонялось.
+
+

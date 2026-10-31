@@ -128,7 +128,7 @@ UPDATE chat_profiles
 SET chat_params = jsonb_set(
         chat_params, '{overrides}',
         COALESCE(chat_params -> 'overrides', '{}'::jsonb) ||
-        jsonb_build_object($2, $3::jsonb), true),
+        jsonb_build_object($2::text, $3::jsonb), true),
     updated_at = now()
 WHERE chat_id = $1
 """

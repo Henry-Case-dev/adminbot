@@ -73,7 +73,13 @@ def test_no_ddl_catalog_ks_tools_delta():
         # ADD-SAMPLES-UX (samples-ux, 20.10): v37 — категории примеров +
         # expression_mode + tombstone seed_key; пересанкционировано 20.10
         # EVOL-015 (e7443fad, 30.10.2026): v38 — additive-миграция quote_*.
-        assert int(row[0]) == 38
+        # EVOL-016 (30.10.2026): v39 (prompt_revision_journal_v39) — журнал
+        # ревизий/активаций промптов, единственная новая пара таблиц слайса
+        # (аддитивно, тот же DDL дословно в pg_db.DDL_STATEMENTS).
+        # EVOL-014 (30.10.2026): v40 (meme_quota_journal_v40) — счётчик квоты
+        # мемов (аддитивно, PG no-op по GEN-R4). Санкционированный хвост = 40;
+        # Δ каталога/KS/тулов остаётся нулевым (проверки ниже).
+        assert int(row[0]) == 40
     finally:
         loop.run_until_complete(d.close())
         loop.close()

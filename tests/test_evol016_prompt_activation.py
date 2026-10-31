@@ -23,9 +23,12 @@
  13. резолв после cutover читает активный PG-текст, а не константу;
  14. дрейф журнала и bot_settings — ERROR activation_drift, без угадывания.
 
-Без Telegram, без LLM, без реального PG: кэш — фейк с контрактом
-``get``/``set``, журнал — ``MemoryPromptJournal`` (откат пакета, инъекция
-сбоев, лок применения).
+Без Telegram, без LLM: кэш — фейк с контрактом ``get``/``set``, журнал —
+``MemoryPromptJournal`` (откат пакета, инъекция сбоев, лок применения).
+Один тест идёт по ЖИВОМУ PostgreSQL (``test_apply_release_on_live_postgres``)
+и включается переменной ``ADMINBOT_TEST_PG_DSN``: двойники не выводят типы
+параметров, поэтому регрессию инцидента 2.58.142 ловит именно он (+ статический
+``test_no_uncast_param_in_polymorphic_jsonb_builders`` без PG).
 
 TEST-LIFECYCLE: CONTRACT owner=EVOL-016 (контракт §1.9)
 """
@@ -33,6 +36,9 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import os
+import re
+import uuid
 
 import pytest
 
@@ -901,3 +907,164 @@ async def test_pg_advisory_lock_failure_refuses_package():
         assert tx._tx_conn is not None
     assert store_ok._tx_conn is None
     assert store_ok._pool.released == 1
+
+
+# ── Живой PostgreSQL: типизация параметров (инцидент 2.58.142) ─────────────
+#
+# 31.10.2026 релиз 2.58.142 положил прод в crash-loop на САМОМ старте:
+# `services/prompt_release_policy.py` `_SET_CHAT_OVERRIDE_SQL` содержал
+# `jsonb_build_object($2, $3::jsonb)`. `jsonb_build_object` — variadic
+# ("any"), поэтому PostgreSQL не мог вывести тип `$2` на Parse
+# (`asyncpg.IndeterminateDatatypeError: could not determine data type of
+# parameter $2`). Все прочие тесты файла гоняют память/SQLite-двойники, где
+# типы параметров никто не выводит, — баг дошёл до прода.
+#
+# Здесь два барьера:
+#   1. статический (без PG): ни один параметр, переданный в
+#      `jsonb_build_object(...)`, не остаётся без явного приведения типа;
+#   2. живой PG (`ADMINBOT_TEST_PG_DSN`): весь `apply_release` от cutover до
+#      рестарта на настоящем asyncpg-пуле. Без DSN тест честно пропускается
+#      (skip), а не подменяется двойником; порядок запуска описан в
+#      `plans/features/evol/audit/w2a-evol016.md` §production-fix.
+
+PG_DSN_ENV = "ADMINBOT_TEST_PG_DSN"
+
+_JSONB_BUILD_RE = re.compile(r"jsonb_build_object\s*\((.*?)\)", re.S)
+_SQL_PARAM_RE = re.compile(r"\$(\d+)\s*(::\s*[A-Za-z_][A-Za-z0-9_ ]*(\[\])?)?")
+
+
+def _pg_dsn() -> str:
+    return (os.environ.get(PG_DSN_ENV) or "").strip()
+
+
+def _pg_dsn_targets_project_db(dsn: str) -> bool:
+    """DSN указывает на прод-базу проекта (имя БД `adminbot`) — не пишем туда."""
+    name = dsn.rsplit("/", 1)[-1].split("?", 1)[0].strip()
+    return name in ("adminbot",)
+
+
+def _module_sql_statements() -> dict[str, str]:
+    """Все SQL-константы модуля политики + DDL журнала."""
+    out = {name: value for name, value in vars(prp).items()
+           if name.endswith("_SQL") and isinstance(value, str)}
+    for idx, ddl in enumerate(prp.JOURNAL_DDL):
+        out[f"JOURNAL_DDL[{idx}]"] = ddl
+    return out
+
+
+def test_no_uncast_param_in_polymorphic_jsonb_builders():
+    """Ни один параметр jsonb_build_object не остаётся без приведения типа."""
+    offenders = []
+    for name, sql in _module_sql_statements().items():
+        for builder in _JSONB_BUILD_RE.finditer(sql):
+            for param in _SQL_PARAM_RE.finditer(builder.group(1)):
+                if not param.group(2):
+                    offenders.append(f"{name}: {param.group(0)!r}")
+    assert not offenders, (
+        "параметр без типа в variadic jsonb_build_object — PostgreSQL не "
+        f"выведет его на Parse (инцидент 2.58.142): {offenders}")
+
+
+#: Колонки, которые трогает модуль политики (прод-схема PG adminbot).
+_PG_POLICY_SCHEMA = (
+    """
+    CREATE TABLE IF NOT EXISTS bot_settings (
+        key        TEXT PRIMARY KEY,
+        value      JSONB NOT NULL DEFAULT '{}'::jsonb,
+        category   TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS chat_profiles (
+        chat_id     BIGINT PRIMARY KEY,
+        chat_params JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not _pg_dsn(),
+                    reason=f"{PG_DSN_ENV} не задан — живой PostgreSQL "
+                           "недоступен (skip, не подмена двойником)")
+@pytest.mark.skipif(bool(_pg_dsn()) and _pg_dsn_targets_project_db(_pg_dsn()),
+                    reason=f"{PG_DSN_ENV} указывает на прод-базу `adminbot` "
+                           "— тест пишет в отдельную схему, прод не трогаем; "
+                           "укажите тестовую БД")
+async def test_apply_release_on_live_postgres(edition):
+    """apply_release на РЕАЛЬНОМ PostgreSQL: cutover + рестарт, chat-override.
+
+    Регрессия инцидента 2.58.142: до фикса первый же `set_chat_override`
+    поднимал `IndeterminateDatatypeError` и валил весь пакет (прод —
+    crash-loop). Здесь проверяется и отсутствие ошибки типизации, и
+    записанный результат: строки журнала, активный текст, снятый override.
+    """
+    asyncpg = pytest.importorskip("asyncpg")
+    dsn = _pg_dsn()
+    schema = f"evol016_live_{uuid.uuid4().hex[:10]}"
+    chat_id = 1_000_777
+    admin = await asyncpg.connect(dsn)
+    pool = None
+    try:
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        for ddl in _PG_POLICY_SCHEMA:
+            await admin.execute(ddl.replace(
+                "TABLE IF NOT EXISTS", f'TABLE IF NOT EXISTS "{schema}".'))
+        pool = await asyncpg.create_pool(
+            dsn, min_size=1, max_size=2,
+            server_settings={"search_path": schema})
+        # прод-состояние: глобальный текст не равен заводскому, у чата свой
+        # override этого же ключа (именно этот путь писал jsonb_build_object).
+        await pool.execute(
+            "INSERT INTO bot_settings (key, value, category) "
+            "VALUES ($1, to_jsonb($2::text), 'prompts')", PG_KEY, UNKNOWN_LEGACY)
+        await pool.execute(
+            "INSERT INTO chat_profiles (chat_id, chat_params) "
+            "VALUES ($1, jsonb_build_object('overrides', "
+            "jsonb_build_object($2::text, $3::text)))",
+            chat_id, PG_KEY, "СТАРЫЙ ЧАТОВЫЙ ОВЕРРАЙД\n")
+
+        cache = FakeCache({PG_KEY: UNKNOWN_LEGACY})
+        store = prp.PgPromptJournal(pool)
+        result = await prp.apply_release(
+            cache, release_id=prp.CUTOVER_RELEASE_ID, store=store,
+            blocks=[BLOCK])
+        assert result["applied"] is True, result          # до фикса — исключение
+        rows = _rows_by_outcome(result)
+        assert rows[(BLOCK, "global", None)].outcome == "applied"
+        assert rows[(BLOCK, "chat", chat_id)].outcome == "applied"
+
+        # журнал: снимки legacy (global + chat) и активации REL-метки
+        snapshots = await pool.fetchval(
+            "SELECT count(*) FROM prompt_activations "
+            "WHERE block_id = $1 AND kind = 'legacy_import'", BLOCK)
+        assert int(snapshots) == 2
+        activated = await pool.fetchval(
+            "SELECT count(*) FROM prompt_activations "
+            "WHERE block_id = $1 AND kind = 'deploy_activate' "
+            "AND outcome = 'applied'", BLOCK)
+        assert int(activated) == 2
+        # активный глобальный текст = заводской байт-эталон
+        assert await pool.fetchval(
+            "SELECT value #>> '{}' FROM bot_settings WHERE key = $1",
+            PG_KEY) == FACTORY_A
+        # override снят новой меткой (§1.5), NOTIFY прошёл внутри транзакции
+        assert await pool.fetchval(
+            "SELECT chat_params -> 'overrides' ? $2 FROM chat_profiles "
+            "WHERE chat_id = $1", chat_id, PG_KEY) in (None, False)
+
+        # рестарт с той же меткой — истинный no-op (читающий путь PG)
+        before = int(await pool.fetchval(
+            "SELECT count(*) FROM prompt_activations"))
+        again = await prp.apply_release(
+            cache, release_id="restart-live", store=store, blocks=[BLOCK])
+        assert again["applied"] is True and again["changed"] == 0, again
+        assert int(await pool.fetchval(
+            "SELECT count(*) FROM prompt_activations")) == before
+    finally:
+        if pool is not None:
+            await pool.close()
+        await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        await admin.close()
