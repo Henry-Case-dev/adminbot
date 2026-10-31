@@ -719,6 +719,25 @@ def _cover_style_card(events, *, cover_fallback=None) -> dict | None:
         if card["fallback_reason"]:
             card["fallback_reason_ru"] = REASONS_RU.get(
                 card["fallback_reason"], "") or None
+        # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.5: в аналитике ОТДЕЛЬНО видны
+        # «база опубликована» и «момент отказа стиля», а класс отказа не
+        # схлопывается в один `bad_json`. Источник — structured usage_json
+        # (fail_reason/error_class), затем — точная причина события.
+        fail_usage = _parse_usage(fail_ev.get("usage_json"))
+        exact_reason = str(fail_usage.get("fail_reason") or "").strip()
+        if not exact_reason:
+            exact_reason = str(fail_ev.get("reason") or code or "")
+        card["style_fail_reason"] = exact_reason or None
+        # §3.3/§3.5 (сц.17): указатель на исходный Style job — чтобы
+        # «Base published / Style failed» можно было раскрыть до попытки.
+        card["style_job_id"] = str(fail_ev.get("job_id") or "") or None
+        try:
+            from services import cover_style_jobs as _cjobs
+            card["error_class"] = (
+                str(fail_usage.get("error_class") or "").strip()
+                or (_cjobs.edit_error_class(exact_reason) or None))
+        except Exception:
+            card["error_class"] = None
         if code == "edit_unsupported":
             card["capability_edit"] = False
         ref_count = _int(_parse_usage(fail_ev.get("usage_json"))

@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import types
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -165,7 +167,10 @@ class TestOptionalReferences:
         assert seen["refs"] == [ref_a, ref_b]
         assert "Знак Ц" not in seen["prompt"], \
             "prompt не описывает неприложенный референс"
-        assert "Знак А" in seen["prompt"] or "Знак А" in seen["prompt"]
+        # review-fix2: прежняя проверка сравнивала выражение само с собой
+        # (`А or А`) и не проверяла ничего. Приложенные знаки — оба в prompt.
+        assert "Знак А" in seen["prompt"] and "Знак Б" in seen["prompt"], \
+            "prompt описывает оба реально приложенных референса"
         optional = meta["optional_reference_unavailable"]
         assert optional["declared"] == 3 and optional["attached"] == 2
         assert [r["ref_id"] for r in optional["unavailable"]] == ["rC"]
@@ -180,6 +185,46 @@ class TestOptionalReferences:
         assert manifest["optional_reference_unavailable"]["declared"] == 3
         assert "rC" in [r["ref_id"] for r in
                         manifest["optional_reference_unavailable"]["unavailable"]]
+
+    def test_off_path_prompt_skips_unavailable_refs(self, monkeypatch,
+                                                    tmp_path):
+        """review-fix2 (kill-switch OFF): prompt не описывает референс, чей
+        файл недоступен, — иначе legacy-путь утверждал приложенный знак,
+        которого нет. Набор фактической отправки не расширяется."""
+        _flag(monkeypatch, False)
+        _patch_pg(monkeypatch)
+        _patch_issue_counter(monkeypatch)
+        _patch_provenance(monkeypatch)
+        ref_a = _png(tmp_path / "ref_a.png")
+        _asset_map(monkeypatch, {
+            "cas_a": {"asset_id": "cas_a", "disk_path": ref_a,
+                      "mime": "image/png"},
+            "cas_c": {"asset_id": "cas_c",
+                      "disk_path": str(tmp_path / "gone.png"),
+                      "mime": "image/png"},
+        })
+        profile = _profile(references=[
+            {"ref_id": "rA", "asset_id": "cas_a", "label": "СимволМедведь",
+             "description": "бренд", "ordering": 0},
+            {"ref_id": "rC", "asset_id": "cas_c", "label": "СимволРека",
+             "description": "бренд", "ordering": 1},
+        ])
+        seen: dict = {}
+
+        async def edit(prompt, **kw):
+            seen["prompt"] = prompt
+            seen["refs"] = kw.get("reference_paths")
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
+
+        meta = _run(j.run_style_job(
+            chat_id=CHAT, base_image_path=_png(tmp_path / "b.png"),
+            profile=profile, summary_run_id=RID, capabilities=_caps(),
+            edit_call=edit))
+        assert meta["applied"] is True
+        assert seen["refs"] == [ref_a]
+        assert "СимволМедведь" in seen["prompt"]
+        assert "СимволРека" not in seen["prompt"], \
+            "OFF-путь не выдаёт отсутствующий знак за приложенный"
 
     def test_refs_survive_reload_and_other_field_edit(self):
         """сц.11: ids/labels/roles выдерживают reload и правку другого поля
@@ -528,6 +573,129 @@ class TestPreviewRevision:
                        "preview_before_asset_id": None,
                        "preview_after_asset_id": None}
         assert registry.preview_pair_current(placeholder) is False
+
+    def test_job_status_reads_registry_by_pg(self, monkeypatch):
+        """сц.20 (review F2): status-эндпоинт РЕАЛЬНО отдаёт
+        `style_revision`/`preview_revision_stale`. Реестр читается по PG:
+        у SQLite-`db` нет `.pool`, поэтому прежде профиль всегда был None и
+        флаг молча не доезжал до API."""
+        pg_sentinel = object()
+        seen: dict = {}
+
+        async def _get_job(db, job_id):
+            return {"job_id": job_id, "status": "completed",
+                    "kind": pv.KIND_PREVIEW, "created_at": 1000.0,
+                    "updated_at": 1020.0, "reason_code": None}
+
+        state = j.CoverJobState(style_id="s1", mode=pv.MODE_PREVIEW)
+        state.mark(j.STATE_DONE)
+        state.preview_before_asset_id = "cas_x"
+        state.preview_after_asset_id = "cas_y"
+        state.preview_revision = 3
+
+        async def _load_state(db, job_id):
+            return state
+
+        async def _get_profile(pg, style_id):
+            seen["pg"] = pg
+            seen["style_id"] = style_id
+            return {"profile_id": style_id, "revision": 4,
+                    "preview_revision": 3,
+                    "preview_before_asset_id": "cas_x",
+                    "preview_after_asset_id": "cas_y"}
+
+        monkeypatch.setattr(pv.jobs, "get_cover_job", _get_job)
+        monkeypatch.setattr(pv.jobs, "load_cover_state", _load_state)
+        monkeypatch.setattr(registry, "get_profile", _get_profile)
+        out = _run(pv.job_status({"job_id": "cov_1"}, "cov_1",
+                                 pg=pg_sentinel))
+        assert seen["pg"] is pg_sentinel, "реестр читается по PG-обёртке"
+        assert seen["style_id"] == "s1"
+        assert out["status"] == "completed"
+        assert out["style_revision"] == 4
+        assert out["preview_revision_stale"] is True
+
+    def test_job_status_without_pg_is_honest(self, monkeypatch):
+        """сц.20 (review F2): без PG-источника stale-флаг ОТСУТСТВУЕТ
+        (никакого выдуманного «свежий»/падения), статус остаётся полным."""
+        async def _get_job(db, job_id):
+            return {"job_id": job_id, "status": "completed",
+                    "kind": pv.KIND_PREVIEW, "created_at": 1000.0,
+                    "updated_at": 1020.0, "reason_code": None}
+
+        async def _load_state(db, job_id):
+            return j.CoverJobState(style_id="s1", mode=pv.MODE_PREVIEW)
+
+        monkeypatch.setattr(pv.jobs, "get_cover_job", _get_job)
+        monkeypatch.setattr(pv.jobs, "load_cover_state", _load_state)
+        monkeypatch.setattr(pv.jobs, "_pg", lambda: None)
+        out = _run(pv.job_status({"job_id": "cov_1"}, "cov_1"))
+        assert out["status"] == "completed"
+        assert "preview_revision_stale" not in out
+        assert "style_revision" not in out
+
+    def test_optional_ref_warning_follows_real_outcome(self):
+        """§3.1 (review-fix2): текст warning'а не утверждает «стиль применён»,
+        когда job провалился (опубликована базовая обложка), и не обещает
+        применение на незавершённой стадии."""
+        def _row(status):
+            return {"job_id": "cov_1", "status": status,
+                    "kind": pv.KIND_PREVIEW, "created_at": 1000.0,
+                    "updated_at": 1010.0, "reason_code": "bad_json"}
+
+        diag = {"references_optional_unavailable": 1,
+                "references_declared": 2, "optional_reference_ids": ["rC"]}
+
+        done = j.CoverJobState(style_id="s1", mode=pv.MODE_PREVIEW)
+        done.mark(j.STATE_DONE)
+        done.prompt_diagnostics = dict(diag)
+        msg_done = pv._public_status(_row("completed"), done)["warnings"][0]
+        assert msg_done["code"] == j.ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE
+        assert "применён без них" in msg_done["message"]
+        assert msg_done["ref_ids"] == ["rC"]
+
+        failed = j.CoverJobState(style_id="s1", mode=pv.MODE_PREVIEW)
+        failed.mark(j.STATE_STYLE_FAILED, note="bad_json")
+        failed.prompt_diagnostics = dict(diag)
+        msg_failed = pv._public_status(_row("failed"), failed)["warnings"][0]
+        assert "применён без них" not in msg_failed["message"], \
+            "провал не выдаёт себя за применённый стиль"
+        assert "базовая обложка" in msg_failed["message"]
+
+        running = j.CoverJobState(style_id="s1", mode=pv.MODE_PREVIEW)
+        running.mark(j.STATE_STYLE_RUNNING)
+        running.prompt_diagnostics = dict(diag)
+        msg_running = pv._public_status(_row("running"), running)["warnings"][0]
+        assert "стиль применён без них" not in msg_running["message"]
+        assert "будет применён без них" in msg_running["message"]
+
+    def test_status_route_forwards_pg_from_cache(self, monkeypatch):
+        """сц.20 (review F2): HTTP-статус передаёт в `job_status` PG-обёртку
+        из runtime-кэша — иначе stale-флаг не доезжает до UI."""
+        import web.api.cover_styles as cs
+        from web.api import deps as deps_mod
+        from tests.test_extra_cover_styles_api import (
+            _client, _hdr, TEST_TOKEN,
+        )
+
+        monkeypatch.setattr(deps_mod, "settings",
+                            types.SimpleNamespace(API_TOKEN=TEST_TOKEN))
+        seen: dict = {}
+
+        async def _status(db, job_id, *, pg=None):
+            seen["pg"] = pg
+            seen["job_id"] = job_id
+            return {"job_id": job_id, "status": "completed"}
+
+        monkeypatch.setattr(pv, "job_status", _status)
+        monkeypatch.setattr(pv, "maybe_resume", AsyncMock(return_value=False))
+        monkeypatch.setattr(cs, "_job_db", lambda: object())
+        pg = types.SimpleNamespace(pool=object())
+        resp = _client(pg=pg).get("/api/cover/test-style/cov_1",
+                                 headers=_hdr())
+        assert resp.status_code == 200, resp.text
+        assert seen["job_id"] == "cov_1"
+        assert seen["pg"] is pg, "route обязан передать pg из cache"
 
     def test_failed_test_does_not_erase_previous_preview(
             self, monkeypatch, tmp_path):

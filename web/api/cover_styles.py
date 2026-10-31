@@ -1381,7 +1381,7 @@ async def cover_test_style_status(
     if db is None:
         raise HTTPException(status_code=503,
                             detail="Сервис фоновых задач недоступен.")
-    snapshot = await preview_jobs.job_status(db, job_id)
+    snapshot = await preview_jobs.job_status(db, job_id, pg=_pg(cache))
     if snapshot is None:
         raise HTTPException(status_code=404, detail="job not found")
     try:

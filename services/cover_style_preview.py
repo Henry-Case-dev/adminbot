@@ -244,10 +244,22 @@ def _public_status(row: dict, state: jobs.CoverJobState | None) -> dict:
     timing = _status_timing(row, state)
     warnings = []
     if int(diag.get("references_optional_unavailable") or 0) > 0:
+        # §3.1 (review-fix2): формулировка следует ФАКТИЧЕСКОМУ исходу job —
+        # «стиль применён без них» недопустимо на провале (там опубликована
+        # базовая обложка) и преждевременно на queued/running.
+        if completed:
+            warning_message = ("Часть необязательных референсов недоступна — "
+                               "стиль применён без них.")
+        elif status == "failed":
+            warning_message = ("Часть необязательных референсов недоступна — "
+                               "стиль не применён, опубликована базовая "
+                               "обложка.")
+        else:
+            warning_message = ("Часть необязательных референсов недоступна — "
+                               "стиль будет применён без них.")
         warnings.append({
             "code": jobs.ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE,
-            "message": ("Часть необязательных референсов недоступна — "
-                        "стиль применён без них."),
+            "message": warning_message,
             "declared": int(diag.get("references_declared") or 0),
             "unavailable": int(
                 diag.get("references_optional_unavailable") or 0),
@@ -323,8 +335,16 @@ async def job_manifest(db, job_id: str, *,
                                  include_prompt=include_prompt)
 
 
-async def job_status(db, job_id: str) -> dict | None:
-    """Бесплатный снимок статуса (§2.3): только durable-чтение, без provider."""
+async def job_status(db, job_id: str, *, pg=None) -> dict | None:
+    """Бесплатный снимок статуса (§2.3): только durable-чтение, без provider.
+
+    `db` — SQLite `DatabaseService` задачи (durable job rows); `pg` — обёртка
+    PostgreSQL реестра стилей. Реестр читается ТОЛЬКО по `pg`: у SQLite-`db`
+    нет `.pool`, поэтому прежде профиль всегда был `None` и
+    `style_revision`/`preview_revision_stale` молча не доезжали до API
+    (review F2). Без `pg` берём runtime-источник job-слоя (`jobs._pg()`) —
+    тот же, что у resume-пути.
+    """
     row = await jobs.get_cover_job(db, job_id)
     if row is None or str(row.get("kind") or "") != KIND_PREVIEW:
         return None
@@ -335,8 +355,9 @@ async def job_status(db, job_id: str) -> dict | None:
     # проверку текущей версии. Читаем только терминальный успех (поллинг
     # на нём останавливается — лишней нагрузки нет).
     if status.get("status") == "completed" and state:
+        profile_pg = pg if pg is not None else jobs._pg()
         try:
-            profile = await registry.get_profile(db, state.style_id)
+            profile = await registry.get_profile(profile_pg, state.style_id)
         except Exception:
             profile = None
         if profile is not None:

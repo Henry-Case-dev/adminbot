@@ -469,17 +469,18 @@ class TestBottomNavOrder:
             'n in sidebarGroups.pub' in INDEX, \
             "ASAP-UI-02: drawer выводит канонический реестр разделов"
 
-    def test_more_menu_holds_secondary_actions_only(self):
-        # ASAP-UI-02 §2.3: «⋯» — второстепенные действия, разделы живут в
-        # drawer; второй список разделов в меню запрещён.
+    def test_no_secondary_actions_menu(self):
+        # §6.1 v2.1: меню «…» удалено владельцем вместе с дублем идентичности
+        # и пунктом «Диагностика геометрии»; разделы живут ТОЛЬКО в drawer.
         assert "moreMenuPick: function" not in APP_JS, \
-            "ASAP-UI-02: переходы по разделам из «⋯» удалены"
+            "переходы по разделам из «…» не возвращаются"
         assert 'v-for="n in mobileMoreItems"' not in INDEX, \
-            "ASAP-UI-02: в «⋯» нет списка разделов"
-        assert 'more-menu-profile' in INDEX, \
-            "ASAP-UI-02: идентификация (имя/роль/ID области) доступна в «⋯»"
-        assert 'data-fs-geom-diag-entry' in INDEX, \
-            "ASAP-UI-02: служебные действия доступны из «⋯»"
+            "в «…» нет списка разделов (меню удалено)"
+        assert 'more-menu-profile' not in INDEX, \
+            "дубль аватара/роли из меню удалён — идентичность в шапке"
+        assert 'data-fs-geom-diag-entry' not in INDEX, \
+            "«Диагностика геометрии» убрана из prod-UI (dev-флаг вместо меню)"
+        assert 'data-more-trigger' not in INDEX, "триггер «…» удалён"
 
 
 # ── Совместимость: системный флаг System 2 не задет ──────────────────────

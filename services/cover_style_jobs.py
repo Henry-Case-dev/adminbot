@@ -2859,6 +2859,18 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         ref_paths = reference_paths
         if ref_paths is None:
             ref_paths = await _resolve_reference_paths(obj, profile)
+            # review-fix2: даже при выключенном kill-switch prompt не
+            # описывает референс как приложенный, если его файла нет на
+            # диске (ложный брендинг). Набор отправки (`ref_paths`) не
+            # меняется — правится только текст prompt.
+            if profile.get("references"):
+                details = await _resolve_reference_details(obj, profile)
+                attached_ids = {d.get("asset_id") for d in details
+                                if d.get("readable")}
+                prompt_profile = dict(profile)
+                prompt_profile["references"] = [
+                    r for r in (profile.get("references") or [])
+                    if r.get("asset_id") in attached_ids]
     snapshot = registry.build_revision_snapshot(
         profile, issue_number=issue_no, capabilities=caps.as_dict(),
         slot=slot)

@@ -89,6 +89,11 @@
   с ref_ids), `error_class`, `prompt.references_declared/optional_unavailable`.
 * `job_status`: для успешного (терминального) preview — `style_revision` и
   `preview_revision_stale` (старый пример не выдаётся за проверку новой ревизии).
+  Профиль читается по PG-обёртке, переданной вызывающим (`job_status(db, job_id,
+  *, pg=None)`); см. §8.
+* `_public_status.warnings[]`: текст предупреждения о недоступных необязательных
+  референсах следует фактическому исходу job (completed / failed / в работе), а
+  не всегда «стиль применён без них»; см. §8.
 * `preview_human_message`: разные тексты для `bad_json`/`timeout`/сети.
 
 ### `services/pipeline_analytics.py`
@@ -97,8 +102,8 @@
   `base_cover_ok`/`style_edit_ok`/`result=styled|base_fallback|no_cover`.
 
 ### Тесты
-* Новый `tests/test_evol_cover_integrity.py` — 26 тестов по сценариям 9–21
-  (офлайн, провайдер — моки; сеть не используется).
+* Новый `tests/test_evol_cover_integrity.py` — 31 тест по сценариям 9–21
+  (офлайн, провайдер — моки; сеть не используется); 5 из них добавлены в §8.
 * Обновлён `tests/test_cover_style_wave_b_asap4.py`: прежний
   `test_reference_missing_exit` **противоречил** §3.1 v2.1 (требовал терминальный
   отказ при недоступных refs) — заменён на
@@ -107,11 +112,12 @@
 
 ## 4. Доказательства
 
-* Целевые наборы: `tests/test_evol_cover_integrity.py` — **26 passed**;
+* Целевые наборы: `tests/test_evol_cover_integrity.py` — **31 passed**
+  (26 на момент первой сдачи + 5 из §8);
   cover-набор `pytest tests -k cover` — **801 passed, 3 failed** (все три —
   pre-existing, см. §6); `-k "pipeline_analytics or inspector or l2_review"` —
   **154 passed**; связка cover/manifest/edit/recovery/preview/b04/analytics —
-  **250 passed**.
+  **250 passed**. Перепроверка после §8 — там же (597 passed, 0 failed).
 * Сценарии 9–21 покрыты поштучно (имена тестов в модуле соответствуют
   «9/10/12», «11», «13/14», «15/16», «17/18», «19», «20», «21»).
 * Диффы — только перечисленные сервисы и два тест-файла. `web/**` (UI),
@@ -160,8 +166,79 @@
 * Живой прогон Style Edit на прод-маршруте (подтверждение реальной схемы
   ответа провайдера и реального лимита 800) — после безопасного окна.
 
+## 8. review-fix2 — устранение P0-блокеров F1/F2
+
+### F1. Правка аналитики существовала только в рабочем дереве
+`commit 993e8c03` не содержит `services/pipeline_analytics.py`: ключи
+`style_fail_reason` / `error_class` / `style_job_id` в `_cover_style_card`
+жили только в незакоммиченном файле, поэтому на коммите
+`TestAnalyticsDistinction` краснел (на рабочем дереве — зелёный).
+Что сделано: файл проверен на полноту (источник данных — `fail_reason`/
+`error_class` из structured `usage_json` события `COVER_STYLE_FAILED`, которые
+эмитит `_style_failed`; `style_job_id` — из `job_id` события; fallback без
+`usage_json` даёт `reason_code`/`reason`), тест зелёный. **Требуется коммит
+пути `services/pipeline_analytics.py`** вместе с остальными файлами полосы.
+
+### F2. Устаревший preview физически не доезжал до API
+Было: `job_status(db, job_id)` читал профиль через
+`registry.get_profile(db, ...)`, где `db` — SQLite `DatabaseService` задачи.
+У `DatabaseService` нет `.pool` (`_pool_of()` → `None`), поэтому
+`get_profile` возвращал `None`, и ветка `style_revision` /
+`preview_revision_stale` не исполнялась ни на одном ответе.
+Стало: `job_status(db, job_id, *, pg=None)` — реестр читается по PG-обёртке;
+web-route `cover_test_style_status` передаёт `_pg(cache)`, а при явном
+отсутствии PG берётся тот же runtime-источник, что у resume-пути
+(`jobs._pg()`), и тогда stale-флаг честно отсутствует, а не выдумывается.
+
+Доказательство RED→PASS (проба вне репозитория,
+`WorkspaceData/runs/.../probe_f2.py`, «старый» модуль = `git show HEAD:`):
+```
+DatabaseService has class attrs: no .pool
+_pool_of(sqlite-like) = None
+OLD job_status(db)      -> stale key present: False | style_revision: None
+NEW job_status(db, pg=) -> stale key present: True  | style_revision: 4 | stale: True
+```
+
+### Дешёвые правки того же ревью
+* `tests/test_evol_cover_integrity.py:168` — тавтологическое
+  `assert "Знак А" in prompt or "Знак А" in prompt` заменено на проверку
+  **обоих** реально приложенных референсов (`А` и `Б`).
+* `_public_status.warnings[]` — текст зависел от исхода: `completed` →
+  «стиль применён без них», `failed` → «стиль не применён, опубликована
+  базовая обложка», `queued/running` → «будет применён без них». Прежде провал
+  получал фразу «стиль применён без них».
+* `run_style_job` при выключенном kill-switch (`COVER_STYLE_SNAPSHOT_ENABLED=OFF`)
+  собирал prompt по **всем** объявленным референсам. Теперь prompt в legacy-ветке
+  фильтруется по фактически читаемым файлам (набор отправки `ref_paths` не
+  меняется): проба — на старом поведении `СимволРека` (нет файла) попадал в
+  prompt, на новом — нет, приложенный `СимволМедведь` остаётся.
+
+### Тесты, добавленные в §8 (`tests/test_evol_cover_integrity.py`)
+* `test_job_status_reads_registry_by_pg` — реестр читается ровно по переданной
+  PG-обёртке, ответ несёт `style_revision=4` и `preview_revision_stale=True`.
+* `test_job_status_without_pg_is_honest` — без PG-источника stale-полей нет,
+  статус остаётся полным (никакого выдуманного «свежий»).
+* `test_status_route_forwards_pg_from_cache` — HTTP route `/api/cover/test-style/{id}`
+  передаёт `pg` из runtime-кэша в `job_status` (без этого фикса тест красный).
+* `test_optional_ref_warning_follows_real_outcome` — три исхода warning'а.
+* `test_off_path_prompt_skips_unavailable_refs` — legacy-путь не описывает
+  отсутствующий знак как приложенный.
+
+### Прогоны §8 (текущее дерево, `.venv` репозитория)
+* `tests/test_evol_cover_integrity.py` — **31 passed** (было 26, +5).
+* cover/style-набор (24 файла: `*cover*` + `*style*` + `test_asap42_step3`,
+  `test_asap8_v6_c03a`, `test_extra_cover_*`, `test_summary_cover_*`) — **597 passed, 0 failed**.
+* аналитика/инспектор (`test_pipeline_analytics_asap4`, `test_summary_inc01_pregen_bounds`,
+  `test_summary_inspector_zone_g_asap41`) — **116 passed**.
+* b04/f3/f4/prompt-history/publish/deploy/graphrag — **216 passed, 1 failed**:
+  единственное падение — `test_asap5_graphrag_recovery::test_warning_coalesced_not_repeated`,
+  тот же pre-existing дефект из §6 (коалисинг warning'ов `summary_memory`,
+  файлы не из этой полосы).
+
 ## Итог
 
 1. Style Edit больше не отказывает из-за отсутствующих необязательных референсов: Base + доступные refs + текст стиля идут в edit, отсутствие помечается `optional_reference_unavailable`, metadata не теряется.
 2. Реальный лимит провайдера и класс отказа теперь доходят до манифеста/аналитики (`observed_provider_400`, `error_class`), идентичное «805 при 800» тело не переотправляется, а таймер считает от фактического старта.
 3. Summary L2 не ослаблен: 6 blocking findings законно дают Legacy, L1-версия схемы согласована, Base-fallback и ошибка стиля различимы; живой провайдерский прогон остаётся `provider_live_unverified`.
+4. §8 (review-fix2): различимость «Base опубликован / Style failed» в аналитике живёт в **незакоммиченном** `services/pipeline_analytics.py` — нужен коммит этого пути; устаревший preview теперь реально доносит `style_revision`/`preview_revision_stale` до API (чтение по PG, не по SQLite), тексты предупреждений и legacy-путь референсов честны.
+
