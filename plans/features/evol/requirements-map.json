@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/current_task.md",
   "source_sha256": "04cbfe32cf0e3abd61aff3aafb27f9a5aa5e505638b6976df23b961ed0d6e330",
-  "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909",
-  "deployed_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909",
+  "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
+  "deployed_commit": "ebec502b89d8d81dbcd9059f49c52db57fd66579",
   "strict_evidence": false,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -22388,12 +22388,62 @@
       "reason": "",
       "req_id": "ASAP-UI-02-11",
       "slice": "ASAP-UI-02",
-      "acceptance": "Канонический порядок Статуса: компактный оперативный блок здоровья бота/ключевых систем и ближайших действий (без гигантской пустой зоны «бот»); затем «Когнитивная карта» взамен старого «Графа связей» с сохранением всего функционала старого графа и добавлением практических узлов/источников по EVOL-COG без подмены бэкенда GraphRAG; СРАЗУ под картой — один общий виджет с четырьмя секциями (Новые факты, Убеждения, Парадигмы, Эволюция характера) с сохранением автопрокрутки, ручного scroll, паузы/возобновления, дат, модалок и источников (факты не прячутся вниз страницы, ленты не удаляются из-за наличия карты); далее другие оперативные виджеты с адресными деталями и без бесконечных технических дампов.",
+      "acceptance": "Канонический порядок Статуса: компактный оперативный блок здоровья бота/ключевых систем и ближайших действий (без гигантской пустой зоны «бот»); СРАЗУ под картой — ОДИН общий виджет с четырьмя секциями (Новые факты, Убеждения, Парадигмы, Эволюция характера) с сохранением автопрокрутки, ручного scroll, паузы/возобновления, дат, модалок и источников (факты не прячутся вниз страницы, ленты не удаляются из-за наличия карты); далее другие оперативные виджеты с адресными деталями и без бесконечных технических дампов. Замена «Графа связей» на «Когнитивную карту» с узлами EVOL-COG выделена в отдельное требование ASAP-UI-02-11C (PENDING, очередь EVOL-COG-MAP).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "BUILDING",
-      "evidence": [],
-      "status_note": "BUILDING: в worktree evol/impl идёт незакоммиченная перегруппировка лент (web/index.html, web/app.js, web/static/app.css, tests/js/asap_ui02_status_ribbons_test.js, F11-пины) — в задеплоенной сборке 2.58.143 её НЕТ, поэтому требование не закрыто; «Когнитивная карта» взамен «Графа связей» остаётся за EVOL-COG-MAP (очередь), сценарий §12 №10 заблокирован этим (asap-ui-02-matrix.md §7, CONFLICTS_WITH_NEW_CONTRACT)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 (единый 4-секционный виджет) + §review-fix2 §B2",
+          "observation": "«Новые факты» больше не отдельная карточка внизу: это первая секция того же intel-card, что «Убеждения (Сон)», «Парадигмы (Глубокий сон)» и «Эволюция характера». Порядок Статуса в DOM: hero, health, map, intel, sleep, preview, budgets, activity, dossier; desktop — 4 колонки, планшет — 2×2, телефон — одна секция + компактный переключатель Факты/Убеждения/Парадигмы/Эволюция (`.intel-tabs`, только ≤640px). Ленты не переписаны: тот же `.sfeed-*` и контроллер `v-sfeed`; все четыре отрисованы постоянно, данные при переключении не перезапрашиваются, позиции хранятся в `_intelRibbonPos` и восстанавливаются с `__sfeed.refresh()`.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w10_sections.py — TestEvolStatusOrderWave2 (45 passed, включая живой e2e и test_switcher_touch_target_is_44)",
+          "observation": "45 passed. Живой рендер: `statusOrder` = hero, health, map, intel, sleep, preview, budgets, activity, dossier на 1280×900 и 390×844; `intelSections` = [facts, beliefs, paradigms, traits]; на 1280 видны 4 секции и переключатель `display:none`, на 390 — ровно одна секция и 4 кнопки; переключение facts→beliefs не меняет число строк фактов (8→8, без перезапроса) и возврат восстанавливает позицию прокрутки (40→40, допуск 8 px); тач-цель кнопок 44×44 (без pointer:coarse тоже).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w10_sections.py",
+          "artifact_sha256": "cabb58af3cdbc27d30285ab695f44afe813c341e765d1b22a5ebf2dcac7c9da4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/js/asap_ui02_status_ribbons_test.js + tests/test_evol001_005_status_widgets.py (32 passed)",
+          "observation": "Новый JS-файл проверяет переключение секций (сохранение данных и позиции), собственную поверхность секции «Сердцебиение» и 44×44; `TestRealMarkupRowGeometry` переписан под единый виджет: одна обёртка `.ribbon-track.sfeed-track`, отдельной карточки «Новые факты» нет, строка по-прежнему не сжимается (`flex: 0 0 var(--sfeed-row-h)`).",
+          "type": "test",
+          "artifact_path": "tests/js/asap_ui02_status_ribbons_test.js",
+          "artifact_sha256": "75c226084aaabe4ca8e065e54aa98816bd82bcfd9746fc4d8f44debbb7e5347a",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/evidence/w10-sec-probe.json (summary.statusOrder / intelSections / intelSwitch) + кадры w10-sec-status-390x844.png, w10-sec-intel-switch-390x844.png",
+          "observation": "Машинный отчёт живого Chromium: порядок и состав секций в двух viewport, результат переключения секций и сохранение позиции; кадры показывают 4 колонки на 1280 и одну секцию с переключателем на 390.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w10-sec-probe.json",
+          "artifact_sha256": "62dd6e3688f7962c3b4f05a54d836b19ef1dd3ee5d68e938be1924c23e43e07f",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/asap-ui-02-matrix.md §7 строка 10 «four ribbons in one block» → закрыто; §12 сценарий 10",
+          "observation": "Строка матрицы переведена в «закрыто» 01.11.2026 (волна 2): один виджет, четыре секции, автопрокрутка/пауза/возобновление сохранены; конфликт F11/EVOL-026 layout (3+1 ленты, карточка сна между картой и лентами) снят.",
+          "type": "review",
+          "artifact_path": "plans/features/evol/audit/asap-ui-02-matrix.md",
+          "artifact_sha256": "c3ce8cf7aa817c5bc4a733d3ba8112a228a1a3497fe8f826284c9a73ed33273b",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.144.md §4 — волна 2 в задеплоенном билде",
+          "observation": "Прод 2.58.144 @ ebec502b89d8d81dbcd9059f49c52db57fd66579 (DEPLOY_SOURCE=release/2.58.144=evol/impl): в отдаваемом `/web/` ровно 4 секции `data-ribbon`, `intel-card` = 1, `data-intel-switcher` = 1, старый `card p-4 status-facts` = 0; `app.css` 329 867 и `app.js` 1 529 052 байт побайтно равны кандидату, поэтому проверенное поведение совпадает с задеплоенным.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.144.md",
+          "artifact_sha256": "26cd6dde716cca39be72aa9ef723c1f4daf3b11154cddc1cf5f62cbb6aca3bca",
+          "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
+          "candidate_commit": "ebec502b89d8d81dbcd9059f49c52db57fd66579"
+        }
+      ],
+      "status_note": "VERIFIED 2.58.144: порядок «Статуса» и единый 4-секционный виджет задеплоены в ebec502b (2.58.144) — hero+health → место под карту → виджет → сон → превью → бюджеты → активность → досье; 4 секции в отдаваемом index.html, старый `card p-4 status-facts` отсутствует. Обязательство по самой карте вынесено в ASAP-UI-02-11C."
     },
     {
       "source_id": "L01864",
@@ -22443,14 +22493,14 @@
       "source_excerpt": "2. **Новая «Когнитивная карта» взамен старого «Графа связей»** — сохранить весь функционал старого графа, добавить практические узлы/источники согласно `EVOL-COG`, не подменять бекенд GraphRAG.",
       "disposition": "required",
       "reason": "",
-      "req_id": "ASAP-UI-02-11",
+      "req_id": "ASAP-UI-02-11C",
       "slice": "ASAP-UI-02",
-      "acceptance": "Канонический порядок Статуса: компактный оперативный блок здоровья бота/ключевых систем и ближайших действий (без гигантской пустой зоны «бот»); затем «Когнитивная карта» взамен старого «Графа связей» с сохранением всего функционала старого графа и добавлением практических узлов/источников по EVOL-COG без подмены бэкенда GraphRAG; СРАЗУ под картой — один общий виджет с четырьмя секциями (Новые факты, Убеждения, Парадигмы, Эволюция характера) с сохранением автопрокрутки, ручного scroll, паузы/возобновления, дат, модалок и источников (факты не прячутся вниз страницы, ленты не удаляются из-за наличия карты); далее другие оперативные виджеты с адресными деталями и без бесконечных технических дампов.",
+      "acceptance": "«Когнитивная карта» взамен старого «Графа связей»: сохранить весь функционал старого графа (перетаскивание, масштаб, исследование узлов, drilldown, полноэкранный режим) и добавить практические узлы/источники согласно EVOL-COG, не подменяя бэкенд GraphRAG; карта остаётся единственным блоком между здоровьем и четырьмя лентами Статуса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "BUILDING",
+      "status": "PENDING",
       "evidence": [],
-      "status_note": "BUILDING: в worktree evol/impl идёт незакоммиченная перегруппировка лент (web/index.html, web/app.js, web/static/app.css, tests/js/asap_ui02_status_ribbons_test.js, F11-пины) — в задеплоенной сборке 2.58.143 её НЕТ, поэтому требование не закрыто; «Когнитивная карта» взамен «Графа связей» остаётся за EVOL-COG-MAP (очередь), сценарий §12 №10 заблокирован этим (asap-ui-02-matrix.md §7, CONFLICTS_WITH_NEW_CONTRACT)."
+      "status_note": "PENDING: пункт «Когнитивная карта взамен Графа связей» не реализован — в задеплоенном 2.58.144 между здоровьем и лентами остаётся legacy «Граф связей» (полный прежний функционал сохранён, 12 колонок), узлы/источники EVOL-COG не добавлены (w10-sections.md §review-fix п.3; asap-ui-02-matrix.md §12 строки 11-12). Не Human Gate: работа относится к очереди EVOL-COG-MAP (41 строка, PENDING). Выделено из ASAP-UI-02-11 при привязке выката 2.58.144, чтобы доставленная часть не маскировала открытую."
     },
     {
       "source_id": "L01866",
@@ -22461,12 +22511,62 @@
       "reason": "",
       "req_id": "ASAP-UI-02-11",
       "slice": "ASAP-UI-02",
-      "acceptance": "Канонический порядок Статуса: компактный оперативный блок здоровья бота/ключевых систем и ближайших действий (без гигантской пустой зоны «бот»); затем «Когнитивная карта» взамен старого «Графа связей» с сохранением всего функционала старого графа и добавлением практических узлов/источников по EVOL-COG без подмены бэкенда GraphRAG; СРАЗУ под картой — один общий виджет с четырьмя секциями (Новые факты, Убеждения, Парадигмы, Эволюция характера) с сохранением автопрокрутки, ручного scroll, паузы/возобновления, дат, модалок и источников (факты не прячутся вниз страницы, ленты не удаляются из-за наличия карты); далее другие оперативные виджеты с адресными деталями и без бесконечных технических дампов.",
+      "acceptance": "Канонический порядок Статуса: компактный оперативный блок здоровья бота/ключевых систем и ближайших действий (без гигантской пустой зоны «бот»); СРАЗУ под картой — ОДИН общий виджет с четырьмя секциями (Новые факты, Убеждения, Парадигмы, Эволюция характера) с сохранением автопрокрутки, ручного scroll, паузы/возобновления, дат, модалок и источников (факты не прячутся вниз страницы, ленты не удаляются из-за наличия карты); далее другие оперативные виджеты с адресными деталями и без бесконечных технических дампов. Замена «Графа связей» на «Когнитивную карту» с узлами EVOL-COG выделена в отдельное требование ASAP-UI-02-11C (PENDING, очередь EVOL-COG-MAP).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "BUILDING",
-      "evidence": [],
-      "status_note": "BUILDING: в worktree evol/impl идёт незакоммиченная перегруппировка лент (web/index.html, web/app.js, web/static/app.css, tests/js/asap_ui02_status_ribbons_test.js, F11-пины) — в задеплоенной сборке 2.58.143 её НЕТ, поэтому требование не закрыто; «Когнитивная карта» взамен «Графа связей» остаётся за EVOL-COG-MAP (очередь), сценарий §12 №10 заблокирован этим (asap-ui-02-matrix.md §7, CONFLICTS_WITH_NEW_CONTRACT)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 (единый 4-секционный виджет) + §review-fix2 §B2",
+          "observation": "«Новые факты» больше не отдельная карточка внизу: это первая секция того же intel-card, что «Убеждения (Сон)», «Парадигмы (Глубокий сон)» и «Эволюция характера». Порядок Статуса в DOM: hero, health, map, intel, sleep, preview, budgets, activity, dossier; desktop — 4 колонки, планшет — 2×2, телефон — одна секция + компактный переключатель Факты/Убеждения/Парадигмы/Эволюция (`.intel-tabs`, только ≤640px). Ленты не переписаны: тот же `.sfeed-*` и контроллер `v-sfeed`; все четыре отрисованы постоянно, данные при переключении не перезапрашиваются, позиции хранятся в `_intelRibbonPos` и восстанавливаются с `__sfeed.refresh()`.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w10_sections.py — TestEvolStatusOrderWave2 (45 passed, включая живой e2e и test_switcher_touch_target_is_44)",
+          "observation": "45 passed. Живой рендер: `statusOrder` = hero, health, map, intel, sleep, preview, budgets, activity, dossier на 1280×900 и 390×844; `intelSections` = [facts, beliefs, paradigms, traits]; на 1280 видны 4 секции и переключатель `display:none`, на 390 — ровно одна секция и 4 кнопки; переключение facts→beliefs не меняет число строк фактов (8→8, без перезапроса) и возврат восстанавливает позицию прокрутки (40→40, допуск 8 px); тач-цель кнопок 44×44 (без pointer:coarse тоже).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w10_sections.py",
+          "artifact_sha256": "cabb58af3cdbc27d30285ab695f44afe813c341e765d1b22a5ebf2dcac7c9da4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/js/asap_ui02_status_ribbons_test.js + tests/test_evol001_005_status_widgets.py (32 passed)",
+          "observation": "Новый JS-файл проверяет переключение секций (сохранение данных и позиции), собственную поверхность секции «Сердцебиение» и 44×44; `TestRealMarkupRowGeometry` переписан под единый виджет: одна обёртка `.ribbon-track.sfeed-track`, отдельной карточки «Новые факты» нет, строка по-прежнему не сжимается (`flex: 0 0 var(--sfeed-row-h)`).",
+          "type": "test",
+          "artifact_path": "tests/js/asap_ui02_status_ribbons_test.js",
+          "artifact_sha256": "75c226084aaabe4ca8e065e54aa98816bd82bcfd9746fc4d8f44debbb7e5347a",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/evidence/w10-sec-probe.json (summary.statusOrder / intelSections / intelSwitch) + кадры w10-sec-status-390x844.png, w10-sec-intel-switch-390x844.png",
+          "observation": "Машинный отчёт живого Chromium: порядок и состав секций в двух viewport, результат переключения секций и сохранение позиции; кадры показывают 4 колонки на 1280 и одну секцию с переключателем на 390.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w10-sec-probe.json",
+          "artifact_sha256": "62dd6e3688f7962c3b4f05a54d836b19ef1dd3ee5d68e938be1924c23e43e07f",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/asap-ui-02-matrix.md §7 строка 10 «four ribbons in one block» → закрыто; §12 сценарий 10",
+          "observation": "Строка матрицы переведена в «закрыто» 01.11.2026 (волна 2): один виджет, четыре секции, автопрокрутка/пауза/возобновление сохранены; конфликт F11/EVOL-026 layout (3+1 ленты, карточка сна между картой и лентами) снят.",
+          "type": "review",
+          "artifact_path": "plans/features/evol/audit/asap-ui-02-matrix.md",
+          "artifact_sha256": "c3ce8cf7aa817c5bc4a733d3ba8112a228a1a3497fe8f826284c9a73ed33273b",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.144.md §4 — волна 2 в задеплоенном билде",
+          "observation": "Прод 2.58.144 @ ebec502b89d8d81dbcd9059f49c52db57fd66579 (DEPLOY_SOURCE=release/2.58.144=evol/impl): в отдаваемом `/web/` ровно 4 секции `data-ribbon`, `intel-card` = 1, `data-intel-switcher` = 1, старый `card p-4 status-facts` = 0; `app.css` 329 867 и `app.js` 1 529 052 байт побайтно равны кандидату, поэтому проверенное поведение совпадает с задеплоенным.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.144.md",
+          "artifact_sha256": "26cd6dde716cca39be72aa9ef723c1f4daf3b11154cddc1cf5f62cbb6aca3bca",
+          "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
+          "candidate_commit": "ebec502b89d8d81dbcd9059f49c52db57fd66579"
+        }
+      ],
+      "status_note": "VERIFIED 2.58.144: единый виджет из четырёх секций сразу под картой реализован в 0b198ad2, блокеры независимого ревью B1/B2 закрыты, выкат ebec502b содержит ровно 4 секции в отдаваемом index.html. Обязательство по самой карте («Когнитивная карта» взамен «Графа связей») вынесено в ASAP-UI-02-11C и остаётся за EVOL-COG-MAP."
     },
     {
       "source_id": "L01867",
@@ -23203,6 +23303,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "tests/js/evol032_health_glass_test.js + live-замеры волны 2 на 0b198ad2 (w10-sec-probe.json summary.healthTint)",
+          "observation": "Волна 2 расширила ту же единственную карту состояний новым `warning`, не меняя остальные: живые computed-цвета на реальной поверхности — normal/unknown/disabled `rgba(21,27,42,.5)`, degraded `rgba(91,55,67,.5)`, failed `rgba(141,74,85,.5)`, `backdrop-filter: blur(5px) saturate(1.4)` без изменений; оптика (refraction/полигональный фон) байт-в-байт HEAD.",
+          "type": "test",
+          "artifact_path": "tests/js/evol032_health_glass_test.js",
+          "artifact_sha256": "412fc7d6a5793057147fa268b2663e26dc31dfe091a07b00d3d66bfbde894f07",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23259,9 +23367,59 @@
       "acceptance": "Состояние warning: если РЕАЛЬНЫЙ health-сигнал фиксирует проблему подсистемы (например, превышен порог сердцебиения), стеклянная поверхность уже окрашивается в красный, но с более сдержанной интенсивностью, чем при failed, рядом конкретная причина; одиночный WARN в журнале, не означающий проблемы здоровья подсистемы, не перекрашивает карточку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: отдельного контрактного состояния `warning` нет — heartbeat warning сведён к degraded (32% --err, alpha .5), critical → failed (55%): порядок интенсивности верен, но контрактного токена/метки warning нет (asap-ui-02-matrix.md §8, PARTIAL)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.2 (`warning` как отдельное состояние) + §review-fix2 §B1",
+          "observation": "В единственной карте `systemHealth → glassTint` появилось состояние `warning`: подпись «Внимание», `badge-warn`, иконка `bolt`; предупреждение сердцебиения (`hbState: 'warning'`) даёт `warning`, а не `degraded`. Заливка `rgba(60,43,56,0.5)` = 18 % `--err`, что мягче `degraded` (32 %) и `failed` (55 %); меняется только `background-color`, alpha материала 0.5/0.85. Одиночный `WARN` в журнале (и `errors_total`, HTTP 200, stale) состояния не создаёт (`healthWarnOnly` → `unknown`). Рядом конкретная причина («повышенная нагрузка 75%»), текст и иконка дублируют цвет.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w10_sections.py — TestEvolStatusOrderWave2::test_heartbeat_section_has_own_tint_surface (45 passed)",
+          "observation": "У секции «Сердцебиение» собственная поверхность `<health-glass-surface class=\"hb-surface\" subsystem=\"heartbeat\" material=\"bg\">` на том же адаптере `heartbeatHealth = healthStateFrom('heartbeat', heartbeatHealthSource, 'global')`; второй карты/порогов нет, второго blur/тени нет, агрегатная `.status-block` остаётся нейтральной (пин EVOL-032).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w10_sections.py",
+          "artifact_sha256": "cabb58af3cdbc27d30285ab695f44afe813c341e765d1b22a5ebf2dcac7c9da4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "tests/js/evol032_health_glass_test.js — карта состояний и порядок интенсивности (включая warning)",
+          "observation": "JS-тесты фиксируют шесть состояний и порядок интенсивности warning < degraded < failed, отсутствие заливки у normal/unknown/disabled и сохранение оптики glass (sha256-пин файлов glass.js/refraction/aurora).",
+          "type": "test",
+          "artifact_path": "tests/js/evol032_health_glass_test.js",
+          "artifact_sha256": "412fc7d6a5793057147fa268b2663e26dc31dfe091a07b00d3d66bfbde894f07",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/evidence/w10-sec-probe.json (summary.healthTint, 6 сценариев реального /api/status) + w10-sec-health-tint-1280x900.png, w10-sec-health-tint-390x844.png",
+          "observation": "Живой e2e больше не выставляет атрибуты руками, а отдаёт настоящий `/api/status`: cpu_percent=75 → секция «Сердцебиение» `warning rgba(60,43,56,.5)`, hero и `.status-block` = `rgba(21,27,42,.5)`, поверхностей с заливкой ровно 1; нет `generated_at` → `unknown` (без заливки); `bot.state=polling_error` → `failed rgba(141,74,85,.5)`; `experience.state=degraded` красит только поверхность «Опыта». Геометрия/радиусы/blur не меняются.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w10-sec-probe.json",
+          "artifact_sha256": "62dd6e3688f7962c3b4f05a54d836b19ef1dd3ee5d68e938be1924c23e43e07f",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/asap-ui-02-matrix.md §7 (painting §6) строка 13 «health tint 5 states» → закрыто (warning добавлен)",
+          "observation": "Строка матрицы «health tint 5 states, red glass optics in motion» переведена в закрыто 01.11.2026; конфликт EVOL-032 (`warning`) снят, второй карты не вводилось.",
+          "type": "review",
+          "artifact_path": "plans/features/evol/audit/asap-ui-02-matrix.md",
+          "artifact_sha256": "c3ce8cf7aa817c5bc4a733d3ba8112a228a1a3497fe8f826284c9a73ed33273b",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.144.md §4 — warning-тон в задеплоенном CSS",
+          "observation": "Прод 2.58.144 @ ebec502b89d8d81dbcd9059f49c52db57fd66579: в отдаваемом `app.css` `[data-health-state=\"warning\"][data-health-material=\"bg\"]` = 1 и `.hb-surface {` = 1 (собственная поверхность Heartbeat), `cognition-ribbons` = 8; `app.css`/`app.js` байт-идентичны кандидату.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.144.md",
+          "artifact_sha256": "26cd6dde716cca39be72aa9ef723c1f4daf3b11154cddc1cf5f62cbb6aca3bca",
+          "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
+          "candidate_commit": "ebec502b89d8d81dbcd9059f49c52db57fd66579"
+        }
+      ],
+      "status_note": "VERIFIED 2.58.144: контрактное состояние `warning` добавлено в единственную карту systemHealth→glassTint (подпись «Внимание», badge-warn, bolt); реальный сигнал сердцебиения (cpu 75 %) тонирует ровно одну поверхность секции «Сердцебиение» на 18 % `--err` — мягче degraded (32 %) и failed (55 %), агрегатная `.status-block` нейтральна (EVOL-032 сохранён), одиночный WARN в журнале состояния не создаёт. Привязано к ревью-кандидату 0b198ad2 после блокера B1."
     },
     {
       "source_id": "L01901",
@@ -23424,6 +23582,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23465,6 +23631,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23506,6 +23680,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23547,6 +23729,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23588,6 +23778,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23629,6 +23827,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -23670,6 +23876,14 @@
           "artifact_sha256": "f1099a04287721daf1f1d4f87683e76ed7e3fcc89ea48786396878b38258d098",
           "artifact_scope": "отчёт создан после выката (в дереве кандидата отсутствует by design); sha256 — от текущей копии в ветке evol/impl",
           "candidate_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909"
+        },
+        {
+          "ref": "plans/features/evol/audit/w10-sections.md §review-fix п.1 + §review-fix2 §«Прогоны» — ленты перенесены в единый виджет без изменения движка",
+          "observation": "Волна 2 перенесла ленты в единый intel-card без переписывания механики: те же `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная прокрутка в обе стороны, пауза на модалке, reduced-motion, даты, источники); `.ribbon-track.sfeed-track` и инвариант `flex: 0 0 var(--sfeed-row-h)` сохранены. Прогоны: `tests/test_evol001_005_status_widgets.py` 32 passed, JS-набор лент зелёный; живой e2e на 390: переключение секций не перезапрашивает данные (8→8 строк) и возвращает позицию прокрутки (40→40).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/w10-sections.md",
+          "artifact_sha256": "1bc234dbd7927fd85dba22f2da3bf449c022335c2c8a1060a8a4d736e1b030a4",
+          "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c"
         }
       ]
     },
@@ -24812,15 +25026,19 @@
     }
   ],
   "evidence_convention": {
-    "note": "Деплой выполнен: прод 2.58.143 @ 273be95c8ff4f70e08dceef1daccbdd3082fc909. Строка с ревью-принятым поведением, присутствующим в задеплоенном кандидате, держит status=VERIFIED и несёт evidence с candidate_commit=273be95c (release-коммит, содержащий ревью-кандидаты слайсов). READY_FOR_LIVE оставлен только там, где acceptance прямо требует postdeploy-поведенческого доказательства (EVOL-010, EVOL-031). PENDING — не начатые пункты и пункты, у которых отсутствует часть обязательной приёмки.",
+    "note": "Деплой выполнен: прод 2.58.144 @ ebec502b89d8d81dbcd9059f49c52db57fd66579. Строка с ревью-принятым поведением, присутствующим в задеплоенном кандидате, держит status=VERIFIED и несёт evidence с candidate_commit либо ревью-кандидата волны (0b198ad2), либо самого release-коммита (ebec502b). READY_FOR_LIVE оставлен только там, где acceptance прямо требует postdeploy-поведенческого доказательства (EVOL-010, EVOL-031). PENDING — не начатые пункты и пункты, у которых отсутствует часть обязательной приёмки.",
     "artifact_branch": "evol/impl",
-    "artifact_branch_tip": "a4a9cb4f",
-    "reviewed_candidate": "273be95c8ff4f70e08dceef1daccbdd3082fc909",
+    "artifact_branch_tip": "3de1f65b",
+    "reviewed_candidate": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
     "review_source": "Независимая приёмка зафиксирована коммитами review-fix / review blockers ветки evol/impl (адреса — в evidence[].ref) и handoff'ом оркестратора 31.10–01.11.2026; отдельного файла вердикта ревью в репозитории нет (честная оговорка, не ссылка на несуществующий артефакт).",
-    "artifact_sha256_meaning": "sha256 содержимого артефакта в задеплоенном кандидате 273be95c; рабочая копия worktree совпадает с HEAD a4a9cb4f по путям evidence (проверено при привязке).",
-    "candidate_commit_scope": "candidate_commit/deployed_commit карты = фактический DEPLOY_SOURCE 273be95c (release/2.58.143 = evol/impl). Исторические evidence[].candidate_commit у слайсов остаются на своих ревью-кандидатах как история приёмки.",
+    "artifact_sha256_meaning": "sha256 содержимого артефакта в дереве кандидата: для строк волны 2 — на 0b198ad2 (файлы не менялись до ebec502b, проверено `git diff --name-only 0b198ad2 ebec502b`), для отчёта о деплое — на 3de1f65b (`artifact_scope`).",
+    "candidate_commit_scope": "candidate_commit карты = ревью-кандидат текущей волны 0b198ad2 (ASAP-UI-02 §5/§6, review B1/B2), deployed_commit = фактический DEPLOY_SOURCE ebec502b (bump 2.58.143→2.58.144, FF-потомок 0b198ad2 и 273be95c). Исторические evidence[].candidate_commit у остальных слайсов остаются на своих ревью-кандидатах как история приёмки.",
     "asap_fc_admission": "20 строк ASAP-FC-ADMISSION-01: поведение APPROVED на 432c7593 (18 тестов, 8/8 сценариев §5, 582 factcheck, 1388 импорт-зависимых), review-fix d561d68a (телеметрия cooldown); входит в 2.58.143 — VERIFIED.",
-    "asap_vision_sync": "93 строки OI-2026-10-31-ASAP-VISION-SYNC: 89 закрытых обязательств (ядро + wave2 + review-fix) — VERIFIED; 4 строки группы ADMIN (source_line 1560/1562/1564/1566) выделены в отдельное требование ASAP-VISION-SYNC-ADMIN-01 со статусом PENDING: стадийная кнопка «Проверить» в сборке не подключена к services/media_readiness.run_admin_check."
+    "asap_vision_sync": "93 строки OI-2026-10-31-ASAP-VISION-SYNC: 89 закрытых обязательств (ядро + wave2 + review-fix) — VERIFIED; 4 строки группы ADMIN (source_line 1560/1562/1564/1566) выделены в отдельное требование ASAP-VISION-SYNC-ADMIN-01 со статусом PENDING: стадийная кнопка «Проверить» в сборке не подключена к services/media_readiness.run_admin_check.",
+    "reviewed_release": "ebec502b89d8d81dbcd9059f49c52db57fd66579",
+    "asap_ui_02_wave2": "Волна 2 ASAP-UI-02 (`w10-sections.md` §review-fix и §review-fix2, 45+32+4 теста, e2e EVOL-W10-SECTIONS OK) перепривязана к 2.58.144. Закрыты: единый 4-секционный виджет под картой (ASAP-UI-02-11, L01862/L01866) и контрактный `warning`-тон (ASAP-UI-02-12W, L01900); подтверждены заново на новом кандидате ленты (ASAP-UI-02-13) и карта health-состояний (ASAP-UI-02-12). Открытым остаётся только обязательство по самой карте — новый ASAP-UI-02-11C (PENDING, очередь EVOL-COG-MAP): в задеплоенном билде по-прежнему legacy «Граф связей».",
+    "release_gate_note": "Стадия `release` на этой карте пока не зелёная и это осознанно: гейт требует `candidate_commit == deployed_commit` и построчной привязки evidence к объявленному кандидату. Карта объявляет ревью-кандидата волны 2 `0b198ad2` и выкат `ebec502b`, поэтому 254 строки VERIFIED, привязанные к предыдущему релизу `273be95c`, под этот кандидат не попадают. Из них 170 строк доказуемо совпадают по sha256 всех cited-артефактов между `273be95c` и `ebec502b` → механический re-bind без новой проверки; 84 строки имеют дрейф артефактов (файлы изменились волной 2) → обновление доказательств. План-гейт при этом EXIT 0: инвентарь и sha источника сходятся, ошибок структуры нет.",
+    "candidate_rebind_backlog": "Известное состояние на 01.11.2026: wave-2 строки (ASAP-UI-02-11/11C/12W/13, ASAP-UI-02-12) привязаны к `0b198ad2`, остальные VERIFIED — к `273be95c`. Пока re-bind не выполнен, `--stage release` нужно читать как список привязок, а не как список дефектов; `status=VERIFIED` при этом не отменяется: поведение выкачено в FF-потомке `ebec502b`."
   },
   "source_addenda": [
     {
@@ -24880,15 +25098,17 @@
   ],
   "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2004 строк, sha256=04cbfe32cf0e3abd61aff3aafb27f9a5aa5e505638b6976df23b961ed0d6e330 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.",
   "deployed_release": {
-    "version": "2.58.143",
-    "deployed_commit": "273be95c8ff4f70e08dceef1daccbdd3082fc909",
-    "branch": "release/2.58.143",
+    "version": "2.58.144",
+    "deployed_commit": "ebec502b89d8d81dbcd9059f49c52db57fd66579",
+    "branch": "release/2.58.144",
     "equivalent_branch": "evol/impl",
-    "deployed_at_utc": "2026-10-31T12:26:29Z",
-    "deploy_report": "plans/features/evol/audit/deploy-2.58.143.md",
-    "previous_production": "5346ee76 (2.58.141)",
-    "failed_attempt": "06283422 (2.58.142) — PG jsonb crash-loop, откат на 2.58.141; исправлено коммитом 2e48bfed (jsonb_build_object($2::text,$3::jsonb))",
-    "note": "Ветка master (3193b657) пока НЕ содержит релизные коммиты 2e48bfed/273be95c: DEPLOY_SOURCE жил на release/2.58.143 = evol/impl. Слияние релиза в master — отдельное действие оркестратора, на доказанность деплоя не влияет."
+    "deployed_at_utc": "2026-10-31T14:41:00Z",
+    "deploy_report": "plans/features/evol/audit/deploy-2.58.144.md",
+    "previous_production": "273be95c (2.58.143)",
+    "reviewed_candidate": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
+    "checks": "compileall rc=0; node 5/5 OK (включая asap_ui02_status_ribbons); pin-pytest 867 passed + 1 известный пре-существующий провал test_summary_publish_integration_round1026::test_on_l1_not_usable_level2_l2_publishes_article",
+    "prod_observations": "/healthz 200 2.58.144; /web/ 200; сервис active, NRestarts=0, 1 процесс; 219 строк журнала без Traceback/ERROR; apply_release blocks=109 changed=0; SQLite user_version=40 quick_check=ok; media tracked=65; srv_cookies не в Git; css/js отдаются байт-в-байт как в кандидате",
+    "note": "Ветка master пока НЕ содержит релизные коммиты: DEPLOY_SOURCE жил на release/2.58.144 = evol/impl; слияние релиза в master — отдельное действие оркестратора, на доказанность выката не влияет."
   },
   "delta_addenda": [
     {

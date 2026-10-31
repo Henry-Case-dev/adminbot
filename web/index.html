@@ -2701,7 +2701,24 @@
                   </div>
                   <div v-if="configItemNotice(workspacePromptFocus)"
                        class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(workspacePromptFocus) }}</div>
-                  <textarea class="field scroll-thin" rows="12"
+                  <!-- EVOL-044 (W11): перенос строк в длинном промпте — явная
+                       опция (по умолчанию перенос включён, как раньше), а не
+                       скрытое поведение; сам редактор не переставляется. -->
+                  <div class="flex items-center gap-2 flex-wrap mb-1"
+                       data-prompt-wrap-toggle>
+                    <span class="ctl-seg" role="group" aria-label="Перенос строк в редакторе">
+                      <button type="button" class="ctl-seg__btn"
+                              :aria-checked="workspacePromptNoWrap ? 'false' : 'true'"
+                              @click="workspacePromptNoWrap = false">Перенос</button>
+                      <button type="button" class="ctl-seg__btn"
+                              :aria-checked="workspacePromptNoWrap ? 'true' : 'false'"
+                              @click="workspacePromptNoWrap = true">Без переноса</button>
+                    </span>
+                    <span class="ctl-hint">Длинные строки прокручиваются внутри поля</span>
+                  </div>
+                  <textarea class="field scroll-thin ctl-textarea ctl-mono ctl-editor-area"
+                            rows="12"
+                            :data-nowrap="workspacePromptNoWrap ? '1' : '0'"
                             :data-prompt-textarea="workspacePromptFocus.key"
                             v-model="workspacePromptFocus.value"
                             :disabled="!canEditConfig(workspacePromptFocus.key)"></textarea>
@@ -2925,8 +2942,8 @@
                            :disabled="!isChatContext() || budgetsUnlimitedBusy"
                            @change="toggleBudgetsUnlimited($event.target.checked)"
                            :aria-label="budgetsSplit ? 'Без суточных квот' : 'Безлимит по этому чату'">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                    <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                    
                   </label>
                 </div>
                 <div class="text-xs text-gray-400" v-if="budgetsSplit">
@@ -4512,8 +4529,8 @@
                              :disabled="!canToggleMaster()"
                              aria-label="Мастер PERMsoc"
                              @change.stop="togglePermsoc($event.target.checked)">
-                      <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                      <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                      
                     </label>
                   </div>
                   <div class="grid gap-2 md:grid-cols-2 mt-3">
@@ -4674,8 +4691,8 @@
                            :disabled="!canToggleOwner(grp.owner)"
                            :aria-label="'Включить ' + groupTitle(grp)"
                            @change.stop="toggleOwner(grp.owner, $event.target.checked)">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                    <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                    
                   </label>
                 </summary>
                 <div v-else class="text-sm font-bold">{{ groupTitle(grp) }}</div>
@@ -4749,8 +4766,8 @@
                           <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
-                          <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                          <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                          <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                          
                         </label>
                       </div>
                       <details class="mt-2 text-xs text-gray-400">
@@ -5137,8 +5154,8 @@
                           <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
-                          <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                          <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                          <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                          
                         </label>
                       </div>
                       <div v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
@@ -5325,8 +5342,8 @@
                                :disabled="!moduleGlobalCanEdit(m) || moduleGlobalPendingFor(m)"
                                @change="setModuleGlobalState(m, $event.target.checked)"
                                :aria-label="moduleGlobalToggleLabel(m)">
-                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                        
                       </label>
                     </div>
                     <!-- Per-chat: только там, где локальное значение реально
@@ -5345,8 +5362,8 @@
                                :disabled="!canEditModule(m) || modulePendingFor(m)"
                                @change="toggleModule(m, $event.target.checked)"
                                :aria-label="'Включить модуль для этого чата: ' + m.title">
-                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                        
                       </label>
                     </div>
                     <!-- Global-only на чатовой области: локального тумблера нет,
@@ -5469,8 +5486,8 @@
                               <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
-                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                                
                               </label>
                             </div>
                           </template>
@@ -5533,8 +5550,8 @@
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                                   <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                          :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
-                                  <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                                  <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                  <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                                  
                                 </label>
                               </div>
                             </template>
@@ -5935,9 +5952,17 @@
                 <div v-else-if="budgetInfo && budgetInfo.global">
                   <template v-if="budgetInfo.global.calls.used || budgetInfo.global.tokens.used">
                     <div class="text-xs text-gray-400 mb-1">вызовы: {{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</div>
-                    <div class="progress mb-2"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                    <div class="progress ctl-progress__track mb-2" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         :data-state="ctlCallsProg.state"
+                         :aria-valuenow="ctlCallsProg.ariaNow"
+                         :aria-label="ctlCallsProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlCallsProg.ratio * 100) + '%' }"></div></div>
                     <div class="text-xs text-gray-400 mb-1">токены: {{ budgetInfo.global.tokens.used }} / {{ budgetInfo.global.tokens.limit }}</div>
-                    <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.tokens) * 100) + '%' }"></div></div>
+                    <div class="progress ctl-progress__track" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         :data-state="ctlTokensProg.state"
+                         :aria-valuenow="ctlTokensProg.ariaNow"
+                         :aria-label="ctlTokensProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlTokensProg.ratio * 100) + '%' }"></div></div>
                   </template>
                   <div v-else class="text-xs text-gray-500">Сегодня расхода ещё не было.</div>
                 </div>
@@ -7740,22 +7765,34 @@
                       <span v-if="memoryContext.unlimited">{{ memoryContext.used == null ? '—' : memoryContext.used }} токенов · Безлимит (∞)<template v-if="memoryContext.truncated"> · урезание</template></span>
                       <span v-else>{{ memoryContext.used == null ? '—' : memoryContext.used }} / {{ memoryContext.limit || '—' }} токенов<template v-if="memoryContext.truncated"> · урезание</template></span>
                     </div>
-                    <div class="progress"><div :class="{ 'bar-red': memoryContext.red }"
-                         :style="{ width: Math.min(100, (memoryContext.ratio || 0) * 100) + '%' }"></div></div>
+                    <div class="progress ctl-progress__track" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         :data-state="ctlContextProg.state"
+                         :aria-valuenow="ctlContextProg.ariaNow"
+                         :aria-label="ctlContextProg.ariaText"><div class="ctl-progress__fill" :class="{ 'bar-red': memoryContext.red }"
+                         :style="{ width: (ctlContextProg.ratio * 100) + '%' }"></div></div>
                   </div>
                   <div class="mb-2" v-if="budgetInfo && budgetInfo.global">
                     <div class="flex justify-between text-xs text-gray-400">
                       <span>Дневной фон (вызовы)</span>
                       <span>{{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</span>
                     </div>
-                    <div class="progress"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                    <div class="progress ctl-progress__track" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         :data-state="ctlCallsProg.state"
+                         :aria-valuenow="ctlCallsProg.ariaNow"
+                         :aria-label="ctlCallsProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlCallsProg.ratio * 100) + '%' }"></div></div>
                   </div>
                   <div class="mb-2" v-if="cognition && cognition.dream && cognition.dream.budget">
                     <div class="flex justify-between text-xs text-gray-400">
                       <span>Сон (токены за сутки)</span>
                       <span>{{ fmtTokens(cognition.dream.budget.tokens_today) }} / {{ fmtTokens(cognition.dream.budget.tokens_limit) }}</span>
                     </div>
-                    <div class="progress"><div :style="{ width: (cognition.dream.budget.tokens_limit ? Math.min(100, (cognition.dream.budget.tokens_today / cognition.dream.budget.tokens_limit) * 100) : 0) + '%' }"></div></div>
+                    <div class="progress ctl-progress__track" role="progressbar"
+                         aria-valuemin="0" aria-valuemax="100"
+                         :data-state="ctlDreamProg.state"
+                         :aria-valuenow="ctlDreamProg.ariaNow"
+                         :aria-label="ctlDreamProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlDreamProg.ratio * 100) + '%' }"></div></div>
                   </div>
                   <!-- Низ: метрики БД + граф + Timeline (F5/T-1585: узлы,
                        рёбра, типы, мемы консолидированы из «Модулей» без
@@ -8384,10 +8421,7 @@
                              :checked="relationsEnabled"
                              :disabled="relationsBusy"
                              @change="onRelationsToggle($event)">
-                      <div class="w-11 h-6 rounded-full peer bg-white/10
-                                   peer-checked:bg-violet-600 transition-colors"></div>
-                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
-                                   transition-transform peer-checked:translate-x-5"></div>
+                      <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
                     </label>
                   </div>
                   <div v-if="chatRelations.length === 0"
@@ -8480,8 +8514,8 @@
                               <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
-                              <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                              <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                              <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                              
                             </label>
                           </div>
                           <div v-else>
@@ -8523,8 +8557,8 @@
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
-                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                                
                               </label>
                             </div>
                             <div v-else>
@@ -8720,10 +8754,7 @@
                           <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                             <input type="checkbox" class="sr-only peer"
                                    v-model="loreSettings.auto_enabled">
-                            <div class="w-11 h-6 rounded-full peer bg-white/10
-                                 peer-checked:bg-violet-600 transition-colors"></div>
-                            <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white
-                                 transition-transform peer-checked:translate-x-5"></div>
+                            <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
                           </label>
                         </div>
                         <div>
@@ -8853,8 +8884,8 @@
                               <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
-                              <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                              <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                              <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                              
                             </label>
                           </div>
                           <div v-else>
@@ -8893,8 +8924,8 @@
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
-                                <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                                <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                                
                               </label>
                             </div>
                             <div v-else>
@@ -11478,7 +11509,11 @@
                          заливается (устранён `(cpu_percent || 0)` → 0 при null). -->
                     <div>
                       <div class="flex justify-between text-xs text-gray-400"><span>CPU</span><span>{{ statusSys.cpu == null ? 'нет данных' : statusSys.cpu + '%' }}</span></div>
-                      <div class="progress"><div :style="{ width: (statusSys.cpu == null ? 0 : Math.min(100, statusSys.cpu)) + '%' }"></div></div>
+                      <div class="progress ctl-progress__track" role="progressbar"
+                           aria-valuemin="0" aria-valuemax="100"
+                           :data-state="ctlCpuProg.state"
+                           :aria-valuenow="ctlCpuProg.ariaNow"
+                           :aria-label="ctlCpuProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlCpuProg.ratio * 100) + '%' }"></div></div>
                     </div>
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
@@ -11486,7 +11521,11 @@
                         <span v-if="statusSys.mem && statusSys.mem.percent != null">{{ fmtBytes(statusSys.mem.used) }} / {{ fmtBytes(statusSys.mem.total) }} ({{ statusSys.mem.percent }}%)</span>
                         <span v-else>нет данных</span>
                       </div>
-                      <div class="progress"><div :style="{ width: (statusSys.mem && statusSys.mem.percent != null ? Math.min(100, statusSys.mem.percent) : 0) + '%' }"></div></div>
+                      <div class="progress ctl-progress__track" role="progressbar"
+                           aria-valuemin="0" aria-valuemax="100"
+                           :data-state="ctlMemProg.state"
+                           :aria-valuenow="ctlMemProg.ariaNow"
+                           :aria-label="ctlMemProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlMemProg.ratio * 100) + '%' }"></div></div>
                     </div>
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
@@ -11494,7 +11533,11 @@
                         <span v-if="statusSys.disk && statusSys.disk.percent != null">{{ fmtBytes(statusSys.disk.used) }} / {{ fmtBytes(statusSys.disk.total) }} ({{ statusSys.disk.percent }}%)</span>
                         <span v-else>нет данных</span>
                       </div>
-                      <div class="progress"><div :style="{ width: (statusSys.disk && statusSys.disk.percent != null ? Math.min(100, statusSys.disk.percent) : 0) + '%' }"></div></div>
+                      <div class="progress ctl-progress__track" role="progressbar"
+                           aria-valuemin="0" aria-valuemax="100"
+                           :data-state="ctlDiskProg.state"
+                           :aria-valuenow="ctlDiskProg.ariaNow"
+                           :aria-label="ctlDiskProg.ariaText"><div class="ctl-progress__fill" :style="{ width: (ctlDiskProg.ratio * 100) + '%' }"></div></div>
                     </div>
                     <div class="text-xs text-gray-400">Аптайм: {{ statusData ? humanizeUptime(statusData.bot.uptime_seconds) : '—' }}</div>
                     <div class="text-xs text-gray-400">Load: {{ statusSys.loadavg ? statusSys.loadavg.map(x => Number(x).toFixed(2)).join(' / ') : '—' }}</div>
@@ -12158,7 +12201,14 @@
                   <span v-else-if="memoryContext.used == null || memoryContext.limit == null">Нет данных</span>
                   <span v-else>{{ memoryContext.used }} / {{ memoryContext.limit }} токенов<template v-if="memoryContext.truncated"> · урезание</template></span>
                 </div>
-                <div class="progress" v-if="!memoryContext.unlimited && memoryContext.used != null && memoryContext.limit"><div :class="{ 'bar-red': memoryContext.red }" :style="{ width: Math.min(100, (memoryContext.ratio || 0) * 100) + '%' }"></div></div>
+                <div class="progress ctl-progress__track" role="progressbar"
+                     aria-valuemin="0" aria-valuemax="100"
+                     :data-state="ctlContextProg.state"
+                     :aria-valuenow="ctlContextProg.ariaNow"
+                     :aria-label="ctlContextProg.ariaText"
+                     v-if="!memoryContext.unlimited && memoryContext.used != null && memoryContext.limit"><div class="ctl-progress__fill" :class="{ 'bar-red': memoryContext.red }" :style="{ width: (ctlContextProg.ratio * 100) + '%' }"></div></div>
+                <div class="ctl-progress__anomaly" v-if="ctlContextProg.anomaly"
+                     data-progress-anomaly>{{ ctlContextProg.ariaText }}</div>
               </div>
               <div class="budget-row" v-if="budgetInfo && budgetInfo.global">
                 <div class="flex justify-between text-xs text-gray-400">
@@ -12166,7 +12216,14 @@
                   <span v-if="budgetInfo.global.calls && budgetInfo.global.calls.limit != null">{{ budgetInfo.global.calls.used }} / {{ budgetInfo.global.calls.limit }}</span>
                   <span v-else>Без лимита</span>
                 </div>
-                <div class="progress" v-if="budgetInfo.global.calls && budgetInfo.global.calls.limit"><div :style="{ width: (budgetRatio(budgetInfo.global.calls) * 100) + '%' }"></div></div>
+                <div class="progress ctl-progress__track" role="progressbar"
+                     aria-valuemin="0" aria-valuemax="100"
+                     :data-state="ctlCallsProg.state"
+                     :aria-valuenow="ctlCallsProg.ariaNow"
+                     :aria-label="ctlCallsProg.ariaText"
+                     v-if="budgetInfo.global.calls && budgetInfo.global.calls.limit"><div class="ctl-progress__fill" :style="{ width: (ctlCallsProg.ratio * 100) + '%' }"></div></div>
+                <div class="ctl-progress__anomaly" v-if="ctlCallsProg.anomaly"
+                     data-progress-anomaly>{{ ctlCallsProg.ariaText }}</div>
               </div>
               <div class="budget-row" v-if="cognition && cognition.dream && cognition.dream.budget">
                 <div class="flex justify-between text-xs text-gray-400">
@@ -12174,7 +12231,14 @@
                   <span v-if="cognition.dream.budget.tokens_limit == null">Нет данных</span>
                   <span v-else>{{ fmtTokens(cognition.dream.budget.tokens_today) }} / {{ fmtTokens(cognition.dream.budget.tokens_limit) }}</span>
                 </div>
-                <div class="progress" v-if="cognition.dream.budget.tokens_limit"><div :style="{ width: Math.min(100, (cognition.dream.budget.tokens_today / cognition.dream.budget.tokens_limit) * 100) + '%' }"></div></div>
+                <div class="progress ctl-progress__track" role="progressbar"
+                     aria-valuemin="0" aria-valuemax="100"
+                     :data-state="ctlDreamProg.state"
+                     :aria-valuenow="ctlDreamProg.ariaNow"
+                     :aria-label="ctlDreamProg.ariaText"
+                     v-if="cognition.dream.budget.tokens_limit"><div class="ctl-progress__fill" :style="{ width: (ctlDreamProg.ratio * 100) + '%' }"></div></div>
+                <div class="ctl-progress__anomaly" v-if="ctlDreamProg.anomaly"
+                     data-progress-anomaly>{{ ctlDreamProg.ariaText }}</div>
               </div>
               <div class="text-xs text-gray-500" v-if="!budgetInfo && !(cognition && cognition.dream && cognition.dream.budget) && memoryContext.used == null">
                 Нет данных о бюджетах.

@@ -177,6 +177,51 @@
       --btn-hairline: var(--border-hairline);
       --toggle-h: 24px;
       --toggle-hit: var(--control-h-touch);
+      /* EVOL-043 (W11): ОДИН контракт контрола — размер, типографика, radius,
+         hairline, акцент, доступность, движение. Второй палитры нет: всё
+         ссылается на живые токены выше. Новые компоненты `.ctl-*` берут
+         значения ТОЛЬКО отсюда (проверяется тестом), поэтому «одинаковая роль»
+         на разных страницах не может разъехаться по 5 размерам. */
+      --ctl-h-sm: var(--control-h-sm);
+      --ctl-h: var(--control-h);
+      --ctl-h-lg: var(--control-h-touch);
+      --ctl-h-touch: var(--control-h-touch);
+      --ctl-radius: var(--radius-lg);
+      --ctl-radius-sm: var(--radius-md);
+      --ctl-radius-pill: var(--radius-full);
+      --ctl-hairline: var(--border-hairline);
+      --ctl-pad-x: var(--space-3);
+      --ctl-pad-y: 8px;
+      --ctl-gap: var(--space-2);
+      --ctl-font: .9rem;
+      --ctl-font-sm: .8rem;
+      --ctl-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --ctl-line: 1.25;
+      --ctl-accent: var(--indigo-300);
+      --ctl-accent-ink: #081018;
+      --ctl-surface: rgba(170, 182, 200, 0.10);
+      --ctl-surface-hover: rgba(170, 182, 200, 0.18);
+      --ctl-disabled-opacity: .45;
+      --ctl-field-bg: rgba(255, 255, 255, 0.06);
+      /* Движение: единые длительности/кривая. Ни один компонент не заводит
+         собственный интервал — бесконечных петель в контролах нет. */
+      --motion-fast: 120ms;
+      --motion-base: 180ms;
+      --motion-slow: 320ms;
+      --motion-ease: cubic-bezier(.2, .8, .2, 1);
+      --motion-pulse: 2400ms;
+      /* Достоверный прогресс (EVOL-045) */
+      --ctl-progress-h: 8px;
+      --ctl-progress-radius: var(--radius-full);
+      --ctl-progress-track: rgba(255, 255, 255, 0.08);
+      --ctl-progress-fill: linear-gradient(90deg, var(--teal-600), var(--teal-500));
+      /* Клавиатурная адаптация (EVOL-044): `--kb-inset` — алиас уже
+         существующего `--kb-offset` (единственный источник — app.js
+         `_syncKeyboardOffset`), `--vv-h` переопределяется app.js ТОЛЬКО при
+         открытой клавиатуре; иначе работает `--app-usable-height`. */
+      --kb-inset: var(--kb-offset, 0px);
+      --ctl-safe-bottom: max(env(safe-area-inset-bottom),
+        var(--tg-safe-area-inset-bottom, 0px));
       /* EVOL-023 — слой overlay: «фон → поверхность → интерактивный элемент →
          overlay». Плавающие меню (scope-switcher, «Ещё», ID-поповер) живут
          ПОВЕРХ контента, поэтому им нужна собственная плотная подложка, а не
@@ -783,7 +828,16 @@
     .field:focus { border-color: var(--teal-500); }
     /* KV-редактор (3.5.2): дубль/пустое поле пары */
     .field.kv-bad { border-color: rgba(239, 68, 68, 0.75); }
-    textarea.field { font-family: ui-monospace, Consolas, monospace; }
+    /* EVOL-043 (W11): mono — только код/промпты/техданные. Раньше ЛЮБАЯ
+       textarea была моноширинной, включая «Описание стиля», «Заметку» и
+       «Саммари», где моноширинный шрифт читается хуже обычного. Поверхность
+       поля (`.field`) не меняется — только гарнитура. */
+    textarea.field { font-family: inherit; }
+    textarea.field.mono,
+    textarea.field[data-prompt-textarea],
+    textarea.field[data-cfg-key],
+    textarea.field[data-cover-style-instruction],
+    textarea.field.speech-editor { font-family: var(--ctl-font-mono); }
     /* ФИКС 2026-09-03: native <select> игнорирует полупрозрачный фон/.field →
        открывался БЕЛЫМ (UA-стиль); жёсткий тёмный фон (--surface-3) +
        светлый текст согласован с карточками. */
@@ -6533,4 +6587,441 @@ html.w9-sheet-bottom .modal-card {
   font-size: 11px; color: rgba(178, 192, 212, .9);
   padding: 4px 8px; border-radius: 8px;
   background: rgba(148, 163, 184, .10);
+}
+
+/* ═══ EVOL-043/044/045 (W11) — единая система контролов, клавиатурная
+   адаптация редактора и достоверный прогресс/движение ═════════════════════
+
+   Правила слоя:
+   * ни один селектор прежних волн здесь НЕ переопределяется по геометрии —
+     меняются только аддитивные состояния (фокус, disabled, состояния
+     прогресса) и НОВЫЕ компоненты `.ctl-*`. Старые контракты
+     (`_effective_decls(".sticky-save")`, `.btn-accent`, `.progress`, `.field`)
+     остаются байт-в-байт на своих местах;
+   * «одна роль → один компонент»: размеры/типографика/radius/hairline/акцент
+     читаются ТОЛЬКО из `--ctl-*`/`--motion-*` (второй палитры и магических px
+     в поведенческих правилах нет);
+   * материал — существующие токены стекла/overlay/focus-ring; рефракция,
+     polygon-фон и aurora-канвас не затрагиваются;
+   * клавиатура: позиционирование строится от РЕАЛЬНОЙ видимой области
+     (`--vv-h` из visualViewport/TMA), а не от `100vh`/`innerHeight`;
+   * движение: единые длительности, никаких собственных интервалов у виджетов,
+     `prefers-reduced-motion` отключает декоративное, оставляя смысл текстом. */
+
+/* ── W11-1. Кнопки: одна роль = один компонент ────────────────────────────
+   Presentation primary/secondary по-прежнему приходит от `.btn-accent` /
+   `.btn-ghost` (единственная реализация градиента §8) — `.ctl-btn` добавляет
+   КОНТРАКТ: размер из токена, типографику, radius, hairline, фокус, состояния
+   `pending/ok/error` и объяснимый disabled. Поэтому новая разметка пишется как
+   `class="btn-accent ctl-btn ctl-btn--primary"` (второго рецепта градиента не
+   появляется), а не копией inline-классов Tailwind. */
+.ctl-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--ctl-gap);
+  min-height: var(--ctl-h);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  border-radius: var(--ctl-radius);
+  border: var(--ctl-hairline) solid transparent;
+  font: inherit; font-size: var(--ctl-font); font-weight: 600;
+  line-height: var(--ctl-line);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease),
+              border-color var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease),
+              opacity var(--motion-fast) var(--motion-ease);
+}
+.ctl-btn--sm { min-height: var(--ctl-h-sm); padding: 4px var(--ctl-gap); font-size: var(--ctl-font-sm); }
+.ctl-btn--lg { min-height: var(--ctl-h-lg); }
+/* На тач-указателе видимая форма остаётся компактной, hit-area — 44 px. */
+@media (pointer: coarse) {
+  .ctl-btn { min-height: var(--ctl-h-touch); }
+}
+.ctl-btn--primary { color: var(--ctl-accent-ink); border-color: transparent; }
+.ctl-btn--secondary {
+  background: var(--ctl-surface);
+  border-color: var(--glass-border-color);
+  color: var(--text-2);
+}
+.ctl-btn--secondary:hover:not(:disabled) { background: var(--ctl-surface-hover); }
+.ctl-btn--ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.ctl-btn--ghost:hover:not(:disabled) { background: rgba(170, 182, 200, 0.10); color: var(--text-1); }
+.ctl-btn--danger {
+  background-image: linear-gradient(135deg, var(--err), #C24A52);
+  color: #1B0B0E; border-color: transparent;
+}
+/* Опасное действие обязано быть объяснено словами, а не только цветом. */
+.ctl-danger-note {
+  display: block; margin-top: var(--ctl-gap);
+  font-size: var(--ctl-font-sm); font-weight: 400; color: var(--err-text);
+}
+/* Мгновенное (не form) состояние действия: pending НЕ равно успеху. */
+.ctl-btn[data-state="pending"] { cursor: progress; }
+.ctl-btn[data-state="pending"] .ctl-btn__label { opacity: .72; }
+.ctl-btn[data-state="ok"] { box-shadow: inset 0 0 0 var(--ctl-hairline) var(--ok); }
+.ctl-btn[data-state="error"] { box-shadow: inset 0 0 0 var(--ctl-hairline) var(--err); }
+.ctl-btn__spinner {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .25);
+  border-top-color: var(--teal-500);
+  animation: ctl-spin 800ms linear infinite;
+}
+@keyframes ctl-spin { to { transform: rotate(360deg); } }
+/* §708: disabled/read-only объясняется, а не «просто серый». */
+.ctl-btn:disabled, .ctl-btn[aria-disabled="true"],
+.ctl-control:disabled, .ctl-control[aria-disabled="true"] {
+  opacity: var(--ctl-disabled-opacity);
+  cursor: not-allowed;
+}
+.ctl-disabled-reason {
+  display: block; margin-top: 2px;
+  font-size: var(--ctl-font-sm); font-weight: 400;
+  color: var(--text-3);
+}
+
+/* ── W11-2. Единый контракт доступности интерактивных контролов ───────────
+   Раньше фокус-контур был описан 28 разными правилами по компонентам, а у
+   кнопок/полей/тумблеров его не было вовсе. Один список — одно поведение:
+   видимый клавиатурный фокус на ЛЮБОМ контроле, включая legacy-классы. */
+.btn-accent:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible,
+.prov-test-btn:focus-visible,
+.ctl-btn:focus-visible,
+.ctl-toggle:focus-within,
+.ctl-check:focus-within,
+.ctl-seg__btn:focus-visible,
+.field:focus-visible,
+.ctl-input:focus-visible,
+.ctl-textarea:focus-visible,
+.ctl-mono:focus-visible,
+.ctl-range:focus-visible,
+.ctl-menu__item:focus-visible,
+.ctl-pop:focus-visible,
+.module-toggle:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+/* Мышиный клик контур не рисует (иначе «рамка после нажатия» на каждом тапе). */
+.btn-accent:focus:not(:focus-visible),
+.field:focus:not(:focus-visible) { outline: none; }
+
+/* ── W11-3. Toggle: серверный источник, scope, честный pending ────────────
+   Визуально это ТОТ ЖЕ компонент, что существующий `.module-toggle`
+   (трек 24 px в 44 px hit-area): он не переписан, но `.ctl-toggle` — его
+   контрактная форма для новой разметки и для тестов на семантику. */
+.ctl-toggle {
+  display: inline-flex; align-items: center; gap: var(--ctl-gap);
+  min-height: var(--ctl-h-touch); min-width: var(--ctl-h-touch);
+  cursor: pointer; position: relative;
+}
+.ctl-toggle__track {
+  position: relative; width: 44px; height: var(--toggle-h, 24px);
+  border-radius: var(--ctl-radius-pill);
+  background: rgba(170, 182, 200, .22);
+  transition: background-color var(--motion-fast) var(--motion-ease);
+  flex: 0 0 auto;
+}
+/* Тач-область 44 px по высоте без сдвига строки: расширяется зона нажатия
+   самого трека, а не геометрия подписи/строки. */
+.ctl-toggle__track::after {
+  content: ''; position: absolute; left: 0; right: 0;
+  top: -10px; bottom: -10px;
+}
+.ctl-toggle__thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%; background: #fff;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.ctl-toggle input:checked ~ .ctl-toggle__track { background: var(--purple-400); }
+.ctl-toggle input:checked ~ .ctl-toggle__track .ctl-toggle__thumb { transform: translateX(20px); }
+.ctl-toggle__scope { font-size: var(--ctl-font-sm); color: var(--text-3); }
+/* pending: ожидание сервера видно, но НЕ является успехом (нет заливки on). */
+.ctl-toggle[data-state="pending"] { cursor: progress; }
+.ctl-toggle[data-state="pending"] .ctl-toggle__track { opacity: .7; }
+/* ошибка возвращает прежнее значение и объясняет причину рядом с контролом. */
+.ctl-toggle[data-state="error"] .ctl-toggle__track { box-shadow: inset 0 0 0 var(--ctl-hairline) var(--err); }
+.ctl-toggle[data-state="readonly"] { cursor: default; }
+.ctl-toggle[data-state="readonly"] .ctl-toggle__track { opacity: .6; }
+
+/* Checkbox / multi-select: большая кликабельная область + связанная подпись. */
+.ctl-check {
+  display: inline-flex; align-items: flex-start; gap: var(--ctl-gap);
+  min-height: var(--ctl-h-touch); padding: 2px 0;
+  cursor: pointer; color: var(--text-1); font-size: var(--ctl-font);
+}
+.ctl-check input[type="checkbox"],
+.ctl-check input[type="radio"] {
+  width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto;
+  accent-color: var(--purple-400);
+}
+.ctl-check__hint { display: block; font-size: var(--ctl-font-sm); color: var(--text-3); }
+
+/* Radio / segmented: ровно один активный; клавиатура и touch одинаковы. */
+.ctl-seg {
+  display: inline-flex; gap: 2px; padding: 2px;
+  border-radius: var(--ctl-radius); border: var(--ctl-hairline) solid var(--glass-border-color);
+  background: rgba(21, 27, 42, 0.55);
+}
+.ctl-seg__btn {
+  min-height: var(--ctl-h-sm); padding: 4px var(--ctl-pad-x);
+  border: 0; border-radius: var(--ctl-radius-sm); background: transparent;
+  color: var(--text-2); font: inherit; font-size: var(--ctl-font-sm); cursor: pointer;
+}
+.ctl-seg__btn[aria-checked="true"] {
+  background: rgba(167, 139, 250, .22);
+  box-shadow: inset 0 0 0 var(--ctl-hairline) rgba(167, 139, 250, .55);
+  color: var(--text-1);
+}
+@media (pointer: coarse) { .ctl-seg__btn { min-height: var(--ctl-h-touch); } }
+
+/* ── W11-4. Dropdown/combobox: overlay ВЫШЕ стекла, flip и sheet ──────────
+   Позиция приходит из app.js (`ctlPlacePopover`): `data-placement="top"` —
+   панель раскрыта вверх, `data-placement="sheet"` — низкий видимый экран,
+   панель становится листом над клавиатурой. Слой выше любого glass-узла,
+   но ниже модальных диалогов. */
+.ctl-pop {
+  position: fixed;
+  z-index: calc(var(--overlay-z) + 10);
+  background-color: var(--overlay-bg);
+  border: var(--overlay-border);
+  border-radius: var(--overlay-radius);
+  box-shadow: var(--overlay-shadow);
+  overscroll-behavior: contain;
+  overflow-y: auto;
+}
+.ctl-pop[data-placement="top"] { transform-origin: bottom center; }
+.ctl-pop[data-placement="bottom"] { transform-origin: top center; }
+.ctl-pop[data-placement="sheet"] {
+  left: var(--space-2); right: var(--space-2);
+  bottom: calc(var(--kb-inset) + var(--ctl-safe-bottom) + var(--space-2));
+  width: auto; border-bottom-left-radius: var(--overlay-radius);
+  border-bottom-right-radius: var(--overlay-radius);
+}
+.ctl-pop__search { position: sticky; top: 0; z-index: 1; background: var(--overlay-bg); }
+/* Та же выпадающая панель, но с состоянием из app.js: flip вверх и лист.
+   Базовая геометрия `.scope-panel` (top: calc(100%+4px)) не переписана —
+   добавлено только состояние. */
+.scope-panel[data-placement="top"] { top: auto; bottom: calc(100% + 4px); }
+.scope-panel[data-placement="sheet"] {
+  position: fixed; top: auto;
+  left: var(--space-2); right: var(--space-2);
+  bottom: calc(var(--kb-inset) + var(--ctl-safe-bottom) + var(--space-2));
+  min-width: 0; max-width: none;
+  border-radius: var(--overlay-radius);
+}
+
+/* ── W11-5. Поля и редактор длинного текста ──────────────────────────────
+   `.ctl-input`/`.ctl-textarea` — контрактные МОДИФИКАТОРЫ существующего
+   `.field` (одна реализация поверхности), а не второй класс поля. */
+.ctl-input, .ctl-textarea { min-height: var(--ctl-h); font-size: var(--ctl-font); }
+.ctl-textarea {
+  resize: vertical; min-height: calc(var(--ctl-h) * 2);
+  line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+/* Перенос строк в коде/промпте — опция, а не сюрприз: no-wrap даёт
+   горизонтальный скролл ВНУТРИ поля, страница не растягивается. */
+.ctl-textarea[data-nowrap="1"] { white-space: pre; overflow-x: auto; overflow-wrap: normal; }
+.ctl-mono { font-family: var(--ctl-font-mono); }
+.ctl-field { display: grid; gap: 4px; min-width: 0; }
+.ctl-label {
+  font-size: var(--ctl-font-sm); font-weight: 600;
+  color: var(--text-2); line-height: var(--ctl-line);
+}
+.ctl-hint { font-size: var(--ctl-font-sm); color: var(--text-3); }
+.ctl-error { font-size: var(--ctl-font-sm); color: var(--err-text); }
+.ctl-unit { font-size: var(--ctl-font-sm); color: var(--text-3); white-space: nowrap; }
+
+/* Длинный Core/Prompt на узком экране: внутренний безопасный скролл и место
+   под реальной клавиатурой. App-fullscreen руками не вызывается. */
+.ctl-editor-area {
+  /* `--vv-h` — уже видимая область (клавиатура исключена), поэтому второй раз
+     `--kb-inset` не вычитается: иначе поле схлопывалось до 40 px. */
+  max-height: min(60dvh, calc(var(--vv-h, var(--app-usable-height, 100vh))
+    - 120px));
+  overflow-y: auto; overscroll-behavior: contain;
+  scroll-padding-bottom: calc(var(--kb-inset) + var(--ctl-safe-bottom) + 8px);
+  min-height: 96px;
+}
+/* Действия сохранения — существующий `<sticky-save>` (он уже поднимается над
+   реальной клавиатурой через `--kb-offset`); нового компонента действия не
+   заводим. Здесь только правило «не липнуть, когда над клавиатурой места
+   нет»: панель достаётся предсказуемой прокруткой, а не «вечно спрятана». */
+html.kb-tight .sticky-save,
+html.kb-tight .modal-actions > .sticky-save { position: static; }
+
+/* ── W11-6. Меню/диалоги: клавиатура, Esc, клик-вне, scroll-lock ──────────
+   Скролл-лок включается ТОЛЬКО у модального листа/диалога с собственным
+   скроллом (класс ставит app.js), а не у каждого выпадающего меню. */
+html.ctl-scroll-lock body { overflow: hidden; }
+.ctl-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  max-height: min(calc(var(--vv-h, var(--app-usable-height, 100vh))
+    - var(--kb-inset) - var(--space-2)), 92dvh);
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: var(--ctl-safe-bottom);
+  border-top-left-radius: var(--overlay-radius);
+  border-top-right-radius: var(--overlay-radius);
+  background-color: var(--overlay-bg);
+  box-shadow: var(--overlay-shadow);
+  z-index: calc(var(--overlay-z) + 20);
+}
+.ctl-menu__item {
+  display: flex; align-items: center; gap: var(--ctl-gap);
+  width: 100%; min-height: var(--ctl-h-touch);
+  padding: var(--ctl-pad-y) var(--ctl-pad-x);
+  border: 0; border-radius: var(--ctl-radius-sm);
+  background: transparent; color: var(--text-1);
+  font: inherit; font-size: var(--ctl-font); text-align: left; cursor: pointer;
+}
+.ctl-menu__item:hover { background: rgba(170, 182, 200, 0.12); }
+.ctl-menu__item[aria-disabled="true"] { opacity: var(--ctl-disabled-opacity); cursor: not-allowed; }
+
+/* ── W11-7. Клавиатура: видимая область вместо innerHeight ───────────────
+   `html.kb-open` ставит app.js по visualViewport/TMA-сигналу (никаких
+   хардкодов высоты клавиатуры/устройства). Пока поле в фокусе, полю даётся
+   нижний отступ в реальную видимую область, чтобы caret/подпись/ошибка не
+   оказались под клавиатурой. Переставлять сам control при вводе запрещено —
+   двигается только прокрутка контейнера (app.js `_ctlRevealFocusedField`). */
+html.kb-open .ctl-editor-area,
+html.kb-open .ctl-scroll-keyboard {
+  scroll-padding-bottom: calc(var(--kb-inset) + var(--ctl-safe-bottom) + 8px);
+}
+html.kb-open .ctl-keyboard-spacer {
+  display: block; height: var(--kb-inset); flex: 0 0 auto;
+}
+.ctl-keyboard-spacer { display: none; }
+
+/* ── W11-8. Достоверный прогресс (EVOL-045) ──────────────────────────────
+   Determinate — только от подтверждённой пары done/total. `data-state`
+   приходит из app.js `ctlProgress()`: unknown (нет данных) / stale
+   (устарело) / error / done / running / deferred. Ширина не «проигрывается
+   с нуля»: transition живёт на элементе, а не на перерисовке списка. */
+.ctl-progress { display: grid; gap: 4px; min-width: 0; }
+.ctl-progress__head {
+  display: flex; justify-content: space-between; gap: var(--ctl-gap);
+  font-size: var(--ctl-font-sm); color: var(--text-3); min-width: 0;
+}
+.ctl-progress__value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ctl-progress__track {
+  position: relative; height: var(--ctl-progress-h);
+  border-radius: var(--ctl-progress-radius);
+  background: var(--ctl-progress-track);
+  overflow: hidden;
+}
+.ctl-progress__fill {
+  height: 100%; width: 0;
+  background-image: var(--ctl-progress-fill);
+  transition: width var(--motion-slow) var(--motion-ease);
+}
+/* Нет данных/устарело: дорожка помечена ШТРИХОВКОЙ, заливки нет — цифры
+   не выдумываются, «успешных 100%» не рисуется. */
+.ctl-progress[data-state="unknown"] .ctl-progress__track,
+.ctl-progress[data-state="stale"] .ctl-progress__track {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(255, 255, 255, .14) 0 4px, transparent 4px 8px);
+  background-color: rgba(255, 255, 255, .04);
+}
+.ctl-progress[data-state="unknown"] .ctl-progress__fill,
+.ctl-progress[data-state="stale"] .ctl-progress__fill { width: 0 !important; }
+/* Аномалия done>total / отрицательное значение — не прячется, а называется. */
+.ctl-progress__anomaly {
+  font-size: var(--ctl-font-sm); color: var(--warn); white-space: normal;
+}
+.ctl-progress[data-state="error"] .ctl-progress__fill { background-image: linear-gradient(90deg, var(--err), var(--err)); }
+/* Те же состояния для существующего `.progress`-трека (одна палитра, не
+   второй рецепт): состояние приходит из `ctlProgress()`, ширина — из ratio. */
+.ctl-progress__track[data-state="unknown"],
+.ctl-progress__track[data-state="stale"] {
+  background-image: repeating-linear-gradient(135deg,
+    rgba(255, 255, 255, .14) 0 4px, transparent 4px 8px);
+  background-color: rgba(255, 255, 255, .04);
+}
+.ctl-progress__track[data-state="unknown"] > .ctl-progress__fill,
+.ctl-progress__track[data-state="stale"] > .ctl-progress__fill { width: 0 !important; }
+.ctl-progress__track[data-state="error"] > .ctl-progress__fill {
+  background-image: linear-gradient(90deg, var(--err), var(--err));
+}
+.ctl-progress__track[data-state="done"] > .ctl-progress__fill {
+  background-image: linear-gradient(90deg, var(--teal-600), var(--teal-500));
+}
+.ctl-progress[data-state="done"] .ctl-progress__fill { background-image: linear-gradient(90deg, var(--teal-600), var(--teal-500)); }
+.ctl-progress[data-state="deferred"] .ctl-progress__fill { opacity: .55; }
+/* Indeterminate — ТОЛЬКО пока задача реально выполняется; спокойное
+   медленное движение, текстовый статус остаётся видимым. */
+.ctl-progress[data-state="running"] .ctl-progress__track::after,
+.ctl-progress[data-state="checking"] .ctl-progress__track::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, .28), transparent);
+  transform: translateX(-100%);
+  animation: ctl-indeterminate 2.4s var(--motion-ease) infinite;
+}
+@keyframes ctl-indeterminate {
+  to { transform: translateX(100%); }
+}
+
+/* Пульс — маленькая световая точка рядом с ПОДТВЕРЖДЁННЫМ heartbeat/поллингом.
+   Ни одна карточка/граница/фон не пульсирует. */
+.ctl-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok); flex: 0 0 auto;
+}
+.ctl-dot[data-state="idle"] { background: var(--text-3); }
+.ctl-dot[data-state="warn"] { background: var(--warn); }
+.ctl-dot[data-state="error"] { background: var(--err); }
+.ctl-dot[data-live="1"] { animation: ctl-pulse var(--motion-pulse) var(--motion-ease) infinite; }
+@keyframes ctl-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* Короткая мягкая подсветка ФАКТИЧЕСКИ обновившегося показателя/строки:
+   одноразово (animation-iteration-count: 1), на исчезающей тени — layout
+   не сдвигается. */
+.ctl-flash--once { animation: ctl-flash var(--motion-slow) var(--motion-ease) 1; }
+@keyframes ctl-flash {
+  from { box-shadow: inset 0 0 0 var(--ctl-hairline) rgba(119, 168, 255, .55); }
+  to { box-shadow: inset 0 0 0 var(--ctl-hairline) transparent; }
+}
+
+/* ── W11-9. Стыки карточек: один волосяной контур, а не два ───────────────
+   Причина двойного контура — собственная кромка у КАЖДОЙ поверхности стека.
+   Лечится на источнике: у всех, кроме первой, верхняя кромка прозрачна
+   (маскирующих ::after/::before поверх стыка нет). */
+.ctl-stack > * + * { border-top-color: transparent; }
+.ctl-stack > * + * { box-shadow: none; }
+.ctl-stack > *:not(:last-child) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.ctl-stack > *:not(:first-child) { border-top-left-radius: 0; border-top-right-radius: 0; }
+
+/* ── W11-11. Визуальный обход соседнего слоя: панель области ─────────────
+   Найдено живым осмотром 390 px: подпись «Глобальные настройки» налезала на
+   бейдж GLOBAL — текстовый столбец не ужимался. Причина устранена на
+   источнике (столбец и его строки truncate), бейдж не сдвигается, второй
+   бейдж/аватар не затрагиваются. */
+.scope-option > span:not(.scope-initial):not(.badge) {
+  min-width: 0; flex: 1 1 auto; overflow: hidden;
+}
+.scope-option > span:not(.scope-initial):not(.badge) > span {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── W11-10. Reduced motion: смысл остаётся, декоративное движение — нет ──
+   Отключаются циклический пульс, бегущая indeterminate-полоса, одноразовая
+   подсветка и спиннер кнопки. Текстовые состояния (`data-state`, подписи)
+   по-прежнему читаются. */
+@media (prefers-reduced-motion: reduce) {
+  .ctl-dot[data-live="1"] { animation: none; opacity: .9; }
+  .ctl-progress[data-state="running"] .ctl-progress__track::after,
+  .ctl-progress[data-state="checking"] .ctl-progress__track::after {
+    display: none;
+  }
+  .ctl-progress[data-state="running"] .ctl-progress__track,
+  .ctl-progress[data-state="checking"] .ctl-progress__track {
+    background-image: repeating-linear-gradient(135deg,
+      rgba(66, 214, 196, .45) 0 4px, transparent 4px 8px);
+  }
+  .ctl-flash--once { animation: none; }
+  .ctl-btn__spinner { animation: none; }
+  .ctl-progress__fill,
+  .ctl-toggle__thumb,
+  .ctl-toggle__track,
+  .ctl-btn { transition: none; }
 }

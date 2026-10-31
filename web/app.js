@@ -1919,6 +1919,267 @@
       }
     } catch (e) { /* no-op */ }
   }
+
+  // ═══ EVOL-044 (W11): платформенные сигналы видимой области ═══════════════
+  // Единственный источник «сколько экрана РЕАЛЬНО видно». Никаких хардкодов
+  // высоты клавиатуры, статус-бара или конкретных устройств: visualViewport —
+  // где он пригоден, TMA viewport API — где Mini App сообщает свою высоту,
+  // иначе layout viewport. Android (resize) и iOS (overlay) различаются
+  // естественным образом через `keyboard = innerHeight − (vv.height+offsetTop)`.
+  function _ctlViewportMetrics() {
+    var layoutH = 0;
+    var visibleH = 0;
+    var offsetTop = 0;
+    var source = 'none';
+    try {
+      if (typeof window !== 'undefined' && window.innerHeight) {
+        layoutH = window.innerHeight;
+      }
+      var vv = (typeof window !== 'undefined') ? window.visualViewport : null;
+      if (vv && typeof vv.height === 'number' && vv.height > 0) {
+        visibleH = vv.height;
+        offsetTop = vv.offsetTop || 0;
+        source = 'visualViewport';
+      } else {
+        var tg = (typeof window !== 'undefined' && window.Telegram
+          && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+        if (tg && typeof tg.viewportHeight === 'number' && tg.viewportHeight > 0) {
+          visibleH = tg.viewportHeight;
+          source = 'tma';
+        } else if (layoutH) {
+          visibleH = layoutH;
+          source = 'layout';
+        }
+      }
+    } catch (e) { /* no window (юнит-стабы) — нули ниже */ }
+    var keyboard = Math.max(0, Math.round(layoutH - (visibleH + offsetTop)));
+    return {
+      layoutH: Math.round(layoutH),
+      visibleH: Math.round(visibleH),
+      offsetTop: Math.round(offsetTop),
+      keyboard: keyboard,
+      source: source,
+    };
+  }
+
+  // Позиция всплывающей панели над РЕАЛЬНОЙ видимой областью: flip, когда
+  // снизу не помещается, и лист (sheet), когда не помещается ни сверху, ни
+  // снизу. Чистая функция — без DOM, поэтому проверяется юнит-тестом.
+  function _ctlPlacePopover(anchor, panel, view) {
+    var out = {
+      placement: 'bottom',
+      offsetTop: null,
+      maxHeight: null,
+      sheet: false,
+      gap: 6,
+      pad: 8,
+    };
+    anchor = anchor || {};
+    panel = panel || {};
+    view = view || {};
+    var vh = Number(view.visibleH) || 0;
+    var vw = Number(view.width) || 0;
+    var aTop = Number(anchor.top);
+    var aBottom = Number(anchor.bottom);
+    var pH = Number(panel.height) || 0;
+    var pW = Number(panel.width) || 0;
+    if (!vh || !isFinite(aTop) || !isFinite(aBottom)) return out;
+    var below = Math.max(0, Math.floor(vh - aBottom - out.gap - out.pad));
+    var above = Math.max(0, Math.floor(aTop - out.gap - out.pad));
+    if (pH && below < pH) {
+      out.placement = (above > below) ? 'top' : 'bottom';
+    }
+    var room = (out.placement === 'top') ? above : below;
+    out.maxHeight = room > 0 ? room : null;
+    if (pH && room < pH && (above < pH)) {
+      // Ни сверху, ни снизу места нет (низкий ландшафт/клавиатура) — лист:
+      // панель прижимается к низу видимой области и скроллится внутри.
+      out.sheet = true;
+      out.placement = 'sheet';
+      out.maxHeight = Math.max(0, Math.floor(vh - 2 * out.pad));
+    }
+    // Горизонталь: та же логика flip по правому/левому краю.
+    if (vw && pW) {
+      var left = Number(anchor.left);
+      var right = Number(anchor.right);
+      if (isFinite(left) && isFinite(right)) {
+        out.alignX = (left + pW > vw - out.pad && left > pW) ? 'right' : 'left';
+      }
+    }
+    out.alignX = out.alignX || 'left';
+    return out;
+  }
+
+  // Достоверность прогресса: сколько единиц ДЕЙСТВИТЕЛЬНО сделано из
+  // подтверждённого total. Никаких «успешных 100 %» без данных.
+  function _ctlProgressModel(done, total, opts) {
+    opts = opts || {};
+    var out = {
+      state: 'unknown',
+      ratio: 0,
+      percent: null,
+      done: null,
+      total: null,
+      unit: opts.unit || '',
+      label: opts.label || '',
+      anomaly: null,
+      indeterminate: false,
+      ariaNow: null,
+      ariaText: '',
+    };
+    var d = (done === null || done === undefined || done === '') ? null : Number(done);
+    var t = (total === null || total === undefined || total === '') ? null : Number(total);
+    if (d !== null && isFinite(d)) out.done = d;
+    if (t !== null && isFinite(t)) out.total = t;
+    if (opts.error) {
+      out.state = 'error';
+      out.ariaText = opts.ariaText || 'ошибка получения данных';
+      return out;
+    }
+    if (opts.indeterminate) {
+      out.state = opts.state || 'running';
+      out.indeterminate = true;
+      out.ariaText = opts.ariaText || 'выполняется';
+      return out;
+    }
+    if (out.done === null || out.total === null) {
+      out.state = opts.stale ? 'stale' : 'unknown';
+      out.ariaText = out.state === 'stale' ? 'данные устарели' : 'нет данных';
+      return out;
+    }
+    // Аномалии НЕ прячутся анимацией: отрицательное значение и done>total
+    // диагностируются явными подписями.
+    if (out.total < 0 || out.done < 0) {
+      out.anomaly = 'negative';
+      out.state = 'error';
+      out.ariaText = 'отрицательное значение';
+      return out;
+    }
+    if (out.done > out.total) {
+      out.anomaly = 'done>total';
+      out.ratio = 1;
+    } else if (out.total === 0) {
+      out.ratio = 0;
+      if (!out.done) {
+        out.state = 'done';
+        out.percent = 100;
+        out.ariaNow = 100;
+        out.ariaText = out.label ? (out.label + ': 0 из 0, ' + (opts.doneLabel || 'завершено')) : 'завершено';
+        return out;
+      }
+    } else {
+      out.ratio = Math.max(0, Math.min(1, out.done / out.total));
+    }
+    if (out.anomaly === null || out.anomaly === 'done>total') {
+      out.percent = Math.round(out.ratio * 100);
+      out.ariaNow = out.anomaly === 'done>total' ? 100 : out.percent;
+    }
+    out.state = (out.ratio >= 1) ? 'done' : (out.ratio > 0 ? (opts.state || 'working') : (opts.state || 'waiting'));
+    if (opts.stale) out.state = 'stale';
+    var doneTxt = out.done + (out.unit ? ' ' + out.unit : '');
+    var totalTxt = out.total + (out.unit ? ' ' + out.unit : '');
+    var parts = [];
+    if (out.label) parts.push(out.label);
+    parts.push(doneTxt + ' из ' + totalTxt);
+    if (opts.period) parts.push(opts.period);
+    if (out.anomaly === 'done>total') {
+      parts.push('(больше лимита: ' + out.done + ' > ' + out.total + ')');
+    }
+    out.ariaText = parts.join(', ');
+    return out;
+  }
+
+  // Ближайший реально скроллящийся предок поля (не «угадываем» по классу:
+  // контейнеры отличаются между shell-режимами).
+  function _ctlScrollParent(el) {
+    var node = el && el.parentElement;
+    while (node && node.nodeType === 1) {
+      var cs = null;
+      try {
+        cs = (typeof window !== 'undefined' && window.getComputedStyle)
+          ? window.getComputedStyle(node) : null;
+      } catch (e) { cs = null; }
+      var oy = cs ? String(cs.overflowY || '') : '';
+      if ((oy === 'auto' || oy === 'scroll')
+          && node.scrollHeight > node.clientHeight + 1) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  // Поле/каретка/подпись остаются выше клавиатуры: двигается ТОЛЬКО прокрутка
+  // контейнера на величину реального перекрытия. Сам control не переставляется
+  // (нет reflow во время ввода), selection/черновик не трогаются.
+  function _ctlRevealFocusedField(el, visibleH) {
+    if (!el || typeof el.getBoundingClientRect !== 'function') return false;
+    if (!visibleH || visibleH <= 0) return false;
+    var rect;
+    try { rect = el.getBoundingClientRect(); } catch (e) { return false; }
+    if (!rect || !isFinite(rect.top) || !isFinite(rect.bottom)) return false;
+    var pad = 12;
+    var overflowBottom = rect.bottom - (visibleH - pad);
+    var overflowTop = pad - rect.top;
+    if (overflowBottom <= 0 && overflowTop <= 0) return false;  // уже видно
+    var delta = overflowBottom > 0 ? overflowBottom : -overflowTop;
+    var scroller = _ctlScrollParent(el);
+    if (!scroller) {
+      try {
+        if (typeof window !== 'undefined' && typeof window.scrollBy === 'function') {
+          window.scrollBy(0, delta);
+          return true;
+        }
+      } catch (e2) { /* no-op */ }
+      return false;
+    }
+    var before = scroller.scrollTop;
+    scroller.scrollTop = before + delta;
+    return Math.abs(scroller.scrollTop - before) > 0;
+  }
+
+  // Применение уже полученных метрик видимой области к DOM/CSS и полю в
+  // фокусе. Модульная функция (а не метод): путь не зависит от `this`, поэтому
+  // одинаково работает из обработчика visualViewport, из шаблона и на стенде.
+  function _ctlApplyKeyboardMetrics(metrics) {
+    metrics = metrics || {};
+    var root = (typeof document !== 'undefined') ? document.documentElement : null;
+    var offset = metrics.keyboard || 0;
+    if (root && root.style) {
+      root.style.setProperty('--kb-offset', offset + 'px');
+      // `--vv-h` переопределяем ТОЛЬКО при открытой клавиатуре: иначе
+      // работает `--app-usable-height` (в TMA его считает telegram-init,
+      // подменять его на innerHeight нельзя).
+      if (offset > 0 && metrics.visibleH > 0) {
+        root.style.setProperty('--vv-h', metrics.visibleH + 'px');
+      } else if (typeof root.style.removeProperty === 'function') {
+        root.style.removeProperty('--vv-h');
+      }
+    }
+    if (root && root.classList) {
+      if (offset > 0) root.classList.add('kb-open'); else root.classList.remove('kb-open');
+      // Панель действий помещается над клавиатурой вместе с полем?
+      // Решается по ФАКТИЧЕСКОЙ видимой высоте, а не по ширине экрана.
+      if (offset > 0 && metrics.visibleH > 0 && metrics.visibleH < 260) {
+        root.classList.add('kb-tight');
+      } else {
+        root.classList.remove('kb-tight');
+      }
+    }
+    if (!offset || typeof document === 'undefined') return;
+    var el = document.activeElement;
+    if (!el || typeof el.closest !== 'function') return;
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea' && tag !== 'select'
+        && el.getAttribute('contenteditable') !== 'true') return;
+    if (!el.closest('.modal-body, .scroll-area, .ctl-editor-area, .prompt-editor')) return;
+    // Сначала — точная подкрутка ровно на величину перекрытия (caret и
+    // подпись остаются в видимой части), затем прежний `nearest` как
+    // безопасный фолбэк для нестандартных контейнеров.
+    var revealed = _ctlRevealFocusedField(el, metrics.visibleH);
+    if (!revealed && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* no-op */ }
+    }
+  }
+
   // round 10.26 (ADR-1026-3 D1/D4): исходный Dark Aurora Flow сохранён модулем
   // `polygon-background.js` как `__AuroraFlowLegacy` (публичный `__AuroraFlow`
   // подменён совместимым фасадом Polygon). `_syncBgLayer` выбирает ровно один
@@ -2048,6 +2309,10 @@
         // подключения («Настроить»). Значение — только UI-состояние раскрытия;
         // сохранение идёт существующим F0 write-path (`saveBlock`).
         connectionSettingsOpen: {},
+        // EVOL-044 (W11): перенос строк в редакторе длинного промпта.
+        // По умолчанию перенос включён (как раньше); опция — только для
+        // кода/промптов с длинными строками, чтобы не ломать чтение.
+        workspacePromptNoWrap: false,
         // F-11/F24 (ADR-1024-24 D2): РЕАКТИВНЫЙ стейт аккордеонов — единственный
         // источник рендера `:open` (computed advancedOpen/provAdvancedOpen/
         // chatLoreAdvancedOpen). localStorage `adminbot.expand:<tab>[:<scope>]` —
@@ -6062,6 +6327,66 @@
           process: (s && s.process) || null,
         };
       },
+      // ═══ EVOL-045 (W11): достоверные модели прогресса для системных полос.
+      // Значение считается ОДИН раз на рендер, из подтверждённых данных: нет
+      // данных → state 'unknown' (штриховка, без заливки), а не «0 % успеха».
+      ctlCpuProg: function () {
+        var cpu = this.statusSys ? this.statusSys.cpu : null;
+        return _ctlProgressModel(cpu, (cpu == null) ? null : 100,
+          { unit: '%', label: 'CPU', state: 'idle' });
+      },
+      ctlMemProg: function () {
+        var m = (this.statusSys && this.statusSys.mem) || null;
+        var pct = m ? m.percent : null;
+        return _ctlProgressModel(pct, (pct == null) ? null : 100,
+          { unit: '%', label: 'RAM', state: 'idle' });
+      },
+      ctlDiskProg: function () {
+        var d = (this.statusSys && this.statusSys.disk) || null;
+        var pct = d ? d.percent : null;
+        return _ctlProgressModel(pct, (pct == null) ? null : 100,
+          { unit: '%', label: 'Диск', state: 'idle' });
+      },
+      // Бюджеты: done/total — реальные числа, единицы и период подписаны.
+      // «Безлимит» остаётся без бара (v-if в разметке), а не рисуется как 0 %.
+      ctlContextProg: function () {
+        var mc = this.memoryContext || {};
+        if (mc.unlimited) {
+          return _ctlProgressModel(null, null, { unit: 'токенов', label: 'Бюджет контекста' });
+        }
+        return _ctlProgressModel(mc.used, mc.limit, {
+          unit: 'токенов', label: 'Бюджет контекста', state: 'idle',
+          period: 'на текущий запрос',
+        });
+      },
+      ctlCallsProg: function () {
+        var c = (this.budgetInfo && this.budgetInfo.global
+          && this.budgetInfo.global.calls) || null;
+        if (c && c.unlimited) {
+          return _ctlProgressModel(null, null, { unit: 'вызовов', label: 'Дневной фон' });
+        }
+        return _ctlProgressModel(c ? c.used : null, c ? c.limit : null, {
+          unit: 'вызовов', label: 'Дневной фон', state: 'idle', period: 'за сутки',
+        });
+      },
+      ctlTokensProg: function () {
+        var t = (this.budgetInfo && this.budgetInfo.global
+          && this.budgetInfo.global.tokens) || null;
+        if (t && t.unlimited) {
+          return _ctlProgressModel(null, null, { unit: 'токенов', label: 'Бюджет токенов' });
+        }
+        return _ctlProgressModel(t ? t.used : null, t ? t.limit : null, {
+          unit: 'токенов', label: 'Бюджет токенов', state: 'idle', period: 'за сутки',
+        });
+      },
+      ctlDreamProg: function () {
+        var b = (this.cognition && this.cognition.dream
+          && this.cognition.dream.budget) || null;
+        return _ctlProgressModel(b ? b.tokens_today : null,
+          b ? b.tokens_limit : null, {
+            unit: 'токенов', label: 'Сон', state: 'idle', period: 'за сутки',
+          });
+      },
       // F11 (§13/D2): последняя активность бота из uptime.last_heartbeat;
       // нет данных/мусорная заглушка → честное «нет данных» (U03.2: не
       // рендерим фальшивый timestamp вида 22.01.1970).
@@ -7515,26 +7840,45 @@
       // РОВНО ОДИН РАЗ в `.sticky-save` — здесь только клавиатура). Активное
       // поле в скролл-области приводим в видимость `block:'nearest'`.
       _syncKeyboardOffset: function () {
-        var vv = window.visualViewport;
-        var root = (typeof document !== 'undefined') ? document.documentElement : null;
-        var offset = 0;
-        if (vv && typeof vv.height === 'number') {
-          var innerH = window.innerHeight || 0;
-          offset = Math.max(0, Math.round(innerH - (vv.height + (vv.offsetTop || 0))));
-        }
-        if (root && root.style) {
-          root.style.setProperty('--kb-offset', offset + 'px');
-        }
-        if (!offset || typeof document === 'undefined') return;
-        var el = document.activeElement;
-        if (!el || typeof el.closest !== 'function') return;
-        var tag = (el.tagName || '').toLowerCase();
-        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return;
-        if (!el.closest('.modal-body, .scroll-area')) return;
-        if (typeof el.scrollIntoView === 'function') {
-          try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* no-op */ }
-        }
+        // EVOL-044 (W11): сигналы берутся из ОДНОГО источника — модульного
+        // `_ctlViewportMetrics` (visualViewport → TMA → layout viewport).
+        // Хардкодов высоты клавиатуры/устройства нет; Android (resize) и iOS
+        // (overlay+offsetTop) различаются естественным образом.
+        var metrics = _ctlViewportMetrics();
+        _ctlApplyKeyboardMetrics(metrics);
       },
+
+      // Применение уже полученных метрик к DOM/CSS и полю в фокусе. Отдельный
+      // шаг нужен, чтобы тот же путь можно было прогнать в браузере с
+      // заданной видимой областью (живой стенд эмулирует клавиатуру), не
+      // подменяя продуктовый код чтения visualViewport.
+      _ctlApplyKeyboardMetrics: function (metrics) {
+        _ctlApplyKeyboardMetrics(metrics || {});
+      },
+
+      // EVOL-044 (W11): публичная точка зрения на видимую область (шаблон и
+      // тесты). Значение — из того же единственного источника, что и
+      // `_syncKeyboardOffset`.
+      _ctlViewport: function () {
+        return _ctlViewportMetrics();
+      },
+
+      // EVOL-045 (W11): достоверная модель прогресса для шаблонов.
+      ctlProgress: function (done, total, opts) {
+        return _ctlProgressModel(done, total, opts);
+      },
+
+      // EVOL-043/044 (W11): размещение выпадающей панели над видимой областью
+      // (flip вверх/вниз, лист при низком экране). Чистая функция.
+      ctlPlacePopover: function (anchorRect, panelRect, opts) {
+        opts = opts || {};
+        var view = {
+          visibleH: opts.visibleH || _ctlViewportMetrics().visibleH,
+          width: opts.width || ((typeof window !== 'undefined') ? window.innerWidth : 0),
+        };
+        return _ctlPlacePopover(anchorRect, panelRect, view);
+      },
+
 
       // CFG-04A.1 (source L153): смена ориентации/viewport во время
       // редактирования НЕ теряет ввод, scope, dirty, прокрутку и маршрут.
@@ -18041,6 +18385,35 @@
             };
           } else {
             self.scopePanelStyle = {};
+          }
+          // ── EVOL-043/044 (W11): вертикаль над РЕАЛЬНОЙ видимой областью ───
+          // Раньше коррекция была только горизонтальной: на низком экране или
+          // при открытой клавиатуре панель уходила под низ и её последние
+          // пункты становились недостижимы. Теперь решение принимает та же
+          // чистая функция, что и для остальных выпадающих панелей.
+          var metrics = _ctlViewportMetrics();
+          var anchor = (wrap && typeof wrap.getBoundingClientRect === 'function')
+            ? wrap.getBoundingClientRect() : null;
+          if (anchor && metrics.visibleH > 0
+              && isFinite(anchor.top) && isFinite(anchor.bottom)
+              && isFinite(pr.height) && pr.height > 0) {
+            var box = _ctlPlacePopover(anchor, pr, {
+              visibleH: metrics.visibleH,
+              width: vw,
+            });
+            var next = {};
+            if (!box.sheet) {
+              for (var k in self.scopePanelStyle) {
+                if (Object.prototype.hasOwnProperty.call(self.scopePanelStyle, k)) {
+                  next[k] = self.scopePanelStyle[k];
+                }
+              }
+            }
+            if (box.maxHeight) next.maxHeight = box.maxHeight + 'px';
+            self.scopePanelStyle = next;
+            if (panel.setAttribute) {
+              panel.setAttribute('data-placement', box.placement);
+            }
           }
         });
       },

@@ -1,0 +1,167 @@
+{
+ "viewports": {
+  "1280x800": {
+   "progress": {
+    "count": 3,
+    "tracks": [
+     {
+      "state": "idle",
+      "role": "progressbar",
+      "now": "42",
+      "label": "CPU, 42 % из 100 %",
+      "widthPct": 42,
+      "hatch": false,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     },
+     {
+      "state": "unknown",
+      "role": "progressbar",
+      "now": null,
+      "label": "нет данных",
+      "widthPct": 0,
+      "hatch": true,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     },
+     {
+      "state": "done",
+      "role": "progressbar",
+      "now": "100",
+      "label": "Диск, 100 % из 100 %",
+      "widthPct": 100,
+      "hatch": false,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     }
+    ],
+    "anomalies": []
+   },
+   "scope": {
+    "open": true,
+    "placement": "bottom",
+    "top": 55,
+    "bottom": 205,
+    "visibleH": 800,
+    "inside": true,
+    "options": 2,
+    "lastOptionVisible": true,
+    "scrolls": false
+   },
+   "editor": {
+    "found": true,
+    "nowrap": "0",
+    "whiteSpace": "pre-wrap",
+    "overflowX": "auto",
+    "maxHeight": "480px",
+    "bottom": 572,
+    "visibleH": 800,
+    "insideEditor": true,
+    "scrollable": false,
+    "hScrollPage": false,
+    "toggle": true,
+    "segButtons": 2,
+    "fullscreen": false
+   },
+   "editor_nowrap": {
+    "found": true,
+    "nowrap": "1",
+    "whiteSpace": "pre",
+    "overflowX": "auto",
+    "maxHeight": "480px",
+    "bottom": 572,
+    "visibleH": 800,
+    "insideEditor": true,
+    "scrollable": false,
+    "hScrollPage": false,
+    "toggle": true,
+    "segButtons": 2,
+    "fullscreen": false
+   }
+  },
+  "390x844": {
+   "keyboard": {
+    "kbOpen": true,
+    "kbTight": false,
+    "offset": "340px",
+    "vvH": "504px",
+    "activeTag": "TEXTAREA",
+    "hasEditorArea": true,
+    "fieldBottom": 492,
+    "fieldTop": 224,
+    "visibleH": 504,
+    "maxHeight": "384px",
+    "stickyBottom": 488,
+    "stickyPosition": "sticky",
+    "hScrollPage": false
+   },
+   "scope": {
+    "open": true,
+    "placement": "bottom",
+    "top": 54,
+    "bottom": 215,
+    "visibleH": 504,
+    "inside": true,
+    "options": 2,
+    "lastOptionVisible": true,
+    "scrolls": false
+   }
+  },
+  "768x1024": {
+   "progress": {
+    "count": 3
+   },
+   "scope": {
+    "open": true,
+    "placement": "bottom",
+    "top": 103,
+    "bottom": 253,
+    "visibleH": 1024,
+    "inside": true,
+    "options": 2,
+    "lastOptionVisible": true,
+    "scrolls": false
+   },
+   "editor": {
+    "found": true,
+    "nowrap": "0",
+    "whiteSpace": "pre-wrap",
+    "overflowX": "auto",
+    "maxHeight": "520px",
+    "bottom": 617,
+    "visibleH": 640,
+    "insideEditor": true,
+    "scrollable": false,
+    "hScrollPage": false,
+    "toggle": true,
+    "segButtons": 2,
+    "fullscreen": false
+   }
+  }
+ },
+ "checks": {
+  "joints_1280": {
+   "surfaces": 6,
+   "doubles": [],
+   "doublesTotal": 0
+  },
+  "joints_modules": {
+   "surfaces": 15,
+   "doubles": [],
+   "doublesTotal": 0
+  },
+  "reduced_motion": {
+   "dotAnim": "none",
+   "dotOpacity": "0.9",
+   "afterDisplay": "none",
+   "trackBg": "repeating-linear-gradient(135deg, rgba(66, 214, 196, 0.45) 0"
+  },
+  "motion_default": {
+   "dotAnim": "ctl-pulse",
+   "dotOpacity": "0.45",
+   "afterDisplay": "block",
+   "trackBg": "none"
+  }
+ },
+ "fails": []
+}
