@@ -501,3 +501,119 @@ heatmap, настоящий Telegram WebView и часть кадров живо
   ячейки по 24 px физически не влезают в 341 px; подсказка об этом видима, но
   это осознанный компромисс между тач-минимумом 24×24 (WCAG 2.5.8) и обзором
   всех 24 часов сразу.
+
+---
+
+## §review-fix2 — блокер ре-ревью EVOL-029: карточка «Памяти» открывала пустоту
+
+Кандидат: ветка `evol/impl`, рабочее дерево поверх `a0776e09` (на момент правки
+HEAD переехал на `6a424416` из-за параллельных лейнов; правки не закоммичены).
+Состояние файлов на момент проверки (sha256, первые 16): `web/index.html`
+`214f95cd73c083d9`, `web/app.js` `51c4e9650577b101`, `web/static/app.css`
+`ffe03b237a0df2f0`.
+
+### Причина (настоящая, не косметика)
+Разметка окна записи (EVOL-003/004/005) жила ВНУТРИ ветки
+`<template v-else-if="activeTab === 'status'">`. Клик по карточке каталога
+«Память» вызывает `openStatusRecord(...)` и ставит `statusRecordOpen=true`, но
+на вкладке `memory_rag` этого узла в DOM не было: окна нет, а `app-shell`
+получал класс `sfeed-modal-open` → `main{overflow:hidden}` = блокировка
+прокрутки без окна. Прежний тест проверял только строку `this.openStatusRecord(`
+и был зелёным при мёртвом клике.
+
+### Что сделано
+1. **Одно окно на уровне `#app`.** Разметка (Esc/✕/клик-вне, focus trap,
+   возврат фокуса) перенесена из ветки «Статуса» к остальным shell-оверлеям
+   (рядом с подтверждением и деталями вызова) — один экземпляр, без дублей id
+   (`sfeed-rec-title`) и `ref="statusRecordDialog"`. Классы/поля/поведение не
+   менялись; `position: fixed` у `.modal-backdrop` теперь резолвится от
+   viewport, а не от `main.scroll-area`.
+2. **Блокировка прокрутки = признак открытого окна.** Класс `sfeed-modal-open`
+   на `.app-shell` привязан к тому же `statusRecordOpen`, что рисует окно;
+   закрытие (Esc/✕/клик вне → `closeStatusRecord`) снимает его тем же рендером.
+   Живая проверка: после Esc `overflow-y` у `main.scroll-area` = `visible`.
+3. **`statusRecordTech` + блок «Технические поля»** (`data-rec-tech`, свёрнут по
+   умолчанию): внутренний id, `chat_id`, `user_id`, `tg_message_id`, ключ записи
+   — моноширинным; отсутствующего поля нет в списке, id без значения честно
+   «нет данных». «Диагностика» каталога ссылалась на этот раздел, хотя его не
+   существовало — теперь обещание каталога верно и для карточки из «Памяти».
+4. **Мобильный лист не изменился**: та же разметка под `html.w9-sheet-bottom` →
+   лист снизу во всю ширину, верхнее скругление 18 px, поля в одну колонку,
+   «Закрыть» в видимой области, страница без горизонтального скролла.
+
+### Тесты: что изменилось и почему
+* `tests/test_webapp_evol_w10_sections.py` — новый класс
+  `TestEvol029RecordModalFromMemory`: (а) структурно — окно одно, вне ветки
+  вкладки, за `</main>`, блокировка привязана к `statusRecordOpen`,
+  «Технические поля» есть; (б) поведенчески — node-харнесс с НАСТОЯЩИМ
+  `app.js`: `openMemoryCatalogItem('fact')` → запись с 13 полями, `chat_id` в
+  техполях, `closeStatusRecord` → пусто. Прежний греп-тест
+  `test_detail_opens_existing_record_and_technical_is_separate` сохранён, но
+  больше не единственная защита.
+* `tools/ui_evol_w10_sections_e2e.py` — живой сценарий: `#/memory` → клик по
+  карточке → окно видно (`[data-sfeed-modal]`, ровно 1), есть поля «Полный
+  текст / Тип записи / Чат-область / Субъект / Источники», раскрыты
+  «Технические поля» с `chat_id -1001234567890`, Esc закрывает окно и снимает
+  `sfeed-modal-open`; затем «Статус» открывает то же окно, а клик вне окна его
+  закрывает. На 390 — геометрия нижнего листа (390/390, низ 844, радиус 18 px,
+  hScroll=false, фон заблокирован). Сценарий вынесен в отдельный контекст:
+  предыдущий шаг («ИИ») оставляет черновик личности, и штатная защита ухода со
+  страницы отменяла hash-навигацию (иначе проверка окна зависела бы от чужой
+  формы).
+* `tests/test_evol001_005_status_widgets.py` — ТОЛЬКО границы срезов: окно
+  больше не лежит между «Новыми фактами» и «Строкой 5», поэтому срез
+  заканчивается на `</transition>` / «Строке 5». Ни одно утверждение не
+  ослаблено; добавлены проверки «ровно одно окно» и «окно не в ветке вкладки».
+* `tests/js/round1024_dossier_feed_test.js` — стенд даёт реальный метод
+  `chatTitleFor` (F5 предыдущего ревью-фикса перевёл `dossierFeedLoop` на общий
+  резолвер имени чата, а стенд оставался на локальной карте и падал
+  `self.chatTitleFor is not a function`). Продуктовый код ради теста не
+  ослаблялся.
+
+### Проверки (этот кандидат)
+| команда | результат |
+|---|---|
+| `pytest tests/test_webapp_evol_w10_sections.py` (включая оба e2e) | **35 passed** |
+| `python tools/ui_evol_w10_sections_e2e.py` | **EVOL-W10-SECTIONS OK**, `summary.failures = 0`, 12 ячеек (6 маршрутов × 2 вьюпорта) |
+| `pytest tests/test_webapp_round1020_ui.py tests/test_webapp_ui_rework_round1020.py tests/test_webapp_evol_w7_nav.py tests/test_webapp_evol_w9_responsive.py tests/test_webapp_evol_w10_sections.py tests/test_evol001_005_status_widgets.py` | **170 passed** |
+| `pytest tests -k "webapp"` | **1269 passed, 5 failed** — те же пять предсуществующих из §9 (avatars ✕, round1021/1024 js-пины, nodeflow-жаргон, tma logs mono); новых падений нет |
+| `node tests/js/round1020_ui_test.js`, `round1020_ui_rework_test.js`, `routing_test.js`, `round1025_f4_catalog_ui_test.js`, `round1046_mca12_stories_ui_test.js`, `round1024_dossier_feed_test.js` | JS-UNIT-OK / MODULE-CATALOG-OK / MCA12-STORIES-UI-OK / DOSSIER-FEED-OK |
+
+Машинный отчёт: `evidence/w10-sec-probe.json` (`memoryCardFound=true`,
+`memoryModalTech` содержит `chat_id -1001234567890`,
+`memoryModalClosed={modal:false, locked:false, canScroll:visible}`,
+`statusModal={present:true, visible:true, count:1, locked:true}`,
+`statusModalAfterOutsideClick={modal:false, locked:false}`,
+`memoryModalMobile={w:390, h:776.5, bottom:844, radius:18px, hScroll:false}`).
+
+### Живые кадры
+* `evidence/w10-sec-memory-record-modal-1280x900.png` — окно открыто кликом по
+  карточке «Памяти» (поля, «Первоисточники», «Закрыть»).
+* `evidence/w10-sec-memory-record-tech-1280x900.png` — раскрытые «Технические
+  поля» с сырыми id (`chat_id -1001234567890`, `user_id 5`, `tg_message_id 4242`).
+* `evidence/w10-sec-memory-record-390x844.png` — тот же экран на 390: нижний лист
+  во всю ширину, поля в одну колонку.
+* Дополнительно (Browser Use, реальный Chrome, временный стенд с теми же стабами
+  API и TMA): клик по карточке из `#/memory` открывает окно (предок — `#app`,
+  `.modal-card` `rgba(21,27,42,.5)` + `blur(8px) saturate(1.3)`,
+  `border-radius 12px`), стили окна из «Статуса» и из «Памяти» совпадают;
+  на 390 после `resize` лист = 390×776.5, низ 844, радиус 18 px, «Закрыть» в
+  видимой области; `.rec-tech` раскрывается и показывает те же сырые значения.
+
+### Остаточные ограничения (честно)
+* Chrome, к которому подключён Browser Use в этой сессии, отдаёт кадры
+  невидимого окна (`document.visibilityState = "hidden"`): `backdrop-filter` в
+  таких кадрах не композитится, а незавершённый leave-переход Vue не доигрывает
+  (нет `requestAnimationFrame`), поэтому на «сыром» скриншоте окно выглядит
+  полупрозрачным, а закрытое окно остаётся в DOM. Это артефакт скрытой вкладки,
+  а не регрессия: в отрендеренном Playwright-кадре окно непрозрачное с
+  затемнённым фоном, а после Esc узел удалён (e2e проверяет именно это). Тот же
+  переход используется окнами, которые жили на shell-уровне до этой правки.
+* Настоящий Telegram WebView по-прежнему недоступен агенту (тач и leaf-геометрия
+  проверены реальным Chrome с эмуляцией метрик, не на устройстве владельца).
+
+### Побочная находка (соседняя, не блокирующая)
+Заголовок секции «Первоисточники» обрезается снизу на границе внутреннего
+скроллера окна (`max-height: min(86dvh,720px)`), когда тело прокручено в начало
+секции; контент доступен прокруткой. Поведение было и до этой правки, не
+менялось.

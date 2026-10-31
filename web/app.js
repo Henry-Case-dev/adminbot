@@ -6448,6 +6448,32 @@
       statusRecordOpen: function () {
         return this.statusRecord != null;
       },
+      // EVOL-029 (review-fix2): сырые идентификаторы записи — отдельный блок
+      // «Технические поля» (открывается из каталога «Память» и из «Статуса»).
+      // Берутся ТОЛЬКО реальные поля записи: чего нет — строка не рисуется
+      // (никаких «0» вместо отсутствующего id).
+      statusRecordTech: function () {
+        var r = this.statusRecord;
+        if (!r) return [];
+        var out = [{
+          key: 'raw_id', label: 'Внутренний id',
+          value: (r.id == null) ? 'нет данных' : String(r.id),
+        }];
+        if (r.chat_id != null) {
+          out.push({ key: 'raw_chat_id', label: 'chat_id', value: String(r.chat_id) });
+        }
+        if (r.user_id != null) {
+          out.push({ key: 'raw_user_id', label: 'user_id', value: String(r.user_id) });
+        }
+        if (r.tg_message_id != null) {
+          out.push({ key: 'raw_tg_message_id', label: 'tg_message_id',
+                     value: String(r.tg_message_id) });
+        }
+        if (r.key) {
+          out.push({ key: 'raw_key', label: 'ключ записи', value: String(r.key) });
+        }
+        return out;
+      },
       // EVOL-004: «связанные записи» — не общий раздел, а тот же объект:
       // для факта — другие факты того же субъекта, для черты — другие черты.
       statusRecordRelatedList: function () {

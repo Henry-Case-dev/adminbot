@@ -231,6 +231,100 @@ empty.vizHeatOpenEvents.call(empty);
 console.log('EVOL-W10-DEEPLINK-OK');
 """
 
+# ── JS-харнесс: РЕАЛЬНАЯ связка «клик по карточке Памяти → окно записи».
+# Блокер ре-ревью EVOL-029 был поведенческим (окно жило в ветке «Статуса»),
+# поэтому проверяется не строка `openStatusRecord(`, а состояние store:
+# карточка каталога поднимает запись с полями, окно закрывается (блокировка
+# прокрутки снимается тем же условием).
+_MODAL_JS = r"""
+'use strict';
+const path = require('path');
+const assert = require('assert');
+
+global.Vue = { createApp(opts) { global.__opts = opts;
+  return { component() {}, provide() {}, use() {}, mount() {} }; } };
+global.window = { location: { hash: '#/memory' }, addEventListener() {},
+                  Telegram: null, innerWidth: 1280, innerHeight: 900 };
+global.document = {
+  documentElement: { setAttribute() {}, getAttribute() { return null; },
+                     classList: { toggle() {}, contains() { return false; } },
+                     style: { setProperty() {}, removeProperty() {} } },
+  addEventListener() {}, getElementById() { return null; },
+  createElement() { return { tagName: 'div', className: '', value: '', style: {},
+                             setAttribute() {}, focus() {}, select() {},
+                             remove() {} }; },
+  querySelector() { return null; }, querySelectorAll() { return []; },
+  body: { appendChild(el) { return el; }, removeChild(el) { return el; } },
+  execCommand() { return true; },
+};
+Object.defineProperty(global, 'navigator', { configurable: true,
+  value: { clipboard: { writeText: async () => { throw new Error('no'); } } } });
+global.sessionStorage = { _s: {}, getItem(k) { return this._s[k] || null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.localStorage = { _s: {}, getItem(k) {
+    return Object.prototype.hasOwnProperty.call(this._s, k) ? this._s[k] : null; },
+  setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
+global.history = { replaceState() {} };
+global.Chart = function () {};
+global.fetch = async function () { throw new Error('no fetch in test'); };
+
+require(path.join(process.env.W10_REPO, 'web', 'app.js'));
+const methods = global.__opts.methods || {};
+const computeds = global.__opts.computed || {};
+
+const vm = {
+  statusRecord: null, statusRecordExtra: null, statusRecordExtraError: '',
+  statusRecordExtraBusy: false, statusRecordReturnFocus: null,
+  factsFeed: [], cognitionTraits: [], memoryCatalogPersonId: null,
+  memoryCatalogOpenKey: '', $refs: {}, $nextTick(fn) { fn(); },
+};
+['openMemoryCatalogItem', 'openStatusRecord', 'closeStatusRecord',
+ '_statusRecordFrom', 'statusSourceMeta', '_statusScopeLabel',
+ '_statusOriginLabel', 'fmtTs', 'fmtLogTs', 'openEpisodeCard'].forEach((k) => {
+  vm[k] = methods[k];
+});
+assert.strictEqual(typeof computeds.statusRecordOpen, 'function',
+  'statusRecordOpen — вычисляемое состояние окна');
+vm.__open = computeds.statusRecordOpen;
+vm.__tech = computeds.statusRecordTech;
+assert.strictEqual(typeof vm.__tech, 'function', 'statusRecordTech существует');
+
+// Реальная форма карточки каталога «Память» (factsFeed → memoryCatalogItems).
+const fact = {
+  key: 'ff|-1001234567890|Толян|любит мемы', name: 'Толян',
+  user_name: 'Толян', text: 'любит мемы', full: 'любит мемы', kind: 'факт',
+  id: 777, chat_id: -1001234567890, user_id: 5, tg_message_id: 4242,
+  origin: 'message', created_at: 1761800000,
+};
+assert.strictEqual(vm.__open.call(vm), false, 'до клика окно закрыто');
+vm.openMemoryCatalogItem.call(
+  vm, { source: 'fact', item: fact, key: 'fact|777' },
+  { currentTarget: { focus() {} } });
+assert.strictEqual(vm.__open.call(vm), true,
+  'клик по карточке «Памяти» открывает окно записи');
+assert.strictEqual(vm.statusRecord.source, 'fact');
+assert.strictEqual(vm.statusRecord.chat_id, -1001234567890);
+
+const keys = vm.statusRecord.fields.map((f) => f.key);
+['text', 'type', 'scope', 'subject', 'user_id', 'created_at', 'event_at',
+ 'confirmed_at', 'updated_at', 'origin', 'status', 'sources', 'changes']
+  .forEach((k) => assert.ok(keys.indexOf(k) >= 0, 'поле окна: ' + k));
+
+const tech = {};
+vm.__tech.call(vm).forEach((t) => { tech[t.key] = t.value; });
+assert.strictEqual(tech.raw_chat_id, '-1001234567890',
+  'сырой chat_id — в «Технических полях»: ' + JSON.stringify(tech));
+assert.strictEqual(tech.raw_id, '777', 'сырой id записи доступен');
+assert.strictEqual(tech.raw_key, fact.key, 'ключ записи доступен');
+
+vm.closeStatusRecord.call(vm);
+assert.strictEqual(vm.__open.call(vm), false,
+  'закрытие снимает статус открытого окна (и блокировку прокрутки)');
+assert.strictEqual(vm.__tech.call(vm).length, 0, 'после закрытия полей нет');
+
+console.log('EVOL-W10-MEMORY-MODAL-OK');
+"""
+
 
 def _block(text: str, start: str, end: str) -> str:
     i = text.index(start)
@@ -506,6 +600,46 @@ class TestEvol029MemoryCatalog:
         feed = _block(APP_JS, "dossierFeedLoop: function",
                       "dossierFeedSpeed:")
         assert "chatTitleFor(it.chat_id)" in feed
+
+
+# ═══ EVOL-029 (review-fix2): карточка «Памяти» реально открывает окно ═══════
+
+class TestEvol029RecordModalFromMemory:
+    """Блокер ре-ревью: на `#/memory` клик по карточке ставил
+    `sfeed-modal-open` (прокрутка фона заблокирована), но само окно жило в
+    ветке `activeTab === 'status'` — окна не было. Здесь проверяется
+    РАЗМЕЩЕНИЕ (одно окно на уровне `#app`) и РЕАЛЬНОЕ поведение store
+    (карточка → запись с полями, закрытие → пусто). Видимое окно в Chromium
+    проверяет `tools/ui_evol_w10_sections_e2e.py` (см. также pytest ниже).
+    """
+
+    def test_single_modal_at_shell_level(self):
+        assert INDEX.count("data-sfeed-modal") == 1, "окно записи — один экземпляр"
+        block = _block(INDEX, "<!-- ═══ EVOL-003/004/005: модальное окно записи",
+                       "</transition>")
+        assert "activeTab ===" not in block, (
+            "окно записи не может жить внутри ветки одной вкладки: "
+            "иначе «Память» открывает блокировку прокрутки без окна")
+        # окно вынесено из `main.scroll-area` — на уровень shell/`#app`
+        assert INDEX.index("data-sfeed-modal") > INDEX.index("</main>")
+        # фон блокируется ТЕМ ЖЕ условием, что рисует окно
+        assert "statusRecordOpen ? 'sfeed-modal-open' : ''" in INDEX
+        assert ".app-shell.sfeed-modal-open main.scroll-area" in CSS
+        # «Диагностика» карточки памяти обещает сырые id в окне — они там есть
+        assert "statusRecordTech: function" in APP_JS
+        assert "data-rec-tech" in block
+        # закрытие: ✕, клик вне и Esc ведут в один и тот же путь
+        assert block.count("closeStatusRecord()") >= 3
+        assert "statusRecordKeydown" in block
+
+    def test_memory_card_opens_record_with_fields_js(self, tmp_path):
+        js = tmp_path / "w10_memory_modal_test.js"
+        js.write_text(_MODAL_JS, encoding="utf-8")
+        out = subprocess.run(["node", str(js)], capture_output=True, text=True,
+                             encoding="utf-8",
+                             env={**os.environ, "W10_REPO": str(ROOT)})
+        assert "EVOL-W10-MEMORY-MODAL-OK" in (out.stdout or ""), \
+            (out.stdout or "") + (out.stderr or "")
 
 
 # ═══ EVOL-030: «Доступы», матрица, аналитика ═══════════════════════════════

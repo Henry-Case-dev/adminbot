@@ -110,9 +110,12 @@ class TestRealMarkupRowGeometry:
 
     @staticmethod
     def _facts_card() -> str:
+        # EVOL-029 (review-fix2): окно записи вынесено на уровень `#app`
+        # (его открывают и «Статус», и «Память»), поэтому границей карточки
+        # «Новые факты» служит следующий блок разметки, а не разметка окна.
         return _section(
             '<div v-if="isGlobalAdmin" class="card p-4 status-facts',
-            "<!-- ═══ EVOL-003/004/005: модальное окно записи", INDEX)
+            "<!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5", INDEX)
 
     def test_real_markup_has_no_track_wrapper(self):
         card = self._facts_card()
@@ -186,8 +189,10 @@ class TestMotionAndManualScroll:
 # ── EVOL-003: окно записи той же сущности ──────────────────────────────────
 class TestRecordModal:
     def test_modal_is_single_overlay_with_a11y(self):
+        # EVOL-029 (review-fix2): граница окна — его собственный
+        # `</transition>` (окно вынесено на уровень `#app`, вне вкладок).
         modal = _section("<!-- ═══ EVOL-003/004/005: модальное окно записи",
-                         "<!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5",)
+                         "</transition>",)
         assert 'role="dialog"' in modal
         assert 'aria-modal="true"' in modal
         assert 'aria-labelledby="sfeed-rec-title"' in modal
@@ -195,6 +200,11 @@ class TestRecordModal:
         assert 'data-sfeed-modal' in modal
         # Никакого нового окна браузера.
         assert "window.open" not in modal and 'target="_blank"' not in modal
+        # Ровно один экземпляр окна и НЕ внутри ветки одной вкладки: иначе
+        # «Память» (`#/memory`) открывала бы блокировку прокрутки без окна.
+        assert INDEX.count("data-sfeed-modal") == 1, "одно окно записи"
+        assert "activeTab ===" not in modal, \
+            "окно записи не должно быть внутри ветки одной вкладки"
 
     def test_close_paths_and_focus(self):
         assert '@click.self="closeStatusRecord()"' in INDEX, "клик вне окна"
@@ -239,7 +249,7 @@ class TestSourceDrilldown:
 
     def test_no_generic_section_navigation_in_modal(self):
         modal = _section("<!-- ═══ EVOL-003/004/005: модальное окно записи",
-                         "<!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5",)
+                         "</transition>",)
         assert "shellNavTo(" not in modal, "нет кнопки «в общий раздел»"
         assert "navigateTo(" not in modal
 

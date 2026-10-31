@@ -549,6 +549,160 @@ def run(out_dir: str) -> int:
 
             ctx.close()
 
+            # ═══ EVOL-029 (review-fix2): карточка «Памяти» открывает ОКНО ЗАПИСИ.
+            # Раньше окно жило в ветке «Статуса»: на `#/memory` клик ставил
+            # только `sfeed-modal-open` (прокрутка заблокирована) — окна не
+            # было. Проверяем реальный DOM: окно видно, в нём поля,
+            # первоисточники и сырые id («Технические поля»), Esc снимает и
+            # окно, и блокировку прокрутки; «Статус» открывает то же окно.
+            # Отдельный контекст: после сценария «ИИ» остаётся черновик
+            # личности, и штатная защита ухода со страницы отменяет навигацию
+            # (проверка окна не должна зависеть от чужого состояния формы).
+            rctx = browser.new_context(viewport={"width": 1280, "height": 900})
+            rctx.add_init_script(M.TMA_STUB)
+            pg = rctx.new_page()
+            pg.route("**/api/**", _routes2())
+            rec_errors = []
+            pg.on("pageerror", lambda e: rec_errors.append(str(e)[:200]))
+            pg.on("console", lambda m: rec_errors.append("console: " + m.text[:200])
+                  if m.type == "error" else None)
+            pg.goto(BASE + "/#/memory", wait_until="load")
+            pg.wait_for_timeout(1000)
+            mem_modal = {}
+            mem_card = pg.query_selector('[data-memory-item="facts"]') \
+                or pg.query_selector('[data-memory-item]')
+            report["summary"]["memoryCardFound"] = bool(mem_card)
+            if not mem_card:
+                fails.append("«Память»: нет карточки каталога для проверки окна")
+            else:
+                mem_card.click()
+                pg.wait_for_timeout(400)
+                mem_modal = pg.evaluate(r"""() => {
+                    const m = document.querySelector('[data-sfeed-modal]');
+                    if (!m) return {present: false};
+                    const cs = getComputedStyle(m);
+                    const r = m.getBoundingClientRect();
+                    const labels = Array.from(m.querySelectorAll('[data-rec-field]'))
+                      .map((e) => {
+                        const l = e.querySelector('.rec-label');
+                        return l ? l.textContent.trim() : '';
+                      });
+                    return {
+                      present: true,
+                      visible: cs.display !== 'none' && cs.visibility !== 'hidden'
+                        && r.width > 0 && r.height > 0,
+                      count: document.querySelectorAll('[data-sfeed-modal]').length,
+                      fields: labels,
+                      sources: !!m.querySelector('[data-rec-section="sources"]'),
+                      tech: !!m.querySelector('[data-rec-tech]'),
+                      locked: !!document.querySelector('.app-shell.sfeed-modal-open'),
+                    };
+                }""")
+                _shot(pg, out_dir, "w10-sec-memory-record-modal-1280x900.png")
+                if not mem_modal.get("visible"):
+                    fails.append("«Память»: клик по карточке не показывает окно "
+                                 "записи (%s)" % mem_modal)
+                if mem_modal.get("count", 0) > 1:
+                    fails.append("«Память»: окон записи больше одного (%d)"
+                                 % mem_modal["count"])
+                need = ("Полный текст", "Тип записи", "Чат / область", "Субъект",
+                        "Источники")
+                missing = [n for n in need
+                           if not any(n in f for f in mem_modal.get("fields") or [])]
+                if missing:
+                    fails.append("«Память»: в окне нет полей %s (%s)"
+                                 % (missing, mem_modal.get("fields")))
+                if not mem_modal.get("sources"):
+                    fails.append("«Память»: в окне нет раздела «Первоисточники»")
+                if not mem_modal.get("tech"):
+                    fails.append("«Память»: в окне нет «Технических полей»")
+                if not mem_modal.get("locked"):
+                    fails.append("«Память»: окно открыто, а фон не заблокирован")
+                # «Технические поля» раскрываются и показывают сырой chat_id.
+                tech_rows = pg.evaluate(r"""() => {
+                    const d = document.querySelector('[data-rec-tech]');
+                    if (!d) return null;
+                    d.open = true;
+                    d.scrollIntoView({block: 'center'});
+                    return Array.from(d.querySelectorAll('[data-rec-field]'))
+                      .map((r) => r.textContent.replace(/\s+/g, ' ').trim());
+                }""")
+                pg.wait_for_timeout(250)
+                report["summary"]["memoryModalTech"] = tech_rows
+                if not tech_rows:
+                    fails.append("«Память»: «Технические поля» пусты")
+                elif not any("-1001234567890" in r for r in tech_rows):
+                    fails.append("«Память»: в «Технических полях» нет сырого "
+                                 "chat_id (%s)" % tech_rows)
+                _shot(pg, out_dir, "w10-sec-memory-record-tech-1280x900.png")
+                # Esc закрывает окно И снимает блокировку прокрутки.
+                pg.keyboard.press("Escape")
+                pg.wait_for_timeout(350)
+                closed = pg.evaluate(r"""() => ({
+                    modal: !!document.querySelector('[data-sfeed-modal]'),
+                    locked: !!document.querySelector('.app-shell.sfeed-modal-open'),
+                    canScroll: (() => {
+                      const m = document.querySelector('main.scroll-area');
+                      return m ? getComputedStyle(m).overflowY : null;
+                    })(),
+                })""")
+                report["summary"]["memoryModalClosed"] = closed
+                if closed.get("modal"):
+                    fails.append("«Память»: Esc не закрыл окно записи")
+                if closed.get("locked"):
+                    fails.append("«Память»: после Esc осталась блокировка "
+                                 "прокрутки (sfeed-modal-open)")
+                if closed.get("canScroll") == "hidden":
+                    fails.append("«Память»: после Esc прокрутка фона всё ещё "
+                                 "заблокирована (overflow-y: hidden)")
+
+            # «Статус» по-прежнему открывает ТО ЖЕ окно (регрессия не внесена).
+            pg.goto(BASE + "/#/", wait_until="load")
+            pg.wait_for_timeout(1000)
+            row = pg.query_selector('[data-sfeed-row][data-sfeed-type="fact"]')
+            status_modal = {"present": False}
+            if not row:
+                fails.append("«Статус»: нет строки «Новых фактов» для проверки окна")
+            else:
+                row.click()
+                pg.wait_for_timeout(400)
+                status_modal = pg.evaluate(r"""() => {
+                    const m = document.querySelector('[data-sfeed-modal]');
+                    if (!m) return {present: false};
+                    const r = m.getBoundingClientRect();
+                    return {
+                      present: true,
+                      visible: r.width > 0 && r.height > 0,
+                      count: document.querySelectorAll('[data-sfeed-modal]').length,
+                      locked: !!document.querySelector('.app-shell.sfeed-modal-open'),
+                    };
+                }""")
+                # Клик ВНЕ окна тоже закрывает и снимает блокировку.
+                pg.mouse.click(4, 4)
+                pg.wait_for_timeout(350)
+                status_after = pg.evaluate(r"""() => ({
+                    modal: !!document.querySelector('[data-sfeed-modal]'),
+                    locked: !!document.querySelector('.app-shell.sfeed-modal-open'),
+                })""")
+                report["summary"]["statusModalAfterOutsideClick"] = status_after
+                if status_after.get("modal") or status_after.get("locked"):
+                    fails.append("«Статус»: клик вне окна не закрыл его/не снял "
+                                 "блокировку (%s)" % status_after)
+            report["summary"]["statusModal"] = status_modal
+            if not status_modal.get("visible"):
+                fails.append("«Статус»: строка «Новых фактов» не открывает окно (%s)"
+                             % status_modal)
+            if status_modal.get("count", 0) > 1:
+                fails.append("«Статус»: окон записи больше одного (%d)"
+                             % status_modal["count"])
+            if not status_modal.get("locked"):
+                fails.append("«Статус»: окно открыто, а фон не заблокирован")
+            report["summary"]["recordModalErrors"] = rec_errors[:4]
+            if rec_errors:
+                fails.append("окно записи: ошибки JS/консоли: %s" % rec_errors[:3])
+
+            rctx.close()
+
             # EVOL-030: матрица прав на mobile — эффективные роли видны.
             # Отдельный контекст: чистая загрузка без накопленных тостов и
             # сохранённой позиции скролла предыдущего сценария.
@@ -589,6 +743,57 @@ def run(out_dir: str) -> int:
                     fails.append("доступы: аудит без честной отметки времени "
                                  "(%s)" % audit[:120])
             _shot(mpg, out_dir, "w10-sec-access-matrix-390x844.png")
+
+            # EVOL-029 (review-fix2) mobile: то же окно записи — нижним листом
+            # (существующее поведение модалок на узком экране не сломано
+            # переносом разметки на уровень `#app`).
+            mpg.goto(BASE + "/#/memory", wait_until="load")
+            mpg.wait_for_timeout(900)
+            mcard = mpg.query_selector('[data-memory-item="facts"]') \
+                or mpg.query_selector('[data-memory-item]')
+            sheet = {"present": False}
+            if mcard:
+                mcard.click()
+                mpg.wait_for_timeout(400)
+                sheet = mpg.evaluate(r"""() => {
+                    const m = document.querySelector('[data-sfeed-modal]');
+                    if (!m) return {present: false};
+                    const r = m.getBoundingClientRect();
+                    const cs = getComputedStyle(m);
+                    return {
+                      present: true,
+                      w: +r.width.toFixed(1),
+                      h: +r.height.toFixed(1),
+                      bottom: +r.bottom.toFixed(1),
+                      radius: cs.borderTopLeftRadius,
+                      vw: window.innerWidth, vh: window.innerHeight,
+                      locked: !!document.querySelector('.app-shell.sfeed-modal-open'),
+                      hScroll: document.documentElement.scrollWidth
+                        > window.innerWidth + 1,
+                    };
+                }""")
+            else:
+                fails.append("mobile «Память»: нет карточки для проверки окна")
+            report["summary"]["memoryModalMobile"] = sheet
+            if not sheet.get("present"):
+                fails.append("mobile «Память»: окно записи не открылось")
+            else:
+                if sheet["w"] < sheet["vw"] - 4:
+                    fails.append("mobile «Память»: окно не во всю ширину (%s из %s)"
+                                 % (sheet["w"], sheet["vw"]))
+                if sheet["bottom"] < sheet["vh"] - 6:
+                    fails.append("mobile «Память»: окно не прижато к низу — "
+                                 "это не нижний лист (bottom=%s, vh=%s)"
+                                 % (sheet["bottom"], sheet["vh"]))
+                if not sheet["radius"].startswith("18px"):
+                    fails.append("mobile «Память»: у листа нет верхнего "
+                                 "скругления (%s)" % sheet["radius"])
+                if sheet["hScroll"]:
+                    fails.append("mobile «Память»: с окном появился "
+                                 "горизонтальный скролл")
+                if not sheet["locked"]:
+                    fails.append("mobile «Память»: окно открыто без блокировки фона")
+            _shot(mpg, out_dir, "w10-sec-memory-record-390x844.png")
             mctx.close()
             browser.close()
         httpd.shutdown()

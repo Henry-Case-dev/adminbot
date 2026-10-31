@@ -12046,133 +12046,11 @@
               </div>
             </div>
 
-            <!-- ═══ EVOL-003/004/005: модальное окно записи ══════════════════
-                 Та ЖЕ сущность, что в строке: полный текст, тип, чат/область,
-                 субъект + Telegram user id, раздельно даты (запись/событие/
-                 подтверждение/обновление), происхождение, статус/изменения и
-                 первоисточники. Отсутствующее поле помечено «нет данных» и не
-                 подменяется соседним. Одно окно внутри приложения (нового
-                 окна браузера нет): Esc / ✕ / клик вне, focus trap и возврат
-                 фокуса на исходную строку, фон не скроллится. -->
-            <transition name="sfeed-modal">
-              <div v-if="statusRecordOpen" class="modal-backdrop sfeed-modal-backdrop"
-                   @click.self="closeStatusRecord()">
-                <div class="modal-card card p-5 w-full max-w-2xl sfeed-modal"
-                     role="dialog" aria-modal="true" data-sfeed-modal
-                     aria-labelledby="sfeed-rec-title" tabindex="-1"
-                     ref="statusRecordDialog"
-                     @keydown="statusRecordKeydown($event)">
-                  <header class="modal-head flex items-start gap-2 mb-2">
-                    <div class="min-w-0">
-                      <h2 class="modal-title text-base font-bold" id="sfeed-rec-title">
-                        <span class="sfeed-item__badge" :data-sfeed-type="statusRecord.source">{{ statusRecord.badge }}</span>
-                        {{ statusRecord.subject || 'Запись' }}
-                      </h2>
-                      <div class="text-xs text-gray-500">
-                        {{ statusRecord.section }} ·
-                        запись {{ statusRecord.id == null ? 'без внутреннего id' : ('#' + statusRecord.id) }}
-                      </div>
-                    </div>
-                    <button class="modal-close btn-ghost text-sm px-2 ml-auto"
-                            @click="closeStatusRecord()"
-                            aria-label="Закрыть окно записи">✕</button>
-                  </header>
-                  <div class="modal-body sfeed-modal-body">
-                    <dl class="rec-grid">
-                      <template v-for="f in statusRecord.fields" :key="f.key">
-                        <div class="rec-row" :data-rec-field="f.key">
-                          <dt class="rec-label">{{ f.label }}</dt>
-                          <dd class="rec-val"
-                              :class="{ 'rec-missing': f.missing, 'rec-val--text': f.key === 'text' }">
-                            <template v-if="f.missing">нет данных</template>
-                            <template v-else>{{ f.value }}</template>
-                            <span v-if="f.hint" class="rec-hint">{{ f.hint }}</span>
-                          </dd>
-                        </div>
-                      </template>
-                    </dl>
-
-                    <!-- EVOL-004: первоисточник записи (внутренние ссылки). -->
-                    <section class="rec-section" data-rec-section="sources">
-                      <div class="rec-section__title">Первоисточники</div>
-                      <div class="rec-src-actions">
-                        <button class="btn-ghost text-xs" :disabled="statusRecordExtraBusy"
-                                data-rec-drill
-                                @click="statusRecordDrill()">
-                          {{ statusRecordExtraBusy ? 'Загружаю…' : 'Показать первоисточники' }}
-                        </button>
-                        <button v-if="statusRecord.user_id != null"
-                                class="btn-ghost text-xs" data-rec-dossier
-                                @click="statusRecordDossier()">Досье субъекта</button>
-                      </div>
-                      <div v-if="statusRecordExtraError" class="text-xs text-red-300">
-                        Не удалось загрузить первоисточники: {{ statusRecordExtraError }}
-                      </div>
-                      <div v-else-if="statusRecordExtra && statusRecordExtra.empty" class="text-xs text-gray-400">
-                        У записи нет адреса исходного сообщения — цепочку раскрыть
-                        не из чего (состояние источника, а не ошибка загрузки).
-                      </div>
-                      <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'chain'">
-                        <div class="rec-chain-delta" v-if="statusRecordExtra.data && statusRecordExtra.data.delta">
-                          <div v-if="statusRecordExtra.data.delta.old" class="text-xs text-gray-400">
-                            Было: {{ statusRecordExtra.data.delta.old }}
-                          </div>
-                          <div class="text-xs text-gray-300">
-                            Стало: {{ statusRecordExtra.data.delta.new }}
-                          </div>
-                        </div>
-                        <div class="text-xs text-gray-400"
-                             v-if="!statusRecordExtra.data || !statusRecordExtra.data.anchors || !statusRecordExtra.data.anchors.length">
-                          Основания не найдены: запись не связана с якорями
-                          (это состояние источника, а не ошибка загрузки).
-                        </div>
-                        <ul v-else class="rec-src">
-                          <li v-for="(a, ai) in statusRecordExtra.data.anchors" :key="'a' + ai">
-                            <span class="rec-src__kind">{{ a.entity_type || a.store || 'источник' }}</span>
-                            <span class="rec-src__id">{{ recAnchorLabel(a) }}</span>
-                            <span class="rec-src__note" v-if="a.resolution">{{ a.resolution }}</span>
-                          </li>
-                        </ul>
-                        <div class="text-xs text-gray-500" v-if="statusRecordExtra.data">
-                          Сообщений в цепочке: {{ (statusRecordExtra.data.messages || []).length }}<template v-if="statusRecordExtra.data.truncated"> · цепочка усечена</template>
-                        </div>
-                      </template>
-                      <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'trace'">
-                        <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.trigger">
-                          Сообщение #{{ statusRecordExtra.data.trigger.row_id }} ·
-                          отправлено {{ recTsLabel(statusRecordExtra.data.trigger.sent_at) }} ·
-                          автор (entity) {{ statusRecordExtra.data.trigger.author_entity_id == null ? '—' : statusRecordExtra.data.trigger.author_entity_id }} ·
-                          ревизия {{ statusRecordExtra.data.trigger.revision }}
-                        </div>
-                        <div class="text-xs text-gray-400" v-else>
-                          Сообщение не найдено в импортированном сырье — только
-                          запись графа.
-                        </div>
-                        <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.facts">
-                          Фактов из этого сообщения: {{ statusRecordExtra.data.facts.length }}
-                        </div>
-                      </template>
-                      <div class="rec-src-note">{{ statusRecordTgNote() }}</div>
-                    </section>
-
-                    <!-- EVOL-004: связанные записи ТОГО ЖЕ объекта. -->
-                    <section class="rec-section" data-rec-section="related"
-                             v-if="statusRecordRelatedList.length">
-                      <div class="rec-section__title">Связанные записи</div>
-                      <button v-for="rel in statusRecordRelatedList" :key="rel.key"
-                              type="button" class="rec-rel" data-rec-related
-                              @click="statusRecordPickRelated(rel)">
-                        <span class="rec-rel__date">{{ statusRowDateLabel(rel.at) }}</span>
-                        <span class="rec-rel__text">{{ rel.label }}</span>
-                      </button>
-                    </section>
-                  </div>
-                  <footer class="modal-actions">
-                    <button class="btn-ghost text-sm" @click="closeStatusRecord()">Закрыть</button>
-                  </footer>
-                </div>
-              </div>
-            </transition>
+            <!-- EVOL-029 (review-fix2): окно записи (EVOL-003/004/005) больше НЕ
+                 живёт внутри ветки `activeTab === 'status'` — оно вынесено на
+                 уровень `#app` (см. комментарий у разметки ниже). Иначе на
+                 «#/memory» клик по карточке открывал только блокировку прокрутки
+                 без самого окна. -->
 
             <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5 — «Бюджеты
                  интеллекта» — 12 кол. reuse /api/status.context, /api/workers/budget,
@@ -13210,6 +13088,157 @@
         </div>
       </div>
     </div>
+
+    <!-- ═══ EVOL-003/004/005: модальное окно записи ══════════════════
+         Та ЖЕ сущность, что в строке: полный текст, тип, чат/область,
+         субъект + Telegram user id, раздельно даты (запись/событие/
+         подтверждение/обновление), происхождение, статус/изменения и
+         первоисточники. Отсутствующее поле помечено «нет данных» и не
+         подменяется соседним. Одно окно внутри приложения (нового
+         окна браузера нет): Esc / ✕ / клик вне, focus trap и возврат
+         фокуса на исходную строку, фон не скроллится.
+         EVOL-029 (review-fix2): окно вынесено на уровень `#app` (рядом с
+         другими shell-оверлеями, ВНЕ `main.scroll-area`) ровно один раз —
+         его открывают и «Статус», и «Память» (`openStatusRecord`), поэтому
+         разметка не может жить в ветке одной вкладки. `position: fixed`
+         здесь привязан к viewport (нет ancestor-трансформа), а класс
+         `sfeed-modal-open` на `.app-shell` снимает прокрутку фона только
+         пока окно реально открыто. -->
+    <transition name="sfeed-modal">
+      <div v-if="statusRecordOpen" class="modal-backdrop sfeed-modal-backdrop"
+           @click.self="closeStatusRecord()">
+        <div class="modal-card card p-5 w-full max-w-2xl sfeed-modal"
+             role="dialog" aria-modal="true" data-sfeed-modal
+             aria-labelledby="sfeed-rec-title" tabindex="-1"
+             ref="statusRecordDialog"
+             @keydown="statusRecordKeydown($event)">
+          <header class="modal-head flex items-start gap-2 mb-2">
+            <div class="min-w-0">
+              <h2 class="modal-title text-base font-bold" id="sfeed-rec-title">
+                <span class="sfeed-item__badge" :data-sfeed-type="statusRecord.source">{{ statusRecord.badge }}</span>
+                {{ statusRecord.subject || 'Запись' }}
+              </h2>
+              <div class="text-xs text-gray-500">
+                {{ statusRecord.section }} ·
+                запись {{ statusRecord.id == null ? 'без внутреннего id' : ('#' + statusRecord.id) }}
+              </div>
+            </div>
+            <button class="modal-close btn-ghost text-sm px-2 ml-auto"
+                    @click="closeStatusRecord()"
+                    aria-label="Закрыть окно записи">✕</button>
+          </header>
+          <div class="modal-body sfeed-modal-body">
+            <dl class="rec-grid">
+              <template v-for="f in statusRecord.fields" :key="f.key">
+                <div class="rec-row" :data-rec-field="f.key">
+                  <dt class="rec-label">{{ f.label }}</dt>
+                  <dd class="rec-val"
+                      :class="{ 'rec-missing': f.missing, 'rec-val--text': f.key === 'text' }">
+                    <template v-if="f.missing">нет данных</template>
+                    <template v-else>{{ f.value }}</template>
+                    <span v-if="f.hint" class="rec-hint">{{ f.hint }}</span>
+                  </dd>
+                </div>
+              </template>
+            </dl>
+
+            <!-- EVOL-004: первоисточник записи (внутренние ссылки). -->
+            <section class="rec-section" data-rec-section="sources">
+              <div class="rec-section__title">Первоисточники</div>
+              <div class="rec-src-actions">
+                <button class="btn-ghost text-xs" :disabled="statusRecordExtraBusy"
+                        data-rec-drill
+                        @click="statusRecordDrill()">
+                  {{ statusRecordExtraBusy ? 'Загружаю…' : 'Показать первоисточники' }}
+                </button>
+                <button v-if="statusRecord.user_id != null"
+                        class="btn-ghost text-xs" data-rec-dossier
+                        @click="statusRecordDossier()">Досье субъекта</button>
+              </div>
+              <div v-if="statusRecordExtraError" class="text-xs text-red-300">
+                Не удалось загрузить первоисточники: {{ statusRecordExtraError }}
+              </div>
+              <div v-else-if="statusRecordExtra && statusRecordExtra.empty" class="text-xs text-gray-400">
+                У записи нет адреса исходного сообщения — цепочку раскрыть
+                не из чего (состояние источника, а не ошибка загрузки).
+              </div>
+              <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'chain'">
+                <div class="rec-chain-delta" v-if="statusRecordExtra.data && statusRecordExtra.data.delta">
+                  <div v-if="statusRecordExtra.data.delta.old" class="text-xs text-gray-400">
+                    Было: {{ statusRecordExtra.data.delta.old }}
+                  </div>
+                  <div class="text-xs text-gray-300">
+                    Стало: {{ statusRecordExtra.data.delta.new }}
+                  </div>
+                </div>
+                <div class="text-xs text-gray-400"
+                     v-if="!statusRecordExtra.data || !statusRecordExtra.data.anchors || !statusRecordExtra.data.anchors.length">
+                  Основания не найдены: запись не связана с якорями
+                  (это состояние источника, а не ошибка загрузки).
+                </div>
+                <ul v-else class="rec-src">
+                  <li v-for="(a, ai) in statusRecordExtra.data.anchors" :key="'a' + ai">
+                    <span class="rec-src__kind">{{ a.entity_type || a.store || 'источник' }}</span>
+                    <span class="rec-src__id">{{ recAnchorLabel(a) }}</span>
+                    <span class="rec-src__note" v-if="a.resolution">{{ a.resolution }}</span>
+                  </li>
+                </ul>
+                <div class="text-xs text-gray-500" v-if="statusRecordExtra.data">
+                  Сообщений в цепочке: {{ (statusRecordExtra.data.messages || []).length }}<template v-if="statusRecordExtra.data.truncated"> · цепочка усечена</template>
+                </div>
+              </template>
+              <template v-else-if="statusRecordExtra && statusRecordExtra.kind === 'trace'">
+                <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.trigger">
+                  Сообщение #{{ statusRecordExtra.data.trigger.row_id }} ·
+                  отправлено {{ recTsLabel(statusRecordExtra.data.trigger.sent_at) }} ·
+                  автор (entity) {{ statusRecordExtra.data.trigger.author_entity_id == null ? '—' : statusRecordExtra.data.trigger.author_entity_id }} ·
+                  ревизия {{ statusRecordExtra.data.trigger.revision }}
+                </div>
+                <div class="text-xs text-gray-400" v-else>
+                  Сообщение не найдено в импортированном сырье — только
+                  запись графа.
+                </div>
+                <div class="text-xs text-gray-400" v-if="statusRecordExtra.data && statusRecordExtra.data.facts">
+                  Фактов из этого сообщения: {{ statusRecordExtra.data.facts.length }}
+                </div>
+              </template>
+              <div class="rec-src-note">{{ statusRecordTgNote() }}</div>
+            </section>
+
+            <!-- EVOL-004: связанные записи ТОГО ЖЕ объекта. -->
+            <section class="rec-section" data-rec-section="related"
+                     v-if="statusRecordRelatedList.length">
+              <div class="rec-section__title">Связанные записи</div>
+              <button v-for="rel in statusRecordRelatedList" :key="rel.key"
+                      type="button" class="rec-rel" data-rec-related
+                      @click="statusRecordPickRelated(rel)">
+                <span class="rec-rel__date">{{ statusRowDateLabel(rel.at) }}</span>
+                <span class="rec-rel__text">{{ rel.label }}</span>
+              </button>
+            </section>
+
+            <!-- EVOL-029 (review-fix2): «Технические поля» — сырые идентификаторы
+                 именно этой записи. Каталог «Память» обещает их в открытом окне
+                 (человеческие поля выше не подменяются), а проверяющий видит
+                 id/chat_id/user_id без похода в БД. Значения берутся из той же
+                 записи, ничего не додумывается; пустое — «нет данных». -->
+            <details class="rec-section rec-tech" data-rec-tech>
+              <summary class="rec-section__title">Технические поля</summary>
+              <dl class="rec-grid">
+                <div class="rec-row" v-for="t in statusRecordTech" :key="'t-' + t.key"
+                     :data-rec-field="t.key">
+                  <dt class="rec-label">{{ t.label }}</dt>
+                  <dd class="rec-val rec-val--mono">{{ t.value }}</dd>
+                </div>
+              </dl>
+            </details>
+          </div>
+          <footer class="modal-actions">
+            <button class="btn-ghost text-sm" @click="closeStatusRecord()">Закрыть</button>
+          </footer>
+        </div>
+      </div>
+    </transition>
 
     <!-- F6 (ADR-1025-19 D3/§27): детали узла карты вызовов. desktop — side-panel,
          mobile — bottom-sheet (CSS). На корне #app (вне .scroll-area/transform-

@@ -673,8 +673,43 @@
     },
     "globalTogglePost": 1,
     "speechPersona": true,
+    "memoryCardFound": true,
+    "memoryModalTech": [
+      "Внутренний idнет данных",
+      "chat_id-1001234567890",
+      "user_id5",
+      "tg_message_id4242",
+      "ключ записиff|-1001234567890|Толян|любит мемы"
+    ],
+    "memoryModalClosed": {
+      "modal": false,
+      "locked": false,
+      "canScroll": "visible"
+    },
+    "statusModalAfterOutsideClick": {
+      "modal": false,
+      "locked": false
+    },
+    "statusModal": {
+      "present": true,
+      "visible": true,
+      "count": 1,
+      "locked": true
+    },
+    "recordModalErrors": [],
     "matrixEffectiveMobile": true,
     "matrixAudit": "Кто меняет: Audit · global_admin · id 5885953495Когда: в этой сессии правки не сохранялисьЧто и где: глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно",
+    "memoryModalMobile": {
+      "present": true,
+      "w": 390,
+      "h": 776.5,
+      "bottom": 844,
+      "radius": "18px",
+      "vw": 390,
+      "vh": 844,
+      "locked": true,
+      "hScroll": false
+    },
     "failures": 0
   }
 }

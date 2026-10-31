@@ -84,6 +84,11 @@ assert(computed && computed.dossierFeedLoop, 'dossierFeedLoop — computed');
 assert(computed && computed.dossierFeedSpeed, 'dossierFeedSpeed — computed');
 assert(methods && methods.openFeedDossier, 'root.methods.openFeedDossier');
 assert(methods && methods.uiFlag, 'root.methods.uiFlag');
+// F5 (review EVOL-029): подпись чата резолвится общим `chatTitleFor` — тот же
+// резолвер, что в каталоге «Память». Стенд обязан дать его как метод компонента
+// (в живом Vue он всегда есть), иначе вычисляемое свойство падает.
+assert.strictEqual(typeof methods.chatTitleFor, 'function',
+  'root.methods.chatTitleFor (подпись чата)');
 
 // ── 1. dossierFeedLoop: дублирование + ключи + user_id/user_name + dup ──────
 (function () {
@@ -93,6 +98,7 @@ assert(methods && methods.uiFlag, 'root.methods.uiFlag');
       { chat_id: -200, name: 'B', excerpt: 'факт B', user_id: null },
     ],
     oversightData: { chats: [{ chat_id: -100, title: 'Чат А' }] },
+    chatTitleFor: methods.chatTitleFor,
   });
   assert.strictEqual(loop.length, 4, 'лента дублируется (2×2)');
   assert.strictEqual(loop[0].key !== loop[2].key, true, 'ключи дублей уникальны');
