@@ -159,7 +159,10 @@ def test_versions_have_no_bodies_or_secrets(client):
     assert payload["active"]["revision_id"] == "rev-factory-b"
     assert payload["factory_revision"]
     assert "activation_time_available" in payload
-    assert payload["activation_time_available"] is False
+    # P0-2 (01.11.2026): время события включения теперь реальное
+    # (`prompt_activations.created_at`), а не «флага нет».
+    assert payload["activation_time_available"] is True
+    assert payload["activations"][0]["created_at"]
     origins = {row["origin"] for row in payload["revisions"]}
     assert {"factory", "manual", "legacy"} <= origins
     legacy = next(row for row in payload["revisions"]

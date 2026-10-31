@@ -141,7 +141,14 @@ ROUTES_SHA256_F11 = (
     # «25:00-26:00» → 422 вместо сохранения не-времени). Новых endpoint'ов
     # нет (Δ routes=0), RBAC/маскировка/DDL не менялись. Хэш переутверждён
     # осознанно (L-F11S-1).
-    "708f532768db3d1363157a67db74a32dfa19419534f8169bd08da71ce62872bd")
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 v2.1 §2 (P0-2, 01.11.2026, L-F11S-1
+    # conscious requalification): починка продового HTTP 500 «История версий»
+    # в СУЩЕСТВУЮЩЕМ GET /prompts/{key}/versions — новый код 503 при
+    # недоступном журнале (раньше отдавался `200: []`, маскируя отказ) и
+    # `activation_time_available` по реальному `prompt_activations.created_at`.
+    # Новых endpoint'ов нет (Δ routes=0), RBAC не ослаблен; набор путей
+    # f8_baseline не менялся. Хэш переутверждён осознанно.
+    "282e569f8567d5ae89f68b21d325548e1a4400a17a8c327e5a0b5a562d43fb13")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
