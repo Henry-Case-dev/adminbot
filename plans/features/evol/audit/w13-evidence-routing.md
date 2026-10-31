@@ -146,6 +146,8 @@ C1–C4 закрыты в моей зоне: `execution_mode=none` и low confid
 Доказательство: 45 новых контрактных тестов зелёные, широкий набор `direct/initiative/tool/l1/evidence/prompt` — 3518 passed при том же множестве из 15 пред-существующих падений, что и на чистом HEAD (сверка отдельным worktree); в `mca_events.REASON_CODES` добавлены ровно три санкционированных кода, остатки волны 2 (retrieval для Initiative, подключение `source_reuse`, промпт-ревизия §5) перечислены явно.
 
 > Актуальные цифры и закрытые блокеры ревью — в §8 (review-fix): 52 теста политики + 50 тестов окна, широкий набор 3376 passed при том же множестве 15 пред-существующих падений; retrieval для Initiative больше не остаток, а реализован (сценарий 29).
+>
+> §9 (review-fix 2) сужает класс-уровневый skip из §8.1: `social` и `attributed` больше не глушат guard — выдуманный факт в шутке или в пересказе чужой речи проверяется.
 
 ## 8. Review-fix: блокеры ревью P0 (закрыто)
 
@@ -221,3 +223,48 @@ py -m pytest tests/ -q -k "direct or initiative or tool or l1 or evidence or pro
 ```
 
 Плавающие пред-существующие (вне зоны, проверены поштучно — проходят одиночно): `test_betterstack_handler::test_real_302_not_followed_by_opener` (сетевой 302), `test_mca09_intents_block_e_round1040::test_candidate_ready_defers_intent_backoff`, `test_asap8_initreply_binding::test_case3_reply_to_l1_chosen_message`, `test_asap_speech_i_matrix::test_i05_deleted_target_cancels_for_semantic_addressee` — порядок/общее состояние `mca_random_source` в общем наборе; эти тесты используют `_FakeWriter`, мой код в них не участвует.
+
+## 9. Review-fix 2: guard был ПОЛНОСТЬЮ выключен для шутки и атрибутированного пересказа (закрыто)
+
+**Блокер (P0, последняя претензия ревью).** `guard_egress` не проверял ничего для классов `social`/`attributed` (`GUARD_SKIP_CLASSES` + условие `or not required`). Значит, добавленный Writer'ом новый внешний факт уходил в чат без единой проверки:
+* сценарий 16: «Кстати, модели GeForce RTX 9090 не существует» в шутке (`act=banter`, `claims=[]`, `required=False`) → guard `none`;
+* сценарий 24: «По словам участников, цена 500$. Новая цена будет 700$» → добавленная своя цена тоже не проверялась.
+
+**Причина.** Skip строился по ПЛАНИРУЕМОМУ содержанию, а guard смотрит УЖЕ написанный текст: Writer дописывает факт мимо плана, и именно в самом «безопасном» классе он проходил без проверки. Ложный вызов на «1.5 часа» (§8.1) к этому моменту уже устранён сужением `_RISK_VERSION_RE` — класс-уровневый skip стал не нужен и вреден.
+
+**Исправление (моя зона).**
+* `GUARD_SKIP_CLASSES = ("background", "transformation", "historical", "runtime")` — `social` и `attributed` убраны; условие `or not required` убрано: решение «план не требует проверки» не означает «в тексте не появится новый внешний факт».
+* `background` оставлен осознанно: класс выставляется при выключенном рубильнике политики (`policy_disabled`) — паритет прежнего поведения и §8.2 kill-switch.
+* Попредложенческий `_attributed()` сохранён: чужая речь/цитата — не наш claim, проверяется только ДОБАВКА Writer'а.
+* Детектор высокого риска не расширялся: «1.5 часа» (арифметика), метафора, мат, год без события по-прежнему `GUARD_NONE` — шутка не режется.
+* Initiative (необязательный пункт ревью, сделан): правило 7b в `_evaluate` — план без claim'ов и с НЕфактическим актом (`response_act=other`) → `required=False`, `skip_reason=NO_NEW_EXTERNAL_CLAIM` (раньше §1.2 п.8 гнал веб-поиск по внутренней формулировке цели «напомнить про релиз 1017»). Новый `evidence_policy.claims_query(decision)` собирает запрос ТОЛЬКО из claim'а (`entity`+`version/metric/date`); `generate_initiative_reply` использует его вместо служебной цели.
+
+**Что осталось честно ограниченным.** Для `social`/`attributed` решение политики не запрашивает `web_search` (`required_caps=()`), поэтому `_evidence_lookup` (контракт §8.2 закреплён тестом) адресный запрос не делает: путь деградирует честно — подсказка Writer'у убрать claim, при упорстве детерминированное удаление ТОЛЬКО этого предложения. Шутка/пересказ и остальной текст сохраняются; выдуманный факт в чат не уходит.
+
+**Доказательство (новые/переписанные тесты `tests/test_evol_evidence_routing.py`).**
+* `test_review_fix2_joke_with_added_nonexistence_is_checked` — реальное решение политики (`act=banter`, `claims=[]`, `required=False`): guard → `one_lookup_then_hint_retry` именно на предложении с «не существует» (шутка не в фокусе); через `_run_evidence_egress_guard` ровно 1 lookup + 1 регенерация, «Ну и мрак.» цело; при Writer'е, проигнорировавшем подсказку, `dropped_claim=1` и удалено только это предложение.
+* `test_review_fix2_attributed_retelling_checks_only_the_addition` — реальное решение (`attributed`, `claims=[]`): в адресную проверку уходит только «Новая цена будет 700$» (в lookup нет «500»), пересказ остаётся в тексте; чистая атрибуция без добавки → `GUARD_NONE`.
+* `test_review_fix2_transformation_class_is_still_not_guarded` — узкий skip не снят: пересказ Summary вне guard (`note="not_externally_factual"`, сценарий 23).
+* `test_review_social_reply_with_decimal_makes_no_lookup` (переписан) — для `social` guard ТЕПЕРЬ запускается, но «1.5 часа» не высокий риск: `GUARD_NONE`, 0 lookup, 0 регенераций, ответ байт-идентичен.
+* `test_review_fix2_casual_plan_without_claims_needs_no_search`, `test_review_fix2_casual_initiative_makes_no_search` — casual/инициатива (`other`, без claim'ов): `NO_NEW_EXTERNAL_CLAIM`, `router.dispatched == []`, Writer без evidence; `claims_query` строится из claim'а и не содержит внутренней цели.
+
+**Прогоны (offline, без сети/живых провайдеров/Telegram-публикаций).**
+
+```text
+pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py -q      → 107 passed
+pytest tests/test_evol_evidence_{routing,window}.py + test_direct_chat*.py
+   test_asap8_v6_wc_direct_d03/d04/matrix, test_asap8_f6_initiative,
+   test_asap8_v63_b01_initiative_observer, test_initiative_delivery_telemetry,
+   test_p0_initfix_initiative_observer, test_evol014_meme_initiative,
+   test_soul1_w5_initiative_vitality, test_evol_social_frame,
+   test_asap8_initreply_binding -q                                                    → 549 passed
+pytest tests/test_asap7_direct_l1, test_direct_chat_lore_inject/prompts/relations_inject,
+   test_direct_context_capacity/composer/scenarios_asap3,
+   test_direct_decision_matrix_asap3, test_direct_l1_corrective_r1/l1d_contract,
+   test_direct_llm_decision_asap32, test_direct_two_call_round1022,
+   test_soul1_direct_prompt_reads -q                                                  → 271 passed, 5 failed (пред-существующие)
+```
+
+5 падений — `tests/test_direct_fallback_recompose_asap32.py` (`TypeError: fb_retries() got an unexpected keyword argument 'sent'`, вызов из `services/llm_client.py:1485`): тестовый двойник отстал от сигнатуры `_fallback_with_retries(payload, sent=…)`. `git diff HEAD` по `services/llm_client.py` и этому тесту ПУСТ — состояние ветки до моей правки, evidence-routing в этих тестах не участвует. Вне моей зоны; зафиксировано как incidental finding.
+
+**Границы.** Изменены только мои файлы: `services/evidence_policy.py`, `services/direct_chat_service.py` (только инициативный запрос), `tests/test_evol_evidence_routing.py`, этот отчёт. Ни `git reset/checkout/stash/clean/restore`, ни коммитов не выполнялось; чужие полосы (`services/cover*`, web-слой, `services/pipeline_analytics.py`, правимые mca-тесты, скриншот-евidence) не трогались.

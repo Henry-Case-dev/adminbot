@@ -582,10 +582,12 @@ def test_review_decimal_number_is_not_a_version_claim():
 
 @pytest.mark.asyncio
 async def test_review_social_reply_with_decimal_makes_no_lookup():
-    """Review fix 1: социальная реплика с «1.5 часа» → GUARD_NONE, 0 запросов.
+    """Review fix 1/2: социальная реплика с «1.5 часа» → GUARD_NONE, 0 запросов.
 
-    Guard не запускается для классов без собственного внешнего claim: ни
-    лишнего веб-поиска по приватному тексту, ни удаления предложения."""
+    Guard для социального класса ТЕПЕРЬ ЗАПУСКАЕТСЯ (review fix 2: в шутке
+    может быть добавленный Writer'ом новый внешний факт), но детектор высокого
+    риска её не трогает: «1.5 часа» — арифметика, а не claim о версии. Ни
+    лишнего веб-поиска, ни удаления предложения."""
     plan = _plan(response_act="banter")
     decision = ep.evaluate_evidence_need(
         plan=plan, task_kind="social_chat", supplied=ep.SuppliedSources(),
@@ -596,7 +598,8 @@ async def test_review_social_reply_with_decimal_makes_no_lookup():
         decision=decision, evidence_text="")
     assert verdict.action == ep.GUARD_NONE
     assert verdict.lookup_allowed is False
-    assert verdict.note == "not_externally_factual"
+    assert verdict.note != "not_externally_factual"   # guard реально проверял
+    assert verdict.note == ""                         # и ничего не нашёл
     calls = {"lookup": 0, "rewrite": 0}
 
     async def lookup(claim):
@@ -613,6 +616,182 @@ async def test_review_social_reply_with_decimal_makes_no_lookup():
     assert answer == "Я потратил 1.5 часа на этот баг, зато выспался."
     assert calls == {"lookup": 0, "rewrite": 0}
     assert stats["guard_action"] == ep.GUARD_NONE
+
+
+# ── Review fix 2: guard НЕ выключен для шутки и атрибутированного пересказа ─
+
+
+def _banter_decision() -> "ep.EvidenceDecision":
+    """Реальное решение политики для шутки: act=banter, claim'ов нет."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="banter"), task_kind="social_chat",
+        supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
+        context=_ok_ctx())
+    assert decision.evidence_class == "social"
+    assert decision.required is False and decision.claims == ()
+    assert decision.required_caps == ()
+    return decision
+
+
+def _attributed_decision() -> "ep.EvidenceDecision":
+    """Реальное решение политики для пересказа чужой речи (сц. 24)."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="other"), task_kind="social_chat",
+        supplied=ep.SuppliedSources(attributed_only=True),
+        runtime_state=ep.RuntimeState(), context=_ok_ctx())
+    assert decision.evidence_class == "attributed"
+    assert decision.required is False and decision.claims == ()
+    return decision
+
+
+@pytest.mark.asyncio
+async def test_review_fix2_joke_with_added_nonexistence_is_checked():
+    """Сценарий 16: «Кстати, модели GeForce RTX 9090 не существует» в шутке.
+
+    Класс `social` больше не глушит guard: добавленный Writer'ом новый внешний
+    факт — это НАШ claim. Реакция ограничена: один адресный lookup, одна
+    регенерация, и только потом удаляется ровно это предложение."""
+    decision = _banter_decision()
+    answer = "Ну и мрак. Кстати, модели GeForce RTX 9090 не существует."
+    verdict = ep.guard_egress(answer=answer, decision=decision,
+                              evidence_text="")
+    assert verdict.action == ep.GUARD_ONE_LOOKUP
+    assert "не существует" in verdict.sentence
+    assert "Ну и мрак" not in verdict.sentence     # шутка не в фокусе
+
+    calls = {"lookup": 0, "rewrite": 0}
+    seen: list[str] = []
+
+    async def lookup(claim):
+        calls["lookup"] += 1
+        seen.append(str(claim))
+        return ""                                  # выдержки нет
+
+    async def rewrite(hint, extra):
+        calls["rewrite"] += 1
+        assert "Не пиши, что ты что-то проверял" in hint
+        return "Ну и мрак."                        # claim убран, шутка цела
+
+    text, stats = await dcs._run_evidence_egress_guard(
+        answer=answer, decision=decision, evidence_text="",
+        lookup=lookup, rewrite=rewrite)
+    assert calls == {"lookup": 1, "rewrite": 1}
+    assert seen and "не существует" in seen[0]
+    assert text == "Ну и мрак."
+    assert stats["lookup_used"] == 1 and stats["retry_used"] == 1
+    assert stats["dropped_claim"] == 0
+
+    # Writer проигнорировал подсказку → удаляется ТОЛЬКО это предложение.
+    async def stubborn(hint, extra):
+        return answer
+
+    text2, stats2 = await dcs._run_evidence_egress_guard(
+        answer=answer, decision=decision, evidence_text="",
+        lookup=lookup, rewrite=stubborn)
+    assert "не существует" not in text2
+    assert "Ну и мрак" in text2
+    assert stats2["dropped_claim"] == 1
+
+
+@pytest.mark.asyncio
+async def test_review_fix2_attributed_retelling_checks_only_the_addition():
+    """Сценарий 24: атрибуция + НОВАЯ цена → проверяется только добавка.
+
+    «По словам участников, цена 500$» — чужая речь (попредложенческий skip),
+    «Новая цена будет 700$» — собственный claim Writer'а: он и уходит в
+    адресную проверку, а пересказ остаётся в тексте."""
+    decision = _attributed_decision()
+    answer = ("По словам участников, цена уже 500$. "
+              "Новая цена будет 700$.")
+    verdict = ep.guard_egress(answer=answer, decision=decision,
+                              evidence_text="")
+    assert verdict.action == ep.GUARD_ONE_LOOKUP
+    assert "700" in verdict.sentence and "500" not in verdict.sentence
+
+    seen: list[str] = []
+
+    async def lookup(claim):
+        seen.append(str(claim))
+        return ""
+
+    async def rewrite(hint, extra):
+        return "По словам участников, цена уже 500$."
+
+    text, stats = await dcs._run_evidence_egress_guard(
+        answer=answer, decision=decision, evidence_text="",
+        lookup=lookup, rewrite=rewrite)
+    assert len(seen) == 1 and "700" in seen[0] and "500" not in seen[0]
+    assert text == "По словам участников, цена уже 500$."
+    assert "700" not in text
+    assert stats["dropped_claim"] == 0
+
+    # Та же реплика БЕЗ добавки — guard молчит, атрибуция не наш claim.
+    clean = ep.guard_egress(
+        answer="По словам участников, цена уже 500$.",
+        decision=decision, evidence_text="")
+    assert clean.action == ep.GUARD_NONE
+
+
+def test_review_fix2_transformation_class_is_still_not_guarded():
+    """Сценарий 23: пересказ Summary не «допроверяется» вебом.
+
+    Класс-уровневый skip сужен, но не снят: `transformation` по-прежнему вне
+    egress-проверки (иначе пересказ поданного текста стоил бы сети)."""
+    plan = _plan(response_act="summarization", structure="summary")
+    supplied = dcs._evidence_supplied(
+        "перескажи кратко", "В чате обсуждали новость о ценах", plan)
+    decision = ep.evaluate_evidence_need(
+        plan=plan, task_kind="social_chat", supplied=supplied,
+        runtime_state=ep.RuntimeState(), context=_ok_ctx())
+    assert decision.evidence_class == "transformation"
+    verdict = ep.guard_egress(answer="Новая цена будет 700$.",
+                              decision=decision, evidence_text="")
+    assert verdict.action == ep.GUARD_NONE
+    assert verdict.note == "not_externally_factual"
+
+
+def test_review_fix2_casual_plan_without_claims_needs_no_search():
+    """Инициатива/casual с response_act=other и без claim'ов → нет проверки.
+
+    Иначе §1.2 п.8 гнал бы веб-поиск по внутренней формулировке цели; запрос
+    строится только из claim'а (`claims_query`)."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="other"), task_kind="social_chat",
+        supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
+        context=_ok_ctx())
+    assert decision.required is False
+    assert decision.required_caps == ()
+    assert decision.skip_reason is ep.EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM
+    assert ep.claims_query(decision) == ""
+    claim_plan = _plan(response_act="answer", external_claims=[
+        {"entity": "GeForce RTX 9090", "relation": "version", "version": "1.0"}])
+    factual = ep.evaluate_evidence_need(
+        plan=claim_plan, task_kind="direct_answer",
+        supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
+        context=_ok_ctx())
+    assert factual.required and factual.required_caps == ("web_search",)
+    query = ep.claims_query(factual)
+    assert "geforce rtx 9090" in query.lower() and "1.0" in query
+    assert "напомнить" not in query
+
+
+@pytest.mark.asyncio
+async def test_review_fix2_casual_initiative_makes_no_search(monkeypatch):
+    """Инициатива с response_act=other и без claim'ов → 0 сетевых вызовов.
+
+    Раньше §1.2 п.8 отправлял веб-поиск по внутренней формулировке цели
+    («напомнить про релиз 1017»); теперь это NO_NEW_EXTERNAL_CLAIM, а запрос
+    (если он вообще нужен) строится только из claim'а."""
+    router = _Router()
+    svc, writer_calls = _init_service(router, monkeypatch,
+                                      answer="Кстати, в чате тихо.")
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    text = await svc.generate_initiative_reply(
+        CHAT, {"goal": "напомнить про релиз 1017"},
+        l1_plan=_plan(response_act="other"), correlation_id="run-rf2")
+    assert router.dispatched == []
+    assert text == "Кстати, в чате тихо."
+    assert writer_calls and writer_calls[0]["evidence"] == ""
 
 
 @pytest.mark.asyncio

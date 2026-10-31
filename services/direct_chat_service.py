@@ -11659,6 +11659,12 @@ class DirectChatService:
             _initiative_pack = None
             _initiative_caps = tuple(getattr(_initiative_decision,
                                              "required_caps", ()) or ())
+            # Поисковый запрос — ТОЛЬКО из claim'ов плана: внутренняя
+            # формулировка цели («напомнить про релиз») служебная и уводила
+            # единственный сетевой вызов в мусор. Нет claim'ов → политика уже
+            # вернула NO_NEW_EXTERNAL_CLAIM и tool-фаза не запускается.
+            _init_search_query = (
+                _evp.claims_query(_initiative_decision) or _goal_query)
             _init_router = getattr(self, "tool_router", None)
             _init_tool_ctx = ToolContext(
                 chat_id, _goal_query, correlation_id=correlation_id)
@@ -11670,7 +11676,7 @@ class DirectChatService:
                         chat_id, correlation_id, False, False, plan,
                         decision=_initiative_decision)
                     _init_raw = await self._l1_tool_phase(
-                        None, _init_tool_ctx, query=_goal_query,
+                        None, _init_tool_ctx, query=_init_search_query,
                         lore_enabled=False, image_enabled=False,
                         temperature=temperature, chat_id=chat_id,
                         correlation_id=correlation_id, l1_plan=plan,

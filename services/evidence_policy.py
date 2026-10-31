@@ -46,7 +46,7 @@ __all__ = [
     "GUARD_ONE_LOOKUP", "GUARD_DROP_CLAIM", "GUARD_SKIP_CLASSES",
     "runtime_source_note",
     "is_runtime_self_question", "is_external_forbidden",
-    "is_attributed_speech",
+    "is_attributed_speech", "claims_query",
     "REASON_EVIDENCE_SKIPPED",
     "REASON_EVIDENCE_REUSED", "REASON_EVIDENCE_CLAIM_REMOVED",
     "EVIDENCE_STAGE", "CAPABILITY_SOURCE_READ",
@@ -713,6 +713,15 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
             required=False, evidence_class="social", claims=claims,
             skip_reason=EvidenceSkipReason.PURE_SOCIAL_OR_CREATIVE,
             note="social_act")
+    # 7b. План без claim'ов и с НЕфактическим актом (типичный casual/инициатива
+    #     с response_act=other): своего внешнего утверждения нет — проверять
+    #     нечего. Иначе §1.2 п.8 («неизвестно → требуется») гнал бы веб-поиск по
+    #     внутренней формулировке цели («напомнить про релиз»), а не по claim'у.
+    if not claims and act not in FACTUAL_ACTS:
+        return EvidenceDecision(
+            required=False, evidence_class="social", claims=claims,
+            skip_reason=EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM,
+            note="no_new_external_claim")
     # 8. Неизвестно → проверка требуется (осознанная асимметрия).
     #    Для деградированного плана (LLM не ответил) содержания нет вовсе:
     #    класс берём из детерминированных сигналов — без сигнала внешнего
@@ -907,6 +916,26 @@ def _plan_claims_text(decision: EvidenceDecision | None) -> str:
     return " ".join(parts)
 
 
+def claims_query(decision: EvidenceDecision | None, *, limit: int = 160) -> str:
+    """Поисковый запрос ТОЛЬКО из claim'ов плана (не из служебной цели).
+
+    У инициативного хода нет пользовательской реплики: запрос, собранный из
+    внутренней формулировки цели («напомнить про релиз»), уводит поиск в
+    служебный текст и тратит единственный сетевой вызов впустую. Запрос
+    строится из полей claim'а (entity + version/metric/date); claim'ов нет →
+    пустая строка, и вызывающий поиск не делает вовсе."""
+    if decision is None:
+        return ""
+    parts: list[str] = []
+    for claim in (getattr(decision, "claims", ()) or ()):
+        fields = [str(getattr(claim, name, "") or "").strip()
+                  for name in ("entity", "version", "metric", "date")]
+        text = " ".join(x for x in fields if x)
+        if text and text not in parts:
+            parts.append(text)
+    return " ".join(parts)[:max(1, int(limit))].strip()
+
+
 def _high_risk(sentence: str) -> bool:
     """Предложение содержит проверяемый высокорисковый класс claim?
 
@@ -1010,11 +1039,20 @@ class EgressVerdict:
 
 
 #: Классы, ответы которых НЕ являются собственным внешним claim бота (§1.2
-#: п.1/3/4/5/7): guard для них не запускается вовсе — иначе обычная социальная
-#: реплика с числом/десятичной дробью («потратил 1.5 часа») стоила бы лишнего
-#: веб-запроса и могла потерять текст.
-GUARD_SKIP_CLASSES = ("social", "background", "attributed",
-                      "transformation", "historical", "runtime")
+#: п.3/4/5): guard для них не запускается вовсе.
+#:
+#: ``social`` и ``attributed`` здесь БОЛЬШЕ НЕТ (review fix 2): шутка и
+#: пересказ чужой речи — самый удобный способ пронести НОВЫЙ выдуманный факт
+#: («Кстати, модели GeForce RTX 9090 не существует», «Новая цена будет 700$»),
+#: и класс-уровневый skip пропускал его без единой проверки. Доброкачественная
+#: болтовня защищена самим детектором высокого риска (`_high_risk`): метафора,
+#: арифметика вроде «1.5 часа» и дата без события не срабатывают.
+#:
+#: Оставлены классы, где своего внешнего утверждения не бывает по построению:
+#: ``transformation`` (пересказ поданного текста), ``historical`` (ответ уже
+#: есть в истории чата), ``runtime`` (фактический runtime-источник),
+#: ``background`` (рубильник политики выключен — паритет прежнего поведения).
+GUARD_SKIP_CLASSES = ("background", "transformation", "historical", "runtime")
 
 
 def guard_egress(*, answer, decision: EvidenceDecision | None = None,
@@ -1024,11 +1062,15 @@ def guard_egress(*, answer, decision: EvidenceDecision | None = None,
     """Неподтверждённый существенный внешний claim в готовом ответе (§2.3).
 
     Проверяются ТОЛЬКО высокорисковые предложения (существование/версия/
-    цена/дата/число/характеристика/категорическое опровержение); метафора,
-    мат, чужая атрибутированная речь и цитаты — вне проверки. Действия
-    ограничены ``GuardAction``: максимум один адресный lookup и одна
-    повторная генерация, затем детерминированное удаление только этого
-    предложения (остальной текст сохраняется).
+    цена/дата/число/характеристика/категорическое опровержение); метафора и
+    мат — вне проверки, а чужая атрибутированная речь/цитата вырезается
+    ПОПРЕДЛОЖЕНЧЕСКИ (``_attributed``): пересказ чужих слов не наш claim.
+    Класс-уровневый skip (``GUARD_SKIP_CLASSES``) узкий: шутка (``social``) и
+    пересказ (``attributed``) проверяются, потому что добавленный Writer'ом
+    новый внешний факт — всё равно наш claim. Действия ограничены
+    ``GuardAction``: максимум один адресный lookup и одна повторная генерация,
+    затем детерминированное удаление только этого предложения (остальной текст
+    — тон, шутка, ритм — сохраняется).
 
     ``source_fetched ≠ verified``: подтверждением считается лишь реально
     доставленная Writer'у выдержка (``evidence_text``), а не факт вызова
@@ -1039,12 +1081,16 @@ def guard_egress(*, answer, decision: EvidenceDecision | None = None,
             return EgressVerdict()
         if decision is not None:
             klass = str(getattr(decision, "evidence_class", "") or "")
-            claims = tuple(getattr(decision, "claims", ()) or ())
-            # Класс без собственного внешнего claim (§1.2 п.1/3/4/5/7) —
-            # guard не применяется: проверять нечего, а поиск по приватной
-            # болтовне был бы лишним сетевым вызовом.
-            if not claims and (klass in GUARD_SKIP_CLASSES
-                              or not getattr(decision, "required", False)):
+            # Класс без собственного внешнего claim (§1.2 п.3/4/5) —
+            # guard не применяется: проверять нечего.
+            #
+            # Флаг ``required`` здесь НЕ проверяется (review fix 2): решение
+            # политики «проверка не требуется» относится к ПЛАНИРУЕМОМУ
+            # содержанию, а guard смотрит УЖЕ написанный текст. Writer легко
+            # добавляет новый внешний факт мимо плана — и в шутке, и в
+            # атрибутированном пересказе (сценарии 16/24) — и именно его
+            # обязан поймать ограниченный выходной guard.
+            if klass in GUARD_SKIP_CLASSES:
                 return EgressVerdict(note="not_externally_factual")
         planned = _plan_claims_text(decision)
         delivered = {str(k or "") for k in (delivered_keys or ()) if k}
