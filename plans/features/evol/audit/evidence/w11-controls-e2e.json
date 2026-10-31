@@ -15,12 +15,12 @@
       "visible": true
      },
      {
-      "state": "unknown",
+      "state": "idle",
       "role": "progressbar",
-      "now": null,
-      "label": "нет данных",
-      "widthPct": 0,
-      "hatch": true,
+      "now": "25",
+      "label": "RAM, 25 % из 100 %",
+      "widthPct": 25,
+      "hatch": false,
       "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
       "visible": true
      },
@@ -37,6 +37,23 @@
     ],
     "anomalies": []
    },
+   "sys_rows": [
+    {
+     "state": "idle",
+     "now": "42",
+     "text": "CPU42%"
+    },
+    {
+     "state": "idle",
+     "now": "25",
+     "text": "RAM512 МБ / 2.0 ГБ (25%)"
+    },
+    {
+     "state": "done",
+     "now": "100",
+     "text": "Диск100.0 ГБ / 100.0 ГБ (100%)"
+    }
+   ],
    "scope": {
     "open": true,
     "placement": "bottom",
@@ -150,6 +167,247 @@
    "doubles": [],
    "doublesTotal": 0
   },
+  "toggles_modules": {
+   "total": 21,
+   "tracks": 21,
+   "orphans": 0,
+   "checked": 6,
+   "backgrounds": [
+    "rgba(170, 182, 200, 0.22)",
+    "rgb(139, 111, 232)"
+   ],
+   "states": [
+    "false",
+    "true"
+   ],
+   "items": [
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    }
+   ]
+  },
+  "toggle_flip_modules": {
+   "found": true,
+   "was": false,
+   "on": {
+    "bg": "rgb(139, 111, 232)",
+    "offset": 22,
+    "thumbW": 20,
+    "trackW": 44
+   },
+   "off": {
+    "bg": "rgba(170, 182, 200, 0.22)",
+    "offset": 2,
+    "thumbW": 20,
+    "trackW": 44
+   }
+  },
+  "toggles_permsoc": {
+   "total": 19,
+   "tracks": 19,
+   "orphans": 0,
+   "checked": 16,
+   "backgrounds": [
+    "rgba(170, 182, 200, 0.22)",
+    "rgb(139, 111, 232)"
+   ],
+   "states": [
+    "false",
+    "true"
+   ],
+   "items": [
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    }
+   ]
+  },
+  "toggle_flip_permsoc": {
+   "found": true,
+   "was": false,
+   "on": {
+    "bg": "rgb(139, 111, 232)",
+    "offset": 22,
+    "thumbW": 20,
+    "trackW": 44
+   },
+   "off": {
+    "bg": "rgba(170, 182, 200, 0.22)",
+    "offset": 2,
+    "thumbW": 20,
+    "trackW": 44
+   }
+  },
+  "module_toggle_posts": 1,
+  "toggles_modules_after_click": {
+   "total": 21,
+   "tracks": 21,
+   "orphans": 0,
+   "checked": 6,
+   "backgrounds": [
+    "rgba(170, 182, 200, 0.22)",
+    "rgb(139, 111, 232)"
+   ],
+   "states": [
+    "false",
+    "true"
+   ],
+   "items": [
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": true,
+     "disabled": false,
+     "bg": "rgb(139, 111, 232)",
+     "thumbOffset": 22,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    },
+    {
+     "checked": false,
+     "disabled": false,
+     "bg": "rgba(170, 182, 200, 0.22)",
+     "thumbOffset": 2,
+     "width": 44,
+     "visible": true
+    }
+   ]
+  },
+  "toggle_flip_modules_after_click": {
+   "found": true,
+   "was": false,
+   "on": {
+    "bg": "rgb(139, 111, 232)",
+    "offset": 22,
+    "thumbW": 20,
+    "trackW": 44
+   },
+   "off": {
+    "bg": "rgba(170, 182, 200, 0.22)",
+    "offset": 2,
+    "thumbW": 20,
+    "trackW": 44
+   }
+  },
   "reduced_motion": {
    "dotAnim": "none",
    "dotOpacity": "0.9",
@@ -161,6 +419,165 @@
    "dotOpacity": "0.45",
    "afterDisplay": "block",
    "trackBg": "none"
+  },
+  "degraded_status": {
+   "progress": {
+    "count": 3,
+    "tracks": [
+     {
+      "state": "idle",
+      "role": "progressbar",
+      "now": "42",
+      "label": "CPU, 42 % из 100 %",
+      "widthPct": 42,
+      "hatch": false,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     },
+     {
+      "state": "unknown",
+      "role": "progressbar",
+      "now": null,
+      "label": "нет данных",
+      "widthPct": 0,
+      "hatch": true,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     },
+     {
+      "state": "done",
+      "role": "progressbar",
+      "now": "100",
+      "label": "Диск, 100 % из 100 %",
+      "widthPct": 100,
+      "hatch": false,
+      "fillBg": "linear-gradient(90deg, rgb(47, 185, 168), rgb(66, 214, 196))",
+      "visible": true
+     }
+    ],
+    "anomalies": []
+   },
+   "rows": [
+    {
+     "state": "idle",
+     "now": "42",
+     "text": "CPU42%"
+    },
+    {
+     "state": "unknown",
+     "now": null,
+     "text": "RAMнет данных"
+    },
+    {
+     "state": "done",
+     "now": "100",
+     "text": "Диск100.0 ГБ / 100.0 ГБ (100%)"
+    }
+   ]
+  },
+  "toggles_mobile_390": {
+   "probe": {
+    "total": 21,
+    "tracks": 21,
+    "orphans": 0,
+    "checked": 6,
+    "backgrounds": [
+     "rgba(170, 182, 200, 0.22)",
+     "rgb(139, 111, 232)"
+    ],
+    "states": [
+     "false",
+     "true"
+    ],
+    "items": [
+     {
+      "checked": false,
+      "disabled": false,
+      "bg": "rgba(170, 182, 200, 0.22)",
+      "thumbOffset": 2,
+      "width": 44,
+      "visible": true
+     },
+     {
+      "checked": true,
+      "disabled": false,
+      "bg": "rgb(139, 111, 232)",
+      "thumbOffset": 22,
+      "width": 44,
+      "visible": true
+     },
+     {
+      "checked": false,
+      "disabled": false,
+      "bg": "rgba(170, 182, 200, 0.22)",
+      "thumbOffset": 2,
+      "width": 44,
+      "visible": true
+     },
+     {
+      "checked": false,
+      "disabled": false,
+      "bg": "rgba(170, 182, 200, 0.22)",
+      "thumbOffset": 2,
+      "width": 44,
+      "visible": true
+     },
+     {
+      "checked": false,
+      "disabled": false,
+      "bg": "rgba(170, 182, 200, 0.22)",
+      "thumbOffset": 2,
+      "width": 44,
+      "visible": true
+     },
+     {
+      "checked": false,
+      "disabled": false,
+      "bg": "rgba(170, 182, 200, 0.22)",
+      "thumbOffset": 2,
+      "width": 44,
+      "visible": true
+     }
+    ]
+   },
+   "hit": [
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    },
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    },
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    },
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    },
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    },
+    {
+     "w": 44,
+     "h": 24,
+     "labelH": 44,
+     "labelW": 44
+    }
+   ]
   }
  },
  "fails": []

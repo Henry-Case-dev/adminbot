@@ -7,8 +7,14 @@
 Проверяется (plans/current_task.md L690–739):
 
   * EVOL-045 — системные/бюджетные полосы честны: подтверждённая пара
-    done/total даёт determinate с единицами и aria; `percent: null` даёт
-    состояние `unknown` (штриховка, нулевая заливка), а не «успешные 0 %»;
+    done/total даёт determinate с единицами и aria; пара used/total без
+    `percent` досчитывается (не «нет данных» при живых числах); `percent: null`
+    без пары даёт состояние `unknown` (штриховка, нулевая заливка), а не
+    «успешные 0 %»;
+  * EVOL-043 — тумблеры: каждый трек живёт в контейнере `.ctl-toggle`, и
+    включённое состояние ВИДИМО отличается от выключенного (цвет трека +
+    сдвиг бегунка) на реальных экранах `#/modules` и `#/permsoc`, включая
+    настоящее нажатие (серверная операция, без ошибок консоли);
   * EVOL-044 — экранная клавиатура: видимая область приходит из платформенных
     сигналов, поле в фокусе остаётся выше клавиатуры, каретка/черновик целы,
     страница не получает горизонтальный скролл;
@@ -49,7 +55,8 @@ DEFAULT_SHOTS = os.path.join(REPO, "plans", "features", "evol", "audit",
                              "evidence")
 
 # Детерминированная фикстура /api/status: одна подтверждённая метрика (CPU),
-# одна БЕЗ данных (RAM percent=null) и одна завершённая (Диск 100 %).
+# одна пришедшая ПАРОЙ без `percent` (RAM 512 МБ / 2 ГБ → 25 %, честно
+# досчитывается из пары) и одна завершённая (Диск 100 %).
 STATUS_FIXTURE = {
     "bot": {"uptime_seconds": 3600, "state": "running", "errors_total": 0},
     "server": {
@@ -62,6 +69,12 @@ STATUS_FIXTURE = {
     "llm": [],
     "context": {},
 }
+
+# Деградированный payload: секция server есть, но у памяти НЕТ ни процента,
+# ни пары — полоса обязана честно показать «нет данных», а не 0 % успеха.
+STATUS_DEGRADED = json.loads(json.dumps(STATUS_FIXTURE))
+STATUS_DEGRADED["server"]["memory"] = {"used": None, "total": None,
+                                       "percent": None}
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -89,11 +102,13 @@ class _Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-def _routes():
+def _routes(status=None):
+    payload_status = STATUS_FIXTURE if status is None else status
+
     def _route(route):
         url = route.request.url.split("?")[0]
         if url.endswith("/api/status"):
-            payload = STATUS_FIXTURE
+            payload = payload_status
         elif url.endswith("/api/config"):
             hdrs = route.request.headers or {}
             payload = (M.CONFIG_STUB_CHAT if hdrs.get("x-chat-id")
@@ -275,6 +290,88 @@ PROBE_JOINTS = r"""
 """
 
 
+PROBE_SYS_ROWS = r"""
+() => Array.from(document.querySelectorAll('.ctl-progress__track')).map((t) => {
+  const head = t.previousElementSibling;
+  return {
+    state: t.getAttribute('data-state'),
+    now: t.getAttribute('aria-valuenow'),
+    text: head ? (head.textContent || '').replace(/\s+/g, ' ').trim() : '',
+  };
+})
+"""
+
+PROBE_TOGGLES = r"""
+() => {
+  const labels = Array.from(document.querySelectorAll('label.ctl-toggle'));
+  const tracks = Array.from(document.querySelectorAll('.ctl-toggle__track'));
+  const orphan = tracks.filter((t) => !t.closest('label.ctl-toggle')).length;
+  const items = labels.map((lab) => {
+    const track = lab.querySelector('.ctl-toggle__track');
+    const thumb = lab.querySelector('.ctl-toggle__thumb');
+    const input = lab.querySelector('input[type="checkbox"]');
+    const tr = track ? track.getBoundingClientRect() : null;
+    return {
+      checked: input ? !!input.checked : null,
+      disabled: input ? !!input.disabled : null,
+      bg: track ? getComputedStyle(track).backgroundColor : null,
+      thumbOffset: (thumb && tr)
+        ? Math.round(thumb.getBoundingClientRect().left - tr.left) : null,
+      width: tr ? Math.round(tr.width) : null,
+      visible: tr ? (tr.width > 4 && tr.height > 4) : false,
+    };
+  });
+  return {
+    total: labels.length,
+    tracks: tracks.length,
+    orphans: orphan,
+    checked: items.filter((i) => i.checked).length,
+    backgrounds: Array.from(new Set(items.map((i) => i.bg))),
+    states: Array.from(new Set(items.map((i) => String(!!i.checked)))),
+    items: items.slice(0, 6),
+  };
+}
+"""
+
+PROBE_TOGGLE_FLIP = r"""
+async (args) => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const labels = Array.from(document.querySelectorAll('label.ctl-toggle'))
+    .filter((l) => {
+      const i = l.querySelector('input[type="checkbox"]');
+      return i && !i.disabled;
+    });
+  const lab = labels[Math.min((args && args.idx) || 0, labels.length - 1)];
+  if (!lab) return {found: false};
+  const input = lab.querySelector('input[type="checkbox"]');
+  const track = lab.querySelector('.ctl-toggle__track');
+  const thumb = lab.querySelector('.ctl-toggle__thumb');
+  const was = input.checked;
+  const measure = () => {
+    const tr = track.getBoundingClientRect();
+    const th = thumb.getBoundingClientRect();
+    return {
+      bg: getComputedStyle(track).backgroundColor,
+      offset: Math.round(th.left - tr.left),
+      thumbW: Math.round(th.width),
+      trackW: Math.round(tr.width),
+    };
+  };
+  // Переходы (--motion-fast) должны доиграть: иначе computed-значение —
+  // промежуточный кадр, а не устойчивое состояние.
+  input.checked = false;
+  await wait(260);
+  const off = measure();
+  input.checked = true;
+  await wait(260);
+  const on = measure();
+  input.checked = was;
+  await wait(260);
+  return {found: true, was: was, on: on, off: off};
+}
+"""
+
+
 def run(out_dir, port=PORT):
     from playwright.sync_api import sync_playwright
 
@@ -286,7 +383,7 @@ def run(out_dir, port=PORT):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     base_url = "http://127.0.0.1:%d/web/index.html" % port
 
-    def open_ctx(browser, w, h):
+    def open_ctx(browser, w, h, status=None):
         phone = w <= 430
         ctx = browser.new_context(
             viewport={"width": w, "height": h},
@@ -294,13 +391,48 @@ def run(out_dir, port=PORT):
             is_mobile=phone, has_touch=phone,
         )
         ctx.add_init_script(M.TMA_STUB)
-        ctx.route("**/api/**", _routes())
+        ctx.route("**/api/**", _routes(status))
         return ctx
 
     def check(cond, msg):
         if not cond:
             fails.append(msg)
         return cond
+
+    def check_toggles(page, label):
+        """Живой контракт тумблера: контейнер + различимые состояния."""
+        data = page.evaluate(PROBE_TOGGLES)
+        report["checks"]["toggles_" + label] = data
+        check(data["orphans"] == 0,
+              "%s: трек тумблера без контейнера .ctl-toggle (%d)"
+              % (label, data["orphans"]))
+        check(data["tracks"] == data["total"],
+              "%s: не у всех тумблеров есть контейнер (%d трек / %d контейнер)"
+              % (label, data["tracks"], data["total"]))
+        if not check(data["total"] >= 1,
+                     "%s: тумблеры найдены (%d)" % (label, data["total"])):
+            return data
+        flip = page.evaluate(PROBE_TOGGLE_FLIP, {"idx": 0})
+        report["checks"]["toggle_flip_" + label] = flip
+        if not flip.get("found"):
+            fails.append("%s: нет доступного тумблера для проверки состояний"
+                         % label)
+            return data
+        on, off = flip["on"], flip["off"]
+        check(on["bg"] != off["bg"],
+              "%s: включённый тумблер не отличается цветом трека (%s)"
+              % (label, off["bg"]))
+        check(abs(on["offset"] - off["offset"]) >= 16,
+              "%s: бегунок не сдвигается при включении (%s → %s px)"
+              % (label, off["offset"], on["offset"]))
+        check(on["offset"] + on["thumbW"] <= on["trackW"],
+              "%s: бегунок не выезжает за трек (%s+%s > %s)"
+              % (label, on["offset"], on["thumbW"], on["trackW"]))
+        # Оба состояния реально встречаются на странице (не только через flip).
+        check(len(data["backgrounds"]) >= 2,
+              "%s: на странице нет двух визуально разных состояний (%s)"
+              % (label, data["backgrounds"]))
+        return data
 
     def shot(page, name):
         try:
@@ -377,11 +509,28 @@ def run(out_dir, port=PORT):
             check(bool(cpu["label"]) and "%" in (cpu["label"] or ""),
                   "1280: у полосы есть подпись с единицами")
         unknown = [t for t in prog["tracks"] if t["state"] == "unknown"]
-        check(bool(unknown), "1280: RAM без данных → state=unknown")
-        if unknown:
-            check(unknown[0]["hatch"], "1280: unknown помечен штриховкой")
-            check((unknown[0]["widthPct"] or 0) == 0,
-                  "1280: unknown не заливает «успех»")
+        check(not unknown,
+              "1280: пара used/total без percent считается, а не «нет данных» "
+              "(%d unknown)" % len(unknown))
+        ram = next((t for t in prog["tracks"] if t["now"] == "25"), None)
+        check(ram is not None,
+              "1280: RAM 512 МБ / 2 ГБ без percent → determinate 25 %")
+        if ram:
+            check(22 <= (ram["widthPct"] or 0) <= 28,
+                  "1280: ширина RAM ≈ 25 %% (получено %s)" % ram["widthPct"])
+            check("%" in (ram["label"] or ""),
+                  "1280: у RAM есть подпись с единицами (%)")
+        rows = page.evaluate(PROBE_SYS_ROWS)
+        report["viewports"]["1280x800"]["sys_rows"] = rows
+        ram_row = next((r for r in rows if r["text"].startswith("RAM")), None)
+        check(ram_row is not None, "1280: строка RAM найдена")
+        if ram_row:
+            check("25%" in ram_row["text"],
+                  "1280: подпись RAM показывает реальный процент (%s)"
+                  % ram_row["text"])
+            check("нет данных" not in ram_row["text"],
+                  "1280: «нет данных» не показывается при живой паре (%s)"
+                  % ram_row["text"])
         done = [t for t in prog["tracks"] if t["state"] == "done"]
         check(bool(done), "1280: Диск 100 %% → state=done")
         if done:
@@ -457,6 +606,40 @@ def run(out_dir, port=PORT):
               % joints2["surfaces"])
         check(joints2["doublesTotal"] == 0,
               "1280: двойные контуры в каталоге (%s)" % joints2["doubles"])
+
+        # Тумблеры (#/modules): контейнер контракта + различимые состояния.
+        check_toggles(page, "modules")
+        shot(page, "1280-modules-toggles")
+
+        # Тумблеры PERMsoc: тот же компонент, другой экран.
+        page.goto(base_url + "#/permsoc", wait_until="load")
+        page.wait_for_selector(".app-shell", timeout=20000)
+        page.wait_for_timeout(1200)
+        check_toggles(page, "permsoc")
+        shot(page, "1280-permsoc-toggles")
+
+        # Реальное нажатие: тот же контрол, что и у пользователя (серверный op).
+        page.goto(base_url + "#/modules", wait_until="load")
+        page.wait_for_selector(".module-card", timeout=15000)
+        page.wait_for_timeout(900)
+        posts = []
+        page.on("request", lambda r: posts.append(r.url)
+                if r.method == "POST" and "/api/config" in r.url else None)
+        errs_before = len(errs)
+        try:
+            page.evaluate(
+                "() => { const t = document.querySelector"
+                "('[data-module-global-toggle]'); if (t) t.click(); }")
+            page.wait_for_timeout(1200)
+        except Exception as exc:  # noqa: BLE001
+            fails.append("1280: клик по тумблеру модуля: %s" % str(exc)[:160])
+        report["checks"]["module_toggle_posts"] = len(posts)
+        check(bool(posts),
+              "1280: нажатие на тумблер выполняет серверную операцию")
+        check(len(errs) == errs_before,
+              "1280: нажатие на тумблер не рождает ошибок консоли (%s)"
+              % errs[errs_before:][:2])
+        check_toggles(page, "modules_after_click")
 
         check(not page.evaluate("() => document.documentElement.scrollWidth"
                                 " > window.innerWidth + 1"),
@@ -661,6 +844,68 @@ def run(out_dir, port=PORT):
         check(motion2["dotAnim"] == "ctl-pulse",
               "по умолчанию пульсирует только live-точка (%s)"
               % motion2["dotAnim"])
+        ctx.close()
+
+        # ═══ 6. Деградированный /api/status: «нет данных» честно ═══════════
+        # Секция server есть, но у памяти нет ни процента, ни пары — полоса
+        # обязана остаться unknown (штриховка, без заливки), а не показать 0 %.
+        ctx = open_ctx(browser, 1280, 800, status=STATUS_DEGRADED)
+        page = ctx.new_page()
+        boot(page, "#/")
+        deg = page.evaluate(PROBE_PROGRESS)
+        deg_rows = page.evaluate(PROBE_SYS_ROWS)
+        report["checks"]["degraded_status"] = {"progress": deg, "rows": deg_rows}
+        shot(page, "1280-degraded-status")
+        deg_unknown = [t for t in deg["tracks"] if t["state"] == "unknown"]
+        check(bool(deg_unknown),
+              "деградация: память без данных → state=unknown")
+        if deg_unknown:
+            check(deg_unknown[0]["hatch"],
+                  "деградация: unknown помечен штриховкой")
+            check((deg_unknown[0]["widthPct"] or 0) == 0,
+                  "деградация: unknown не заливает «успех»")
+        deg_ram = next((r for r in deg_rows if r["text"].startswith("RAM")), None)
+        check(deg_ram is not None and "нет данных" in deg_ram["text"],
+              "деградация: строка RAM честно пишет «нет данных» (%s)"
+              % (deg_ram or {}).get("text"))
+        check(not [t for t in deg["tracks"] if t["state"] == "error"],
+              "деградация: отсутствие данных не выдаётся за ошибку")
+        ctx.close()
+
+        # ═══ 7. 390×844 — тумблеры на телефоне: тач-цель и состояния ══════
+        ctx = open_ctx(browser, 390, 844)
+        page = ctx.new_page()
+        errs = []
+        page.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+        page.goto(base_url + "#/modules", wait_until="load")
+        page.wait_for_selector(".module-card", timeout=20000)
+        page.wait_for_timeout(1200)
+        mob = page.evaluate(PROBE_TOGGLES)
+        hit = page.evaluate(r"""
+        () => {
+          const out = [];
+          document.querySelectorAll('label.ctl-toggle').forEach((lab) => {
+            const tr = lab.querySelector('.ctl-toggle__track');
+            if (!tr) return;
+            const t = tr.getBoundingClientRect();
+            if (t.width < 4) return;               // не отрисован
+            const lr = lab.getBoundingClientRect();
+            out.push({w: Math.round(t.width), h: Math.round(t.height),
+                      labelH: Math.round(lr.height), labelW: Math.round(lr.width)});
+          });
+          return out;
+        }
+        """)
+        report["checks"]["toggles_mobile_390"] = {"probe": mob, "hit": hit[:6]}
+        shot(page, "390-modules-toggles")
+        check(mob["orphans"] == 0,
+              "390: трек тумблера без контейнера .ctl-toggle (%d)" % mob["orphans"])
+        check(mob["total"] >= 1, "390: тумблеры найдены (%d)" % mob["total"])
+        check(len(mob["backgrounds"]) >= 2,
+              "390: состояния визуально не различаются (%s)" % mob["backgrounds"])
+        small = [h for h in hit if h["labelH"] < 44 or h["labelW"] < 44]
+        check(not small, "390: тач-цель тумблера меньше 44 px (%s)" % small[:3])
+        check(not errs, "390: тумблеры без ошибок (%s)" % errs[:2])
         ctx.close()
 
         browser.close()

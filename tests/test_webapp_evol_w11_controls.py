@@ -341,6 +341,140 @@ class TestMarkupWiring:
                 "редактор не должен запускать app-fullscreen: %s" % forbidden
 
 
+# ═══ Тумблеры: контейнер контракта и различимость состояний ═════════════════
+# Регрессия (нашёл Reviewer): CSS `.ctl-toggle input:checked ~ …` ждал
+# контейнер `.ctl-toggle`, а 15 меток разметки несли только `__track/__thumb`.
+# Включённое и выключенное состояния рисовались ОДИНАКОВО.
+
+LABEL_RE = re.compile(r"<label\b[^>]*>[\s\S]*?</label>")
+
+
+def _toggle_labels():
+    """Все <label>, внутри которых рендерится трек тумблера контракта."""
+    out = []
+    for m in LABEL_RE.finditer(INDEX):
+        block = m.group(0)
+        if "ctl-toggle__track" not in block:
+            continue
+        tag_end = block.index(">") + 1
+        open_tag = block[:tag_end]
+        cls = re.search(r'class="([^"]*)"', open_tag)
+        inner = block[tag_end:]
+        input_at = inner.find("<input")
+        input_end = inner.find(">", input_at) if input_at >= 0 else -1
+        track_at = inner.index("ctl-toggle__track")
+        track_tag = inner.rfind("<", 0, track_at)
+        between = inner[input_end + 1:track_tag] if (
+            input_at >= 0 and input_end >= 0 and track_tag > input_end) else None
+        out.append({
+            "line": INDEX[:m.start()].count("\n") + 1,
+            "classes": (cls.group(1) if cls else "").split(),
+            "input_before_track": between is not None,
+            # `~` (сосед) работает только внутри одного родителя: между input
+            # и треком не должно быть открытых обёрток.
+            "siblings": between is not None and between.strip() == "",
+        })
+    return out
+
+
+class TestToggleStates:
+    def test_every_toggle_container_has_contract_class(self):
+        """Все треки живут в метке с классом контракта (иначе CSS не совпадёт)."""
+        labels = _toggle_labels()
+        assert len(labels) == 15, \
+            "тумблеров контракта должно быть 15, найдено %d" % len(labels)
+        assert INDEX.count("ctl-toggle__track") == len(labels), \
+            "есть трек вне метки тумблера (сирота без состояния)"
+        bad = [(x["line"], x["classes"]) for x in labels
+               if "ctl-toggle" not in x["classes"]]
+        assert not bad, "метка без контейнера .ctl-toggle: %s" % (bad,)
+
+    def test_input_and_track_are_siblings(self):
+        labels = _toggle_labels()
+        bad = [x["line"] for x in labels
+               if not (x["input_before_track"] and x["siblings"])]
+        assert not bad, \
+            ("селектор `input:checked ~ track` требует, чтобы input стоял ДО "
+             "трека у того же родителя; нарушено в строках %s" % (bad,))
+
+    def test_state_selector_matches_real_container(self):
+        """Селектор состояния и разметка называют ОДИН контейнер."""
+        on_rule = re.search(
+            r"(\.[\w-]+)\s+input:checked\s*~\s*\.ctl-toggle__track\s*\{([^}]*)\}",
+            W11)
+        assert on_rule, "нет правила включённого состояния для трека"
+        container = on_rule.group(1).lstrip(".")
+        assert container == "ctl-toggle", \
+            "правило состояния ждёт контейнер .%s" % container
+        missing = [x["line"] for x in _toggle_labels()
+                   if container not in x["classes"]]
+        assert not missing, \
+            "контейнер .%s отсутствует в метках %s" % (container, missing)
+
+    def test_checked_and_unchecked_paint_differ(self):
+        """Значения состояний РАЗНЫЕ и включённый берёт акцентный токен."""
+        off = _rule(".ctl-toggle__track")
+        on = _rule(".ctl-toggle input:checked ~ .ctl-toggle__track")
+        assert "background" in off and "background" in on
+        assert off != on, "состояния объявлены одинаково"
+        token = re.search(r"background:\s*var\(--purple-400\)", on)
+        assert token, "включённый трек заливается акцентным токеном"
+        accent = re.search(r"--purple-400:\s*(#[0-9A-Fa-f]{6})", CSS)
+        assert accent, "нет токена --purple-400"
+        rgb = tuple(int(accent.group(1)[i:i + 2], 16) for i in (1, 3, 5))
+        off_rgb = re.search(
+            r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", off)
+        assert off_rgb, "выключенный трек не имеет явного цвета"
+        assert rgb != tuple(int(g) for g in off_rgb.groups()), \
+            "включённый и выключенный трек одного цвета (%s)" % (rgb,)
+        # Бегунок едет внутри трека: 44 − 20 − 2 = 22 ≥ сдвиг 20.
+        shift = re.search(
+            r"input:checked\s*~\s*\.ctl-toggle__track\s+\.ctl-toggle__thumb"
+            r"\s*\{[^}]*translateX\((\d+)px\)", W11)
+        assert shift, "бегунок не сдвигается во включённом состоянии"
+        assert int(shift.group(1)) > 0
+
+    def test_disabled_toggle_is_visible(self):
+        assert re.search(
+            r"\.ctl-toggle\s+input:disabled\s*~\s*\.ctl-toggle__track\s*\{"
+            r"[^}]*opacity", W11), \
+            "недоступный тумблер не отличается от доступного"
+
+    def test_no_second_implementation_of_toggle_state(self):
+        """Одно состояние — одна реализация: Tailwind peer-checked не вернулся."""
+        assert "peer-checked:" not in INDEX, \
+            "вернулась вторая (Tailwind) реализация состояния тумблера"
+        assert "peer-checked:" not in CSS
+
+    def test_live_tool_checks_toggle_states(self):
+        text = TOOL.read_text(encoding="utf-8")
+        for needle in ("PROBE_TOGGLES", "PROBE_TOGGLE_FLIP",
+                       "#/modules", "#/permsoc"):
+            assert needle in text, "живой прогон не проверяет тумблеры: %s" % needle
+        assert "toggle_flip_" in text and "check_toggles(" in text
+
+
+# ═══ Достоверность ресурсной пары used/total ═══════════════════════════════
+
+class TestResourcePairPercent:
+    def test_percent_is_taken_from_pair_when_server_omits_it(self):
+        """Пара used/total без `percent` считается, а не «нет данных»."""
+        block = APP_JS[APP_JS.index("function _ctlPartPercent"):
+                       APP_JS.index("function _ctlScrollParent")]
+        assert "percent" in block and "used" in block and "total" in block
+        assert "total <= 0" in block, "нулевой знаменатель не превращается в 100 %"
+        for computed in ("ctlMemProg", "ctlDiskProg"):
+            assert "_ctlPartPercent(" in APP_JS[
+                APP_JS.index(computed + ": function"):][:400], \
+                "%s не использует достоверный процент пары" % computed
+        # Подпись строки и полоса берут ОДНО значение (не два источника).
+        assert "ctlMemProg.percent" in INDEX
+        assert "statusSys.mem.percent != null" not in INDEX
+        assert "ctlDiskProg.percent" in INDEX
+        assert "statusSys.disk.percent != null" not in INDEX
+
+
+
 # ═══ Инвентаризация/аудит и живой прогон ══════════════════════════════════
 
 class TestAuditAndLive:

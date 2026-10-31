@@ -19,6 +19,7 @@
  * Ожидаемый маркер: EVOL-W11-CONTROLS-OK
  */
 const path = require('path');
+const fs = require('fs');
 const assert = require('assert');
 
 // ── DOM-заглушки ────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ global.fetch = async function () { throw new Error('no fetch in test'); };
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
 assert(captured, 'Vue.createApp должен быть вызван при загрузке app.js');
 const methods = captured.methods || {};
+const computed = captured.computed || {};
 
 function resetViewport() {
   global.window.innerHeight = 844;
@@ -308,6 +310,130 @@ function resetViewport() {
   box = methods.ctlPlacePopover.call({}, {}, {}, {});
   assert.strictEqual(box.placement, 'bottom');
   assert.strictEqual(box.maxHeight, null);
+}
+
+// ── 6. Ресурсная пара used/total без `percent` ────────────────────────────
+{
+  // Сервер прислал пару, но не процент: считаем сами (не «нет данных»).
+  let p = computed.ctlMemProg.call({
+    statusSys: { mem: { used: 536870912, total: 2147483648, percent: null } },
+  });
+  assert.strictEqual(p.percent, 25, 'процент считается из пары used/total');
+  assert.strictEqual(p.state, 'idle', 'полоса ресурса остаётся статичной');
+  assert.strictEqual(p.ariaNow, 25, 'aria отражает ту же цифру');
+
+  // Процент сервера имеет приоритет (не пересчитываем «на глаз»).
+  p = computed.ctlMemProg.call({
+    statusSys: { mem: { used: 1, total: 1000000, percent: 77 } },
+  });
+  assert.strictEqual(p.percent, 77, 'подтверждённый сервером процент не подменяется');
+
+  // Нет пары и нет процента → честное «нет данных».
+  p = computed.ctlDiskProg.call({
+    statusSys: { disk: { used: null, total: null, percent: null } },
+  });
+  assert.strictEqual(p.state, 'unknown', 'без чисел — unknown');
+  assert.strictEqual(p.percent, null, 'процент не выдумывается');
+
+  // Нулевой знаменатель не превращается в 100 %.
+  p = computed.ctlDiskProg.call({
+    statusSys: { disk: { used: 0, total: 0, percent: null } },
+  });
+  assert.strictEqual(p.state, 'unknown', 'total=0 не даёт «завершено»');
+
+  // Переполнение пары не уезжает за 100 %.
+  p = computed.ctlDiskProg.call({
+    statusSys: { disk: { used: 900, total: 100, percent: null } },
+  });
+  assert.strictEqual(p.percent, 100, 'percent не больше 100');
+}
+
+// ── 7. Тумблер: контейнер контракта ↔ селектор состояния ─────────────────
+// Регрессия: CSS ждал контейнер `.ctl-toggle`, а метки несли только трек —
+// включённое и выключенное состояния рисовались одинаково.
+{
+  const WEB = path.join(__dirname, '..', '..', 'web');
+  const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(WEB, 'static', 'app.css'), 'utf8');
+
+  // Разбор РЕАЛЬНОЙ разметки: метки, внутри которых есть трек тумблера.
+  const toggles = [];
+  const labelRe = /<label\b[^>]*>[\s\S]*?<\/label>/g;
+  let m;
+  while ((m = labelRe.exec(html))) {
+    const block = m[0];
+    if (block.indexOf('ctl-toggle__track') < 0) continue;
+    const tagEnd = block.indexOf('>') + 1;
+    const cls = (block.slice(0, tagEnd).match(/class="([^"]*)"/) || [null, ''])[1];
+    const inner = block.slice(tagEnd);
+    const inAt = inner.indexOf('<input');
+    const inEnd = inAt >= 0 ? inner.indexOf('>', inAt) : -1;
+    const trackAt = inner.indexOf('ctl-toggle__track');
+    const trackTag = inner.lastIndexOf('<', trackAt);
+    const between = (inEnd >= 0 && trackTag > inEnd)
+      ? inner.slice(inEnd + 1, trackTag) : null;
+    toggles.push({
+      line: html.slice(0, m.index).split('\n').length,
+      classes: cls.split(/\s+/).filter(Boolean),
+      siblingAfterInput: between !== null && /^\s*$/.test(between),
+    });
+  }
+  assert.strictEqual(toggles.length, 15, 'тумблеров контракта должно быть 15');
+  const orphan = toggles.filter((t) => t.classes.indexOf('ctl-toggle') < 0);
+  assert.deepStrictEqual(orphan.map((t) => t.line), [],
+    'метка без контейнера .ctl-toggle — CSS состояния не совпадёт');
+  const notSibling = toggles.filter((t) => !t.siblingAfterInput);
+  assert.deepStrictEqual(notSibling.map((t) => t.line), [],
+    'input должен стоять до трека у того же родителя (селектор `~`)');
+
+  // Селектор состояния называет ИМЕННО этот контейнер.
+  const onSel = /(\.[\w-]+)\s+input:checked\s*~\s*\.ctl-toggle__track\s*\{([^}]*)\}/
+    .exec(css);
+  assert.ok(onSel, 'нет правила включённого состояния трека');
+  const container = onSel[1].replace('.', '');
+  toggles.forEach((t) => assert.ok(t.classes.indexOf(container) >= 0,
+    'контейнер .' + container + ' отсутствует в строке ' + t.line));
+
+  // Значения состояний РАЗНЫЕ (и включённое — акцентный токен, не серый).
+  const offBody = /\.ctl-toggle__track\s*\{([^}]*)\}/.exec(css)[1];
+  const onBody = onSel[2];
+  const offBg = (/background:\s*([^;]+);/.exec(offBody) || [null, ''])[1].trim();
+  const onBg = (/background:\s*([^;]+);/.exec(onBody) || [null, ''])[1].trim();
+  assert.ok(offBg && onBg, 'у состояний есть явный цвет заливки');
+  assert.notStrictEqual(offBg, onBg, 'состояния объявлены одинаково');
+  const token = /--purple-400:\s*#([0-9A-Fa-f]{6})/.exec(css);
+  assert.ok(token, 'нет токена --purple-400');
+  const accent = [0, 2, 4].map((i) => parseInt(token[1].slice(i, i + 2), 16));
+  const offRgb = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(offBg);
+  assert.ok(offRgb, 'выключенный трек имеет явный цвет');
+  assert.notDeepStrictEqual(
+    accent, [1, 2, 3].map((i) => parseInt(offRgb[i], 10)),
+    'включённый и выключенный трек одного цвета');
+  assert.ok(onBg.indexOf('var(--purple-400)') >= 0,
+    'включённое состояние берёт акцент из токена');
+
+  // Бегунок едет внутри трека: 44 − 20 − 2 = 22 ≥ сдвиг.
+  const thumbShift =
+    /\.ctl-toggle\s+input:checked\s*~\s*\.ctl-toggle__track\s+\.ctl-toggle__thumb\s*\{([^}]*)\}/
+      .exec(css);
+  assert.ok(thumbShift, 'нет правила сдвига бегунка для включённого состояния');
+  const shift = /translateX\((\d+)px\)/.exec(thumbShift[1]);
+  assert.ok(shift, 'бегунок не сдвигается во включённом состоянии');
+  const trackW = parseFloat((/width:\s*(\d+)px/.exec(offBody) || [null, 0])[1]);
+  const thumbRule = /\.ctl-toggle__thumb\s*\{([^}]*)\}/.exec(css)[1];
+  const thumbW = parseFloat((/width:\s*(\d+)px/.exec(thumbRule) || [null, 0])[1]);
+  const left = parseFloat((/left:\s*(\d+)px/.exec(thumbRule) || [null, 0])[1]);
+  assert.ok(trackW > 0 && thumbW > 0, 'геометрия трека/бегунка найдена');
+  assert.strictEqual(trackW - (left + thumbW + Number(shift[1])), left,
+    'во включённом состоянии бегунок остаётся внутри трека с тем же отступом');
+
+  // Недоступный тумблер виден как недоступный.
+  assert.ok(/\.ctl-toggle\s+input:disabled\s*~\s*\.ctl-toggle__track\s*\{[^}]*opacity/
+    .test(css), 'нет визуального признака недоступности');
+
+  // Одна реализация состояния: Tailwind peer-checked не вернулся.
+  assert.strictEqual(html.indexOf('peer-checked:'), -1,
+    'вернулась вторая (Tailwind) реализация состояния тумблера');
 }
 
 console.log('EVOL-W11-CONTROLS-OK');

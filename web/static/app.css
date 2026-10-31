@@ -6733,8 +6733,14 @@ html.w9-sheet-bottom .modal-card {
   border-radius: 50%; background: #fff;
   transition: transform var(--motion-fast) var(--motion-ease);
 }
+/* Включённое состояние обязано ОТЛИЧАТЬСЯ от выключенного: заливка трека +
+   сдвиг бегунка. Контейнер `.ctl-toggle` — реальный `<label>` разметки
+   (см. 15 тумблеров в web/index.html), а не отдельная обёртка. */
 .ctl-toggle input:checked ~ .ctl-toggle__track { background: var(--purple-400); }
 .ctl-toggle input:checked ~ .ctl-toggle__track .ctl-toggle__thumb { transform: translateX(20px); }
+/* Недоступный тумблер виден как недоступный (причина — текстом рядом). */
+.ctl-toggle input:disabled ~ .ctl-toggle__track { opacity: .55; }
+.ctl-toggle:has(input:disabled) { cursor: not-allowed; }
 .ctl-toggle__scope { font-size: var(--ctl-font-sm); color: var(--text-3); }
 /* pending: ожидание сервера видно, но НЕ является успехом (нет заливки on). */
 .ctl-toggle[data-state="pending"] { cursor: progress; }

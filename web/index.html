@@ -2936,7 +2936,7 @@
                   <span v-else class="badge" :class="budgetsUnlimitedActive() ? 'badge-ok' : 'badge-muted'">
                     {{ budgetsUnlimitedActive() ? (budgetsSplit ? 'квот нет (∞)' : 'Безлимит (∞)') : 'лимиты активны' }}
                   </span>
-                  <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
+                  <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 ml-auto">
                     <input type="checkbox" class="sr-only peer"
                            :checked="budgetsUnlimitedActive()"
                            :disabled="!isChatContext() || budgetsUnlimitedBusy"
@@ -4523,7 +4523,7 @@
                       Оля, Мимикрия, Лёха). «Общие реакции» и «Расписания» им не
                       управляются.
                     </span>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                    <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                       <input type="checkbox" class="sr-only peer"
                              :checked="permsocMasterOn()"
                              :disabled="!canToggleMaster()"
@@ -4684,7 +4684,7 @@
                   <span class="msr" aria-hidden="true">{{ iconGlyph(grp.owner.icon) }}</span>
                   <span class="text-sm font-bold">{{ groupTitle(grp) }}</span>
                   <span class="flex-1"></span>
-                  <label class="relative inline-flex items-center cursor-pointer shrink-0"
+                  <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0"
                          @click.stop>
                     <input type="checkbox" class="sr-only peer"
                            :checked="permsocOwnerOn(grp.owner)"
@@ -4762,7 +4762,7 @@
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <tech-key :value="item.key"></tech-key>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                        <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                           <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
@@ -5150,7 +5150,7 @@
                       <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                        <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                        <label class="ctl-toggle relative inline-flex items-center cursor-pointer param-toggle">
                           <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
@@ -5334,7 +5334,7 @@
                         <span class="module-control-row__state">{{ moduleGlobalStateText(m) }}</span>
                         <span v-if="!isGlobalAdmin" class="text-[10px] text-gray-500"> · только чтение (нет прав global admin)</span>
                       </span>
-                      <label class="module-toggle relative inline-flex items-center shrink-0"
+                      <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
                              :class="{ 'is-saving': moduleGlobalPendingFor(m), 'is-readonly': !moduleGlobalCanEdit(m) }">
                         <input type="checkbox" class="sr-only peer"
                                data-module-global-toggle
@@ -5354,7 +5354,7 @@
                         В этом чате
                         <span class="module-control-row__state">{{ moduleEnabled(m) ? 'включён' : 'выключен' }}</span>
                       </span>
-                      <label class="module-toggle relative inline-flex items-center shrink-0"
+                      <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
                              :class="{ 'is-saving': modulePendingFor(m) }">
                         <input type="checkbox" class="sr-only peer"
                                data-module-chat-toggle
@@ -5483,7 +5483,7 @@
                           <template v-if="item.type === 'bool'">
                             <div class="flex items-center justify-between gap-3">
                               <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
-                              <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                              <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
                                 <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
@@ -5547,7 +5547,7 @@
                             <template v-if="item.type === 'bool'">
                               <div class="flex items-center justify-between gap-3">
                                 <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
-                                <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                                <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                                   <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                          :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
                                   <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
@@ -8415,7 +8415,7 @@
                         диалога (настройки — ниже).
                       </div>
                     </div>
-                    <label class="relative inline-flex items-center
+                    <label class="ctl-toggle relative inline-flex items-center
                                    cursor-pointer shrink-0">
                       <input type="checkbox" class="sr-only peer"
                              :checked="relationsEnabled"
@@ -8510,7 +8510,7 @@
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <tech-key :value="item.key" class="mb-1"></tech-key>
                           <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                            <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                            <label class="ctl-toggle relative inline-flex items-center cursor-pointer param-toggle">
                               <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
@@ -8553,7 +8553,7 @@
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <tech-key :value="item.key" class="mb-1"></tech-key>
                             <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                              <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                              <label class="ctl-toggle relative inline-flex items-center cursor-pointer param-toggle">
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
@@ -8751,7 +8751,7 @@
                               Периодический прогон воркера по сообщениям чата
                             </div>
                           </div>
-                          <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                          <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                             <input type="checkbox" class="sr-only peer"
                                    v-model="loreSettings.auto_enabled">
                             <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
@@ -8880,7 +8880,7 @@
                           <div class="text-sm font-semibold">{{ item.title }}</div>
                           <tech-key :value="item.key" class="mb-1"></tech-key>
                           <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                            <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                            <label class="ctl-toggle relative inline-flex items-center cursor-pointer param-toggle">
                               <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
@@ -8920,7 +8920,7 @@
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <tech-key :value="item.key" class="mb-1"></tech-key>
                             <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                              <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                              <label class="ctl-toggle relative inline-flex items-center cursor-pointer param-toggle">
                                 <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
@@ -11518,7 +11518,7 @@
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
                         <span>RAM</span>
-                        <span v-if="statusSys.mem && statusSys.mem.percent != null">{{ fmtBytes(statusSys.mem.used) }} / {{ fmtBytes(statusSys.mem.total) }} ({{ statusSys.mem.percent }}%)</span>
+                        <span v-if="statusSys.mem && ctlMemProg.percent != null">{{ fmtBytes(statusSys.mem.used) }} / {{ fmtBytes(statusSys.mem.total) }} ({{ ctlMemProg.percent }}%)</span>
                         <span v-else>нет данных</span>
                       </div>
                       <div class="progress ctl-progress__track" role="progressbar"
@@ -11530,7 +11530,7 @@
                     <div>
                       <div class="flex justify-between text-xs text-gray-400">
                         <span>Диск</span>
-                        <span v-if="statusSys.disk && statusSys.disk.percent != null">{{ fmtBytes(statusSys.disk.used) }} / {{ fmtBytes(statusSys.disk.total) }} ({{ statusSys.disk.percent }}%)</span>
+                        <span v-if="statusSys.disk && ctlDiskProg.percent != null">{{ fmtBytes(statusSys.disk.used) }} / {{ fmtBytes(statusSys.disk.total) }} ({{ ctlDiskProg.percent }}%)</span>
                         <span v-else>нет данных</span>
                       </div>
                       <div class="progress ctl-progress__track" role="progressbar"

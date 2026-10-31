@@ -2089,6 +2089,25 @@
     return out;
   }
 
+  // Процент ресурса из подтверждённой пары used/total: сервер может прислать
+  // пару без `percent` (деградированный payload) — тогда считаем сами, а не
+  // показываем «нет данных» при живых числах. Нет пары → null (честно unknown).
+  function _ctlPartPercent(part) {
+    if (!part || typeof part !== 'object') return null;
+    var pct = (part.percent === null || part.percent === undefined
+      || part.percent === '') ? null : Number(part.percent);
+    if (pct !== null && isFinite(pct)) return pct;
+    var used = (part.used === null || part.used === undefined
+      || part.used === '') ? null : Number(part.used);
+    var total = (part.total === null || part.total === undefined
+      || part.total === '') ? null : Number(part.total);
+    if (used === null || total === null || !isFinite(used) || !isFinite(total)) {
+      return null;
+    }
+    if (total <= 0 || used < 0) return null;
+    return Math.round(Math.min(used, total) / total * 100);
+  }
+
   // Ближайший реально скроллящийся предок поля (не «угадываем» по классу:
   // контейнеры отличаются между shell-режимами).
   function _ctlScrollParent(el) {
@@ -6337,13 +6356,13 @@
       },
       ctlMemProg: function () {
         var m = (this.statusSys && this.statusSys.mem) || null;
-        var pct = m ? m.percent : null;
+        var pct = _ctlPartPercent(m);
         return _ctlProgressModel(pct, (pct == null) ? null : 100,
           { unit: '%', label: 'RAM', state: 'idle' });
       },
       ctlDiskProg: function () {
         var d = (this.statusSys && this.statusSys.disk) || null;
-        var pct = d ? d.percent : null;
+        var pct = _ctlPartPercent(d);
         return _ctlProgressModel(pct, (pct == null) ? null : 100,
           { unit: '%', label: 'Диск', state: 'idle' });
       },
