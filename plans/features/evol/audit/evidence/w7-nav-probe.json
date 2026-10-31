@@ -354,17 +354,17 @@
   },
   "avatarNode": {
    "visible": true,
-   "right": 279
+   "right": 298
   },
   "titleNode": {
    "text": "Аналитика",
    "visible": true,
-   "w": 58
+   "w": 89
   },
   "scopeName": {
    "text": "Очень длинное название рабочего чата с уточнением и подписью",
    "visible": true,
-   "w": 62,
+   "w": 51,
    "ellipsis": "ellipsis",
    "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
@@ -394,8 +394,8 @@
  },
  "mobile_panel": {
   "open": true,
-  "x": 114,
-  "right": 251,
+  "x": 145,
+  "right": 270,
   "top": 54,
   "bottom": 281,
   "vw": 390,
@@ -502,61 +502,272 @@
   "fitsHeight": true
  },
  "title_once": {
-  "#/ai@320x700": {
+  "#/ai@320x800": {
    "name": "ИИ",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 58,
+   "titleScrollW": 58,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/modules@320x700": {
+  "#/modules@320x800": {
    "name": "Модули",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 58,
+   "titleScrollW": 58,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/memory@320x700": {
+  "#/memory@320x800": {
    "name": "Память",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 58,
+   "titleScrollW": 58,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/access@320x700": {
+  "#/access@320x800": {
    "name": "Доступы",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 58,
+   "titleScrollW": 58,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/ai@390x844": {
+  "#/ai@390x800": {
    "name": "ИИ",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 89,
+   "titleScrollW": 89,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/modules@390x844": {
+  "#/modules@390x800": {
    "name": "Модули",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 89,
+   "titleScrollW": 89,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/memory@390x844": {
+  "#/memory@390x800": {
    "name": "Память",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 89,
+   "titleScrollW": 89,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
   },
-  "#/access@390x844": {
+  "#/access@390x800": {
    "name": "Доступы",
    "count": 1,
    "where": [
     "header-title text-sm font-semibold truncate"
-   ]
+   ],
+   "titleW": 89,
+   "titleScrollW": 89,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/ai@430x800": {
+   "name": "ИИ",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 57,
+   "titleScrollW": 57,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/modules@430x800": {
+   "name": "Модули",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 57,
+   "titleScrollW": 57,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/memory@430x800": {
+   "name": "Память",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 57,
+   "titleScrollW": 57,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/access@430x800": {
+   "name": "Доступы",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 57,
+   "titleScrollW": 57,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/ai@460x800": {
+   "name": "ИИ",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 83,
+   "titleScrollW": 83,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/modules@460x800": {
+   "name": "Модули",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 83,
+   "titleScrollW": 83,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/memory@460x800": {
+   "name": "Память",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 83,
+   "titleScrollW": 83,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/access@460x800": {
+   "name": "Доступы",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 83,
+   "titleScrollW": 83,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/ai@500x800": {
+   "name": "ИИ",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 117,
+   "titleScrollW": 117,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/modules@500x800": {
+   "name": "Модули",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 117,
+   "titleScrollW": 117,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/memory@500x800": {
+   "name": "Память",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 117,
+   "titleScrollW": 117,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  },
+  "#/access@500x800": {
+   "name": "Доступы",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ],
+   "titleW": 117,
+   "titleScrollW": 117,
+   "minW": 56,
+   "ellipsis": "ellipsis",
+   "hScroll": false
+  }
+ },
+ "fs_entry": {
+  "320x800": {
+   "header": false,
+   "menu": true,
+   "menuOpen": true
+  },
+  "390x800": {
+   "header": false,
+   "menu": true,
+   "menuOpen": true
+  },
+  "430x800": {
+   "header": false,
+   "menu": true,
+   "menuOpen": true
+  },
+  "460x800": {
+   "header": false,
+   "menu": true,
+   "menuOpen": true
+  },
+  "500x800": {
+   "header": false,
+   "menu": true,
+   "menuOpen": true
   }
  },
  "case_320x700-z1-d0": {

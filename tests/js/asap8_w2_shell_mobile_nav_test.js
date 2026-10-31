@@ -263,8 +263,11 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   assert.ok(CSS.indexOf(
     '.app-shell.shell-mobile .scope-trigger .scope-name { display: none; }') < 0,
     'ASAP-UI-02: имя выбранного чата не скрывается на 320–419');
-  assert.ok(/@media \(max-width: 419px\) \{[\s\S]{0,900}\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-fs-btn \{\s*\n\s*display: none;/.test(CSS),
-    'ASAP-UI-02: на ≤419 ghost-⛶ не занимает место в шапке');
+  // Микро-фикс F1 (31.10.2026): ⛶ уезжает в «⋯» не только на ≤419, а до
+  // 519 px включительно — на 420 кнопка возвращалась в шапку (+44 px) и
+  // выдавливала имя раздела в 0 px.
+  assert.ok(/@media \(max-width: 519px\) \{[\s\S]{0,900}\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-fs-btn \{\s*\n\s*display: none;/.test(CSS),
+    'ASAP-UI-02: на ≤519 ghost-⛶ не занимает место в шапке');
   assert.ok(INDEX.indexOf('data-fs-menu-item') >= 0
     && methods.moreMenuFullscreen.toString().indexOf('toggleFullscreen') >= 0,
     'ASAP-UI-02: «на весь экран» доступно из «⋯» тем же механизмом');
@@ -288,8 +291,16 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   // Одна строка без переноса (второго ряда нет) и без «внахлёст».
   assert.ok(/\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \{[^}]*flex-wrap: nowrap/.test(
     CSS.replace(/\n/g, ' ')), 'ASAP-UI-02: мобильная шапка не переносится на второй ряд');
-  assert.ok(/\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-scope-row \{[\s\S]{0,220}flex: 0 0 auto/.test(
-    CSS.replace(/\r/g, '')), 'ASAP-UI-02: правая группа не сжимается поверх соседей');
+  // Микро-фикс F1 (31.10.2026): ряд области УЖИМАЕТСЯ (иначе резерв имени
+  // раздела выталкивал «⋯» за вьюпорт: замер 375–430 — more.right 444 при
+  // vw 420), но «внахлёст» не идёт: сжимается только внутренний триггер
+  // области (и не ниже бейджа/▾), а идентификация пользователя — нет.
+  assert.ok(/\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-scope-row \{[\s\S]{0,600}flex: 0 1 auto/.test(
+    CSS.replace(/\r/g, '')), 'ASAP-UI-02: ряд области ужимается вместе с именем раздела');
+  assert.ok(/\.app-shell\.shell-mobile \.scope-wrap \{[\s\S]{0,600}flex: 0 1 auto[\s\S]{0,400}min-width: min-content/.test(
+    CSS.replace(/\r/g, '')), 'ASAP-UI-02: ужимается имя области, но не ниже бейджа и ▾');
+  assert.ok(/\.app-shell\.shell-mobile \.header-user \{ flex: 0 0 auto; \}/.test(
+    CSS), 'ASAP-UI-02: блок идентификации пользователя не сжимается');
 }
 
 // ── 5. U02: мобильный dropdown суб-вкладок Аналитики ──────────────────────

@@ -3386,6 +3386,14 @@
 /* Одна flex-строка без переноса: название раздела — гибкое и обрезается,
    область — тоже гибкая; кнопки навигации/⛶/«⋯» не сжимаются. */
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+  /* Ревью F1 (микро-фикс, 31.10.2026): у имени раздела есть РЕЗЕРВ читаемого
+     минимума. Было `min-width: 0` — и на 420–500 имя схлопывалось в 0–10 px
+     (ширину съедали имя чата и ghost-⛶, который возвращался в шапку уже с
+     420). Теперь ужимается SECONDARY (имя области/чата, ellipsis + полное в
+     title и в панели), а имя раздела не бывает уже токена. 3.5rem = 56 px
+     при 14 px — целое короткое имя («Модули» — 52 px), длинные обрезаются
+     ellipsis, а не исчезают. */
+  --header-title-min: 3.5rem;
   row-gap: 0;
   flex-wrap: nowrap;
   gap: .2rem;
@@ -3395,7 +3403,7 @@
   order: 0;
   display: block;
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: var(--header-title-min, 3.5rem);
   overflow: hidden;
 }
 /* Крошка (путь) на телефоне не нужна: раздел назван заголовком ниже, «←»
@@ -3409,16 +3417,25 @@
    390/320). */
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-scope-row {
   order: 1;
-  flex: 0 0 auto;
+  /* Ревью F1: ряд области тоже ужимается (было `0 0 auto`) — иначе резерв
+     имени раздела выталкивал кнопку «⋯» за правый край (замер 375–430:
+     more.right = 444 при vw 420). Ужимается внутренний `.scope-wrap`, но ряд
+     не уходит ниже своего min-content: идентификация пользователя не должна
+     выезжать за правый край и наезжать на «⋯» (замер 320 #/ai/llm: user
+     right = 328 при vw 320, когда ряд был `min-width: 0`). */
+  flex: 0 1 auto;
   flex-wrap: nowrap;
-  min-width: 0;
+  min-width: min-content;
   gap: .25rem;
 }
 .app-shell.shell-mobile .scope-wrap {
-  flex: 0 0 auto;
+  /* Ревью F1: имя области/чата уступает место ПЕРВЫМ (flex-shrink 1) — под
+     резерв имени раздела. Но ниже своего min-content не уходит: бейдж
+     CHAT/GLOBAL и ▾ не сжимаются, иначе на 320–420 текст наезжал бы на них. */
+  flex: 0 1 auto;
   order: 0;
   max-width: 100%;
-  min-width: 0;
+  min-width: min-content;
 }
 .app-shell.shell-mobile .scope-trigger {
   width: auto;
@@ -3427,18 +3444,48 @@
   min-height: 44px;
 }
 .app-shell.shell-mobile .scope-trigger .scope-name {
+  /* Ревью F1: имя чата уступает место ПЕРВЫМ (min-width: 0 + ellipsis), но
+     его max-width задаёт min-content всего ряда области — поэтому на самом
+     узком тарифе (≤359) он ужимается сильнее (см. блок ниже). Полное имя —
+     в title триггера и в раскрытой панели. */
+  min-width: 0;
   max-width: clamp(2rem, 16vw, 8rem);
+}
+/* ≤519 (ревью F1, микро-фикс 31.10.2026): ghost-⛶ уезжает из шапки в «⋯»
+   не только на 320–419, а на всех телефонах уже с 520 px. Причина: 44 px
+   кнопки + зазор возвращались в строку сразу после 419 и снова выдавливали
+   имя раздела («Модули» схлопывался до 0–10 px на 420–500). Действие то же
+   (тот же `fsSlot`, тот же toggleFullscreen через moreMenuFullscreen), дубля
+   нет: в шапке ⛶ скрыт, в меню — единственный пункт «На весь экран». */
+@media (max-width: 519px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-fs-btn {
+    display: none;
+  }
+  .app-shell.shell-mobile .more-menu-action { display: flex; }
+  /* Бюджет строки на телефоне: имя области/чата растёт не бесконечно (иначе
+     его min-content вытесняет имя раздела), бейдж роли — короткий (полная
+     роль в title и в «⋯»). */
+  .app-shell.shell-mobile .scope-trigger .scope-name {
+    display: inline-block;
+    max-width: clamp(2.5rem, 15vw, 5.5rem);
+  }
+  .app-shell.shell-mobile .header-scope-row .header-user-role {
+    max-width: 3.4rem;
+  }
 }
 /* <420 (ревью ASAP-UI-02, блокер F2, 31.10.2026): раньше здесь скрывались
    имя и аватар чата — в триггере оставался только бейдж «ЧАТ ▾», и на
    телефоне нельзя было понять, какой чат выбран. Теперь имя чата ОСТАЁТСЯ
    (обрезается ellipsis, полное — в title и в раскрытой панели), а место
    освобождается переносом ghost-⛶ в меню «⋯» (§2.3: второстепенные действия
-   живут в троеточии). Бейдж типа области CHAT/GLOBAL/ЛС и ▾ не сжимаются. */
+   живут в троеточии). Бейдж типа области CHAT/GLOBAL/ЛС и ▾ не сжимаются.
+   Ревью F1 (микро-фикс): на 360–419 вместе с резервом имени раздела тесно,
+   поэтому здесь ужаты ВТОРОСТЕПЕННЫЕ детали — инициал чата (дублирует
+   название) и бейдж роли, — а не имя раздела и не hit-цели. */
 @media (max-width: 419px) {
   .app-shell.shell-mobile .scope-trigger .scope-name {
     display: inline-block;
-    max-width: clamp(2.5rem, 16vw, 5.5rem);
+    max-width: clamp(2.2rem, 13vw, 6rem);
   }
   /* Аватар чата уступает место его ИМЕНИ: идентифицирует название (полное —
      в title и в раскрытой панели), инициал же повторял бы бейдж области. */
@@ -3450,13 +3497,8 @@
     padding-left: .45rem; padding-right: .4rem;
   }
   .app-shell.shell-mobile .header-scope-row .header-user-role {
-    max-width: 3.4rem;
+    max-width: 2.2rem;
   }
-  /* ⛶ не помещается в шапке рядом с именем чата — уезжает в «⋯». */
-  .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-fs-btn {
-    display: none;
-  }
-  .app-shell.shell-mobile .more-menu-action { display: flex; }
 }
 .app-shell.shell-mobile .header-user { flex: 0 0 auto; }
 /* ≤359 (узкий телефон): всё обязательное остаётся, но плотнее — треугольник
@@ -3470,12 +3512,15 @@
     display: none;
   }
   /* Имя чата остаётся идентифицирующим (начало названия + полное в title и
-     панели), бейдж типа области — целиком видимым; оба ужимаются умеренно. */
+     панели), бейдж типа области — целиком видимым; оба ужимаются умеренно.
+     Ревью F1: на 320 px это самый тесный бюджет строки (резерв имени
+     раздела + имя чата + бейдж роли), поэтому здесь плотнее внутренние
+     отступы триггера и короче имя чата. Hit-цель (min-height) не меняется. */
   .app-shell.shell-mobile .scope-trigger .scope-name {
-    max-width: 2.8rem;
+    max-width: clamp(2.2rem, 11vw, 2.5rem);
   }
-  .app-shell.shell-mobile .header-scope-row .header-user-role {
-    max-width: 2.8rem;
+  .app-shell.shell-mobile .scope-trigger {
+    padding-left: .3rem; padding-right: .25rem;
   }
 }
 /* ID области — не в постоянной шапке (полные данные в «⋯», блок профиля). */

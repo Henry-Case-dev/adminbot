@@ -842,11 +842,15 @@ def run(out_dir: str) -> int:
         shot(pl, "landscape-drawer")
         ctx3l.close()
 
-        # ── Имя раздела РОВНО один раз (ревью F1, 31.10.2026) ────────────
+        # ── Имя раздела РОВНО один раз и ЧИТАЕМО (ревью F1 + микро-фикс F1) ──
         # Было: на 390 в #/ai, #/modules, #/memory, #/access имя стояло дважды
-        # (шапка + контентный `.hub-title`). Проверяем именно ВИДИМЫЕ
-        # вхождения, а не только видимость шапки.
+        # (шапка + контентный `.hub-title`). Стало: одно вхождение. Микро-фикс
+        # F1 (31.10.2026): проверяется ещё и ЧИТАЕМОСТЬ — у `.header-title`
+        # есть резерв (`--header-title-min`), поэтому на 420–460 имя больше не
+        # схлопывается в 0–10 px, а ghost-⛶ живёт в «⋯» до 519 px, то есть
+        # вход в полноэкранный режим остаётся РОВНО один на любой ширине.
         NAME_ROUTES = ("#/ai", "#/modules", "#/memory", "#/access")
+        NAME_WIDTHS = (320, 390, 430, 460, 500)
         NAME_PROBE = r"""
         () => {
           const cs = (el) => getComputedStyle(el);
@@ -858,17 +862,41 @@ def run(out_dir: str) -> int:
               && r.width > 1 && r.height > 1;
           };
           const head = document.querySelector('.header-title');
+          const wrap = document.querySelector('.header-title-wrap');
           const name = ((head && head.textContent) || '').trim();
           const nodes = Array.prototype.slice.call(
             document.querySelectorAll('.header-title, .hub-head .hub-title'));
           const shown = nodes.filter((n) => vis(n)
             && (n.textContent || '').trim() === name);
           return {name: name, count: shown.length,
-                  where: shown.map((n) => n.className)};
+                  where: shown.map((n) => n.className),
+                  titleW: head ? Math.round(head.clientWidth * 10) / 10 : 0,
+                  titleScrollW: head ? head.scrollWidth : 0,
+                  minW: wrap ? parseFloat(cs(wrap).minWidth) || 0 : 0,
+                  ellipsis: head ? cs(head).textOverflow : null,
+                  hScroll: document.documentElement.scrollWidth
+                           > window.innerWidth + 1};
+        }
+        """
+        # Один вход в полноэкранный режим: ЛИБО кнопка в шапке, ЛИБО пункт «⋯».
+        FS_PROBE = r"""
+        () => {
+          const vis = (el) => {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const s = getComputedStyle(el);
+            return s.display !== 'none' && s.visibility !== 'hidden'
+              && r.width > 1 && r.height > 1;
+          };
+          const head = document.querySelector('.header-fs-btn');
+          const item = document.querySelector('[data-fs-menu-item]');
+          return {header: vis(head), menu: vis(item),
+                  menuOpen: !!document.querySelector('.more-menu-panel')};
         }
         """
         name_rows = {}
-        for (w, h) in ((320, 700), (390, 844)):
+        fs_rows = {}
+        for (w, h) in tuple((x, 800) for x in NAME_WIDTHS):
             c = browser.new_context(viewport={"width": w, "height": h})
             c.add_init_script(M.TMA_STUB)
             c.route("**/api/**", _routes())
@@ -887,8 +915,37 @@ def run(out_dir: str) -> int:
                 elif res["count"] != 1:
                     fails.append("title-once %s: имя раздела показано %s раз %s"
                                  % (key, res["count"], res["where"][:3]))
+                # Читаемость: резерв имени раздела соблюдён и не «0 px».
+                if res["minW"] < 55:
+                    fails.append("title-width %s: нет резерва имени раздела "
+                                 "(min-width=%s)" % (key, res["minW"]))
+                if res["titleW"] + 0.5 < res["minW"]:
+                    fails.append("title-width %s: имя раздела ужато до %s px "
+                                 "(резерв %s)" % (key, res["titleW"],
+                                                  res["minW"]))
+                if (res["titleW"] + 1 < res["titleScrollW"]
+                        and res["ellipsis"] != "ellipsis"):
+                    fails.append("title-width %s: обрезано без ellipsis" % key)
+                if res["hScroll"]:
+                    fails.append("title-width %s: горизонтальный скролл" % key)
+            # Ровно один вход в полноэкранный режим (шапка ИЛИ «⋯», не оба).
+            if pg.evaluate("() => !!document.querySelector('[data-more-trigger]')"):
+                pg.click("[data-more-trigger]")
+                pg.wait_for_timeout(320)
+                fs = pg.evaluate(FS_PROBE)
+                pg.keyboard.press("Escape")
+                pg.wait_for_timeout(200)
+            else:
+                fs = pg.evaluate(FS_PROBE)
+            fs_rows["%dx%d" % (w, h)] = fs
+            if fs["header"] and fs["menu"]:
+                fails.append("fs-entry %dx%d: два входа в ⛶ (шапка и «⋯»)"
+                             % (w, h))
+            if not fs["header"] and not fs["menu"]:
+                fails.append("fs-entry %dx%d: входа в ⛶ нет вовсе" % (w, h))
             c.close()
         report["title_once"] = name_rows
+        report["fs_entry"] = fs_rows
 
         # ── 320 + zoom 200% + slow API ─────────────────────────────────
         for (w, h, zoom, delay) in ((320, 700, 1, 0), (1280, 800, 2, 0),

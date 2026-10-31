@@ -391,11 +391,6 @@ class TestAsapUi02Navigation:
         assert (".scope-trigger > .scope-initial { display: none; }" in block), \
             "место освобождается не у аватара чата"
         # Место берётся из второстепенного действия, а не из идентификации.
-        assert ("header.header-sticky.header-compact-v2 .header-fs-btn "
-                "{\n    display: none;") in block, \
-            "⛶ не убран из шапки на ≤419 — имя чата снова не поместится"
-        assert ".app-shell.shell-mobile .more-menu-action { display: flex; }" in block
-        assert ".app-shell.shell-mobile .more-menu-action { display: flex; }" in block
         assert "data-fs-menu-item" in INDEX
         assert '@click="moreMenuFullscreen()"' in INDEX
         assert "moreMenuFullscreen: function" in JS
@@ -404,6 +399,58 @@ class TestAsapUi02Navigation:
         # Обрезка — только визуальная: полное имя в title и в опциях панели.
         assert ':title="scopeTriggerTitle"' in INDEX
         assert 'class="scope-name truncate"' in INDEX
+
+    def test_fullscreen_moves_to_more_until_520(self):
+        """Микро-фикс F1: ghost-⛶ уезжает в «⋯» до 519 px включительно.
+
+        Было: кнопка возвращалась в шапку уже с 420 px (+44 px) и вместе с
+        именем чата выдавливала имя раздела в 0–10 px (замер Chromium:
+        420/430 — 0 px, 460 — 10 px). Действие остаётся РОВНО одно: в шапке
+        ⛶ скрыт, в «⋯» — единственный пункт (та же политика `fsSlot`).
+        """
+        block = _media_block(CSS, "@media (max-width: 519px)", ".header-fs-btn")
+        assert ("header.header-sticky.header-compact-v2 .header-fs-btn "
+                "{\n    display: none;") in block, \
+            "⛶ снова возвращается в шапку с 420 px и съедает имя раздела"
+        assert (".app-shell.shell-mobile .more-menu-action { display: flex; }"
+                in block), "у действия ⛶ нет входа в «⋯»"
+        # Один экземпляр действия в разметке (шапка) + один пункт меню.
+        assert INDEX.count('class="more-menu-action"') == 1
+        assert INDEX.count("header-fs-btn") == 1
+        # На ≤419 второстепенные правила (имя/аватар чата) остались в своём
+        # блоке — перенос ⛶ их не «переехал» и не отменил.
+        assert 'data-fs-menu-item' in INDEX
+
+    def test_section_title_has_readable_reserve(self):
+        """Микро-фикс F1: имя раздела читаемо в шапке на ЛЮБОЙ ширине.
+
+        После скрытия `.hub-title` единственное имя раздела живёт в шапке.
+        Было: `.header-title-wrap { min-width: 0 }` при `flex: 0 0 auto` у
+        ряда области — на 420–460 px имя схлопывалось в 0–10 px, на 320–375
+        оставалось 2–3 символа. Теперь у имени раздела есть резерв, ужимается
+        SECONDARY (имя области/чата: ellipsis + полное в title и в панели).
+        """
+        assert "--header-title-min: 3.5rem;" in CSS, \
+            "нет токена резерва имени раздела"
+        seg = CSS[CSS.index(
+            ".app-shell.shell-mobile header.header-sticky.header-compact-v2 "
+            ".header-title-wrap {"):]
+        seg = seg[:seg.index("}")]
+        assert "min-width: var(--header-title-min, 3.5rem);" in seg, \
+            "имя раздела снова может ужаться в 0 px"
+        assert "min-width: 0;" not in seg
+        # Место уступает имя области/чата, а не имя раздела…
+        row = CSS[CSS.index(
+            ".app-shell.shell-mobile header.header-sticky.header-compact-v2 "
+            ".header-scope-row {"):]
+        row = row[:row.index("}")]
+        assert "flex: 0 1 auto;" in row, \
+            "ряд области не ужимается — резерв вытолкнет «⋯» за вьюпорт"
+        wrap = CSS[CSS.index(".app-shell.shell-mobile .scope-wrap {"):]
+        wrap = wrap[:wrap.index("}")]
+        assert "flex: 0 1 auto;" in wrap, "имя чата не уступает место первым"
+        # …но не ниже бейджа области и ▾: иначе текст наезжает на них.
+        assert "min-width: min-content;" in wrap
 
     def test_drawer_keyboard_trap_esc_and_back(self):
         """Ревью F3: drawer держит Tab, Esc и Back.

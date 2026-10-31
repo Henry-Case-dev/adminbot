@@ -1,0 +1,653 @@
+{
+ "320": {
+  "vw": 320,
+  "over": false,
+  "sw": 320,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 58.4,
+    "h": 18,
+    "left": 52,
+    "right": 110,
+    "display": "block",
+    "sw": 58,
+    "cw": 58,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 58.4,
+   "h": 18,
+   "left": 52,
+   "right": 110,
+   "display": "block",
+   "sw": 58,
+   "cw": 58,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 35.2,
+   "h": 16,
+   "left": 119,
+   "right": 154,
+   "display": "block",
+   "sw": 444,
+   "cw": 35,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 270,
+   "right": 314,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "360": {
+  "vw": 360,
+  "over": false,
+  "sw": 360,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 62.8,
+    "h": 18,
+    "left": 53,
+    "right": 116,
+    "display": "block",
+    "sw": 63,
+    "cw": 63,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 62.8,
+   "h": 18,
+   "left": 53,
+   "right": 116,
+   "display": "block",
+   "sw": 63,
+   "cw": 63,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 46.8,
+   "h": 16,
+   "left": 127,
+   "right": 174,
+   "display": "block",
+   "sw": 444,
+   "cw": 47,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 310,
+   "right": 354,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "375": {
+  "vw": 375,
+  "over": false,
+  "sw": 375,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 75.8,
+    "h": 18,
+    "left": 53,
+    "right": 129,
+    "display": "block",
+    "sw": 76,
+    "cw": 76,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 75.8,
+   "h": 18,
+   "left": 53,
+   "right": 129,
+   "display": "block",
+   "sw": 76,
+   "cw": 76,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 48.8,
+   "h": 16,
+   "left": 140,
+   "right": 189,
+   "display": "block",
+   "sw": 444,
+   "cw": 49,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 325,
+   "right": 369,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "390": {
+  "vw": 390,
+  "over": false,
+  "sw": 390,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 88.9,
+    "h": 18,
+    "left": 53,
+    "right": 142,
+    "display": "block",
+    "sw": 89,
+    "cw": 89,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 88.9,
+   "h": 18,
+   "left": 53,
+   "right": 142,
+   "display": "block",
+   "sw": 89,
+   "cw": 89,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 50.7,
+   "h": 16,
+   "left": 153,
+   "right": 204,
+   "display": "block",
+   "sw": 444,
+   "cw": 51,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 340,
+   "right": 384,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "420": {
+  "vw": 420,
+  "over": false,
+  "sw": 420,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 56,
+    "h": 18,
+    "left": 53,
+    "right": 109,
+    "display": "block",
+    "sw": 56,
+    "cw": 56,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 56,
+   "h": 18,
+   "left": 53,
+   "right": 109,
+   "display": "block",
+   "sw": 56,
+   "cw": 56,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 63,
+   "h": 16,
+   "left": 151,
+   "right": 214,
+   "display": "block",
+   "sw": 444,
+   "cw": 63,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 377,
+   "right": 421,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "430": {
+  "vw": 430,
+  "over": false,
+  "sw": 430,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 57.5,
+    "h": 18,
+    "left": 53,
+    "right": 110,
+    "display": "block",
+    "sw": 57,
+    "cw": 57,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 57.5,
+   "h": 18,
+   "left": 53,
+   "right": 110,
+   "display": "block",
+   "sw": 57,
+   "cw": 57,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 64.5,
+   "h": 16,
+   "left": 152,
+   "right": 217,
+   "display": "block",
+   "sw": 444,
+   "cw": 65,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 380,
+   "right": 424,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "460": {
+  "vw": 460,
+  "over": false,
+  "sw": 460,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 83,
+    "h": 18,
+    "left": 53,
+    "right": 136,
+    "display": "block",
+    "sw": 83,
+    "cw": 83,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 83,
+   "h": 18,
+   "left": 53,
+   "right": 136,
+   "display": "block",
+   "sw": 83,
+   "cw": 83,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 69,
+   "h": 16,
+   "left": 178,
+   "right": 247,
+   "display": "block",
+   "sw": 444,
+   "cw": 69,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 410,
+   "right": 454,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "500": {
+  "vw": 500,
+  "over": false,
+  "sw": 500,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 117,
+    "h": 18,
+    "left": 53,
+    "right": 170,
+    "display": "block",
+    "sw": 117,
+    "cw": 117,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 117,
+   "h": 18,
+   "left": 53,
+   "right": 170,
+   "display": "block",
+   "sw": 117,
+   "cw": 117,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 75,
+   "h": 16,
+   "left": 212,
+   "right": 287,
+   "display": "block",
+   "sw": 444,
+   "cw": 75,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 450,
+   "right": 494,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "519": {
+  "vw": 519,
+  "over": false,
+  "sw": 519,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 133.1,
+    "h": 18,
+    "left": 53,
+    "right": 186,
+    "display": "block",
+    "sw": 133,
+    "cw": 133,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 133.1,
+   "h": 18,
+   "left": 53,
+   "right": 186,
+   "display": "block",
+   "sw": 133,
+   "cw": 133,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 77.8,
+   "h": 16,
+   "left": 228,
+   "right": 306,
+   "display": "block",
+   "sw": 444,
+   "cw": 78,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 0,
+   "h": 0,
+   "left": 0,
+   "right": 0,
+   "display": "none",
+   "sw": 0,
+   "cw": 0,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 469,
+   "right": 513,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "520": {
+  "vw": 520,
+  "over": false,
+  "sw": 520,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 60,
+    "h": 18,
+    "left": 53,
+    "right": 113,
+    "display": "block",
+    "sw": 60,
+    "cw": 60,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 60,
+   "h": 18,
+   "left": 53,
+   "right": 113,
+   "display": "block",
+   "sw": 60,
+   "cw": 60,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 83.2,
+   "h": 16,
+   "left": 155,
+   "right": 238,
+   "display": "block",
+   "sw": 444,
+   "cw": 83,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 44,
+   "h": 44,
+   "left": 423,
+   "right": 467,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "12px"
+  },
+  "more": {
+   "w": 44,
+   "h": 44,
+   "left": 470,
+   "right": 514,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "16px"
+  }
+ },
+ "768": {
+  "vw": 768,
+  "over": false,
+  "sw": 768,
+  "title": {
+   "text": "Модули",
+   "box": {
+    "w": 635.2,
+    "h": 18,
+    "left": 66,
+    "right": 702,
+    "display": "block",
+    "sw": 635,
+    "cw": 635,
+    "fs": "14px"
+   },
+   "readable": true
+  },
+  "wrap": {
+   "w": 635.2,
+   "h": 18,
+   "left": 66,
+   "right": 702,
+   "display": "block",
+   "sw": 635,
+   "cw": 635,
+   "fs": "16px"
+  },
+  "scopeName": {
+   "w": 176,
+   "h": 16,
+   "left": 55,
+   "right": 231,
+   "display": "block",
+   "sw": 444,
+   "cw": 176,
+   "fs": "14.4px"
+  },
+  "scopeText": "Очень длинное назв",
+  "fs": {
+   "w": 44,
+   "h": 44,
+   "left": 708,
+   "right": 752,
+   "display": "flex",
+   "sw": 44,
+   "cw": 44,
+   "fs": "12px"
+  },
+  "more": null
+ }
+}
