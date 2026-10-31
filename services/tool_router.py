@@ -80,15 +80,29 @@ from services.persistent_throttling import (
 )
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.smartmodule_urls import extract_urls, extract_youtube_video_id
+from services import auto_budget
+from services import source_reuse
 from services import tool_result as _tool_result
 from services.tool_schemas import _memory_lookup_enabled
-from services.web_content_extractor import WebContentExtractionFailedException
+from services.web_content_extractor import (
+    WebContentExtractionFailedException,
+    build_source_pointer,
+    clip_at_boundary,
+    content_terms,
+    select_excerpt,
+)
 from tools.video_downloader import DownloadError, is_direct_media_url
 
 logger = logging.getLogger(__name__)
 
 # Лимиты результатов инструментов (3.3): символы.
-_SEARCH_MAX_SYMBOLS = 4000
+#
+# ASAP-EVIDENCE-ROUTING-01 v3 (§3 Retrieve, limits-audit.md №1–3): 4000/8000
+# больше НЕ «потолок качества» — это legacy-дефолт вызовов БЕЗ бюджета и
+# нижний пол поиска. Фактический лимит приходит per-call из
+# `auto_budget.resolve_evidence_tool_window` (реальное окно модели / бюджет
+# композера), см. `_evidence_window`.
+_SEARCH_MAX_SYMBOLS = auto_budget.LEGACY_SEARCH_MAX_SYMBOLS   # legacy-пол
 _MEMORY_MAX_SYMBOLS = 3500
 _MEMORY_FTS_LIMIT = 40
 _MEMORY_VEC_LIMIT = 15
@@ -128,7 +142,10 @@ _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 # (каскад trafilatura 10 c / Tavily 15 c / Exa 15 c + запас). Код-константы
 # (Δ каталога = 0).
 _ARTICLE_TOOL_TIMEOUT = 45.0
-_ARTICLE_MAX_SYMBOLS = 8000        # markdown-статья богаче поиска; всё ещё bounded
+# ASAP-EVIDENCE-ROUTING-01 v3: 8000 — legacy-дефолт (динамика OFF) и нижний
+# пол; фактический лимит доставки — `auto_budget.resolve_evidence_tool_window`
+# (окно модели / бюджет композера), извлечение — `article_extract_ceiling`.
+_ARTICLE_MAX_SYMBOLS = auto_budget.LEGACY_ARTICLE_MAX_SYMBOLS
 
 # COR-01 (p0-nostalgia corrective §COR-01): исходник edit сохраняется во
 # временный файл с расширением по СНИФФЕР-формату (mca_vision.DownloadedImage
@@ -712,11 +729,222 @@ def parse_history_sample(text: str) -> dict | None:
     return fields
 
 
+# ── структурная обрезка результата (§4.4 Preserve, limits-audit.md №3) ─────
+
+
+@dataclasses.dataclass(frozen=True)
+class Truncation:
+    """Наблюдаемый конверт обрезки: `effective_limit/source/used/truncated/
+    why/retrievable_remainder` (контракт замера §8).
+
+    ``retrievable_remainder`` — число символов/кандидатов, которые можно
+    догрузить существующим инструментом (не «потеряно навсегда»)."""
+
+    text: str = ""
+    effective_limit: int = 0
+    source: str = ""
+    used: int = 0
+    total: int = 0
+    truncated: bool = False
+    why: str = ""
+    retrievable_remainder: int = 0
+    unit: str = "chars"
+    candidates_total: int = 0
+    candidates_kept: int = 0
+
+    def as_event_fields(self) -> dict:
+        return {
+            "effective_limit": int(self.effective_limit),
+            "limit_source": self.source,
+            "used": int(self.used),
+            "total": int(self.total),
+            "truncated": bool(self.truncated),
+            "why": self.why,
+            "retrievable_remainder": int(self.retrievable_remainder),
+            "unit": self.unit,
+            "candidates_total": int(self.candidates_total),
+            "candidates_kept": int(self.candidates_kept),
+        }
+
+
 def _truncate(text: str, limit: int) -> str:
-    """Обрезка результата до лимита символов."""
-    if len(text) <= limit:
-        return text
-    return text[:limit].rstrip() + "…"
+    """Обрезка результата до лимита символов БЕЗ разрыва URL/JSON.
+
+    Было: ``text[:limit].rstrip() + "…"`` — рвало ссылку/JSON/пару
+    claim→source (limits-audit.md №3). Теперь: граница слова/токена
+    (`web_content_extractor.clip_at_boundary`), валидный JSON не режется
+    вовсе (структурную обрезку делает владелец схемы, например
+    ``_dig_json_payload``); маркер ``…`` сохранён (tool_result отличает
+    усечённый конверт по нему)."""
+    body = str(text or "")
+    try:
+        boundary = int(limit)
+    except (TypeError, ValueError):
+        return body
+    if boundary <= 0 or len(body) <= boundary:
+        return body
+    stripped = body.lstrip()
+    if stripped.startswith(("{", "[")):
+        try:
+            json.loads(body)
+            return body
+        except Exception:
+            pass
+    return clip_at_boundary(body, boundary).rstrip() + "…"
+
+
+def _parse_hit_blocks(text: str) -> list[dict]:
+    """Разобрать выдачу поиска на кандидатов: ``{title, snippet, url}``.
+
+    Формат `SearchAggregator._format_hits`: блоки через ``\\n\\n``, внутри
+    ``title\\nsnippet\\nurl``. Незнакомый формат → пустой список (тогда
+    работает обычная текстовая обрезка)."""
+    blocks: list[dict] = []
+    for chunk in str(text or "").split("\n\n"):
+        lines = [line for line in chunk.splitlines() if line.strip()]
+        if not lines:
+            continue
+        url = ""
+        if lines and re.match(r"^https?://", lines[-1].strip()):
+            url = lines[-1].strip()
+            lines = lines[:-1]
+        title = lines[0].strip() if lines else ""
+        snippet = " ".join(line.strip() for line in lines[1:]).strip()
+        if not url and not title:
+            continue
+        blocks.append({"title": title, "snippet": snippet, "url": url})
+    return blocks
+
+
+def _render_hit_blocks(blocks: list[dict]) -> str:
+    """Собрать кандидатов обратно в формат выдачи (без потери URL)."""
+    parts: list[str] = []
+    for block in blocks:
+        lines = [str(block.get("title") or "")]
+        snippet = str(block.get("snippet") or "").strip()
+        if snippet:
+            lines.append(snippet)
+        url = str(block.get("url") or "").strip()
+        if url:
+            lines.append(url)
+        parts.append("\n".join(line for line in lines if line))
+    return "\n\n".join(part for part in parts if part)
+
+
+def _compact_search_candidates(text: str, limit: int, *,
+                               source: str = "", stage: str = "retrieve"
+                               ) -> Truncation:
+    """Сжать выдачу поиска, НЕ теряя ни одного URL (сценарий 36).
+
+    Выдача поиска — индекс кандидатов (§4.3). Прежний слепой срез 4000
+    выкидывал URL, оказавшийся после 4k (сценарий 36): релевантный источник
+    становился недостижим для `fetch_article`. Здесь:
+      1) если всё влезает — без изменений;
+      2) иначе сначала сокращаются СНИППЕТЫ (все URL и заголовки остаются);
+      3) если даже `title+url` не влезают — оставшиеся кандидаты уходят
+         списком URL, а их число попадает в ``retrievable_remainder``.
+    Никогда не режет внутри URL/JSON."""
+    body = str(text or "")
+    total = len(body)
+    try:
+        cap = int(limit)
+    except (TypeError, ValueError):
+        cap = 0
+    if cap <= 0 or total <= cap:
+        blocks_all = _parse_hit_blocks(body)
+        return Truncation(text=body, effective_limit=cap, source=source,
+                          used=total, total=total, truncated=False,
+                          unit="blocks",
+                          candidates_total=len(blocks_all),
+                          candidates_kept=len(blocks_all))
+    blocks = _parse_hit_blocks(body)
+    if not blocks:
+        cut = clip_at_boundary(body, cap)
+        return Truncation(text=cut + "…", effective_limit=cap, source=source,
+                          used=len(cut), total=total, truncated=True,
+                          why="over_window_single_block",
+                          retrievable_remainder=max(0, total - len(cut)),
+                          unit="chars")
+    total_candidates = len(blocks)
+    # 1) Урезать сниппеты, сохранив каждый title+url.
+    skeleton = [{"title": b["title"], "snippet": "", "url": b["url"]}
+                for b in blocks]
+    skeleton_len = len(_render_hit_blocks(skeleton))
+    if skeleton_len <= cap:
+        allowance = cap - skeleton_len
+        snippet_lengths = [len(b["snippet"]) for b in blocks]
+        raw_total = sum(snippet_lengths)
+        scaled: list[dict] = []
+        for block in blocks:
+            length = len(block["snippet"])
+            if not length:
+                scaled.append(block)
+                continue
+            share = int(allowance * (length / raw_total)) if raw_total else 0
+            if share < 40:
+                # Сниппет без полезной информации не несём: URL остаётся.
+                scaled.append({"title": block["title"], "snippet": "",
+                               "url": block["url"]})
+                continue
+            scaled.append({
+                "title": block["title"],
+                "snippet": clip_at_boundary(block["snippet"], share),
+                "url": block["url"]})
+        compacted = _render_hit_blocks(scaled)
+        while len(compacted) > cap and any(b["snippet"] for b in scaled):
+            # добор переполнения: самый длинный сниппет урезаем первым
+            idx = max(range(len(scaled)),
+                      key=lambda k: len(scaled[k]["snippet"]))
+            snippet = scaled[idx]["snippet"]
+            if not snippet:
+                break
+            over = len(compacted) - cap
+            scaled[idx]["snippet"] = clip_at_boundary(
+                snippet, max(0, len(snippet) - over - 8))
+            compacted = _render_hit_blocks(scaled)
+        kept_all = sum(1 for block in scaled if block["url"])
+        # Маркер частичности (tool_result отличает усечённый конверт по «…»);
+        # это не потеря URL: индекс кандидатов полон, сокращены только сниппеты.
+        compacted = compacted.rstrip() + "\n…"
+        return Truncation(
+            text=compacted, effective_limit=cap, source=source,
+            used=len(compacted), total=total, truncated=True,
+            why="over_window_snippets_compacted",
+            retrievable_remainder=max(0, total - len(compacted)),
+            unit="blocks", candidates_total=total_candidates,
+            candidates_kept=kept_all)
+    # 2) Даже title+url не влезают: полные первые K + список URL остальных.
+    kept: list[dict] = []
+    tail_urls: list[str] = []
+    used = 0
+    for block in blocks:
+        piece = _render_hit_blocks([block])
+        addition = len(piece) + (2 if kept else 0)
+        if used + addition <= cap:
+            kept.append(block)
+            used += addition
+        elif block["url"]:
+            tail_urls.append(block["url"])
+    urls_only = "\n".join(tail_urls)
+    if tail_urls:
+        header = f"…ещё {len(tail_urls)} кандидатов (только ссылки):"
+        room = max(0, cap - used - len(header) - 2)
+        urls_text = clip_at_boundary(urls_only, room) if room else ""
+        compacted = "\n\n".join(
+            part for part in (_render_hit_blocks(kept),
+                              (header + "\n" + urls_text) if urls_text else "")
+            if part)
+        shown_urls = sum(1 for url in tail_urls if url in compacted)
+    else:
+        compacted = _render_hit_blocks(kept)
+        shown_urls = 0
+    compacted = compacted.rstrip() + "\n…"
+    return Truncation(
+        text=compacted, effective_limit=cap, source=source, used=len(compacted),
+        total=total, truncated=True, why="over_window_url_index",
+        retrievable_remainder=max(0, len(tail_urls) - shown_urls),
+        unit="blocks", candidates_total=total_candidates,
+        candidates_kept=len(kept) + shown_urls)
 
 
 def _image_memory_note(request) -> str:
@@ -1055,6 +1283,15 @@ class ToolContext:
         # MCA-15 (T-4932, §7.3): доставлена lore-история UPD-ветки `unchanged`
         # со старыми агрегатами → пометка на перепроверку (lore не удаляется).
         self.lore_stats_recheck = False
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3): per-call бюджет evidence в
+        # символах, который композер уже посчитал под реальное окно L2 БЕЗ
+        # output reserve (один резерв — один раз, C4). 0 → лимит инструмента
+        # выводится из реального окна модели (`_evidence_window`).
+        self.evidence_budget_chars = 0
+        # Наблюдаемый конверт обрезки инструментов (§8 «Контракт замера»):
+        # effective_limit/source/used/truncated/why/retrievable_remainder.
+        # Out-of-band (в модельный ввод не сериализуется), R17-safe.
+        self.evidence_limits: list[dict] = []
 
     def result_for(self, tool_name: str) -> dict | None:
         """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
@@ -1129,11 +1366,168 @@ class ToolRouter:
 
     # ── execute_web_search ────────────────────────────────────────
 
-    async def _execute_web_search(self, arguments: dict, ctx: ToolContext) -> str:
-        query = self._require_query(arguments, ctx)
+    @staticmethod
+    def _evidence_window(kind: str, ctx: ToolContext):
+        """Окно ОДНОГО tool-вызова: бюджет композера → окно модели → legacy.
+
+        Учитывает уже доставленный в этом ходе evidence (суммарная доля окна
+        ограничена — защита от лавины tool-результатов). Никогда не бросает;
+        возвращает ``auto_budget.EvidenceToolWindow``."""
         try:
+            budget = int(getattr(ctx, "evidence_budget_chars", 0) or 0)
+        except (TypeError, ValueError):
+            budget = 0
+        spent = 0
+        for record in (getattr(ctx, "evidence_limits", None) or ()):
+            if not isinstance(record, dict) or record.get("reused"):
+                continue
+            try:
+                spent += max(0, int(record.get("used") or 0))
+            except (TypeError, ValueError):
+                continue
+        try:
+            return auto_budget.resolve_evidence_tool_window(
+                kind, call_budget_chars=budget, turn_spent_chars=spent)
+        except Exception:      # pragma: no cover - защитная ветка
+            floor = (auto_budget.SEARCH_RESULT_SOFT_FLOOR
+                     if kind == "search" else 0)
+            legacy = (auto_budget.LEGACY_SEARCH_MAX_SYMBOLS
+                      if kind == "search"
+                      else auto_budget.LEGACY_ARTICLE_MAX_SYMBOLS)
+            return auto_budget.EvidenceToolWindow(
+                kind=str(kind or ""), effective_limit=max(floor, legacy),
+                source="legacy", hard_ceiling=legacy, floor=floor)
+
+    def _record_limit(self, ctx: ToolContext, tool: str, truncation,
+                      *, stage: str, extra: dict | None = None) -> None:
+        """Записать наблюдаемый лимит (out-of-band, R17-safe)."""
+        try:
+            record = {"tool": tool, "stage": stage}
+            record.update(truncation.as_event_fields())
+            if extra:
+                record.update({k: v for k, v in extra.items()
+                               if isinstance(v, (str, int, float, bool))})
+            bucket = getattr(ctx, "evidence_limits", None)
+            if isinstance(bucket, list):
+                bucket.append(record)
+            logger.info(
+                "[tools] evidence window | tool=%s | limit=%s | source=%s | "
+                "used=%s/%s | truncated=%s | why=%s | remainder=%s",
+                tool, record.get("effective_limit"), record.get("limit_source"),
+                record.get("used"), record.get("total"),
+                record.get("truncated"), record.get("why") or "-",
+                record.get("retrievable_remainder"))
+        except Exception:      # pragma: no cover - защитная ветка
+            pass
+
+    @staticmethod
+    def _claim_keys(ctx: ToolContext, arguments: dict) -> list:
+        """Claim-key текущего хода (§1.6/§3.2): аргумент → ctx → пусто.
+
+        Ключи приходят из существующей аннотации L1 (`external_claims`) через
+        `ctx.claim_keys` (ставит policy-слой) либо явным аргументом
+        ``claim``/``claims``. Невалидные элементы отбрасываются."""
+        raw_items: list = []
+        args = arguments if isinstance(arguments, dict) else {}
+        for name in ("claim", "claims", "claim_keys"):
+            value = args.get(name)
+            if isinstance(value, (list, tuple)):
+                raw_items.extend(value)
+            elif isinstance(value, dict):
+                raw_items.append(value)
+            elif isinstance(value, str) and value.strip():
+                raw_items.append(value)
+        for name in ("claim_keys", "claims", "external_claims"):
+            value = getattr(ctx, name, None)
+            if isinstance(value, (list, tuple)):
+                raw_items.extend(value)
+        keys: list = []
+        for item in raw_items:
+            key = None
+            if isinstance(item, str) and "|" in item:
+                parts = [part.strip() for part in item.split("|")]
+                parts += [""] * (5 - len(parts))
+                key = source_reuse.claim_key(parts[0], parts[1], parts[2],
+                                             parts[3], parts[4])
+            elif not isinstance(item, str):
+                key = source_reuse.claim_key_from_mapping(item)
+            if key is not None and all(key.key() != existing.key()
+                                       for existing in keys):
+                keys.append(key)
+        return keys
+
+    @staticmethod
+    def _reuse_bypass(arguments: dict, ctx: ToolContext) -> bool:
+        """Явная просьба «обнови/проверь заново» → bypass кеша (§3.3)."""
+        args = arguments if isinstance(arguments, dict) else {}
+        for name in ("refresh", "force_refresh", "no_cache"):
+            if args.get(name):
+                return True
+        return bool(getattr(ctx, "force_refresh", False))
+
+    def _reuse_search(self, arguments: dict, ctx: ToolContext) -> str | None:
+        """Поиск по уже прочитанному claim-bound источнику без сети.
+
+        Возвращает готовый текст выдачи с машинной строкой ``reuse:`` либо
+        ``None`` (тогда выполняется обычный поиск)."""
+        keys = self._claim_keys(ctx, arguments)
+        if not keys:
+            return None
+        bypass = self._reuse_bypass(arguments, ctx)
+        chat_id = getattr(ctx, "chat_id", None)
+        records = []
+        for key in keys:
+            record = source_reuse.lookup(key, scope="public", chat_id=chat_id,
+                                          bypass=bypass)
+            if record is not None:
+                records.append(record)
+        if not records:
+            return None
+        blocks: list[str] = []
+        for record in records:
+            title = (record.snippet.splitlines()[0] if record.snippet else "")
+            snippet = record.snippet[:600]
+            blocks.append("\n".join(part for part in
+                                    (title, snippet, record.url) if part))
+        query = str(arguments.get("query") or getattr(ctx, "query", "") or "")
+        lines = [source_reuse.reuse_line(record) for record in records]
+        bucket = getattr(ctx, "evidence_limits", None)
+        if isinstance(bucket, list):
+            bucket.append({
+                "tool": "execute_web_search", "stage": "retrieve",
+                "reused": True, "network_calls": 0,
+                "reuse_count": len(records),
+                "source_read_level": records[0].read_level,
+                "limit_source": "reuse",
+                "effective_limit": 0, "used": 0, "total": 0,
+                "truncated": False, "why": "", "retrievable_remainder": 0,
+                "unit": "blocks"})
+        logger.info("[tools] web search skipped (reuse) | claims=%d",
+                    len(records))
+        return (f"Результаты поиска по запросу «{query}» (reuse):\n"
+                + "\n\n".join(blocks) + "\n\n" + "\n".join(lines))
+
+    # ── execute_web_search ────────────────────────────────────────
+
+    async def _execute_web_search(self, arguments: dict,
+                                  ctx: ToolContext) -> str:
+        """Поиск = индекс кандидатов (§4.3): URL не теряются при упаковке."""
+        query = self._require_query(arguments, ctx)
+        window = self._evidence_window("search", ctx)
+        # §4.5: тот же проверенный claim с готовым источником → 0 новых
+        # сетевых вызовов (повторный identical Search — ненужная работа).
+        reuse = self._reuse_search(arguments, ctx)
+        if reuse is not None:
+            return reuse
+        try:
+            # ASAP-EVIDENCE-ROUTING-01 v3 (limits-audit.md №1): агрегатору
+            # отдаётся технический ceiling, а НЕ 4000 — иначе его собственный
+            # слепой срез терял бы URL до нашей структурной упаковки. Ровно
+            # один содержательный лимит — ниже, по индексу кандидатов.
             text = await asyncio.wait_for(
-                self.deps.search.search(query, max_symbols=_SEARCH_MAX_SYMBOLS),
+                self.deps.search.search(query,
+                                        max_symbols=window.hard_ceiling
+                                        or window.effective_limit),
                 timeout=_SEARCH_TOOL_TIMEOUT,
             )
         except asyncio.TimeoutError:
@@ -1147,7 +1541,16 @@ class ToolRouter:
                     f"({type(exc).__name__})")
         if not text or not str(text).strip():
             return f"ОШИБКА execute_web_search: поиск недоступен (empty result)"
-        return f"Результаты поиска по запросу «{query}»:\n{_truncate(text, _SEARCH_MAX_SYMBOLS)}"
+        truncation = _compact_search_candidates(
+            str(text), window.effective_limit, source=window.source)
+        self._record_limit(
+            ctx, "execute_web_search", truncation, stage="retrieve",
+            extra={"window_source": window.window_source,
+                   "capacity_source": window.capacity_source,
+                   "turn_capped": window.turn_capped,
+                   # Поиск — только кандидаты (§4.4): страница НЕ прочитана.
+                   "source_read_level": source_reuse.READ_LEVEL_SNIPPET})
+        return (f"Результаты поиска по запросу «{query}»:\n{truncation.text}")
 
     # ── query_chat_memory ─────────────────────────────────────────
 
@@ -2202,13 +2605,30 @@ class ToolRouter:
     # ── fetch_article (A2, раунд 10.26, ADR-1026-15 D5) ──────────────────
 
     async def _fetch_article(self, arguments: dict, ctx: ToolContext) -> str:
-        """Извлечение статьи по URL → JSON `{status,url,source_id,chars,
-        truncated,markdown[,title]}` (ADR-1026-15 D5). Источник: http(s)-
-        ``url`` аргумента; иначе общий ``ctx.resolved_url`` (D6). Reuse
-        ``WebContentExtractor.extract`` (каскад trafilatura→Tavily→Exa); НЕ
-        второй контур (тот же роутер/`tool_loop`/`ToolDeps`). НИКОГДА не
-        бросает (контракт dispatch). R17: в логи — только ``source``/``chars``/
-        класс ошибки, без URL/текста/заголовка."""
+        """Извлечение статьи по URL → JSON (ADR-1026-15 D5 + v3 §4.3/§4.4).
+
+        Сохранены прежние ключи (`status,url,source_id,chars,truncated,
+        markdown[,title]`), добавлены: ``excerpt_chars, line_range,
+        selected_by, sections, remainder_chars, budget_chars, budget_source,
+        effective_limit, full_source_pointer, read_level, total_chars,
+        published_at, published_at_source, source_kind, links, links_source,
+        short_content``.
+
+        Отличия (P0, `limits-audit.md` №2/№4/№6):
+          * извлечение до `article_extract_ceiling` (класс C), а не до 8000 —
+            нужный раздел после 8k достижим (сценарий 37);
+          * доставка — section selection по терминам claim (`terms`) либо по
+            явным `section`/`offset` (догрузка остатка тем же инструментом);
+          * `truncated` = есть `remainder_chars`, а не «chars >= 8000»;
+          * `full_source_pointer` и `line_range` — отдельные поля, поэтому
+            обрезка не ломает указатель на полный источник (§4.4).
+
+        Один экземпляр текста в payload: ``markdown`` — доставленная выдержка.
+        Дублировать её в ``excerpt`` значило бы удвоить tool-payload в окне
+        модели; эквивалент по информации дают ``excerpt_chars``,
+        ``line_range`` и ``selected_by`` (см. отчёт w13).
+        НИКОГДА не бросает (контракт dispatch). R17: в логи — только
+        ``source``/``chars``/класс ошибки, без URL/текста/заголовка."""
         args = arguments if isinstance(arguments, dict) else {}
         raw_url = str(args.get("url") or "").strip()
         source = "argument"
@@ -2220,22 +2640,89 @@ class ToolRouter:
             url = str(getattr(ctx, "resolved_url", "") or "").strip()
         if not url:
             # Честный no_url: нет ссылки в аргументах и однозначной в контексте.
-            return json.dumps({"status": "error", "error": "no_url"},
+            return json.dumps({"status": "error", "error": "no_url",
+                               "reason": "no_url", "retryable": False},
                               ensure_ascii=False)
         source_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
         extractor = getattr(self.deps, "extractor", None)
         if extractor is None:
             return json.dumps({"status": "error",
                                "error": "service_unavailable",
+                               "reason": "service_unavailable",
+                               "retryable": False,
                                "url": url, "source_id": source_id},
                               ensure_ascii=False)
+        claim_keys = self._claim_keys(ctx, args)
+        bypass = self._reuse_bypass(args, ctx)
+        chat_id = getattr(ctx, "chat_id", None)
+        if claim_keys and not bypass:
+            for key in claim_keys:
+                record = source_reuse.lookup(key, scope="public",
+                                              chat_id=chat_id)
+                if record is None:
+                    continue
+                # §3.4: Writer получает ТУ ЖЕ выдержку; источник не перечитывается.
+                reused_payload = {
+                    "status": "ok", "url": record.url or url,
+                    "source_id": record.source_id or source_id,
+                    "chars": len(record.snippet), "truncated": True,
+                    "markdown": record.snippet,
+                    "excerpt_chars": len(record.snippet),
+                    "selected_by": "reuse",
+                    "remainder_chars": max(
+                        0, int(record.full_source_pointer.get("total_chars") or 0)
+                        - len(record.snippet)),
+                    "read_level": record.read_level,
+                    "source_kind": record.source_kind,
+                    "published_at": record.published_at,
+                    "published_at_source": record.published_at_source,
+                    "full_source_pointer": dict(record.full_source_pointer or {}),
+                    "reused": True, "reuse": source_reuse.reuse_line(record),
+                    "budget_source": "reuse", "network_calls": 0,
+                }
+                bucket = getattr(ctx, "evidence_limits", None)
+                if isinstance(bucket, list):
+                    bucket.append({
+                        "tool": "fetch_article", "stage": "retrieve",
+                        "reused": True, "network_calls": 0,
+                        "source_read_level": record.read_level,
+                        "limit_source": "reuse", "effective_limit": 0,
+                        "used": len(record.snippet),
+                        "total": int(record.full_source_pointer.get(
+                            "total_chars") or 0),
+                        "truncated": False, "why": "",
+                        "retrievable_remainder": reused_payload[
+                            "remainder_chars"], "unit": "chars"})
+                logger.info("[tools] fetch_article reuse | read=%s | chars=%d",
+                            record.read_level, len(record.snippet))
+                return json.dumps(reused_payload, ensure_ascii=False)
+        window = self._evidence_window("article", ctx)
+        ceiling, ceiling_source = auto_budget.article_extract_ceiling()
+        started = time.monotonic()
         try:
-            text = await asyncio.wait_for(
-                extractor.extract(url, _ARTICLE_MAX_SYMBOLS),
-                timeout=_ARTICLE_TOOL_TIMEOUT)
+            fetch = getattr(extractor, "extract_document", None)
+            document = None
+            if callable(fetch):
+                candidate = await asyncio.wait_for(
+                    fetch(url, ceiling=ceiling), timeout=_ARTICLE_TOOL_TIMEOUT)
+                from services.web_content_extractor import ExtractedDocument
+                if isinstance(candidate, ExtractedDocument):
+                    document = candidate
+            if document is None:
+                # Совместимость: экстрактор без document-режима (двойники в
+                # тестах, внешние обёртки) → прежний вход `extract`.
+                from services.web_content_extractor import ExtractedDocument
+                raw_text = await asyncio.wait_for(
+                    extractor.extract(url, ceiling),
+                    timeout=_ARTICLE_TOOL_TIMEOUT)
+                text_value = raw_text if isinstance(raw_text, str) else ""
+                document = ExtractedDocument(
+                    url=url, text=text_value,
+                    total_chars=len(text_value), ceiling=ceiling)
         except asyncio.TimeoutError:
             logger.warning("[tools] fetch_article timeout | source=%s", source)
             return json.dumps({"status": "error", "error": "timeout",
+                               "reason": "deadline_exceeded", "retryable": True,
                                "url": url, "source_id": source_id},
                               ensure_ascii=False)
         except WebContentExtractionFailedException as exc:
@@ -2252,31 +2739,142 @@ class ToolRouter:
                     "reason": str(getattr(safe, "reason", "") or ""),
                     "retryable": bool(getattr(safe, "retryable", False)),
                 })
-            return json.dumps({"status": "error", "error": "extract_failed",
-                               "url": url, "source_id": source_id},
-                              ensure_ascii=False)
+            # Сценарий 9: честная деградация с различимой причиной — никогда
+            # «источник не существует»/фантомный URL/неверная причина.
+            payload = {"status": "error", "error": "extract_failed",
+                       "reason": ("destination_blocked"
+                                  if getattr(safe, "code", "") in
+                                  ("destination_blocked", "metadata_endpoint_blocked",
+                                   "redirect_blocked") else
+                                  "source_unavailable"),
+                       "retryable": bool(getattr(safe, "retryable", False)),
+                       "url": url, "source_id": source_id}
+            if safe is not None and getattr(safe, "code", ""):
+                payload["safe_error_code"] = str(safe.code)
+            return json.dumps(payload, ensure_ascii=False)
         except Exception as exc:
             logger.warning("[tools] fetch_article failed | source=%s | error=%s",
                            source, type(exc).__name__)
             return json.dumps({"status": "error", "error": type(exc).__name__,
+                               "reason": "source_unavailable",
+                               "retryable": True,
                                "url": url, "source_id": source_id},
                               ensure_ascii=False)
-        markdown = str(text or "")
-        chars = len(markdown)
-        if chars <= 0:
+        markdown_full = str(getattr(document, "text", "") or "")
+        total_chars = int(getattr(document, "total_chars", 0)
+                          or len(markdown_full))
+        if not markdown_full.strip():
             return json.dumps({"status": "error", "error": "empty",
+                               "reason": "no_relevant_results",
+                               "retryable": False,
                                "url": url, "source_id": source_id},
                               ensure_ascii=False)
-        truncated = chars >= _ARTICLE_MAX_SYMBOLS
-        payload = {"status": "ok", "url": url, "source_id": source_id,
-                   "chars": chars, "truncated": truncated,
-                   "markdown": markdown}
-        title = self._article_title(markdown)
+        terms = self._article_terms(args, ctx)
+        excerpt = select_excerpt(
+            markdown_full, budget_chars=window.effective_limit, terms=terms,
+            section=args.get("section"), offset=args.get("offset"))
+        delivered = excerpt.text
+        remainder = int(excerpt.remainder_chars or 0)
+        pointer = build_source_pointer(
+            url, source_id, offset=int(excerpt.end or 0),
+            total_chars=total_chars, line_range=excerpt.line_range)
+        read_level = (source_reuse.READ_LEVEL_SELECTED
+                      if (excerpt.selected_by != "whole" or remainder)
+                      else source_reuse.READ_LEVEL_PARSED)
+        try:
+            from services.search_aggregator import classify_source_kind
+            source_kind = str(classify_source_kind(url) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            source_kind = ""
+        sections = list(excerpt.sections or ())[:40]
+        payload = {
+            "status": "ok", "url": url, "source_id": source_id,
+            "chars": len(delivered), "truncated": bool(remainder),
+            "markdown": delivered,
+            # ── v3: выдержка, provenance и достижимый остаток ────────────
+            "excerpt_chars": len(delivered),
+            "line_range": [int(excerpt.line_range[0]),
+                           int(excerpt.line_range[1])],
+            "selected_by": excerpt.selected_by,
+            "sections": sections,
+            "sections_total": len(excerpt.sections or ()),
+            "remainder_chars": remainder,
+            "budget_chars": int(window.budget_chars),
+            "budget_source": window.source,
+            "effective_limit": int(window.effective_limit),
+            "window_source": window.window_source,
+            "capacity_source": window.capacity_source,
+            "full_source_pointer": pointer,
+            "read_level": read_level,
+            "total_chars": total_chars,
+            "extraction_ceiling": int(getattr(document, "ceiling", 0) or 0),
+            "extraction_ceiling_source": ceiling_source,
+            "truncated_at_extraction": bool(
+                getattr(document, "truncated_at_extraction", False)),
+            "short_content": bool(getattr(document, "short_content", False)),
+            "provider": str(getattr(document, "provider", "") or ""),
+            "source_kind": source_kind,
+            "published_at": str(getattr(document, "published_at", "") or ""),
+            "published_at_source": str(
+                getattr(document, "published_at_source", "") or ""),
+            "links_source": str(getattr(document, "links_source", "")
+                                or "unavailable"),
+            "links": list(getattr(document, "links", ()) or ())[:20],
+            "latency_ms": int((time.monotonic() - started) * 1000),
+        }
+        title = self._article_title(delivered)
         if title:
             payload["title"] = title
+        self._record_limit(
+            ctx, "fetch_article",
+            Truncation(
+                text=delivered, effective_limit=window.effective_limit,
+                source=window.source, used=len(delivered), total=total_chars,
+                truncated=bool(remainder),
+                why=("over_window" if remainder else
+                     ("extraction_ceiling"
+                      if getattr(document, "truncated_at_extraction", False)
+                      else "")),
+                retrievable_remainder=remainder, unit="chars"),
+            stage="retrieve",
+            extra={"window_source": window.window_source,
+                   "capacity_source": window.capacity_source,
+                   "turn_capped": window.turn_capped,
+                   "source_read_level": read_level,
+                   "extraction_ceiling_source": ceiling_source})
         logger.info("[tools] fetch_article | source=%s | chars=%d | "
-                    "truncated=%s", source, chars, truncated)
+                    "total=%d | remainder=%d | selected_by=%s | limit=%d | "
+                    "limit_source=%s", source, len(delivered), total_chars,
+                    remainder, excerpt.selected_by, window.effective_limit,
+                    window.source)
+        # §3.3/§3.4: запомнить прочитанный источник под claim-key (если ход
+        # аннотирован claims). Хранится ограниченная выдержка + указатель, а не
+        # весь документ; после рестарта кеш пуст — обычный fetch.
+        for key in claim_keys:
+            source_reuse.store(
+                key, url=url, source_id=source_id,
+                snippet=delivered[:2000], read_level=read_level,
+                source_kind=source_kind,
+                published_at=str(getattr(document, "published_at", "") or ""),
+                published_at_source=str(
+                    getattr(document, "published_at_source", "") or ""),
+                scope="public", chat_id=chat_id,
+                full_source_pointer=pointer)
         return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _article_terms(args: dict, ctx: ToolContext) -> list[str]:
+        """Термины claim для секционного отбора (``terms`` → запрос хода)."""
+        raw = args.get("terms")
+        terms: list[str] = []
+        if isinstance(raw, (list, tuple)):
+            terms = [str(item) for item in raw if str(item).strip()]
+        elif isinstance(raw, str) and raw.strip():
+            terms = [item for item in re.split(r"[,;\s]+", raw) if item.strip()]
+        if terms:
+            return terms[:24]
+        query = str(getattr(ctx, "query", "") or "")
+        return sorted(content_terms(query))
 
     @staticmethod
     def _article_title(markdown: str) -> str:

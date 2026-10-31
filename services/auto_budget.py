@@ -304,6 +304,208 @@ def slot_observations_snapshot(slot: str) -> dict:
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ASAP-EVIDENCE-ROUTING-01 v3 (§3 Retrieve, §4.4 Preserve): окно read-only
+# tool-вызова вместо 4000/8000 как «потолка качества».
+#
+# Три источника лимита в порядке приоритета (первый непустой побеждает):
+#   1. per-call бюджет композера (`ToolContext.evidence_budget_chars`) —
+#      уже net-of-output-reserve, поэтому output reserve здесь НЕ вычитается
+#      повторно (C4: один резерв, один раз, в композере);
+#   2. входной бюджет стадии в токенах (`BudgetResult.effective_input_budget`)
+#      → символы × доли окна;
+#   3. реальное окно модели (`model_capacity.resolve_evidence_window_tokens`)
+#      → тот же расчёт; `window_source=unknown_fallback` честно помечается.
+# 4000 (поиск) и 8000 (статья) остаются ТОЛЬКО legacy-дефолтом для вызовов
+# без бюджета при выключенном kill-switch и как нижний пол поиска.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Нижняя граница полезности поисковой выдачи: индекс кандидатов (несколько
+#: URL со сниппетами) обязан помещаться даже на самом маленьком окне.
+SEARCH_RESULT_SOFT_FLOOR = 4000
+
+#: Технический предел ОДНОГО tool-результата (класс C: защита от лавины).
+#: Hot-ключ `limits.tool_result_hard_ceiling_chars`. Это не «качество».
+TOOL_RESULT_HARD_CEILING_DEFAULT = 200_000
+
+#: Класс C: сколько символов документа вообще извлекает reader перед
+#: секционным отбором. Hot `limits.article_extract_ceiling_chars`.
+ARTICLE_EXTRACT_CEILING_DEFAULT = 120_000
+
+#: Запас над per-call бюджетом evidence: индекс кандидатов/контекст вокруг
+#: выдержки полезно видеть целиком (контракт §4.3: `budget × 1.25`).
+EVIDENCE_TOOL_BUDGET_GROW = 1.25
+
+#: Legacy-дефолты вызовов без бюджета (прежнее поведение, класс E снят с
+#: роли потолка: используются только при динамике OFF / отсутствии окна).
+LEGACY_SEARCH_MAX_SYMBOLS = 4000
+LEGACY_ARTICLE_MAX_SYMBOLS = 8000
+
+#: Доля окна модели, которую СУММАРНО могут занять tool-результаты одного хода
+#: (hot `limits.evidence_tool_turn_share`, дефолт ниже). Защита от лавины:
+#: 4 раунда × 2 вызова не должны вытеснить system/reply/OCR из окна.
+TOOL_EVIDENCE_TURN_SHARE_DEFAULT = 0.40
+
+
+def _hot_int(key: str, default: int, *, minimum: int = 1) -> int:
+    """Целое из hot-каталога с дефолтом (мусор → дефолт; никогда не бросает)."""
+    try:
+        value = int(hot.get(key, default))
+    except Exception:      # pragma: no cover - защитная ветка
+        return int(default)
+    return value if value >= minimum else int(default)
+
+
+@dataclass(frozen=True)
+class EvidenceToolWindow:
+    """Лимит одного tool-результата + его наблюдаемый источник (§8 «Контракт
+    замера»: effective_limit/source/why доступны без реконструкции)."""
+
+    kind: str                  # "search" | "article"
+    effective_limit: int        # символов можно доставить
+    source: str                 # call_budget | window | legacy
+    budget_chars: int = 0       # бюджет evidence (симв.), от которого считали
+    window_tokens: int = 0
+    window_source: str = ""     # источник окна (model_capacity)
+    hard_ceiling: int = 0
+    floor: int = 0
+    turn_capped: bool = False   # лимит урезан остатком хода (защита от лавины)
+    turn_remaining_chars: int = 0
+
+    @property
+    def capacity_source(self) -> str:
+        """Источник ёмкости для событий: window|legacy (+ window_source)."""
+        if self.source == "legacy":
+            return "legacy"
+        return "window"
+
+    def as_event_fields(self) -> dict:
+        return {
+            "tool_kind": self.kind,
+            "effective_limit": self.effective_limit,
+            "source": self.source,
+            "budget_chars": self.budget_chars,
+            "window_tokens": self.window_tokens,
+            "window_source": self.window_source,
+            "capacity_source": self.capacity_source,
+        }
+
+
+def _kind_defaults(kind: str) -> tuple[int, int]:
+    """``(floor, legacy_limit)`` для вида результата."""
+    if str(kind or "") == "search":
+        return SEARCH_RESULT_SOFT_FLOOR, LEGACY_SEARCH_MAX_SYMBOLS
+    return 0, LEGACY_ARTICLE_MAX_SYMBOLS
+
+
+def _turn_share() -> float:
+    """Доля окна на суммарные tool-результаты хода (hot-ключ, мусор → дефолт)."""
+    try:
+        value = float(hot.get("limits.evidence_tool_turn_share",
+                              TOOL_EVIDENCE_TURN_SHARE_DEFAULT))
+    except Exception:      # pragma: no cover - защитная ветка
+        return TOOL_EVIDENCE_TURN_SHARE_DEFAULT
+    if value <= 0.0 or value > 1.0:
+        return TOOL_EVIDENCE_TURN_SHARE_DEFAULT
+    return value
+
+
+def resolve_evidence_tool_window(
+        kind: str, *, call_budget_chars: int | None = None,
+        input_budget_tokens: int | None = None,
+        model: str | None = None,
+        hard_ceiling: int | None = None,
+        turn_spent_chars: int = 0) -> EvidenceToolWindow:
+    """Лимит одного tool-вызова (search/article). Никогда не бросает.
+
+    ``output_reserve_tokens`` здесь отсутствует НАМЕРЕННО (C4): резерв вывода
+    вычитается один раз в композере, per-call бюджет приходит уже чистым.
+
+    ``turn_spent_chars`` — сколько evidence уже доставлено инструментами в
+    этом ходе: суммарная доля окна ограничена (``TOOL_EVIDENCE_TURN_SHARE``),
+    иначе 4 раунда по 2 вызова вытеснили бы system/reply/OCR из окна."""
+    floor, legacy = _kind_defaults(kind)
+    ceiling = int(hard_ceiling) if hard_ceiling else _hot_int(
+        "limits.tool_result_hard_ceiling_chars",
+        TOOL_RESULT_HARD_CEILING_DEFAULT)
+    ceiling = max(1, ceiling)
+    if not capacity.evidence_window_dynamic_enabled():
+        return EvidenceToolWindow(
+            kind=str(kind or ""), effective_limit=min(legacy, ceiling),
+            source="legacy", hard_ceiling=ceiling, floor=floor)
+    window_tokens, window_source = capacity.resolve_evidence_window_tokens(
+        model)
+    window_chars = capacity.chars_for_tokens(window_tokens)
+    try:
+        spent = max(0, int(turn_spent_chars or 0))
+    except (TypeError, ValueError):
+        spent = 0
+    turn_budget = int(window_chars * _turn_share())
+    turn_remaining = (max(0, turn_budget - spent) if turn_budget > 0 else None)
+    # 1) per-call бюджет композера (уже без output reserve).
+    try:
+        budget = int(call_budget_chars or 0)
+    except (TypeError, ValueError):
+        budget = 0
+    if budget > 0:
+        limit = int(budget * EVIDENCE_TOOL_BUDGET_GROW)
+        limited = min(limit, ceiling)
+        capped = turn_remaining is not None and limited > turn_remaining
+        if capped:
+            limited = max(floor, turn_remaining)
+        return EvidenceToolWindow(
+            kind=str(kind or ""), effective_limit=max(floor, min(limited,
+                                                                ceiling)),
+            source="call_budget", budget_chars=budget,
+            window_tokens=window_tokens, window_source=window_source,
+            hard_ceiling=ceiling, floor=floor, turn_capped=capped,
+            turn_remaining_chars=int(turn_remaining or 0))
+    # 2) входной бюджет стадии (токены) — уже net-of-reserve.
+    try:
+        tokens = int(input_budget_tokens or 0)
+    except (TypeError, ValueError):
+        tokens = 0
+    budget_chars = (capacity.chars_for_tokens(tokens) if tokens > 0
+                    else window_chars)
+    if budget_chars <= 0:
+        return EvidenceToolWindow(
+            kind=str(kind or ""), effective_limit=min(legacy, ceiling),
+            source="legacy", window_tokens=window_tokens,
+            window_source=window_source, hard_ceiling=ceiling, floor=floor)
+    derived = capacity.evidence_window_for_tokens(
+        budget_chars // max(1, capacity.CHARS_PER_TOKEN_ESTIMATE),
+        floor=floor, ceiling=ceiling)
+    limited = max(floor, min(int(derived), ceiling))
+    capped = turn_remaining is not None and limited > turn_remaining
+    if capped:
+        limited = max(floor, turn_remaining)
+    return EvidenceToolWindow(
+        kind=str(kind or ""), effective_limit=max(floor, min(limited, ceiling)),
+        source="window", budget_chars=budget_chars,
+        window_tokens=window_tokens, window_source=window_source,
+        hard_ceiling=ceiling, floor=floor, turn_capped=capped,
+        turn_remaining_chars=int(turn_remaining or 0))
+
+
+def article_extract_ceiling() -> tuple[int, str]:
+    """Класс C: сколько символов документа извлекает reader до отбора секции.
+
+    ``(ceiling, source)``; hot `limits.article_extract_ceiling_chars` →
+    ``source="hot"``, иначе заводской дефолт → ``source="default"``."""
+    try:
+        raw = hot.get("limits.article_extract_ceiling_chars", None)
+    except Exception:      # pragma: no cover - защитная ветка
+        raw = None
+    try:
+        value = int(raw) if raw is not None else 0
+    except (TypeError, ValueError):
+        value = 0
+    if value > 0:
+        return value, "hot"
+    return ARTICLE_EXTRACT_CEILING_DEFAULT, "default"
+
+
+
 __all__ = [
     "OUTPUT_RESERVE_FLOOR", "COVERAGE_EXHAUSTIVE",
     "COVERAGE_RELEVANCE_COMPOSED", "OVERFLOW_CHUNK_ALL",
@@ -311,4 +513,10 @@ __all__ = [
     "StagePolicy", "STAGE_POLICIES", "BudgetResult", "stage_policy",
     "auto_budget_enabled", "resolve_stage_budget", "record_slot_observation",
     "record_slot_pressure", "slot_observations_snapshot",
+    # ASAP-EVIDENCE-ROUTING-01 v3 (§3/§4.3): окно read-only tool-вызова.
+    "SEARCH_RESULT_SOFT_FLOOR", "TOOL_RESULT_HARD_CEILING_DEFAULT",
+    "ARTICLE_EXTRACT_CEILING_DEFAULT", "EVIDENCE_TOOL_BUDGET_GROW",
+    "TOOL_EVIDENCE_TURN_SHARE_DEFAULT",
+    "EvidenceToolWindow", "resolve_evidence_tool_window",
+    "article_extract_ceiling",
 ]

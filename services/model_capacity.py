@@ -1174,6 +1174,98 @@ async def replan_summary_capacity(*, base_url: str, model: str,
     return plan
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ASAP-EVIDENCE-ROUTING-01 v3 (§3 Retrieve / §4.4 Dynamic Evidence Window):
+# окно ОДНОГО read-only tool-вызова выводится из РЕАЛЬНОГО окна модели, а не
+# из магических 4000/8000. Здесь только арифметика «доля окна → символы»;
+# политика стадии и предохранители — в `services/auto_budget.py`
+# (`resolve_evidence_tool_window`), чтобы не заводить второй бюджетный движок.
+#
+# Ограничение честно: резолв здесь синхронный (registry/env/fallback уровня
+# D1). Live-metadata провайдера остаётся async в `resolve_capacity` и
+# используется композером; tool-путь не должен ждать discovery (2 с) ради
+# одного вызова. Значение `window_source` показывает, откуда взято окно.
+
+#: Доля входного бюджета модели, которую может занять ОДИН tool-результат.
+#: Hot-ключ `limits.evidence_tool_window_share` (дефолт ниже). Это не «потолок
+#: качества», а ограничитель лавины: несколько вызовов идут в одном окне.
+EVIDENCE_WINDOW_SHARE_DEFAULT = 0.20
+
+#: Символов на токен для оценки (консервативно для русского текста).
+CHARS_PER_TOKEN_ESTIMATE = 4
+
+
+def chars_for_tokens(tokens: int | None) -> int:
+    """Оценка символов по числу токенов (0/мусор → 0). Никогда не бросает."""
+    try:
+        return max(0, int(tokens or 0)) * CHARS_PER_TOKEN_ESTIMATE
+    except (TypeError, ValueError):
+        return 0
+
+
+def evidence_window_share() -> float:
+    """Доля окна на один tool-вызов: hot `limits.evidence_tool_window_share`.
+
+    Мусор/отрицательное значение → дефолт (никогда не бросает)."""
+    try:
+        raw = hot.get("limits.evidence_tool_window_share",
+                      EVIDENCE_WINDOW_SHARE_DEFAULT)
+        share = float(raw)
+    except Exception:      # pragma: no cover - защитная ветка
+        return EVIDENCE_WINDOW_SHARE_DEFAULT
+    if share <= 0.0 or share > 1.0:
+        return EVIDENCE_WINDOW_SHARE_DEFAULT
+    return share
+
+
+def evidence_window_for_tokens(window_tokens: int | None, *,
+                               share: float | None = None,
+                               floor: int = 0,
+                               ceiling: int | None = None) -> int:
+    """Сколько символов одного tool-результата допускает окно модели.
+
+    ``clamp(int(window_chars × share), floor, ceiling)``; ``ceiling`` не
+    задан → без верхнего обрезателя (физический предел задаёт вызывающая
+    стадия: `TOOL_RESULT_HARD_CEILING`)."""
+    window_chars = chars_for_tokens(window_tokens)
+    if window_chars <= 0:
+        return max(0, int(floor or 0))
+    ratio = evidence_window_share() if share is None else max(0.0, float(share))
+    value = int(window_chars * ratio)
+    value = max(int(floor or 0), value)
+    if ceiling is not None and int(ceiling) > 0:
+        value = min(value, int(ceiling))
+    return max(0, value)
+
+
+def resolve_evidence_window_tokens(model: str | None = None
+                                   ) -> tuple[int, str]:
+    """``(window_tokens, window_source)`` для tool-пути (sync, кэш D1).
+
+    Модель не передана → активная модель чата (`models.llm_model_name` из
+    hot, затем `LLM_MODEL_NAME`). Неизвестная модель → консервативное окно
+    `unknown_fallback` (WARN один раз, ``model_capacity:173–232``)."""
+    name = str(model or "").strip()
+    if not name:
+        try:
+            name = str(hot.get("models.llm_model_name",
+                               getattr(settings, "LLM_MODEL_NAME", "")) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            name = str(getattr(settings, "LLM_MODEL_NAME", "") or "")
+    return resolve_model_context_window(name)
+
+
+def evidence_window_dynamic_enabled() -> bool:
+    """Kill-switch `EVIDENCE_WINDOW_DYNAMIC_ENABLED` (env-only ClassVar,
+    default ON; резолв per-call; никогда не бросает). OFF → вызывающий
+    потребитель обязан идти прежним legacy-путём (фиксированные 4000/8000)
+    байт-в-байт."""
+    try:
+        return bool(getattr(settings, "EVIDENCE_WINDOW_DYNAMIC_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
 __all__ = [
     "MODEL_CONTEXT_WINDOWS", "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV",
     "WINDOW_SOURCE_FALLBACK", "OUTPUT_RESERVE_FLOOR",
@@ -1197,4 +1289,9 @@ __all__ = [
     "MODE_WHOLE_WINDOW", "MODE_CAPACITY_OVERFLOW",
     "SummaryCapacityPlan", "decide_summary_mode", "replan_summary_capacity",
     "invalidate_runtime_capacity",
+    # ASAP-EVIDENCE-ROUTING-01 v3: окно одного tool-вызова из реального окна.
+    "EVIDENCE_WINDOW_SHARE_DEFAULT", "CHARS_PER_TOKEN_ESTIMATE",
+    "chars_for_tokens", "evidence_window_share",
+    "evidence_window_for_tokens", "resolve_evidence_window_tokens",
+    "evidence_window_dynamic_enabled",
 ]
