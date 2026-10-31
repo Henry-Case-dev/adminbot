@@ -171,6 +171,102 @@ def style_reason_code(reason: str) -> str:
     return reason if reason in STYLE_REASON_CODES else REASON_STYLE_FAILED
 
 
+# ── ASAP-SUMMARY-COVER-INTEGRITY-01 §3.3/§9 сц.16: классы отказа Style
+# Edit. Прод-факт 31.10.2026: один `reason_class=bad_json` после 188 с
+# описывал совершенно разные вещи — 400 `prompt_too_long` (лимит), затем
+# невалидное тело 2xx. Класс — отдельный machine-факт (manifest/Inspector/
+# Analytics), а не переименование `reason`: предел промпта, невалидный ответ
+# провайдера, таймаут, недоступная возможность модели и опционально
+# недоступный референс имеют разное retry-поведение и разную правду для UI.
+ERROR_CLASS_PROMPT_LIMIT = "prompt_limit"
+ERROR_CLASS_INVALID_PROVIDER_RESPONSE = "invalid_provider_response"
+ERROR_CLASS_TIMEOUT = "timeout"
+ERROR_CLASS_CAPABILITY_UNAVAILABLE = "capability_unavailable"
+ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE = "optional_reference_unavailable"
+ERROR_CLASS_RATE_LIMITED = "rate_limited"
+ERROR_CLASS_PROVIDER_REJECTED = "provider_rejected"
+ERROR_CLASS_TRANSPORT = "transport"
+ERROR_CLASS_LOCAL_IO = "local_io"
+ERROR_CLASS_PROVIDER_ERROR = "provider_error"
+
+_EDIT_ERROR_CLASS_BY_REASON = {
+    # Предел промпта: известное число / «слишком длинно» без числа / после
+    # сокращения / preflight-overflow. Один класс — у всех один смысл.
+    "prompt_limit": ERROR_CLASS_PROMPT_LIMIT,
+    "prompt_limit_unknown": ERROR_CLASS_PROMPT_LIMIT,
+    "prompt_limit_unknown_after_retry": ERROR_CLASS_PROMPT_LIMIT,
+    STYLE_PUBLISH_SKIP_OVERFLOW: ERROR_CLASS_PROMPT_LIMIT,
+    # Провайдер ответил 2xx телом, из которого нельзя достать изображение
+    # (пусто/non-JSON/не-image). НЕ путать с текстовым `prompt_limit`.
+    "bad_json": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    "bad_b64": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    "bad_response": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    "no_url": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    "no_image": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    "empty": ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    REASON_INVALID_PAYLOAD: ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    REASON_SEMANTIC_LOST: ERROR_CLASS_INVALID_PROVIDER_RESPONSE,
+    # Конечное окно истекло (адаптивное окно попытки / async deadline).
+    "timeout": ERROR_CLASS_TIMEOUT,
+    "deadline_exceeded": ERROR_CLASS_TIMEOUT,
+    # Сеть/шлюз: транзиентно, ограниченный retry возможен.
+    "network": ERROR_CLASS_TRANSPORT,
+    "provider_unavailable": ERROR_CLASS_TRANSPORT,
+    # Возможность/маршрут/конфигурация: повтор даст тот же исход.
+    "edit_unsupported": ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    "route_unverified": ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    "no_input_images": ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_NOT_CONFIGURED: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_CONNECTION_MISSING: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_CAPABILITY_UNKNOWN: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_NO_STYLE: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_PROFILE_MISSING: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_DISABLED: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_NO_STYLE_STAGE: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_BASE_ASSET_MISSING: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_STYLE_INPUTS_MISSING: ERROR_CLASS_CAPABILITY_UNAVAILABLE,
+    REASON_REFERENCE_MISSING: ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE,
+    ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE: (
+        ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE),
+    # Честная локальная ошибка (temp-файл результата).
+    "temp_write_failed": ERROR_CLASS_LOCAL_IO,
+    REASON_RECOVERY_EXHAUSTED: ERROR_CLASS_PROVIDER_ERROR,
+    "style_stage_error": ERROR_CLASS_PROVIDER_ERROR,
+}
+
+
+def edit_error_class(reason: str) -> str:
+    """Класс отказа Style Edit (§3.3/сц.16) из точной причины.
+
+    Предел промпта ≠ невалидный ответ ≠ таймаут ≠ недоступная возможность ≠
+    опционально недоступный референс. HTTP-коды раскладываются по смыслу:
+    429 → `rate_limited`, 4xx → `provider_rejected`, 5xx/503/504 →
+    `transport`. Неизвестная причина — честный `provider_error` (не
+    выдуманный успех и не ложный `bad_json`)."""
+    reason = str(reason or "").strip().lower()
+    if not reason:
+        return ERROR_CLASS_PROVIDER_ERROR
+    cls = _EDIT_ERROR_CLASS_BY_REASON.get(reason)
+    if cls is not None:
+        return cls
+    if reason in ("rate_limited", "http_429"):
+        return ERROR_CLASS_RATE_LIMITED
+    if reason in ("unauthorized", "forbidden", "payment_required",
+                  "bad_request", "invalid_request_error",
+                  "content_policy_violation"):
+        return ERROR_CLASS_PROVIDER_REJECTED
+    if reason.startswith("http_5") or reason in ("unavailable",
+                                                 "bad_gateway"):
+        return ERROR_CLASS_TRANSPORT
+    if reason.startswith("http_4"):
+        return ERROR_CLASS_PROVIDER_REJECTED
+    if reason.startswith("provider_") or reason == "error":
+        return ERROR_CLASS_PROVIDER_ERROR
+    if "timeout" in reason or "deadline" in reason:
+        return ERROR_CLASS_TIMEOUT
+    return ERROR_CLASS_PROVIDER_ERROR
+
+
 # §43: человекочитаемые причины (run detail/Analytics; Wave E подключит UI).
 REASON_DETAILS_RU = {
     REASON_NO_STYLE: "стиль не выбран («Без дополнительного стиля»)",
@@ -218,6 +314,22 @@ REASON_DETAILS_RU = {
                           "применена базовая обложка"),
     REASON_STYLE_FAILED: ("обработка стилем не завершилась "
                           "(ошибка провайдера)"),
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.3: точные классы отказа вместо
+    # одного «bad_json» на все случаи.
+    "invalid_provider_response": ("провайдер вернул непригодный ответ "
+                                  "(пустое/не-JSON тело без изображения) — "
+                                  "применена базовая обложка"),
+    "timeout": ("провайдер не ответил в отведённое время — "
+                "применена базовая обложка"),
+    "deadline_exceeded": ("задача обработки не завершилась за отведённое "
+                          "время — применена базовая обложка"),
+    "network": ("сеть/шлюз недоступны во время обработки — "
+                "применена базовая обложка"),
+    "capability_unavailable": ("модель/маршрут не поддерживает обработку "
+                               "готовых изображений — применена базовая "
+                               "обложка"),
+    "optional_reference_unavailable": ("часть необязательных референсов "
+                                       "недоступна — стиль применён без них"),
 }
 
 
@@ -458,6 +570,9 @@ SAFE_LOG_FIELDS = frozenset({
     # enum/числа (R17-safe).
     "edit_route", "limit_source", "limit_source_taxonomy", "capability_source",
     "limit_value",
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.3: точная причина + её класс —
+    # machine-факты (enum-подобные токены, не текст провайдера).
+    "fail_reason", "error_class",
 })
 
 # F-N3 (ASAP 4.4, owner acceptance §3/§9): R17-safe extras, которые
@@ -472,6 +587,9 @@ _INSPECTOR_USAGE_FIELDS = frozenset({
     "brief_chars", "reference_count", "reference_bytes_total",
     "issue_present", "fallback", "mode", "pipeline_mode", "enabled",
     "async_used", "edit_route",
+    # §3.3/§3.5: точная причина отказа и её класс — отдельная аналитика
+    # «Style Edit failure» без склейки с «Cover base success».
+    "fail_reason", "error_class",
 })
 
 
@@ -1315,7 +1433,9 @@ async def _resolve_reference_details(pg, profile: dict) -> list[dict]:
     obj = pg if pg is not None else _pg()
     details: list[dict] = []
     for ref in (profile.get("references") or []):
-        entry = {"asset_id": ref.get("asset_id"), "db_row": False,
+        entry = {"ref_id": ref.get("ref_id"),
+                 "label": ref.get("label") or "",
+                 "asset_id": ref.get("asset_id"), "db_row": False,
                  "file": False, "mime_ok": False, "readable": False,
                  "bytes": 0, "path": None}
         asset_id = ref.get("asset_id")
@@ -2329,18 +2449,33 @@ def _manifest_mark_outcome(manifest: dict | None, *, applied: bool,
             att["outcome"] = "ok" if applied else "failed"
             if not applied and reason:
                 att["reason"] = str(reason)
+                # §3.3/сц.16: класс отказа — рядом с точной причиной, чтобы
+                # manifest честно различал предел промпта / невалидный ответ
+                # / таймаут / недоступную возможность.
+                att["error_class"] = edit_error_class(reason)
+    manifest["outcome"] = "applied" if applied else "failed"
+    if not applied and reason:
+        manifest["error_class"] = edit_error_class(reason)
 
 
 def _build_style_manifest(*, profile: dict, issue_display: str,
                           base_style_prompt: str, brief_text: str,
                           scene_text: str, sent_prompts: list,
-                          meta: dict, caps) -> dict | None:
+                          meta: dict, caps,
+                          declared_references: list | None = None
+                          ) -> dict | None:
     """D7/T-5249: CoverPromptManifest Style Edit по факту отправки.
 
     ``sent_prompts`` — фактически отправленные строки (attempt 1 + retry);
     полный prompt живёт только в манифесте (durable job evidence), в
     generic log/events не попадает. R17: тексты компонентов — chat data,
-    наружу только через cpa.manifest_public (fail-closed, admin-only)."""
+    наружу только через cpa.manifest_public (fail-closed, admin-only).
+
+    ASAP-SUMMARY-COVER-INTEGRITY-01 §3.1/§9 сц.18: ``image_inputs`` —
+    отдельный machine-факт о ФАКТИЧЕСКИ переданных изображениях (Base
+    bitmap + реально приложенные референсы) и об объявленных, но
+    недоступных референсах (``declared_references``), чтобы Inspector и
+    UI не принимали отсутствующий файл за приложенный знак."""
     if not sent_prompts:
         return None
     applied = bool(meta.get("applied"))
@@ -2356,6 +2491,19 @@ def _build_style_manifest(*, profile: dict, issue_display: str,
         limit_unit_raw = str(getattr(pl, "unit", "") or "unknown")
         if limit_known:
             resolved_limit = getattr(pl, "value", None)
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.2/сц.13: если провайдер СООБЩИЛ
+    # реальный предел (400 prompt-too-long с числом), манифест обязан
+    # показывать именно его и его источник — иначе «Resolved limit»
+    # рассказывает про старую capability-догадку, а не про фактическое
+    # ограничение этого route/operation.
+    _pl_retry = meta.get("prompt_limit_retry") or {}
+    if _pl_retry.get("resolved_limit"):
+        try:
+            resolved_limit = int(_pl_retry["resolved_limit"])
+            limit_source = "observed_provider_400"
+            limit_unit_raw = str(_pl_retry.get("unit") or limit_unit_raw)
+        except (TypeError, ValueError):
+            pass
     attempts = []
     last = sent_prompts[-1][0]
     retry_reason = ""
@@ -2378,7 +2526,7 @@ def _build_style_manifest(*, profile: dict, issue_display: str,
     # B04 v6.3: P0-тексты фактически на языке контента EDIT-сборки —
     # манифест описывает отправленное, а не канон-EN (см. cpa docstring).
     lang = edit_content_language(str(profile.get("instruction") or ""))
-    return cpa.build_style_manifest(
+    manifest = cpa.build_style_manifest(
         issue_display=issue_display,
         instruction=str(profile.get("instruction") or ""),
         base_style_prompt=base_style_prompt,
@@ -2398,6 +2546,32 @@ def _build_style_manifest(*, profile: dict, issue_display: str,
         attempts=attempts,
         preservation_sent=edit_preservation_text(lang),
         runtime_sent=edit_runtime_invariants_text(issue_display, lang))
+    if isinstance(manifest, dict):
+        # §3.1/сц.18: что реально ушло провайдеру как изображения.
+        declared = list(declared_references
+                        if declared_references is not None
+                        else (profile.get("references") or []))
+        attached_declared = [r for r in declared
+                             if r.get("asset_id") in
+                             {x.get("asset_id") for x in
+                              (profile.get("references") or [])}]
+        manifest["image_inputs"] = {
+            "base": bool(meta.get("base_asset_id")),
+            "references": len(profile.get("references") or []),
+            "references_attached": len(profile.get("references") or []),
+            "references_declared": len(declared),
+            "references_optional_unavailable": max(
+                0, len(declared) - len(attached_declared)),
+            "base_asset_id": meta.get("base_asset_id"),
+        }
+        if meta.get("optional_reference_unavailable"):
+            manifest["optional_reference_unavailable"] = dict(
+                meta["optional_reference_unavailable"])
+        if meta.get("provider_meta"):
+            # R17-safe: только статус/content-type/длина/ключи тела, без
+            # тела, ключей и base64 (§3.3).
+            manifest["provider_diagnostics"] = dict(meta["provider_meta"])
+    return manifest
 
 
 async def run_style_job(*, chat_id: int, base_image_path: str | None,
@@ -2605,6 +2779,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     obj = pg if pg is not None else _pg()
     ref_details = None
     reference_bytes_total = 0
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.1: для сборки prompt/manifest
+    # используются только РЕАЛЬНО приложенные референсы; объявленные, но
+    # недоступные остаются в metadata профиля (не теряются, но и не
+    # описываются в prompt как приложенные).
+    prompt_profile = profile
     if _wb:
         # §B.5 (T-4419): pre-execution конфигурационные проверки — ДО
         # assignment'а выпуска (counter расходуется только на submission).
@@ -2626,13 +2805,34 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                                if d.get("path") and d.get("readable")]
             reference_bytes_total = sum(d.get("bytes") or 0
                                         for d in ref_details)
-            if (profile.get("references") or []) and not reference_paths:
-                return await _style_failed(
-                    meta, state, reason=REASON_REFERENCE_MISSING,
-                    message=("Референсы стиля недоступны. Загрузите референс "
-                             "заново."),
-                    run_id=correlation_id, job_id=job_id, chat_id=chat_id,
-                    started=started, db=db)
+            # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.1/сц.10,12: референсы
+            # СТРОГО опциональны. Отсутствие файла — не блокер Style Edit
+            # (Base bitmap — обязательный вход) и не `reference_missing`:
+            # честная метка `optional_reference_unavailable`, metadata/id
+            # профиля не теряются, prompt не утверждает приложенный знак.
+            declared = list(profile.get("references") or [])
+            attached_ids = {d.get("asset_id") for d in ref_details
+                            if d.get("readable")}
+            attached_refs = [r for r in declared
+                             if r.get("asset_id") in attached_ids]
+            missing_refs = [
+                {"ref_id": r.get("ref_id"), "asset_id": r.get("asset_id"),
+                 "label": r.get("label") or ""}
+                for r in declared if r.get("asset_id") not in attached_ids]
+            if missing_refs:
+                meta["optional_reference_unavailable"] = {
+                    "reason": ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE,
+                    "declared": len(declared),
+                    "attached": len(attached_refs),
+                    "unavailable": missing_refs,
+                }
+                logger.info(
+                    "[cover_style_jobs] optional references unavailable | "
+                    "profile=%s | declared=%d | attached=%d",
+                    profile.get("profile_id") or "-", len(declared),
+                    len(attached_refs))
+            prompt_profile = dict(profile)
+            prompt_profile["references"] = attached_refs
     meta["reference_bytes_total"] = reference_bytes_total
     meta["reference_details"] = ref_details
     ref_paths = reference_paths
@@ -2675,7 +2875,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     story_text = _story_identity_text(scene_text, brief)
     meta["base_asset_id"] = _asset_id_of(base_image_path)
     compiled = compile_style_prompt(
-        profile, issue_display=issue_display, capabilities=caps,
+        prompt_profile, issue_display=issue_display, capabilities=caps,
         base_style_prompt=base_style_prompt or "", brief=brief,
         story_scene=scene_text)
     edit_report = dict(getattr(compiled, "edit_report", {}) or {})
@@ -2683,12 +2883,21 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     sent_prompts: list = [(1, compiled.prompt)]
     if _wb:
         # §46 (T-4418): prompt compilation diagnostics (safe-числа/флаги).
+        _opt_refs = meta.get("optional_reference_unavailable") or {}
         meta["prompt_diagnostics"] = {
             "instruction_chars": len(str(profile.get("instruction") or "")),
             "brief_chars": len(budget_text),
             "story_chars": len(scene_text),
             "issue_present": bool(issue_display in compiled.prompt),
             "references_count": len(ref_paths),
+            # §3.1 (сц.10/12): объявлено / реально приложено / недоступно —
+            # отсутствие необязательного файла видно и не маскируется.
+            "references_declared": len(profile.get("references") or []),
+            "references_optional_unavailable": len(
+                _opt_refs.get("unavailable") or []),
+            "optional_reference_ids": [
+                r.get("ref_id") for r in (_opt_refs.get("unavailable") or [])
+                if r.get("ref_id")],
             "compiled_chars": len(compiled.prompt),
             # T-4816: Inspector `Original N / Resolved limit M / Compiled K`.
             "original_chars": int(compiled.original_len or 0),
@@ -2783,10 +2992,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         # возвращался вовсе без манифеста).
         meta["fail_reason"] = skip_reason
         manifest = _build_style_manifest(
-            profile=profile, issue_display=issue_display,
+            profile=prompt_profile, issue_display=issue_display,
             base_style_prompt=base_style_prompt or "", brief_text=brief_text,
             scene_text=scene_text, sent_prompts=sent_prompts,
-            meta=meta, caps=caps)
+            meta=meta, caps=caps,
+            declared_references=profile.get("references") or [])
         if manifest is not None:
             manifest["style_publish_skipped"] = {"reason": skip_reason}
             _manifest_mark_outcome(manifest, applied=False,
@@ -2886,7 +3096,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         route=result_meta.get("route"),
                         operation=edit_operation)
                     recompiled = compile_style_prompt(
-                        profile, issue_display=issue_display,
+                        prompt_profile, issue_display=issue_display,
                         capabilities=caps_retry,
                         base_style_prompt=base_style_prompt or "",
                         brief=brief, story_scene=scene_text)
@@ -2942,7 +3152,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                 # 160 chars/100% + profile identity ≥50% + mandatory reference
                 # roles). Прежний `minimal=True` (потеря сюжета) ЗАПРЕЩЁН.
                 recompiled = compile_style_prompt(
-                    profile, issue_display=issue_display,
+                    prompt_profile, issue_display=issue_display,
                     capabilities=caps, base_style_prompt=base_style_prompt
                     or "", brief=brief, story_scene=scene_text,
                     retry_core=True)
@@ -3027,10 +3237,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     # обеих attempts. Полный prompt живёт в durable state (task_jobs payload);
     # в generic log/events НЕ попадает (SAFE_LOG_FIELDS не расширялись).
     manifest = _build_style_manifest(
-        profile=profile, issue_display=issue_display,
+        profile=prompt_profile, issue_display=issue_display,
         base_style_prompt=base_style_prompt or "", brief_text=brief_text,
         scene_text=scene_text, sent_prompts=sent_prompts,
-        meta=meta, caps=caps)
+        meta=meta, caps=caps,
+        declared_references=profile.get("references") or [])
     if manifest is not None:
         if state is not None:
             state.prompt_manifest = manifest
@@ -3190,6 +3401,10 @@ async def _style_failed(meta: dict, state, *, reason: str, message: str,
     meta.update(applied=False, styled_path=None, outcome=RESULT_BASE,
                 reason=REASON_STYLE_FAILED, fail_reason=reason,
                 message=message, duration_ms=_elapsed(started))
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.3: machine-класс отказа рядом с
+    # точной причиной (не переименование reason — отдельный факт для
+    # Inspector/Analytics/UI).
+    meta["error_class"] = edit_error_class(reason)
     # C03A: честный styled-статус прямо в meta (публикующий владелец может
     # уточнить его на retry_scheduled — recovery-бюджет/классификация).
     meta["styled_status"] = "failed"
@@ -3213,6 +3428,11 @@ async def _style_failed(meta: dict, state, *, reason: str, message: str,
         provider=meta["provider"], duration_ms=meta["duration_ms"],
         reason=reason, fallback=REASON_STYLE_FAILED,
         reason_code=code,
+        # §3.3/§3.5: точная причина и её класс — structured usage_json
+        # (Analytics различает limit / невалидный ответ / таймаут /
+        # недоступную возможность, не склеивая с успехом Base).
+        fail_reason=str(reason or ""),
+        error_class=meta.get("error_class") or edit_error_class(reason),
         style_id=meta["style_id"], issue_number=meta.get("issue_number"))
     return meta
 

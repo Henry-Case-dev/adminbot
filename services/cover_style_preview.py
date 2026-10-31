@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 
 from services import cover_style_assets as assets
 from services import cover_style_jobs as jobs
@@ -144,8 +145,88 @@ def preview_human_message(reason: str) -> str:
     if reason in ("route_unverified", "provider_error", "http_400",
                   "bad_request", "no_style", "profile_missing"):
         return "Стиль не применён: провайдер отклонил запрос."
+    # ASAP-SUMMARY-COVER-INTEGRITY-01 §3.3/сц.16: разные причины — разные
+    # честные тексты (не один «не удалось применить» на всё).
+    if reason in ("bad_json", "bad_b64", "no_image", "no_url", "empty",
+                  "invalid_image_payload"):
+        return ("Стиль не применён: провайдер вернул непригодный ответ "
+                "вместо изображения.")
+    if reason in ("timeout", "deadline_exceeded"):
+        return ("Стиль не применён: провайдер не ответил за отведённое "
+                "время.")
+    if reason in ("network", "provider_timeout"):
+        return "Стиль не применён: сеть или шлюз провайдера недоступны."
     return ("Не удалось применить стиль. Проверьте подключение и модель "
             "обработки.")
+
+
+def _status_timing(row: dict, state: jobs.CoverJobState | None,
+                   now: float | None = None) -> dict:
+    """ASAP-SUMMARY-COVER-INTEGRITY-01 §3.4/сц.19: честное время job'а.
+
+    `started_at` — ТОЛЬКО момент реального старта работы (первый переход
+    state'а за пределы `CREATED`), а не время создания строки: пока job в
+    очереди, времени выполнения не существует («В очереди», не миллионы
+    секунд от `now - 0`). `elapsed_ms` считается на сервере от реального
+    старта до `now` (running) или до последнего перехода (terminal);
+    неизвестное время — `None`, не выдуманный ноль.
+
+    Единицы: `created_at`/`progress_at`/`heartbeat_at` — Unix seconds
+    (durable `task_jobs`), поэтому `elapsed_ms` в миллисекундах, а не в
+    секундах/`Date.now() - 0`."""
+    created = _epoch(row.get("created_at"))
+    started = None
+    last_activity = None
+    from_stages = False
+    stages = list(getattr(state, "stages", []) or []) if state else []
+    for entry in stages:
+        try:
+            at = int(entry.get("at") or 0)
+        except (TypeError, ValueError):
+            continue
+        if at <= 0:
+            continue
+        if str(entry.get("state") or "") != jobs.STATE_CREATED:
+            if started is None or at < started:
+                started = at
+                from_stages = True
+            if last_activity is None or at > last_activity:
+                last_activity = at
+    if started is None:
+        # Runner мог пометить активность без stage-перехода (heartbeat).
+        progress = _epoch(row.get("progress_at")) or _epoch(
+            row.get("heartbeat_at"))
+        started = progress
+        last_activity = last_activity or progress
+    status = str(row.get("status") or "")
+    terminal = status in ("completed", "failed", "cancelled",
+                          "interrupted")
+    current = now if now is not None else time.time()
+    elapsed_ms = None
+    if started is not None:
+        end = last_activity if (terminal and last_activity) else current
+        if end is not None and end >= started:
+            elapsed_ms = int(round((end - started) * 1000))
+    return {
+        "queued_at": created,
+        "started_at": started,
+        "elapsed_ms": elapsed_ms,
+        "elapsed_seconds": (int(elapsed_ms // 1000)
+                            if elapsed_ms is not None else None),
+        "timing_source": ("state_stages" if from_stages else (
+            "heartbeat" if started is not None else "unknown")),
+    }
+
+
+def _epoch(value) -> float | None:
+    """Unix seconds из durable-поля (int/float/str); None — нет данных."""
+    if value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
 
 
 def _public_status(row: dict, state: jobs.CoverJobState | None) -> dict:
@@ -159,11 +240,28 @@ def _public_status(row: dict, state: jobs.CoverJobState | None) -> dict:
     # §4: generated-во-время-провала ассеты наружу как «новая пара» НЕ
     # отдаются — before/after видны только у успешно завершённого job.
     completed = status == "completed"
+    diag = state.prompt_diagnostics or {}
+    timing = _status_timing(row, state)
+    warnings = []
+    if int(diag.get("references_optional_unavailable") or 0) > 0:
+        warnings.append({
+            "code": jobs.ERROR_CLASS_OPTIONAL_REFERENCE_UNAVAILABLE,
+            "message": ("Часть необязательных референсов недоступна — "
+                        "стиль применён без них."),
+            "declared": int(diag.get("references_declared") or 0),
+            "unavailable": int(
+                diag.get("references_optional_unavailable") or 0),
+            "ref_ids": list(diag.get("optional_reference_ids") or []),
+        })
     return {
         "job_id": job_id,
         "status": status,
         "stage": stage_for(status, state),
-        "started_at": row.get("created_at"),
+        "queued_at": timing["queued_at"],
+        "started_at": timing["started_at"],
+        "elapsed_ms": timing["elapsed_ms"],
+        "elapsed_seconds": timing["elapsed_seconds"],
+        "timing_source": timing["timing_source"],
         "last_progress_at": (row.get("progress_at")
                              or row.get("heartbeat_at")
                              or row.get("updated_at")),
@@ -171,6 +269,9 @@ def _public_status(row: dict, state: jobs.CoverJobState | None) -> dict:
         "model": state.model or "",
         "human_message": human,
         "machine_reason": reason,
+        "error_class": (jobs.edit_error_class(reason)
+                        if status == "failed" else None),
+        "warnings": warnings,
         "preview_before_url": (_asset_url(state.preview_before_asset_id)
                                if completed else None),
         "preview_after_url": (_asset_url(state.preview_after_asset_id)
@@ -196,6 +297,10 @@ def _prompt_public(diag: dict | None) -> dict:
         "unit": (str(diag.get("limit_unit") or "").split(":")[-1]
                  if diag.get("limit_unit") else None),
         "exceeded": bool(diag.get("exceeded")),
+        # §3.1/сц.10: объявленные и реально приложенные референсы отдельно.
+        "references_declared": diag.get("references_declared"),
+        "references_optional_unavailable": diag.get(
+            "references_optional_unavailable"),
     }
 
 
@@ -224,7 +329,21 @@ async def job_status(db, job_id: str) -> dict | None:
     if row is None or str(row.get("kind") or "") != KIND_PREVIEW:
         return None
     state = await jobs.load_cover_state(db, job_id)
-    return _public_status(row, state)
+    status = _public_status(row, state)
+    # §3.4/сц.20: успешный preview мог быть сделан для СТАРОЙ ревизии
+    # профиля — отмечаем честно, чтобы UI не выдавал старый пример за
+    # проверку текущей версии. Читаем только терминальный успех (поллинг
+    # на нём останавливается — лишней нагрузки нет).
+    if status.get("status") == "completed" and state:
+        try:
+            profile = await registry.get_profile(db, state.style_id)
+        except Exception:
+            profile = None
+        if profile is not None:
+            status["style_revision"] = profile.get("revision")
+            status["preview_revision_stale"] = registry.preview_is_stale(
+                profile)
+    return status
 
 
 async def start_preview_job(db, *, profile: dict, pg, correlation_id: str,

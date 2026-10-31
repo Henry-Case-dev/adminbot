@@ -626,24 +626,43 @@ class TestVisibleFailOpen:
         assert failed and "reason=connection_missing" in failed[0]
 
     @pytest.mark.asyncio
-    async def test_reference_missing_exit(self, monkeypatch, tmp_path,
-                                          caplog):
-        """§45: референсы настроены, но ни один не читаем →
-        `reference_missing`, edit не вызывается, counter не тратится."""
+    async def test_reference_unavailable_is_optional_not_blocker(
+            self, monkeypatch, tmp_path, caplog):
+        """ASAP-SUMMARY-COVER-INTEGRITY-01 §3.1 (сц.10/12) — ПЕРЕОПРЕДЕЛЯЕТ
+        §45: референсы СТРОГО опциональны. Все объявленные референсы
+        недоступны → Style Edit ВСЁ РАВНО выполняется на Base bitmap,
+        причина `reference_missing`/base_fallback не выдумывается; факт
+        помечается как `optional_reference_unavailable`, metadata профиля
+        сохраняется (не удаляется)."""
         _patch_pg(monkeypatch)
         _asset_map(monkeypatch, {"cas_ref1": {
             "asset_id": "cas_ref1", "disk_path": str(tmp_path / "nope.png"),
             "mime": "image/png"}})
-        counter = _patch_issue_counter(monkeypatch)
-        edit = AsyncMock()
+        _patch_issue_counter(monkeypatch)
+        calls = []
+
+        async def edit(prompt, **kw):
+            calls.append((prompt, kw.get("reference_paths")))
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
+
         with caplog.at_level(logging.INFO):
             meta = await j.run_style_job(
                 chat_id=CHAT, base_image_path=_png(tmp_path / "b.png"),
                 profile=_profile(), summary_run_id=RID,
                 capabilities=_caps(), edit_call=edit)
-        assert meta["fail_reason"] == "reference_missing"
-        edit.assert_not_awaited()
-        assert counter["n"] == 0
+        assert meta["applied"] is True
+        assert meta.get("fail_reason") in (None, ""), \
+            "отсутствие необязательного референса — не отказ стиля"
+        optional = meta["optional_reference_unavailable"]
+        assert optional["declared"] == 1 and optional["attached"] == 0
+        assert optional["reason"] == "optional_reference_unavailable"
+        assert optional["unavailable"][0]["asset_id"] == "cas_ref1"
+        # edit реально вызван; Base передан, референсов нет
+        assert len(calls) == 1 and calls[0][1] == []
+        # prompt не утверждает приложенный знак
+        assert "cas_ref1" not in calls[0][0]
+        # в лог факт есть, без провайдерской ошибки
+        assert not _lines(caplog, "COVER_STYLE_FAILED")
 
     @pytest.mark.asyncio
     async def test_mca_reason_codes_registered(self):
