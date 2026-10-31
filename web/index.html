@@ -11381,6 +11381,25 @@
               <div class="card p-4 status-block">
                 <div class="status-block__grid">
                 <section class="status-block__pulse">
+                  <!-- ASAP-UI-02 (§6, wave 2, review-fix2): у «Сердцебиения» —
+                       СВОЯ тонируемая стеклянная поверхность. Состояние берётся
+                       из ТОГО ЖЕ адаптера, что у строки статуса ниже
+                       (`heartbeatHealthSource` → `heartbeatHealth`), т.е. из
+                       реального `hbState` телеметрии, а не из отдельной карты:
+                       заливку даёт ЕДИНСТВЕННОЕ существующее правило здоровья
+                       (warning 18%, degraded 32%, failed 55% `--err` поверх
+                       базового стекла; норма/неизвестно/выключено — без
+                       заливки). Агрегатная карточка `.status-block` остаётся
+                       нейтральной (EVOL-032), поэтому сигнал виден на секции, а
+                       не на всей карточке. Компонент не добавляет ни второго
+                       blur, ни тени, ни оверлея — красится только
+                       `background-color`; собственный инлайн-статус компонента
+                       отключён (`:status-line="false"`), потому что
+                       каноническая строка с иконкой/причиной уже здесь
+                       (`data-health-inline="heartbeat"`). -->
+                  <health-glass-surface class="hb-surface" subsystem="heartbeat"
+                       scope="global" material="bg" :status-line="false"
+                       :source="heartbeatHealthSource">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
                     <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
                     <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
@@ -11424,6 +11443,7 @@
                       <div>Статус: {{ heartbeatTip.bot }} · Обновлено: {{ heartbeatTip.updated }}</div>
                     </div>
                   </div>
+                  </health-glass-surface>
                 </section>
 
                 <section class="status-block__bot">

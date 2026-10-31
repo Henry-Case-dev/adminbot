@@ -57,6 +57,31 @@ assert.ok(/@media \(max-width: 640px\) \{[^@]*\.cognition-ribbons\[data-intel-ta
 assert.ok(/\.intel-tabs \{ display: none; \}/.test(CSS),
   'переключатель не тратит место на десктопе');
 
+/* ── B1 (review-fix2): у секции «Сердцебиение» — СВОЯ тонируемая поверхность,
+ * тот же механизм и тот же сигнал, что у видимой строки состояния. ────────── */
+const hbIdx = INDEX.indexOf('class="hb-surface"');
+assert.ok(hbIdx > 0, 'у «Сердцебиения» есть собственная поверхность');
+const HB = INDEX.slice(hbIdx, hbIdx + 400);
+assert.ok(HB.indexOf('subsystem="heartbeat"') >= 0, 'поверхность — подсистема heartbeat');
+assert.ok(HB.indexOf(':source="heartbeatHealthSource"') >= 0,
+  'состояние поверхности берётся из адаптера сердебиения (не второй сигнал)');
+assert.ok(HB.indexOf(':status-line="false"') >= 0,
+  'собственный инлайн-статус компонента отключён — текста-дубля нет');
+assert.ok(INDEX.indexOf('data-health-inline="heartbeat"') >= 0,
+  'каноническая строка состояния осталась');
+assert.ok(INDEX.indexOf('class="card p-4 status-block"') > 0);
+
+/* ── B2 (EVOL-033 §A): тач-цель переключателя — 44×44 в СОБСТВЕННОМ правиле,
+ * а не только через `@media (pointer: coarse)` (узкое окно без touch). ───── */
+const tabsRule = /\.intel-tabs \.intel-tabs__btn \{[^}]*\}/.exec(CSS);
+assert.ok(tabsRule, 'правило тач-цели переключателя найдено');
+assert.ok(/min-height:\s*var\(--control-h-touch,\s*44px\)/.test(tabsRule[0]),
+  'высота тач-цели переключателя 44px');
+assert.ok(/min-width:\s*var\(--control-h-touch,\s*44px\)/.test(tabsRule[0]),
+  'ширина тач-цели переключателя 44px');
+assert.ok(CSS.indexOf('.intel-tabs .intel-tabs__btn { min-height: 36px; }') < 0,
+  'прежние 36px не возвращаются');
+
 /* ── Реальный код app.js ─────────────────────────────────────────────────── */
 global.Vue = { createApp(opts) {
   global.__opts = opts;

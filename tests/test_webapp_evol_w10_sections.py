@@ -866,6 +866,54 @@ class TestEvolStatusOrderWave2:
         assert "EVOL032-OK" in (out.stdout or ""), \
             (out.stdout or "") + (out.stderr or "")
 
+    def test_heartbeat_section_has_own_tint_surface(self):
+        """B1 (review-fix2): `warning` красит СЕКЦИЮ «Сердцебиение».
+
+        Поверхность секции использует ТОТ ЖЕ механизм (`health-glass-surface`
+        → `[data-health-state][data-health-material]`) и ТОТ ЖЕ сигнал
+        (`heartbeatHealthSource`), что видимая строка состояния; агрегатная
+        карточка `.status-block` остаётся нейтральной (пин EVOL-032), второго
+        размытия/тени/оверлея не появляется.
+        """
+        status = self._status()
+        block = _block(status, 'class="card p-4 status-block"',
+                       'class="card p-4 status-graph')
+        # поверхность секции — компонент единого механизма состояния
+        assert 'class="hb-surface"' in block, "у секции нет собственной поверхности"
+        assert 'subsystem="heartbeat"' in block
+        assert ':source="heartbeatHealthSource"' in block, \
+            "источник поверхности — не адаптер сердебиения"
+        assert ':status-line="false"' in block, \
+            "собственный инлайн-статус компонента должен быть отключён (нет дубля)"
+        assert 'data-health-inline="heartbeat"' in block, \
+            "каноническая строка состояния остаётся на месте"
+        # тот же сигнал, что у строки: один адаптер, один state
+        assert ("heartbeatHealth: function () {\n"
+                "        return healthStateFrom('heartbeat', "
+                "this.heartbeatHealthSource, 'global');") in APP_JS
+        # `.status-block` не стал тонируемой поверхностью (EVOL-032)
+        assert 'data-health-material' not in block.split("</div>", 1)[0]
+        # поверхность ничего не добавляет, кроме background-color
+        surface = _block(CSS, '.hb-surface {', '}')
+        assert 'border-radius: var(--radius-lg)' in surface
+        assert 'backdrop-filter' not in surface, "второе размытие запрещено"
+        assert 'box-shadow' not in surface, "тень у состояния запрещена"
+        # раскладка не меняется: ни padding, ни отступов (hotfix10: без
+        # отрицательных margin), поэтому контент секции остаётся на 17 px
+        assert 'margin' not in surface and 'padding' not in surface, surface
+        # компонент умеет не дублировать собственный статус, по умолчанию — как был
+        assert ('statusLine: { type: Boolean, default: true }' in APP_JS)
+        assert "'<div v-if=\"statusLine\" class=\"health-glass-status\"" in APP_JS
+
+    def test_switcher_touch_target_is_44(self):
+        """B2 (EVOL-033 §A): тач-цель переключателя секций — 44×44 сама по
+        себе, а не только через `@media (pointer: coarse)`."""
+        tabs = _block(CSS, '.intel-tabs .intel-tabs__btn {',
+                      '.intel-tabs .intel-tabs__btn.is-active')
+        assert 'min-height: var(--control-h-touch, 44px);' in tabs
+        assert 'min-width: var(--control-h-touch, 44px);' in tabs
+        assert '36px' not in tabs, "36 px меньше минимальной тач-цели"
+
 
 # ═══ Живой прогон (обязателен при визуальных изменениях) ═══════════════════
 

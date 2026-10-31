@@ -1372,7 +1372,15 @@
     .intel-tabs { display: none; }
     @media (max-width: 640px) {
       .intel-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-      .intel-tabs .intel-tabs__btn { min-height: 36px; }
+      /* EVOL-033 §A / ASAP-UI-02 (§7, wave 2, review-fix2): тач-цель
+         переключателя секций — 44×44 в СОБСТВЕННОМ правиле, а не только за
+         счёт `@media (pointer: coarse)` для `.btn-ghost`: узкое окно на
+         устройстве с «мышью» (строка 36 px) — тоже настоящая тач-цель, когда
+         такую ширину даёт телефон в браузере без touch-флагов. */
+      .intel-tabs .intel-tabs__btn {
+        min-height: var(--control-h-touch, 44px);
+        min-width: var(--control-h-touch, 44px);
+      }
       .intel-tabs .intel-tabs__btn.is-active {
         border-color: rgba(139, 92, 246, .55);
         background: rgba(139, 92, 246, .16);
@@ -5442,6 +5450,20 @@ html.cover-editor-open { overflow: hidden; }
   [data-health-state] {
     transition: none;
   }
+}
+/* ASAP-UI-02 (§6, wave 2, review-fix2): собственная поверхность секции
+   «Сердцебиение». НОВЫХ цветов/порогов/карт здесь нет — заливку дают правила
+   выше по `data-health-state` (warning 18 %, degraded 32 %, failed 55 % `--err`;
+   normal/unknown/disabled без заливки), т.е. тот же механизм, что у hero/sleep/
+   experience. Правило задаёт только радиус поверхности из токена дизайна;
+   ни padding, ни отступов оно не вводит — контент секции остаётся на прежних
+   местах (inset 17 px от края карточки), высота и сетка не двигаются, а
+   отрицательных margin'ов в проекте нет по пину hotfix10. Ни второго
+   размытия, ни тени, ни оверлея, ни второго слоя не добавляется: меняется
+   ровно `background-color`. */
+.hb-surface {
+  border-radius: var(--radius-lg);
+  min-width: 0;
 }
 /* Строка статуса — фиксированная высота, чтобы смена state не меняла
    getBoundingClientRect корня. Не задаёт padding/radius/border корня. */

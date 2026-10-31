@@ -28310,6 +28310,14 @@
       source: { type: Object, default: null },
       material: { type: String, default: 'bg' },
       href: { type: String, default: '' },
+      // ASAP-UI-02 (§6, wave 2, review-fix2): у поверхности может уже быть
+      // СВОЯ каноническая строка состояния (секция «Сердцебиение» держит
+      // `data-health-inline="heartbeat"` с иконкой и причиной). Тогда
+      // собственный инлайн-статус компонента отключается — текст не
+      // дублируется, а состояние по-прежнему доступно AT через `role="group"`
+      // с `aria-label`. По умолчанию включён: hero/sleep/experience и их
+      // разметка не меняются.
+      statusLine: { type: Boolean, default: true },
     },
     computed: {
       view: function () {
@@ -28392,7 +28400,7 @@
       ' :data-health-state="view.state"' +
       ' :data-health-material="materialNorm"' +
       ' role="group" :aria-label="view.ariaLabel">' +
-      '<div class="health-glass-status" role="status" aria-live="polite"' +
+      '<div v-if="statusLine" class="health-glass-status" role="status" aria-live="polite"' +
       ' :data-health-indicator="view.state">' +
       '<span class="msr" aria-hidden="true">{{ view.glyph }}</span>' +
       '<a v-if="problemHref" class="health-glass-status__link health-glass-status__label" :href="problemHref">{{ view.label }}</a>' +

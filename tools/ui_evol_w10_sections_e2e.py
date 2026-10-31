@@ -27,6 +27,7 @@
 Артефакты по умолчанию: plans/features/evol/audit/evidence/
 """
 import datetime
+import copy
 import json
 import os
 import sys
@@ -295,6 +296,33 @@ def _routes2():
         if url.endswith("/api/access/param_permissions"):
             route.fulfill(status=200, content_type="application/json",
                           body=json.dumps(_MATRIX))
+            return
+        W9._routes()(route)
+    return _route
+
+
+def _routes_status(overrides=None):
+    """Стабы API, где `/api/status` отдаёт РЕАЛЬНЫЕ сигналы здоровья.
+
+    `overrides` — точечные правки поверх `M.STATUS_STUB` в точечной нотации
+    (`"server.cpu_percent"`, `"uptime.generated_at"`, `"bot.state"`,
+    `"experience"`). Никакой подстановки `data-health-state` в DOM нет:
+    состояние считает тот же код `web/app.js`, что и в проде
+    (`heartbeatSample` → `_applyHeartbeatSample` → `heartbeatHealth`).
+    """
+    data = copy.deepcopy(M.STATUS_STUB)
+    for path, value in (overrides or {}).items():
+        node = data
+        keys = path.split(".")
+        for key in keys[:-1]:
+            node = node.setdefault(key, {})
+        node[keys[-1]] = value
+
+    def _route(route):
+        url = route.request.url.split("?")[0]
+        if url.endswith("/api/status"):
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps(data))
             return
         W9._routes()(route)
     return _route
@@ -1036,85 +1064,301 @@ def run(out_dir: str) -> int:
                 fails.append("телефон (§5.3): ошибки JS: %s" % serrors[:3])
             sctx.close()
 
-            # ═══ ASAP-UI-02 §6 (wave 2): warning, degraded, failed — разные
-            # интенсивности красного стекла на РЕАЛЬНОЙ поверхности «Статуса»;
-            # normal/unknown/disabled остаются нейтральными. ═══
-            tctx = browser.new_context(viewport={"width": 1280, "height": 900})
-            tctx.add_init_script(M.TMA_STUB)
-            tpg = tctx.new_page()
-            tpg.route("**/api/**", _routes2())
-            perrors = []
-            tpg.on("pageerror", lambda e: perrors.append(str(e)[:200]))
-            tpg.goto(BASE + "/#/", wait_until="load")
-            tpg.wait_for_timeout(1100)
-            tint = tpg.evaluate(r"""() => {
-                const el = document.querySelector('[data-health-subsystem="bot"]');
-                if (!el) return null;
-                const prevState = el.getAttribute('data-health-state');
-                const prevDur = el.style.transitionDuration;
-                // Переход отключён только на время замера: читаем КОНЕЧНЫЙ
-                // цвет токена, а не промежуточный кадр 420-мс анимации.
-                el.style.transitionDuration = '0s';
-                const base = getComputedStyle(el).backgroundColor;
-                const read = (state) => {
-                  el.setAttribute('data-health-state', state);
-                  void el.offsetHeight;
-                  return getComputedStyle(el).backgroundColor;
+            # ═══ ASAP-UI-02 §6 (wave 2, review-fix2): тонирование проверяется
+            # НА РЕАЛЬНОМ СИГНАЛЕ. Ручная подстановка `data-health-state` в DOM
+            # убрана: она доказывала лишь существование токенов, но НЕ то, что
+            # состояние достижимо из телеметрии (замечание ревью B1).
+            # Стенд отдаёт настоящий /api/status, а состояние считает тот же
+            # код `web/app.js`, что в проде:
+            #   `server.cpu_percent` + свежий `uptime.generated_at`
+            #     → heartbeatSample → _applyHeartbeatSample → hbState='warning'
+            #     → `heartbeatHealth` → заливка секции «Сердцебиение»;
+            #   `bot.state='polling_error'` → 'failed' (секция + hero);
+            #   `experience.state='degraded'` → 'degraded' (другая поверхность
+            #     того же единственного механизма).
+            def _now_iso():
+                return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+            tint_cases = (
+                # имя, viewport, touch-эмуляция, правки /api/status
+                ("warning", (1280, 900), False,
+                 {"uptime.generated_at": _now_iso(), "server.cpu_percent": 75.0}),
+                ("neutral", (1280, 900), False, {}),
+                ("failed", (1280, 900), False,
+                 {"uptime.generated_at": _now_iso(),
+                  "bot.state": "polling_error"}),
+                ("degraded", (1280, 900), False,
+                 {"experience": {"state": "degraded"}}),
+                ("warning390", (390, 844), True,
+                 {"uptime.generated_at": _now_iso(), "server.cpu_percent": 75.0}),
+                ("plain390", (390, 844), False, {}),
+            )
+            PROBE_TINT = r"""() => {
+                const q = (s) => document.querySelector(s);
+                const cs = (el) => el ? getComputedStyle(el) : null;
+                const bg = (el) => (el ? cs(el).backgroundColor : null);
+                const count = (c) => Array.from(
+                  document.querySelectorAll('body *'))
+                  .filter((el) => cs(el).backgroundColor === c).length;
+                const box = (el) => {
+                  if (!el) return null;
+                  const r = el.getBoundingClientRect();
+                  return {x: +r.x.toFixed(1), w: +r.width.toFixed(1),
+                          h: +r.height.toFixed(1)};
                 };
-                const out = {
-                  prev: prevState,
-                  base: base,
-                  warning: read('warning'),
-                  degraded: read('degraded'),
-                  failed: read('failed'),
-                  normal: read('normal'),
-                  unknown: read('unknown'),
-                  disabled: read('disabled'),
-                  backdrop: getComputedStyle(el).backdropFilter
-                    || getComputedStyle(el).webkitBackdropFilter || '',
-                  polygonCanvas: !!document.querySelector('#polygon-bg, .polygon-bg'),
+                const backdrop = (el) => {
+                  if (!el) return '';
+                  const v = cs(el).backdropFilter
+                    || cs(el).webkitBackdropFilter || '';
+                  return v === 'none' ? '' : v;
                 };
-                el.setAttribute('data-health-state', prevState);
-                el.style.transitionDuration = prevDur;
-                return out;
-            }""")
-            _shot(tpg, out_dir, "w10-sec-health-tint-1280x900.png")
+                const hb = q('[data-health-subsystem="heartbeat"]');
+                const hero = q('[data-health-subsystem="bot"]');
+                const block = q('.status-block');
+                const exp = q('[data-health-subsystem="experience"]');
+                const inline = q('[data-health-inline="heartbeat"]');
+                const pulse = q('.status-block__pulse');
+                const titleRow = hb ? hb.firstElementChild : null;
+                const tabs = Array.from(document.querySelectorAll(
+                  '[data-intel-switcher] .intel-tabs__btn'));
+                const label = inline
+                  ? inline.querySelector('.health-status-line__label') : null;
+                const reason = inline
+                  ? inline.querySelector('.health-status-line__reason') : null;
+                const switcher = q('[data-intel-switcher]');
+                return {
+                  hbState: hb ? hb.getAttribute('data-health-state') : null,
+                  hbMaterial: hb ? hb.getAttribute('data-health-material') : null,
+                  hbBg: bg(hb),
+                  hbRadius: hb ? cs(hb).borderRadius : null,
+                  hbBackdrop: backdrop(hb),
+                  hbOwnStatusLine: hb
+                    ? hb.querySelectorAll('.health-glass-status').length : null,
+                  inlineState: inline
+                    ? inline.getAttribute('data-health-indicator') : null,
+                  inlineLabel: label ? (label.textContent || '').trim() : '',
+                  inlineReason: reason ? (reason.textContent || '').trim() : '',
+                  heroState: hero ? hero.getAttribute('data-health-state') : null,
+                  heroBg: bg(hero),
+                  heroRadius: hero ? cs(hero).borderRadius : null,
+                  heroBackdrop: backdrop(hero),
+                  blockBg: bg(block),
+                  blockRadius: block ? cs(block).borderRadius : null,
+                  blockMaterial: block
+                    ? block.getAttribute('data-health-material') : null,
+                  expState: exp ? exp.getAttribute('data-health-state') : null,
+                  expBg: bg(exp),
+                  counts: {
+                    warning: count('rgba(60, 43, 56, 0.5)'),
+                    degraded: count('rgba(91, 55, 67, 0.5)'),
+                    failed: count('rgba(141, 74, 85, 0.5)'),
+                  },
+                  pulseBox: box(pulse),
+                  hbBox: box(hb),
+                  contentInset: (titleRow && block)
+                    ? +(titleRow.getBoundingClientRect().x
+                        - block.getBoundingClientRect().x).toFixed(1) : null,
+                  tabsDisplay: switcher ? cs(switcher).display : null,
+                  tabs: tabs.map((el) => {
+                    const r = el.getBoundingClientRect();
+                    return {w: +r.width.toFixed(1), h: +r.height.toFixed(1)};
+                  }),
+                };
+            }"""
+
+            tint = {}
+            for name, (vw, vh), has_touch, overrides in tint_cases:
+                tctx = browser.new_context(
+                    viewport={"width": vw, "height": vh}, has_touch=has_touch)
+                tctx.add_init_script(M.TMA_STUB)
+                tpg = tctx.new_page()
+                tpg.route("**/api/**", _routes_status(overrides))
+                perrors = []
+                tpg.on("pageerror", lambda e: perrors.append(str(e)[:200]))
+                tpg.on("console", lambda m: perrors.append("console: " + m.text[:200])
+                       if m.type == "error" else None)
+                tpg.goto(BASE + "/#/", wait_until="load")
+                tpg.wait_for_timeout(1200)
+                got = tpg.evaluate(PROBE_TINT) or {}
+                got["vp"] = [vw, vh]
+                got["touch"] = has_touch
+                got["errors"] = perrors[:3]
+                tint[name] = got
+                if name == "warning":
+                    _shot(tpg, out_dir, "w10-sec-health-tint-1280x900.png")
+                if name == "warning390":
+                    _shot(tpg, out_dir, "w10-sec-health-tint-390x844.png")
+                tctx.close()
+
+            report["summary"]["healthTint"] = tint
+
+            WARN_BG = "rgba(60, 43, 56, 0.5)"
+            DEGRADED_BG = "rgba(91, 55, 67, 0.5)"
+            FAILED_BG = "rgba(141, 74, 85, 0.5)"
+            NEUTRAL_BG = "rgba(21, 27, 42, 0.5)"
 
             def _rgb(v):
                 nums = [int(x) for x in
                         __import__("re").findall(r"\d+", str(v or ""))][:3]
                 return nums if len(nums) == 3 else None
 
-            report["summary"]["healthTint"] = tint
-            if not tint:
-                fails.append("health tint: не найдена стеклянная поверхность «Бот»")
-            else:
-                warn = _rgb(tint.get("warning"))
-                degrad = _rgb(tint.get("degraded"))
-                fail_c = _rgb(tint.get("failed"))
-                base_c = _rgb(tint.get("base"))
-                if not (warn and degrad and fail_c and base_c):
-                    fails.append("health tint: цвета не прочитаны (%s)" % tint)
-                else:
-                    if len({tuple(warn), tuple(degrad), tuple(fail_c)}) != 3:
-                        fails.append("health tint: warning/degraded/failed не "
-                                     "различаются (%s / %s / %s)"
-                                     % (warn, degrad, fail_c))
-                    if not (sum(warn) < sum(degrad) < sum(fail_c)):
-                        fails.append("health tint: интенсивность не по порядку "
-                                     "warning<degraded<failed (%s / %s / %s)"
-                                     % (warn, degrad, fail_c))
-                    if tuple(warn) == tuple(base_c):
-                        fails.append("health tint: warning не окрашивает стекло "
-                                     "(%s)" % (warn,))
-                    for neutral in ("normal", "unknown", "disabled"):
-                        nc = _rgb(tint.get(neutral))
-                        if nc and tuple(nc) != tuple(base_c):
-                            fails.append("health tint: %s не нейтрален (%s vs %s)"
-                                         % (neutral, nc, base_c))
-                if perrors:
-                    fails.append("health tint: ошибки JS: %s" % perrors[:3])
-            tctx.close()
+            def _alpha(v):
+                nums = __import__("re").findall(r"[\d.]+", str(v or ""))
+                return float(nums[3]) if len(nums) >= 4 else None
+
+            def _case(name):
+                data = tint.get(name) or {}
+                if data.get("errors"):
+                    fails.append("health tint %s: ошибки JS: %s"
+                                 % (name, data["errors"]))
+                return data
+
+            warn = _case("warning")
+            neutral = _case("neutral")
+            failed = _case("failed")
+            degrad = _case("degraded")
+            w390 = _case("warning390")
+            plain390 = _case("plain390")
+
+            # 1) Реальный сигнал нагрузки → warning НА СЕКЦИИ «Сердцебиение».
+            if warn.get("hbState") != "warning":
+                fails.append("health tint: реальный сигнал cpu 75%% не даёт "
+                             "warning на секции (state=%s, строка=%s)"
+                             % (warn.get("hbState"), warn.get("inlineState")))
+            if warn.get("hbState") != warn.get("inlineState"):
+                fails.append("health tint: поверхность и строка состояния "
+                             "разошлись (%s vs %s)"
+                             % (warn.get("hbState"), warn.get("inlineState")))
+            if warn.get("hbBg") != WARN_BG:
+                fails.append("health tint: warning не окрашивает секцию (%s)"
+                             % (warn.get("hbBg"),))
+            if (warn.get("counts") or {}).get("warning") != 1:
+                fails.append("health tint: warning-заливка не на ОДНОЙ "
+                             "поверхности (%s)" % (warn.get("counts"),))
+            if "повышенная нагрузка" not in (warn.get("inlineReason") or ""):
+                fails.append("health tint: причина не совпадает с сигналом (%s)"
+                             % (warn.get("inlineReason"),))
+            if warn.get("hbOwnStatusLine") != 0:
+                fails.append("health tint: у секции дублируется собственный "
+                             "инлайн-статус компонента (%s)"
+                             % (warn.get("hbOwnStatusLine"),))
+            if warn.get("hbBackdrop"):
+                fails.append("health tint: у секции появился второй blur (%s)"
+                             % (warn.get("hbBackdrop"),))
+            if not warn.get("heroBackdrop"):
+                fails.append("health tint: у hero пропал существующий blur")
+            # Соседние поверхности остаются нейтральными (EVOL-032).
+            if warn.get("heroBg") != NEUTRAL_BG:
+                fails.append("health tint: hero перекрашен чужим сигналом (%s)"
+                             % (warn.get("heroBg"),))
+            if warn.get("blockBg") != NEUTRAL_BG:
+                fails.append("health tint: агрегатная карточка перекрашена "
+                             "(EVOL-032) (%s)" % (warn.get("blockBg"),))
+            if warn.get("blockMaterial"):
+                fails.append("health tint: у `.status-block` появился "
+                             "data-health-material")
+            if warn.get("hbMaterial") != "bg":
+                fails.append("health tint: материал секции не `bg` (%s)"
+                             % (warn.get("hbMaterial"),))
+            if (warn.get("heroRadius") != neutral.get("heroRadius")
+                    or warn.get("blockRadius") != neutral.get("blockRadius")):
+                fails.append("health tint: радиусы соседних поверхностей "
+                             "изменились (%s/%s vs %s/%s)\n"
+                             % (warn.get("heroRadius"), warn.get("blockRadius"),
+                                neutral.get("heroRadius"),
+                                neutral.get("blockRadius")))
+
+            # 2) Без сигнала (нет `generated_at` → данных нет) заливки нет.
+            if neutral.get("hbState") != "unknown":
+                fails.append("health tint: без телеметрии ожидалось unknown (%s)"
+                             % (neutral.get("hbState"),))
+            if _alpha(neutral.get("hbBg")) != 0.0:
+                fails.append("health tint: нейтральная секция залита (%s)"
+                             % (neutral.get("hbBg"),))
+            for key, val in (neutral.get("counts") or {}).items():
+                if val:
+                    fails.append("health tint: без сигнала есть %s-заливка (%s)"
+                                 % (key, val))
+
+            # 3) Реальный критический сигнал (`polling_error`) → failed.
+            if failed.get("hbState") != "failed" or failed.get("hbBg") != FAILED_BG:
+                fails.append("health tint: critical не даёт failed-заливку "
+                             "секции (%s / %s)"
+                             % (failed.get("hbState"), failed.get("hbBg")))
+            if (failed.get("heroState") != "failed"
+                    or failed.get("heroBg") != FAILED_BG):
+                fails.append("health tint: hero не показал failed бота (%s / %s)"
+                             % (failed.get("heroState"), failed.get("heroBg")))
+
+            # 4) Реальный вердикт другой подсистемы → degraded, и только там.
+            if (degrad.get("expState") != "degraded"
+                    or degrad.get("expBg") != DEGRADED_BG):
+                fails.append("health tint: degraded другой подсистемы не "
+                             "окрашивает её поверхность (%s / %s)"
+                             % (degrad.get("expState"), degrad.get("expBg")))
+            if _alpha(degrad.get("hbBg")):
+                fails.append("health tint: секция «Сердцебиение» покрашена "
+                             "чужим состоянием (%s)" % (degrad.get("hbBg"),))
+
+            # 5) Порядок интенсивности — по РЕАЛЬНО измеренным цветам.
+            c_warn = _rgb(warn.get("hbBg"))
+            c_deg = _rgb(degrad.get("expBg"))
+            c_fail = _rgb(failed.get("hbBg"))
+            if not (c_warn and c_deg and c_fail):
+                fails.append("health tint: цвета не прочитаны (%s / %s / %s)"
+                             % (c_warn, c_deg, c_fail))
+            elif (len({tuple(c_warn), tuple(c_deg), tuple(c_fail)}) != 3
+                    or not (sum(c_warn) < sum(c_deg) < sum(c_fail))):
+                fails.append("health tint: warning<degraded<failed не по "
+                             "порядку (%s / %s / %s)" % (c_warn, c_deg, c_fail))
+
+            # 6) Поверхность не сдвигает содержимое и не зависит от состояния:
+            #    inset 17px — прежняя геометрия секции (border 1 + padding 16),
+            #    поверхность совпадает с секцией (padding/отступов не вводит).
+            for name, data in tint.items():
+                if data.get("contentInset") != 17:
+                    fails.append("health tint %s: контент секции сместился "
+                                 "(inset=%s)" % (name, data.get("contentInset")))
+                hb_b = data.get("hbBox") or {}
+                pu_b = data.get("pulseBox") or {}
+                if (hb_b.get("x") is None or pu_b.get("x") is None
+                        or abs((hb_b["x"] - pu_b["x"])) > 0.6
+                        or abs((hb_b.get("w") or 0) - (pu_b.get("w") or 0)) > 0.6):
+                    fails.append("health tint %s: поверхность не совпадает с "
+                                 "секцией по геометрии (%s vs %s)"
+                                 % (name, hb_b, pu_b))
+                for other_name, other in tint.items():
+                    if other.get("vp") != data.get("vp"):
+                        continue
+                    o_b = other.get("hbBox") or {}
+                    if (abs((hb_b.get("x") or 0) - (o_b.get("x") or 0)) > 0.6
+                            or abs((hb_b.get("w") or 0) - (o_b.get("w") or 0)) > 0.6):
+                        fails.append("health tint: состояние двигает поверхность "
+                                     "секции (%s vs %s: %s vs %s)"
+                                     % (name, other_name, hb_b, o_b))
+
+            # 7) B2: тач-цель переключателя секций = 44×44 на 390 — и с
+            #    touch-эмуляцией, и в узком окне с «мышью» (без coarse-pointer).
+            for name, data in (("warning390", w390), ("plain390", plain390)):
+                if data.get("tabsDisplay") == "none":
+                    fails.append("телефон %s: переключатель секций скрыт" % name)
+                boxes = data.get("tabs") or []
+                if len(boxes) != 4:
+                    fails.append("телефон %s: кнопок переключателя %s"
+                                 % (name, len(boxes)))
+                for bx in boxes:
+                    if (bx.get("h") or 0) < 43.5 or (bx.get("w") or 0) < 43.5:
+                        fails.append("телефон %s: тач-цель переключателя < 44×44 "
+                                     "(%s)" % (name, bx))
+
+            # 8) warning на 390 — тот же реальный путь и та же одна поверхность.
+            if w390.get("hbState") != "warning" or w390.get("hbBg") != WARN_BG:
+                fails.append("телефон: реальный warning не окрасил секцию "
+                             "(%s / %s)"
+                             % (w390.get("hbState"), w390.get("hbBg")))
+            if (w390.get("counts") or {}).get("warning") != 1:
+                fails.append("телефон: warning-заливка не на одной поверхности "
+                             "(%s)" % (w390.get("counts"),))
 
             browser.close()
         httpd.shutdown()

@@ -805,3 +805,166 @@ HEAD переехал на `6a424416` из-за параллельных лей�
 * На 390 подпись «четыре секции: факты · убеждения · парадигмы · эволюция» в
   шапке виджета переносится на две строки — заголовок остаётся первым и
   читаемым; переключатель ниже даёт те же названия.
+
+---
+
+## §review-fix2 — волна 2 ASAP-UI-02: B1 (`warning` красит стекло) и B2 (тач-цель 44)
+
+Дата: **01.11.2026**. База: `evol/impl` @ **9e009671**. Лейн: `web/**` +
+тесты/стенд/аудит. `services/**` — нулевой дифф; `glass.js` /
+`glass-refraction.js` / `polygon-background.js` / `aurora-flow.js` —
+байт-в-байт HEAD (пин `evol032`-теста по sha256).
+
+### B1 — `warning` не красил ни одну стеклянную поверхность (blocker)
+
+**Что было не так (воспроизведено).** Живой Chromium: реальный сигнал
+`cpu_percent=75` давал `hbState='warning'` → индикатор «Внимание» + молния +
+«повышенная нагрузка 75%», но `[data-health-state="warning"]` в DOM —
+**ноль**; `.status-hero` и `.status-block` оставались `rgba(21,27,42,.5)`.
+`data-health-state` выставлял только компонент `health-glass-surface`
+(hero / сон / опыт), а у секции «Сердцебиение» собственной поверхности не
+было; e2e подставлял атрибут руками — это проверка токенов, а не пути сигнала
+(строка §8 матрицы была завышена).
+
+**Что сделано.**
+
+1. `web/index.html`: у секции «Сердцебиение» — СВОЯ поверхность
+   `<health-glass-surface class="hb-surface" subsystem="heartbeat"
+   scope="global" material="bg" :status-line="false"
+   :source="heartbeatHealthSource">`, внутрь которой переехали заголовок,
+   строка состояния и канвас. Источник — ТОТ ЖЕ адаптер, что у видимой строки:
+   `heartbeatHealth` = `healthStateFrom('heartbeat', heartbeatHealthSource,
+   'global')` (`app.js:5151-5153`). Новых карт, порогов и второго сигнала нет.
+2. `web/app.js`: у `health-glass-surface` появился проп
+   `statusLine` (default `true`) — инлайн-статус компонента можно не рисовать,
+   чтобы текст не дублировался (у секции уже есть каноническая строка
+   `data-health-inline="heartbeat"` с иконкой и причиной). Все существующие
+   использования (hero/sleep/experience) не меняются.
+3. `web/static/app.css`: `.hb-surface` — только радиус поверхности
+   (`border-radius: var(--radius-lg)`) и `min-width: 0`. Ни padding, ни
+   отступов не вводится: контент секции остаётся ровно там же (inset 17 px от
+   края карточки = border 1 + padding 16, как у соседних секций и остальных
+   карточек), сетка/высота не двигаются. Отрицательный margin (штатный приём
+   «воздуха вокруг заливки») в проекте запрещён пином hotfix10
+   (`test_no_negative_margins`: в `app.css` нет `margin: -*`), а положительный
+   padding сдвинул бы текст «Сердцебиения» на 8 px относительно «Бот»/
+   «Сервер» — поэтому панель состояния совпадает с секцией и держит радиус.
+   Заливку дают ТОЛЬКО существующие правила
+   `[data-health-state][data-health-material]`: warning `rgba(60,43,56,.5)`
+   (18%), degraded `rgba(91,55,67,.5)` (32%), failed `rgba(141,74,85,.5)`
+   (55%); normal/unknown/disabled — без заливки (у поверхности нет базового
+   фона, поэтому в норме она прозрачна). Второго blur/тени/оверлея нет.
+   Агрегатная карточка `.status-block` остаётся нейтральной — пин EVOL-032
+   (`data-health-material` у неё отсутствует).
+
+**Проверено живым сигналом** — e2e больше НЕ выставляет атрибуты руками:
+`tools/ui_evol_w10_sections_e2e.py` отдаёт настоящий `/api/status`
+(`server.cpu_percent`, `uptime.generated_at`, `bot.state`, `experience.state`)
+и читает результат того же кода `app.js` (`heartbeatSample` →
+`_applyHeartbeatSample` → `heartbeatHealth`):
+
+| сценарий (реальный сигнал) | секция «Сердцебиение» | hero | `.status-block` | поверхностей с заливкой |
+|---|---|---|---|---|
+| `cpu_percent=75` + свежая телеметрия | `warning` / `rgba(60,43,56,.5)` | normal `rgba(21,27,42,.5)` | `rgba(21,27,42,.5)` | **ровно 1** (warning) |
+| нет `generated_at` (данных нет) | `unknown` / `rgba(0,0,0,0)` | normal | нейтральна | 0 |
+| `bot.state=polling_error` | `failed` / `rgba(141,74,85,.5)` | failed `rgba(141,74,85,.5)` | `rgba(21,27,42,.5)` | 2 (секция + hero) |
+| `experience.state=degraded` | `unknown` (чужая подсистема не красит) | normal | нейтральна | 1 (поверхность «Опыта», degraded) |
+
+Дополнительно зафиксировано: `backdrop-filter` у секции = `none` (второго
+размытия нет), у hero остался `blur(5px) saturate(1.4)`; радиусы hero/карточки
+не изменились между состояниями; inset контента секции = 17px во ВСЕХ
+сценариях, а поверхность совпадает с секцией по x/ширине (padding/отступов
+нет — раскладка не меняется); собственный инлайн-статус компонента в секции =
+0 (дубля текста нет); причина строки состояния совпадает с сигналом
+(«повышенная нагрузка 75%»), 1280×900 и 390×844.
+
+### B2 — тач-цель переключателя секций была 36px (blocker, EVOL-033 §A)
+
+**Что было не так.** `.intel-tabs .intel-tabs__btn { min-height: 36px }` —
+44px приходили только из `@media (pointer: coarse)` для `.btn-ghost`, т.е.
+на устройстве/окне без «грубого» указателя кнопка оставалась 36px высотой.
+
+**Что сделано.** `web/static/app.css`: собственная правка переключателя —
+`min-height: var(--control-h-touch, 44px)` + `min-width: var(--control-h-touch,
+44px)` (тот же токен, что у остальных тач-целей). Проверка: 390×844 и с
+touch-эмуляцией, и БЕЗ неё (узкое окно с «мышью») — все четыре кнопки
+44×44 (64/92/93/87 × 44). Ассерты: `TestEvolStatusOrderWave2::
+test_switcher_touch_target_is_44`, `tests/js/asap_ui02_status_ribbons_test.js`,
+живой e2e (`plain390` + `warning390`).
+
+### Файлы этой правки
+
+| файл | что |
+|---|---|
+| `web/index.html` | поверхность секции «Сердцебиение» (+ комментарий-контракт) |
+| `web/app.js` | проп `statusLine` у `health-glass-surface` (default `true`) |
+| `web/static/app.css` | `.hb-surface`, тач-цель переключателя 44×44 |
+| `tests/test_webapp_evol_w10_sections.py` | `test_heartbeat_section_has_own_tint_surface`, `test_switcher_touch_target_is_44` |
+| `tests/js/asap_ui02_status_ribbons_test.js` | ассерты поверхности секции и 44×44 |
+| `tools/ui_evol_w10_sections_e2e.py` | тонирование на РЕАЛЬНОМ `/api/status` (6 сценариев, 2 размера), одиночность заливки, неизменность геометрии/радиусов/blur, тач-цель 44 |
+
+### Прогоны (эта правка)
+
+* `tests/test_webapp_evol_w10_sections.py` — 45 passed (включая живой e2e
+  `test_live_render_sections_e2e`), `tests/test_evol001_005_status_widgets.py` —
+  32 passed, `tests/test_evol032_health_glass.py` — 4 passed.
+* Смежные пины (один прогон, 239 passed): `tests/test_status_section_ui_merge_round1019.py`,
+  `tests/test_webapp_f11_round1025.py`, `tests/test_webapp_hotfix10_round1025.py`,
+  `tests/test_webapp_round1014_ui.py`, `tests/test_webapp_round1015_ui.py`,
+  `tests/test_webapp_evol_w7_nav.py` (включая пин
+  `test_no_negative_margins` — поэтому поверхность без отрицательных margin'ов).
+* JS: `asap_ui02_status_ribbons_test.js`, `round1020_ui_test.js`,
+  `round1020_ui_rework_test.js`, `evol032_health_glass_test.js`,
+  `round1025_f11_status_grid_test.js`,
+  `round1025_hotfix6_lens_heartbeat_shell_test.js`,
+  `evol001_005_widgets_test.js`, `app_methods_dup_keys_guard_test.js` — зелёные.
+* `py -3 tools/ui_evol_w10_sections_e2e.py` → **EVOL-W10-SECTIONS OK**,
+  `failures 0`; отчёт `evidence/w10-sec-probe.json`
+  (`summary.healthTint` = шесть сценариев), кадры
+  `evidence/w10-sec-health-tint-1280x900.png` (реальный warning),
+  `evidence/w10-sec-health-tint-390x844.png`.
+
+### Живой осмотр настоящего Chrome (Browser Use)
+
+Отдельно от Playwright — реальный Chrome на том же стенде (статика `web/**` +
+стабы `/api/*`, секретов нет, внешних вызовов нет). Замеры после форсирования
+кадра (в скрытой вкладке Chrome замораживает CSS-переходы — это ограничение
+браузера, а не страницы: `document.visibilityState`, `Emulation.setFocusEmulationEnabled`):
+
+* 1280×900, `cpu_percent=75`: секция «Сердцебиение» `warning`
+  `rgba(60,43,56,.5)`, радиус `12px`, `backdrop-filter: none`; hero
+  `rgba(21,27,42,.5)` c прежним `blur(5px) saturate(1.4)`; `.status-block`
+  `rgba(21,27,42,.5)`; поверхностей с warning-заливкой — **1**. Панель
+  совпадает с секцией (текст и канвас на прежних местах, 209 px колонка).
+* 390×844 (mobile-эмуляция, touch): то же состояние и та же одна поверхность;
+  переключатель секций виден, кнопки 64/92/93/87 × 44; горизонтального скролла
+  нет; подпись и причина читаются целиком.
+* `bot.state=polling_error`: секция И hero — `rgba(141,74,85,.5)` (2
+  поверхности), карточка нейтральна.
+* `experience.state=degraded`: «Опыт» — `rgba(91,55,67,.5)`, секция
+  «Сердцебиение» прозрачна (чужая подсистема её не красит).
+* Нагрузка 3% + свежая телеметрия: секция `normal`, заливки нет.
+
+### Побочные наблюдения (не блокирующие)
+
+1. **Дублирование причины в узкой колонке (существовало до правки).** Строка
+   состояния и `heartbeat.detail` показывают одну и ту же фразу: на 390 она
+   видна дважды, на 1280 (колонка 209 px) оба места обрезаются многоточием
+   («Внима…» / «повышенная нагрузк…»). Убирать дубль за счёт единственного
+   нетронутого места с полным текстом на 1280 — это ухудшение; менять структуру
+   строки состояния — выходит за рамки блокеров ревью. Оставлено как есть,
+   зафиксировано честно: полный текст доступен в подсказке канваса и в
+   `aria-label`.
+2. **Заявленное ревью «смещение первой колонки на 17 px» не воспроизведено.**
+   Замер живьём на кандидате: контент ВСЕХ карточек «Статуса» начинается через
+   17 px от края карточки (border 1 + padding 16 — это и есть контракт
+   `p-4`), у `.exec-preview` — 13 px (`p-3`), т.е. единственное отличие в
+   сетке равно 4 px и относится к чужой карточке. Секция «Сердцебиение» после
+   правки сохраняет те же 17 px во всех состояниях (проверяется e2e).
+   Изменение не вносилось, чтобы не двигать раскладку без воспроизводимого
+   дефекта.
+3. Ограничение стенда: в скрытой вкладке Chrome (`document.visibilityState ===
+   'hidden'`) `getComputedStyle` отдаёт НАЧАЛЬНОЕ значение CSS-перехода, пока
+   не отрисован кадр. Для честного замера стенд форсирует видимость/кадр;
+   сама страница ничего не «подкручивает».
+

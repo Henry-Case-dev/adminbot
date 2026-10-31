@@ -478,7 +478,7 @@
           "Парадигмы",
           "Эволюция"
         ],
-        "h": 78
+        "h": 94
       },
       "intelVisibleSections": [
         "facts"
@@ -888,16 +888,372 @@
       "errors": []
     },
     "healthTint": {
-      "prev": "normal",
-      "base": "rgba(21, 27, 42, 0.5)",
-      "warning": "rgba(60, 43, 56, 0.5)",
-      "degraded": "rgba(91, 55, 67, 0.5)",
-      "failed": "rgba(141, 74, 85, 0.5)",
-      "normal": "rgba(21, 27, 42, 0.5)",
-      "unknown": "rgba(21, 27, 42, 0.5)",
-      "disabled": "rgba(21, 27, 42, 0.5)",
-      "backdrop": "blur(5px) saturate(1.4)",
-      "polygonCanvas": false
+      "warning": {
+        "hbState": "warning",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(60, 43, 56, 0.5)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "warning",
+        "inlineLabel": "Внимание",
+        "inlineReason": "повышенная нагрузка 75%",
+        "heroState": "normal",
+        "heroBg": "rgba(21, 27, 42, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "unknown",
+        "expBg": "rgba(21, 27, 42, 0.5)",
+        "counts": {
+          "warning": 1,
+          "degraded": 0,
+          "failed": 0
+        },
+        "pulseBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 145
+        },
+        "hbBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 145
+        },
+        "contentInset": 17,
+        "tabsDisplay": "none",
+        "tabs": [
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "vp": [
+          1280,
+          900
+        ],
+        "touch": false,
+        "errors": []
+      },
+      "neutral": {
+        "hbState": "unknown",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(0, 0, 0, 0)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "unknown",
+        "inlineLabel": "Неизвестно",
+        "inlineReason": "нет отметки времени",
+        "heroState": "normal",
+        "heroBg": "rgba(21, 27, 42, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "unknown",
+        "expBg": "rgba(21, 27, 42, 0.5)",
+        "counts": {
+          "warning": 0,
+          "degraded": 0,
+          "failed": 0
+        },
+        "pulseBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 175
+        },
+        "hbBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 175
+        },
+        "contentInset": 17,
+        "tabsDisplay": "none",
+        "tabs": [
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "vp": [
+          1280,
+          900
+        ],
+        "touch": false,
+        "errors": []
+      },
+      "failed": {
+        "hbState": "failed",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(141, 74, 85, 0.5)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "failed",
+        "inlineLabel": "Сбой",
+        "inlineReason": "бот не работает",
+        "heroState": "failed",
+        "heroBg": "rgba(141, 74, 85, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "unknown",
+        "expBg": "rgba(21, 27, 42, 0.5)",
+        "counts": {
+          "warning": 0,
+          "degraded": 0,
+          "failed": 2
+        },
+        "pulseBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 145
+        },
+        "hbBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 145
+        },
+        "contentInset": 17,
+        "tabsDisplay": "none",
+        "tabs": [
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "vp": [
+          1280,
+          900
+        ],
+        "touch": false,
+        "errors": []
+      },
+      "degraded": {
+        "hbState": "unknown",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(0, 0, 0, 0)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "unknown",
+        "inlineLabel": "Неизвестно",
+        "inlineReason": "нет отметки времени",
+        "heroState": "normal",
+        "heroBg": "rgba(21, 27, 42, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "degraded",
+        "expBg": "rgba(91, 55, 67, 0.5)",
+        "counts": {
+          "warning": 0,
+          "degraded": 1,
+          "failed": 0
+        },
+        "pulseBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 175
+        },
+        "hbBox": {
+          "x": 685.7,
+          "w": 209,
+          "h": 175
+        },
+        "contentInset": 17,
+        "tabsDisplay": "none",
+        "tabs": [
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          },
+          {
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "vp": [
+          1280,
+          900
+        ],
+        "touch": false,
+        "errors": []
+      },
+      "warning390": {
+        "hbState": "warning",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(60, 43, 56, 0.5)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "warning",
+        "inlineLabel": "Внимание",
+        "inlineReason": "повышенная нагрузка 75%",
+        "heroState": "normal",
+        "heroBg": "rgba(21, 27, 42, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "unknown",
+        "expBg": "rgba(21, 27, 42, 0.5)",
+        "counts": {
+          "warning": 1,
+          "degraded": 0,
+          "failed": 0
+        },
+        "pulseBox": {
+          "x": 25,
+          "w": 340,
+          "h": 141
+        },
+        "hbBox": {
+          "x": 25,
+          "w": 340,
+          "h": 141
+        },
+        "contentInset": 17,
+        "tabsDisplay": "flex",
+        "tabs": [
+          {
+            "w": 65,
+            "h": 44
+          },
+          {
+            "w": 92.5,
+            "h": 44
+          },
+          {
+            "w": 93.7,
+            "h": 44
+          },
+          {
+            "w": 87.9,
+            "h": 44
+          }
+        ],
+        "vp": [
+          390,
+          844
+        ],
+        "touch": true,
+        "errors": []
+      },
+      "plain390": {
+        "hbState": "unknown",
+        "hbMaterial": "bg",
+        "hbBg": "rgba(0, 0, 0, 0)",
+        "hbRadius": "12px",
+        "hbBackdrop": "",
+        "hbOwnStatusLine": 0,
+        "inlineState": "unknown",
+        "inlineLabel": "Неизвестно",
+        "inlineReason": "нет отметки времени",
+        "heroState": "normal",
+        "heroBg": "rgba(21, 27, 42, 0.5)",
+        "heroRadius": "22px",
+        "heroBackdrop": "blur(5px) saturate(1.4)",
+        "blockBg": "rgba(21, 27, 42, 0.5)",
+        "blockRadius": "16px",
+        "blockMaterial": null,
+        "expState": "unknown",
+        "expBg": "rgba(21, 27, 42, 0.5)",
+        "counts": {
+          "warning": 0,
+          "degraded": 0,
+          "failed": 0
+        },
+        "pulseBox": {
+          "x": 25,
+          "w": 340,
+          "h": 141
+        },
+        "hbBox": {
+          "x": 25,
+          "w": 340,
+          "h": 141
+        },
+        "contentInset": 17,
+        "tabsDisplay": "flex",
+        "tabs": [
+          {
+            "w": 65,
+            "h": 44
+          },
+          {
+            "w": 92.5,
+            "h": 44
+          },
+          {
+            "w": 93.7,
+            "h": 44
+          },
+          {
+            "w": 87.9,
+            "h": 44
+          }
+        ],
+        "vp": [
+          390,
+          844
+        ],
+        "touch": false,
+        "errors": []
+      }
     },
     "failures": 0
   }
