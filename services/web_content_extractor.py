@@ -109,6 +109,9 @@ class ExtractedDocument:
     links_source: str = "unavailable"     # html | unavailable
     published_at: str = ""
     published_at_source: str = ""          # meta | time | ""
+    #: РЕАЛЬНЫЙ объём извлечённого текста ДО обрезки ceiling'ом: `text` может
+    #: быть короче, если `truncated_at_extraction` (тогда остаток потерян на
+    #: извлечении, и `total_chars` не должен притворяться доставленным).
     total_chars: int = 0
     ceiling: int = 0
     truncated_at_extraction: bool = False
@@ -536,14 +539,20 @@ class WebContentExtractor:
                            published_at: str, published_source: str,
                            ceiling: int | None, tried: tuple[str, ...],
                            *, short_content: bool) -> ExtractedDocument:
-        """Собрать `ExtractedDocument` с честным техническим ceiling'ом."""
+        """Собрать `ExtractedDocument` с честным техническим ceiling'ом.
+
+        ``total_chars`` — РЕАЛЬНЫЙ объём извлечённого текста ДО обрезки
+        ceiling'ом: иначе вызывающий видел бы «total == доставлено» и не мог
+        отличить «документ кончился» от «обрезано при извлечении». Сам текст
+        и ``truncated_at_extraction`` по-прежнему отражают доставленное."""
         body = str(text or "")
+        real_total = len(body)
         cap = int(ceiling or 0)
-        truncated = bool(cap and len(body) > cap)
+        truncated = bool(cap and real_total > cap)
         if truncated:
             logger.warning(
                 "[web_extractor] extraction ceiling reached | provider=%s | "
-                "total=%d | ceiling=%d", provider, len(body), cap)
+                "total=%d | ceiling=%d", provider, real_total, cap)
             body = body[:cap]
         return ExtractedDocument(
             url=str(target_url or ""), text=body, provider=provider,
@@ -552,7 +561,7 @@ class WebContentExtractor:
             links_source="html" if links else "unavailable",
             published_at=str(published_at or ""),
             published_at_source=str(published_source or ""),
-            total_chars=len(body), ceiling=cap,
+            total_chars=real_total, ceiling=cap,
             truncated_at_extraction=truncated, levels_tried=tried)
 
     async def _extract_trafilatura(self, target_url: str

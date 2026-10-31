@@ -51,8 +51,8 @@
 | выбор mode / tool-фаза | `required_caps` доезжают до `resolve_execution_mode` и `run_simple_tools` |
 | упаковка evidence | план-блок строится до измерения; capacity из одного измерителя + bounded резерв под машинную строку; `EVIDENCE_DELIVERY` с `fetched/delivered_to_writer/coverage_ratio` |
 | Writer | один Writer, топология не менялась; в user-часть добавляется машинная строка `[EVIDENCE]` (coverage/недополучение) и `[RUNTIME]` (фактический маршрут — только для вопроса о себе); пусто → payload байт-в-байт |
-| egress (§2.3) | `_run_evidence_egress_guard`: ≤1 адресный lookup (`_evidence_lookup` — тот же `run_simple_tools`), ≤1 регенерация (`_evidence_rewrite` — тот же `_l2_write_answer`), затем детерминированное удаление только этого предложения; событие `EVIDENCE_EGRESS_CHECK`; взаимоисключающе с freshness-ретраем (`not _evidence_retry_used_here`) |
-| Initiative | не менялось: participation decision до любой tool-фазы; `handle_initiative` структурно не содержит tool-фазы (закреплено AST-тестом) |
+| egress (§2.3) | `_run_evidence_egress_guard`: ≤1 адресный lookup (`_evidence_lookup` — тот же `run_simple_tools`, разрешение перепроверяется `allowed()`: рубильник/запрет пользователя/RBAC → 0 сетевых вызовов), ≤1 регенерация (`_evidence_rewrite` — тот же `_l2_write_answer`), затем детерминированное удаление только этого предложения; событие `EVIDENCE_EGRESS_CHECK`; взаимоисключающе с freshness-ретраем (`not _evidence_retry_used_here`); классы без собственного внешнего claim (`social/background/attributed/transformation/historical/runtime`) guard не запускают вовсе |
+| Initiative | participation decision до любой tool-фазы; retrieval — в `generate_initiative_reply` ПОСЛЕ решения REPLY: тот же `_evidence_preflight` → tool-фаза по `required_caps` → пакет в Writer → bounded guard. SILENT/REACT до метода не доходят (внутри — ещё один ранний выход) → 0 LLM/0 сети; `handle_initiative` инструментов не запускает (AST-инвариант) |
 
 ### 1.6. Тесты — `tests/test_evol_evidence_routing.py` (новый, offline)
 
@@ -77,8 +77,8 @@
 | 19/20/22 фон без web | `test_scenario19_background_services_have_no_web_imports` |
 | 23 публичный пересказ Summary | `test_scenario23_public_summary_retelling_is_transformation` |
 | 24 смешанный ответ: проверяется только добавка | `test_scenario24_only_new_claim_is_checked_in_mixed_reply` |
-| 28 Initiative SILENT/REACT | `test_scenario28_silent_and_react_have_no_evidence_phase` |
-| 29 Initiative = тот же контур, без второго preflight | `test_scenario29_initiative_path_has_no_tool_phase` (AST-инвариант) |
+| 28 Initiative SILENT/REACT | `test_scenario28_silent_and_react_have_no_evidence_phase`, `test_scenario28_initiative_silent_makes_no_calls` |
+| 29 Initiative = тот же контур (preflight → tools → Writer → guard) | `test_scenario29_initiative_uses_same_evidence_contour`, `test_scenario29_initiative_path_structure` (AST: `handle_initiative` без tool-фазы) |
 | 30 verified_reuse | `test_scenario30_same_claim_with_fresh_source_is_verified_reuse` |
 | 31 новая версия → новый fetch | `test_scenario31_changed_version_invalidates_reuse`, `test_claim_key_canon_distinguishes_metric_and_date` |
 | 32 «что было в чате» | `test_scenario32_chat_history_answer_needs_no_network` |
@@ -130,7 +130,7 @@ pristine HEAD: 15 failed, 3257 passed
 
 ## 6. Остатки для волны 2
 
-1. **Initiative evidence-фаза**: `generate_initiative_reply` не имеет retrieval-шага (по брифу — «verify, don't change»). Сценарий 29 закрыт структурно (нет второго preflight, participation раньше), но полноценная «та же политика» для инициативной публикации появится только с retrieval внутри этого метода. Это отдельная работа (риск: тексты инициативы с датами/числами).
+1. **~~Initiative evidence-фаза~~** — ЗАКРЫТО в review-fix (§8, блокер 3): `generate_initiative_reply` после решения REPLY выполняет тот же preflight → tool-фазу по `required_caps` → пакет в Writer → bounded guard; SILENT/REACT остаются без единого вызова.
 2. **Storage для reuse**: `services/source_reuse.py` — соседняя полоса. Политика уже принимает `verified_reuse` (claim-key) и корректно инвалидирует по версии/дате/метрике; после подключения хранилища сценарии 30/31 заработают на бою без правок моего модуля.
 3. **Coverage-строка §4.5 в план-блоке**: у меня она едет отдельным машинным user-блоком `[EVIDENCE]` (правка `build_l2_plan_block` была вне моей зоны — `direct_l1.py` ограничен полем `external_claims`). Формально контракт называет план-блок; перенос — косметика одного места.
 4. **`source_read`**: `allowed()` честно возвращает `capability_not_ready` до EVOL-SRC; поручение «прочитай код» пока не детектируется (детектор не заводился), поэтому `explicit.read_source` всегда `False`.
@@ -144,3 +144,80 @@ pristine HEAD: 15 failed, 3257 passed
 C1–C4 закрыты в моей зоне: `execution_mode=none` и low confidence больше не отменяют обязательную проверку, рубильник «Модуль Поиск» действует в Direct tool-пути до сетевого вызова, двойной резерв вывода убран и «прочее» считается одним измерителем; исходящий guard делает не более одного адресного lookup и одной регенерации, затем удаляет только неподтверждённое предложение, сохраняя тон.
 
 Доказательство: 45 новых контрактных тестов зелёные, широкий набор `direct/initiative/tool/l1/evidence/prompt` — 3518 passed при том же множестве из 15 пред-существующих падений, что и на чистом HEAD (сверка отдельным worktree); в `mca_events.REASON_CODES` добавлены ровно три санкционированных кода, остатки волны 2 (retrieval для Initiative, подключение `source_reuse`, промпт-ревизия §5) перечислены явно.
+
+> Актуальные цифры и закрытые блокеры ревью — в §8 (review-fix): 52 теста политики + 50 тестов окна, широкий набор 3376 passed при том же множестве 15 пред-существующих падений; retrieval для Initiative больше не остаток, а реализован (сценарий 29).
+
+## 8. Review-fix: блокеры ревью P0 (закрыто)
+
+Все правки — в моей зоне (`services/evidence_policy.py`, `services/direct_chat_service.py`, `services/web_content_extractor.py`, `config/settings.py`) плюс одна минимальная шов-правка `services/tool_router.py` (см. 8.5). Никаких `git reset/checkout/stash/clean/restore` и коммитов не выполнялось; чужие файлы соседних полос (`services/cover*`, `services/prompt*`, web-слой) не трогались.
+
+### 8.1. Блокер 1: guard удалял обычный социальный текст с дробным числом
+
+**Причина.** `_RISK_VERSION_RE` считал версией любой `\d+\.\d+`, а `guard_egress` запускался и для социальных решений: «Я потратил 1.5 часа…» → высокорисковое предложение → один lookup (лишний веб-запрос по приватному тексту) → регенерация → удаление предложения.
+
+**Исправление.**
+* `_RISK_VERSION_RE`: версия — ЛИБО слово-контекст (`версия/version/v` + номер), ЛИБО минимум три компонента (`1.2.3`). Голое `1.5` версией не считается.
+* `guard_egress` вводит `GUARD_SKIP_CLASSES = (social, background, attributed, transformation, historical, runtime)` и возвращает `GUARD_NONE` (`note="not_externally_factual"`) для классов без собственного внешнего claim (в т.ч. при `required=False` и пустых claims) — проверять нечего, сеть не запускается, текст не режется.
+
+**Доказательство.** `test_review_decimal_number_is_not_a_version_claim`, `test_review_social_reply_with_decimal_makes_no_lookup` (guard + `_run_evidence_egress_guard`: lookup/rewrite = 0, ответ байт-идентичен), прежние сценарии 7/8/16/17/24 остались зелёными.
+
+### 8.2. Блокер 2: адресный lookup обходил рубильник и запрет пользователя
+
+**Причина.** `_evidence_lookup` собирал `active_tools()` без фильтра и вызывал `run_simple_tools` напрямую — мимо `allowed()`/`_evidence_context`.
+
+**Исправление.** `_evidence_lookup(..., decision=None, user_forbids=False)`:
+* вызывается только если `web_search` уже входит в `required_caps` решения политики;
+* заново берёт снимок `_evidence_context(chat_id, ("web_search",), user_forbids=...)` и спрашивает `evidence_policy.allowed("web_search", ctx)` (RBAC → рубильник/запрет → провайдер/ключ → квота);
+* при отказе — 0 сетевых вызовов и честный лог `evidence lookup blocked … code=…`, guard деградирует без выдуманной проверки.
+
+**Доказательство.** `test_review_egress_lookup_respects_allowed_gate`: положительный контроль (разрешено → ровно один `execute_web_search`) и три отказа (рубильник `flags.search_enabled=false`, явный запрет в реплике, решение без `web_search` в `required_caps`) → `router.dispatched == []`.
+
+### 8.3. Блокер 3: сценарий 29 не был реализован
+
+**Причина.** `generate_initiative_reply` шёл сразу в `_l2_write_answer`; прежний тест закреплял отсутствие tool-фазы AST-инвариантом.
+
+**Исправление.** После решения об участии (метод вызывается только при `action=reply`; внутри — ранний выход для SILENT/REACT) инициативная ветка идёт тем же контуром: `_evidence_preflight` → `_l1_tool_subset(decision=…)` + `_l1_tool_phase(required_caps=…)` (тот же `run_simple_tools`) → `build_evidence_pack` → `_l2_write_answer(evidence=…, user_blocks=+[EVIDENCE])` → `_run_evidence_egress_guard` (≤1 разрешённый lookup, ≤1 регенерация тем же Writer'ом, затем удаление только спорного предложения) + события `EVIDENCE_DELIVERY`/`EVIDENCE_EGRESS_CHECK`. SILENT/REACT: 0 LLM, 0 tool-вызовов, 0 сети.
+
+**Доказательство.** `test_scenario29_initiative_uses_same_evidence_contour` (реальный шов сервиса: `router.dispatched == ["execute_web_search"]`, пакет и строка `[EVIDENCE]` доехали до Writer'а), `test_scenario28_initiative_silent_makes_no_calls` (SILENT/REACT → `""`, роутер и Writer не вызывались), `test_scenario29_initiative_path_structure` (AST: `handle_initiative` без tool-фазы, `generate_initiative_reply` — с ней).
+
+### 8.4. Прочие замечания того же патча
+
+1. **`EVIDENCE_WINDOW_DYNAMIC_ENABLED` реально зарегистрирован** в `config/settings.py` как env-only `ClassVar` (default ON, вне `dataclasses.fields` → каталог-Δ = 0): рубильник больше не «инертен». `test_evidence_window_kill_switch_is_registered_in_settings` + прежний `test_dynamic_off_keeps_legacy_behaviour`.
+2. **`USER_FORBIDS_EXTERNAL` — законный skip, а не сбой.** `_with_allowed`: запрет сети (рубильник/чат/явный запрет в реплике) → `required=False`, `skip_reason=USER_FORBIDS_EXTERNAL`, `skip_code()=="disabled"`, `blocked=(("web_search","disabled"),)`, `failure_code=None`; `.NETWORK_UNAVAILABLE` остаётся только там, где проверка реально сорвалась (провайдер/ключ/квота/SSRF/privacy). Writer получает честную строку «внешняя проверка не выполнялась (user_forbids_external)». Тесты: `test_review_user_forbidden_is_valid_skip_not_failure`, `test_c3_search_switch_off_blocks_network_and_reason_is_honest`, `test_user_forbids_external_is_recorded_skip`.
+3. **`total_chars`/остаток при extraction-ceiling'е честные.** `web_content_extractor._finalize_document` пишет реальный объём ДО обрезки (`total_chars=real_total`), `text`/`truncated_at_extraction` по-прежнему описывают доставленное. `tool_router._fetch_article`: `remainder_chars` = реальный остаток источника (`max(excerpt.remainder, total_chars - end)`), отдельно `remainder_retrievable_chars` = сколько добрать тем же инструментом, `why` различает `over_window` и `extraction_ceiling`. Тесты: `test_extraction_ceiling_is_honest` (30000 из 1000-символьного потолка), `test_extraction_ceiling_keeps_total_and_remainder_honest`.
+4. **Сценарий 13** («на каком железе ты это запускал?») больше не классифицируется как `externally_factual`: `_SELF_STATE_RE` узко расширен предметами «железо/запуск» (по-прежнему нужен субъект «о себе»), решение → `runtime` + `sufficient_runtime_source`. Тесты: `test_review_scenario13_hardware_question_is_runtime_source`, расширенный `test_runtime_self_question_detector_is_narrow` (у собеседника про железо — не runtime-вопрос).
+5. **Счётчики санкции reason-кодов.** Латентно красные пин-тесты `test_mca10b_…block_a_round1041::test_kill_switch_registry_73_and_defaults` и `test_mca17c_invariants_round1047::test_reason_280_single_delta` держали 311 вместо актуальных 314 — обновлены до +3 санкционированных кодов evidence-политики (остальные три пин-теста уже были 314).
+
+### 8.5. Границы этого патча
+
+* `services/tool_router.py` — одна шов-правка (остаток/`why`/`remainder_retrievable_chars`): без неё честный `total_chars` из экстрактора давал бы противоречие «total 30000 / remainder 0 / truncated false». Другие файлы соседней полосы не менялись.
+* Minimal-двойники сервиса без `_evidence_preflight` (тестовые стабы SOUL) сохраняют прежний путь без evidence — реальный `DirectChatService` метод имеет всегда.
+
+### 8.6. Прогоны (offline, без сети/Telegram-публикаций)
+
+```text
+py -m pytest tests/test_evol_evidence_routing.py -q                       → 52 passed
+py -m pytest tests/test_evol_evidence_window.py -q                        → 50 passed
+py -m pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py -q → 102 passed
+py -m pytest tests/test_web_content_extractor.py tests/test_tool_chains_round1026.py
+   tests/test_tool_schemas.py tests/test_param_catalog.py
+   tests/test_settings_persistence_round1014.py tests/test_asap8_v6_wa1_config_cache.py
+   tests/test_cfg03_param_audit.py tests/test_asap7_direct_settings.py
+   tests/test_soul1_core_registry_api.py tests/test_mca11_tool_result_round1028.py -q → 230 passed
+py -m pytest tests/test_soul1_style_payload.py tests/test_soul1_w5_observer_gates.py
+   tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py -q → 131 passed
+py -m pytest tests/test_asap_speech_i_matrix.py tests/test_asap5_integration_w3.py
+   tests/test_asap8_f6_initiative.py tests/test_asap8_initreply_binding.py
+   tests/test_asap8_v63_b01_initiative_observer.py tests/test_evol_social_frame.py
+   tests/test_initiative_delivery_telemetry.py tests/test_mca09_intents_block_e_round1040.py
+   tests/test_mca09_intents_off_parity_round1040.py
+   tests/test_mca10b_random_applications_block_a_round1041.py
+   tests/test_mca10b_random_applications_block_c_round1041.py tests/test_nostalgia_w2.py
+   tests/test_nostalgia_worker.py tests/test_p0_followup_nostalgia_ab.py
+   tests/test_p0_init_arch_fix_observer.py tests/test_p0_initfix_initiative_observer.py
+   tests/test_soul1_w5_initiative_vitality.py -q → 344 passed
+py -m pytest tests/ -q -k "direct or initiative or tool or l1 or evidence or prompt" -p no:randomly
+                                                    → 3376 passed, 15 failed (то же множество пред-существующих)
+```
+
+Плавающие пред-существующие (вне зоны, проверены поштучно — проходят одиночно): `test_betterstack_handler::test_real_302_not_followed_by_opener` (сетевой 302), `test_mca09_intents_block_e_round1040::test_candidate_ready_defers_intent_backoff`, `test_asap8_initreply_binding::test_case3_reply_to_l1_chosen_message`, `test_asap_speech_i_matrix::test_i05_deleted_target_cancels_for_semantic_addressee` — порядок/общее состояние `mca_random_source` в общем наборе; эти тесты используют `_FakeWriter`, мой код в них не участвует.

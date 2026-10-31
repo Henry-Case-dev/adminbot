@@ -460,29 +460,246 @@ def test_scenario28_silent_and_react_have_no_evidence_phase():
         assert decision.skip_code() == "stage_skipped"
 
 
-def test_scenario29_initiative_path_has_no_tool_phase():
-    """Сценарий 29: инициативная ветка структурно не запускает tool-фазу
-    (проверка идёт после решения об участии; второго preflight нет)."""
+def test_scenario29_initiative_path_structure():
+    """Сценарий 29: участиe решается ДО tool-фазы, retrieval — в Writer-методе.
+
+    `handle_initiative` (оркестратор) сам инструментов не запускает: SILENT/
+    REACT выходят раньше генерации. Сам retrieval/guard живёт в
+    `generate_initiative_reply` — том же методе, что пишет инициативный текст."""
     root = pathlib.Path(__file__).resolve().parents[1]
     tree = ast.parse((root / "services" / "direct_chat_service.py")
                      .read_text(encoding="utf-8"))
-    target = None
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)) \
-                and node.name == "handle_initiative":
-            target = node
-            break
-    assert target is not None
-    used: set[str] = set()
-    for node in ast.walk(target):
-        if isinstance(node, ast.Attribute):
-            used.add(node.attr)
-        elif isinstance(node, ast.Name):
-            used.add(node.id)
-    for forbidden in ("_l1_tool_phase", "_l1_tool_subset", "_run_simple_tools",
-                      "run_simple_tools", "_evidence_preflight",
-                      "_evidence_lookup"):
-        assert forbidden not in used
+
+    def _used(func_name: str) -> set[str]:
+        target = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)) \
+                    and node.name == func_name:
+                target = node
+                break
+        assert target is not None, func_name
+        used: set[str] = set()
+        for node in ast.walk(target):
+            if isinstance(node, ast.Attribute):
+                used.add(node.attr)
+            elif isinstance(node, ast.Name):
+                used.add(node.id)
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                used.add(node.value)      # getattr(self, "_name")-форма
+        return used
+
+    handle_used = _used("handle_initiative")
+    for forbidden in ("_l1_tool_phase", "_l1_tool_subset", "_evidence_preflight",
+                      "_evidence_lookup", "run_simple_tools"):
+        assert forbidden not in handle_used, forbidden
+    reply_used = _used("generate_initiative_reply")
+    for required in ("_evidence_preflight", "_l1_tool_subset", "_l1_tool_phase",
+                     "_evidence_lookup", "_run_evidence_egress_guard"):
+        assert required in reply_used, required
+
+
+class _InitMemory:
+    """Мини-окно чата для инициативного пути (без БД)."""
+
+    async def get_window_messages(self, chat_id):
+        return [{"role": "user", "content": "обсуждали релиз 1017"}]
+
+
+def _init_service(router, monkeypatch, answer="Кстати, релиз 1017 вышел 1 октября."):
+    svc = _service(router)
+    svc.memory = _InitMemory()
+    writer_calls: list[dict] = []
+
+    async def _persona(chat_id):
+        return "persona"
+
+    async def _writer(self, chat_id, query, *, temperature=None,
+                      correlation_id=None, **kw):
+        writer_calls.append({"query": query,
+                             "evidence": kw.get("evidence", ""),
+                             "user_blocks": list(kw.get("user_blocks") or [])})
+        return (answer, "reply")
+
+    svc._initiative_persona_block = _persona
+    monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", _writer)
+    return svc, writer_calls
+
+
+@pytest.mark.asyncio
+async def test_scenario29_initiative_uses_same_evidence_contour(monkeypatch):
+    """Сценарий 29: инициативный текст проходит preflight → tools → Writer.
+
+    Инициатива — не «отдельный контур»: тот же `_evidence_preflight`, та же
+    tool-фаза по `required_caps`, тот же пакет в Writer и тот же bounded
+    egress-guard."""
+    router = _Router(outputs={"execute_web_search": "Релиз 1017 вышел 1 октября"})
+    svc, writer_calls = _init_service(router, monkeypatch)
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    plan = _plan(response_act="answer")            # факт → проверка обязательна
+    text = await svc.generate_initiative_reply(
+        CHAT, {"goal": "напомнить про релиз 1017"}, l1_plan=plan,
+        correlation_id="run-s29")
+    assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
+    assert writer_calls and writer_calls[0]["evidence"]
+    assert any(block.startswith("[EVIDENCE]")
+               for block in writer_calls[0]["user_blocks"])
+    assert text
+
+
+@pytest.mark.asyncio
+async def test_scenario28_initiative_silent_makes_no_calls(monkeypatch):
+    """Сценарий 28: SILENT/REACT доходят до Writer-метода — и не тратят ничего."""
+    router = _Router()
+    svc, writer_calls = _init_service(router, monkeypatch)
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    for action in ("silent", "react"):
+        text = await svc.generate_initiative_reply(
+            CHAT, {"goal": "x"}, l1_plan=_plan(action=action),
+            correlation_id="run-s28")
+        assert text == ""
+    assert router.dispatched == []
+    assert writer_calls == []
+
+
+
+def test_review_decimal_number_is_not_a_version_claim():
+    """Review fix 1: дробное число само по себе — не claim о версии.
+
+    «версия 1.5» и «1.2.3» остаются высокорисковыми, а «1.5 часа» — нет:
+    иначе guard искал бы в вебе по обычной арифметике в болтовне."""
+    factual = ep.EvidenceDecision(required=True,
+                                  evidence_class="externally_factual")
+    assert ep.guard_egress(
+        answer="Потратил 1.5 часа на отладку этой штуки.",
+        decision=factual, evidence_text="").action == ep.GUARD_NONE
+    assert ep.guard_egress(
+        answer="Вышла версия 1.5 этого ядра.",
+        decision=factual, evidence_text="").action == ep.GUARD_ONE_LOOKUP
+    assert ep.guard_egress(
+        answer="Сборка 1.2.3 падает на старте.",
+        decision=factual, evidence_text="").action == ep.GUARD_ONE_LOOKUP
+
+
+@pytest.mark.asyncio
+async def test_review_social_reply_with_decimal_makes_no_lookup():
+    """Review fix 1: социальная реплика с «1.5 часа» → GUARD_NONE, 0 запросов.
+
+    Guard не запускается для классов без собственного внешнего claim: ни
+    лишнего веб-поиска по приватному тексту, ни удаления предложения."""
+    plan = _plan(response_act="banter")
+    decision = ep.evaluate_evidence_need(
+        plan=plan, task_kind="social_chat", supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(), context=_ok_ctx())
+    assert not decision.required
+    verdict = ep.guard_egress(
+        answer="Я потратил 1.5 часа на этот баг, зато выспался.",
+        decision=decision, evidence_text="")
+    assert verdict.action == ep.GUARD_NONE
+    assert verdict.lookup_allowed is False
+    assert verdict.note == "not_externally_factual"
+    calls = {"lookup": 0, "rewrite": 0}
+
+    async def lookup(claim):
+        calls["lookup"] += 1
+        return "нашлось"
+
+    async def rewrite(hint, extra):
+        calls["rewrite"] += 1
+        return "иное"
+
+    answer, stats = await dcs._run_evidence_egress_guard(
+        answer="Я потратил 1.5 часа на этот баг, зато выспался.",
+        decision=decision, evidence_text="", lookup=lookup, rewrite=rewrite)
+    assert answer == "Я потратил 1.5 часа на этот баг, зато выспался."
+    assert calls == {"lookup": 0, "rewrite": 0}
+    assert stats["guard_action"] == ep.GUARD_NONE
+
+
+@pytest.mark.asyncio
+async def test_review_egress_lookup_respects_allowed_gate(monkeypatch):
+    """Review fix 2: адресный lookup НЕ обходит §1.5.
+
+    Положительный контроль: разрешено → ровно один web_search. Рубильник
+    «Модуль Поиск» выключен, явный запрет пользователя или отсутствие
+    `web_search` в решении политики → ноль сетевых вызовов."""
+    router = _Router(outputs={"execute_web_search": "DeepSeek 4.1"})
+    svc = _service(router)
+    decision = ep.EvidenceDecision(required=True,
+                                   evidence_class="externally_factual",
+                                   required_caps=("web_search",))
+
+    async def _permissive(chat_id, required_caps=(), *, user_forbids=False):
+        return _ok_ctx(user_forbids_external=bool(user_forbids))
+
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive)
+    found = await svc._evidence_lookup(
+        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
+        correlation_id="run-lk", lore=False, image=False, decision=decision)
+    assert found
+    assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
+
+    async def _off(chat_id, required_caps=(), *, user_forbids=False):
+        return _ok_ctx(network_allowed={"web_search": False,
+                                        "fetch_url": True},
+                       user_forbids_external=bool(user_forbids))
+
+    router.dispatched.clear()
+    monkeypatch.setattr(dcs, "_evidence_context", _off)
+    assert await svc._evidence_lookup(
+        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
+        correlation_id="run-lk", lore=False, image=False,
+        decision=decision) == ""
+    assert router.dispatched == []          # рубильник: 0 сетевых вызовов
+
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive)
+    assert await svc._evidence_lookup(
+        _ctx("без интернета, скажи просто"), "какая версия DeepSeek",
+        chat_id=CHAT, correlation_id="run-lk", lore=False, image=False,
+        decision=decision, user_forbids=True) == ""
+    assert router.dispatched == []          # явный запрет: 0 сетевых вызовов
+
+    no_caps = ep.EvidenceDecision(required=True,
+                                  evidence_class="externally_factual")
+    assert await svc._evidence_lookup(
+        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
+        correlation_id="run-lk", lore=False, image=False,
+        decision=no_caps) == ""
+    assert router.dispatched == []
+
+
+def test_review_user_forbidden_is_valid_skip_not_failure():
+    """Review fix: запрет сети — законный skip (`disabled`), не сбой проверки."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="answer"), task_kind="direct_answer",
+        supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(user_forbids_external=True),
+        context=_ok_ctx())
+    assert not decision.required
+    assert decision.required_unmet is False
+    assert decision.failure_code is None
+    assert decision.skip_reason is ep.EvidenceSkipReason.USER_FORBIDS_EXTERNAL
+    assert decision.skip_code() == "disabled"
+    assert decision.required_caps == ()
+    assert decision.blocked == (("web_search", ep.BLOCK_EXTERNAL_DISABLED),)
+
+
+def test_review_scenario13_hardware_question_is_runtime_source():
+    """Сценарий 13: «на каком железе ты это запускал?» — runtime, не веб.
+
+    Вопрос о собственной машине/запуске отвечается фактическим runtime-источником,
+    а не внешним поиском; класс не `externally_factual`."""
+    query = "на каком железе ты это запускал?"
+    assert ep.is_runtime_self_question(query)
+    plan = _plan(response_act="answer")
+    decision = ep.evaluate_evidence_need(
+        plan=plan, task_kind="direct_answer",
+        supplied=dcs._evidence_supplied(query, "", plan),
+        runtime_state=ep.RuntimeState(
+            self_status_question=ep.is_runtime_self_question(query)),
+        context=_ok_ctx())
+    assert not decision.required
+    assert decision.evidence_class == "runtime"
+    assert decision.skip_reason is ep.EvidenceSkipReason.SUFFICIENT_RUNTIME_SOURCE
 
 
 # ── Сценарии 30/31: qualified reuse по claim-key ───────────────────────────
@@ -570,23 +787,29 @@ def test_scenario33_own_model_question_is_runtime_source():
 def test_runtime_self_question_detector_is_narrow():
     """Детектор «о себе» не срабатывает на технический вопрос о моделях."""
     assert ep.is_runtime_self_question("бот, на какой модели ты работаешь?")
+    assert ep.is_runtime_self_question("на каком железе ты это запускал?")
     assert not ep.is_runtime_self_question(
         "какая модель лучше для игр в 2026?")
+    assert not ep.is_runtime_self_question("какое железо взять для игр?")
 
 
 # ── Сценарий 41: запрет сети/RBAC/квота/SSRF ───────────────────────────────
 
 
 def test_c3_search_switch_off_blocks_network_and_reason_is_honest():
-    """C3/сценарий 41: выключенный «Модуль Поиск» = 0 сетевых вызовов."""
+    """C3/сценарий 41: выключенный «Модуль Поиск» = 0 сетевых вызовов.
+
+    Выключенный рубильник — законный skip (`disabled`, `USER_FORBIDS_EXTERNAL`),
+    а не «проверка сорвалась»: сеть просто не разрешена (§1.4)."""
     plan = _plan(capabilities_needed=["web_search"])
     ctx = _ok_ctx(network_allowed={"web_search": False, "fetch_url": True})
     decision = ep.evaluate_evidence_need(
         plan=plan, task_kind="direct_answer",
         supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
         context=ctx)
-    assert decision.required and decision.required_unmet
-    assert decision.failure_code is ep.EvidenceFailureCode.NETWORK_UNAVAILABLE
+    assert not decision.required
+    assert decision.skip_reason is ep.EvidenceSkipReason.USER_FORBIDS_EXTERNAL
+    assert decision.skip_code() == "disabled"
     assert decision.blocked == (("web_search", ep.BLOCK_EXTERNAL_DISABLED),)
     effective, blocked = ep.effective_capabilities(
         ("web_search",), ("web_search",), ctx)
@@ -611,15 +834,16 @@ async def test_c3_subset_hides_web_tools_when_module_off(monkeypatch):
     assert ("web_search", "disabled") in rejected
 
 
-def test_user_forbids_external_makes_required_unmet():
-    """§1.5 п.2: явный запрет пользователя → не «пропускаем», а unmet."""
+def test_user_forbids_external_is_recorded_skip():
+    """§1.5 п.2/§1.4: явный запрет пользователя → skip `disabled`, не сбой."""
     decision = ep.evaluate_evidence_need(
         plan=_plan(response_act="answer"), task_kind="direct_answer",
         supplied=ep.SuppliedSources(),
         runtime_state=ep.RuntimeState(user_forbids_external=True),
         context=_ok_ctx())
-    assert decision.required and decision.required_unmet
-    assert decision.failure_code is ep.EvidenceFailureCode.NETWORK_UNAVAILABLE
+    assert not decision.required
+    assert decision.skip_reason is ep.EvidenceSkipReason.USER_FORBIDS_EXTERNAL
+    assert decision.required_caps == ()
     assert ep.is_external_forbidden("без интернета, просто скажи")
     assert not ep.is_external_forbidden("найди в интернете, что это")
 

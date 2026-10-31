@@ -2774,7 +2774,12 @@ class ToolRouter:
             markdown_full, budget_chars=window.effective_limit, terms=terms,
             section=args.get("section"), offset=args.get("offset"))
         delivered = excerpt.text
-        remainder = int(excerpt.remainder_chars or 0)
+        # Остаток: внутри извлечённого документа (достижим тем же инструментом
+        # через offset) ЛИБО потерянный на extraction-ceiling'е (недостижим).
+        retrievable = int(excerpt.remainder_chars or 0)
+        remainder = max(retrievable, max(0, total_chars - int(excerpt.end or 0)))
+        extraction_truncated = bool(
+            getattr(document, "truncated_at_extraction", False))
         pointer = build_source_pointer(
             url, source_id, offset=int(excerpt.end or 0),
             total_chars=total_chars, line_range=excerpt.line_range)
@@ -2809,8 +2814,11 @@ class ToolRouter:
             "total_chars": total_chars,
             "extraction_ceiling": int(getattr(document, "ceiling", 0) or 0),
             "extraction_ceiling_source": ceiling_source,
-            "truncated_at_extraction": bool(
-                getattr(document, "truncated_at_extraction", False)),
+            "truncated_at_extraction": extraction_truncated,
+            # v3 (review fix): «сколько осталось в источнике» и «сколько из
+            # этого можно добрать тем же инструментом» — разные числа; при
+            # extraction-ceiling'е разница честно видна.
+            "remainder_retrievable_chars": retrievable,
             "short_content": bool(getattr(document, "short_content", False)),
             "provider": str(getattr(document, "provider", "") or ""),
             "source_kind": source_kind,
@@ -2831,11 +2839,10 @@ class ToolRouter:
                 text=delivered, effective_limit=window.effective_limit,
                 source=window.source, used=len(delivered), total=total_chars,
                 truncated=bool(remainder),
-                why=("over_window" if remainder else
+                why=("over_window" if retrievable else
                      ("extraction_ceiling"
-                      if getattr(document, "truncated_at_extraction", False)
-                      else "")),
-                retrievable_remainder=remainder, unit="chars"),
+                      if extraction_truncated else "")),
+                retrievable_remainder=retrievable, unit="chars"),
             stage="retrieve",
             extra={"window_source": window.window_source,
                    "capacity_source": window.capacity_source,

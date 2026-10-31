@@ -525,6 +525,14 @@ class Settings:
     # досье возвращается ровно на путь 10.20 (байт-совместимость).
     MULTILAYER_EXTRACTION_ENABLED: ClassVar[bool] = _env_bool(
         "MULTILAYER_EXTRACTION_ENABLED", True)
+    # ── ASAP-EVIDENCE-ROUTING-01 v3 (§8.2, review fix): env-only ClassVar
+    # kill-switch ДИНАМИЧЕСКОГО окна evidence (`auto_budget.resolve_evidence_
+    # tool_window` → `model_capacity.evidence_window_dynamic_enabled`). Default
+    # ON: окно выводится per-call из auto_budget/model_capacity (доля 20%,
+    # clamp ≤200k), а не из фиксированных 4000/8000. При `false` — прежнее
+    # legacy-поведение байт-в-байт. ClassVar → НЕ dataclass-поле, каталог-Δ=0.
+    EVIDENCE_WINDOW_DYNAMIC_ENABLED: ClassVar[bool] = _env_bool(
+        "EVIDENCE_WINDOW_DYNAMIC_ENABLED", True)
     # ── F4 (paradigm-thresholds-consolidation-round1021, ADR-1021-4 §3.3/§5):
     # env-only ClassVar рубильник идемпотентной PG-миграции порогов глубокого
     # сна. Default OFF: аудит (T-1972) — ветка A (флаги DREAM_*/DEEP_SLEEP_*

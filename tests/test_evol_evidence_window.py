@@ -406,6 +406,10 @@ class TestReaderDocumentContract:
         assert document.provider == "trafilatura"
 
     def test_extraction_ceiling_is_honest(self, monkeypatch):
+        """Review fix: `total_chars` — РЕАЛЬНЫЙ объём, а не доставленное.
+
+        Иначе вызывающий видел «total == доставлено» и не мог отличить
+        «документ кончился» от «обрезано при извлечении»."""
         from services.web_content_extractor import WebContentExtractor
 
         extractor = WebContentExtractor(tavily_api_key="", exa_api_key="")
@@ -416,9 +420,54 @@ class TestReaderDocumentContract:
         monkeypatch.setattr(extractor, "_extract_trafilatura", long_level)
         document = asyncio.run(
             extractor.extract_document("https://a.example/x", ceiling=1000))
-        assert document.total_chars == 1000
+        assert document.total_chars == len("текст " * 5000)   # 30 000, не 1000
+        assert len(document.text) == 1000
         assert document.truncated_at_extraction is True
         assert document.ceiling == 1000
+
+    def test_extraction_ceiling_keeps_total_and_remainder_honest(self,
+                                                                 monkeypatch):
+        """Review fix: остаток после extraction-ceiling'а не притворяется нулём."""
+        document = "р" * 30_000
+        extractor = FakeExtractor(document)
+
+        async def _ceiling(url, *, ceiling=None):
+            from services.web_content_extractor import ExtractedDocument
+            # Экстрактор честно упёрся в собственный потолок 5000 (меньше
+            # реального объёма страницы) — доставлено 5000 из 30 000.
+            return ExtractedDocument(url=url, text=document[:5000],
+                                     total_chars=len(document), ceiling=5000,
+                                     truncated_at_extraction=True)
+
+        extractor.extract_document = _ceiling
+        router = _router(extractor=extractor)
+        ctx = _ctx("q")
+        payload = json.loads(asyncio.run(router.dispatch(
+            "fetch_article", {"url": "https://a.example/doc"}, ctx)))
+        assert payload["status"] == "ok"
+        assert payload["total_chars"] == 30_000
+        assert payload["chars"] == len(payload["markdown"]) < 30_000
+        assert payload["remainder_chars"] == 30_000 - payload["chars"]
+        # Добрать остаток тем же инструментом нельзя — потолок извлечения.
+        assert payload["remainder_retrievable_chars"] == 0
+        assert payload["truncated_at_extraction"] is True
+        record = ctx.evidence_limits[-1]
+        assert record["why"] == "extraction_ceiling"
+        assert record["retrievable_remainder"] == 0
+
+    def test_evidence_window_kill_switch_is_registered_in_settings(self):
+        """Review fix: `EVIDENCE_WINDOW_DYNAMIC_ENABLED` — реальный флаг.
+
+        Рубильник должен существовать как env-контролируемый ClassVar (не
+        dataclass-поле: каталог настроек не растёт) и управлять резолвом."""
+        import dataclasses
+
+        from config.settings import Settings, settings
+
+        names = [f.name for f in dataclasses.fields(Settings)]
+        assert "EVIDENCE_WINDOW_DYNAMIC_ENABLED" not in names   # каталог-Δ = 0
+        assert getattr(settings, "EVIDENCE_WINDOW_DYNAMIC_ENABLED") is True
+        assert model_capacity.evidence_window_dynamic_enabled() is True
 
     def test_links_and_published_at_from_html(self):
         from services.web_content_extractor import (

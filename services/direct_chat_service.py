@@ -4662,7 +4662,9 @@ class DirectChatService:
                         tool_ctx, claim, chat_id=chat_id,
                         correlation_id=correlation_id,
                         lore=bool(lore_enabled),
-                        image=bool(image_enabled))
+                        image=bool(image_enabled),
+                        decision=_evidence_decision,
+                        user_forbids=bool(_evp.is_external_forbidden(query)))
 
                 async def _ev_rewrite(hint, extra_evidence):
                     return await self._evidence_rewrite(
@@ -5420,8 +5422,8 @@ class DirectChatService:
             supplied = _evidence_supplied(query, reply_text, plan, urls)
             forbids = _evp.is_external_forbidden(query)
             runtime_state = _evp.RuntimeState(
-                effective_route=str(
-                    getattr(self.llm, "_chat_model", "") or "")[:64],
+                effective_route=str(getattr(
+                    getattr(self, "llm", None), "_chat_model", "") or "")[:64],
                 self_status_question=_evp.is_runtime_self_question(
                     f"{query}\n{reply_text}"),
                 user_forbids_external=bool(forbids),
@@ -5569,6 +5571,12 @@ class DirectChatService:
                 "покрыто claim: "
                 + f"{len(coverage['covered'])}/{len(coverage['required_claim_keys'])}",
             ]
+            if not decision.required and decision.skip_reason is not None:
+                # Законный skip (запрет сети/пользователя, RBAC): проверки не
+                # было — значит нельзя утверждать, что она была.
+                parts.append("внешняя проверка не выполнялась ("
+                             + decision.skip_reason.value + ")")
+                parts.append("не утверждай, что проверил")
             if decision.required_unmet:
                 code = decision.failure_code.value \
                     if decision.failure_code is not None else "unknown"
@@ -5586,13 +5594,36 @@ class DirectChatService:
 
     async def _evidence_lookup(self, tool_ctx, claim_text: str, *,
                                chat_id: int, correlation_id, lore: bool,
-                               image: bool) -> str:
+                               image: bool, decision=None,
+                               user_forbids: bool = False) -> str:
         """Один адресный read-only lookup для egress-guard (§2.3).
 
         Тот же существующий tool-путь (`run_simple_tools`, 0 LLM-вызовов) с
         единственным шагом web_search по существу claim. Ровно один раз на
-        ход; сбой → пустая выдержка (guard деградирует честно, а не молчит)."""
+        ход; сбой → пустая выдержка (guard деградирует честно, а не молчит).
+
+        Lookup НЕ обходит §1.5: адресный запрос разрешён только когда
+        `web_search` уже входит в `required_caps` решения политики, и заново
+        проходит ту же точку :func:`evidence_policy.allowed` (RBAC → запрет
+        сети/явный запрет пользователя → провайдер/ключ → квота). Иначе — 0
+        сетевых вызовов и честный лог вместо обхода рубильника."""
         if self.tool_router is None:
+            return ""
+        caps = tuple(getattr(decision, "required_caps", ()) or ())
+        if decision is not None and "web_search" not in caps:
+            return ""
+        try:
+            context = await _evidence_context(
+                chat_id, ("web_search",), user_forbids=bool(user_forbids))
+            ok, code = _evp.allowed("web_search", context)
+            if not ok:
+                logger.info(
+                    "[direct] evidence lookup blocked — no network call | "
+                    "chat=%s | code=%s", chat_id, code or "-")
+                return ""
+        except asyncio.CancelledError:
+            raise
+        except Exception:      # pragma: no cover - защитная ветка
             return ""
         try:
             plan = _l1.L1Plan(action="reply", execution_mode="simple_tools",
@@ -11608,12 +11639,114 @@ class DirectChatService:
                 social_hint=_init_hint) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
+            # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.1, сценарий 29): инициатива
+            # идёт ТЕМ ЖЕ контуром, что обычный ход. Участие уже решено
+            # (handle_initiative вызвал только при action=reply), поэтому
+            # здесь: preflight политики → одна tool-фаза по обязательным
+            # read-only capabilities → пакет в Writer → bounded egress-guard.
+            # SILENT/REACT сюда не попадают вовсе (0 LLM/0 сети).
+            if str(getattr(plan, "action", "reply") or "reply") != "reply":
+                return ""
+            _goal_query = goal or "инициатива"
+            # `_evidence_preflight` есть у сервиса; минимальные тестовые
+            # двойники (без метода) сохраняют прежний путь — без evidence.
+            _preflight = getattr(self, "_evidence_preflight", None)
+            _initiative_decision = (await _preflight(
+                chat_id, correlation_id, query=_goal_query, reply_text="",
+                l1_plan=plan, response_plan=response_plan)
+                if _preflight is not None else None)
+            _initiative_evidence = ""
+            _initiative_pack = None
+            _initiative_caps = tuple(getattr(_initiative_decision,
+                                             "required_caps", ()) or ())
+            _init_router = getattr(self, "tool_router", None)
+            _init_tool_ctx = ToolContext(
+                chat_id, _goal_query, correlation_id=correlation_id)
+            _init_tool_ctx.evidence_budget_chars = _l1.evidence_max_chars()
+            if getattr(_initiative_decision, "required", False) \
+                    and _initiative_caps and _init_router is not None:
+                try:
+                    _init_schemas, _init_rejected = await self._l1_tool_subset(
+                        chat_id, correlation_id, False, False, plan,
+                        decision=_initiative_decision)
+                    _init_raw = await self._l1_tool_phase(
+                        None, _init_tool_ctx, query=_goal_query,
+                        lore_enabled=False, image_enabled=False,
+                        temperature=temperature, chat_id=chat_id,
+                        correlation_id=correlation_id, l1_plan=plan,
+                        response_plan=response_plan, fallback_meta={},
+                        time_line="", tool_schemas=_init_schemas,
+                        required_caps=_initiative_caps)
+                    if _init_raw is not None:
+                        _initiative_pack = _dx.build_evidence_pack(
+                            _init_raw, response_plan,
+                            capacity_chars=_l1.evidence_max_chars())
+                        _initiative_evidence = _initiative_pack.text
+                        self._emit_evidence_delivery_event(
+                            chat_id, correlation_id, _initiative_decision,
+                            _initiative_pack,
+                            capacity=_l1.evidence_max_chars())
+                except asyncio.CancelledError:
+                    raise
+                except Exception:      # честная деградация, не тишина
+                    logger.warning(
+                        "[f6] initiative evidence tools failed | chat=%s",
+                        chat_id, exc_info=True)
+                    _initiative_evidence = ""
+            _initiative_blocks = list(user_blocks)
+            if _initiative_decision is not None:
+                _init_note = self._evidence_writer_note(
+                    _initiative_decision, _initiative_evidence,
+                    route=str(getattr(getattr(self, "llm", None),
+                                     "_chat_model", "") or ""))
+                if _init_note:
+                    _initiative_blocks = _initiative_blocks + [_init_note]
             result = await self._l2_write_answer(
-                chat_id, goal or "инициатива", temperature=temperature,
+                chat_id, _goal_query, temperature=temperature,
                 correlation_id=correlation_id,
                 character_block=persona_block, response_plan=response_plan,
-                plan_block=plan_block, user_blocks=user_blocks,
+                plan_block=plan_block, user_blocks=_initiative_blocks,
+                evidence=_initiative_evidence,
                 writer="initiative_writer", max_tokens=700)
+            # Bounded egress-guard того же класса/теми же средствами: ≤1
+            # адресный lookup (разрешённый политикой), ≤1 регенерация тем же
+            # Writer'ом, затем удаление только неподтверждённого предложения.
+            if result and _initiative_decision is not None \
+                    and _evp.egress_guard_enabled():
+                async def _init_lookup(claim):
+                    return await self._evidence_lookup(
+                        _init_tool_ctx, claim, chat_id=chat_id,
+                        correlation_id=correlation_id, lore=False,
+                        image=False, decision=_initiative_decision,
+                        user_forbids=bool(
+                            _evp.is_external_forbidden(_goal_query)))
+
+                async def _init_rewrite(hint, extra_evidence):
+                    return await self._evidence_rewrite(
+                        chat_id, _goal_query, plan_block=plan_block,
+                        user_blocks=_initiative_blocks,
+                        response_plan=response_plan,
+                        character_block=persona_block, style_directives="",
+                        numeric_contract=None, time_line="",
+                        evidence=(_initiative_evidence + "\n"
+                                  + extra_evidence).strip(),
+                        lessons_block="", speech_block="",
+                        temperature=temperature,
+                        correlation_id=correlation_id, hint=hint,
+                        max_tokens=700)
+
+                _init_guarded, _init_egress = \
+                    await _run_evidence_egress_guard(
+                        answer=str(result[0] or ""),
+                        decision=_initiative_decision,
+                        evidence_text=_initiative_evidence,
+                        delivered_keys=_evp.delivered_claim_keys(
+                            _initiative_decision, _initiative_evidence),
+                        lookup=_init_lookup, rewrite=_init_rewrite)
+                self._emit_evidence_egress_event(
+                    chat_id, correlation_id, _init_egress)
+                if _init_guarded != str(result[0] or ""):
+                    result = (_init_guarded, result[1])
         except Exception:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,

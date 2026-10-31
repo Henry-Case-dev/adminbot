@@ -43,7 +43,8 @@ __all__ = [
     "failure_reason_code", "blocked_reason_code", "policy_enabled",
     "egress_guard_enabled", "guard_egress", "drop_claim_sentence",
     "EgressVerdict", "GUARD_NONE", "GUARD_HINT_RETRY",
-    "GUARD_ONE_LOOKUP", "GUARD_DROP_CLAIM", "runtime_source_note",
+    "GUARD_ONE_LOOKUP", "GUARD_DROP_CLAIM", "GUARD_SKIP_CLASSES",
+    "runtime_source_note",
     "is_runtime_self_question", "is_external_forbidden",
     "is_attributed_speech",
     "REASON_EVIDENCE_SKIPPED",
@@ -539,9 +540,13 @@ _SELF_SUBJECT_RE = re.compile(
     r"\bтобой\b|\bсебя\b|\bсам\b)", re.IGNORECASE)
 _SELF_SUBJECT_EN_RE = re.compile(
     r"\b(you|your|yourself)\b", re.IGNORECASE)
+#: Предмет собственного состояния. «Железо/запуск» добавлены узко (сценарий
+#: 13: «на каком железе ты это запускал?») — только вместе с субъектом «о
+#: себе», поэтому технический вопрос о железе у собеседника не задевается.
 _SELF_STATE_RE = re.compile(
     r"(модел\w*|движок|движк\w*|провайдер\w*|api[- ]?ключ\w*|"
     r"какой\w* (?:ты|модель)|на ч[её]м работа\w*|"
+    r"желез\w*|на ч[её]м (?:ты\s+)?запуск\w*|запуска\w*|"
     r"верси\w* бота|какая верси\w*|"
     r"\bmodel\b|\bllm\b|\bprovider\b|\bengine\b|which model)", re.IGNORECASE)
 
@@ -733,21 +738,31 @@ def _with_allowed(decision: EvidenceDecision, *, context, runtime_state
 
     ``context is None`` — разрешений нет (класс-тест/первый проход): решение
     возвращается как есть, `required_caps` НЕ схлопываются (иначе второй
-    проход с реальным контекстом уже нечего проверять)."""
+    проход с реальным контекстом уже нечего проверять).
+
+    Различаются два исхода:
+    * **законный skip** — сеть запрещена (рубильник «Модуль Поиск»/`webpage`
+      или явный запрет пользователя в реплике): это не «проверка сорвалась», а
+      нормальное основание её не делать (§1.4 ``USER_FORBIDS_EXTERNAL``);
+    * **не выполнено** — провайдер/ключ/квота/SSRF/privacy: обязательная
+      проверка есть, но технически невозможна (`failure_code`, §1.2 п.10)."""
     if not decision.required_caps or not decision.required:
         return decision
     if context is None:
         return decision
     if runtime_state.user_forbids_external:
+        # Явный запрет пользователя в самой реплике — нормальное основание
+        # не делать внешний вызов (не сбой): тот же код, что у рубильника.
         blocked = tuple((cap, BLOCK_EXTERNAL_DISABLED)
                         for cap in decision.required_caps)
         return EvidenceDecision(
-            required=True, evidence_class=decision.evidence_class,
-            claims=decision.claims, source_kind=decision.source_kind,
-            explicit_request=decision.explicit_request,
-            required_caps=(), note=decision.note,
-            failure_code=EvidenceFailureCode.NETWORK_UNAVAILABLE,
-            required_unmet=True, blocked=blocked)
+            required=False, evidence_class=decision.evidence_class,
+            claims=decision.claims, source_kind="",
+            explicit_request=decision.explicit_request, required_caps=(),
+            skip_reason=EvidenceSkipReason.USER_FORBIDS_EXTERNAL,
+            note=((decision.note + "+user_forbids") if decision.note
+                  else "user_forbids"),
+            blocked=blocked)
     effective, blocked = effective_capabilities(
         (), decision.required_caps, context)
     if effective:
@@ -756,6 +771,17 @@ def _with_allowed(decision: EvidenceDecision, *, context, runtime_state
             claims=decision.claims, source_kind=decision.source_kind,
             explicit_request=decision.explicit_request,
             required_caps=effective, note=decision.note, blocked=blocked)
+    if blocked and all(code == BLOCK_EXTERNAL_DISABLED for _c, code in blocked):
+        # Ни одного разрешённого канала, и причина у ВСЕХ — запрет сети:
+        # честный skip с наблюдаемым кодом `disabled`, а не «не выполнено».
+        return EvidenceDecision(
+            required=False, evidence_class=decision.evidence_class,
+            claims=decision.claims, source_kind="",
+            explicit_request=decision.explicit_request, required_caps=(),
+            skip_reason=EvidenceSkipReason.USER_FORBIDS_EXTERNAL,
+            note=((decision.note + "+user_forbids") if decision.note
+                  else "user_forbids"),
+            blocked=blocked)
     # Ни один нужный read-only tool не разрешён → обязательная проверка
     # НЕ выполнена честным кодом (не «пропускаем», §1.2 п.10).
     failure = None
@@ -832,7 +858,11 @@ _RISK_EXISTENCE_RE = re.compile(
     r"doesn'?t exist|does not exist|never existed|not released|"
     r"discontinued|опровергнут\w*|это фейк)", re.IGNORECASE)
 _RISK_VERSION_RE = re.compile(
-    r"\b(?:верси\w*|version|v)\s*\d+(?:\.\d+)+|\b\d+\.\d+(?:\.\d+)?\b",
+    # Версия — это ЛИБО слово-контекст («версия/version/v» + номер), ЛИБО
+    # минимум три компонента (1.2.3). Голое «1.5» версия НЕ обозначает:
+    # «потратил 1.5 часа» — обычная арифметика в болтовне, а не claim о
+    # существовании/релизе (иначе guard глушил бы социальные реплики).
+    r"\b(?:верси\w*|version|v)\s*\d+(?:\.\d+)+|\b\d+\.\d+\.\d+(?:\.\d+)*\b",
     re.IGNORECASE)
 #: Голый год сам по себе НЕ высокий риск (обычная дата в болтовне); риск —
 #: только вместе с событием/релизом/ценой (см. :func:`_high_risk`).
@@ -979,6 +1009,14 @@ class EgressVerdict:
         }
 
 
+#: Классы, ответы которых НЕ являются собственным внешним claim бота (§1.2
+#: п.1/3/4/5/7): guard для них не запускается вовсе — иначе обычная социальная
+#: реплика с числом/десятичной дробью («потратил 1.5 часа») стоила бы лишнего
+#: веб-запроса и могла потерять текст.
+GUARD_SKIP_CLASSES = ("social", "background", "attributed",
+                      "transformation", "historical", "runtime")
+
+
 def guard_egress(*, answer, decision: EvidenceDecision | None = None,
                  evidence_text: str = "", delivered_keys=(),
                  lookup_used: bool = False, retry_used: bool = False
@@ -999,6 +1037,15 @@ def guard_egress(*, answer, decision: EvidenceDecision | None = None,
         body = str(answer or "").strip()
         if not body:
             return EgressVerdict()
+        if decision is not None:
+            klass = str(getattr(decision, "evidence_class", "") or "")
+            claims = tuple(getattr(decision, "claims", ()) or ())
+            # Класс без собственного внешнего claim (§1.2 п.1/3/4/5/7) —
+            # guard не применяется: проверять нечего, а поиск по приватной
+            # болтовне был бы лишним сетевым вызовом.
+            if not claims and (klass in GUARD_SKIP_CLASSES
+                              or not getattr(decision, "required", False)):
+                return EgressVerdict(note="not_externally_factual")
         planned = _plan_claims_text(decision)
         delivered = {str(k or "") for k in (delivered_keys or ()) if k}
         for sentence in _SENTENCE_SPLIT_RE.split(body):
