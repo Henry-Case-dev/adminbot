@@ -38,6 +38,14 @@ from services.database import DatabaseService, _SCHEMA_MIGRATIONS_DDL
 
 BOT_PY = Path(__file__).resolve().parent.parent / "bot.py"
 
+# Полоса T-5150 пинила хвост схемы числом v35 — и краснела каждый раз, когда
+# следующая полоса добавляла шаг (v36…v40). Пины ниже выводятся из самого
+# раннера: они проверяют МЕХАНИЗМ (guard→DDL→book, retry, лог-след), а не то,
+# какая версия схемы последняя.
+_LATEST_VERSION = max(s.version for s in DatabaseService.migration_steps())
+_PENDING_FROM_32 = {s.version for s in DatabaseService.migration_steps()
+                    if s.version > 32}
+
 
 async def _noop_backup(db, *, target_version=None):
     return None
@@ -152,7 +160,7 @@ async def test_a_ddl_window_survives_lock_longer_than_base_5s(
     try:
         await _run_with_competitor(svc, hold=6.0)
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
     finally:
         await svc.close()
 
@@ -175,7 +183,7 @@ async def test_b_step_retry_recovers_after_locked(tmp_path, fast_guard,
         with caplog.at_level(logging.INFO, logger="services.database"):
             await _run_with_competitor(svc, hold=2.2)
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
         assert "retry 1/3" in caplog.text
     finally:
         await svc.close()
@@ -215,14 +223,16 @@ async def test_d_migration_chain_full_log_trail(tmp_path, caplog):
         assert "migrations: start" in text
         assert "current user_version=32" in text
         # NOTE (P2-D v34): pending-цепочка расширена хвостом v34.
-        # ASAP 7 (F2): +v35 (llm_usage_plan_meta_v35).
-        assert "pending=[33, 34, 35]" in text
+        # ASAP 7 (F2): +v35 (llm_usage_plan_meta_v35). Хвост выводится из
+        # раннера: пиним сам лог-след, а не номер последней версии схемы.
+        expected_pending = ", ".join(str(v) for v in sorted(_PENDING_FROM_32))
+        assert f"pending=[{expected_pending}]" in text
         assert "migration backup-guard: start" in text
         assert "migration backup-guard: done in" in text
         assert "migration v33 applied in" in text
         assert "migration v34 applied in" in text
         assert "migration v35 applied in" in text
-        assert "migrations: complete | user_version=35" in text
+        assert ("migrations: complete | user_version=%d" % _LATEST_VERSION) in text
     finally:
         await svc.close()
 
@@ -243,10 +253,10 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
         await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
         cur = await svc.db.execute(
             "SELECT version, name FROM schema_migrations "
-            "WHERE version IN (32, 33, 34, 35) ORDER BY version")
+            "WHERE version BETWEEN 32 AND 35 ORDER BY version")
         rows = [tuple(r) for r in await cur.fetchall()]
         assert rows == [(32, "media_vision"),
                         (33, "factcheck_temporal"),
@@ -279,7 +289,7 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=35")
         assert (await cur.fetchone())["c"] == 1
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
         assert "migration v33 applied" not in caplog.text   # повтор — no-op
         assert "migration v34 applied" not in caplog.text   # повтор — no-op
         assert "migration v35 applied" not in caplog.text   # повтор — no-op
@@ -332,7 +342,7 @@ async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
         await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
         cur = await svc.db.execute(
             "SELECT version, name FROM schema_migrations WHERE version = 34")
         row = await cur.fetchone()
@@ -367,7 +377,7 @@ async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=35")
         assert (await cur.fetchone())["c"] == 1
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 35
+        assert (await cur.fetchone())[0] == _LATEST_VERSION
         assert "migration v34 applied" not in caplog.text   # повтор — no-op
         assert "migration v35 applied" not in caplog.text   # повтор — no-op
     finally:

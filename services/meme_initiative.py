@@ -121,6 +121,8 @@ STAGES = (
 
 COUNTED_STATUSES = ("reserved", "provider_called", "provider_failed")
 SCHEMA_VERSION_TARGET = 40
+#: Имя шага в книге `schema_migrations` (services/database.py, v40).
+SCHEMA_MIGRATION_STEP_NAME = "meme_quota_journal_v40"
 RESERVATION_TABLE = "meme_initiative_reservation"
 ATTEMPT_TABLE = "meme_initiative_attempt"
 
@@ -152,7 +154,12 @@ SCHEMA_DDL_SQLITE = (
     f"ON {ATTEMPT_TABLE} (chat_id, ts)",
 )
 
-#: Тот же контракт для PostgreSQL (v40). Типы аддитивные, без сброса данных.
+#: Справочный набор для PostgreSQL — НЕ зарегистрирован и НЕ применяется.
+#: Журнала квоты на PG нет: `SqliteQuotaLedger` работает с файлом SQLite, а
+#: `pg_db.DDL_STATEMENTS` этих таблиц не содержит намеренно (пустые PG-таблицы
+#: никто не читает, и они выдавали бы несуществующую поддержку PG). Набор
+#: оставлен как форма контракта для будущего PG-журнала; пока он не подключён,
+#: `schema_absent` на PG-контуре честен.
 SCHEMA_DDL_POSTGRES = (
     f"CREATE TABLE IF NOT EXISTS {RESERVATION_TABLE} ("
     "job_id TEXT PRIMARY KEY,"
@@ -229,13 +236,17 @@ def blocks_text_initiative() -> bool:
 
 
 def schema_integration_note() -> str:
-    """Заметка для следующего шага схемы. database.py/pg_db.py здесь не правятся."""
+    """Состояние шага схемы v40 (уже зарегистрирован, не «будущий»)."""
     return (
         f"v{SCHEMA_VERSION_TARGET}: аддитивные таблицы {RESERVATION_TABLE} и "
-        f"{ATTEMPT_TABLE}. v39 занят журналом промптов. Пока миграция не "
-        "применена, отсутствие таблицы — честный schema_absent, без вызова "
-        "image-провайдера и без авто-CREATE на горячем пути. DDL: "
-        "SCHEMA_DDL_SQLITE / SCHEMA_DDL_POSTGRES."
+        f"{ATTEMPT_TABLE}. Шаг зарегистрирован в services/database.py "
+        f"(_migrate_meme_quota_v40, имя в книге схемы — "
+        f"{SCHEMA_MIGRATION_STEP_NAME}) и применяет модульный DDL "
+        "через CREATE TABLE/INDEX IF NOT EXISTS, поэтому повтор и рестарт — "
+        "no-op. Если таблицы нет, значит миграция не применилась на этой БД: "
+        "это честный schema_absent (без вызова image-провайдера и без "
+        "авто-CREATE на горячем пути), а не штатный режим. DDL: "
+        "SCHEMA_DDL_SQLITE; PG-копии нет — журнал квоты SQLite-only."
     )
 
 

@@ -607,9 +607,13 @@ def test_schema_absent_is_honest_disabled(tmp_path):
     note = meme.schema_integration_note()
     assert "40" in note
     assert meme.SCHEMA_VERSION_TARGET == 40
+    # Шаг v40 зарегистрирован; DDL живёт в модуле-владельце и НЕ дублируется
+    # текстом в database.py (одна схема — один владелец).
     db_text = (pathlib.Path(__file__).resolve().parent.parent
                / "services" / "database.py").read_text(encoding="utf-8")
-    assert meme.RESERVATION_TABLE not in db_text
+    assert "meme.SCHEMA_DDL_SQLITE" in db_text
+    assert f"CREATE TABLE IF NOT EXISTS {meme.RESERVATION_TABLE}" not in db_text
+    assert f"CREATE TABLE IF NOT EXISTS {meme.ATTEMPT_TABLE}" not in db_text
 
 
 def test_cooldown_and_low_activity_before_provider(tmp_path):
@@ -877,4 +881,216 @@ def test_in_flight_check_precedes_paid_summary(tmp_path):
     assert result.reason == meme.SKIP_IN_FLIGHT
     assert called["summary"] == 0
     assert provider.calls == []
+
+
+# ── 13. шаг схемы v40 в реальном DatabaseService (интеграция, не заметка) ──
+
+def test_v40_step_registered_and_ddl_owned_by_module():
+    """Шаг v40 существует в раннере, DDL — у модуля-владельца, PG не обещан."""
+    from services.database import DatabaseService, _SCHEMA_VERSION_MEME_QUOTA
+    from services import pg_db
+
+    steps = {s.version: s.name for s in DatabaseService.migration_steps()}
+    assert steps.get(40) == meme.SCHEMA_MIGRATION_STEP_NAME
+    assert steps.get(40) == "meme_quota_journal_v40"
+    assert steps.get(39) == "prompt_revision_journal_v39"   # сосед не сдвинут
+    assert steps.get(38) == "quote_metadata_v38"
+    assert _SCHEMA_VERSION_MEME_QUOTA == meme.SCHEMA_VERSION_TARGET == 40
+    assert callable(DatabaseService._migrate_meme_quota_v40)
+    # Журнала квоты на PostgreSQL нет: пустые PG-таблицы никто не читает.
+    assert all(
+        meme.RESERVATION_TABLE not in stmt and meme.ATTEMPT_TABLE not in stmt
+        for stmt in pg_db.DDL_STATEMENTS)
+
+
+@pytest.mark.asyncio
+async def test_fresh_db_migrates_0_to_40_with_quota_tables(tmp_path):
+    from services.database import DatabaseService
+
+    svc = DatabaseService(str(tmp_path / "v40_fresh.db"))
+    await svc.initialize()
+    try:
+        cur = await svc.db.execute("PRAGMA user_version")
+        assert (await cur.fetchone())[0] == 40
+        book = await svc.db.execute(
+            "SELECT name, checksum FROM schema_migrations WHERE version = 40")
+        row = await book.fetchone()
+        assert row is not None
+        assert row["name"] == "meme_quota_journal_v40"
+        assert row["checksum"]
+        cur = await svc.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN (?, ?)", (meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE))
+        assert {r["name"] for r in await cur.fetchall()} == {
+            meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE}
+        cur = await svc.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
+            "('idx_meme_reservation_chat_day', 'idx_meme_attempt_chat_ts')")
+        assert len(await cur.fetchall()) == 2
+        # Настоящий признак готовности: журнал открывается на реальной БД.
+        led = meme.open_ledger(svc)
+        assert led is not None and led.table_present() is True
+    finally:
+        await svc.close()
+
+
+@pytest.mark.asyncio
+async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
+    from services import message_identity as mi
+    from services.database import DatabaseService
+
+    path = str(tmp_path / "v39_upgrade.db")
+
+    class _EraDB(DatabaseService):
+        @staticmethod
+        def migration_steps():
+            return [s for s in DatabaseService.migration_steps()
+                    if s.version < 40]
+
+    old = _EraDB(path)
+    await old.initialize()
+    try:
+        cur = await old.db.execute("PRAGMA user_version")
+        assert (await cur.fetchone())[0] == 39
+        # До шага журнала квоты нет — и это честный schema_absent, а не тишина.
+        assert meme.open_ledger(old) is None
+        await mi.save_live_message(old, chat_id=-100, user_id=1,
+                                   text="до-v40-строка", tg_message_id=11)
+        cur = await old.db.execute(
+            "SELECT checksum FROM schema_migrations WHERE version = 39")
+        checksum_39 = (await cur.fetchone())["checksum"]
+    finally:
+        await old.close()
+
+    svc = DatabaseService(path)
+    await svc.initialize()
+    try:
+        cur = await svc.db.execute("PRAGMA user_version")
+        assert (await cur.fetchone())[0] == 40
+        cur = await svc.db.execute(
+            "SELECT checksum FROM schema_migrations WHERE version = 39")
+        assert (await cur.fetchone())["checksum"] == checksum_39
+        cur = await svc.db.execute(
+            "SELECT name FROM schema_migrations WHERE version = 40")
+        assert (await cur.fetchone())["name"] == "meme_quota_journal_v40"
+        row = await svc.get_smart_message_by_tg_id(-100, 11)
+        assert row is not None and row["text"] == "до-v40-строка"
+        led = meme.open_ledger(svc)
+        assert led is not None
+        # Журнал добавлен пустым: расхода до миграции не выдумывается.
+        assert led.spent(-100, "2026-10-30") == 0
+    finally:
+        await svc.close()
+
+
+@pytest.mark.asyncio
+async def test_real_db_path_publishes_meme_and_journals_quota(tmp_path):
+    """Мем реально проходит путь на РЕАЛЬНОЙ БД: окно из БД, бронь в таблице."""
+    from services import message_identity as mi
+    from services.database import DatabaseService
+
+    svc = DatabaseService(str(tmp_path / "v40_live.db"))
+    await svc.initialize()
+    try:
+        for offset, text in enumerate(("первая реплика", "вторая", "третья")):
+            await mi.save_live_message(svc, chat_id=-100, user_id=1,
+                                       text=text, tg_message_id=500 + offset)
+        led = meme.open_ledger(svc)
+        assert led is not None
+
+        provider = _Provider()
+        published = []
+
+        async def gate(chat_id):
+            return True, "ok"
+
+        async def sender(chat_id, content, caption):
+            published.append((chat_id, content, caption))
+
+        async def summarizer(chat_id, rows, target, system):
+            assert len(rows) == 3          # окно прочитано из настоящей таблицы
+            return "хук"
+
+        result = await meme.consider_chat(
+            svc, -100, settings=_settings(), ledger=led, now=NOW,
+            tz_name="UTC", tz_source="utc_fallback",
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            random_source=_Hit(), summarizer=summarizer,
+            image_provider=provider, publish_gate=gate, sender=sender,
+            model_chars=200)
+
+        assert result.published is True and result.reason == "sent"
+        assert len(provider.calls) == 1
+        assert provider.calls[0][0].startswith(PREFIX)
+        assert len(published) == 1 and published[0][0] == -100
+
+        cur = await svc.db.execute(
+            f"SELECT status FROM {meme.RESERVATION_TABLE} WHERE chat_id = ?",
+            (-100,))
+        statuses = [r["status"] for r in await cur.fetchall()]
+        assert statuses == ["provider_called"]
+        cur = await svc.db.execute(
+            f"SELECT stage, outcome FROM {meme.ATTEMPT_TABLE} WHERE chat_id = ?",
+            (-100,))
+        journal = await cur.fetchall()
+        stages = {r["stage"] for r in journal}
+        assert {"summary", "image_generation", "publish"} <= stages
+        assert "published" in {r["outcome"] for r in journal}
+        assert not {r for r in journal if r["outcome"] == "failed"}
+        day = meme.day_window(-100, NOW, tz_name="UTC",
+                             tz_source="utc_fallback")
+        assert led.spent(-100, day.bucket) == 1
+        # Второй чат — свой независимый счётчик на той же таблице.
+        assert led.spent(-200, day.bucket) == 0
+
+        # Атомарная бронь на реальном файле: кап держится, replay не двоит.
+        ledger2 = meme.SqliteQuotaLedger(str(svc.db_path))
+        assert ledger2.reserve(chat_id=-300, day_bucket=day.bucket,
+                               job_id="cap-1", limit=1, tz_name="UTC",
+                               tz_source="utc_fallback",
+                               now_ts=int(NOW.timestamp())).ok
+        blocked = ledger2.reserve(chat_id=-300, day_bucket=day.bucket,
+                                  job_id="cap-2", limit=1, tz_name="UTC",
+                                  tz_source="utc_fallback",
+                                  now_ts=int(NOW.timestamp()))
+        assert blocked.ok is False and blocked.reason == meme.SKIP_QUOTA
+        replay = ledger2.reserve(chat_id=-300, day_bucket=day.bucket,
+                                 job_id="cap-1", limit=1, tz_name="UTC",
+                                 tz_source="utc_fallback",
+                                 now_ts=int(NOW.timestamp()))
+        assert replay.already is True and ledger2.spent(-300, day.bucket) == 1
+    finally:
+        await svc.close()
+
+
+@pytest.mark.asyncio
+async def test_v40_restart_is_noop_and_keeps_quota_rows(tmp_path, caplog):
+    import logging
+    from services.database import DatabaseService
+
+    path = str(tmp_path / "v40_restart.db")
+    svc = DatabaseService(path)
+    await svc.initialize()
+    led = meme.open_ledger(svc)
+    assert led is not None
+    assert led.reserve(chat_id=-7, day_bucket="2026-10-30", job_id="j1",
+                       limit=3, tz_name="UTC", tz_source="utc_fallback",
+                       now_ts=1_700_000_000).ok
+    await svc.close()
+
+    svc2 = DatabaseService(path)
+    with caplog.at_level(logging.INFO, logger="services.database"):
+        await svc2.initialize()
+    try:
+        cur = await svc2.db.execute("PRAGMA user_version")
+        assert (await cur.fetchone())[0] == 40
+        cur = await svc2.db.execute(
+            "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 40")
+        assert (await cur.fetchone())["c"] == 1
+        assert "migration v40 applied" not in caplog.text
+        led2 = meme.open_ledger(svc2)
+        assert led2 is not None
+        assert led2.spent(-7, "2026-10-30") == 1   # расход пережил рестарт
+    finally:
+        await svc2.close()
 

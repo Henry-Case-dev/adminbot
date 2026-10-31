@@ -3,8 +3,9 @@
 Интеграционная заметка ``plans/features/evol/audit/w2a-evol016.md`` §4
 (выполнение в services/database.py + services/pg_db.py):
 
-  a. свежая SQLite-БД мигрирует 0→39 (шаг ``prompt_revision_journal_v39``
-     в книге ``schema_migrations``, ``PRAGMA user_version = 39``);
+  a. свежая SQLite-БД мигрирует до последней версии (шаг
+     ``prompt_revision_journal_v39`` в книге ``schema_migrations``; текущая
+     последняя — v40 (EVOL-014, соседний шаг), поэтому пины user_version = 40);
   b. существующая БД v38 доезжает до v39 аддитивно, данные не теряются
      (фикстура «эпохи v38»: раннер без шага 39 + строки со quote-метаданными);
   c. релизная политика работает через РЕАЛЬНЫЙ ``PgPromptJournal``:
@@ -48,7 +49,9 @@ async def test_fresh_db_migrates_0_to_39(tmp_path):
     await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 39
+        # Свежая БД доезжает до ПОСЛЕДНЕЙ версии схемы: v39 (эта полоса) +
+        # v40 (EVOL-014, журнал квоты мемов — соседний шаг, не отменяет v39).
+        assert (await cur.fetchone())[0] == 40
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()
@@ -85,7 +88,7 @@ async def test_v39_restart_is_true_noop(tmp_path, caplog):
         await svc2.initialize()
     try:
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 39
+        assert (await cur.fetchone())[0] == 40
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["c"] == 1
@@ -129,7 +132,7 @@ async def test_v38_db_upgrades_to_v39_without_data_loss(tmp_path):
     await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 39
+        assert (await cur.fetchone())[0] == 40
         book = await svc.db.execute(
             "SELECT name FROM schema_migrations WHERE version = 39")
         row = await book.fetchone()

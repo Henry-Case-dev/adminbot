@@ -1738,6 +1738,20 @@ _QUOTE_METADATA_COLUMNS: tuple[tuple[str, str], ...] = (
 # инертны, старый код их не читает).
 _SCHEMA_VERSION_PROMPT_JOURNAL = 39
 
+# ── EVOL-014 (30.10.2026): v40 — журнал суточной квоты инициативных мемов ───
+# Таблицы `meme_initiative_reservation` / `meme_initiative_attempt` живут в
+# SQLite (memory-контур; журнал квоты — файл той же БД, что и сообщения).
+# DDL — ОДИН владелец: `services.meme_initiative` → `SCHEMA_DDL_SQLITE`
+# (`CREATE TABLE/INDEX IF NOT EXISTS`); шаг не держит вторую копию текста,
+# а вызывает модульный набор выражений. Горячий путь таблицу не создаёт:
+# отсутствие таблицы остаётся честным `schema_absent` (нет генерации и
+# вызова провайдера), но теперь это признак НЕприменённой миграции, а не
+# штатное состояние. Аддитивно: ни одного UPDATE/DELETE существующих строк,
+# повтор шага — no-op, данных не теряется. PG — no-op (журнала квоты на PG
+# нет: `pg_db`-таблицы под него не регистрируются, см. docstring шага).
+# Откат: cold git revert (таблицы инертны, старый код v39 их не читает).
+_SCHEMA_VERSION_MEME_QUOTA = 40
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2960,6 +2974,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_PROMPT_JOURNAL,
                           "prompt_revision_journal_v39",
                           lambda svc: svc._migrate_prompt_journal_v39()),
+            # EVOL-014 (30.10.2026): v40 — аддитивные таблицы журнала
+            # суточной квоты мемов (`meme_initiative_reservation` +
+            # `meme_initiative_attempt`) + 2 индекса. DDL — в модуле-владельце
+            # (`meme_initiative.SCHEMA_DDL_SQLITE`, IF NOT EXISTS), шаг его
+            # только применяет: своей копии DDL не держит. Идемпотентно,
+            # повтор — no-op, PG — no-op, старый код v39 таблицы не читает.
+            MigrationStep(_SCHEMA_VERSION_MEME_QUOTA,
+                          "meme_quota_journal_v40",
+                          lambda svc: svc._migrate_meme_quota_v40()),
         ]
 
     @staticmethod
@@ -3314,6 +3337,33 @@ class DatabaseService:
             "no-op (DDL применяет PgDatabase.init/ensure_journal)")
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_PROMPT_JOURNAL}")
+        await self.db.commit()
+
+    async def _migrate_meme_quota_v40(self) -> None:
+        """v40 (EVOL-014): журнал суточной квоты инициативных мемов.
+
+        Аддитивно: две новые таблицы (`meme_initiative_reservation`,
+        `meme_initiative_attempt`) + два индекса. DDL — дословно в
+        модуле-владельце `services.meme_initiative` (`SCHEMA_DDL_SQLITE`:
+        `CREATE TABLE/INDEX IF NOT EXISTS`); шаг применяет именно его, второй
+        копии выражений здесь нет — иначе схема разъехалась бы молча.
+        Повтор и legacy-БД, где таблицы уже созданы тестами, — no-op.
+        Существующие строки не UPDATE/DELETE-ятся; backfill не нужен
+        (пустой журнал = честный «расхода нет»).
+
+        PG — no-op: журнала квоты на PostgreSQL нет (журнал — SQLite-файл
+        рядом с сообщениями; `SqliteQuotaLedger` открывается по пути БД).
+        Таблицы в `pg_db.DDL_STATEMENTS` НЕ регистрируются: пустые PG-таблицы
+        ничего не читает, и они выдавали бы несуществующую поддержку PG.
+        Откат: cold git revert (таблицы инертны, код v39 их не читает)."""
+        from services import meme_initiative as meme
+        for statement in meme.SCHEMA_DDL_SQLITE:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v40: %s, %s",
+                    meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_MEME_QUOTA}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:

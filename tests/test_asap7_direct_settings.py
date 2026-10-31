@@ -38,6 +38,17 @@ from services.direct_l1 import resolve_l1_model
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_JS = ROOT / "web" / "app.js"
+
+
+def _frontier() -> int:
+    """Фронтир схемы из самого раннера, а не литерал эпохи F2 (был v35).
+
+    Тесты этой полосы проверяют идемпотентность шага v35 и fail-closed
+    backup-guard; номер последней версии схемы растёт с каждой полосой
+    (v36…v40), поэтому «свежая БД = 35» — ложный пин, а не контракт.
+    """
+    from services.database import DatabaseService
+    return max(s.version for s in DatabaseService.migration_steps())
 INDEX_HTML = ROOT / "web" / "index.html"
 
 
@@ -125,7 +136,7 @@ def test_migration_v35_idempotent_twice(tmp_path):
         await d1.initialize()
         cur = await d1.db.execute("PRAGMA user_version")
         row = await cur.fetchone()
-        assert int(row[0]) == 35
+        assert int(row[0]) == _frontier()
         cur = await d1.db.execute(
             "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
         assert (await cur.fetchone())[0] == 1
@@ -135,7 +146,7 @@ def test_migration_v35_idempotent_twice(tmp_path):
         await d2.initialize()
         cur = await d2.db.execute("PRAGMA user_version")
         row = await cur.fetchone()
-        assert int(row[0]) == 35
+        assert int(row[0]) == _frontier()
         cur = await d2.db.execute(
             "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
         assert (await cur.fetchone())[0] == 1
@@ -178,7 +189,7 @@ def test_backup_guard_fires_before_pending_step(tmp_path, monkeypatch):
         await d2.initialize()
         cur = await d2.db.execute("PRAGMA user_version")
         row = await cur.fetchone()
-        assert int(row[0]) == 35
+        assert int(row[0]) == _frontier()
         await d2.close()
 
     asyncio.run(_run())
