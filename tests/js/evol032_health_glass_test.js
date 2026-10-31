@@ -17,7 +17,7 @@ function stateOf(subsystem, payload, scope) {
   return global.healthStateFrom(subsystem, payload, scope).state;
 }
 
-/* ── CSS: заливка только у двух атрибутов, alpha как у материала ─────────── */
+/* ── CSS: заливка только у состояний реальной проблемы ──────────────────── */
 assert.ok(CSS.includes('[data-health-state="degraded"][data-health-material="bg"]'),
   'degraded+bg selector');
 assert.ok(CSS.includes('background-color: rgba(91, 55, 67, 0.5);'),
@@ -30,6 +30,28 @@ assert.ok(CSS.includes('background-color: rgba(91, 55, 67, 0.85);'),
   'strong degraded keeps alpha 0.85');
 assert.ok(CSS.includes('background-color: rgba(141, 74, 85, 0.85);'),
   'strong failed keeps alpha 0.85');
+/* ASAP-UI-02 §6 (wave 2): `warning` — красное стекло МЕНЬШЕЙ интенсивности. */
+assert.ok(CSS.includes('[data-health-state="warning"][data-health-material="bg"]'),
+  'warning+bg selector');
+assert.ok(CSS.includes('background-color: rgba(60, 43, 56, 0.5);'),
+  'warning fill 18% --err, alpha 0.5 (мягче degraded)');
+assert.ok(CSS.includes('background-color: rgba(60, 43, 56, 0.85);'),
+  'strong warning keeps alpha 0.85');
+assert.ok(CSS.includes('--health-fill-warning: rgba(60, 43, 56, 0.5);'),
+  'warning в единой карте токенов');
+(function () {
+  // Интенсивность: warning < degraded < failed (красная составляющая растёт).
+  const read = (stmt) => {
+    const m = /rgba\((\d+),\s*(\d+),\s*(\d+),\s*0\.5\)/.exec(stmt);
+    assert.ok(m, 'rgba разобран: ' + stmt);
+    return Number(m[1]) + Number(m[2]) + Number(m[3]);
+  };
+  const warn = read('rgba(60, 43, 56, 0.5)');
+  const degrad = read('rgba(91, 55, 67, 0.5)');
+  const fail = read('rgba(141, 74, 85, 0.5)');
+  assert.ok(warn < degrad && degrad < fail,
+    'порядок интенсивности warning < degraded < failed');
+})();
 assert.ok(CSS.includes('--glass-bg: rgba(21, 27, 42, 0.5)'),
   'normal glass-bg unchanged');
 const healthMark = CSS.indexOf('EVOL-032 / CONTRACT 2 — тонирование');
@@ -149,7 +171,8 @@ assert.strictEqual(hs('bot', { state: 'polling_error', stale: true }).reason,
   'данные устарели');
 
 assert.strictEqual(stateOf('heartbeat', { hbState: 'healthy' }), 'normal');
-assert.strictEqual(stateOf('heartbeat', { hbState: 'warning' }), 'degraded');
+assert.strictEqual(stateOf('heartbeat', { hbState: 'warning' }), 'warning',
+  'ASAP-UI-02 §6: предупреждение сердцебиения — собственное состояние warning');
 assert.strictEqual(stateOf('heartbeat', { hbState: 'critical' }), 'failed');
 assert.strictEqual(stateOf('heartbeat', { hbState: 'unknown' }), 'unknown');
 assert.strictEqual(stateOf('heartbeat', { hbState: 'healthy', cpu: 0.99 }), 'normal',
@@ -196,6 +219,11 @@ assert.strictEqual(stateOf('process', { health_status: 'failed' }), 'unknown');
 assert.strictEqual(hs('process', { health_status: 'failed' }).paints, false);
 assert.strictEqual(stateOf('bot', { level: 'WARN' }), 'unknown');
 assert.strictEqual(stateOf('bot', { level: 'WARN', state: 'polling' }), 'normal');
+/* §6: сам по себе WARN в журнале состояния не создаёт (нет перекраски);
+   явный вердикт подсистемы `warning` — создаёт. */
+assert.strictEqual(stateOf('bot', { level: 'WARNING', warn: true }), 'unknown');
+assert.strictEqual(stateOf('experience', { health_status: 'warning' }), 'warning',
+  'явный вердикт подсистемы warning доходит до карты');
 assert.strictEqual(stateOf('bot', { problem: true }), 'degraded');
 assert.strictEqual(stateOf('experience', {
   state: 'failed', chat_id: 2,
@@ -213,7 +241,12 @@ assert.strictEqual(failed.label, 'Сбой');
 assert.strictEqual(failed.badge, 'badge-err');
 assert.strictEqual(normal.label, 'Норма');
 assert.ok(failed.ariaLabel.indexOf('Бот') >= 0 && failed.ariaLabel.indexOf('Сбой') >= 0);
-assert.strictEqual(hs('heartbeat', { hbState: 'warning' }).label, 'Проблема');
+assert.strictEqual(hs('heartbeat', { hbState: 'warning' }).label, 'Внимание');
+assert.strictEqual(hs('heartbeat', { hbState: 'warning' }).badge, 'badge-warn');
+assert.strictEqual(hs('heartbeat', { hbState: 'warning' }).paints, true,
+  'warning красит стекло (мягче degraded/failed)');
+assert.strictEqual(hs('heartbeat', { hbState: 'warning' }).icon, 'bolt',
+  'иконка дублирует состояние, а не только цвет');
 assert.strictEqual(hs('bot', { state: 'stopped' }).label, 'Выключено');
 assert.strictEqual(hs('bot', { state: 'stopped' }).badge, 'badge-muted');
 assert.strictEqual(hs('memory', { missing: true }).badge, 'badge-warn');

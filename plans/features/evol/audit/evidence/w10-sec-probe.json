@@ -66,7 +66,47 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [
+        "hero",
+        "health",
+        "map",
+        "intel",
+        "sleep",
+        "preview",
+        "budgets",
+        "activity",
+        "dossier"
+      ],
+      "intelWidgets": 1,
+      "intelSections": [
+        "facts",
+        "beliefs",
+        "paradigms",
+        "traits"
+      ],
+      "intelSwitcher": {
+        "visible": false,
+        "buttons": 4,
+        "pressed": [
+          "facts"
+        ],
+        "labels": [
+          "Факты",
+          "Убеждения",
+          "Парадигмы",
+          "Эволюция"
+        ],
+        "h": 0
+      },
+      "intelVisibleSections": [
+        "facts",
+        "beliefs",
+        "paradigms",
+        "traits"
+      ],
+      "factRows": 8,
+      "factCardLower": 0
     },
     {
       "route": "#/modules",
@@ -116,7 +156,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/ai",
@@ -166,7 +213,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/memory",
@@ -191,7 +245,7 @@
       "speechPersona": 0,
       "personaOldCard": 0,
       "memoryCatalog": 1,
-      "memoryItems": 1,
+      "memoryItems": 8,
       "memoryDiag": 1,
       "accessSummary": 0,
       "accessSections": 0,
@@ -216,7 +270,14 @@
       "heatScrolls": false,
       "memFactMeta": "фактподтверждение неизвестнокогда: 30.10.2025, 16:53:20чат: Audit Chatсообщение #4242",
       "memDiagRaw": true,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/access",
@@ -266,7 +327,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно"
+      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно",
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/oversight",
@@ -316,7 +384,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/",
@@ -372,7 +447,44 @@
       "heatScrolls": true,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [
+        "hero",
+        "health",
+        "map",
+        "intel",
+        "sleep",
+        "preview",
+        "budgets",
+        "activity",
+        "dossier"
+      ],
+      "intelWidgets": 1,
+      "intelSections": [
+        "facts",
+        "beliefs",
+        "paradigms",
+        "traits"
+      ],
+      "intelSwitcher": {
+        "visible": true,
+        "buttons": 4,
+        "pressed": [
+          "facts"
+        ],
+        "labels": [
+          "Факты",
+          "Убеждения",
+          "Парадигмы",
+          "Эволюция"
+        ],
+        "h": 78
+      },
+      "intelVisibleSections": [
+        "facts"
+      ],
+      "factRows": 8,
+      "factCardLower": 0
     },
     {
       "route": "#/modules",
@@ -422,7 +534,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/ai",
@@ -472,7 +591,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/memory",
@@ -497,7 +623,7 @@
       "speechPersona": 0,
       "personaOldCard": 0,
       "memoryCatalog": 1,
-      "memoryItems": 1,
+      "memoryItems": 8,
       "memoryDiag": 1,
       "accessSummary": 0,
       "accessSections": 0,
@@ -522,7 +648,14 @@
       "heatScrolls": false,
       "memFactMeta": "фактподтверждение неизвестнокогда: 30.10.2025, 16:53:20чат: Audit Chatсообщение #4242",
       "memDiagRaw": true,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/access",
@@ -572,7 +705,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно"
+      "accessAuditSummary": "Права меняет: Audit · global_admin · id 5885953495Область: чат: Audit Chat · глобальная матрица параметров — действует для всех чатов сразу после сохранения; чатовые переопределения — отдельно",
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     },
     {
       "route": "#/oversight",
@@ -622,7 +762,14 @@
       "heatScrolls": false,
       "memFactMeta": null,
       "memDiagRaw": false,
-      "accessAuditSummary": null
+      "accessAuditSummary": null,
+      "statusOrder": [],
+      "intelWidgets": 0,
+      "intelSections": [],
+      "intelSwitcher": null,
+      "intelVisibleSections": [],
+      "factRows": 0,
+      "factCardLower": 0
     }
   ],
   "summary": {
@@ -630,9 +777,25 @@
     "heatKeyboard": {
       "steps": [
         {
-          "cell": "2026-10-31:10",
+          "cell": "2026-11-01:10",
           "pressed": "true",
-          "label": "2026-10-31 10:00 — событий: 70 (ошибок: 1)",
+          "label": "2026-11-01 10:00 — событий: 70 (ошибок: 1)",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        },
+        {
+          "cell": "2026-11-01:9",
+          "pressed": "true",
+          "label": "2026-11-01 09:00 — событий: 36",
+          "picked": true,
+          "pickedClass": true,
+          "levelClass": true
+        },
+        {
+          "cell": "2026-11-01:9",
+          "pressed": "true",
+          "label": "2026-11-01 09:00 — событий: 36",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
@@ -640,23 +803,7 @@
         {
           "cell": "2026-10-31:9",
           "pressed": "true",
-          "label": "2026-10-31 09:00 — событий: 36",
-          "picked": true,
-          "pickedClass": true,
-          "levelClass": true
-        },
-        {
-          "cell": "2026-10-31:9",
-          "pressed": "true",
-          "label": "2026-10-31 09:00 — событий: 36",
-          "picked": true,
-          "pickedClass": true,
-          "levelClass": true
-        },
-        {
-          "cell": "2026-10-30:9",
-          "pressed": "true",
-          "label": "2026-10-30 09:00 — событий: 1",
+          "label": "2026-10-31 09:00 — событий: 1",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
@@ -669,7 +816,7 @@
       "tab": "runs",
       "view": "runs",
       "activeTabText": "Запуски",
-      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-10-31 10:00 (время сервера)"
+      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-11-01 10:00 (время сервера)"
     },
     "globalTogglePost": 1,
     "speechPersona": true,
@@ -709,6 +856,48 @@
       "vh": 844,
       "locked": true,
       "hScroll": false
+    },
+    "intelSwitch": {
+      "before": {
+        "vis": [
+          "facts"
+        ],
+        "rows": 8,
+        "scrolled": 40,
+        "switchable": true
+      },
+      "after": {
+        "vis": [
+          "beliefs"
+        ],
+        "pressed": [
+          "beliefs"
+        ],
+        "rows": 8
+      },
+      "back": {
+        "vis": [
+          "facts"
+        ],
+        "pressed": [
+          "facts"
+        ],
+        "scroll": 40,
+        "rows": 8
+      },
+      "errors": []
+    },
+    "healthTint": {
+      "prev": "normal",
+      "base": "rgba(21, 27, 42, 0.5)",
+      "warning": "rgba(60, 43, 56, 0.5)",
+      "degraded": "rgba(91, 55, 67, 0.5)",
+      "failed": "rgba(141, 74, 85, 0.5)",
+      "normal": "rgba(21, 27, 42, 0.5)",
+      "unknown": "rgba(21, 27, 42, 0.5)",
+      "disabled": "rgba(21, 27, 42, 0.5)",
+      "backdrop": "blur(5px) saturate(1.4)",
+      "polygonCanvas": false
     },
     "failures": 0
   }

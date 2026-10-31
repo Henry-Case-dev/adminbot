@@ -187,8 +187,12 @@ class TestJsUnit:
 
 class TestTraitsRibbon:
     def test_third_ribbon_markup(self):
-        block = _block(HTML, 'class="cognition-ribbons"', "Граф связей")
-        assert block.count('class="ribbon"') == 3, "F4: ровно 3 ленты"
+        # ASAP-UI-02 §5.3 (wave 2): «Эволюция характера» — четвёртая секция
+        # ЕДИНОГО виджета (вместе с «Новыми фактами», «Убеждениями» и
+        # «Парадигмами»); границей блока служит следующая карточка «Статуса».
+        block = _block(HTML, 'class="cognition-ribbons"', "status-sleep")
+        assert block.count('class="ribbon ') == 4, "ровно 4 секции одного виджета"
+        assert "Новые факты" in block
         assert "Убеждения" in block
         assert "Парадигмы" in block
         assert "Эволюция характера" in block
@@ -199,15 +203,22 @@ class TestTraitsRibbon:
         # timestamp остаётся в title и в окне записи.
         assert "statusRowDateLabel(it.created_at)" in block
         assert "Пул черт пуст." in block
-        # ленты beliefs/paradigms не сломаны
+        # ленты beliefs/paradigms/facts не сломаны
         assert "cognitionBeliefsLoop" in block
         assert "cognitionParadigmsLoop" in block
+        assert "factsFeed" in block
 
-    def test_grid_three_columns_responsive(self):
-        assert (".cognition-ribbons { display: grid; "
-                "grid-template-columns: 1fr 1fr 1fr; gap: 12px; }") in HTML
-        assert ("@media (max-width: 640px) { .cognition-ribbons "
-                "{ grid-template-columns: 1fr; } }") in HTML
+    def test_grid_columns_responsive(self):
+        # ASAP-UI-02 §5.3: desktop — 4 колонки, планшет — 2×2, телефон —
+        # одна секция + компактный переключатель.
+        assert (".cognition-ribbons {\n      display: grid; gap: 12px;\n"
+                "      grid-template-columns: repeat(2, minmax(0, 1fr));\n    }"
+                ) in HTML
+        assert ("@media (min-width: 1100px) {\n"
+                "      .cognition-ribbons { grid-template-columns: "
+                "repeat(4, minmax(0, 1fr)); }\n    }") in HTML
+        assert ".cognition-ribbons[data-intel-tab] .ribbon { display: none; }" in HTML
+        assert ".intel-tabs { display: none; }" in HTML
 
     def test_prefers_reduced_motion_preserved(self):
         assert ".ribbon-track { animation: none !important; }" in HTML
@@ -396,8 +407,10 @@ class TestStatusLayoutOrderF7:
         cognition = block.index(self.ORDER[4][1])
         keys = block.index(self.ORDER[5][1])
         segment = block[cognition:keys]
-        assert "Эволюция характера" in segment
-        assert segment.count('class="ribbon"') == 3
+        # ASAP-UI-02 §5.3 (wave 2): «Новые факты» переехали в тот же виджет:
+        # четыре секции одной карточки и единая система строк.
+        assert segment.count('class="ribbon ') == 4
+        assert "factsFeed" in segment
         assert "cognitionBeliefsLoop" in segment
         assert "cognitionParadigmsLoop" in segment
         assert "cognitionTraitsLoop" in segment

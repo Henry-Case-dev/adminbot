@@ -1,178 +1,150 @@
-# EVOL — статус по требованиям (снимок 31.10.2026)
+# EVOL — статус по требованиям (снимок 01.11.2026, 00:45 +12:00)
 
-Карта: `plans/features/evol/requirements-map.json` (54 обязательных требования: EVOL-001..045 + EVOL-DoD + 4 дельты аддендума 31.10
-`EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-GLASS-SEAM` + три поставленных в очередь поручения 31.10
-`EVOL-SRC-READER`, `EVOL-COG-MAP`, `ASAP-FC-ADMISSION-01` + P0 corrective `ASAP-VISION-SYNC-01`).
-Ветка реализации: `evol/impl`, вершина `fcdc69a8`; ASAP-FC-ADMISSION-01 реализован и принят по поведению на `432c7593`. Деплой не выполнялся.
+Карта: `plans/features/evol/requirements-map.json` (schema `openworkflow-coverage-v1`, 832 строки инвентаря + 343 ручных записи,
+**439 обязательных строк**, 89 различных `req_id`). Граф: `plans/features/evol/slice-graph.json` (49 узлов).
+
+**Деплой выполнен:** прод **2.58.143** @ `273be95c8ff4f70e08dceef1daccbdd3082fc909` (ветка `release/2.58.143` = `evol/impl`),
+отчёт `plans/features/evol/audit/deploy-2.58.143.md`. Предыдущий прод `5346ee76` (2.58.141), неудачная попытка
+`06283422` (2.58.142, PG jsonb crash-loop) откатана и исправлена коммитом `2e48bfed`.
 
 ## Как записан статус
 
-Словарь `requirements_gate.py` строгий: `PENDING | BUILDING | REVIEW | VERIFIED | FAILED | BLOCKED_REAL_HUMAN_GATE | READY_FOR_LIVE`.
-Поэтому ревью-принятые, но **не задеплоенные** требования держат `status: PENDING` + `review_verdict` (`APPROVED` — вердикт по коду/UI;
-`APPROVED_BEHAVIOR` — поведение принято при открытой незначительной правке, кандидат один),
-`review_candidate`, `review_scope`, `review_note` и привязку доказательств (`evidence[]`: `ref`, `observation`, `type`,
-`artifact_path`, `artifact_branch`, `artifact_sha256`, `candidate_commit`). `VERIFIED` сознательно не выставлен.
-Поле `candidate_commit` карты одно на карту и сейчас указывает на `432c7593` (кандидат ASAP-FC-ADMISSION-01): при ревью другого слайса
-`--candidate` должен совпадать с его собственным ревью-кандидатом, и расхождение не является дефектом покрытия.
-Артефакты-отчёты лежат в ветке `evol/impl` (`plans/features/evol/audit/w*.md`) и в `master` ещё не влиты.
+| Статус | Значение в этой карте | Строк |
+|---|---|---|
+| `VERIFIED` | ревью-принятое поведение **присутствует в задеплоенном кандидате** `273be95c`; `evidence[]` содержит минимум одну запись с `candidate_commit = 273be95c8ff4…` и ссылкой на существующий артефакт | **301** |
+| `PENDING` | пункт не начат либо у него отсутствует часть обязательной приёмки (перечень ниже — с точной причиной) | 133 |
+| `BUILDING` | правка идёт прямо сейчас в worktree `evol/impl` и в прод не попала | 3 |
+| `READY_FOR_LIVE` | код в проде, но acceptance требует отдельного postdeploy-поведенческого доказательства | 2 |
 
-## Таблица
+Словарь `requirements_gate.py` строгий, `strict_evidence` остаётся **false** (карта никогда не опт-инилась в strict; включение —
+отдельное решение с миграцией доказательств). Артефакты доказательств всё равно привязаны реальными путями и `artifact_sha256`,
+взятым **из дерева задеплоенного кандидата** (`git show 273be95c:<path>`), кроме отчёта о деплое — он создан после выката
+и помечен `artifact_scope`.
 
-| Задача | Backend | UI | Ревью | Деплой |
-|---|---|---|---|---|
-| EVOL-001 | PASS (`4fcbf684`+`98d16b94`) | PASS (живой рендер Playwright) | APPROVED | не задеплоено |
-| EVOL-002 | PASS (`98d16b94`) | PASS | APPROVED | не задеплоено |
-| EVOL-003 | PASS (`98d16b94`) | PASS (focus trap в review-fix) | APPROVED | не задеплоено |
-| EVOL-004 | PASS (`98d16b94`) | PASS | APPROVED | не задеплоено |
-| EVOL-005 | PASS (`98d16b94`) | PASS | APPROVED | не задеплоено |
-| EVOL-006 | PASS (`4fcbf684`+`98d16b94`) | n/a (промпт/данные) | APPROVED | не задеплоено |
-| EVOL-007 | PASS (`3d52e487`) | n/a (виджет закрыт в 001..005) | APPROVED | не задеплоено |
-| EVOL-008 | PASS (`3d52e487`) | n/a | APPROVED | не задеплоено |
-| EVOL-009 | PASS (`a02aca0c`) | n/a (данные, не экран) | APPROVED | не задеплоено |
-| EVOL-010 | PASS (`0e853f7f`) | n/a | APPROVED | не задеплоено; live-проверка после релиза |
-| EVOL-011 | PASS (`dc1fdba6`) | n/a | APPROVED | не задеплоено |
-| EVOL-012 | PASS (`44437903`+`c7851980`) | n/a | APPROVED | не задеплоено |
-| EVOL-013 | PASS (`dc1fdba6`) | n/a | APPROVED | не задеплоено |
-| EVOL-014 | PASS (`9eeb3532`+`a02aca0c`) | **PENDING REVIEW** (`18baa36b`) | backend APPROVED, UI в процессе | не задеплоено |
-| EVOL-015 | PASS (`e7443fad`) | n/a | APPROVED | не задеплоено |
-| EVOL-016 | PASS (`44437903`+`011fe8ff`+`c7851980`) | n/a | APPROVED | не задеплоено |
-| EVOL-017 | PASS (`be5ad652`) | PASS (`be5ad652`) | APPROVED | не задеплоено |
-| EVOL-018 | PASS (док-контракт `95b8d275`+`c7851980`) | n/a | APPROVED | не задеплоено |
-| EVOL-019 | PASS (`4fcbf684`) | **PENDING REVIEW** (`18baa36b`) | backend APPROVED, UI в процессе | не задеплоено |
-| EVOL-020 | PASS (`98d16b94`; F1/F2 в `18baa36b`) | **PENDING REVIEW** (`18baa36b`) | backend APPROVED, UI в процессе | не задеплоено |
-| EVOL-021 | PASS (`4fcbf684`) | **PENDING REVIEW** (`18baa36b`) | backend APPROVED, UI в процессе | не задеплоено |
-| EVOL-022 | n/a (фундамент) | PASS (слой токенов, `33a14034`) | APPROVED | не задеплоено |
-| EVOL-031 | PASS (`28d55bd1`…`7492d325`) | n/a (UI-карточка удалена) | APPROVED | не задеплоено; live-проверка после релиза |
-| EVOL-032 | n/a (фундамент) | PASS (`33a14034`) | APPROVED | не задеплоено |
-| EVOL-023..030 | не начато | не начато | — | — |
-| EVOL-033 | не начато | не начато — **интеграционный гейт** | — | — |
-| EVOL-034..045 | не начато | не начато | — | — |
-| EVOL-DoD | не достигнуто (нужен релиз + EVOL-033) | — | — | — |
+## Кандидат и источник
 
-Итого привязано доказательств: **24 требования** (001..022, 031, 032). Не начато: 23 требования (023..030, 033..045) + DoD.
-Дополнительно из аддендума 31.10: 3 требования в работе (`BUILDING`), 1 не начато (`PENDING`) — доказательств пока нет.
-Дополнительно из поручений 31.10: 1 требование с привязанным ревью-доказательством (`ASAP-FC-ADMISSION-01`, `PENDING` +
-`APPROVED_BEHAVIOR`), 2 в очереди без доказательств (`EVOL-SRC-READER`, `EVOL-COG-MAP`), 1 P0 corrective в работе
-(`ASAP-VISION-SYNC-01`). Итоговый знаменатель обязательных требований: **54**, из них с привязанными доказательствами — **25**.
-
-## Аддендум 31.10.2026 — четыре дельты активного эпика (OI-2026-10-31-EVOL-ADDENDUM)
-
-Источник: `plans/current_task.md` строки **911-1155** (социальный контекст §§1-3, видео §4, критический фактчек §5,
-стеклянный шов EVOL-032 §6). Разложено в карте: 145 строк (4 `required` + 125 `duplicate` + 16 `context`),
-все строки диапазона классифицированы. Новые слайсы добавлены в `slice-graph.json` (волна W5) — это дельты, а не новый эпик.
-
-| Слайс | Что закрывает | Зависит от (уже поставлено) | Статус |
-|---|---|---|---|
-| `EVOL-SOCIAL-FRAME` | SocialTurnFrameBuilder (0 LLM) из message_identity/quote_resolver/canonical_context → существующие L1/Decision/Writer; 10 сценариев §3 | `EVOL-B-QUOTE`, `EVOL-B-SMARTCACHE`, `EVOL-B-PROMPTREG`, `EVOL-B-PROMPTCONV`, `EVOL-W0-AUDIT` | `BUILDING` (реализация+тесты в рабочей копии, не закоммичено) |
-| `EVOL-VIDEO-INTENT` | единый VideoIntent, связка «просьба → отдельный репост», pending TTL, single-flight, summary ≠ download; 8 сценариев §4.5 | `EVOL-B-QUOTE`, `EVOL-W0-AUDIT` | `BUILDING` |
-| `EVOL-FACTCHECK-CRITICAL` | отдельная секция «Критический разнос» из того же checked verdict, директива в реестре версий промптов, настройка в модуле «Фактчек», семантический guard; 8 кейсов §5.4 | `EVOL-B-PROMPTREG`, `EVOL-B-PROMPTCONV`, `EVOL-W0-AUDIT` | `BUILDING` (реализация закоммичена `d036707a`, независимого вердикта ревью в карте нет) |
-| `EVOL-GLASS-SEAM` | первопричина прямого шва в общем стеклянном слое + before/after в движении (normal/alert, desktop/mobile), внутри приёмки EVOL-032 | `EVOL-UI-HEALTHGLASS` | `PENDING` (не начато) |
-
-Рёбра графа: все четыре добавлены в `EVOL-RELEASE.depends_on`; `EVOL-GLASS-SEAM` дополнительно в `EVOL-UI-FULLDOD.depends_on`
-(финальный UI-DoD обязан включать устранение шва). Доказательств (`evidence[]`) у новых требований нет — коммита кандидата ещё нет,
-поэтому `BUILDING`/`PENDING`, без `VERIFIED` и без `review_verdict`.
-Оговорка по §5.3: UI-часть настройки живёт в `web/app.js` — этот файл остаётся за UI-цепочкой, отдельного параллельного писателя нет
-(зафиксировано в `depends_note` узла).
-
-## Поручения 31.10.2026 — SRC/COG в очереди, ASAP-FC-ADMISSION-01 принят по поведению
-
-Два отдельных более поздних поручения владельца, не входящих в аддендум 911-1155. Обе записи зарегистрированы в
-`plans/progress_scope.json` как `OI-2026-10-31-EVOL-SRC-COG` и `OI-2026-10-31-ASAP-FC-ADMISSION` (обе `reconciled: false` —
-глобальный индекс обновляет Orchestrator; здесь только карта/граф/снимок).
-
-| Слайс (req_id) | Строки источника | Что закрывает | Зависит от (уже поставлено) | Волна | Статус |
-|---|---|---|---|---|---|
-| `EVOL-SRC-READER` | 1158-1235 (§1) | Source Code Reader: discovery → locator → verified fetch → bounded follow-up → Evidence Contract, безопасность (§1.2), поведение при неоднозначности (§1.3), правила доказательности §1.4, 7 конечных сценариев §1.5 | `EVOL-W0-AUDIT`, `EVOL-B-QUOTE`, `EVOL-B-TELEMETRY`, `EVOL-B-PROMPTREG`, `EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT` | W6 | `PENDING` (конец очереди) |
-| `EVOL-COG-MAP` | 1238-1348 (§2) | Когнитивная карта вместо «Графа связей»: адаптер данных §2.3, визуальная система §2.4, легенда/LOD §2.4, drilldown к источнику §2.5, паритет старого графа §2.6, mobile-first embedded+fullscreen §2.7, производительность §2.8, проверки §2.9; `/api/memory/graph` и `/api/memory/stats` сохраняются | `EVOL-UI-FULLDOD`, `EVOL-UI-HEALTHGLASS` (EVOL-032), `EVOL-UI-STORIES` (EVOL-021), `EVOL-UI-DESIGN` (EVOL-022), `EVOL-B-EXP`, `EVOL-B-FACTS`, `EVOL-B-MEMCYCLES`, `EVOL-B-TELEMETRY`, `EVOL-SRC-READER` | W7 | `PENDING` (конец очереди) |
-| `ASAP-FC-ADMISSION-01` | 1363-1426 (§1-§5) | Механизм допуска фактчека (явное намерение важнее «ерундовости», три различаемых исхода, §2) + cooldown после ложного отказа (§3 этапы A-E), 8 детерминированных сценариев §5 | `EVOL-W0-AUDIT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-B-QUOTE`, `EVOL-B-PROMPTREG`, `EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT` | W5-ADMISSION | `PENDING` + `review_verdict=APPROVED_BEHAVIOR` на `432c7593` (18 тестов, 8/8 сценариев); правка телеметрии в полёте |
-
-Порядок по указанию владельца: **ASAP-FC-ADMISSION-01** берётся сразу после завершения фактических правок фактчека и Reviewer-приёмки
-`EVOL-FACTCHECK-CRITICAL` (не параллельно, без повторного большого аудита). **EVOL-SRC-READER** и **EVOL-COG-MAP** — строго в конец
-очереди, после текущих UI-волн; оба добавлены в `EVOL-RELEASE.depends_on`, чтобы релиз не опережал поручение. У `EVOL-SRC-READER`/`EVOL-COG-MAP`
-доказательств нет (`PENDING`). У `ASAP-FC-ADMISSION-01` доказательства привязаны к кандидату `432c7593`, но статус остаётся `PENDING`:
-`VERIFIED` не выставляется до деплоя.
-
-Классификация строк 1158-1430: **124** записи (88 `required` + 23 `duplicate` + 13 `context`); непокрытых строк нет.
-Прозаические абзацы (1225, 1242/1244/1246/1248, 1302, 1339-1347, 1395/1397/1399/1401/1403, 1360) не входят в построчный инвентарь
-гейта, поэтому их обязательства закреплены в `acceptance` соответствующих req и в `reason` ближайших строк — проверять их нужно по
-тексту acceptance, а не по числу строк.
-
-## ASAP-FC-ADMISSION-01 — поведение принято, телеметрия в полёте, деплоя нет
-
-Кандидат: **`432c7593`** (ветка `evol/impl`, база `14b67272`). Отчёт: `plans/features/evol/audit/w7-fc-admission.md`
-(23 КБ), тесты `tests/test_evol_fc_admission.py`.
-
-| Что проверено | Результат |
+| Параметр | Значение |
 |---|---|
-| 8 детерминированных сценариев §5 | 8/8 PASS, 18 тестов, все офлайновые (LLM/сеть/Telegram не вызываются) |
-| Регрессия | `-k factcheck` 582 passed; широкий срез 2209 passed / 3 failed — те же 3 падения воспроизводятся на базовом `14b67272`; импорт-зависимые 1388 passed |
-| Независимое ревью | `review_verdict = APPROVED_BEHAVIOR`: поведение принято; открыта только небольшая правка телеметрии допуска, кандидат тот же |
-| Первопричина | не фразы и не «плохой» текст, а семантика допуска: узкий `_has_predicate` + отсутствие учёта явного запроса; второй дефект — cooldown ставился до разрешения цели |
-| Живой Telegram | не использовался (DoD запрещает живые публикации) — остаточная проверка идёт по новой телеметрии `[factcheck_admission]` после релиза |
+| `candidate_commit` = `deployed_commit` | `273be95c8ff4f70e08dceef1daccbdd3082fc909` (DEPLOY_SOURCE, он же release-бамп 2.58.142→2.58.143) |
+| Ревью-кандидаты слайсов | исторические (`432c7593`, `4fcbf684`, `98d16b94`, `a02aca0c`, `3d52e487`, `18baa36b` …) — сохранены в `evidence[].candidate_commit` как история приёмки |
+| `source_path` | `plans/current_task.md` — принадлежит владельцу, **git-ignored и в worktree отсутствует**; читается из `C:\Code\Python\adminbot` |
+| `source_sha256` | `04cbfe32cf0e3abd61aff3aafb27f9a5aa5e505638b6976df23b961ed0d6e330` (**2004 строки**, на 01.11.2026) |
+| Предыдущий снимок источника | `7e7f0b49…` (1614 строк) — владелец дописал 1615-2004, дельта размечена в этом проходе |
 
-В карте обновлены 25 строк (20 `required` + 5 `duplicate`): у всех `review_verdict=APPROVED_BEHAVIOR`, `review_candidate=432c7593`,
-у 20 обязательных привязаны доказательства (`evidence[]`: отчёт `artifact_sha256`, файл тестов `artifact_sha256`, `candidate_commit`).
-`status` сознательно остаётся `PENDING`: `VERIFIED` выставляется после деплоя этого кандидата. Пути `write_scope` в `slice-graph.json`
-исправлены на фактические (`tests/test_evol_fc_admission.py`, `plans/features/evol/audit/w7-fc-admission.md`); ранее там были
-несуществующие `tests/test_evol_factcheck_admission.py` и `audit/w5-factcheck-admission.md`.
+Источник вырос на 390 строк **после** сборки карты: добавлены `ASAP-FC-EVIDENCE-STYLE-02` (1617-1748) и `ASAP-UI-02` (1751-2004).
+Обе секции размечены сейчас (92 + 168 строк инвентаря и 8 + 12 прозаических обязательств, записи `delta_addenda`), иначе план-гейт
+показывал 217 «source item not mapped».
 
-## ASAP-VISION-SYNC-01 — P0 corrective, волна W8, в работе
+## Что задеплоено и чем это доказано
 
-Источник: `plans/current_task.md` строки **1433-1614** (поручение `OI-2026-10-31-ASAP-VISION-SYNC`), зарегистрировано после того,
-как карта была построена, поэтому sha источника и инвентарь пересобраны в этом проходе.
+| Группа | Кол-во строк | Доказательство | Статус |
+|---|---|---|---|
+| EVOL-001…022, 031, 032 | 24 | `w4-evol001-005`, `w4-evol006`, `w4-evol019-021`, `w1-evol010/011-013/015/031`, `w2a/2b/2c`, `w3-ui-foundation` + ревью-вердикты `APPROVED` | 22 VERIFIED, 010/031 READY_FOR_LIVE |
+| EVOL-023, 024 (навигация/топбар/чистка) | 2 | `w7-nav-cleanup`, `cf628f97`, review-fix `31a8f2ed` (ghost-⛶, Esc→trigger, 114 ячеек) | VERIFIED |
+| EVOL-025 (адаптивность) | 1 | `w9-responsive`, `0316d62b`, review-fix `1e0ad895` (heatmap/TMA/touch) | VERIFIED |
+| EVOL-026…030 (разделы) | 5 | `w10-sections`, `d7eef0f9`, review-fix `1e0ad895`, `db890035` (модалка записи), `test_webapp_evol_w10_sections.py` | VERIFIED |
+| EVOL-GLASS-SEAM (§6 EVOL-032) | 1 | `w6-glass-seam`, `3a0f89d2` (feImage subregion −6%/112%), sharpness 2.81→0.61 | VERIFIED |
+| EVOL-SOCIAL-FRAME | 1 | `w5-social`, `0d36b235` (0-LLM frame, 15 тестов/10 сценариев) | VERIFIED |
+| EVOL-VIDEO-INTENT | 1 | `w5-video`, `9dc6fba9` + review-fix `14b67272`/`fcdc69a8` | VERIFIED |
+| EVOL-FACTCHECK-CRITICAL | 1 | `w5-factcheck`, `d036707a` + review blockers `3f62150f` (PG-директива, каталог, пины) | VERIFIED |
+| ASAP-FC-ADMISSION-01 | 20 | `w7-fc-admission`, `432c7593`, review-fix `d561d68a` (cooldown_outcome) | VERIFIED |
+| ASAP-VISION-SYNC-01 (89 из 93) | 89 | `w8-vision-sync-core`, `w8-vision-sync-wave2`, review-fix/wave2 `390cacaf`, `b6403881`, `ca15a2f6`, `e9cbd050`, `8d68960d`, `7131897b`, `a4be717c` | VERIFIED |
+| ASAP-FC-EVIDENCE-STYLE-02 (§1-§5, §7-§9) | 7 `req` | `w10-fc-evidence-style`, `303e18e8`, review-fix `2033a2c0`, review-fix2 `54f44f05` (24 теста, 12/12 сценариев) | VERIFIED |
+| ASAP-UI-02 (навигация/топбар/иконки, карточки, ленты, порядок, health) | 14 `req` | `asap-ui-02-matrix.md` (59 пунктов), `64204306`, review-fix `30f9920f`/`a6d28750`, `test_webapp_evol_w7_nav.py` (30), `test_webapp_evol_w9_responsive.py` (31), 114 + 152 ячейки без дефектов | VERIFIED |
 
-| Слайс (req_id) | Строки | Что закрывает | Зависит от | Волна | Статус |
-|---|---|---|---|---|---|
-| `ASAP-VISION-SYNC-01` | 1433-1614 | MediaReadinessBarrier/`prepare_media_evidence` поверх существующих `mca_vision`/`recognize_target`/`render_media_context_async`/`chat_context`/durable jobs; разрешение целевого изображения (own_caption/reply/quote/adjacent/album/ожидающее намерение, `ambiguous` вместо случайного фото); стадийная синхронизация L1/FactCheck/Writer и актуальная ревизия перед отправкой; одна логика допуска с `ASAP-FC-ADMISSION-01`; выходной контракт Vision без магического `max_tokens=1024`; end-to-end «Проверить» и цепочка телеметрии; 20 сценариев §8 | `EVOL-W0-AUDIT`, `EVOL-B-VISION-ADAPT`, `EVOL-B-TELEMETRY`, `EVOL-B-QUOTE`, `EVOL-B-SMARTCACHE`, `EVOL-SOCIAL-FRAME`, `EVOL-VIDEO-INTENT`, `EVOL-FACTCHECK-CRITICAL`, `EVOL-SRC-READER`, `ASAP-FC-ADMISSION-01`, `EVOL-UI-VISION-CHECK` | W8 | `BUILDING` (ядро Vision и консьюмеры в работе в отдельном лейне; в карте `PENDING`, доказательств нет) |
+Итог: **57 из 89** `req_id` закрыты и задеплоены (301 обязательная строка).
 
-Классификация строк 1433-1614: **125** записей — 86 строк построчного инвентаря гейта (`items`) + 39 прозаических абзацев
-(`additional_requirements`, id вида `ASAP-VISION-MAN-<строка>`), итого 93 `required` + 14 `duplicate` + 18 `context`; непокрытых
-строк нет. Обязательства размечены групповой меткой `group`: `INVARIANT` (7), `CONTRACT` (9), `ASSOC` (11), `PENDING-INTENT` (1),
-`SYNC` (10), `FC-GATE` (9), `DURABLE` (2), `OUTPUT` (10), `ADMIN` (4), `BOUNDS` (7), `ACCEPT20` (22), `DOD` (1).
+## Что осталось открытым (138 обязательных строк, все — «не VERIFIED»)
 
-Границы, зафиксированные в графе:
-- `web/index.html`, `web/app.js`, `web/static/app.css` и `web/api/vision_check.py` **не** входят в `write_scope` этого слайса: это
-  деливераблы UI-волны (`EVOL-UI-VISION-CHECK`), поэтому группа `ADMIN` сдаётся совместно — слайс поставляет backend-контракт, стадии
-  диагностики и телеметрию, UI-часть кнопки «Проверить» и индикаторов стадий реализует тот же единственный UI-писатель; второго
-  параллельного UI-писателя нет.
-- `handlers/youtube.py` (видео-лейн) не трогать; карта и граф правились только чтением кода.
-- Ребро `ASAP-FC-ADMISSION-01` — это требование «одна логика допуска», а не второй приватный фильтр и не вторые правила cooldown.
-- Релиз не может опережать corrective: `ASAP-VISION-SYNC-01` добавлен в `EVOL-RELEASE.depends_on` (17 зависимостей).
+| Группа | Строк | Статус | Причина / где доказательство пробела |
+|---|---|---|---|
+| EVOL-SRC-READER | 27 | PENDING | конец очереди владельца, не начато |
+| EVOL-COG-MAP | 41 | PENDING | конец очереди владельца, не начато (блокирует и `ASAP-UI-02-14`) |
+| EVOL-033 | 1 | PENDING | интеграционный UI-гейт, не начат |
+| EVOL-034…045 | 12 | PENDING | не начато (`037` — глобальный поиск, из-за него `ASAP-UI-02-03S/15` не закрыты) |
+| EVOL-DoD | 1 | PENDING | требует закрытия EVOL-033 + релиза всего эпика |
+| EVOL-010, EVOL-031 | 2 | READY_FOR_LIVE | код в проде; acceptance требует postdeploy-поведения (индексация/backfill; отсутствие replay-пути Smart Cache) — нужна одна агентская проверка на проде, участия владельца не требуется |
+| ASAP-VISION-SYNC-ADMIN-01 | 4 | PENDING | стадийная кнопка «Проверить» не подключена к `services/media_readiness.run_admin_check` (в `web/api/routes.py` и `web/app.js` ссылок нет) — UI-часть отложена в UI-лейн (`w8-vision-sync-wave2` §8.1) |
+| ASAP-FC-ES-TELEMETRY | 1 | PENDING | серверные счётчики `claim_coverage`/`claims_*` есть, UI-итога охвата проверки в web нет |
+| ASAP-UI-02-11 | 3 | **BUILDING** | перегруппировка лент в один 4-секционный виджет идёт в worktree **незакоммиченной** (`web/index.html`, `web/app.js`, `web/static/app.css`, новый `tests/js/asap_ui02_status_ribbons_test.js`, F11-пины); в 2.58.143 этого нет; карта взамен «Графа связей» — за EVOL-COG |
+| ASAP-UI-02-18 / -DOD | 18 | PENDING | 17-сценарный контракт: 12 PASS, №10 заблокирован разбиением лент, №11/№14 MISSING (COG, 037), №6/8/12/13/17 частичные |
+| ASAP-UI-02-08 / -14 / -15 | 22 | PENDING | единый modal/sheet + слои overlay (z-index 40/35 против `--overlay-z: 50`); когнитивная карта (COG); глобальный поиск (037) |
+| ASAP-UI-02-03S / -06N / -09S / -12W / -16T / -17B | 6 | PENDING | точка поиска в «⋯» без самого поиска; локальные плотности `app.css:1403/1469/4194/4549`; select/combobox; контрактный токен `warning`; сквозной motion-токен; per-layer Back-stack |
 
-## Гейт плана
+## ASAP-UI-02 — покомпонентный статус (из `audit/asap-ui-02-matrix.md`)
 
-`py C:\Users\main\.config\opencode\tools\requirements_gate.py check --map <worktree>\plans\features\evol\requirements-map.json --stage plan --repo C:\Code\Python\adminbot`
-→ **EXIT 0**, `stage=plan inventory=616 manual=318 scoped=0 errors=0`.
-Запускать **из корня основного репозитория** (`C:\Code\Python\adminbot`): `plans/current_task.md` в `.gitignore` и в worktree отсутствует,
-иначе гейт даёт `source not present` и лавину ложных «gone or edited». Карта живёт в worktree, поэтому `--map` указывает на неё, а CWD —
-корень основного репозитория (иначе `source_path` не разрешается).
+| `req_id` (срез) | Статус | Что фактически проверено |
+|---|---|---|
+| `-00` матрица состояний | VERIFIED | 59 пунктов: 46 DONE, 9 PARTIAL, 1 MISSING, 2 CONFLICTS, 1 N/A |
+| `-01` отменённые альтернативы | VERIFIED | нижнего навбара и рейла нет, `mobile-topnav` удалён, логотип убран, второй шапки нет |
+| `-02` структура навигации §2.1 | VERIFIED | drawer <1200 / sidebar ≥1200, 114 ячеек без второго навбара, раздел и scope не теряются |
+| `-03` топбар §2.2 | VERIFIED | `title_once` = 1 на 4 маршрутах × 320/390, бейдж роли виден, имя чата с ellipsis + полный `title` |
+| `-03S` точка входа второстепенных действий | PENDING | «⋯» и ghost-⛶ есть, application-wide поиска нет (037) |
+| `-04` иконки §2.3 | VERIFIED | `[data-more-trigger]` троеточие, `[data-drawer-trigger]` menu-глиф 20px, hit 44×44, «⋯» только служебное |
+| `-05` прокрутка/Telegram §2.4 | VERIFIED | нет hide-on-scroll, одна строка на 667×375, focus-trap 10 Tab, `--kb-offset` |
+| `-06` визуальная система §3 | VERIFIED | один набор токенов, одна hairline, glass/polygon/refraction zero diff, контраст и disabled/loading |
+| `-06N` одна роль = один компонент | PENDING | остаточные локальные плотности в `app.css` |
+| `-07` карточки §4.1 | VERIFIED | system/record card, `openStatusRecord()` по `record_id`, диагностика по адресу сущности |
+| `-08` единый детальный просмотр §4.2 | PENDING | модалка записи сведена (`db890035`), но z-index/portal/focus/backdrop частичны |
+| `-09` / `-09S` контролы §4.3 | VERIFIED / PENDING | toggle с master/pending/revert, per-chat override, редактор промптов; select/combobox не сведён |
+| `-10` разделы §5 (Аналитика/Модули/ИИ/Память/Доступы) | VERIFIED | `d7eef0f9`, `1e0ad895`, 35 тестов `test_webapp_evol_w10_sections.py` |
+| `-11` канонический Статус (карта + 4 ленты) | BUILDING | незакоммиченная перегруппировка лент + legacy vis-network карта |
+| `-12` / `-12W` health-семантика §6 | VERIFIED / PENDING | пять состояний, `unknown/disabled` нейтральны; контрактного `warning`-токена нет |
+| `-13` ленты §7 | VERIFIED | субпиксельный движок, пауза/возобновление с текущей позиции, reduced-motion |
+| `-14` когнитивная карта §8 | PENDING | NOT_APPLICABLE до EVOL-COG |
+| `-15` глобальный поиск §9 | PENDING | MISSING до EVOL-037 |
+| `-16` / `-16T` motion/прогресс §10 | VERIFIED / PENDING | реальные величины вместо 100%, reduced-motion; сквозного motion-токена нет |
+| `-17` / `-17B` §11 | VERIFIED / PENDING | 152 ячейки (hScroll/offscreen/clipped = 0), zoom 200%; per-layer Back частичен |
+| `-18` 17 сценариев §12 | PENDING | 12 PASS, 2 MISSING, 3 частичных, 1 заблокирован |
+| `-DOD` | PENDING | зависит от `-11`, `-14`, `-15`, `-18` |
 
-Состав ошибок сейчас — **0**. Ранее падавшие 124 ошибки `source item not mapped` для строк **1166-1428** закрыты проходом SRC/COG+ASAP-FC.
-В этом проходе sha источника пересобран под добавление владельца (1614 строк): ранее `source_sha256` соответствовал снимку 1430 строк,
-из-за чего ревью-гейт падал с `authoritative source changed` + ~124 `source item not mapped` на 1433-1614. Сейчас расхождений sha — **0**,
-непокрытых строк — **0**, ошибок графа (циклы, пересечение `write_scope`, отсутствующие узлы) — **0**.
+## Гейты
 
-Ревью-гейт по принятому поведению фактчека:
-`check --stage review --slice ASAP-FC-ADMISSION-01 --candidate 432c7593 --repo C:\Code\Python\adminbot`
-→ `stage=review inventory=616 manual=318 scoped=20 errors=20`. Все 20 ошибок — **только** `mandatory not ['VERIFIED'] (got PENDING)`,
-то есть честное следствие правила «нет `VERIFIED` до деплоя»; кандидат совпал с `candidate_commit` карты, ни одного
-`evidence missing` / `no evidence bound to reviewed candidate` нет. Зелёным этот гейт станет после деплоя `432c7593` (или кандидата
-с телеметрической правкой) и перевода строк в `VERIFIED`.
+**План-гейт (из корня основного репозитория):**
+`py <OPENCODE_CONFIG>\tools\requirements_gate.py check --map <worktree>\plans\features\evol\requirements-map.json --stage plan --repo C:\Code\Python\adminbot`
+→ **EXIT 0**, `stage=plan inventory=832 manual=343 scoped=0 errors=0`.
+Граф: 49 узлов, циклов нет; два новых узла (`ASAP-FC-EVIDENCE-STYLE-02`, `ASAP-UI-02`) добавлены с зависимостями от уже
+существующих слайсов и включены в `EVOL-RELEASE.depends_on`; для `ASAP-UI-02` `write_scope` намеренно ограничен матрицей
+(`actual_write_scope` перечисляет реально изменённые `web/**` и тесты, которые принадлежат EVOL-UI-NAV/CLEANUP/RESPONSIVE/
+SECTIONS-MOVE/HEALTHGLASS — второй независимый писатель не объявлен).
 
-## Что дальше
+**Релиз-гейт (полный эпик):**
+`check --stage release --candidate 273be95c8ff4… --deployed-commit 273be95c8ff4… --repo C:\Code\Python\adminbot`
+→ **EXIT 1**, `stage=release inventory=832 manual=343 scoped=439 errors=138`.
+Состав ошибок — **однородный**: 133 × `mandatory not ['VERIFIED'] (got PENDING)`, 3 × `(got BUILDING)`, 2 × `(got READY_FOR_LIVE)`.
+Ни одной ошибки инвентаря, sha источника, кандидата, `deployed_commit`, графа, отсутствующих артефактов или live-доказательств.
+То есть гейт красный **ровно на незакрытом объёме эпика**, а не на бухгалтерии.
 
-1. Orchestrator: перенести обновлённую карту в ветку `evol/impl` (в `master` каталог `plans/features/evol/` сейчас **untracked**, правка живёт только в рабочей копии).
-2. Orchestrator: выставить `reconciled: true` для `OI-2026-10-31-EVOL-SRC-COG`, `OI-2026-10-31-ASAP-FC-ADMISSION` и
-   `OI-2026-10-31-ASAP-VISION-SYNC` в `plans/progress_scope.json` (карта/граф/снимок покрывают все три; непокрытых строк нет,
-   план-гейт EXIT 0) и учесть в знаменателе прогресса 54 обязательных требования.
-3. ASAP-FC-ADMISSION-01: принять телеметрическую правку в тот же кандидат, выполнить релиз и только потом перевести 20 строк в `VERIFIED`
-   (ревью-гейт станет зелёным). Живой Telegram не требуется.
-4. ASAP-VISION-SYNC-01 (W8): довести ядро (barrier/resolver + консьюмеры + output contract Vision + админ-проверка), прогнать 20 сценариев §8
-   и релевантные регрессии, затем независимое ревью; UI-часть согласуется с писателем `EVOL-UI-VISION-CHECK`.
-5. Ревью `18baa36b` → снять `ui_review: pending` у 014/019/020/021 и привязать UI-доказательства.
-6. Затем EVOL-033 как интеграционный гейт, после него — релиз и `VERIFIED` (для 010/031 плюс live-проверка на проде).
-7. Порядок очереди после текущих волн: `ASAP-FC-ADMISSION-01` (релиз принятого поведения) → `ASAP-VISION-SYNC-01` (W8) → `EVOL-SRC-READER` (W6) →
-   `EVOL-COG-MAP` (W7) → `EVOL-RELEASE`. Параллельно эти слайсы с текущими писателями не запускать: у SRC/COG пересечение по `handlers/**`,
-   `web/**`, у ASAP-FC — по `services/factcheck_*`, у VISION — по `services/mca_vision.py`, `handlers/**`, `services/direct_chat_service.py`,
-   `web/api/vision_check.py`.
+**Слотовый (scoped) релиз сейчас не зелёный ни для одного слайса:** замыкание зависимостей UI-цепочки указывает на ещё открытые
+`EVOL-UI-CONTROLS/KEYBOARD/MOTION` и `EVOL-034…045`, поэтому `--slice EVOL-UI-STATUS-WIDGETS` даёт 5 ошибок вида
+«required dependency … is not evidenced VERIFIED» + `EVOL-W0-AUDIT: no mandatory rows`. Фактический выкат был полным
+кандидатом ветки, поэтому доказанность берётся из полного релиз-гейта, а не из слотового.
 
+## Честные оговорки
+
+1. **Нет файла вердикта ревью.** Независимая приёмка зафиксирована коммитами `review-fix`/`review blockers` ветки `evol/impl`
+   и handoff'ом оркестратора; отдельного артефакта-вердикта в репозитории не существует — это записано в `evidence_convention`,
+   а не заменено ссылкой на выдуманный файл. Для 014/019/020/021 UI-часть закрывалась волнами 023-030, отдельного вердикта по
+   `18baa36b` в репозитории нет.
+2. **`master` (3193b657) не содержит релизных коммитов** `2e48bfed`/`273be95c`: DEPLOY_SOURCE жил на `release/2.58.143` = `evol/impl`.
+   Слияние релиза в `master` — отдельное действие оркестратора; на доказанность выката не влияет, но должно быть выполнено.
+3. **Worktree грязный не по моей вине:** незакоммичены `web/app.js`, `web/index.html`, `web/static/app.css`,
+   `tests/js/evol032_health_glass_test.js`, `tests/js/round1025_f11_status_grid_test.js`, `tests/test_evol001_005_status_widgets.py`,
+   `tests/test_webapp_f11_round1025.py` и новый `tests/js/asap_ui02_status_ribbons_test.js` — это активный лейн перегруппировки лент
+   (`ASAP-UI-02-11` = BUILDING). Ничего из этого не входит в 2.58.143.
+4. **`ASAP-FC-EVIDENCE-STYLE-02` §6** закрыт только серверно: UI-итог охвата проверки отсутствует, поэтому `ASAP-FC-ES-TELEMETRY` = PENDING.
+5. **`EVOL-010/031`** не переведены в VERIFIED: деплой подтверждает код и здоровье сервиса, но не поведение; это не Human Gate,
+   а одна агентская проверка на проде.
+6. Отчёт `deploy-2.58.143.md` создан после выката, поэтому его нет в дереве кандидата — помечено `artifact_scope`.
+7. `strict_evidence` не включался: карта legacy, а включение strict — отдельное решение с миграцией всех доказательств.
+
+## Что дальше (по приоритету)
+
+1. Orchestrator: `reconciled: true` для `OI-2026-10-31-ASAP-FC-EVIDENCE-STYLE` и `OI-2026-10-31-ASAP-UI-02` в `plans/progress_scope.json`
+   (обе секции размечены, план-гейт EXIT 0); знаменатель прогресса — 439 обязательных строк / 89 `req_id`.
+2. DevOps/Builder: одна адресная проверка прода по `EVOL-010` (индексация/backfill) и `EVOL-031` (отсутствие replay-пути) → READY_FOR_LIVE → VERIFIED.
+3. UI-лейн: довести незакоммиченную перегруппировку лент (`ASAP-UI-02-11`) и подключить стадийную кнопку «Проверить»
+   к `run_admin_check` (`ASAP-VISION-SYNC-ADMIN-01` + `EVOL-UI-VISION-CHECK`), затем `ASAP-UI-02-18`.
+4. Orchestrator: влить `release/2.58.143` в `master`, чтобы деплой-источник и основная ветка совпали.
+5. Затем очереди владельца: `EVOL-037` (поиск) и `EVOL-COG-MAP` (карта) → снимают `ASAP-UI-02-03S/14/15/18/-DOD`,
+   после них — `EVOL-SRC-READER`, `EVOL-034…045`, `EVOL-033`, `EVOL-DoD`.

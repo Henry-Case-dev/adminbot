@@ -77,7 +77,7 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 
 | item | state | evidence | minimal delta | owner |
 |---|---|---|---|---|
-| Status: health → map → **one** widget with 4 ribbons → others | **CONFLICTS_WITH_NEW_CONTRACT** | actual order: hero+health `11304/11344` → graph `11457` + sleep card `11518` (same row) → intel card with **3** ribbons `11557-11650` → budgets `12059` → heatmap `12104` → dossier `12199`; «Новые факты» is a **separate** card far below `12014-12047` | move facts ribbon into the intel widget (4 sections), place widget directly under map, move sleep card below the widget; no new components (`v-sfeed` rows reused) | UI lane (status) |
+| Status: health → map → **one** widget with 4 ribbons → others | **DONE_AND_VERIFIED** (wave 2, 01.11.2026) | markup + live: hero+health → graph (reserved EVOL-COG slot, `sg-12`) → **one** `intel-card` with four sections `facts/beliefs/paradigms/traits` («Новые факты» — 1-я секция, прежняя нижняя карточка удалена) → sleep → preview → budgets → activity → dossier; e2e `statusOrder` = `hero,health,map,intel,sleep,preview,budgets,activity,dossier` на 1280×900 и 390×844 (`tools/ui_evol_w10_sections_e2e.py`); `TestEvolStatusOrderWave2` `tests/test_webapp_evol_w10_sections.py`; shots `w10-sec-status-1280x900.png`, `w10-sec-status-390x844.png`, `w10-sec-intel-switch-390x844.png` | — (EVOL-COG заменит промежуточную карту, порядок не изменится) | — |
 | Analytics = trends/causes/history + memory stories/episodes | DONE_AND_VERIFIED | heatmap/dossier moved to Status, full memory stories to Analytics (commit `d7eef0f9`); `TestEvol030AccessAndAnalytics` `tests/test_webapp_evol_w10_sections.py:647`; shots `w10-sec-*` | — | — |
 | Modules: no KPI header, card master toggle, effective state, one path to settings | DONE_AND_VERIFIED | `index.html:5240-5349` (caption, no KPI row, `data-module-global-toggle`, effective line `moduleEffectiveLine`, single «Настроить»); evidence `w10-sec-modules-toggle-1280x900.png` | — | — |
 | AI/Speech: one editor per object, Personality merged, Core≠SelfModel | DONE_AND_VERIFIED | AI hub + `#speech-persona` deep-link, Personality moved (commit `d7eef0f9`); `TestEvol028AiHub:489`; `ui_soul1_w*_speech_e2e.py` | — | — |
@@ -88,14 +88,14 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 | item | state | evidence | minimal delta | owner |
 |---|---|---|---|---|
 | States bound to real signals, red glass, text+icon | DONE_AND_VERIFIED | `healthStateFrom()` `app.js:28206-28241`, `healthView` paints only degraded/failed `app.js:28020`; CSS `app.css:5242-5256` (bg alpha 0.5/0.85, no second blur/shadow/overlay); reason+time+label `app.js:28340-28345`; tests `tests/js/evol032_health_glass_test.js:21-46,141-157`; `w10-sec-*` red-surface shots | — | — |
-| `warning` = red, lower intensity than `failed`, distinct name | PARTIAL | no `warning` state exists; heartbeat `warning` is mapped onto `degraded` (32% `--err`, alpha .5) and `critical`→`failed` (55%) — intensity order correct (`evol032_health_glass_test.js:152-153`), but no contract-named warning token/label and degraded may also fire from other signals | add explicit `warning` state + fill token below degraded, keep single `systemHealth→glassTint`; do not recolor on log `WARN` | UI lane (glass health) |
-| unknown/disabled neutral, data cards never alarmed | DONE_AND_VERIFIED | no fill rule for `unknown`/`disabled` `evol032_health_glass_test.js:45-46`; `paints` flag limited to degraded/failed `app.js:28020` | — | — |
+| `warning` = red, lower intensity than `failed`, distinct name | **DONE_AND_VERIFIED** (wave 2, 01.11.2026) | состояние `warning` добавлено в ЕДИНУЮ карту: `HEALTH_LABEL.warning='Внимание'`, `badge-warn`, иконка `bolt`, `paints=true`; heartbeat `hbState:'warning'` → `warning` (было `degraded`), явный `health_status:'warning'` → `warning`; токены `--health-fill-warning` = 18% `--err` rgba(60,43,56,.5) < `degraded` 32% < `failed` 55%, alpha 0.5/0.85 как у материала, меняется только `background-color`; одиночный `WARN` в журнале остаётся `unknown` (`healthWarnOnly`); живые computed-цвета rgb(60,43,56) / rgb(91,55,67) / rgb(141,74,85), `backdrop-filter: blur(5px) saturate(1.4)` не изменён (`w10-sec-health-tint-1280x900.png`); тесты `tests/js/evol032_health_glass_test.js`, `TestEvolStatusOrderWave2::test_warning_state_is_its_own_tint` | — | — |
+| unknown/disabled neutral, data cards never alarmed | DONE_AND_VERIFIED | правил заливки для `normal`/`unknown`/`disabled` нет (`evol032_health_glass_test.js`), `paints` = warning|degraded|failed `app.js`; живой замер: base = `rgba(21, 27, 42, 0.5)` для normal/unknown/disabled | — | — |
 
 ## 9. Ribbons §7
 
 | item | state | evidence | minimal delta | owner |
 |---|---|---|---|---|
-| Same compact-row grammar, dates, detail opening | DONE_AND_VERIFIED | `.sfeed-item` shared classes `index.html:11578-11650`, `12034-12046`; `statusRowDateLabel`/`statusRowTitle` | — | — |
+| Same compact-row grammar, dates, detail opening | DONE_AND_VERIFIED | `.sfeed-item` — одна грамматика у ВСЕХ четырёх секций единого виджета (wave 2: факты внутри, `facts-list ribbon-viewport sfeed-viewport` + `.ribbon-track.sfeed-track`); `statusRowDateLabel`/`statusRowTitle`; проверки `tests/test_evol001_005_status_widgets.py` (`TestRealMarkupRowGeometry`) | — | — |
 | Smooth continuous motion, not row-step scroll | DONE_AND_VERIFIED | sub-pixel engine `app.js:28359-28431` (`state.y` fraction, `scrollTop` quantized write), single `DEFAULTS` token (`speedPxS 16`, `resumeMs 2600`, `endHoldMs 1600`, `rewindMs 900`, `startHoldMs 600`) `app.js:28360-28366`; no per-frame data/LLM fetch (`loadDossierFeed` on interval only `app.js:10299-10310`) | — | — |
 | Pause on wheel/touch/drag/key/selection, both directions, resume from current position | DONE_AND_VERIFIED | listeners `app.js:28493-28548`, `pauseManual()` keeps live `scrollTop` `app.js:28682-28699`, `hasSelectionInside` | — | — |
 | Modal keeps ribbon paused, then resumes | DONE_AND_VERIFIED | `v-sfeed="statusRecordOpen"` on all four viewports (`index.html:11570,11595,11628,12031`), `setModal` `app.js:28701-28707` | — | — |
@@ -139,10 +139,10 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 | 7 | overlay at edges not clipped, focus returns | `w7-nav-case-320x700/z1`, `w7-nav-case-1280x800-*`, `w7-nav-live-scope-panel-focus-1280.png`, `w7-nav-inventory.json` | PASS |
 | 8 | common controls on 3 unrelated screens | `tests/js/cfg04_forms_contract_test.js`, `tests/js/asap42_step2c2_layout_test.js`, `tests/test_webapp_evol_w10_sections.py` | PASS (unit/contract level) |
 | 9 | module global toggle real state + revert | `TestEvol027Catalog`, `evidence/w10-sec-modules-toggle-1280x900.png` | PASS |
-| 10 | four ribbons in one block, autoscroll/pause/resume | `tests/js/evol001_005_widgets_test.js` (engine), but layout is 3+1 blocks | **blocked by §5 grouping** |
+| 10 | four ribbons in one block, autoscroll/pause/resume | один виджет, четыре секции (wave 2): `tests/js/evol001_005_widgets_test.js` (движок) + `tests/js/asap_ui02_status_ribbons_test.js` (переключение сохраняет данные и позицию) + live `w10-sec-intel-switch-390x844.png` | **закрыто** |
 | 11 | embedded map swipe scrolls page, «Исследовать» mode | no assertion; legacy vis-network card only | MISSING (EVOL-COG) |
 | 12 | fullscreen map, LOD, camera restore | `tools/ui_asap8_w2_fullscreen_e2e.py`, `w7-nav-live-fs-ghost-*` | PARTIAL (legacy graph) |
-| 13 | health tint 5 states, red glass optics in motion | `tests/js/evol032_health_glass_test.js`, `tools/ui_win_glass_refraction_e2e.py` | PASS except explicit `warning` |
+| 13 | health tint 5 states, red glass optics in motion | `tests/js/evol032_health_glass_test.js` (карта состояний + порядок интенсивности), живые computed-цвета normal/warning/degraded/failed/unknown/disabled на реальной поверхности «Бот» (`w10-sec-health-tint-1280x900.png`), оптика не тронута (`tools/ui_win_glass_refraction_e2e.py`) | **закрыто (warning добавлен)** |
 | 14 | search + deep link, RBAC, return restores draft | deep-links tested per screen; **no global search** | MISSING (EVOL-037) |
 | 15 | keyboard/zoom 200%, Save/Close reachable, no overflow | `w9-responsive-zoom200-390x844.png`, `w9-responsive-zoom200-1280x800.png`, `w9-nav-case-320x700-z2` | PASS |
 | 16 | per-screen routes not back to old controls | `tools/ui_evol_w10_sections_e2e.py` (6 routes × 1280/390), `w10-sec-*` | PASS |
@@ -152,14 +152,15 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 
 - Satisfied, do not rebuild: EVOL-022 (glass tokens/components), EVOL-023 (desktop sidebar + collapse + ghost fullscreen), EVOL-024 (topbar overlay/overflow/focus), driver of EVOL-026–030 (section split, modules master toggle, AI/speech editors, memory/access catalogs), EVOL-032 (health→glass tint), EVOL-001–005 (ribbons controller).
 - **Уже заменено этой волной (31.10.2026):** EVOL-025 bottom sections panel (`mobile-topnav` + ландшафтный рейл) → единый drawer; W2-SHELL `sidebar-brand`/`mobile-brand` → удалено; W2-SHELL `grid_view` «Ещё» → троеточие; W2-SHELL mobile `header-user span{display:none}` → виден бейдж роли; тесты, пинившие нижнюю панель, переписаны под drawer.
-- Остаётся заменить: F11 Status layout (3+1 ribbons, sleep card between map and ribbons) → one 4-ribbon widget under map; `warning`-токен в проходе по glass-здоровью; overlay z-index по `--overlay-z`.
+- **Заменено волной 2 (01.11.2026):** F11 Status layout (3+1 ленты, карточка сна между картой и лентами) → ОДИН виджет из четырёх секций сразу под картой, сон и прочие виджеты — ниже лент; `warning`-токен добавлен в проход по glass-здоровью (18% `--err`, мягче `degraded`).
+- Остаётся заменить: overlay z-index по `--overlay-z` (отдельный проход).
 - Тесты, требовавшие отменённый дизайн, переписаны (не «откат контракта»): `asap8_w2_shell_mobile_nav_test.js`, `asap8_d1213_save_contract_test.js`, `asap42_step2c2_layout_test.js`, `cfg04_forms_contract_test.js`, `round1025_shell_breakpoints_test.js`, `round1025_hotfix4/7/9_*`, `round1025_ia_routing_test.js`, `routing_test.js`, `evol_w9_responsive_test.js`, `tests/test_webapp_evol_w7_nav.py`, `tests/test_webapp_evol_w9_responsive.py` + 12 python-файлов и live-инструменты (`ui_evol_w7_nav_e2e.py`, `ui_evol_w9_responsive_e2e.py`, `ui_round1025_matrix.py`, `ui_w4_ui_e2e.py`, `ui_speech_mobile_entry_e2e.py`, `ui_asap8_v6_d1213_e2e.py`, `ui_asap8_w2_fullscreen_e2e.py`).
 
 ## Counts
 
-Rows assessed: **59**. DONE_AND_VERIFIED **46**, PARTIAL **9**, MISSING **1** (глобальный поиск EVOL-037), CONFLICTS_WITH_NEW_CONTRACT **2** (Статус: 3+1 ленты и `warning`-семантика — отдельные проходы), NOT_APPLICABLE **1** (COG §8).
+Rows assessed: **59**. DONE_AND_VERIFIED **48**, PARTIAL **8**, MISSING **1** (глобальный поиск EVOL-037), CONFLICTS_WITH_NEW_CONTRACT **1** (сопутствующие токены layout — отдельный проход), NOT_APPLICABLE **1** (COG §8).
 Срез навигации/топбара/иконок (§1–§4 + §3): 21 строка, все DONE_AND_VERIFIED этой волной — см. раздел «Срез ASAP-UI-02 §2» ниже.
-Conflicts-by-ticket после волны: EVOL-025 ×2 → закрыто; W2-SHELL/asap8 ×3 → закрыто; F11/EVOL-026 layout ×1 и EVOL-032 (`warning`) — остаются.
+Conflicts-by-ticket после волны 2: EVOL-025 ×2 → закрыто; W2-SHELL/asap8 ×3 → закрыто; F11/EVOL-026 layout (порядок «Статуса», four-ribbon группировка) → закрыто 01.11.2026; EVOL-032 (`warning`) → закрыто 01.11.2026. Остаётся сопутствующий проход по токенам layout.
 
 ---
 
@@ -179,6 +180,6 @@ Conflicts-by-ticket после волны: EVOL-025 ×2 → закрыто; W2-S
 
 ---
 
-Итог: из 59 проверенных строк — 46 соответствуют и подтверждены кодом/тестами/живым рендером (включая весь срез навигации/топбара/иконок §1–§4), 9 частичные (деталь-стандарт, z-index-слой, select/combobox, warning-токен, контрольные локальные отступы, four-ribbon группировка, Back-стек для поиска), 1 отсутствует (глобальный поиск EVOL-037), 2 противоречат новому контракту (разорванные 4 ленты в Статусе + сопутствующие токены) и 1 не применимо (когнитивная карта ждёт EVOL-COG).
-Главные оставшиеся дельты: свести четыре ленты в один блок сразу под картой (Статус), добавить `warning`-токен в проходе по glass-здоровью, выровнять overlay z-index по `--overlay-z`, затем EVOL-037 (поиск) и EVOL-COG (карта) как отдельные очереди.
+Итог после волны 2 (01.11.2026): из 59 проверенных строк — 48 соответствуют и подтверждены кодом/тестами/живым рендером (включая срез навигации/топбара/иконок §1–§4, порядок «Статуса» §5 и `warning`-токен §6), 8 частичные (деталь-стандарт, z-index-слой, select/combobox, контрольные локальные отступы, Back-стек для поиска и сопутствующие токены), 1 отсутствует (глобальный поиск EVOL-037), 1 противоречит новому контракту (сопутствующие токены layout) и 1 не применимо (когнитивная карта ждёт EVOL-COG).
+Главные оставшиеся дельты: выровнять overlay z-index по `--overlay-z`, затем EVOL-037 (поиск) и EVOL-COG (карта, место под неё уже зарезервировано между здоровьем и четырьмя лентами) как отдельные очереди.
 Навигационная часть ASAP-UI-02 §2 закрыта: нижней панели нет, drawer один, логотип удалён, роль видна, «⋯» — троеточие, ландшафтного рейла нет.

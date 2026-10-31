@@ -2343,6 +2343,19 @@
         dossierFeedBusy: false,
         dossierFeedError: '',
         dossierFeedLoaded: false,     // EVOL-005: лента запрашивалась хотя бы раз
+        // ── ASAP-UI-02 (§5.3, wave 2): ОДНА карточка «Мониторинг интеллекта» ──
+        // Четыре секции (факты/убеждения/парадигмы/эволюция) живут в одном
+        // виджете. На телефоне видна одна секция и компактный переключатель;
+        // все четыре ленты отрисованы постоянно, поэтому данные при
+        // переключении не теряются. Позиции прокрутки — в нереактивном
+        // `_intelRibbonPos` (см. `switchStatusRibbon`).
+        statusRibbonTab: 'facts',
+        statusRibbonTabs: [
+          { id: 'facts', label: 'Факты' },
+          { id: 'beliefs', label: 'Убеждения' },
+          { id: 'paradigms', label: 'Парадигмы' },
+          { id: 'traits', label: 'Эволюция' },
+        ],
         // ── EVOL-003/004/005: запись статусного виджета в модальном окне ──
         // statusRecord — нормализованная запись ТОЙ ЖЕ сущности (тип, полный
         // текст, даты с разным смыслом, provenance). null → окно закрыто.
@@ -7171,6 +7184,67 @@
         if (!this.dossierFeedLoaded) return 'ещё не загружено';
         if (!this.dossierFeedAt) return 'время загрузки неизвестно';
         return 'данные от ' + this.fmtClock(Math.floor(this.dossierFeedAt / 1000));
+      },
+      // ═══ ASAP-UI-02 (§5.3/§7, wave 2): одна карточка, четыре секции ═══════
+      // «Обновить» единого виджета: cognition (убеждения/парадигмы/черты) и
+      // dossier_feed (факты) — два СУЩЕСТВУЮЩИХ запроса, без новых маршрутов.
+      refreshIntelWidget: function () {
+        this.loadCognition();
+        if (typeof this.loadDossierFeed === 'function') this.loadDossierFeed();
+      },
+      // Телефон: видна одна секция. Данные не перезапрашиваются (все четыре
+      // ленты отрисованы постоянно) — сохраняется и позиция прокрутки, и
+      // выбор записи; восстанавливаем позицию после перерисовки.
+      switchStatusRibbon: function (tab) {
+        var id = String(tab == null ? '' : tab);
+        var known = false;
+        var tabs = this.statusRibbonTabs || [];
+        for (var i = 0; i < tabs.length; i++) {
+          if (tabs[i] && tabs[i].id === id) { known = true; break; }
+        }
+        if (!known || this.statusRibbonTab === id) return;
+        var pos = this.captureStatusRibbonPositions(this._intelRibbonPos);
+        this._intelRibbonPos = pos;
+        this.statusRibbonTab = id;
+        var self = this;
+        if (typeof this.$nextTick === 'function') {
+          this.$nextTick(function () { self.restoreStatusRibbonPositions(pos); });
+        } else {
+          this.restoreStatusRibbonPositions(pos);
+        }
+      },
+      // Скрытая секция (`display:none`) не отдаёт clientHeight: её известная
+      // позиция сохраняется, а не перезаписывается нулём.
+      captureStatusRibbonPositions: function (prev) {
+        var out = {};
+        if (prev && typeof prev === 'object') {
+          for (var k in prev) {
+            if (Object.prototype.hasOwnProperty.call(prev, k)) out[k] = prev[k];
+          }
+        }
+        var root = this.$refs && this.$refs.intelSections;
+        if (!root || typeof root.querySelectorAll !== 'function') return out;
+        var els = root.querySelectorAll('[data-ribbon]');
+        for (var i = 0; i < els.length; i++) {
+          var name = els[i].getAttribute('data-ribbon');
+          if (!name || !els[i].clientHeight) continue;
+          out[name] = Number(els[i].scrollTop) || 0;
+        }
+        return out;
+      },
+      restoreStatusRibbonPositions: function (pos) {
+        var root = this.$refs && this.$refs.intelSections;
+        if (!root || !pos || typeof root.querySelectorAll !== 'function') return;
+        var els = root.querySelectorAll('[data-ribbon]');
+        for (var i = 0; i < els.length; i++) {
+          var name = els[i].getAttribute('data-ribbon');
+          if (!name || pos[name] == null || !els[i].clientHeight) continue;
+          try { els[i].scrollTop = pos[name]; } catch (e) { /* нет скролла */ }
+          // Пересчёт без скачка в начало: контроллер берёт текущую позицию.
+          if (els[i].__sfeed && typeof els[i].__sfeed.refresh === 'function') {
+            els[i].__sfeed.refresh();
+          }
+        }
       },
       vizHeatTzLabel: function () {
         var tz = this.vizActivity && this.vizActivity.timezone;
@@ -27948,16 +28022,22 @@
   // не парсит логи, слово error, CSS и проценты. Красный — только явный
   // вердикт подсистемы. HTTP 200, один WARN, stale, пустая выборка,
   // errors_total, чужой чат и выключенный модуль сами по себе не красят.
+  // ASAP-UI-02 (§6, wave 2): шесть состояний одной карты `systemHealth →
+  // glassTint`. `warning` — РЕАЛЬНЫЙ health-сигнал подсистемы (например,
+  // превышен порог сердцебиения): стекло уже красное, но сдержаннее, чем
+  // `degraded`/`failed`. Одиночный `WARN` в журнале состояния не создаёт
+  // (`healthWarnOnly` → unknown). Текст и иконка дублируют цвет, поэтому
+  // у `warning` своя подпись и своя иконка.
   var HEALTH_LABEL = {
-    normal: 'Норма', degraded: 'Проблема', failed: 'Сбой',
+    normal: 'Норма', warning: 'Внимание', degraded: 'Проблема', failed: 'Сбой',
     unknown: 'Неизвестно', disabled: 'Выключено',
   };
   var HEALTH_BADGE = {
-    normal: 'badge-ok', degraded: 'badge-err', failed: 'badge-err',
-    unknown: 'badge-warn', disabled: 'badge-muted',
+    normal: 'badge-ok', warning: 'badge-warn', degraded: 'badge-err',
+    failed: 'badge-err', unknown: 'badge-warn', disabled: 'badge-muted',
   };
   var HEALTH_ICON = {
-    normal: 'monitoring', degraded: 'stop', failed: 'stop',
+    normal: 'monitoring', warning: 'bolt', degraded: 'stop', failed: 'stop',
     unknown: 'help', disabled: 'visibility_off',
   };
   var HEALTH_NAME = {
@@ -27988,7 +28068,10 @@
       reason: why,
       observedAt: when,
       ariaLabel: parts.join(', '),
-      paints: state === 'degraded' || state === 'failed',
+      // Красятся только состояния реальной проблемы: `warning` (мягче),
+      // `degraded`, `failed`. normal/unknown/disabled — нейтральны.
+      paints: state === 'warning' || state === 'degraded'
+        || state === 'failed',
     };
   }
 
@@ -28012,6 +28095,7 @@
     var s = String(raw).toLowerCase();
     if (s === 'problem' || s === 'degraded') return 'degraded';
     if (s === 'failed' || s === 'failure') return 'failed';
+    if (s === 'warning' || s === 'warn' || s === 'elevated') return 'warning';
     if (s === 'normal' || s === 'healthy') return 'normal';
     if (s === 'disabled') return 'disabled';
     if (s === 'unknown' || s === 'stale' || s === 'pending'
@@ -28109,7 +28193,9 @@
         hb = String(payload.state).toLowerCase();
       }
       if (hb === 'healthy') return 'normal';
-      if (hb === 'warning') return 'degraded';
+      // ASAP-UI-02 §6: предупреждение сердцебиения — собственное состояние
+      // `warning` (мягкое красное стекло), а не `degraded`.
+      if (hb === 'warning') return 'warning';
       if (hb === 'critical') return 'failed';
       return 'unknown';
     }

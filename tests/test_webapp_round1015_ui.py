@@ -321,7 +321,9 @@ class TestUiMarkersMobileColumn:
         # каноническая панель «Сон / Глубокий сон» выше на странице; в шапке
         # остался заголовок + ⟳ (порядок: intel-title → loadCognition).
         block = _block(HTML, 'class="intel-header mb-2"', "cognition-ribbons")
-        assert block.index("intel-title") < block.index("loadCognition()")
+        # ASAP-UI-02 §5.3 (wave 2): одна кнопка «Обновить» единого виджета
+        # обновляет ОБА существующих запроса (cognition + dossier_feed).
+        assert block.index("intel-title") < block.index("refreshIntelWidget()")
         assert "dreamPhaseBadge" not in block, \
             "U03.1: дубль sleep-бейджей в шапке «Мониторинга» удалён"
         assert "deepPhaseBadge" not in block

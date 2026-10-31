@@ -97,33 +97,43 @@ class TestSharedRowSystem:
                 "EVOL-001: строка не добавляет слой стекла (%s)" % forbidden)
 
 
-# ── EVOL-002 (review-fix): РЕАЛЬНАЯ разметка «Новых фактов» ────────────────
+# ── EVOL-002 (ASAP-UI-02 §5.3): РЕАЛЬНАЯ разметка четырёх секций ───────────
 class TestRealMarkupRowGeometry:
-    """Блокер Reviewer: в реальном шаблоне «Новые факты» — единственная лента
-    БЕЗ обёртки `.sfeed-track` (строки — прямые дети окна), и на контейнер
-    действует legacy-правило `.status-facts .facts-list` с `display:flex`.
-    Во flex-контейнере строка с `flex-shrink:1` сжималась с 64px до ~13px,
-    текст факта получал высоту 0. Здесь проверяется настоящий фрагмент
-    `index.html` (с предком `.status-facts`, без `.ribbon-track`) и CSS-
-    каскад: строка не сжимается, legacy-правило не задаёт строке размеров.
+    """ASAP-UI-02 (§5.3, wave 2): «Новые факты» больше НЕ отдельная карточка —
+    они первая секция единого виджета «Мониторинг интеллекта». Все четыре
+    секции используют ОДНУ обёртку `.ribbon-track.sfeed-track`, поэтому
+    legacy-исключения (`.status-facts .facts-list` с `display:flex` на окне)
+    больше нет. Инвариант строки сохранён: `.sfeed-item` не сжимается
+    (`flex: 0 0 var(--sfeed-row-h)`), иначе 64px строки схлопывались бы во
+    flex-контейнере и текст факта исчезал.
     """
 
     @staticmethod
-    def _facts_card() -> str:
-        # EVOL-029 (review-fix2): окно записи вынесено на уровень `#app`
-        # (его открывают и «Статус», и «Память»), поэтому границей карточки
-        # «Новые факты» служит следующий блок разметки, а не разметка окна.
+    def _intel_card() -> str:
+        # Граница карточки — следующий блок разметки «Статуса» (панель сна).
         return _section(
-            '<div v-if="isGlobalAdmin" class="card p-4 status-facts',
-            "<!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 5", INDEX)
+            '<div v-if="isGlobalAdmin" class="card p-4 sg-12 intel-card"',
+            "<!-- ═══ ASAP-UI-02 (§5.4", INDEX)
 
-    def test_real_markup_has_no_track_wrapper(self):
-        card = self._facts_card()
-        assert "status-facts" in card, "предок .status-facts — часть реальной разметки"
-        assert "ribbon-track" not in card, (
-            "в «Новых фактах» нет обёртки .sfeed-track: строки — прямые дети "
-            "окна (именно поэтому сжатие flex-контейнера видно здесь)")
-        assert 'class="facts-list scroll-thin sfeed-viewport"' in card
+    def test_facts_live_inside_the_single_widget(self):
+        card = self._intel_card()
+        assert "intel-card" in card
+        assert card.count('class="ribbon ') == 4, (
+            "ASAP-UI-02 §5.3: ровно четыре секции в одной карточке")
+        for section in ("facts", "beliefs", "paradigms", "traits"):
+            assert 'data-intel-section="%s"' % section in card, section
+            assert 'data-ribbon="%s"' % section in card, section
+        # «Новые факты» — здесь же, а не отдельной карточкой ниже страницы.
+        assert 'data-status-facts' in card
+        assert INDEX.count("Новые факты") >= 1
+        assert 'class="card p-4 status-facts' not in INDEX, (
+            "ASAP-UI-02 §5.3: отдельной нижней карточки «Новые факты» нет")
+
+    def test_all_sections_share_one_track_wrapper(self):
+        card = self._intel_card()
+        assert card.count('class="ribbon-track sfeed-track"') == 4, (
+            "EVOL-001/002: одна грамматика строк у всех четырёх секций")
+        assert 'class="facts-list ribbon-viewport sfeed-viewport"' in card
         assert "data-sfeed-viewport" in card
         assert 'class="sfeed-item" data-sfeed-row' in card
         assert "sfeed-item__text" in card, "текст факта — часть строки"
@@ -132,24 +142,19 @@ class TestRealMarkupRowGeometry:
         row_css = _section(".sfeed-item {", "}", CSS)
         assert "flex: 0 0 var(--sfeed-row-h)" in row_css, (
             "EVOL-002: строка не сжимается и не растягивается — иначе во "
-            "flex-контейнере «Новых фактов» 64px сжимаются до ~13px")
+            "flex-контейнере ленты 64px сжимаются до ~13px")
         assert "height: var(--sfeed-row-h)" in row_css
 
-    def test_legacy_facts_rule_does_not_own_row_size(self):
-        legacy = _section(".status-facts .facts-list {", "}", CSS)
-        # Контейнеру нужна колоночная раскладка (строки — прямые дети), но
-        # размеры строк задаёт только общий слой `.sfeed-*`.
-        for forbidden in ("height", "max-height", "flex:", "flex-shrink",
-                          "flex-basis"):
-            assert forbidden not in legacy, (
-                "legacy-правило не должно задавать размеры окна/строки: %s"
-                % forbidden)
-        assert "gap: var(--sfeed-gap)" in legacy, "шаг строк — общий токен"
-        # Никаких правил, переопределяющих геометрию строки по этому предку.
+    def test_legacy_facts_override_is_gone(self):
+        # Прежнее исключение `.status-facts .facts-list` удалено вместе с
+        # отдельной карточкой: размеры и шаг строк задаёт только `.sfeed-*`.
+        assert ".status-facts .facts-list {" not in CSS
         assert re.search(
             r"\.status-facts \.facts-list \.sfeed-item \{[^}]*"
             r"(flex|height)", CSS) is None, (
             "нет legacy-переопределений размера строки по предку .status-facts")
+        assert re.search(r"\.sfeed-track \{[\s\S]{0,200}gap: var\(--sfeed-gap\)",
+                         CSS), "шаг строк — общий токен"
 
 
 

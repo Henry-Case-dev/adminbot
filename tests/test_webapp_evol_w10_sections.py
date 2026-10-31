@@ -738,6 +738,135 @@ class TestEvol030AccessAndAnalytics:
         assert "matrixLastChange = {" in reset
 
 
+# ═══ ASAP-UI-02 §5/§6/§7 (wave 2): порядок «Статуса», единый виджет, tint ══
+
+class TestEvolStatusOrderWave2:
+    """§5.3: здоровье → карта (место EVOL-COG) → ОДИН виджет с четырьмя
+    секциями → остальные виджеты (сон и прочее — ПОСЛЕ лент)."""
+
+    @staticmethod
+    def _status() -> str:
+        return _block(INDEX, "activeTab === 'status'", "activeTab === 'info'")
+
+    def test_order_health_map_widget_others(self):
+        status = self._status()
+        order = [
+            'class="card p-4 status-hero',
+            'class="card p-4 status-block"',
+            'class="card p-4 status-graph',
+            'class="card p-4 sg-12 intel-card"',
+            'data-status-facts',
+            'class="card p-4 status-sleep',
+            'exec-preview card p-3',
+            'class="card p-4 status-budgets',
+            'data-viz-heatmap',
+            'data-status-dossier',
+        ]
+        prev = -1
+        for marker in order:
+            i = status.index(marker)
+            assert i > prev, "ASAP-UI-02 §5: порядок «Статуса» нарушен на %s" % marker
+            prev = i
+
+    def test_no_other_big_widget_between_health_and_ribbons(self):
+        status = self._status()
+        start = status.index('class="card p-4 status-block"')
+        end = status.index('class="card p-4 sg-12 intel-card"')
+        middle = status[start:end]
+        # Между оперативным здоровьем и лентами — только карта (место
+        # EVOL-COG). Ни сна, ни превью, ни бюджетов там нет.
+        assert middle.count('class="card ') == 2, middle.count('class="card ')
+        assert 'status-sleep' not in middle
+        assert 'exec-preview' not in middle
+        assert 'status-budgets' not in middle
+        assert 'status-graph' in middle
+
+    def test_one_widget_with_four_sections(self):
+        status = self._status()
+        assert status.count('intel-card') == 1, "одна карточка «Мониторинга»"
+        card = _block(status, 'class="card p-4 sg-12 intel-card"',
+                      'class="card p-4 status-sleep')
+        assert card.count('class="ribbon ') == 4
+        for section in ("facts", "beliefs", "paradigms", "traits"):
+            assert 'data-intel-section="%s"' % section in card
+        # четыре окна лент и один контроллер движения на каждое
+        assert card.count("data-sfeed-viewport") == 4
+        assert card.count('v-sfeed="statusRecordOpen"') == 4
+        assert card.count('class="ribbon-track sfeed-track"') == 4
+        # данные фактов — те же (dossier_feed), не новый запрос
+        assert "factsFeed" in card and "dossierFeedError" in card
+        assert "loadDossierFeed()" in APP_JS
+
+    def test_no_separate_lower_facts_card(self):
+        status = self._status()
+        assert 'class="card p-4 status-facts' not in status
+        assert status.count('data-status-facts') == 1
+        # «Новые факты» больше не стоят после снов/превью
+        facts = status.index('data-status-facts')
+        sleep = status.index('class="card p-4 status-sleep')
+        assert facts < sleep
+
+    def test_phone_switcher_markup_and_css(self):
+        status = self._status()
+        assert 'data-intel-switcher' in status
+        assert 'v-for="t in statusRibbonTabs"' in status
+        assert 'switchStatusRibbon(t.id)' in status
+        assert ':aria-pressed="statusRibbonTab === t.id' in status
+        assert ':data-intel-tab="statusRibbonTab"' in status
+        # переключатель скрыт там, где видны все четыре секции
+        assert ".intel-tabs { display: none; }" in CSS
+        assert (".cognition-ribbons[data-intel-tab] .ribbon { display: none; }"
+                in CSS)
+        for section in ("facts", "beliefs", "paradigms", "traits"):
+            assert ('.cognition-ribbons[data-intel-tab="%s"] .ribbon--%s'
+                    % (section, section)) in CSS
+        # четыре колонки на широком экране, 2×2 на планшете
+        assert ("grid-template-columns: repeat(4, minmax(0, 1fr));" in CSS)
+        assert ("grid-template-columns: repeat(2, minmax(0, 1fr));" in CSS)
+
+    def test_switcher_keeps_data_and_scroll(self):
+        """Реальное поведение: данные не перезапрашиваются, позиции целы."""
+        js = ROOT / "tests" / "js" / "asap_ui02_status_ribbons_test.js"
+        assert js.exists(), "нет js-проверки переключателя секций"
+        out = subprocess.run(["node", str(js)], capture_output=True, text=True,
+                             encoding="utf-8", cwd=str(ROOT))
+        assert "ASAP-UI02-RIBBONS-OK" in (out.stdout or ""), \
+            (out.stdout or "") + (out.stderr or "")
+
+    def test_warning_state_is_its_own_tint(self):
+        """§6: warning — красное стекло, но мягче degraded/failed."""
+        rules = _block(CSS, '[data-health-state="warning"][data-health-material="bg"]',
+                       '[data-health-state="degraded"][data-health-material="bg"]')
+        assert "rgba(60, 43, 56, 0.5)" in rules
+        assert '--health-fill-warning: rgba(60, 43, 56, 0.5);' in CSS
+        # порядок интенсивности: warning < degraded < failed
+        def red(rgba):
+            return sum(int(x) for x in rgba)
+        warn = red((60, 43, 56))
+        degrad = red((91, 55, 67))
+        fail = red((141, 74, 85))
+        assert warn < degrad < fail
+        assert "background-color: rgba(91, 55, 67, 0.5);" in CSS
+        assert "background-color: rgba(141, 74, 85, 0.5);" in CSS
+        # единая карта: предупреждение сердцебиения — собственное состояние
+        assert "if (hb === 'warning') return 'warning';" in APP_JS
+        assert "warning: 'Внимание'" in APP_JS
+        assert "warning: 'bolt'" in APP_JS
+        # сам по себе WARN в журнале состояния не создаёт
+        assert "function healthWarnOnly(payload)" in APP_JS
+        # текст и иконка дублируют цвет: подпись warning — янтарная
+        assert ('[data-health-indicator="warning"] .health-status-line__label'
+                in CSS)
+
+    def test_health_javascript_map(self):
+        """Адаптер из РЕАЛЬНОГО app.js: warning не равен degraded/failed."""
+        js = ROOT / "tests" / "js" / "evol032_health_glass_test.js"
+        out = subprocess.run(["node", str(js)], capture_output=True, text=True,
+                             encoding="utf-8", cwd=str(ROOT))
+        assert "EVOL032-OK" in (out.stdout or ""), \
+            (out.stdout or "") + (out.stderr or "")
+
+
 # ═══ Живой прогон (обязателен при визуальных изменениях) ═══════════════════
 
 def test_live_render_sections_e2e():

@@ -140,6 +140,56 @@ PROBE_PAGE = r"""
       const el = q('[data-access-audit-summary]');
       return el ? el.textContent.replace(/\s+/g, ' ').trim() : null;
     })(),
+    // ═══ ASAP-UI-02 §5.3/§6 (wave 2) ══════════════════════════════════════
+    // Порядок «Статуса»: здоровье → карта (место EVOL-COG) → ЕДИНЫЙ виджет
+    // четырёх лент → остальные виджеты (сон/превью/бюджеты/…) — ПОСЛЕ лент.
+    statusOrder: (() => {
+      const label = (el) => {
+        const cl = el.classList || {contains() { return false; }};
+        if (cl.contains('status-hero')) return 'hero';
+        if (cl.contains('status-block')) return 'health';
+        if (cl.contains('status-graph')) return 'map';
+        if (cl.contains('intel-card')) return 'intel';
+        if (cl.contains('status-sleep')) return 'sleep';
+        if (cl.contains('exec-preview')) return 'preview';
+        if (cl.contains('status-budgets')) return 'budgets';
+        if (cl.contains('status-activity')) return 'activity';
+        if (cl.contains('status-dossier')) return 'dossier';
+        return 'other';
+      };
+      return qa('.status-grid > *').map(label).filter((x) => x !== 'other');
+    })(),
+    intelWidgets: qa('[data-intel-widget]').length,
+    intelSections: qa('[data-intel-widget] [data-intel-section]')
+      .map((el) => el.getAttribute('data-intel-section')),
+    intelSwitcher: (() => {
+      const el = q('[data-intel-switcher]');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const btns = Array.from(el.querySelectorAll('[data-intel-tab-btn]'));
+      const r = el.getBoundingClientRect();
+      return {
+        visible: cs.display !== 'none' && r.height > 0,
+        buttons: btns.length,
+        pressed: btns.filter((b) => b.getAttribute('aria-pressed') === 'true')
+          .map((b) => b.getAttribute('data-intel-tab-btn')),
+        labels: btns.map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+        h: +r.height.toFixed(1),
+      };
+    })(),
+    intelVisibleSections: qa('[data-intel-widget] [data-intel-section]')
+      .filter((el) => {
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && el.getBoundingClientRect().height > 0;
+      })
+      .map((el) => el.getAttribute('data-intel-section')),
+    factRows: qa('[data-sfeed-type="fact"]').length,
+    factCardLower: (() => {
+      // Отдельной нижней карточки «Новые факты» быть не должно: единственный
+      // контейнер — секция внутри единого виджета.
+      const cards = qa('.card.status-facts');
+      return cards.length;
+    })(),
   };
 }
 """
@@ -174,6 +224,36 @@ _DOSSIER = {"chat_id": None, "items": [
      "chat_id": -1001234567890, "excerpt": "любит мемы",
      "text": "любит мемы", "created_at": 1761800000,
      "tg_message_id": 4242},
+    # ASAP-UI-02 §5.3: несколько записей, чтобы секция «Новые факты» реально
+    # прокручивалась (проверка сохранения позиции при переключении секций).
+    {"name": "Марк", "user_name": "Марк", "user_id": 6,
+     "chat_id": -1001234567890, "excerpt": "любит рыбалку",
+     "text": "любит рыбалку", "created_at": 1761800100,
+     "tg_message_id": 4243},
+    {"name": "Аня", "user_name": "Аня", "user_id": 7,
+     "chat_id": -1001234567890, "excerpt": "живёт в Казани",
+     "text": "живёт в Казани", "created_at": 1761800200,
+     "tg_message_id": 4244},
+    {"name": "Игорь", "user_name": "Игорь", "user_id": 8,
+     "chat_id": -1001234567890, "excerpt": "работает в банке",
+     "text": "работает в банке", "created_at": 1761800300,
+     "tg_message_id": 4245},
+    {"name": "Света", "user_name": "Света", "user_id": 9,
+     "chat_id": -1001234567890, "excerpt": "учится на врача",
+     "text": "учится на врача", "created_at": 1761800400,
+     "tg_message_id": 4246},
+    {"name": "Пётр", "user_name": "Пётр", "user_id": 10,
+     "chat_id": -1001234567890, "excerpt": "держит собаку",
+     "text": "держит собаку", "created_at": 1761800500,
+     "tg_message_id": 4247},
+    {"name": "Лена", "user_name": "Лена", "user_id": 11,
+     "chat_id": -1001234567890, "excerpt": "любит горы",
+     "text": "любит горы", "created_at": 1761800600,
+     "tg_message_id": 4248},
+    {"name": "Костя", "user_name": "Костя", "user_id": 12,
+     "chat_id": -1001234567890, "excerpt": "играет в шахматы",
+     "text": "играет в шахматы", "created_at": 1761800700,
+     "tg_message_id": 4249},
 ]}
 
 
@@ -259,6 +339,68 @@ def run(out_dir: str) -> int:
                         fails.append("%s: горизонтальный скролл страницы" % label)
                     # EVOL-026: heatmap/досье — в «Статусе», не в «Аналитике».
                     if route == "#/":
+                        # ═══ ASAP-UI-02 §5.3 (wave 2): порядок «Статуса» ═══
+                        # здоровье → карта (место EVOL-COG) → единый виджет
+                        # четырёх лент → остальные виджеты.
+                        expected_order = ["hero", "health", "map", "intel",
+                                          "sleep", "budgets", "activity",
+                                          "dossier"]
+                        got_order = [x for x in probe.get("statusOrder") or []
+                                     if x in expected_order]
+                        # `preview` идёт между сном и бюджетами — порядок
+                        # проверяем по подпоследовательности.
+                        if got_order[:4] != expected_order[:4]:
+                            fails.append("%s: порядок «Статуса» нарушен: "
+                                         "здоровье→карта→ленты (%s)"
+                                         % (label, probe.get("statusOrder")))
+                        if "sleep" not in got_order:
+                            fails.append("%s: панель сна пропала" % label)
+                        elif got_order.index("sleep") < got_order.index("intel"):
+                            fails.append("%s: сон оказался ВЫШЕ лент (%s)"
+                                         % (label, probe.get("statusOrder")))
+                        if probe.get("intelWidgets") != 1:
+                            fails.append("%s: единый виджет «Мониторинга» не один "
+                                         "(%s)" % (label, probe.get("intelWidgets")))
+                        sections = probe.get("intelSections") or []
+                        if sections != ["facts", "beliefs", "paradigms", "traits"]:
+                            fails.append("%s: секции виджета не те (%s)"
+                                         % (label, sections))
+                        if probe.get("factCardLower"):
+                            fails.append("%s: осталась отдельная нижняя карточка "
+                                         "«Новые факты»" % label)
+                        sw = probe.get("intelSwitcher") or {}
+                        vis_sections = probe.get("intelVisibleSections") or []
+                        if w <= 640:
+                            if not sw.get("visible"):
+                                fails.append("%s: на телефоне нет "
+                                             "переключателя секций" % label)
+                            if sw.get("buttons") != 4:
+                                fails.append("%s: в переключателе %s кнопок"
+                                             % (label, sw.get("buttons")))
+                            if len(vis_sections) != 1:
+                                fails.append("%s: на телефоне видно %s секций "
+                                             "(должна одна): %s"
+                                             % (label, len(vis_sections),
+                                                vis_sections))
+                            elif vis_sections[0] != "facts":
+                                fails.append("%s: по умолчанию активна не "
+                                             "«Факты» (%s)"
+                                             % (label, vis_sections))
+                            if sw.get("pressed") != ["facts"]:
+                                fails.append("%s: переключатель не помечает "
+                                             "активную секцию (%s)"
+                                             % (label, sw.get("pressed")))
+                        else:
+                            if sw.get("visible"):
+                                fails.append("%s: переключатель секций виден "
+                                             "там, где видны все четыре ленты"
+                                             % label)
+                            if len(vis_sections) != 4:
+                                fails.append("%s: на широком экране видно %s "
+                                             "секций из 4: %s"
+                                             % (label, len(vis_sections),
+                                                vis_sections))
+                        # heatmap
                         if probe["heatmap"] != 1:
                             fails.append("%s: heatmap не найдена ровно один раз (%d)"
                                          % (label, probe["heatmap"]))
@@ -795,6 +937,185 @@ def run(out_dir: str) -> int:
                     fails.append("mobile «Память»: окно открыто без блокировки фона")
             _shot(mpg, out_dir, "w10-sec-memory-record-390x844.png")
             mctx.close()
+
+            # ═══ ASAP-UI-02 §5.3 (wave 2): телефон — одна секция + переключатель.
+            # Данные не перезапрашиваются, позиция прокрутки секции сохраняется.
+            sctx = browser.new_context(viewport={"width": 390, "height": 844})
+            sctx.add_init_script(M.TMA_STUB)
+            spg = sctx.new_page()
+            spg.route("**/api/**", _routes2())
+            serrors = []
+            spg.on("pageerror", lambda e: serrors.append(str(e)[:200]))
+            spg.on("console", lambda m: serrors.append("console: " + m.text[:200])
+                  if m.type == "error" else None)
+            spg.goto(BASE + "/#/", wait_until="load")
+            spg.wait_for_timeout(1200)
+            switch_before = spg.evaluate(r"""() => {
+                const vis = () => Array.from(
+                  document.querySelectorAll('[data-intel-section]'))
+                  .filter((el) => getComputedStyle(el).display !== 'none')
+                  .map((el) => el.getAttribute('data-intel-section'));
+                const vp = document.querySelector('[data-ribbon="facts"]');
+                let scrolled = null;
+                if (vp) { vp.scrollTop = 40; scrolled = vp.scrollTop; }
+                const btn = document.querySelector('[data-intel-tab-btn="beliefs"]');
+                if (btn) btn.click();
+                return {
+                  vis: vis(),
+                  rows: document.querySelectorAll('[data-sfeed-type="fact"]').length,
+                  scrolled: scrolled,
+                  switchable: !!btn,
+                };
+            }""")
+            spg.wait_for_timeout(600)
+            switch_after = spg.evaluate(r"""() => {
+                const vis = Array.from(document.querySelectorAll('[data-intel-section]'))
+                  .filter((el) => getComputedStyle(el).display !== 'none')
+                  .map((el) => el.getAttribute('data-intel-section'));
+                const pressed = Array.from(
+                  document.querySelectorAll('[data-intel-tab-btn]'))
+                  .filter((b) => b.getAttribute('aria-pressed') === 'true')
+                  .map((b) => b.getAttribute('data-intel-tab-btn'));
+                const factsBtn = document.querySelector('[data-intel-tab-btn="facts"]');
+                if (factsBtn) factsBtn.click();
+                return {vis: vis, pressed: pressed,
+                        rows: document.querySelectorAll('[data-sfeed-type="fact"]').length};
+            }""")
+            spg.wait_for_timeout(600)
+            switch_back = spg.evaluate(r"""() => {
+                const vis = Array.from(document.querySelectorAll('[data-intel-section]'))
+                  .filter((el) => getComputedStyle(el).display !== 'none')
+                  .map((el) => el.getAttribute('data-intel-section'));
+                const vp = document.querySelector('[data-ribbon="facts"]');
+                const pressed = Array.from(
+                  document.querySelectorAll('[data-intel-tab-btn]'))
+                  .filter((b) => b.getAttribute('aria-pressed') === 'true')
+                  .map((b) => b.getAttribute('data-intel-tab-btn'));
+                return {vis: vis, pressed: pressed,
+                        scroll: vp ? vp.scrollTop : null,
+                        rows: document.querySelectorAll('[data-sfeed-type="fact"]').length};
+            }""")
+            _shot(spg, out_dir, "w10-sec-intel-switch-390x844.png")
+            report["summary"]["intelSwitch"] = {
+                "before": switch_before, "after": switch_after,
+                "back": switch_back, "errors": serrors[:3],
+            }
+            if not switch_before.get("switchable"):
+                fails.append("телефон: нет кнопки переключения секций «Убеждения»")
+            if switch_before.get("vis") != ["facts"]:
+                fails.append("телефон: по умолчанию видно не только «Факты» (%s)"
+                             % switch_before.get("vis"))
+            if switch_before.get("rows", 0) < 5:
+                fails.append("телефон: «Новые факты» без записей (%s)"
+                             % switch_before.get("rows"))
+            if switch_before.get("scrolled") != 40:
+                fails.append("телефон: секция «Факты» не прокручивается вручную "
+                             "(scrollTop=%s)" % switch_before.get("scrolled"))
+            if switch_after.get("vis") != ["beliefs"]:
+                fails.append("телефон: после переключения видна не одна секция "
+                             "(«Убеждения»): %s" % switch_after.get("vis"))
+            if switch_after.get("pressed") != ["beliefs"]:
+                fails.append("телефон: переключатель не помечает «Убеждения» (%s)"
+                             % switch_after.get("pressed"))
+            if switch_after.get("rows") != switch_before.get("rows"):
+                fails.append("телефон: при переключении потерялись данные фактов "
+                             "(%s → %s)" % (switch_before.get("rows"),
+                                            switch_after.get("rows")))
+            if switch_back.get("vis") != ["facts"]:
+                fails.append("телефон: возврат на «Факты» не работает (%s)"
+                             % switch_back.get("vis"))
+            back_scroll = switch_back.get("scroll")
+            if back_scroll is None or abs(back_scroll - 40) > 8:
+                fails.append("телефон: позиция прокрутки секции не сохранилась "
+                             "(было 40, стало %s)" % back_scroll)
+            if switch_back.get("rows") != switch_before.get("rows"):
+                fails.append("телефон: данные фактов изменились после возврата "
+                             "(%s → %s)" % (switch_before.get("rows"),
+                                            switch_back.get("rows")))
+            if serrors:
+                fails.append("телефон (§5.3): ошибки JS: %s" % serrors[:3])
+            sctx.close()
+
+            # ═══ ASAP-UI-02 §6 (wave 2): warning, degraded, failed — разные
+            # интенсивности красного стекла на РЕАЛЬНОЙ поверхности «Статуса»;
+            # normal/unknown/disabled остаются нейтральными. ═══
+            tctx = browser.new_context(viewport={"width": 1280, "height": 900})
+            tctx.add_init_script(M.TMA_STUB)
+            tpg = tctx.new_page()
+            tpg.route("**/api/**", _routes2())
+            perrors = []
+            tpg.on("pageerror", lambda e: perrors.append(str(e)[:200]))
+            tpg.goto(BASE + "/#/", wait_until="load")
+            tpg.wait_for_timeout(1100)
+            tint = tpg.evaluate(r"""() => {
+                const el = document.querySelector('[data-health-subsystem="bot"]');
+                if (!el) return null;
+                const prevState = el.getAttribute('data-health-state');
+                const prevDur = el.style.transitionDuration;
+                // Переход отключён только на время замера: читаем КОНЕЧНЫЙ
+                // цвет токена, а не промежуточный кадр 420-мс анимации.
+                el.style.transitionDuration = '0s';
+                const base = getComputedStyle(el).backgroundColor;
+                const read = (state) => {
+                  el.setAttribute('data-health-state', state);
+                  void el.offsetHeight;
+                  return getComputedStyle(el).backgroundColor;
+                };
+                const out = {
+                  prev: prevState,
+                  base: base,
+                  warning: read('warning'),
+                  degraded: read('degraded'),
+                  failed: read('failed'),
+                  normal: read('normal'),
+                  unknown: read('unknown'),
+                  disabled: read('disabled'),
+                  backdrop: getComputedStyle(el).backdropFilter
+                    || getComputedStyle(el).webkitBackdropFilter || '',
+                  polygonCanvas: !!document.querySelector('#polygon-bg, .polygon-bg'),
+                };
+                el.setAttribute('data-health-state', prevState);
+                el.style.transitionDuration = prevDur;
+                return out;
+            }""")
+            _shot(tpg, out_dir, "w10-sec-health-tint-1280x900.png")
+
+            def _rgb(v):
+                nums = [int(x) for x in
+                        __import__("re").findall(r"\d+", str(v or ""))][:3]
+                return nums if len(nums) == 3 else None
+
+            report["summary"]["healthTint"] = tint
+            if not tint:
+                fails.append("health tint: не найдена стеклянная поверхность «Бот»")
+            else:
+                warn = _rgb(tint.get("warning"))
+                degrad = _rgb(tint.get("degraded"))
+                fail_c = _rgb(tint.get("failed"))
+                base_c = _rgb(tint.get("base"))
+                if not (warn and degrad and fail_c and base_c):
+                    fails.append("health tint: цвета не прочитаны (%s)" % tint)
+                else:
+                    if len({tuple(warn), tuple(degrad), tuple(fail_c)}) != 3:
+                        fails.append("health tint: warning/degraded/failed не "
+                                     "различаются (%s / %s / %s)"
+                                     % (warn, degrad, fail_c))
+                    if not (sum(warn) < sum(degrad) < sum(fail_c)):
+                        fails.append("health tint: интенсивность не по порядку "
+                                     "warning<degraded<failed (%s / %s / %s)"
+                                     % (warn, degrad, fail_c))
+                    if tuple(warn) == tuple(base_c):
+                        fails.append("health tint: warning не окрашивает стекло "
+                                     "(%s)" % (warn,))
+                    for neutral in ("normal", "unknown", "disabled"):
+                        nc = _rgb(tint.get(neutral))
+                        if nc and tuple(nc) != tuple(base_c):
+                            fails.append("health tint: %s не нейтрален (%s vs %s)"
+                                         % (neutral, nc, base_c))
+                if perrors:
+                    fails.append("health tint: ошибки JS: %s" % perrors[:3])
+            tctx.close()
+
             browser.close()
         httpd.shutdown()
     except Exception as exc:  # noqa: BLE001

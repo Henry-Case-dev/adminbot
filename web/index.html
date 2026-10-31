@@ -11490,8 +11490,17 @@
                  Алгоритм/семантика веса и layout НЕ меняются; lazy-загрузка
                  vis-network сохранена. Mobile — упрощённый граф + отдельный
                  экран полного исследования. -->
+            <!-- ═══ ASAP-UI-02 (§5.2, wave 2): ЗАРЕЗЕРВИРОВАННОЕ МЕСТО
+                 «Когнитивной карты» (EVOL-COG, в очереди) — сразу под
+                 оперативным блоком здоровья и НАД единым виджетом четырёх
+                 лент. Пока EVOL-COG не реализован, здесь стоит существующая
+                 карта «Граф связей» с полным прежним функционалом
+                 (поиск/фокус/соседи/фильтры/полный экран). Карта — 12 кол.
+                 (единственный блок между здоровьем и лентами: иначе в сетке
+                 остаётся пустое место, а «другие большие виджеты» оказались бы
+                 выше лент, что §5.3 запрещает). -->
             <div v-if="isGlobalAdmin && !graphFullVisible"
-                 class="card p-4 status-graph sg-8">
+                 class="card p-4 status-graph sg-12">
               <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <div class="text-xs font-bold">Граф связей</div>
                 <span v-if="cognitionGraphData" class="text-xs text-gray-500">
@@ -11542,68 +11551,85 @@
               </div>
             </div>
 
-            <!-- ═══ F11 (§12/§17, ADR-1025-23 D1/D3): Строка 2 — Виджет сна — 4 кол.
-                 Единый источник времени — существующий cognition (серверный
-                 `generated_at`); активность ТОЛЬКО с сервера (таймер ≠ запуск);
-                 новых таймеров/поллеров нет. Бейджи/эмодзи/glow сохранены.
-                 U03.1 (v6.3): ЕДИНСТВЕННАЯ каноническая панель «Сон /
-                 Глубокий сон» — последний настоящий запуск, стадия, результат
-                 и время следующего запуска. Второй (дублирующий) ряд sleep-
-                 бейджей из шапки «Мониторинга Интеллекта» удалён; данные —
-                 один источник (cognition + deep-sleep payload, уже загружен
-                 loadCognition — без новых запросов). -->
-            <health-glass-surface v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4"
-                 data-status-sleep subsystem="sleep" :scope="healthScope" material="bg"
-                 :source="sleepHealthSource">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold">Сон / Глубокий сон</div>
-                <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
-                        @click="loadCognition()" aria-label="Обновить" title="Обновить">⟳</button>
-              </div>
-              <div class="flex flex-wrap gap-1 mb-2">
-                <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
-                <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
-              </div>
-              <div v-if="!sleepWidget.ready" class="text-xs text-gray-500">Нет данных о сне.</div>
-              <div v-else class="text-xs text-gray-400">
-                <div class="sleep-phase">
-                  <div class="text-gray-300 font-semibold mb-1">Обычный сон</div>
-                  <div>Стадия: <b>{{ dreamStageLabel() }}</b></div>
-                  <div>Сейчас: <b>{{ sleepWidget.dream.active ? 'активен' : 'не активен' }}</b></div>
-                  <div>Следующий запуск: {{ sleepWidget.dream.text }}</div>
-                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.dream.lastRun, 'ещё не выполнялся') }}</div>
-                  <div>Результат: {{ dreamResultLabel() }}</div>
-                </div>
-                <div class="sleep-phase">
-                  <div class="text-gray-300 font-semibold mb-1">Глубокий сон</div>
-                  <div>Стадия: <b>{{ deepStageLabel() }}</b></div>
-                  <div>Сейчас: <b>{{ sleepWidget.deep.active ? 'активен' : 'не активен' }}</b></div>
-                  <div>Следующий запуск: {{ sleepWidget.deep.text }}</div>
-                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.deep.lastRun, 'ещё не выполнялся') }}</div>
-                  <div>Результат: {{ deepResultLabel() }}</div>
-                </div>
-              </div>
-            </health-glass-surface>
-
-            <!-- F5 (T-1450..T-1452, ТЗ §5): «Мониторинг Интеллекта» — только
-                 global admin. Три самостоятельные области (Убеждения,
-                 Парадигмы, Эволюция характера) — НЕ смешиваются; §18
-                 (код/разметка лент не меняются — только композиция).
-                 F11 (§12, ADR-1025-23 D1): Строка 3 — вся ширина (12 кол.);
-                 граф §16 вынесен в отдельную карточку строки 2. -->
-            <div v-if="isGlobalAdmin" class="card p-4 sg-12 intel-card">
+            <!-- ═══ ASAP-UI-02 (§5.3/§7, wave 2): ЕДИНЫЙ виджет «Мониторинг
+                 интеллекта» — четыре секции в ОДНОЙ карточке, сразу под картой
+                 (местом EVOL-COG) и выше всех остальных больших виджетов
+                 «Статуса»: «Новые факты» (данные dossier_feed), «Убеждения
+                 (Сон)», «Парадигмы (Глубокий сон)», «Эволюция характера
+                 (Личность)». Раньше «Новые факты» были отдельной карточкой
+                 ниже страницы — теперь это первая секция того же виджета.
+                 Поведение лент (EVOL-001..005) не переписано: те же классы
+                 `.sfeed-*`, тот же контроллер `v-sfeed` (автодвижение, ручная
+                 прокрутка в обе стороны, пауза на модалке, reduced-motion,
+                 даты, источники). Композиция: desktop — 4 колонки, планшет —
+                 2×2, телефон — одна секция + компактный переключатель
+                 (`.intel-tabs`); данные и позиции прокрутки сохраняются. -->
+            <div v-if="isGlobalAdmin" class="card p-4 sg-12 intel-card"
+                 data-intel-widget>
               <div class="intel-header mb-2">
                 <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
+                <span class="text-xs text-gray-500">четыре секции: факты · убеждения · парадигмы · эволюция</span>
                 <!-- U03.1 (v6.3): второй ряд одинаковых sleep-бейджей из
                      заголовка УДАЛЁН — каноническая панель «Сон / Глубокий
-                     сон» выше на этой же странице; дублей фаз нет. -->
-                <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
-                        @click="loadCognition()" aria-label="Обновить" title="Обновить">⟳</button>
+                     сон» ниже на этой же странице; дублей фаз нет. -->
+                <button class="btn-ghost text-xs ml-auto"
+                        :disabled="cognitionBusy || dossierFeedBusy"
+                        @click="refreshIntelWidget()" aria-label="Обновить" title="Обновить">⟳</button>
               </div>
-              <div class="cognition-ribbons">
-                <div class="ribbon">
+              <!-- Переключатель секций — только на телефоне (CSS): на десктопе
+                   и планшете видны все четыре секции, переключатель не нужен
+                   и не занимает места. -->
+              <div class="intel-tabs" role="group"
+                   aria-label="Секции мониторинга интеллекта"
+                   data-intel-switcher>
+                <button v-for="t in statusRibbonTabs" :key="'it-' + t.id"
+                        type="button" class="btn-ghost text-xs intel-tabs__btn"
+                        :class="{ 'is-active': statusRibbonTab === t.id }"
+                        :aria-pressed="statusRibbonTab === t.id ? 'true' : 'false'"
+                        :data-intel-tab-btn="t.id"
+                        @click="switchStatusRibbon(t.id)">{{ t.label }}</button>
+              </div>
+              <div class="cognition-ribbons" ref="intelSections"
+                   :data-intel-tab="statusRibbonTab">
+                <!-- Секция 1/4: «Новые факты» (dossier_feed). Та же система
+                     строк и тот же контроллер движения, что у трёх лент ниже. -->
+                <div class="ribbon ribbon--facts" data-status-facts
+                     data-intel-section="facts">
+                  <div class="ribbon-title">Новые факты <span class="text-gray-500 ribbon-hint">Что бот недавно запомнил</span></div>
+                  <div v-if="dossierFeedError" class="text-xs text-red-300" data-sfeed-error>
+                    <span class="font-semibold">Не удалось загрузить ленту.</span>
+                    Причина: {{ dossierFeedError }}
+                  </div>
+                  <div v-else-if="!factsFeed.length" class="ribbon-empty sfeed-empty" data-sfeed-empty>
+                    <div class="ribbon-empty__title">{{ statusFeedEmptyTitle('fact') }}</div>
+                    <div class="ribbon-empty__text">{{ statusFeedEmptyText('fact') }}</div>
+                    <div class="ribbon-empty__reason" v-if="statusFeedEmptyReason('fact')">Причина: {{ statusFeedEmptyReason('fact') }}</div>
+                  </div>
+                  <div v-else class="facts-list ribbon-viewport sfeed-viewport"
+                       data-ribbon="facts"
+                       data-sfeed-viewport v-sfeed="statusRecordOpen"
+                       tabindex="0" role="group"
+                       aria-label="Новые факты: лента записей, прокручивается">
+                    <div class="ribbon-track sfeed-track">
+                      <button v-for="fact in factsFeed" :key="fact.key"
+                              type="button" class="sfeed-item" data-sfeed-row
+                              data-sfeed-type="fact"
+                              :aria-label="'Факт о ' + fact.name + ': ' + fact.text"
+                              @click="openStatusRecord('fact', fact, $event)">
+                        <span class="sfeed-item__head">
+                          <span class="sfeed-item__badge sfeed-item__badge--fact">{{ fact.kind || 'факт' }}</span>
+                          <b class="sfeed-item__subject">{{ fact.name }}</b>
+                          <span class="sfeed-item__date" :title="statusRowTitle(fact.created_at, 'Записано')">{{ statusRowDateLabel(fact.created_at) }}</span>
+                        </span>
+                        <span class="sfeed-item__text">{{ fact.text }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="ribbon ribbon--beliefs" data-intel-section="beliefs">
                   <div class="ribbon-title">Убеждения <span class="text-gray-500">(Сон)</span></div>
-                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                  <div class="ribbon-viewport sfeed-viewport" data-ribbon="beliefs"
+                       data-sfeed-viewport
                        v-sfeed="statusRecordOpen" tabindex="0" role="group"
                        aria-label="Убеждения (Сон): лента записей, прокручивается">
                     <div v-if="!cognitionBeliefsLoop.length" class="ribbon-empty sfeed-empty">
@@ -11626,9 +11652,10 @@
                     </div>
                   </div>
                 </div>
-                <div class="ribbon">
+                <div class="ribbon ribbon--paradigms" data-intel-section="paradigms">
                   <div class="ribbon-title">Парадигмы <span class="text-gray-500">(Глубокий сон)</span></div>
-                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                  <div class="ribbon-viewport sfeed-viewport" data-ribbon="paradigms"
+                       data-sfeed-viewport
                        v-sfeed="statusRecordOpen" tabindex="0" role="group"
                        aria-label="Парадигмы (Глубокий сон): лента записей, прокручивается">
                     <div v-if="!cognitionParadigmsLoop.length" class="ribbon-empty sfeed-empty">
@@ -11659,9 +11686,10 @@
                 <!-- F4 (persona-traits-ribbon-round1014, ТЗ §3.1): третья
                      лента «Эволюция характера» — global `dynamic_traits`
                      («13.09: Стал более циничным...»), тот же _ribbonLoop. -->
-                <div class="ribbon">
+                <div class="ribbon ribbon--traits" data-intel-section="traits">
                   <div class="ribbon-title">Эволюция характера <span class="text-gray-500">(Личность)</span></div>
-                  <div class="ribbon-viewport sfeed-viewport" data-sfeed-viewport
+                  <div class="ribbon-viewport sfeed-viewport" data-ribbon="traits"
+                       data-sfeed-viewport
                        v-sfeed="statusRecordOpen" tabindex="0" role="group"
                        aria-label="Эволюция характера (Личность): лента записей, прокручивается">
                     <div v-if="!cognitionTraitsLoop.length" class="ribbon-empty sfeed-empty">
@@ -12014,13 +12042,53 @@
               </div>
             </div>
 
+            <!-- ═══ ASAP-UI-02 (§5.4, wave 2): «Сон / Глубокий сон» — ПОСЛЕ
+                 единого виджета четырёх лент (между здоровьем и лентами нет
+                 других больших виджетов). Содержимое панели не изменилось:
+                 единый источник времени — существующий cognition (серверный
+                 `generated_at`); активность ТОЛЬКО с сервера (таймер ≠ запуск);
+                 новых таймеров/поллеров нет. U03.1 (v6.3): ЕДИНСТВЕННАЯ
+                 каноническая панель сна. -->
+            <health-glass-surface v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4"
+                 data-status-sleep subsystem="sleep" :scope="healthScope" material="bg"
+                 :source="sleepHealthSource">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold">Сон / Глубокий сон</div>
+                <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
+                        @click="loadCognition()" aria-label="Обновить" title="Обновить">⟳</button>
+              </div>
+              <div class="flex flex-wrap gap-1 mb-2">
+                <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
+                <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
+              </div>
+              <div v-if="!sleepWidget.ready" class="text-xs text-gray-500">Нет данных о сне.</div>
+              <div v-else class="text-xs text-gray-400">
+                <div class="sleep-phase">
+                  <div class="text-gray-300 font-semibold mb-1">Обычный сон</div>
+                  <div>Стадия: <b>{{ dreamStageLabel() }}</b></div>
+                  <div>Сейчас: <b>{{ sleepWidget.dream.active ? 'активен' : 'не активен' }}</b></div>
+                  <div>Следующий запуск: {{ sleepWidget.dream.text }}</div>
+                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.dream.lastRun, 'ещё не выполнялся') }}</div>
+                  <div>Результат: {{ dreamResultLabel() }}</div>
+                </div>
+                <div class="sleep-phase">
+                  <div class="text-gray-300 font-semibold mb-1">Глубокий сон</div>
+                  <div>Стадия: <b>{{ deepStageLabel() }}</b></div>
+                  <div>Сейчас: <b>{{ sleepWidget.deep.active ? 'активен' : 'не активен' }}</b></div>
+                  <div>Следующий запуск: {{ sleepWidget.deep.text }}</div>
+                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.deep.lastRun, 'ещё не выполнялся') }}</div>
+                  <div>Результат: {{ deepResultLabel() }}</div>
+                </div>
+              </div>
+            </health-glass-surface>
+
             <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
                  Источник — /usage/latest через adapter (НЕ одна строка с
                  числом токенов). Финальная композиция витрины Статуса — F11;
                  F6 владеет данными и компонентом. Фильтры §27 сюда НЕ попадают.
                  Размещено ПОСЛЕ .status-block: не сдвигает системные цели
                  (glass-проба H10). -->
-            <div v-if="isGlobalAdmin" class="exec-preview card p-3 sg-7">
+            <div v-if="isGlobalAdmin" class="exec-preview card p-3 sg-8">
               <div class="flex items-center gap-2 flex-wrap mb-1">
                 <span class="text-xs font-bold">Последний вызов</span>
                 <span class="text-xs text-gray-500" v-if="execPreview.startedAt">{{ execPreview.startedAt }}</span>
@@ -12041,47 +12109,10 @@
               <div v-else class="text-xs text-gray-500">Нет данных: вызовов ещё не было.</div>
             </div>
 
-            <!-- ═══ F11 (§12/§19, ADR-1025-23 D1/D5): Строка 4 — «Новые факты» — 5 кол.
-                 reuse `dossierFeed`/`loadDossierFeed` (/api/oversight/dossier_feed).
-                 EVOL-001/002/003/005: ТА ЖЕ система строк, что у трёх лент
-                 «Мониторинга Интеллекта» (`.sfeed-item`), авто-движение +
-                 ручная прокрутка одним контроллером (`v-sfeed`). Полный текст
-                 открывается в модальном окне записи (обрезание строки больше не
-                 прячет факт). Полная работа с памятью — в «Память»/«Аналитика». -->
-            <div v-if="isGlobalAdmin" class="card p-4 status-facts sg-5">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <div class="text-sm font-bold">Новые факты</div>
-                <span class="text-xs text-gray-500">Что бот недавно запомнил</span>
-                <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
-                        @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
-              </div>
-              <div v-if="dossierFeedError" class="text-xs text-red-300" data-sfeed-error>
-                <span class="font-semibold">Не удалось загрузить ленту.</span>
-                Причина: {{ dossierFeedError }}
-              </div>
-              <div v-else-if="!factsFeed.length" class="ribbon-empty sfeed-empty" data-sfeed-empty>
-                <div class="ribbon-empty__title">{{ statusFeedEmptyTitle('fact') }}</div>
-                <div class="ribbon-empty__text">{{ statusFeedEmptyText('fact') }}</div>
-                <div class="ribbon-empty__reason" v-if="statusFeedEmptyReason('fact')">Причина: {{ statusFeedEmptyReason('fact') }}</div>
-              </div>
-              <div v-else class="facts-list scroll-thin sfeed-viewport"
-                   data-sfeed-viewport v-sfeed="statusRecordOpen"
-                   tabindex="0" role="group"
-                   aria-label="Новые факты: лента записей, прокручивается">
-                <button v-for="fact in factsFeed" :key="fact.key"
-                        type="button" class="sfeed-item" data-sfeed-row
-                        data-sfeed-type="fact"
-                        :aria-label="'Факт о ' + fact.name + ': ' + fact.text"
-                        @click="openStatusRecord('fact', fact, $event)">
-                  <span class="sfeed-item__head">
-                    <span class="sfeed-item__badge sfeed-item__badge--fact">{{ fact.kind || 'факт' }}</span>
-                    <b class="sfeed-item__subject">{{ fact.name }}</b>
-                    <span class="sfeed-item__date" :title="statusRowTitle(fact.created_at, 'Записано')">{{ statusRowDateLabel(fact.created_at) }}</span>
-                  </span>
-                  <span class="sfeed-item__text">{{ fact.text }}</span>
-                </button>
-              </div>
-            </div>
+            <!-- ASAP-UI-02 (§5.3, wave 2): отдельной нижней карточки «Новые
+                 факты» больше НЕТ — секция переехала в единый виджет
+                 «Мониторинг интеллекта» (первая из четырёх). Данные — те же:
+                 `dossierFeed` / `loadDossierFeed` (/api/oversight/dossier_feed). -->
 
             <!-- EVOL-029 (review-fix2): окно записи (EVOL-003/004/005) больше НЕ
                  живёт внутри ветки `activeTab === 'status'` — оно вынесено на

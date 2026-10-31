@@ -716,7 +716,9 @@
         "EVOL-GLASS-SEAM",
         "EVOL-SRC-READER",
         "EVOL-COG-MAP",
-        "ASAP-VISION-SYNC-01"
+        "ASAP-VISION-SYNC-01",
+        "ASAP-FC-EVIDENCE-STYLE-02",
+        "ASAP-UI-02"
       ],
       "write_scope": [
         "plans/features/evol/release/**",
@@ -988,6 +990,59 @@
       "parallel_note": "CAN_PARALLEL_WITH: none (общие файлы с активными лейнами фактчека/видео/UI); запускать после их join.",
       "live_required_evidence": "Не требуется живых отправок в рабочие чаты (§8). Проверка на проде — после релиза по телеметрии vision_* без приватного контента.",
       "status_note": "IN PROGRESS: ядро (Vision output + консьюмеры) в работе в отдельном лейне; доказательств в карте нет."
+    },
+    {
+      "id": "ASAP-FC-EVIDENCE-STYLE-02",
+      "depends_on": [
+        "EVOL-W0-AUDIT",
+        "EVOL-FACTCHECK-CRITICAL",
+        "ASAP-FC-ADMISSION-01",
+        "ASAP-VISION-SYNC-01",
+        "EVOL-B-PROMPTREG"
+      ],
+      "write_scope": [
+        "services/factcheck_planner.py",
+        "services/search_aggregator.py",
+        "services/factcheck_renderer.py",
+        "services/factcheck_service.py",
+        "services/factcheck_orchestrator.py",
+        "tests/test_evol_fc_evidence_style.py",
+        "plans/features/evol/audit/w10-fc-evidence-style.md"
+      ],
+      "acceptance": "12 сценариев §8 проходят на fixtures: все существенные claims получают попытку поиска, источник доказывает свой тезис, технические исходы не выдаются за «данных недостаточно», публичный текст остаётся структурированным и живым; деплой 2.58.143 содержит слайс, §6 (UI-итог охвата) остаётся PENDING.",
+      "risk": "R2",
+      "next_role": "PM (закрыть §6 UI-слайсом)",
+      "status": "DELIVERED (2.58.143 @ 273be95c), §6 PENDING",
+      "note": "Слайс владельца от 31.10.2026 (current_task.md 1617-1748), добавлен в карту 01.11.2026 после фактического выката."
+    },
+    {
+      "id": "ASAP-UI-02",
+      "depends_on": [
+        "EVOL-W0-AUDIT",
+        "EVOL-UI-NAV",
+        "EVOL-UI-CLEANUP",
+        "EVOL-UI-RESPONSIVE",
+        "EVOL-UI-SECTIONS-MOVE",
+        "EVOL-UI-HEALTHGLASS",
+        "EVOL-UI-STATUS-WIDGETS"
+      ],
+      "write_scope": [
+        "plans/features/evol/audit/asap-ui-02-matrix.md"
+      ],
+      "actual_write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/test_webapp_evol_w7_nav.py",
+        "tests/js/asap8_w2_shell_mobile_nav_test.js",
+        "plans/features/evol/audit/asap-ui-02-matrix.md",
+        "docs/ui-navigation-contract.md"
+      ],
+      "acceptance": "Матрица 59 пунктов с проверяемым основанием; §2 (навигация/топбар/иконки), карточки, ленты, порядок разделов, health-семантика закрыты и задеплоены (title_once = 1, 114+152 ячейки без дефектов); открыты 4-секционный виджет под картой, warning-токен, единый modal/sheet + z-index, глобальный поиск (EVOL-037), когнитивная карта (EVOL-COG), Back-stack и 17-сценарный контракт.",
+      "risk": "R2",
+      "next_role": "UI lane + PM",
+      "status": "PARTIAL DELIVERED (2.58.143 @ 273be95c); открытые пункты перечислены в карте",
+      "note": "write_scope намеренно ограничен артефактом матрицы: реально слайс менял web/** и тесты, но эти файлы уже принадлежат EVOL-UI-NAV/CLEANUP/RESPONSIVE/SECTIONS-MOVE/HEALTHGLASS (перечислены в actual_write_scope), поэтому объявлять их вторым независимым писателем нельзя — слайс исполнялся последовательно после них."
     }
   ]
 }

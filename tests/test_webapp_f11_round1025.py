@@ -61,7 +61,11 @@ class TestF11JsBehaviour:
 class TestD1Grid:
     def test_container_and_spans(self):
         assert 'class="status-grid"' in INDEX
-        for span in ("sg-5", "sg-7", "sg-8", "sg-4", "sg-12"):
+        # ASAP-UI-02 §5 (wave 2): карта и единый виджет четырёх лент —
+        # на всю ширину (`sg-12`), превью — `sg-8` рядом с панелью сна
+        # (`sg-4`), hero — `sg-5`. Спаны `sg-7`/`sg-8` из прежней композиции
+        # §12 больше не используются.
+        for span in ("sg-5", "sg-8", "sg-4", "sg-12"):
             assert span in INDEX, span
 
     def test_css_12_6_1(self):
@@ -91,9 +95,13 @@ class TestD1Grid:
         # NOTE (U04, v6.3 W3-STATUS): «Логи» — ФИЗИЧЕСКИЙ дом в конце
         # «Статуса» (последняя карточка .status-grid); карточка-переход
         # id="status-logs-link" удалена, в Аналитике блока логов нет.
+        # ASAP-UI-02 §5 (wave 2): композиция «Статуса» — здоровье → карта
+        # (место EVOL-COG) → ЕДИНЫЙ виджет четырёх лент (первая секция —
+        # «Новые факты») → сон → превью → бюджеты → логи.
         order = ["status-hero", 'class="card p-4 status-block"', "status-graph",
-                 "status-sleep", "Мониторинг Интеллекта", "exec-preview",
-                 "status-facts", "status-budgets", "card p-4 status-logs"]
+                 'class="card p-4 sg-12 intel-card"', "data-status-facts",
+                 "status-sleep", "exec-preview", "status-budgets",
+                 "card p-4 status-logs"]
         prev = -1
         for marker in order:
             i = INDEX.index(marker)

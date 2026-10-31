@@ -74,16 +74,18 @@ const methods = captured.methods || {};
   assert.ok(INDEX.indexOf('class="status-grid"') >= 0, '§12: .status-grid');
   assert.ok(INDEX.indexOf("'status-grid--legacy': !statusGridV2") >= 0,
     '§12: kill-switch класс');
-  for (const span of ['sg-5', 'sg-7', 'sg-8', 'sg-4', 'sg-12']) {
+  for (const span of ['sg-5', 'sg-4', 'sg-12']) {
     assert.ok(INDEX.indexOf(span) >= 0, '§12: span ' + span);
   }
-  // DOM-порядок §12 (Wave 2 UX: логи переехали в «Аналитику» → вкладка
-  // «Логи», на «Статусе» — карточка-переход `status-logs-link`):
-  // Hero → метрики(`status-block`) → граф → сон → мониторинг
-  // → превью → факты → бюджеты → карточка-переход к логам.
+  // DOM-порядок «Статуса» — ASAP-UI-02 §5 (wave 2, отменяет старую
+  // композицию §12 для этих блоков):
+  // Hero → метрики(`status-block`) → КАРТА (место EVOL-COG) → ЕДИНЫЙ виджет
+  // четырёх лент (первая секция — «Новые факты») → сон → превью → бюджеты →
+  // карточка-переход к логам. Между здоровьем и лентами других больших
+  // виджетов нет; сон и прочее — ПОСЛЕ лент.
   const order = ['status-hero', 'class="card p-4 status-block"', 'status-graph',
-    'status-sleep', 'Мониторинг Интеллекта', 'exec-preview', 'status-facts',
-    'status-budgets', 'card p-4 status-logs'];
+    'class="card p-4 sg-12 intel-card"', 'data-status-facts', 'status-sleep',
+    'exec-preview', 'status-budgets', 'card p-4 status-logs'];
   let prev = -1;
   order.forEach(function (m) {
     const i = INDEX.indexOf(m);
@@ -229,8 +231,13 @@ const methods = captured.methods || {};
   assert.strictEqual(f[1].kind, 'belief');
   assert.ok(f[0].key.indexOf('|') >= 0, '§19: стабильный ключ');
   assert.ok(INDEX.indexOf('Что бот недавно запомнил') >= 0, '§19: подзаголовок');
-  assert.ok(/\.status-facts \.facts-list \{[\s\S]{0,120}overflow-y: auto/.test(CSS),
+  // ASAP-UI-02 §5.3: секция «Новые факты» переехала в единый виджет и
+  // использует общий прокручиваемый слой `.sfeed-viewport` (тот же, что у
+  // трёх лент), поэтому legacy-правило `.status-facts .facts-list` удалено.
+  assert.ok(/\.sfeed-viewport \{[\s\S]{0,500}overflow-y: auto/.test(CSS),
     '§19: только вертикальный скролл');
+  assert.ok(INDEX.indexOf('class="facts-list ribbon-viewport sfeed-viewport"') >= 0,
+    '§19: окно «Новых фактов» — общий слой лент');
 })();
 
 // ── §20/D5: счётчики + клик по скроллу (viewer не переписан) ───────────────
