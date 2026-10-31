@@ -3524,12 +3524,21 @@ async def get_prompt_versions(
     await _prompt_require_view(request, user, spec, chat_id)
     cache: ConfigCache = get_cache(request)
     store = _prompt_journal_or_none(cache)
+    if store is None:
+        # P0-2 (01.11.2026): нет журнала/PG — история НЕ пустая, она
+        # недоступна. Честный 503 вместо `200: []` (UI показывает причину,
+        # несохранённая правка остаётся в редакторе).
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (нет PostgreSQL)")
     try:
         out = await prompt_policy.list_versions(
             spec.block_id, scope=_prompt_list_scope(spec, chat_id),
             chat_id=chat_id, cache=cache, store=store, actor=str(user.id))
     except prompt_policy.PromptPermissionError:
         raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (ошибка чтения)")
     if not out.get("known"):
         raise HTTPException(status_code=404,
                             detail=f"промпт вне реестра версий: {prompt_key}")
@@ -3539,12 +3548,15 @@ async def get_prompt_versions(
     out["block_id"] = spec.block_id
     out["scope"] = _prompt_list_scope(spec, chat_id)
     out["chat_id"] = chat_id
-    out["journal_available"] = store is not None
+    out["journal_available"] = True
     out["hidden"] = _prompt_is_hidden(spec)
     out["manageable"] = bool(spec.pg_key) and not _prompt_is_hidden(spec)
-    # Сервис не отдаёт отдельный таймер активации (ActivationRow без
-    # created_at). UI показывает время записи версии и не выдумывает часы.
-    out["activation_time_available"] = False
+    # Время события включения теперь есть в журнале (prompt_activations.
+    # created_at): UI показывает его, когда поле непустое; старые/неполные
+    # строки без времени не превращаются в выдуманные часы.
+    out["activation_time_available"] = any(
+        str(a.get("created_at") or "").strip()
+        for a in (out.get("activations") or []))
     out["supported_schema_compat"] = sorted(
         prompt_policy.SUPPORTED_SCHEMA_COMPAT)
     out["can_activate"] = bool(out["manageable"]) and \

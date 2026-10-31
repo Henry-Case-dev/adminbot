@@ -184,7 +184,7 @@ _GET_REVISION_SQL = (
 _LIST_REVISIONS_SQL = """
 SELECT revision_id, block_id, pg_key, scope, chat_id, origin, content_sha12,
        factory_revision, schema_compat, release_id, actor, reason,
-       source_updated_at, retired, created_at
+       source_updated_at, retired, created_at, length(body) AS char_count
 FROM prompt_revisions
 WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
 ORDER BY created_at ASC, revision_id ASC
@@ -227,6 +227,9 @@ class RevisionRow:
     source_updated_at: str = ""
     retired: bool = False
     created_at: str = ""
+    #: Длина текста ревизии в символах (без загрузки самого тела).
+    #: ``None`` — стор не сообщил длину; тогда считается по ``body``.
+    chars: int | None = None
 
 
 @dataclass
@@ -243,6 +246,8 @@ class ActivationRow:
     release_id: str = ""
     actor: str = ""
     detail_code: str = ""
+    #: Время события включения (аудит). Пустая строка — стор времени не дал.
+    created_at: str = ""
 
 
 @dataclass
@@ -481,7 +486,8 @@ class MemoryPromptJournal:
     async def list_revisions(self, block_id: str, chat_id: int | None = None,
                              *, include_retired: bool = True,
                              scope: str = "global") -> list:
-        rows = [RevisionRow(**vars(r)) for r in self.revisions.values()
+        rows = [RevisionRow(**{**vars(r), "chars": len(r.body or "")})
+                for r in self.revisions.values()
                 if r.block_id == block_id
                 and _scope_key(r.scope, r.chat_id)
                 == _scope_key(scope, chat_id)
@@ -529,6 +535,8 @@ class MemoryPromptJournal:
         if self.fail_at == "insert_activation":
             raise PromptJournalError("injected failure: insert_activation")
         self._live.activation_seq += 1
+        if not row.created_at:
+            row.created_at = _utc_now()
         self.activations.append(row)
         return self._live.activation_seq
 
@@ -759,7 +767,8 @@ class PgPromptJournal:
                 actor=row["actor"] or "", reason=row["reason"] or "",
                 source_updated_at=row["source_updated_at"] or "",
                 retired=bool(row["retired"]),
-                created_at=str(row["created_at"])))
+                created_at=str(row["created_at"]),
+                chars=int(row["char_count"] or 0)))
         return out
 
     async def list_activations(self, block_id: str,
@@ -776,7 +785,8 @@ class PgPromptJournal:
             outcome=r["outcome"], revision_id=r["revision_id"] or "",
             factory_revision_applied=r["factory_revision_applied"] or "",
             chat_id=r["chat_id"], release_id=r["release_id"] or "",
-            actor=r["actor"] or "", detail_code=r["detail_code"] or "")
+            actor=r["actor"] or "", detail_code=r["detail_code"] or "",
+            created_at=str(r["created_at"] or ""))
             for r in rows]
 
     async def insert_revision(self, row: RevisionRow,
@@ -1676,22 +1686,27 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
         return {"applied": False, "reason": "schema_incompatible",
                 "block_id": block_id, "revision_id": revision_id,
                 "schema_compat": revision.schema_compat}
-    state = await store.read_applied(spec.block_id, scope, chat_id)
-    kind = "manual_rollback"
-    if state is not None and state.revision_id and \
-            state.revision_id != revision_id:
-        # Детерминированный порядок (вставка ревизий в журнал), не часы:
-        # цель создана раньше активной → откат; позже или порядок неизвестен
-        # → возврат вперёд (EVOL-017: «выбор сохранённого состояния»).
-        precedes = await store.revision_precedes(revision_id,
-                                                 state.revision_id)
-        kind = "manual_rollback" if precedes else "manual_forward"
     # Ревью F2: активация указывает на ЗАПРОШЕННУЮ ревизию — клона origin=manual
     # не создаётся; байты записываются, origin сохраняется у самой ревизии
     # (rollback на manual-правку остаётся manual, forward на заводскую —
     # factory); ``factory_revision_applied`` не сбрасывается.
+    #
+    # P0-2 (01.11.2026): активное состояние читается ВНУТРИ транзакции — под
+    # тем же advisory-локом, который сериализует активации. Прежнее чтение до
+    # транзакции могло классифицировать параллельный выбор как откат/вперёд по
+    # устаревшему состоянию и записать неверный factory_revision_applied.
     async with store.transaction() as tx:
         try:
+            state = await store.read_applied(spec.block_id, scope, chat_id)
+            kind = "manual_rollback"
+            if state is not None and state.revision_id and \
+                    state.revision_id != revision_id:
+                # Детерминированный порядок (вставка ревизий в журнал), не
+                # часы: цель создана раньше активной → откат; позже или
+                # порядок неизвестен → возврат вперёд (EVOL-017).
+                precedes = await store.revision_precedes(revision_id,
+                                                         state.revision_id)
+                kind = "manual_rollback" if precedes else "manual_forward"
             outcome = "applied"
             if scope == "global":
                 previous = _spec_current_text(spec, cache)
@@ -1769,7 +1784,12 @@ async def list_versions(block_id: str, *, scope: str = "global",
     """Данные «Истории версий» (EVOL-017): активная ревизия, заводская,
     хронология ревизий и событий включения. Тексты по умолчанию не отдаются
     (источник просмотра — ``get_revision_source``/``diff_revisions``).
-    Ревью F4: доступ через hook полномочий (checker, иначе непустой actor)."""
+    Ревью F4: доступ через hook полномочий (checker, иначе непустой actor).
+
+    P0-2 (01.11.2026): сбой чтения журнала поднимает
+    :class:`JournalUnavailable` (HTTP-слой отдаёт 503) — история не
+    подменяется пустым списком.
+    """
     spec = pr.block(block_id)
     if spec is None:
         return {"block_id": block_id, "known": False}
@@ -1785,18 +1805,37 @@ async def list_versions(block_id: str, *, scope: str = "global",
             revisions = await store.list_revisions(block_id, chat_id)
             activations = await store.list_activations(block_id, chat_id)
             state = await store.read_applied(spec.block_id, scope, chat_id)
-        except Exception:      # pragma: no cover — журнал не роняет view
+        except Exception as exc:
+            # Ревью P0-2 (01.11.2026): раньше сбой чтения журнала глотался и
+            # отдавался ПУСТОЙ список — история выглядела «пустой», хотя она
+            # есть (запрещено скрывать отказ под пустым массивом). Теперь
+            # вызывающий получает честный JournalUnavailable (HTTP 503).
             logger.warning("[prompt_release] список ревизий недоступен",
                            exc_info=True)
+            raise JournalUnavailable(
+                f"journal read failed: {type(exc).__name__}") from exc
     active = None
     if state is not None and state.revision_id:
         rev = await store.get_revision(state.revision_id)
         if rev is not None:
             active = {"revision_id": rev.revision_id, "origin": rev.origin,
                       "sha256_12": rev.content_sha12,
-                      "chars": len(rev.body), "created_at": rev.created_at,
+                      "chars": len(rev.body or ""),
+                      "created_at": rev.created_at,
                       "factory_revision_applied":
                           state.factory_revision_applied}
+    rows: list[dict] = []
+    for r in revisions:
+        rows.append({
+            "revision_id": r.revision_id, "origin": r.origin,
+            "sha256_12": r.content_sha12, "chars": _revision_chars(r),
+            "factory_revision": r.factory_revision,
+            "release_id": r.release_id, "actor": r.actor, "reason": r.reason,
+            "retired": r.retired, "created_at": r.created_at,
+            "schema_compat": r.schema_compat,
+            # global/chat и адресат ревизии видны в строке истории.
+            "scope": r.scope, "chat_id": r.chat_id,
+        })
     return {
         "block_id": spec.block_id,
         "pg_key": spec.pg_key or "",
@@ -1807,32 +1846,30 @@ async def list_versions(block_id: str, *, scope: str = "global",
             active and active["sha256_12"] == pr.sha12(
                 pr.factory_text(block_id))),
         "active": active,
-        "revisions": [{
-            "revision_id": r.revision_id, "origin": r.origin,
-            "sha256_12": r.content_sha12, "chars": _revision_chars(store, r),
-            "factory_revision": r.factory_revision,
-            "release_id": r.release_id, "actor": r.actor, "reason": r.reason,
-            "retired": r.retired, "created_at": r.created_at,
-            "schema_compat": r.schema_compat,
-        } for r in revisions],
+        "revisions": rows,
         "activations": [{
             "kind": a.kind, "outcome": a.outcome,
             "revision_id": a.revision_id, "scope": a.scope,
             "chat_id": a.chat_id, "release_id": a.release_id,
             "actor": a.actor, "detail_code": a.detail_code,
+            "created_at": a.created_at,
         } for a in activations],
     }
 
 
-def _revision_chars(store, revision: RevisionRow) -> int:
-    if revision.body:
-        return len(revision.body)
-    full = None
-    try:
-        full = store.get_revision(revision.revision_id)
-    except Exception:          # pragma: no cover
-        full = None
-    return len(full.body) if full is not None else 0
+def _revision_chars(revision: RevisionRow) -> int:
+    """Длина текста ревизии без загрузки тела из журнала.
+
+    Ревью P0-2 (01.11.2026, продовый HTTP 500 «История версий»): прежняя
+    версия звала ``store.get_revision(...)`` БЕЗ ``await`` и падала с
+    ``AttributeError: 'coroutine' object has no attribute 'body'`` на любом
+    реальном PG-журнале (список ревизий тела не отдаёт — ``body=""``).
+    Тестовый ``MemoryPromptJournal`` отдавал тело в списке, поэтому дефект
+    не ловился. Теперь длина приходит из стора (``chars``) либо из тела.
+    """
+    if revision.chars is not None:
+        return int(revision.chars)
+    return len(revision.body or "")
 
 
 async def get_revision_source(revision_id: str, *, cache=None,
