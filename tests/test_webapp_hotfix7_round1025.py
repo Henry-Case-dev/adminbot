@@ -73,17 +73,15 @@ class TestAreaA_Layout:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,200}overflow-y:\s*auto", APP_CSS)
-        # re-pin ASAP 8 v6 D13 (§18I.14) + EVOL-025 (W9): нижней панели-fixed нет
-        # — мобильный блок разделов остаётся flex-child'ом shell-колонки
-        # (последний слот после `</main>`), в портрете читается как нижняя
-        # панель, в низком ландшафте — плавающим рейлом. Утверждение проверяет
-        # именно это: правило не делает панель отдельным fixed-слоем.
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1 (31.10.2026): нижней панели
+        # разделов больше нет вообще — нет ни fixed-слоя, ни flex-панели, ни
+        # ландшафтного рейла; навигация — drawer.
         assert ".bottom-nav {" not in APP_CSS, \
             "D13: .bottom-nav CSS удалён"
-        assert re.search(r"\.mobile-topnav \{[^}]*flex: 0 0 auto", APP_CSS)
-        assert "position: fixed" not in APP_CSS[
-            APP_CSS.index(".mobile-topnav {"):
-            APP_CSS.index(".mobile-topnav {") + 300]
+        assert "mobile-topnav" not in APP_CSS, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
+        assert ".app-drawer {" in APP_CSS and ".drawer-backdrop {" in APP_CSS, \
+            "ASAP-UI-02 §2.1: drawer/backdrop — единственный overlay-механизм"
 
     def test_legacy_layout_rollback(self):
         assert ".app-shell.shell-layout-legacy" in APP_CSS
@@ -143,11 +141,12 @@ class TestAreaC_GlassShell:
         assert "var(--shell-texture)" not in APP_CSS
 
     def test_shell_panels_use_shell_layer(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14): shell-слой — sidebar/drawer/шапка
-        # (+mobile-topnav); bottom-nav/more-sheet удалены.
-        for sel in (".app-sidebar", ".app-drawer", "header.header-sticky",
-                    ".mobile-topnav"):
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: shell-слой —
+        # sidebar/drawer/шапка; bottom-nav/more-sheet/mobile-topnav удалены.
+        for sel in (".app-sidebar", ".app-drawer", "header.header-sticky"):
             assert sel in APP_CSS
+        assert "mobile-topnav" not in APP_CSS, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert ".bottom-nav {" not in APP_CSS, \
             "D13: .bottom-nav CSS удалён"
         assert ".more-sheet {" not in APP_CSS, \
@@ -244,9 +243,10 @@ class TestAreaD_FlagsAcceptance:
         assert "PASS" in text and "4.5" in text
 
     def test_ia_and_nav_untouched(self):
-        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
-        # един для desktop sidebar и mobile-topnav; группы sidebar сохранены.
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: нижней панели нет — канон
+        # navItems един для sidebar и drawer (sidebarGroups).
         assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
             "D13: bottomNavItems удалён"
-        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
+        assert not re.search(r"mobileTopnavItems:\s*function", APP_JS), \
+            "ASAP-UI-02: row B удалена"
         assert "sidebarGroups" in APP_JS

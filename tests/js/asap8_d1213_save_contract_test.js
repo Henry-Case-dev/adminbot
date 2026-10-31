@@ -268,36 +268,39 @@ const components = (global.__components) || {};
     'F2: baseline снапшот после applyTree (openRoleEditor)');
 }
 
-// ── D13.5 + W2-SHELL (asap8-v6.3, U01): mobile shell — row B 4 сегмента,
-// нижней навигации нет. Маркеры scroll-thin/«mobileMoreItems удалён»
-// заменены новым каноном «4 destination + Ещё» (w2-contract §1.2).
+// ── D13.5 + ASAP-UI-02 §2.1: mobile shell — постоянной панели нет,
+// навигация в drawer, «⋯» — только второстепенные действия.
 {
   assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
     'D13 §18I.14: bottom-nav удалён');
-  // Старая шторка-лента (moreOpen) не возвращена; новое меню «Ещё» —
-  // popover (more-menu), НЕ нижний navbar.
+  // Старая шторка-лента (moreOpen) не возвращена; меню второстепенных
+  // действий — popover (more-menu), НЕ нижний navbar.
   assert.ok(INDEX.indexOf('moreOpen') < 0,
     'D13 §18I.14: шторка «Ещё» (moreOpen) удалена');
   assert.ok(INDEX.indexOf('class="more-sheet"') < 0
     && INDEX.indexOf('class="bottom-nav"') < 0,
-    'U01: меню «Ещё» — popover поверх контента, не ряд шапки/низ-бар');
-  assert.ok(INDEX.indexOf('class="mobile-topnav"') >= 0,
-    'U01: компактная верхняя row B присутствует (без scroll-thin-ленты)');
-  assert.ok(INDEX.indexOf('v-if="iaV2 && isMobileShell" class="mobile-topnav') >= 0,
-    'D13: верхняя навигация — только mobile shell (<768)');
-  assert.ok(INDEX.indexOf('mobile-topnav-more') >= 0
+    'U01: меню «⋯» — popover поверх контента, не ряд шапки/низ-бар');
+  // ASAP-UI-02: «row B» (постоянная нижняя панель разделов) отменена.
+  assert.ok(INDEX.indexOf('mobile-topnav') < 0,
+    'ASAP-UI-02: постоянной мобильной панели разделов нет в разметке');
+  assert.ok(CSS.indexOf('mobile-topnav') < 0,
+    'ASAP-UI-02: её CSS (включая ландшафтный рейл) удалён');
+  assert.ok(INDEX.indexOf('data-drawer-trigger') >= 0
+    && INDEX.indexOf('v-if="iaV2 && hasDrawer"') >= 0,
+    'ASAP-UI-02: навигация на телефоне/планшете — кнопка drawer в шапке');
+  assert.ok(INDEX.indexOf('data-more-trigger') >= 0
     && INDEX.indexOf('more-menu-root') >= 0,
-    'U01.1: 4-я кнопка «Ещё» + popover-меню в разметке');
-  assert.ok(computed.mobileTopnavItems, 'D13: mobileTopnavItems computed');
+    'ASAP-UI-02: кнопка «⋯» + popover-меню второстепенных действий');
+  assert.strictEqual(computed.mobileTopnavItems, undefined,
+    'ASAP-UI-02: mobileTopnavItems удалён');
   assert.strictEqual(computed.bottomNavItems, undefined,
     'D13: bottomNavItems удалён');
-  assert.strictEqual(typeof computed.mobileMoreItems, 'function',
-    'U01.1: mobileMoreItems («Ещё») определён');
-  // Ландшафт: контролы не перекрываются (компактный ряд, не fixed-стек).
-  assert.ok(/@media \(orientation: landscape\) and \(max-height: 500px\)[\s\S]{0,400}\.mobile-topnav-link/.test(CSS),
-    'D13 §18I.14: landscape-правило для верхней навигации');
-  assert.ok(/@media \(prefers-reduced-motion: reduce\)/.test(CSS)
-    && CSS.indexOf('.mobile-topnav { scroll-behavior: auto; }') >= 0,
+  assert.strictEqual(computed.mobileMoreItems, undefined,
+    'ASAP-UI-02: список разделов в «Ещё» (mobileMoreItems) удалён');
+  // Ландшафт: шапка остаётся ОДНОЙ строкой, второй панели/рейла нет.
+  assert.ok(/@media \(orientation: landscape\) and \(max-height: 520px\)[\s\S]{0,400}flex-wrap: nowrap/.test(CSS),
+    'ASAP-UI-02: landscape — одна строка шапки без второго ряда');
+  assert.ok(/@media \(prefers-reduced-motion: reduce\)/.test(CSS),
     '§18I.7: reduced-motion уважен в мобильной навигации');
 }
 

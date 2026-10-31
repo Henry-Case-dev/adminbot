@@ -265,14 +265,16 @@ function canvasStub() {
     'C: карточки на --card-shadow');
   assert.ok(/\.modal-card \{\s*box-shadow: var\(--glass-shadow\)/.test(CSS),
     'C: модалки на --glass-shadow');
-  // Shell-панели — shell-токены. D13 (§18I.14): bottom-nav/more-sheet
-  // удалены; shell-токены живут на sidebar/drawer/шапке (+mobile-topnav).
-  for (const sel of ['.app-sidebar', '.app-drawer', 'header.header-sticky',
-                     '.mobile-topnav']) {
+  // Shell-панели — shell-токены. D13 (§18I.14) + ASAP-UI-02 §2.1:
+  // bottom-nav/more-sheet/mobile-topnav удалены; shell-токены живут на
+  // sidebar/drawer/шапке.
+  for (const sel of ['.app-sidebar', '.app-drawer', 'header.header-sticky']) {
     assert.ok(CSS.indexOf(sel) >= 0, 'C: панель ' + sel);
   }
   assert.ok(CSS.indexOf('.bottom-nav') < 0 && CSS.indexOf('.more-sheet') < 0,
     'C/D13: правила удалённых нижних панелей отсутствуют');
+  assert.ok(CSS.indexOf('mobile-topnav') < 0,
+    'C/ASAP-UI-02: постоянной мобильной панели разделов нет');
   assert.ok(/box-shadow: var\(--shell-shadow\)/.test(CSS),
     'C: shell-shadow применён');
   assert.ok(/background-image: var\(--shell-specular\);/

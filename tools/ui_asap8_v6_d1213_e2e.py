@@ -274,8 +274,12 @@ def main() -> int:
             "pageerror(m): " + str(e)[:200]))
         mp.goto(base + "#/", wait_until="load")
         mp.wait_for_timeout(1500)
-        c["mobile_topnav_visible"] = mp.locator(
-            ".mobile-topnav").is_visible()
+        c["mobile_nav_button_visible"] = mp.locator(
+            "[data-drawer-trigger]").is_visible()
+        c["mobile_no_bottom_panel"] = mp.locator(
+            ".mobile-topnav").count() == 0
+        c["mobile_no_brand"] = mp.locator(
+            ".mobile-brand, .sidebar-brand").count() == 0
         c["mobile_no_bottom_nav"] = mp.locator(".bottom-nav").count() == 0
         c["mobile_no_more_sheet"] = mp.locator(".more-sheet").count() == 0
         c["mobile_no_h_overflow"] = mp.evaluate(
@@ -300,11 +304,13 @@ def main() -> int:
             "pageerror(l): " + str(e)[:200]))
         lp.goto(base + "#/", wait_until="load")
         lp.wait_for_timeout(1500)
-        c["landscape_topnav_visible"] = lp.locator(
-            ".mobile-topnav").is_visible()
-        nav_box = lp.locator(".mobile-topnav").bounding_box()
-        c["landscape_topnav_compact"] = bool(nav_box
-                                             and nav_box["height"] <= 60)
+        c["landscape_nav_button_visible"] = lp.locator(
+            "[data-drawer-trigger]").is_visible()
+        header_box = lp.locator("header.header-sticky").bounding_box()
+        c["landscape_header_one_row"] = bool(
+            header_box and header_box["height"] <= 76)
+        c["landscape_no_bottom_panel"] = lp.locator(
+            ".mobile-topnav").count() == 0
         c["landscape_no_bottom_nav"] = lp.locator(".bottom-nav").count() == 0
         c["landscape_no_h_overflow"] = lp.evaluate(
             "document.documentElement.scrollWidth <= window.innerWidth + 1")

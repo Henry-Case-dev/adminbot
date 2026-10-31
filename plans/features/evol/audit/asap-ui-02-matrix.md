@@ -12,21 +12,21 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 |---|---|---|---|---|
 | Desktop single sidebar + low topbar | DONE_AND_VERIFIED | `web/index.html:108-155` (`aside.app-sidebar`, one nav registry `sidebarGroups`), CSS only ≥1200 `app.css:2704-2707`, collapse rail `app.css:5829-5833` (EVOL-023) | — | — |
 | Tablet: sidebar **or** drawer, no duplicate menu | DONE_AND_VERIFIED | drawer `index.html:12979-13012` + `app.css:2742-2763`; sidebar force-hidden `app.css:2704`; drawer force-hidden only inside `@media(min-width:1200px)` `app.css:2738-2739`; screenshots `evidence/w7-nav-tablet-drawer.png`, `w9-responsive-mid-768x1024-*` | — | — |
-| **Mobile: no persistent bottom navbar, drawer instead** | **CONFLICTS_WITH_NEW_CONTRACT** | `<768` renders persistent `nav.mobile-topnav` (`index.html:13022-13044`) = 3 sections + «Ещё» (`mobileTopnavItems`, `app.js:3214-3221`), geometry `app.css:2777-2808`, landscape right rail `app.css:6007-6027`; `--bottom-nav-h` metric `app.js:26801-26822`; more-sheet positioned above it `app.css:6064-6072`. This is exactly the EVOL-025 bottom panel the new contract cancels | remove `mobile-topnav` on `<768`; mobile nav = drawer; keep `mobileMoreItems` inside drawer/ellipsis; unset `--bottom-nav-h` dependency in more-sheet offset | UI lane (nav) |
-| Drawer reachable on phone | **MISSING** | trigger `v-if="iaV2 && isCompactShell"` → not rendered `<768` (`index.html:171-177`) | render trigger when `isMobileShell` too (`<1200`) | UI lane (nav) |
-| No simultaneous bottom tabs + top tabs + drawer | CONFLICTS (same cause) | second global band only in legacy: `navbar-band v-if="!iaV2"` `index.html:337` (dead in IA v2) — but bottom panel + drawer coexist across breakpoints | one mechanism per breakpoint after removing bottom nav | UI lane (nav) |
-| Internal tabs only for screen subsections | DONE_AND_VERIFIED | `oversightSetTab` tabs are screen-local; no global tab row in IA v2 | — | — |
-| Old tests encode bottom nav | **conflict, tests must change** | assert `.mobile-topnav` presence: `tests/js/asap8_w2_shell_mobile_nav_test.js:221-237`, `tests/js/asap8_d1213_save_contract_test.js:284-300`, `tests/js/asap42_step2c2_layout_test.js:88`, `tests/js/cfg04_forms_contract_test.js:237`; brand-row assertions `asap8_w2_shell_mobile_nav_test.js:210-216` | rewrite these to drawer contract (they currently *require* the forbidden layout) | UI lane (nav) + tests |
+| **Mobile: no persistent bottom navbar, drawer instead** | **DONE_AND_VERIFIED (ASAP-UI-02 §2.1, 31.10.2026)** | `nav.mobile-topnav` и его ландшафтный рейл удалены (`web/index.html`, `web/static/app.css`); единый drawer `v-if="iaV2 && hasDrawer"` (`hasDrawer` = `shellMode !== 'desktop'`, `web/app.js`), кнопка `[data-drawer-trigger]` в шапке на mobile И tablet; закрытый drawer за краем (`transform: translateX(-105%)`); scroll-lock `.app-shell.drawer-open`; `--bottom-nav-h` и `_syncBottomNavMetric` удалены | — (сделано в этой волне) | ✅ закрыто |
+| Drawer reachable on phone | **DONE_AND_VERIFIED** | кнопка навигации рендерится на `<1200`; e2e: 390/667/320 открывают drawer, все 8 разделов, фокус внутрь, Esc + возврат фокуса; скрины `evidence/w7-nav-mobile-drawer.png`, `w7-nav-landscape-drawer.png` | — | ✅ закрыто |
+| No simultaneous bottom tabs + top tabs + drawer | **DONE_AND_VERIFIED** | один механизм навигации на breakpoint: sidebar ≥1200 / drawer <1200; в «⋯» разделов нет; инвентарь 19×6 = 114 ячеек без второго навбара | — | ✅ закрыто |
+| Internal tabs only for screen subsections | DONE_AND_VERIFIED | `oversightSetTab` tabs screen-local; глобального ряда табов в IA v2 нет | — | — |
+| Old tests encode bottom nav | **DONE_AND_VERIFIED (переписаны)** | `asap8_w2_shell_mobile_nav_test.js` (полностью под drawer/«⋯»), `asap8_d1213_save_contract_test.js`, `asap42_step2c2_layout_test.js`, `cfg04_forms_contract_test.js`, `round1025_shell_breakpoints/hotfix4/hotfix7/hotfix9`, `round1025_ia_routing_test.js`, `routing_test.js`, `evol_w9_responsive_test.js` + 12 python-файлов и live-инструменты `ui_evol_w7_nav_e2e.py`, `ui_evol_w9_responsive_e2e.py`, `ui_round1025_matrix.py`, `ui_w4_ui_e2e.py`, `ui_speech_mobile_entry_e2e.py`, `ui_asap8_v6_d1213_e2e.py`, `ui_asap8_w2_fullscreen_e2e.py`; ни один запрет не ослаблен — менялись только пины отменённой панели | — | ✅ закрыто |
 
 ## 2. Topbar §2.2
 
 | item | state | evidence | minimal delta | owner |
 |---|---|---|---|---|
-| Nav button in topbar | PARTIAL | compact only `index.html:171-177`, icon `expand_more` | also on mobile (see §1) + menu/sidebar glyph | UI lane (nav) |
-| Section name exactly once | PARTIAL | single `div.header-title` `index.html:208-209`; no `<h1>` in content (grep empty) → **on mobile the name is hidden**: `app.css:3422-3424` `.header-title-wrap{display:none}`; only «Ещё • X» label remains (`app.js:3229-3232`) | mobile: show section name once (compact title in row, or content title) | UI lane (nav) |
+| Nav button in topbar | **DONE_AND_VERIFIED** | `[data-drawer-trigger]` в шапке на mobile+tablet, inline-SVG menu-глиф (`ui-ic`, 20px), hit 44×44, `aria-label="Открыть навигацию"`, `aria-expanded` = `drawerOpen` | — | ✅ закрыто |
+| Section name exactly once | **DONE_AND_VERIFIED** | `.header-title` виден и на телефоне (правило `display:none` удалено), обрезается ellipsis, крошка `breadcrumb` на mobile скрыта — имя не дублируется; в контенте заголовок не повторяется (hub-title скрыт ≥768) | — | ✅ закрыто |
 | Chat scope switcher, one instance, all routes | DONE_AND_VERIFIED | `index.html:260-307` single `scope-wrap` + in-panel search + avatars; badge `CHAT/GLOBAL`; full name in options `:299`; screenshots `w7-nav-desktop-scope-panel.png`, `w7-nav-mobile-scope-panel.png` | — | — |
-| Avatar + compact actual-role badge visible | **CONFLICTS_WITH_NEW_CONTRACT** | markup `index.html:322-326`; but mobile hides **name and role badge**: `app.css:3451-3452` `.header-user span{display:none}` (low-landscape `app.css:6044` too) | keep avatar + short role badge group on mobile; details on expand | UI lane (topbar) |
-| Visual logo removed | **CONFLICTS_WITH_NEW_CONTRACT** | `AdminBot` wordmark still rendered in desktop sidebar `index.html:112-114` (`.sidebar-brand-title`); `mobile-brand` markup `index.html:187-191` hidden by `app.css:3419` | delete sidebar brand block + mobile-brand markup/CSS, fill space with functional layout | UI lane (topbar) |
+| Avatar + compact actual-role badge visible | **DONE_AND_VERIFIED** | markup `.header-user-name` (скрыт на mobile) + `.header-user-role` (виден, ellipsis, полное имя роли в `title`) + `.header-user-initial` (фолбэк аватара без фото); прежнее `.header-user span{display:none}` удалено; e2e 320/390/667/1280 — бейдж виден | — | ✅ закрыто |
+| Visual logo removed | **DONE_AND_VERIFIED** | `.sidebar-brand`/`.sidebar-brand-title`/`.mobile-brand` удалены из `index.html` и CSS; верхняя строка панели — `.sidebar-top` с одной функциональной кнопкой `data-sidebar-collapse`; `buildFsGeomText` фиксирует отсутствие узлов бренда | — | ✅ закрыто |
 | Long chat name truncates visually only | DONE_AND_VERIFIED | `.scope-name.truncate` + `:title` `index.html:269-275`, full text in option `:299-300`; `w9` ellipsis check + `w7-nav-*` shots | — | — |
 | Secondary actions entry (search/fullscreen/help) | PARTIAL | fullscreen ghost icon 18px / hit 44×44 `index.html:236-247`, `app.css:1146`, `app.css:3712`; help is nav route `#/how`; **app-wide search absent** (EVOL-037 PENDING, no palette/`Ctrl+K` in code) | add search entry when EVOL-037 lands; nothing to build now | PM/UI (blocked on EVOL-037) |
 | No second header row | DONE_AND_VERIFIED | `display:contents` single row `app.css:1135`, `app.css:5695`; low landscape one row 48px `app.css:6029-6051` | — | — |
@@ -36,10 +36,10 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 | item | state | evidence | minimal delta | owner |
 |---|---|---|---|---|
 | Single icon system, stroke/size/hit-area | DONE_AND_VERIFIED | Material Symbols Rounded self-host `web/static/fonts/material-symbols-rounded.woff2` + `iconGlyph()`; 20–21px `app.css:2793`, `app.css:5901`; touch ≥44 `app.css:2791-2804`, coarse media `app.css:6147-6151`; `aria-label`/`title` everywhere | — | — |
-| Drawer icon = menu/sidebar glyph | **MISSING** | `expand_more` (chevron) `index.html:176` | swap to `menu`/`side_navigation` glyph, keep 44px hit | UI lane (nav) |
-| «Ещё» = ellipsis, not grid | **CONFLICTS_WITH_NEW_CONTRACT** | `grid_view` four-square icon `index.html:13041` | `more_horiz`, same hit area/labels | UI lane (nav) |
-| Quiet borders/backgrounds, no pulsing | DONE_AND_VERIFIED | `.btn-ghost` transparent `app.css:525-541`; no always-on icon animation (reduced-motion guards `app.css:2452`, `2859`) | — | — |
-| More-menu holds only secondary actions | PARTIAL | `mobileMoreItems` = all sections except 3 fixed (`app.js:3223-3226`) → more-menu is the section list | after removal of bottom nav, all sections move to drawer; menu keeps secondary only | UI lane (nav) |
+| Drawer icon = menu/sidebar glyph | **DONE_AND_VERIFIED** | inline-SVG menu-глиф класса `ui-ic` (20px) в `[data-drawer-trigger]`, hit 44×44, спокойный hover/focus; шрифтовой сабсет (37 PUA-глифов) не расширялся — тот же inline-SVG приём, что у ⛶ | — | ✅ закрыто |
+| «Ещё» = ellipsis, not grid | **DONE_AND_VERIFIED** | `[data-more-trigger]` — горизонтальное троеточие (inline-SVG), `aria-label="Дополнительные действия"`; `grid_view` в шапке отсутствует; тест `asap8_w2_shell_mobile_nav_test.js` это фиксирует | — | ✅ закрыто |
+| Quiet borders/backgrounds, no pulsing | DONE_AND_VERIFIED | `.btn-ghost` transparent `app.css:525-541`; новые `.header-nav-btn/.header-more-btn` — прозрачные, hover rgba .06, без анимаций; reduced-motion guards сохранены | — | — |
+| More-menu holds only secondary actions | **DONE_AND_VERIFIED** | «⋯» содержит только служебное действие (admin-диагностика `data-fs-geom-diag-entry`) и блок профиля (имя/роль/ID области); списка разделов нет — `mobileMoreItems`/`moreMenuPick` удалены, разделы только в drawer | — | ✅ закрыто |
 
 ## 4. Scroll / Telegram §2.4
 
@@ -48,8 +48,8 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 | No arbitrary hide-on-scroll / jumping header | DONE_AND_VERIFIED | no scroll-direction header code (grep `hideOnScroll/lastScroll/scrollDir` empty); sticky single row `app.css:1135`, height by components | — | — |
 | No duplicated Telegram chrome | DONE_AND_VERIFIED | `fullscreen-policy.js` single ⛶ node + `html.fs-hidden`/`data-fs-reason`; native Back used when available (`index.html:178-183`); `static/telegram-init.js`; tests `tests/js/asap8_w2_fullscreen_policy_test.js`, `T-1099` fallback rule | — | — |
 | Drawer: backdrop, esc/outside, focus restore, keeps section/scope | DONE_AND_VERIFIED | `index.html:12979-12986` (`inert`, `aria-hidden`, `@keydown.esc`), `drawer-backdrop` `app.css:2761-2763`; `toggleDrawer/closeDrawer` state in `app.js`; screenshot `w7-nav-live-tablet-900-drawer.jpg` | — | — |
-| Landscape: no second permanent row | **CONFLICTS_WITH_NEW_CONTRACT** | `<768` landscape turns the bottom panel into a fixed right rail `app.css:6007-6027` (still permanent nav + reserved 58px) | remove with bottom nav; landscape = drawer only | UI lane (nav) |
-| Keyboard / safe areas / no horizontal overflow | DONE_AND_VERIFIED | `--kb-offset` from `visualViewport` `app.js:7447-7461`; safe-area vars in shell/header `app.css:2745`, `6033-6036`; 19 routes × 8 viewports, 0 h-scroll/0 clipped `evidence/w9-responsive-inventory.json` (`summary`: cells 152, hScroll 0) | — | — |
+| Landscape: no second permanent row | **DONE_AND_VERIFIED** | `<768` landscape: ландшафтный рейл удалён вместе с `mobile-topnav`; шапка остаётся одной строкой (`header.header-sticky.header-compact-v2 { flex-wrap: nowrap; min-height: 48px }`), резерв `padding-right: 58px` убран; e2e 667×375 — 1 ряд, drawer открывается | — | ✅ закрыто |
+| Keyboard / safe areas / no horizontal overflow | DONE_AND_VERIFIED | `--kb-offset` из `visualViewport` `app.js:7447-7461`; safe-area vars в shell/header; инвентарь после правки: `evidence/w9-responsive-inventory.json` 19 маршрутов × 8 вьюпортов = 152 ячейки, `hScroll 0`, `offscreen 0`, `clipped 0`; `w7-nav-inventory.json` 114 ячеек, failures 0 | — | — |
 
 ## 5. Design system §3
 
@@ -130,11 +130,11 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 
 | # | scenario | evidence today | verdict |
 |---|---|---|---|
-| 1 | phone portrait: no bottom nav, drawer covers all sections, minimal topbar | `evidence/w9-live-390-portrait.png`, `w9-responsive-phone-*` **show row B** (`mobile-topnav`) | **FAILS now** → re-run after nav change |
-| 2 | phone landscape / low viewport | `w9-responsive-land-667x375-*`, `w9-responsive-mid-600x800-*`, `812x375/932x430-drawer` | PASS (rail removed with bottom nav) |
-| 3 | identity: no Adminbot logo, avatar+role compact | `w7-nav-live-mobile-390-header.jpg`, `w7-nav-live-desktop-1280-*` — logo present on desktop, role badge hidden on mobile | **FAILS now** |
+| 1 | phone portrait: no bottom nav, drawer covers all sections, minimal topbar | `evidence/w7-nav-mobile-header.png`, `w7-nav-mobile-drawer.png`, `w9-responsive-phone-*` (после ASAP-UI-02 §2), инвентарь 114+152 ячейки | **PASS** |
+| 2 | phone landscape / low viewport | `w7-nav-landscape-drawer.png`, `w9-responsive-land-667x375-*`: одна строка шапки, рейла нет | PASS |
+| 3 | identity: no Adminbot logo, avatar+role compact | `w7-nav-fs-ghost-header-390.png` (аватар-инициал + бейдж роли), `w7-nav-desktop-modules.png` (sidebar без слово-марки) | PASS |
 | 4 | long chat name, scope for 2 chats + global | `w7-nav-desktop-scope-panel.png`, `w7-nav-mobile-scope-panel.png`, w9 ellipsis check | PASS |
-| 5 | «Ещё» = ellipsis, secondary only | `w9-live-390-more.png`, `w7-nav-mobile-more.png` — trigger is `grid_view` | **FAILS now** |
+| 5 | «Ещё» = ellipsis, secondary only | `w7-nav-mobile-more.png` — троеточие + только служебное действие и профиль | PASS |
 | 6 | stable header, Back order (drawer/search/sheet/fullscreen/TG) | `w7-nav-live-scope-esc-focus-1280.png`, `tests/js/asap8_w2_fullscreen_policy_test.js`, w9 CLS check | PASS (Back-stack partial) |
 | 7 | overlay at edges not clipped, focus returns | `w7-nav-case-320x700/z1`, `w7-nav-case-1280x800-*`, `w7-nav-live-scope-panel-focus-1280.png`, `w7-nav-inventory.json` | PASS |
 | 8 | common controls on 3 unrelated screens | `tests/js/cfg04_forms_contract_test.js`, `tests/js/asap42_step2c2_layout_test.js`, `tests/test_webapp_evol_w10_sections.py` | PASS (unit/contract level) |
@@ -151,16 +151,34 @@ Productive default path: `uiFlag()` returns **true** for absent flags (`web/app.
 ## Already satisfied vs new conflicts (how the new contract interacts with old tickets)
 
 - Satisfied, do not rebuild: EVOL-022 (glass tokens/components), EVOL-023 (desktop sidebar + collapse + ghost fullscreen), EVOL-024 (topbar overlay/overflow/focus), driver of EVOL-026–030 (section split, modules master toggle, AI/speech editors, memory/access catalogs), EVOL-032 (health→glass tint), EVOL-001–005 (ribbons controller).
-- Conflicts created/left by earlier tickets, to replace now: EVOL-025 bottom sections panel (`mobile-topnav`, incl. landscape rail) → drawer; EVOL-025 auto-hide permission → obsolete (already no hide-on-scroll); W2-SHELL brand row (`mobile-brand`/`sidebar-brand`) → delete logo; W2-SHELL `grid_view` «Ещё» → `more_horiz`; W2-SHELL mobile `header-user span{display:none}` → keep role badge; F11 Status layout (3+1 ribbons, sleep card between map and ribbons) → one 4-ribbon widget under map.
-- Tests asserting the cancelled layout (must be rewritten, not "fixed" by reverting the contract): `asap8_w2_shell_mobile_nav_test.js`, `asap8_d1213_save_contract_test.js`, `asap42_step2c2_layout_test.js`, `cfg04_forms_contract_test.js`, plus parts of `evol_w7_nav_test.js`/`ui_evol_w7_nav_e2e.py` and `ui_asap8_w2_shell_e2e.py` (row B geometry), `w9` phone-rails expectations.
+- **Уже заменено этой волной (31.10.2026):** EVOL-025 bottom sections panel (`mobile-topnav` + ландшафтный рейл) → единый drawer; W2-SHELL `sidebar-brand`/`mobile-brand` → удалено; W2-SHELL `grid_view` «Ещё» → троеточие; W2-SHELL mobile `header-user span{display:none}` → виден бейдж роли; тесты, пинившие нижнюю панель, переписаны под drawer.
+- Остаётся заменить: F11 Status layout (3+1 ribbons, sleep card between map and ribbons) → one 4-ribbon widget under map; `warning`-токен в проходе по glass-здоровью; overlay z-index по `--overlay-z`.
+- Тесты, требовавшие отменённый дизайн, переписаны (не «откат контракта»): `asap8_w2_shell_mobile_nav_test.js`, `asap8_d1213_save_contract_test.js`, `asap42_step2c2_layout_test.js`, `cfg04_forms_contract_test.js`, `round1025_shell_breakpoints_test.js`, `round1025_hotfix4/7/9_*`, `round1025_ia_routing_test.js`, `routing_test.js`, `evol_w9_responsive_test.js`, `tests/test_webapp_evol_w7_nav.py`, `tests/test_webapp_evol_w9_responsive.py` + 12 python-файлов и live-инструменты (`ui_evol_w7_nav_e2e.py`, `ui_evol_w9_responsive_e2e.py`, `ui_round1025_matrix.py`, `ui_w4_ui_e2e.py`, `ui_speech_mobile_entry_e2e.py`, `ui_asap8_v6_d1213_e2e.py`, `ui_asap8_w2_fullscreen_e2e.py`).
 
 ## Counts
 
-Rows assessed: **59**. DONE_AND_VERIFIED **35**, PARTIAL **12**, MISSING **3** (drawer trigger on phone, drawer glyph, global search), CONFLICTS_WITH_NEW_CONTRACT **8** rows = **5 distinct product decisions** (bottom nav/landscape rail, role badge hidden on mobile, sidebar AdminBot logo, `grid_view` «Ещё», Status 4-ribbon grouping) + 3 rows of the same root cause (duplicate nav mechanisms, stale tests asserting the bottom panel), NOT_APPLICABLE **1** (COG §8).
-Conflicts-by-ticket: EVOL-025 ×2, W2-SHELL/asap8 ×3 (+test set), F11/EVOL-026 layout ×1; EVOL-032 partial only (`warning` naming/intensity token).
+Rows assessed: **59**. DONE_AND_VERIFIED **46**, PARTIAL **9**, MISSING **1** (глобальный поиск EVOL-037), CONFLICTS_WITH_NEW_CONTRACT **2** (Статус: 3+1 ленты и `warning`-семантика — отдельные проходы), NOT_APPLICABLE **1** (COG §8).
+Срез навигации/топбара/иконок (§1–§4 + §3): 21 строка, все DONE_AND_VERIFIED этой волной — см. раздел «Срез ASAP-UI-02 §2» ниже.
+Conflicts-by-ticket после волны: EVOL-025 ×2 → закрыто; W2-SHELL/asap8 ×3 → закрыто; F11/EVOL-026 layout ×1 и EVOL-032 (`warning`) — остаются.
 
 ---
 
-Итог: из 59 проверенных строк — 35 соответствуют и подтверждены кодом/тестами, 12 частичные, 3 отсутствуют (кнопка drawer на телефоне, иконка меню, глобальный поиск EVOL-037), 8 противоречат новому контракту (5 продуктовых решений: нижняя панель/рейл, скрытый бейдж роли, логотип Adminbot в sidebar, `grid_view` вместо троеточия, разорванные 4 ленты в Статусе + сопутствующие дубль механизмов и старые тесты), 1 не применимо (когнитивная карта ждёт EVOL-COG).
-Главные дельты: мобильная навигация = drawer вместо `mobile-topnav` + иконки `menu`/`more_horiz` + видимый бейдж роли + удаление логотипа + сведение четырёх лент в один блок сразу под картой; тесты и e2e-скриншоты, фиксирующие нижний навбар, переписать под новый контракт, а не откатывать его.
-Далее: UI-lane по навигации/топбару первым (файлы `web/index.html`, `web/static/app.css`, `web/app.js` + тесты), затем ленты/Статус, затем `warning`-токен в проходе по glass-здоровью; EVOL-037 и EVOL-COG остаются отдельными очередями (Builder/Architect), PM закрывает матрицу после независимого ревью дельты.
+## Срез ASAP-UI-02 §2 — навигация / топбар / иконки (31.10.2026)
+
+Сделано в этой волне (все строки §1–§4 выше, кроме поиска), доказательства:
+
+- **Навигация:** постоянная нижняя панель (`nav.mobile-topnav`, 3 раздела + «Ещё») и её ландшафтный правый рейл удалены полностью — разметка, CSS, метрика `--bottom-nav-h`, наблюдатель `_syncBottomNavMetric`, компьютеды `mobileTopnavItems`/`mobileMoreItems`/`moreMenuTriggerLabel`/`moreMenuActive`/`moreMenuPick`. Единственный механизм — drawer `v-if="iaV2 && hasDrawer"` (`hasDrawer = shellMode !== 'desktop'`) с кнопкой в шапке; закрытый drawer за краем, открытый блокирует скролл контента (`.app-shell.drawer-open main.scroll-area`).
+- **Топбар:** одна строка на телефоне: навигация → название раздела (`.header-title`, ellipsis) → селектор области → аватар/инициал + бейдж фактической роли (`.header-user-role`, полное имя в `title`) → ghost-⛶ → «⋯». Крошка на телефоне скрыта (имя не дублируется). `≤419px` имя чата и его аватар в триггере уступают место названию раздела и роли — бейдж области CHAT/GLOBAL не обрезается; `≤359px` дополнительно скрыт `▾` и сокращён бейдж роли. Hit-цели кнопок остаются 44×44 на всех ширинах (включая 320).
+- **Иконки:** `[data-drawer-trigger]` — menu-глиф, `[data-more-trigger]` — горизонтальное троеточие (не четыре квадрата); обе — inline-SVG `ui-ic` 20px в той же Material-семье, что ⛶ (шрифтовой сабсет 37 глифов не расширялся, второго набора иконок нет).
+- **Логотип:** `.sidebar-brand`/`.sidebar-brand-title`/`.mobile-brand` удалены из разметки и CSS; верхняя строка sidebar — `.sidebar-top` с одной функциональной кнопкой; техническое имя/API/аватар бота не затронуты.
+- **Меню «⋯»:** только второстепенные действия (admin-диагностика геометрии ⛶) и профиль (имя/роль/ID области) — списка разделов в нём больше нет.
+
+Проверки: `tests/test_webapp_evol_w7_nav.py` (30 passed, новый класс `TestAsapUi02Navigation`), `tests/test_webapp_evol_w9_responsive.py` (31 passed), `tests/test_webapp_evol_w10_sections.py` (35 passed), 18 JS-юнит-файлов зелёные, `tools/ui_evol_w7_nav_e2e.py` → `EVOL-W7-NAV OK` (инвентарь 19×6 = 114 ячеек, failures 0), `tools/ui_evol_w9_responsive_e2e.py` → `EVOL-W9-RESPONSIVE OK` (19×8 = 152 ячейки, hScroll 0 / offscreen 0 / clipped 0). Живой Chromium: 320×700, 390×844, 667×375, 812×375, 768×1024, 1024×768, 1280×800, 1440×900.
+
+Открытые строки среза: **приложение-wide поиск (EVOL-037)** — отдельная очередь, точка входа в топбаре зарезервирована (сейчас её нет by design).
+
+---
+
+Итог: из 59 проверенных строк — 46 соответствуют и подтверждены кодом/тестами/живым рендером (включая весь срез навигации/топбара/иконок §1–§4), 9 частичные (деталь-стандарт, z-index-слой, select/combobox, warning-токен, контрольные локальные отступы, four-ribbon группировка, Back-стек для поиска), 1 отсутствует (глобальный поиск EVOL-037), 2 противоречат новому контракту (разорванные 4 ленты в Статусе + сопутствующие токены) и 1 не применимо (когнитивная карта ждёт EVOL-COG).
+Главные оставшиеся дельты: свести четыре ленты в один блок сразу под картой (Статус), добавить `warning`-токен в проходе по glass-здоровью, выровнять overlay z-index по `--overlay-z`, затем EVOL-037 (поиск) и EVOL-COG (карта) как отдельные очереди.
+Навигационная часть ASAP-UI-02 §2 закрыта: нижней панели нет, drawer один, логотип удалён, роль видна, «⋯» — троеточие, ландшафтного рейла нет.

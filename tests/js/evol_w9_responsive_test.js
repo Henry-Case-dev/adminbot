@@ -149,11 +149,9 @@ assert.strictEqual(attrs['data-shell-mode'], 'desktop');
   assert.ok(true, 'A: _syncShellMode без documentElement не бросает');
 }
 
-// ── 6. Метрика навигации: измеряется и переподключается ──────────────────
+// ── 6. Метрика шапки: измеряется; метрики нижней панели больше нет ────────
 {
   const savedDoc = global.document;
-  let navHeight = 51;
-  let navPresent = true;
   const headerRect = { height: 58 };
   global.document = {
     documentElement: rootEl,
@@ -161,39 +159,17 @@ assert.strictEqual(attrs['data-shell-mode'], 'desktop');
       if (sel === 'header.header-sticky') {
         return { getBoundingClientRect: () => headerRect };
       }
-      if (sel === '.mobile-topnav') {
-        return navPresent
-          ? { getBoundingClientRect: () => ({ height: navHeight }) }
-          : null;
-      }
       return null;
     },
   };
-  const ctx = { _syncBottomNavMetric: methods._syncBottomNavMetric };
-  methods._initHeaderHeight.call(ctx);
+  methods._initHeaderHeight.call({});
   assert.strictEqual(styleVars['--header-h'], '58px',
     'M: --header-h измеряется по шапке');
-  assert.strictEqual(styleVars['--bottom-nav-h'], '51px',
-    'M: --bottom-nav-h = фактическая высота панели (safe-area/зум/шрифт)');
-
-  // Поворот: панель стала рейлом (другая геометрия) — значение обязано
-  // обновиться, иначе меню «Ещё» откроется с зазором от панели.
-  navHeight = 193;
-  methods._syncBottomNavMetric.call(ctx);
-  assert.strictEqual(styleVars['--bottom-nav-h'], '193px',
-    'M: смена ориентации пересчитывает метрику');
-
-  // Вернулись в портрет: узел пересоздан (v-if), значение снова актуально.
-  navHeight = 51;
-  methods._syncBottomNavMetric.call(ctx);
-  assert.strictEqual(styleVars['--bottom-nav-h'], '51px',
-    'M: после возврата в портрет метрика не «залипла» на рейле');
-
-  // Панели нет (compact/desktop) — переменная снимается, а не висит.
-  navPresent = false;
-  methods._syncBottomNavMetric.call(ctx);
+  // ASAP-UI-02 §2.1: нижней панели разделов нет — нет и её метрики/наблюдателя.
+  assert.strictEqual(methods._syncBottomNavMetric, undefined,
+    'ASAP-UI-02: наблюдатель высоты нижней панели удалён');
   assert.ok(!Object.prototype.hasOwnProperty.call(styleVars, '--bottom-nav-h'),
-    'M: без панели метрика снята (нет устаревшего значения)');
+    'ASAP-UI-02: --bottom-nav-h не выставляется (панели нет)');
   global.document = savedDoc;
 }
 

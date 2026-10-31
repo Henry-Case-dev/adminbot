@@ -3206,36 +3206,34 @@
       sidebarItems: function () {
         return this.navItems;
       },
-      // ═══ W2-SHELL (asap8-v6.3, U01.1/U01.3): мобильная row B — РОВНО
-      // фиксированные назначения «Статус / Аналитика / Модули» в этом
-      // порядке (четвёртая кнопка — «Ещё», см. mobileMoreItems).
-      // Больше НЕ весь navItems: без горизонтально-скроллимой ленты.
-      // RBAC — тот же фильтр, что у navItems (скрытые права не показываются).
-      mobileTopnavItems: function () {
-        var byId = {};
-        this.navItems.forEach(function (n) { byId[n.id] = n; });
-        return ['status', 'oversight', 'modules']
-          .map(function (id) { return byId[id]; })
-          .filter(Boolean);
+      // ═══ ASAP-UI-02 §2.1: ОДИН механизм мобильной/планшетной навигации —
+      // drawer. Он доступен на любом «не-desktop» shell-режиме (<1200) и
+      // открывается кнопкой навигации в шапке. Постоянной нижней панели
+      // разделов больше нет (контракт docs/ui-navigation-contract.md §1).
+      hasDrawer: function () {
+        return this.shellMode !== 'desktop';
       },
-      // U01.1: всё остальное (ИИ, Память, Справка, Доступы, PERMsoc и
-      // доступные по ролям разделы) — ТОЛЬКО в меню «Ещё».
-      mobileMoreItems: function () {
-        var fixed = {};
-        this.mobileTopnavItems.forEach(function (n) { fixed[n.id] = true; });
-        return this.navItems.filter(function (n) { return !fixed[n.id]; });
+      // Управляемая мобильная навигация (<768) или drawer (768–1199).
+      isMobileShell: function () {
+        return this.shellMode === 'mobile';
       },
-      // U01.1: активный раздел из «Ещё» отражается в триггере («Ещё • …»).
-      moreMenuTriggerLabel: function () {
-        var active = this.mobileMoreItems.find(function (n) {
-          return n.id === this.activeNav;
-        }, this);
-        return active ? 'Ещё • ' + active.label : 'Ещё';
+      // ASAP-UI-02 §2.2: полное имя и роль доступны раскрытием (title), пока
+      // в шапке идентификация показана компактно (аватар + бейдж роли).
+      meUserTitle: function () {
+        var m = this.me;
+        if (!m) return '';
+        var name = m.first_name || m.username ||
+                   ('@' + (m.username || m.telegram_id));
+        return m.role_name ? (name + ' · ' + m.role_name) : name;
       },
-      moreMenuActive: function () {
-        return this.mobileMoreItems.some(function (n) {
-          return n.id === this.activeNav;
-        }, this);
+      // Инициал пользователя для компактного аватара без фото (та же
+      // идентификация, что и у фото; данные — из существующего `me`).
+      meInitial: function () {
+        var m = this.me;
+        if (!m) return '';
+        var src = String(m.first_name || m.username ||
+                         (m.telegram_id == null ? '' : m.telegram_id)).trim();
+        return src ? src.charAt(0).toUpperCase() : '•';
       },
       // ═══ W2-SHELL (U02.2): мобильный dropdown суб-вкладок Аналитики —
       // ПОЛНЫЙ список реальных режимов. U04 (v6.3): вкладки-якоря «Логи»
@@ -3293,16 +3291,9 @@
             : 'Есть состояние сохранения — панель внизу формы',
         };
       },
-      // Управляемая мобильная навигация (<768) или drawer (768–1199).
-      isMobileShell: function () {
-        return this.shellMode === 'mobile';
-      },
+      // Shell-режимы: постоянная панель только на desktop (≥1200).
       hasSidebar: function () {
         return this.shellMode === 'desktop';
-      },
-      // Drawer-навигация для планшета/компактного desktop (768–1199).
-      isCompactShell: function () {
-        return this.shellMode === 'compact';
       },
       // F1 (§4.2): группы sidebar — публичные / админ / локальный PERMsoc.
       sidebarGroups: function () {
@@ -11519,17 +11510,7 @@
               de.classList.toggle('w9-sheet-bottom', !!sheet);
             }
           } catch (e2) { /* no-op */ }
-          // Метрика панели разделов привязана к узлу, который v-if
-          // пересоздаёт при смене shell-режима: переподключаем после
-          // перерисовки (и снимаем значение, когда панели нет).
-          var self = this;
-          if (typeof this.$nextTick === 'function') {
-            this.$nextTick(function () {
-              if (typeof self._syncBottomNavMetric === 'function') {
-                self._syncBottomNavMetric();
-              }
-            });
-          }
+          // ASAP-UI-02 §2.1: метрики нижней панели больше нет (панели нет).
         } catch (e) { /* вне браузера */ }
       },
       toggleDrawer: function () {
@@ -11577,19 +11558,20 @@
         var p = routeParent(this.route);
         this.navigateTo(p || '#/');
       },
-      // Навигация из shell (sidebar/drawer/mobile-topnav): закрыть оверлеи.
-      // D13 (§18I.14): bottom-nav удалён. W2-SHELL (U01): мобильное меню
-      // «Ещё» закрывается при любом shell-переходе.
+      // Навигация из shell (sidebar/drawer): закрыть оверлеи.
+      // D13 (§18I.14): bottom-nav удалён. ASAP-UI-02 §2.1: постоянных
+      // мобильных панелей нет вообще — навигация только drawer.
       shellNavTo: function (route) {
         this.closeDrawer();
         this.closeMoreMenu();
         this.navigateTo(route);
       },
-      // ═══ W2-SHELL (U01.4): меню «Ещё» — popover/sheet ПОВЕРХ контента
-      // (не новый ряд шапки). Клавиатура (Esc/Tab-trap), outside click,
-      // focus management (фокус в панель при открытии, возврат в триггер
-      // при закрытии), body-scroll-lock без прыжков (класс на .app-shell
-      // блокирует единственный скроллер main.scroll-area). ═══
+      // ═══ ASAP-UI-02 §2.3: меню второстепенных действий («⋯» в шапке) —
+      // popover/sheet ПОВЕРХ контента (не новый ряд шапки). Клавиатура
+      // (Esc/Tab-trap), outside click, focus management (фокус в панель при
+      // открытии, возврат в триггер при закрытии), body-scroll-lock без
+      // прыжков (класс на .app-shell блокирует единственный скроллер
+      // main.scroll-area). Разделы здесь НЕ дублируются — они в drawer. ═══
       toggleMoreMenu: function () {
         if (this.moreMenuOpen) this.closeMoreMenu();
         else this.openMoreMenu();
@@ -11605,19 +11587,14 @@
       closeMoreMenu: function (refocus) {
         if (!this.moreMenuOpen) return;
         this.moreMenuOpen = false;
-        // Возврат фокуса в кнопку-триггер (U01.4); refocus=false —
-        // когда закрытие сопровождается переходом маршрута.
+        // Возврат фокуса в кнопку-триггер «⋯»; refocus=false — когда
+        // закрытие сопровождается переходом/открытием другого слоя.
         if (refocus !== false) {
           var trigger = this.$refs.moreMenuTrigger;
           if (trigger && typeof trigger.focus === 'function') {
             try { trigger.focus(); } catch (e) { /* no-op */ }
           }
         }
-      },
-      moreMenuPick: function (item) {
-        if (!item) return;
-        this.closeMoreMenu(false);
-        this.shellNavTo(item.route);
       },
 
       // ═══ FS-HOTFIX FOLLOW-UP §8 (18.10): админ-диагностика геометрии ⛶ ═══
@@ -11649,7 +11626,9 @@
         var shell = null, brand = null, header = null;
         try {
           shell = document.querySelector('.app-shell');
-          brand = document.querySelector('.mobile-brand');
+          // ASAP-UI-02 §2.2: визуального бренда Adminbot в UI нет вообще —
+          // диагностика фиксирует фактическое отсутствие узлов логотипа.
+          brand = document.querySelector('.sidebar-brand, .mobile-brand');
           header = document.querySelector('header.header-sticky');
         } catch (e2) { /* guard */ }
         var headerH = null, headerPad = null;
@@ -11659,7 +11638,7 @@
           try { headerPad = Math.round(parseFloat(
             getComputedStyle(header).paddingTop) || 0); } catch (e3) { headerPad = null; }
         }
-        var logoState = 'нет узла';
+        var logoState = 'нет узла (логотип удалён)';
         if (brand) {
           try {
             logoState = String(getComputedStyle(brand).display) +
@@ -11688,7 +11667,7 @@
             ' | height ' + (headerH === null ? '—' : headerH + 'px') +
             ' | pad-top ' + (headerPad === null ? '—' : headerPad + 'px'),
           'layout: ' + (shell ? shell.className : '—'),
-          'logo (.mobile-brand): ' + logoState,
+          'logo (Adminbot brand): ' + logoState,
           'fullscreen API: request=' + (dg ? (dg.hasRequestFullscreen ? 'yes' : 'no') : '—') +
             ' exit=' + (dg ? (dg.hasExitFullscreen ? 'yes' : 'no') : '—'),
           'last switch: click=' + (dg ? dg.clickResult : '—') +
@@ -26775,10 +26754,7 @@
             }
           } catch (e) { /* no-op */ }
         };
-        // EVOL-025 (W9): фактическая высота мобильной панели разделов — см.
-        // отдельный метод ниже (переподключаемый наблюдатель).
         apply();
-        this._syncBottomNavMetric();
         if (typeof ResizeObserver !== 'undefined') {
           try {
             var hdr = document.querySelector('header.header-sticky');
@@ -26788,54 +26764,6 @@
             }
           } catch (e) { /* no-op */ }
         }
-      },
-      // EVOL-025 (W9): метрика мобильной навигации.
-      // Панель — последний flex-child shell-колонки, поэтому резерв контенту
-      // не нужен; переменная `--bottom-nav-h` существует ровно для одного
-      // потребителя — меню «Ещё», которое раскрывается ВВЕРХ от панели.
-      // Значение ИЗМЕРЯЕТСЯ (safe-area, крупный системный шрифт, zoom меняют
-      // высоту без правки CSS-константы). Наблюдатель переподключается к
-      // НОВОМУ узлу: смена shell-режима (mobile ↔ compact/desktop) пересоздаёт
-      // nav через v-if, и «прибитый» к старому узлу ResizeObserver оставлял бы
-      // значение от прошлой ориентации.
-      _syncBottomNavMetric: function () {
-        if (typeof document === 'undefined') return;
-        var de = document.documentElement;
-        var nav = null;
-        try { nav = document.querySelector('.mobile-topnav'); }
-        catch (e) { return; }
-        if (!nav) {
-          try {
-            if (de) de.style.removeProperty('--bottom-nav-h');
-            if (this._navObserver) {
-              this._navObserver.disconnect();
-              this._navObserverEl = null;
-            }
-          } catch (e2) { /* no-op */ }
-          return;
-        }
-        var applyNav = function () {
-          try {
-            var el = document.querySelector('.mobile-topnav');
-            var n = el ? Math.round(el.getBoundingClientRect().height) : 0;
-            if (n > 0) {
-              document.documentElement.style.setProperty('--bottom-nav-h',
-                                                         n + 'px');
-            }
-          } catch (err) { /* no-op */ }
-        };
-        applyNav();
-        if (typeof ResizeObserver === 'undefined') return;
-        try {
-          if (!this._navObserver) {
-            this._navObserver = new ResizeObserver(applyNav);
-          }
-          if (this._navObserverEl !== nav) {
-            this._navObserver.disconnect();
-            this._navObserver.observe(nav);
-            this._navObserverEl = nav;
-          }
-        } catch (e3) { /* no-op */ }
       },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {

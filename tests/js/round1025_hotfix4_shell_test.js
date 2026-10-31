@@ -94,10 +94,12 @@ assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
   'D13: bottom-nav разметка удалена');
 assert.ok(INDEX.indexOf('moreOpen') < 0,
   'D13: moreOpen-состояние удалено');
-assert.ok(INDEX.indexOf('class="mobile-topnav"') >= 0,
-  'D13+U01: компактная верхняя навигация присутствует (без scroll-thin-ленты)');
-assert.ok(/\.mobile-topnav \{/.test(CSS),
-  'D13: .mobile-topnav правило присутствует');
+assert.ok(INDEX.indexOf('mobile-topnav') < 0,
+  'ASAP-UI-02: постоянной мобильной панели разделов нет');
+assert.ok(CSS.indexOf('mobile-topnav') < 0,
+  'ASAP-UI-02: её CSS удалён (навигация — drawer)');
+assert.ok(/\.app-drawer \{/.test(CSS) && INDEX.indexOf('class="app-drawer"') >= 0,
+  'ASAP-UI-02: drawer — единственный механизм на <1200');
 assert.ok(/min-height:\s*44px/.test(CSS), 'touch ≥44px сохранён');
 assert.ok(/env\(safe-area-inset-bottom/.test(CSS), 'safe-area сохранён');
 

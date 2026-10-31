@@ -375,29 +375,24 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     .indexOf('memory') < 0, 'F1: memory скрыт без прав');
 })();
 
-// ── W2-SHELL (asap8-v6.3, U01.1): новый канон row B (замена D13-маркера
-// «весь navItems без Ещё»): 3 фиксированных + меню «Ещё» для остального.
+// ── ASAP-UI-02 §2.1: разделы — в drawer, второго списка нет ──────────────
 (function () {
   const nav = captured.computed.navItems.call({
     route: '#/', iaV2: true, canViewTab() { return true; },
     isGlobalAdmin: true });
-  const admin = {
-    route: '#/', iaV2: true,
-    canViewTab() { return true; },
-    navItems: nav,
-    mobileTopnavItems: captured.computed.mobileTopnavItems.call({ navItems: nav }),
-  };
   assert.strictEqual(captured.computed.bottomNavItems, undefined,
     'D13: bottomNavItems удалён (bottom-nav больше нет)');
-  const top = captured.computed.mobileTopnavItems.call(admin);
-  assert.deepStrictEqual(top.map((n) => n.id),
-    ['status', 'oversight', 'modules'],
-    'U01.1: row B = Статус/Аналитика/Модули (фиксированный порядок)');
-  const more = captured.computed.mobileMoreItems.call(admin);
-  assert.ok(more.map((n) => n.id).indexOf('memory') >= 0,
-    'U01.1: «Память» доступна через меню «Ещё» (один тап до раздела)');
-  assert.strictEqual(top.length + more.length, admin.navItems.length,
-    'U01.1: row B + «Ещё» покрывают весь доступный реестр navItems');
+  assert.strictEqual(captured.computed.mobileTopnavItems, undefined,
+    'ASAP-UI-02: row B (mobileTopnavItems) удалена');
+  assert.strictEqual(captured.computed.mobileMoreItems, undefined,
+    'ASAP-UI-02: разделы в «Ещё» (mobileMoreItems) удалены');
+  const groups = captured.computed.sidebarGroups.call({ navItems: nav });
+  const drawerIds = groups.pub.concat(groups.admin, groups.local)
+    .map((n) => n.id);
+  assert.ok(drawerIds.indexOf('memory') >= 0,
+    'ASAP-UI-02: «Память» доступна в drawer (один тап до раздела)');
+  assert.strictEqual(drawerIds.length, nav.length,
+    'ASAP-UI-02: drawer покрывает весь доступный реестр navItems');
 })();
 
 // ── F1 (ADR-1025-1 D3): legacy-алиасы памяти → канон #/memory* ────────────

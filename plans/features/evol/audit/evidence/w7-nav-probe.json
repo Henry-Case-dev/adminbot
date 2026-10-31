@@ -34,12 +34,30 @@
    "color": "rgb(244, 247, 251)",
    "lens": false
   },
-  "topnav": null
+  "topnav": 0,
+  "navBtn": null,
+  "moreBtn": null,
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 1214
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 1087
+  },
+  "titleNode": {
+   "text": "Модули",
+   "visible": true,
+   "w": 512
+  }
  },
  "desktop_panel": {
   "open": true,
-  "x": 764,
-  "right": 1144,
+  "x": 751,
+  "right": 1131,
   "top": 55,
   "bottom": 230,
   "vw": 1280,
@@ -95,7 +113,25 @@
    "color": "rgb(244, 247, 251)",
    "lens": false
   },
-  "topnav": null
+  "topnav": 0,
+  "navBtn": null,
+  "moreBtn": null,
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 1214
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 1087
+  },
+  "titleNode": {
+   "text": "Модули",
+   "visible": true,
+   "w": 660
+  }
  },
  "desktop_rail_persisted": {
   "vw": 1280,
@@ -132,7 +168,25 @@
    "color": "rgb(244, 247, 251)",
    "lens": false
   },
-  "topnav": null
+  "topnav": 0,
+  "navBtn": null,
+  "moreBtn": null,
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 1214
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 1087
+  },
+  "titleNode": {
+   "text": "Модули",
+   "visible": true,
+   "w": 660
+  }
  },
  "desktop_modal": {
   "modal": true,
@@ -147,9 +201,9 @@
   "vh": 700,
   "sw": 900,
   "over": false,
-  "headerH": 113,
-  "headerBottom": 113,
-  "mainTop": 113,
+  "headerH": 109,
+  "headerBottom": 109,
+  "mainTop": 109,
   "overlap": 0,
   "title": "Память",
   "scopeTriggers": 1,
@@ -174,7 +228,31 @@
    "color": "rgb(244, 247, 251)",
    "lens": false
   },
-  "topnav": null
+  "topnav": 0,
+  "navBtn": {
+   "w": 44,
+   "h": 44,
+   "label": "Открыть навигацию",
+   "svg": true,
+   "inside": true
+  },
+  "moreBtn": null,
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 884
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 757
+  },
+  "titleNode": {
+   "text": "Память",
+   "visible": true,
+   "w": 767
+  }
  },
  "tablet_drawer": {
   "open": true,
@@ -192,9 +270,9 @@
   "vh": 844,
   "sw": 390,
   "over": false,
-  "headerH": 116,
-  "headerBottom": 116,
-  "mainTop": 116,
+  "headerH": 58,
+  "headerBottom": 58,
+  "mainTop": 58,
   "overlap": 0,
   "title": "Аналитика",
   "scopeTriggers": 1,
@@ -208,7 +286,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
-   "right": 374,
+   "right": 337,
    "vw": 390,
    "bg": "rgba(0, 0, 0, 0)",
    "bgImage": "none",
@@ -219,17 +297,58 @@
    "color": "rgb(244, 247, 251)",
    "lens": false
   },
-  "topnav": {
-   "h": 47,
-   "bottom": 106
+  "topnav": 0,
+  "navBtn": {
+   "w": 44,
+   "h": 44,
+   "label": "Открыть навигацию",
+   "svg": true,
+   "inside": true
+  },
+  "moreBtn": {
+   "w": 44,
+   "h": 44,
+   "label": "Дополнительные действия",
+   "svg": true,
+   "inside": true
+  },
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 290
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 210
+  },
+  "titleNode": {
+   "text": "Аналитика",
+   "visible": true,
+   "w": 56
   }
+ },
+ "mobile_drawer": {
+  "drawer": true,
+  "open": true,
+  "x": 0,
+  "w": 280,
+  "inside": true,
+  "links": 8,
+  "focusInside": true,
+  "ariaHidden": "false"
+ },
+ "mobile_drawer_closed": {
+  "open": false,
+  "focused": true
  },
  "mobile_panel": {
   "open": true,
-  "x": 16,
-  "right": 316,
-  "top": 56,
-  "bottom": 231,
+  "x": 112,
+  "right": 182,
+  "top": 54,
+  "bottom": 281,
   "vw": 390,
   "vh": 844,
   "insideViewport": true,
@@ -238,20 +357,91 @@
   "bg": "rgba(23, 28, 42, 0.94)",
   "search": true,
   "options": 3,
-  "nameTruncated": true,
+  "nameTruncated": false,
   "badgeOverlapsName": false,
   "triggerInsideViewport": true
  },
  "mobile_more": {
   "inside": true,
-  "bottom": 472,
+  "items": 0,
+  "profile": true,
+  "bottom": 186,
   "vh": 844
+ },
+ "mobile_landscape": {
+  "vw": 667,
+  "vh": 375,
+  "sw": 667,
+  "over": false,
+  "headerH": 58,
+  "headerBottom": 58,
+  "mainTop": 58,
+  "overlap": 0,
+  "title": "Модули",
+  "scopeTriggers": 1,
+  "scopeWrap": 1,
+  "hubTitleDisplay": "block",
+  "sidebar": null,
+  "sidebarLabels": null,
+  "mainX": 0,
+  "collapsed": false,
+  "fsBtn": {
+   "w": 44,
+   "h": 44,
+   "title": "На весь экран",
+   "right": 614,
+   "vw": 667,
+   "bg": "rgba(0, 0, 0, 0)",
+   "bgImage": "none",
+   "shadow": "none",
+   "border": "0px none",
+   "blur": "none",
+   "radius": "0px",
+   "color": "rgb(244, 247, 251)",
+   "lens": false
+  },
+  "topnav": 0,
+  "navBtn": {
+   "w": 44,
+   "h": 44,
+   "label": "Открыть навигацию",
+   "svg": true,
+   "inside": true
+  },
+  "moreBtn": {
+   "w": 44,
+   "h": 44,
+   "label": "Дополнительные действия",
+   "svg": true,
+   "inside": true
+  },
+  "brand": 0,
+  "roleBadge": {
+   "text": "global_admin",
+   "visible": true,
+   "title": "global_admin",
+   "right": 567
+  },
+  "avatarNode": {
+   "visible": true,
+   "right": 487
+  },
+  "titleNode": {
+   "text": "Модули",
+   "visible": true,
+   "w": 183
+  }
+ },
+ "mobile_landscape_drawer": {
+  "open": true,
+  "inside": true,
+  "fitsHeight": true
  },
  "case_320x700-z1-d0": {
   "vw": 320,
   "sw": 320,
   "over": false,
-  "headerH": 116,
+  "headerH": 58,
   "overlap": 0,
   "mainX": 0
  },

@@ -81,17 +81,18 @@ class TestShellV3:
         assert "--shell-sheen-opacity: .05" in APP_CSS
 
     def test_panels_shell_not_lens_a(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-1): shell-слой —
-        # sidebar/шапка (+mobile-topnav, редизайн row A/B — класс без
-        # scroll-thin, горизонтальная лента удалена); bottom-nav/more-sheet
-        # удалены (в v6.3 вместо шторки — popover «Ещё», класс more-menu).
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1 (31.10.2026): shell-слой —
+        # sidebar/drawer/шапка; постоянной мобильной панели разделов нет,
+        # bottom-nav/more-sheet удалены (вместо шторки — popover «⋯»).
         for marker in ('class="app-sidebar" data-glass="shell"',
-                       'class="mobile-topnav"'):
+                       'class="app-drawer"'):
             assert marker in INDEX, marker
         assert 'class="bottom-nav"' not in INDEX, \
             "D13: нижняя навигация удалена"
         assert 'class="more-sheet"' not in INDEX, \
             "D13: шторка «Ещё» удалена"
+        assert 'mobile-topnav' not in INDEX, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert 'data-glass="shell"\n' in INDEX          # header (multiline)
         assert 'data-glass="a"' in INDEX                # контентный A сохранён
         # Цветная линза A остаётся только у контента.
@@ -272,12 +273,13 @@ class TestFlagsAcceptance:
         assert "PASS" in text and "4.5" in text
 
     def test_ia_and_store_untouched(self):
-        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
-        # един для sidebar и mobile-topnav; computeBottomOffset в TG
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: нижней панели нет — канон
+        # navItems един для sidebar и drawer; computeBottomOffset в TG
         # сохранён (единый источник высоты).
         assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
             "D13: bottomNavItems удалён"
-        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
+        assert not re.search(r"mobileTopnavItems:\s*function", APP_JS), \
+            "ASAP-UI-02: row B удалена"
         assert "sidebarGroups" in APP_JS
         assert "computeBottomOffset" in (ROOT / "web" / "static" /
                                           "telegram-init.js").read_text(

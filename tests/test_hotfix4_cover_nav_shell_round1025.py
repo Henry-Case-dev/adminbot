@@ -448,41 +448,38 @@ class TestBottomPanelInViewport:
         assert "more-sheet(open)" in MATRIX
 
 
-# ── C. Нижняя навигация — УДАЛЕНА (D13 §18I.14): верхняя mobile-topnav ────
+# ── C. Нижняя навигация — УДАЛЕНА (D13 §18I.14 + ASAP-UI-02 §2.1) ─────────
 
 class TestBottomNavOrder:
-    def test_bottom_nav_starts_status_how_and_priority_admin(self):
-        # re-pin ASAP 8 v6 D13 → v6.3 U01 (REQ-U01-1/U01.3): bottomNavItems
-        # удалён; мобильная row B — ровно 3 фиксированных сегмента
-        # Статус → Аналитика → Модули в этом порядке, производные от
-        # канонического реестра navItems (четвёртый сегмент — триггер «Ещё»).
+    def test_no_bottom_nav_single_drawer_for_sections(self):
+        # re-pin ASAP-UI-02 §2.1 (31.10.2026): постоянной нижней панели
+        # разделов НЕТ ни в портрете, ни в ландшафте; навигация на телефоне и
+        # планшете — ОДИН drawer из шапки, реестр разделов прежний.
         assert "bottomNavItems: function" not in APP_JS, \
             "D13: bottomNavItems computed удалён"
-        start = APP_JS.index("mobileTopnavItems: function")
-        end = APP_JS.index("mobileMoreItems: function", start)
-        seg = APP_JS[start:end]
-        assert "this.navItems.forEach" in seg, \
-            "U01.3: мобильный topnav деривируется из канона navItems"
-        assert "['status', 'oversight', 'modules']" in seg, \
-            "U01.3: фиксированный порядок Статус → Аналитика → Модули"
-        assert 'class="mobile-topnav"' in INDEX, \
-            "U01 §REQ-U01-3: компактная верхняя навигация присутствует"
-        assert 'mobile-topnav scroll-thin' not in INDEX, \
-            "U01: мобильный topnav без scroll-thin"
+        assert "mobileTopnavItems: function" not in APP_JS, \
+            "ASAP-UI-02: row B (mobileTopnavItems) удалена"
+        assert "mobileMoreItems: function" not in APP_JS, \
+            "ASAP-UI-02: список разделов в «Ещё» (mobileMoreItems) удалён"
+        assert 'mobile-topnav' not in INDEX, \
+            "ASAP-UI-02: постоянной мобильной панели разделов нет"
+        assert 'v-if="iaV2 && hasDrawer"' in INDEX, \
+            "ASAP-UI-02: drawer доступен на mobile и tablet (<1200)"
+        assert 'v-if="n in sidebarGroups.pub"' in INDEX or \
+            'n in sidebarGroups.pub' in INDEX, \
+            "ASAP-UI-02: drawer выводит канонический реестр разделов"
 
-    def test_more_items_no_duplicate_how(self):
-        # re-pin D13 → v6.3 U01 (REQ-U01-1/U01.2): mobileMoreItems снова есть,
-        # но это СТРОГАЯ дополненность: navItems минус фиксированные сегменты
-        # row B («Как»/Память/Доступы/PERMsoc… живут только в «Ещё»).
-        assert "mobileMoreItems: function" in APP_JS
-        assert "mobileTopnavItems: function" in APP_JS
-        start = APP_JS.index("mobileMoreItems: function")
-        end = APP_JS.index("moreMenuTriggerLabel: function", start)
-        seg = APP_JS[start:end]
-        assert "mobileTopnavItems.forEach" in seg, \
-            "U01.1: фиксированные берутся из mobileTopnavItems (единый реестр)"
-        assert "!fixed[n.id]" in seg, \
-            "U01.1: «Ещё» = navItems минус фиксированные (без дублей row B)"
+    def test_more_menu_holds_secondary_actions_only(self):
+        # ASAP-UI-02 §2.3: «⋯» — второстепенные действия, разделы живут в
+        # drawer; второй список разделов в меню запрещён.
+        assert "moreMenuPick: function" not in APP_JS, \
+            "ASAP-UI-02: переходы по разделам из «⋯» удалены"
+        assert 'v-for="n in mobileMoreItems"' not in INDEX, \
+            "ASAP-UI-02: в «⋯» нет списка разделов"
+        assert 'more-menu-profile' in INDEX, \
+            "ASAP-UI-02: идентификация (имя/роль/ID области) доступна в «⋯»"
+        assert 'data-fs-geom-diag-entry' in INDEX, \
+            "ASAP-UI-02: служебные действия доступны из «⋯»"
 
 
 # ── Совместимость: системный флаг System 2 не задет ──────────────────────

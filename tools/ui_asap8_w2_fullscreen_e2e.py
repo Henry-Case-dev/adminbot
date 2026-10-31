@@ -229,7 +229,7 @@ PROBE_FS = """
     const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
     return (w > 0 && h > 0) ? (w * h) : 0;   // площадь пересечения, px^2
   };
-  const contentRects = ['.scope-trigger', '.header-user', '.mobile-brand',
+  const contentRects = ['.scope-trigger', '.header-user', '.header-more-btn',
                         '.header-save-chip']
     .map((s) => document.querySelector(s))
     .filter(Boolean)
@@ -274,9 +274,11 @@ PROBE_FS = """
     toasts: Array.from(document.querySelectorAll('.toast-text'))
       .map((t) => t.textContent.trim()).slice(0, 3),
     fsStripInDom: !!document.querySelector('[data-fs-diagnostics]'),
-    brandPresent: !!document.querySelector('.mobile-brand'),
+    brandPresent: document.querySelectorAll('.mobile-brand, .sidebar-brand').length > 0,
     brandDisplay: (() => {
-      const b = document.querySelector('.mobile-brand');
+      // ASAP-UI-02 §2.2: узла бренда в UI больше нет — вернуть фактическое
+      // состояние (null), если он отсутствует.
+      const b = document.querySelector('.mobile-brand, .sidebar-brand');
       if (!b) return null;
       const cs = getComputedStyle(b);
       return cs.display + (b.offsetParent === null ? '/hidden' : '/visible');
@@ -311,7 +313,8 @@ STATE_PROBE = """
 (() => ({
   hash: window.location.hash,
   activeNav: (() => {
-    const a = document.querySelector('.mobile-topnav-link.active');
+    const a = document.querySelector('.app-drawer .sidebar-link.active, '
+                                     + '.app-sidebar .sidebar-link.active');
     return a ? a.textContent.trim() : null;
   })(),
   scopeText: (() => {
@@ -809,20 +812,15 @@ def scenario_logo_freed_space(browser, shots):
     c.ok(same_row, "селектор и ⛶ в ОДНОЙ строке row A (без новой строки)")
     c.ok(p_hidden["scopeRect"]["right"] <= p_hidden["rect"]["x"],
          "селектор и ⛶ не пересекаются по горизонтали")
-    # forced-show логотипа (inline-стиль только в этой пробе) — контроль, что
-    # именно скрытие логотипа отдаёт ширину селектору
-    page.evaluate("document.querySelector('.mobile-brand').style.display = 'inline-flex'")
-    page.wait_for_timeout(150)
-    p_shown = page.evaluate(PROBE_FS)
-    page.evaluate("document.querySelector('.mobile-brand').style.display = ''")
-    page.wait_for_timeout(150)
-    p_restore = page.evaluate(PROBE_FS)
-    c.ok(p_shown["scopeRect"]["w"] < p_hidden["scopeRect"]["w"],
-         "скрытие логотипа отдаёт ширину селектору: %s → %s px"
-         % (p_shown["scopeRect"]["w"], p_hidden["scopeRect"]["w"]))
-    c.ok(abs(p_shown["rect"]["x"] - p_hidden["rect"]["x"]) <= 1 and
-         p_shown["rect"]["y"] == p_hidden["rect"]["y"],
-         "положение ⛶ стабильно при показе/скрытии логотипа")
+    # ASAP-UI-02 §2.2: визуального бренда Adminbot в UI нет вовсе — раньше
+    # здесь принудительно показывался `.mobile-brand`; теперь проверяем его
+    # фактическое отсутствие (пустых слотов/заглушек тоже нет).
+    c.ok(page.evaluate(
+        "document.querySelectorAll('.mobile-brand, .sidebar-brand').length") == 0,
+        "логотипа Adminbot нет в UI (ASAP-UI-02 §2.2)")
+    c.ok(page.evaluate(
+        "document.querySelector('.sidebar-brand-title') === null"),
+        "слово-марка Adminbot отсутствует и в sidebar")
     c.ok(p_shown["headerRect"]["h"] == p_hidden["headerRect"]["h"] ==
          p_restore["headerRect"]["h"],
          "высота шапки не зависит от логотипа (%s)" % p_hidden["headerRect"]["h"])
@@ -944,7 +942,7 @@ def scenario_admin_geom_diag(browser, shots):
     c.ok(not d0["panelPresent"] and not d0["overlayPresent"],
          "по умолчанию: панели и оверлея нет (места в обычном UI не занимает)")
     # вход — только из меню «Ещё»
-    page.click(".mobile-topnav-more")
+    page.click("[data-more-trigger]")
     page.wait_for_timeout(250)
     d1 = page.evaluate(DIAG_PROBE_JS)
     c.ok(d1["entryPresent"], "admin: вход «Диагностика геометрии ⛶» в меню «Ещё»")
@@ -965,7 +963,7 @@ def scenario_admin_geom_diag(browser, shots):
             ("button ⛶ rect:", "rect кнопки"),
             ("toolbar(header) rect:", "rect тулбара"),
             ("layout:", "layout-режим"),
-            ("logo (.mobile-brand):", "наличие логотипа"),
+            ("logo (Adminbot brand):", "наличие логотипа"),
             ("fullscreen API:", "поддержка API"),
             ("last switch:", "результат последнего переключения")):
         c.ok(needle in text, "снимок: %s (%s)" % (label, needle))
@@ -1026,7 +1024,7 @@ def scenario_non_admin_no_diag(browser, shots):
     wait_ready(page)
     d0 = page.evaluate(DIAG_PROBE_JS)
     c.ok(not d0["panelPresent"], "не-admin: панели нет по умолчанию")
-    page.click(".mobile-topnav-more")
+    page.click("[data-more-trigger]")
     page.wait_for_timeout(250)
     d1 = page.evaluate(DIAG_PROBE_JS)
     c.ok(not d1["entryPresent"], "не-admin: входа «Диагностика геометрии» нет")

@@ -29,9 +29,9 @@ class TestMenu:
     def test_no_sidebar_dead_menu(self):
         """A1/T-1157: мёртвое legacy-меню (MENU_ORDER/MENU_LABELS/
         sidebarOpen) удалено. F1 (T-2393, SUPERSEDE): НОВЫЙ shell.
-        re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-3): нижняя
-        навигация удалена владельцем — мобильная навигация верхняя
-        (mobile-topnav, без scroll-thin); это не dead-menu."""
+        re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1 (31.10.2026): постоянной
+        нижней панели нет; навигация на телефоне/планшете — ОДИН drawer
+        из шапки; это не dead-menu."""
         js, html = _js(), _html()
         for token in ("MENU_ORDER", "MENU_LABELS", "sidebarOpen"):
             assert token not in js, token
@@ -40,10 +40,10 @@ class TestMenu:
         assert 'class="app-drawer"' in html
         assert 'class="bottom-nav"' not in html, \
             "D13: нижняя навигация удалена"
-        assert 'class="mobile-topnav"' in html, \
-            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
-        assert 'mobile-topnav scroll-thin' not in html, \
-            "U01: мобильный topnav без scroll-thin"
+        assert 'mobile-topnav' not in html, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
+        assert 'data-drawer-trigger' in html and 'iaV2 && hasDrawer' in html, \
+            "ASAP-UI-02 §2.1: навигация — drawer по кнопке в шапке"
 
     def test_user_sees_only_home(self):
         js = _js()

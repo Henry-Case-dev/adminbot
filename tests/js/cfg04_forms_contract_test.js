@@ -234,7 +234,9 @@ function mountComp(name, root, extra) {
     assert.ok(INDEX.indexOf('data-save-indicator') >= 0);
     assert.ok(INDEX.indexOf('<div v-if="headerSaveChip.visible"') >= 0,
       'B.1: индикатор рендерится только при непустом состоянии');
-    assert.ok(INDEX.indexOf('mobile-topnav') >= 0, 'CFG-04.F: навигация не тронута');
+    assert.ok(INDEX.indexOf('data-drawer-trigger') >= 0
+      && INDEX.indexOf('mobile-topnav') < 0,
+      'CFG-04.F: навигация — drawer, постоянной нижней панели нет');
     assert.ok(INDEX.indexOf('toggleFullscreen()') >= 0, 'ADD-1.C5: fullscreen цел');
   }
 

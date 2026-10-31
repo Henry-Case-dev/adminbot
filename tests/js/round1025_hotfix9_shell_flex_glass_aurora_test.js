@@ -91,15 +91,16 @@ function token(name) {
   // Скроллится только центр.
   assert.ok(/\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\) > main\.scroll-area[\s\S]{0,220}overflow-y:\s*auto/
     .test(CSS), 'A: main.scroll-area — единственный скроллер');
-  // D13 (§18I.14): нижняя навигация удалена — мобильная навигация верхняя
-  // (mobile-topnav в шапке); fixed-панелей снизу нет.
+  // D13 (§18I.14) + ASAP-UI-02 §2.1: постоянной нижней панели нет, навигация
+  // живёт в drawer; fixed-панелей снизу и второго ряда в шапке нет.
   assert.ok(!/\.bottom-nav[\s{,:-]/.test(CSS),
     'A/D13: правило .bottom-nav удалено');
   assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
     'A/D13: bottom-nav разметка удалена');
-  assert.ok(/\.mobile-topnav \{/.test(CSS)
-    && /flex:\s*0 0 auto/.test(CSS.match(/\.mobile-topnav \{([^}]*)\}/)[1]),
-    'A/D13: mobile-topnav в потоке шапки (flex:0 0 auto)');
+  assert.ok(INDEX.indexOf('mobile-topnav') < 0 && CSS.indexOf('mobile-topnav') < 0,
+    'A/ASAP-UI-02: нижней панели разделов нет ни в разметке, ни в CSS');
+  assert.ok(/\.app-shell\.drawer-open main\.scroll-area \{ overflow: hidden; \}/.test(CSS),
+    'A/ASAP-UI-02: открытый drawer блокирует скролл под подложкой');
   // Единый источник задаётся в telegram-init.js.
   assert.ok(/--app-usable-height/.test(TG) && /computeBottomOffset/.test(TG),
     'A: telegram-init задаёт --app-usable-height');

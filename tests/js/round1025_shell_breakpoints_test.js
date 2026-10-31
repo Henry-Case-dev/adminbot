@@ -32,37 +32,33 @@ assert.ok(CSS.indexOf('@media (min-width: 1200px)') >= 0,
   'sidebar media-query присутствует');
 
 // ── Shell-элементы в разметке ────────────────────────────────────────────
-for (const cls of ['class="app-sidebar"', 'class="app-drawer"',
-                   'class="mobile-topnav"']) {
+for (const cls of ['class="app-sidebar"', 'class="app-drawer"']) {
   assert.ok(INDEX.indexOf(cls) >= 0, 'разметка: ' + cls);
 }
-// D13 (§18I.14): нижней навигации и шторки «Ещё» НЕТ нигде.
+// D13 (§18I.14) + ASAP-UI-02 §2.1: нижней навигации, шторки «Ещё» и
+// постоянной мобильной панели разделов НЕТ нигде.
 assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
   'D13: bottom-nav удалён из разметки');
 assert.ok(INDEX.indexOf('class="more-sheet"') < 0,
   'D13: more-sheet удалён из разметки');
 assert.ok(/v-if="iaV2 && hasSidebar"/.test(INDEX),
   'sidebar — только ≥1200 (hasSidebar)');
-assert.ok(/v-if="iaV2 && isMobileShell" class="mobile-topnav/.test(INDEX),
-  'mobile-topnav — только <768 (isMobileShell)');
-// W2-SHELL (asap8-v6.3, U01): старый канон (горизонтально-скроллимая лента
-// scroll-thin) заменён — класс больше не содержит scroll-thin.
-assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') < 0,
-  'U01: скроллимая лента всех пунктов удалена (4 сегмента + «Ещё»)');
-assert.ok(/v-if="iaV2 && isCompactShell"/.test(INDEX),
-  'drawer — только 768–1199 (isCompactShell)');
+assert.ok(INDEX.indexOf('mobile-topnav') < 0,
+  'ASAP-UI-02: постоянной мобильной панели разделов нет (ни портрет, ни ландшафт)');
+assert.ok(/v-if="iaV2 && hasDrawer"/.test(INDEX),
+  'ASAP-UI-02: drawer — один механизм на <1200 (mobile + compact)');
+assert.ok(/hasDrawer: function \(\)/.test(JS)
+  && /return this\.shellMode !== 'desktop';/.test(JS),
+  'ASAP-UI-02: hasDrawer = всё, кроме desktop');
 
 // ── Нет полосы из 7 вкладок; navbar gated legacy ─────────────────────────
 assert.ok(/v-if="!iaV2" class="navbar-band/.test(INDEX),
   'navbar-полоса рендерится только в legacy-режиме');
-// D13: мобильная верхняя навигация = канонический реестр navItems.
-assert.ok(/mobileTopnavItems: function \(\)/.test(JS),
-  'mobileTopnavItems computed (тот же navItems)');
 
 // ── Touch ≥44×44 + safe-area ─────────────────────────────────────────────
 assert.ok(/min-height: 44px/.test(CSS), 'touch-таргеты ≥44px');
-assert.ok(/\.mobile-topnav-link \{[^}]*min-width: 44px/.test(CSS),
-  'mobile-topnav тач ≥44px');
+assert.ok(/\.header-nav-btn,\s*\n?\.header-more-btn \{[^}]*min-width: 44px/.test(
+  CSS.replace(/\r/g, '')), 'иконочные кнопки шапки ≥44px');
 assert.ok(/env\(safe-area-inset-bottom/.test(CSS), 'safe-area учтён');
 assert.ok(/viewportStableHeight/.test(TG), 'TMA viewportStableHeight');
 assert.ok(/safeAreaInset/.test(TG) && /contentSafeAreaInset/.test(TG),

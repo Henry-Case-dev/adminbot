@@ -283,6 +283,82 @@ class TestOverlayLayer:
                             + str(len(missing)))
 
 
+class TestAsapUi02Navigation:
+    """ASAP-UI-02 §2 (31.10.2026): навигация, шапка, идентификация, иконки.
+
+    Действующий контракт — `docs/ui-navigation-contract.md`: постоянного
+    нижнего навбара нет, на телефоне навигация в drawer, логотип Adminbot
+    удалён, аватар и бейдж реальной роли остаются видимыми, «Ещё» —
+    троеточие. Проверки структурные; поведение — в e2e
+    `tools/ui_evol_w7_nav_e2e.py` и `ui_evol_w9_responsive_e2e.py`.
+    """
+
+    def test_no_persistent_bottom_nav(self):
+        assert "mobile-topnav" not in INDEX, \
+            "постоянной нижней панели разделов нет в разметке"
+        assert "mobile-topnav" not in CSS, \
+            "её CSS (и ландшафтный рейл) удалён"
+        assert "--bottom-nav-h" not in JS, \
+            "метрика панели удалена вместе с потребителем"
+        assert "padding-right: calc(58px" not in CSS, \
+            "резерв контента под рейл удалён"
+
+    def test_single_drawer_reachable_on_phone(self):
+        assert 'v-if="iaV2 && hasDrawer"' in INDEX
+        assert 'data-drawer-trigger' in INDEX
+        assert "return this.shellMode !== 'desktop';" in JS
+        assert INDEX.count('class="app-drawer"') == 1, \
+            "один drawer, без второй мобильной копии навигации"
+
+    def test_brand_removed_without_empty_slot(self):
+        for marker in ("mobile-brand", "sidebar-brand", "AdminBot</span>"):
+            assert marker not in INDEX, marker
+        assert "sidebar-brand" not in CSS and "mobile-brand" not in CSS
+        assert 'class="sidebar-top"' in INDEX, \
+            "верхняя строка панели занята функциональной кнопкой, не заглушкой"
+        assert "data-sidebar-collapse" in INDEX
+
+    def test_mobile_header_keeps_identity_and_role(self):
+        assert "header-user-role" in INDEX and ":title=\"me.role_name\"" in INDEX
+        assert ".app-shell.shell-mobile .header-user-name { display: none; }" in CSS
+        assert ".header-user span { display: none; }" not in CSS, \
+            "прежнее правило скрывало бейдж роли целиком"
+        assert "header-user-initial" in INDEX, \
+            "аватар не исчезает при отсутствии фото"
+
+    def test_title_once_and_single_row(self):
+        assert ".app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-title-wrap" in CSS
+        assert not re.search(
+            r"\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 "
+            r"\.header-title-wrap \{\s*\n\s*display: none;", CSS), \
+            "название раздела не скрывается на телефоне"
+        seg = CSS[CSS.index(".app-shell.shell-mobile header.header-sticky.header-compact-v2 {"):]
+        seg = seg[:seg.index("}")]
+        assert "flex-wrap: nowrap" in seg, "второго ряда шапки нет"
+
+    def test_more_entry_is_ellipsis_not_grid(self):
+        assert 'data-more-trigger' in INDEX
+        i = INDEX.index("data-more-trigger")
+        seg = INDEX[i - 400:i + 900]
+        assert "grid_view" not in seg, "«Ещё» больше не четыре квадрата"
+        assert "ui-ic" in seg, "единый icon-контракт"
+        assert ".ui-ic {" in CSS and "width: 20px" in CSS
+
+    def test_hit_areas(self):
+        assert re.search(r"\.header-nav-btn,\s*\n?\.header-more-btn \{[^}]*"
+                         r"min-width: 44px", CSS.replace("\r", ""))
+        assert "min-height: 44px" in CSS
+
+    def test_drawer_focus_and_esc(self):
+        assert '@keydown.esc="closeDrawer()"' in INDEX
+        assert ":inert=\"drawerOpen ? null : ''\"" in INDEX
+        assert "document.querySelector('.app-drawer .sidebar-link')" in JS
+        assert "document.querySelector('[data-drawer-trigger]')" in JS
+        assert 'drawerOpen ? \'drawer-open\' : \'\'' in INDEX, \
+            "открытый drawer помечает shell (scroll-lock под подложкой)"
+        assert ".app-shell.drawer-open main.scroll-area { overflow: hidden; }" in CSS
+
+
 class TestJsUnit:
     def test_js_unit_evol_w7_nav(self):
         node = _node()

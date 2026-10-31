@@ -48,7 +48,8 @@ DEFAULT_SHOTS = os.path.join(REPO, "plans", "features", "evol", "audit",
                              "evidence")
 
 HEAD_MAX_DESKTOP = 76      # компактная строка: 44px контрол + padding
-HEAD_MAX_MOBILE = 132      # строка области + строка разделов
+HEAD_MAX_MOBILE = 76       # ASAP-UI-02: ОДНА строка (44px контролы + padding)
+HEAD_MAX_TABLET = 132      # compact shell 768–1199: две строки (EVOL-024 D5)
 
 LONG_CHAT = {
     "chat_id": -1001234567890,
@@ -206,10 +207,50 @@ PROBE_SHELL = r"""
               color: cs.color,
               lens: b.classList.contains('lg-mini-lens')}; })(),
     topnav: (() => {
-      const n = document.querySelector('.mobile-topnav');
-      if (!n) return null;
-      const r = n.getBoundingClientRect();
-      return {h: Math.round(r.height), bottom: Math.round(r.bottom)}; })(),
+      // ASAP-UI-02 §2.1: постоянной нижней панели быть не должно.
+      return document.querySelectorAll('.mobile-topnav').length; })(),
+    // ASAP-UI-02 §2.1/§2.2: навигация — кнопка drawer в шапке, логотипа нет,
+    // аватар и бейдж фактической роли видимы, «⋯» — троеточие.
+    navBtn: (() => {
+      const b = document.querySelector('[data-drawer-trigger]');
+      if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return {w: Math.round(r.width), h: Math.round(r.height),
+              label: b.getAttribute('aria-label'),
+              svg: !!b.querySelector('svg'),
+              inside: r.left >= -1 && r.right <= window.innerWidth + 1}; })(),
+    moreBtn: (() => {
+      const b = document.querySelector('[data-more-trigger]');
+      if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return {w: Math.round(r.width), h: Math.round(r.height),
+              label: b.getAttribute('aria-label'),
+              svg: !!b.querySelector('svg'),
+              inside: r.left >= -1 && r.right <= window.innerWidth + 1}; })(),
+    brand: document.querySelectorAll('.mobile-brand, .sidebar-brand').length,
+    roleBadge: (() => {
+      const el = document.querySelector('.header-user-role');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return {text: (el.textContent || '').trim(),
+              visible: cs.display !== 'none' && r.width > 0 && r.height > 0,
+              title: el.getAttribute('title'),
+              right: Math.round(r.right)}; })(),
+    avatarNode: (() => {
+      const el = document.querySelector('.header-user img, .header-user-initial');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {visible: r.width > 0 && r.height > 0,
+              right: Math.round(r.right)}; })(),
+    titleNode: (() => {
+      const el = document.querySelector('.header-title');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return {text: (el.textContent || '').trim(),
+              visible: cs.display !== 'none' && r.width > 1,
+              w: Math.round(r.width)}; })(),
   };
 }
 """
@@ -344,6 +385,16 @@ def run(out_dir: str) -> int:
         if d["fsBtn"] and not d["fsBtn"]["title"]:
             fails.append("desktop: у ⛶ нет tooltip")
         fails.extend(_ghost_fails(d["fsBtn"], "desktop"))
+        # ASAP-UI-02 §2.2: визуального логотипа Adminbot нет нигде, а на
+        # desktop навигация — постоянный sidebar (drawer не нужен).
+        if d["brand"]:
+            fails.append("desktop: логотип Adminbot вернулся в UI")
+        if d["navBtn"] is not None:
+            fails.append("desktop: кнопка drawer не нужна при постоянном sidebar")
+        if not d["roleBadge"] or not d["roleBadge"]["visible"]:
+            fails.append("desktop: бейдж фактической роли не виден")
+        if not d["avatarNode"] or not d["avatarNode"]["visible"]:
+            fails.append("desktop: аватар пользователя не виден")
         page.locator("header.header-sticky").screenshot(
             path=os.path.join(out_dir, "w7-nav-fs-ghost-header-1280.png"))
         shot(page, "desktop-modules")
@@ -480,10 +531,17 @@ def run(out_dir: str) -> int:
         p2.wait_for_timeout(900)
         d2 = p2.evaluate(PROBE_SHELL)
         report["tablet"] = d2
-        if d2["headerH"] > HEAD_MAX_MOBILE:
+        if d2["headerH"] > HEAD_MAX_TABLET:
             fails.append("tablet: шапка %s px (высокая)" % d2["headerH"])
         if d2["over"]:
             fails.append("tablet: горизонтальный скролл")
+        # ASAP-UI-02: на планшете тот же drawer, логотипа нет.
+        if d2["topnav"]:
+            fails.append("tablet: вернулась постоянная нижняя панель разделов")
+        if d2["brand"]:
+            fails.append("tablet: логотип Adminbot вернулся в UI")
+        if not d2["navBtn"]:
+            fails.append("tablet: нет кнопки навигации в шапке")
         p2.click("[data-drawer-trigger]")
         p2.wait_for_timeout(450)
         dr = p2.evaluate(r"""() => {
@@ -515,7 +573,7 @@ def run(out_dir: str) -> int:
             fails.append("tablet: Esc/focus-возврат drawer не работает: %s" % back)
         ctx2.close()
 
-        # ── mobile 390 ─────────────────────────────────────────────────
+        # ── mobile 390: одна строка шапки + drawer + «⋯» ────────────────
         ctx3 = browser.new_context(viewport={"width": 390, "height": 844})
         ctx3.add_init_script(M.TMA_STUB)
         ctx3.route("**/api/**", _routes())
@@ -530,10 +588,81 @@ def run(out_dir: str) -> int:
         if d3["overlap"]:
             fails.append("mobile: контент под шапкой")
         if d3["headerH"] > HEAD_MAX_MOBILE:
-            fails.append("mobile: шапка %s px" % d3["headerH"])
+            fails.append("mobile: шапка %s px — больше одной строки (%d)"
+                         % (d3["headerH"], HEAD_MAX_MOBILE))
         fails.extend(_ghost_fails(d3["fsBtn"], "mobile"))
+        # ASAP-UI-02 §2.1: нижней панели нет, есть кнопка навигации.
+        if d3["topnav"]:
+            fails.append("mobile: вернулась постоянная нижняя панель разделов")
+        if d3["brand"]:
+            fails.append("mobile: логотип Adminbot вернулся в UI")
+        if not d3["navBtn"]:
+            fails.append("mobile: нет кнопки навигации в шапке")
+        else:
+            if d3["navBtn"]["w"] < 44 or d3["navBtn"]["h"] < 44:
+                fails.append("mobile: hit-цель навигации %sx%s < 44"
+                             % (d3["navBtn"]["w"], d3["navBtn"]["h"]))
+            if not d3["navBtn"]["label"] or not d3["navBtn"]["svg"]:
+                fails.append("mobile: кнопка навигации без имени/иконки")
+            if not d3["navBtn"]["inside"]:
+                fails.append("mobile: кнопка навигации за вьюпортом")
+        # ASAP-UI-02 §2.3: «Ещё» — троеточие в шапке, не сетка.
+        if not d3["moreBtn"]:
+            fails.append("mobile: нет точки входа второстепенных действий")
+        elif not d3["moreBtn"]["svg"] or not d3["moreBtn"]["label"]:
+            fails.append("mobile: «⋯» без иконки/доступного имени")
+        # ASAP-UI-02 §2.2: аватар + компактный бейдж реальной роли видимы.
+        if not d3["roleBadge"] or not d3["roleBadge"]["visible"]:
+            fails.append("mobile: бейдж фактической роли не виден")
+        elif not d3["roleBadge"]["title"]:
+            fails.append("mobile: полное имя роли не доступно (title)")
+        if not d3["avatarNode"] or not d3["avatarNode"]["visible"]:
+            fails.append("mobile: аватар пользователя не виден")
+        # Название раздела показано один раз — в шапке.
+        if not d3["titleNode"] or not d3["titleNode"]["visible"]:
+            fails.append("mobile: название раздела не видно в шапке")
         p3.locator("header.header-sticky").screenshot(
             path=os.path.join(out_dir, "w7-nav-fs-ghost-header-390.png"))
+        shot(p3, "mobile-header")
+
+        # Drawer: открывается из шапки, фокус внутрь, Esc, возврат фокуса.
+        p3.click("[data-drawer-trigger]")
+        p3.wait_for_timeout(450)
+        dr3 = p3.evaluate(r"""() => {
+            const d = document.querySelector('.app-drawer');
+            if (!d) return {drawer: false};
+            const r = d.getBoundingClientRect();
+            return {drawer: true, open: d.classList.contains('open'),
+                    x: Math.round(r.x), w: Math.round(r.width),
+                    inside: r.left >= -1 && r.right <= window.innerWidth + 1,
+                    links: d.querySelectorAll('.sidebar-link').length,
+                    focusInside: d.contains(document.activeElement),
+                    ariaHidden: d.getAttribute('aria-hidden')};
+        }""")
+        report["mobile_drawer"] = dr3
+        if not dr3.get("drawer") or not dr3["open"]:
+            fails.append("mobile: drawer не открылся из шапки")
+        else:
+            if not dr3["inside"]:
+                fails.append("mobile: drawer за вьюпортом")
+            if dr3["links"] < 8:
+                fails.append("mobile: в drawer не все разделы (%s)"
+                             % dr3["links"])
+            if not dr3["focusInside"]:
+                fails.append("mobile: фокус не входит в drawer")
+            if dr3["ariaHidden"] != "false":
+                fails.append("mobile: aria-hidden drawer не снят")
+        shot(p3, "mobile-drawer")
+        p3.keyboard.press("Escape")
+        p3.wait_for_timeout(300)
+        closed3 = p3.evaluate(r"""() => ({
+            open: !!document.querySelector('.app-drawer.open'),
+            focused: !!document.activeElement
+              && document.activeElement.hasAttribute('data-drawer-trigger'),
+        })""")
+        report["mobile_drawer_closed"] = closed3
+        if closed3["open"] or not closed3["focused"]:
+            fails.append("mobile: Esc/возврат фокуса drawer не работает")
 
         p3.click(".scope-trigger")
         p3.wait_for_timeout(400)
@@ -549,7 +678,8 @@ def run(out_dir: str) -> int:
         shot(p3, "mobile-scope-panel")
         p3.keyboard.press("Escape")
         p3.wait_for_timeout(250)
-        p3.click(".mobile-topnav-more")
+        # «⋯» — второстепенные действия (не список разделов).
+        p3.click("[data-more-trigger]")
         p3.wait_for_timeout(400)
         more = p3.evaluate(r"""() => {
             const m = document.querySelector('.more-menu-panel');
@@ -558,15 +688,63 @@ def run(out_dir: str) -> int:
             return {inside: r.left >= -1 && r.right <= window.innerWidth + 1
                             && r.top >= -1
                             && r.bottom <= window.innerHeight + 1,
+                    items: m.querySelectorAll('.more-menu-item').length,
+                    profile: !!m.querySelector('.more-menu-profile'),
                     bottom: Math.round(r.bottom), vh: window.innerHeight};
         }""")
         report["mobile_more"] = more
         if not more:
-            fails.append("mobile: меню «Ещё» не открылось")
-        elif not more["inside"]:
-            fails.append("mobile: меню «Ещё» вне вьюпорта")
+            fails.append("mobile: меню второстепенных действий не открылось")
+        else:
+            if not more["inside"]:
+                fails.append("mobile: меню вне вьюпорта")
+            if more["items"]:
+                fails.append("mobile: в «⋯» снова список разделов (%s)"
+                             % more["items"])
+            if not more["profile"]:
+                fails.append("mobile: в «⋯» нет идентификации пользователя")
         shot(p3, "mobile-more")
+        p3.keyboard.press("Escape")
+        p3.wait_for_timeout(200)
         ctx3.close()
+
+        # ── phone landscape 667×375: та же одна строка, без рейла ───────
+        ctx3l = browser.new_context(viewport={"width": 667, "height": 375})
+        ctx3l.add_init_script(M.TMA_STUB)
+        ctx3l.route("**/api/**", _routes())
+        pl = ctx3l.new_page()
+        pl.goto(_app() + "#/modules", wait_until="load")
+        pl.wait_for_selector(".app-shell", timeout=10000)
+        pl.wait_for_timeout(900)
+        dl = pl.evaluate(PROBE_SHELL)
+        report["mobile_landscape"] = dl
+        if dl["over"]:
+            fails.append("landscape: горизонтальный скролл")
+        if dl["overlap"]:
+            fails.append("landscape: контент под шапкой")
+        if dl["headerH"] > 76:
+            fails.append("landscape: шапка %s px — больше одной строки"
+                         % dl["headerH"])
+        if dl["topnav"]:
+            fails.append("landscape: вернулся рейл/нижняя панель разделов")
+        if not dl["navBtn"] or not dl["navBtn"]["inside"]:
+            fails.append("landscape: кнопка навигации недоступна")
+        if not dl["roleBadge"] or not dl["roleBadge"]["visible"]:
+            fails.append("landscape: бейдж роли не виден")
+        pl.click("[data-drawer-trigger]")
+        pl.wait_for_timeout(400)
+        drl = pl.evaluate(r"""() => {
+            const d = document.querySelector('.app-drawer');
+            const r = d.getBoundingClientRect();
+            return {open: d.classList.contains('open'),
+                    inside: r.left >= -1 && r.right <= window.innerWidth + 1,
+                    fitsHeight: r.bottom <= window.innerHeight + 1};
+        }""")
+        report["mobile_landscape_drawer"] = drl
+        if not drl["open"] or not drl["inside"] or not drl["fitsHeight"]:
+            fails.append("landscape: drawer не помещается/не открылся")
+        shot(pl, "landscape-drawer")
+        ctx3l.close()
 
         # ── 320 + zoom 200% + slow API ─────────────────────────────────
         for (w, h, zoom, delay) in ((320, 700, 1, 0), (1280, 800, 2, 0),

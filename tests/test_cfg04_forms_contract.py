@@ -365,6 +365,8 @@ class TestProtectedSurfaces:
     def test_header_navigation_not_rebuilt(self):
         # CFG-04.F / ADD-1.T4 / ADD-1.C5: шапка/навигация/fullscreen не
         # переделываются — правится только узел save-индикатора.
-        assert 'class="mobile-topnav"' in INDEX
+        # ASAP-UI-02 §2.1/§2.2: навигация — drawer (без нижней панели),
+        # визуального бренда Adminbot в шапке нет.
+        assert 'data-drawer-trigger' in INDEX
         assert "toggleFullscreen()" in INDEX
-        assert 'class="mobile-brand shrink-0"' in INDEX
+        assert 'class="mobile-brand' not in INDEX

@@ -102,20 +102,23 @@
                   shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy',
                   shellGraphiteV3 ? 'shell-v3' : 'shell-v3-off',
                   moreMenuOpen ? 'more-menu-open' : '',
+                  drawerOpen ? 'drawer-open' : '',
                   statusRecordOpen ? 'sfeed-modal-open' : '']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
-           В 768–1199 постоянной панели нет (drawer ниже); <768 — bottom-nav. -->
+           В 768–1199 и <768 постоянной панели нет: навигация в drawer. -->
       <aside v-if="iaV2 && hasSidebar" class="app-sidebar" data-glass="shell"
              data-nav-sidebar
              :class="{ 'sidebar-collapsed': sidebarCollapsed }"
              aria-label="Боковая навигация">
-        <div class="sidebar-brand">
-          <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
-          <span class="sidebar-brand-title">AdminBot</span>
+        <!-- ASAP-UI-02 §2.2: визуальный логотип Adminbot удалён из всех
+             UI-областей. Верхняя строка панели содержит только функциональное
+             действие (сворачивание/разворачивание), пустой контейнер не
+             остаётся — место занимает сама кнопка (44×44). -->
+        <div class="sidebar-top">
           <!-- EVOL-023 §3: сворачивание постоянной панели на desktop — только
                иконки (rail 68 px), состояние персистится (localStorage),
                подписи остаются в title/aria-label. Маршруты/RBAC не меняются;
-               на 768–1199 по-прежнему drawer, на <768 — mobile-topnav. -->
+               на <1200 постоянной панели нет — там drawer. -->
           <button type="button" class="sidebar-collapse" data-sidebar-collapse
                   :aria-expanded="sidebarCollapsed ? 'false' : 'true'"
                   :aria-label="sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
@@ -167,13 +170,18 @@
              разметка, но `.header-scope-row{display:contents}` + CSS order
              возвращают прежний однорядный вид байт-в-байт (селектор — ОДИН
              экземпляр, без дублирования). -->
-          <!-- F1 (§7, drawer 768–1199): кнопка временной навигации. -->
-          <button v-if="iaV2 && isCompactShell" class="btn-ghost text-base px-2 shrink-0"
-                  data-drawer-trigger
+          <!-- F1 (§7): кнопка навигации — на всех «shell»-режимах без
+               постоянной панели (<1200): ≤1199… но фактически <1200, т.е.
+               compact 768–1199 И mobile <768. Иконка — menu/sidebar глиф
+               (ASAP-UI-02 §2.3), hit-область ≥44×44, спокойный hover. -->
+          <button v-if="iaV2 && hasDrawer" class="btn-ghost header-nav-btn shrink-0"
+                  data-drawer-trigger ref="drawerTrigger"
                   title="Навигация" aria-label="Открыть навигацию"
                   aria-haspopup="menu" :aria-expanded="drawerOpen ? 'true' : 'false'"
                   @click="toggleDrawer()">
-            <span class="msr" aria-hidden="true">{{ iconGlyph('expand_more') }}</span>
+            <svg class="ui-ic" viewBox="0 0 24 24" width="20" height="20"
+                 aria-hidden="true" focusable="false"><path fill="currentColor"
+                 d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
           </button>
           <!-- T-1099/§6.4.6: in-app fallback ← — ТОЛЬКО если нативного
                BackButton нет (вне TMA/старый SDK) и depth>0; когда нативный
@@ -181,14 +189,9 @@
           <button v-if="routeDepth > 0 && !backNative"
                   class="btn-ghost text-sm px-2 shrink-0" title="Назад"
                   aria-label="Назад" @click="goBack()">←</button>
-          <!-- ═══ W2-SHELL (U01): мобильный бренд row A — ровно один из
-               слотов [←/AdminBot]: ← на вложенных, бренд на корне.
-               На desktop не рендерится (там заголовок/крошки). ═══ -->
-          <div v-if="iaV2 && isMobileShell && !(routeDepth > 0 && !backNative)"
-               class="mobile-brand shrink-0">
-            <span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span>
-            <span class="mobile-brand-name">AdminBot</span>
-          </div>
+          <!-- ASAP-UI-02 §2.2: визуальная слово-марка Adminbot удалена и из
+               мобильной шапки. Слот [←/логотип] больше не существует: на
+               корне слот занят кнопкой навигации, на вложенных — «←». -->
           <div class="header-title-wrap min-w-0">
             <!-- F1 (UPD §8.4): на вложенных — текущий раздел + путь назад. -->
             <!-- ASAP-speech-arch U-06 (§8): ОДИН главный заголовок страницы +
@@ -321,11 +324,34 @@
                  и его редирект на cdn*.telesco.pe); @error → fail-closed -->
             <img v-if="me && meAvatarUrl" :src="meAvatarUrl" alt=""
                  class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/15"
-                 @error="onMeAvatarError()">
-            <span v-if="me" class="text-gray-300 text-xs truncate whitespace-nowrap max-w-[7rem]">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
-            <span v-if="me" class="badge badge-info text-[10px] px-1.5 py-0">{{ me.role_name }}</span>
+                 :title="meUserTitle" @error="onMeAvatarError()">
+            <!-- ASAP-UI-02 §2.2: если фото нет (или CDN недоступен), остаётся
+                 тот же компактный круг с инициалом — «аватар пользователя»
+                 не исчезает из шапки. -->
+            <span v-else-if="me" class="header-user-initial"
+                  aria-hidden="true">{{ meInitial }}</span>
+            <span v-if="me" class="header-user-name text-gray-300 text-xs truncate whitespace-nowrap max-w-[7rem]"
+                  :title="meUserTitle">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
+            <!-- ASAP-UI-02 §2.2: компактный бейдж ФАКТИЧЕСКОЙ роли остаётся
+                 видимым и на телефоне (прежнее `.header-user span{display:none}`
+                 скрывало его целиком). Полное имя роли — в title. -->
+            <span v-if="me" class="header-user-role badge badge-info text-[10px] px-1.5 py-0"
+                  :title="me.role_name">{{ me.role_name }}</span>
           </div>
           </div>
+          <!-- ASAP-UI-02 §2.3: второстепенные действия — компактная точка
+               входа с горизонтальным ТРОЕТОЧИЕМ (не сетка из четырёх
+               квадратов). Панель не создаёт второй ряд шапки: это popover
+               поверх контента, открывается из этой кнопки. -->
+          <button v-if="iaV2 && isMobileShell" class="btn-ghost header-more-btn shrink-0"
+                  data-more-trigger ref="moreMenuTrigger"
+                  title="Дополнительно" aria-label="Дополнительные действия"
+                  aria-haspopup="menu" :aria-expanded="moreMenuOpen ? 'true' : 'false'"
+                  @click="toggleMoreMenu()">
+            <svg class="ui-ic" viewBox="0 0 24 24" width="20" height="20"
+                 aria-hidden="true" focusable="false"><path fill="currentColor"
+                 d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          </button>
           <!-- Раунд 10.6 (A1/T-1158/T-1159): navbar — ровно 6 пунктов;
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
                активный — по route (activeNav), aria-current.
@@ -351,25 +377,17 @@
                начинается сразу под ней. ═══ -->
         </header>
 
-        <!-- ═══ W2-SHELL (U01.4): меню «Ещё» — popover/sheet ПОВЕРХ контента
-             (не новый ряд шапки): overlay + панель, Esc/outside click/
-             focus-return, роль и deep links, скрытых прав нет (список —
-             RBAC-отфильтрованный mobileMoreItems). Профиль/роль/ID области —
-             здесь (U01.2: ID и бейджи не держим в постоянной шапке). ═══ -->
+        <!-- ═══ ASAP-UI-02 §2.3: меню второстепенных действий («⋯» в шапке).
+             Основные разделы живут в drawer — здесь их НЕТ (два конкурирующих
+             меню запрещены). Содержимое: редкие/служебные действия и
+             идентификация (полное имя, роль, ID области), которая в шапке
+             показана компактно. Popover поверх контента, не новый ряд шапки. -->
         <div v-if="iaV2 && isMobileShell && moreMenuOpen" class="more-menu-root">
           <div class="more-menu-backdrop" aria-hidden="true"
                @click="closeMoreMenu()"></div>
           <div ref="moreMenuPanel" class="more-menu-panel" data-glass="c"
-               role="menu" aria-label="Все разделы" tabindex="-1"
+               role="menu" aria-label="Дополнительные действия" tabindex="-1"
                @keydown="moreMenuOnKeydown($event)">
-            <button v-for="n in mobileMoreItems" :key="'mm-' + n.id"
-                    type="button" role="menuitem" class="more-menu-item"
-                    :class="{ active: activeNav === n.id }"
-                    :aria-current="activeNav === n.id ? 'page' : null"
-                    @click="moreMenuPick(n)">
-              <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
-              <span class="more-menu-label">{{ n.label }}</span>
-            </button>
             <!-- FS-HOTFIX FOLLOW-UP §8 (директива владельца 18.10): временная
                  админ-диагностика геометрии ⛶. Закрыта по умолчанию (вход —
                  только здесь), места в обычном UI не занимает; гейт —
@@ -12975,10 +12993,12 @@
           </template>
         </main>
       <!-- ═══ F1 (§4.3/§4.4, UPD §8.3/§8.4): shell-навигация планшета/мобилы ═══ -->
-      <!-- Drawer (768–1199): временная панель, состояние не персистится. -->
-      <div v-if="iaV2 && isCompactShell && drawerOpen"
+      <!-- ASAP-UI-02 §2.1: ОДИН механизм мобильной/планшетной навигации —
+           drawer. Он же открывается на телефоне (<768) кнопкой навигации в
+           шапке; состояние не персистится, закрытый drawer места не занимает. -->
+      <div v-if="iaV2 && hasDrawer && drawerOpen"
            class="drawer-backdrop" @click="closeDrawer()"></div>
-      <aside v-if="iaV2 && isCompactShell" data-glass="shell"
+      <aside v-if="iaV2 && hasDrawer" data-glass="shell"
              class="app-drawer" :class="{ open: drawerOpen }"
              :inert="drawerOpen ? null : ''"
              :aria-hidden="drawerOpen ? 'false' : 'true'"
@@ -12988,6 +13008,7 @@
           <button v-for="n in sidebarGroups.pub" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
                   :title="n.label" @click="shellNavTo(n.route)">
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
@@ -12996,6 +13017,7 @@
           <button v-for="n in sidebarGroups.admin" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
                   :title="n.label" @click="shellNavTo(n.route)">
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
@@ -13004,6 +13026,7 @@
           <button v-for="n in sidebarGroups.local" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"
+                  :aria-current="activeNav === n.id ? 'page' : null"
                   :title="n.label" @click="shellNavTo(n.route)">
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
@@ -13011,37 +13034,11 @@
         </nav>
       </aside>
 
-      <!-- ═══ EVOL-025 (W9): адаптивная навигация shell-колонки.
-           Тот же канонический реестр (mobileTopnavItems + «Ещё»), ровно один
-           экземпляр разметки. Положение задаётся CSS по ФАКТИЧЕСКОМУ размеру
-           окна: портрет — нижняя панель разделов (последний flex-child
-           колонки, контент получает остальную высоту), низкий ландшафт —
-           плавающий вертикальный рейл у правого края (высоту не занимает).
-           Горизонтальной прокрутки и третьей панели нет: сегменты делят ширину
-           и остаются тач-целями ≥44. ═══ -->
-      <nav v-if="iaV2 && isMobileShell" class="mobile-topnav"
-           aria-label="Разделы">
-        <button v-for="n in mobileTopnavItems" :key="'mt-' + n.id"
-                type="button" class="mobile-topnav-link"
-                :class="{ active: activeNav === n.id }"
-                :aria-current="activeNav === n.id ? 'page' : null"
-                :aria-label="n.label" :title="n.label"
-                @click="shellNavTo(n.route)">
-          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
-          <span class="mobile-topnav-label">{{ n.label }}</span>
-        </button>
-        <button ref="moreMenuTrigger" type="button"
-                class="mobile-topnav-link mobile-topnav-more"
-                :class="{ active: moreMenuActive || moreMenuOpen }"
-                aria-haspopup="menu"
-                :aria-expanded="moreMenuOpen ? 'true' : 'false'"
-                :aria-label="moreMenuTriggerLabel"
-                :title="moreMenuTriggerLabel"
-                @click="toggleMoreMenu()">
-          <span class="msr" aria-hidden="true">{{ iconGlyph('grid_view') }}</span>
-          <span class="mobile-topnav-label">{{ moreMenuTriggerLabel }}</span>
-        </button>
-      </nav>
+      <!-- ASAP-UI-02 §2.1: постоянной нижней панели разделов (<768) и её
+           ландшафтного рейла больше НЕТ. Единственный механизм навигации на
+           телефоне — drawer выше; разделы, маршруты, RBAC и выбранная область
+           не меняются. Закрытая навигация не занимает ни одного пикселя
+           полезной высоты. -->
     </div>
 
     <!-- ASAP-speech-arch U-05 (§8): крупный редактор редакции характера.

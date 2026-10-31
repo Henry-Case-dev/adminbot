@@ -91,17 +91,17 @@ class TestAreaA:
     def test_panels_in_allow_list(self):
         """A2 + HOTFIX8 (ADR-1025-16 D2): панели выведены из цветной
         allow-линзы A в нейтральный `data-glass="shell"`.
-        re-pin ASAP 8 v6 D13 (§18I.14): bottom-nav/more-sheet удалены —
-        shell-слой держат sidebar/drawer/шапка (+mobile-topnav в шапке);
-        уровень A остаётся у контентных карточек."""
+        re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: bottom-nav/more-sheet и
+        постоянной мобильной панели разделов нет — shell-слой держат
+        sidebar/drawer/шапка; уровень A остаётся у контентных карточек."""
         assert 'class="app-sidebar" data-glass="shell"' in INDEX
         assert 'class="app-drawer"' in INDEX and 'data-glass="shell"' in INDEX
         assert 'class="bottom-nav"' not in INDEX, \
             "D13: нижняя навигация удалена"
         assert 'class="more-sheet"' not in INDEX, \
             "D13: шторка «Ещё» удалена"
-        assert 'class="mobile-topnav"' in INDEX, \
-            "v6.3 U01: верхняя мобильная навигация присутствует"
+        assert 'mobile-topnav' not in INDEX, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert 'data-glass="shell"\n' in INDEX  # header (многострочный тег)
         assert 'data-glass="a"' in INDEX        # контентный A сохранён
 
@@ -168,23 +168,22 @@ class TestAreaB:
         assert "rect.bottom" in MATRIX or "bottom: Math.round(r.bottom)" in MATRIX
 
     def test_nav_order_untouched(self):
-        """re-pin ASAP 8 v6 D13 → v6.3 U01 (REQ-U01-1, владелец): row B —
-        ровно 3 фиксированных раздела (Статус/Аналитика/Модули) + «Ещё»;
-        РЕЕСТР navItems по-прежнему ЕДИН: и row B, и меню «Ещё» деривируются
-        из this.navItems (канон реестра сохранён, состав рендера изменён
-        владельцем). bottomNavItems по-прежнему запрещён."""
+        """re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1 (владелец, 31.10.2026):
+        постоянной нижней панели разделов нет; РЕЕСТР navItems по-прежнему
+        ЕДИН — его выводят sidebar/drawer (sidebarGroups), второго списка
+        разделов в «⋯» нет. bottomNavItems/mobileTopnavItems запрещены."""
         assert "bottomNavItems" not in APP_JS, \
             "D13: bottomNavItems удалён"
-        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
-        seg = APP_JS[APP_JS.index("mobileTopnavItems: function"):
-                     APP_JS.index("mobileTopnavItems: function") + 300]
+        assert "mobileTopnavItems" not in APP_JS, \
+            "ASAP-UI-02: row B (mobileTopnavItems) удалена"
+        assert "mobileMoreItems" not in APP_JS, \
+            "ASAP-UI-02: список разделов в «Ещё» удалён"
+        seg = APP_JS[APP_JS.index("sidebarGroups: function"):]
+        seg = seg[:seg.index("\n      },")]
         assert "this.navItems" in seg, \
-            "v6.3 U01: row B деривируется из канонического navItems"
-        assert "'status'" in seg and "'oversight'" in seg and "'modules'" in seg, \
-            "v6.3 U01: фиксированные Статус/Аналитика/Модули"
-        assert re.search(r"mobileMoreItems:\s*function", APP_JS) and \
-            "moreMenuTriggerLabel" in APP_JS, \
-            "v6.3 U01: остальные разделы — только в меню «Ещё»"
+            "ASAP-UI-02: группы drawer/sidebar деривируются из navItems"
+        assert "'public'" in seg or "n.group === 'public'" in seg, \
+            "ASAP-UI-02: публичные разделы группы сохранены"
 
     def test_matrix_stable_bar_restored(self):
         """LOW/T-2595: системный бар = разница видимой высоты (stable=h−56)."""
@@ -271,9 +270,12 @@ class TestAreaD:
         assert re.search(r"scroll-padding-top: calc\(var\(--header-h", APP_CSS)
 
     def test_header_user_class_live(self):
-        """LOW/D4: правило `.header-user span` не мёртвое — класс в разметке."""
+        """LOW/D4: правило для идентификации в шапке не мёртвое — классы в
+        разметке. ASAP-UI-02 §2.2: имя скрывается, бейдж роли остаётся."""
         assert "header-user" in INDEX
+        assert "header-user-name" in INDEX and "header-user-role" in INDEX
         assert ".header-compact-v2 .header-scope-row .header-user span" in APP_CSS
+        assert ".app-shell.shell-mobile .header-user-name { display: none; }" in APP_CSS
 
     def test_fullscreen_preserved_and_hardened(self):
         # ADR-1024-24 не отменён; W2-FULLSCREEN (U07.1): вся работа с TMA API

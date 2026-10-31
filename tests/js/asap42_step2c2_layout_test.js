@@ -83,10 +83,13 @@ const methods = captured.methods;
   assert.ok(!/\.more-sheet[\s{,:-]/.test(CSS)
     && !/\.bottom-nav[\s{,:-]/.test(CSS),
     'b: CSS-правила more-sheet/bottom-nav удалены (D13)');
-  // Мобильная навигация — компактная верхняя строка (W2-SHELL U01: без
-  // scroll-thin-ленты, 4 сегмента + «Ещё»).
-  assert.ok(INDEX.indexOf('class="mobile-topnav"') >= 0,
-    'b: мобильная верхняя навигация присутствует (D13 §18I.14 + U01)');
+  // Мобильная навигация — ОДИН drawer (ASAP-UI-02 §2.1): постоянной нижней
+  // панели разделов нет, второй механизм не создаётся.
+  assert.ok(INDEX.indexOf('mobile-topnav') < 0,
+    'b: постоянной мобильной панели разделов нет (ASAP-UI-02 §2.1)');
+  assert.ok(INDEX.indexOf('data-drawer-trigger') >= 0
+    && INDEX.indexOf('v-if="iaV2 && hasDrawer"') >= 0,
+    'b: навигация на телефоне — drawer из шапки');
 }
 
 // (c) Quick Access удалена

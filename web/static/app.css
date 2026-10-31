@@ -1745,7 +1745,7 @@
       }
     }
     /* ═══ HOTFIX8 (ADR-1025-16 D2): shell v3 — нейтральный графитовый glass ═══
-       Панели (sidebar/header/drawer/bottom-nav/more-sheet) больше НЕ несут
+       Панели (sidebar/header/drawer/more-sheet) больше НЕ несут
        `data-glass="a"` → цветная teal/blue/violet линза-ореол
        `[data-glass="a"]::before` к shell не применяется. Рецепт §4: `--shell-bg`
        + тонкая обводка + мягкий inner highlight + subtle specular/текстура +
@@ -1868,7 +1868,7 @@
     }
     /* webkit-фолбэк: плотный фон (уровень C), если backdrop-filter не поддержан.
        Не полагаемся на backdrop url-фильтр — без поддержки читаемый fallback.
-       A2/T-2591: панели (sidebar/drawer/header/bottom-nav/more-sheet) тоже
+       A2/T-2591: панели (sidebar/drawer/header/more-sheet) тоже
        уходят на непрозрачную плотную подложку — раскладка/контраст сохранены. */
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .card, .modal-card, .module-card, .hub-card, .prov-block,
@@ -2687,18 +2687,18 @@
       background: var(--surface-3); color: var(--text-1); font-weight: 600;
       border-color: var(--surface-border);
     }
-    .sidebar-link.active .msr,
-    .mobile-topnav-link.active .msr { font-variation-settings: 'FILL' 1; }
+    .sidebar-link.active .msr { font-variation-settings: 'FILL' 1; }
     .sidebar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis;
       white-space: nowrap; }
     .sidebar-sep { height: 1px; margin: .35rem .15rem;
       background: var(--surface-border); }
-    .sidebar-brand {
-      display: flex; align-items: center; gap: .5rem;
-      padding: .75rem .5rem; font-weight: 700; color: var(--text-1);
+    /* ASAP-UI-02 §2.2: слово-марка Adminbot удалена из панели. Верхняя
+       строка содержит только функциональную кнопку сворачивания (44×44);
+       пустого контейнера/заглушки не остаётся — место занимает действие. */
+    .sidebar-top {
+      display: flex; align-items: center; justify-content: flex-end;
+      padding: .25rem .25rem .4rem;
     }
-    .sidebar-brand .msr { color: var(--teal-500); }
-    .sidebar-brand-title { font-size: .95rem; letter-spacing: .01em; }
 
     /* Desktop sidebar (≥1200): фикс. панель 216 px (§4: 208–224), sticky-контент. */
     .app-sidebar { display: none; }
@@ -2762,51 +2762,11 @@
       position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 35;
     }
 
-    /* Bottom-nav (<768): ≤4 пункта, тач ≥44×44.
-       HOTFIX9 (ADR-1025-17 D1/D2, T-2798/T-2800): панель — ПОСЛЕДНИЙ flex-child
-       колонки, НЕ отдельный fixed-слой. Нижний safe-area учтён РОВНО ОДИН РАЗ —
-       теперь (ASAP-3.1, T-4083, §93) на САМОЙ панели как flex-child:
-       shell = фактически видимая высота (без guessed-offset), панель поднимает
-       labels над системной зоной собственным padding-bottom. Инварианты §94:
-       rect.top ≥ 0; rect.bottom ≤ visible bottom; icon/label видны; main
-       (flex-1) структурно не под nav. */
-    /* ═══ W2-SHELL (asap8-v6.3, U01.1/U01.3): мобильная row B (<768) —
-       ровно 4 сегмента «Статус / Аналитика / Модули / Ещё ▾», равные/
-       пропорциональные доли ширины, БЕЗ горизонтальной прокрутки и БЕЗ
-       третьей строки. bottom-nav НЕ возвращается. Высота сегмента ~44px. ═══ */
-    .mobile-topnav {
-      flex: 0 0 auto; width: 100%;
-      display: flex; align-items: stretch; gap: .2rem;
-      padding: .05rem 0 .15rem;
-      min-width: 0;
-    }
-    .mobile-topnav-link {
-      flex: 1 1 0; min-width: 44px; min-height: 44px;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 1px; padding: .25rem .25rem;
-      background: transparent; border: none; cursor: pointer;
-      color: var(--text-2); font-size: .625rem; border-radius: .5rem;
-      white-space: nowrap; overflow: hidden;
-    }
-    .mobile-topnav-link.active { color: var(--text-1); font-weight: 600;
-      background: rgba(255, 255, 255, 0.07); }
-    .mobile-topnav-link .msr { font-size: 20px; line-height: 1; }
-    .mobile-topnav-label { font-size: .625rem; line-height: 1.05;
-      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-      white-space: nowrap; }
-    /* U01.1: триггер «Ещё» — активный раздел из меню отражается подписью
-       «Ещё • …» (ellipsis по доступной ширине). */
-    .mobile-topnav-more { font-weight: 500; }
-    /* Ландшафт/низкое окно: row B компактнее — контент остаётся большинством
-       экрана (§18I.14: no three simultaneous fixed bars). */
-    @media (orientation: landscape) and (max-height: 500px) {
-      .mobile-topnav-link { min-height: 32px; padding: .1rem .45rem; }
-      .mobile-topnav-link .msr { font-size: 16px; }
-      .mobile-topnav-label { font-size: .5625rem; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .mobile-topnav { scroll-behavior: auto; }
-    }
+    /* ═══ ASAP-UI-02 §2.1: <768 постоянной навигационной панели НЕТ.
+       Прежняя «row B» (Статус/Аналитика/Модули/Ещё) удалена вместе с её
+       ландшафтным рейлом: сокращала полезную высоту и отвергнута владельцем.
+       Навигация на телефоне — drawer (кнопка в шапке), закрытый drawer
+       не занимает места. ═══ */
     /* ═══ D13 (§18I.14): нижняя навигация удалена — компенсация 72px
        (scroll-padding-bottom под bottom-nav) больше не нужна. ═══ */
     /* HOTFIX9 D1 (T-2801): навигация в потоке flex-колонки — отдельный
@@ -3394,71 +3354,112 @@
    НЕ здесь (лейн GLASS, property-split w2-contract §3.1/HS-3).
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── U01 row A: мобильная геометрия (<768, shell-mobile, IA v2) ─────────
-   [чат-селектор + GLOBAL/CHAT + профиль] [⛶] — логотип AdminBot НЕ
-   рендерится (см. ниже). Заголовок/крошки из шапки убраны (U01.5: нет
-   второго заголовка, контент начинается сразу под row B); chat_id/роль —
-   в меню «Ещё». */
-.mobile-brand {
-  display: none;
-  align-items: center; gap: .3rem;
-  color: var(--text-1);
-  min-width: 0;
+/* ── ASAP-UI-02 §2.1/§2.2: мобильная строка шапки (<768, shell-mobile) ────
+   ОДНА строка: [навигация][название раздела][область][аватар+роль][⛶][⋯].
+   Логотипа Adminbot нет нигде; второй ряд не создаётся; раздел назван ровно
+   один раз (в шапке), второстепенные действия — «⋯», ничего не обрезается
+   по горизонтали и не уезжает за экран. */
+.app-shell.shell-mobile .header-user { gap: .25rem; }
+/* ASAP-UI-02 §2.2: имя пользователя скрыто (полное — в title и в «⋯»),
+   бейдж фактической роли ОСТАЁТСЯ видимым — прежнее правило прятало оба. */
+.app-shell.shell-mobile .header-user-name { display: none; }
+.app-shell.shell-mobile .header-user-initial {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 999px;
+  font-size: .7rem; font-weight: 600; line-height: 1;
+  color: var(--text-1, #F2F5F9);
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .15);
+  flex: 0 0 auto;
 }
-.mobile-brand .msr { font-size: 20px; line-height: 1; color: var(--teal-500, #2dd4bf); }
-.mobile-brand-name { font-size: .8rem; font-weight: 700; letter-spacing: .01em; }
-/* FS-HOTFIX FOLLOW-UP (директива владельца 18.10, §4.1.2/§5.5/§7 №8/§10):
-   «Главный визуальный приоритет — убрать логотип AdminBot и занять
-   освободившееся место функциональной кнопкой». Логотип — декоративный,
-   кнопка ⛶ — функциональная: в мобильном shell логотип скрыт, его место
-   отдано функциональной компоновке row A (селектор чата получает ширину,
-   ⛶ остаётся у правого края внутри ТОЙ ЖЕ строки — без новой строки и без
-   роста шапки). Desktop/compact shell (sidebar/drawer) не затронут: там
-   логотип и не рендерится (v-if isMobileShell), а правила .mobile-brand
-   остаются для узкого окна Telegram Desktop (<768 → mobile shell). */
-.app-shell.shell-mobile .mobile-brand { display: none; }
-/* Заголовок/крошки — только desktop/compact shell; на mobile row A без
-   второго заголовка (раздел виден в row B / «Ещё • …»). */
+.app-shell.shell-mobile .header-scope-row .header-user-role {
+  max-width: 4.75rem;
+  display: inline-block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Одна flex-строка без переноса: название раздела — гибкое и обрезается,
+   область — тоже гибкая; кнопки навигации/⛶/«⋯» не сжимаются. */
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+  row-gap: 0;
+  flex-wrap: nowrap;
+  gap: .2rem;
+  padding-left: .35rem; padding-right: .35rem;
+}
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-title-wrap {
+  order: 0;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Крошка (путь) на телефоне не нужна: раздел назван заголовком ниже, «←»
+   возвращает на родителя. Это не второй заголовок. */
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 .breadcrumb {
   display: none;
 }
-/* row A: селектор области — гибкий, с ellipsis (не полная строка названия);
-   ширина по flex/clamp, полное имя — в title/aria-label триггера. */
+/* Правая группа (область + идентификация) не сжимается «внахлёст»: она
+   держит свой min-content, а ужимается НАЗВАНИЕ раздела (у него собственный
+   ellipsis). Иначе содержимое выезжает поверх соседних кнопок (перекрытие
+   390/320). */
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-scope-row {
   order: 1;
-  /* flex-basis 0% (не auto): строка A занимает одну линию, селектор
-     сжимается с ellipsis — без этого max-content переносит её на 2-ю линию. */
-  flex: 1 1 0%;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   min-width: 0;
+  gap: .25rem;
 }
 .app-shell.shell-mobile .scope-wrap {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   order: 0;
   max-width: 100%;
   min-width: 0;
 }
 .app-shell.shell-mobile .scope-trigger {
-  width: 100%;
-  max-width: clamp(96px, 100%, 280px);
-  min-height: 40px;
+  width: auto;
+  min-width: 0;
+  max-width: clamp(88px, 42vw, 260px);
+  min-height: 44px;
 }
-/* U01.2: ID области — НЕ в постоянной шапке (доступен в меню «Ещё»,
-   блок профиля); на desktop <details class="scope-tech"> сохранён. */
+.app-shell.shell-mobile .scope-trigger .scope-name {
+  max-width: clamp(2rem, 16vw, 8rem);
+}
+/* <420: у триггера области уступают место (по приоритету ASAP-UI-02 §2.2)
+   имя чата и его аватар — остаётся бейдж типа области CHAT/GLOBAL/ЛС и ▾,
+   поэтому триггер целиком помещается и НЕ обрезается посередине бейджа.
+   Полное имя и аватар — в раскрытом селекторе, title и бейдже. */
+@media (max-width: 419px) {
+  .app-shell.shell-mobile .scope-trigger .scope-name { display: none; }
+  .app-shell.shell-mobile .scope-trigger > img,
+  .app-shell.shell-mobile .scope-trigger > .scope-initial { display: none; }
+  .app-shell.shell-mobile .scope-trigger {
+    max-width: none;
+    gap: .3rem;
+    padding-left: .45rem; padding-right: .4rem;
+  }
+}
+.app-shell.shell-mobile .header-user { flex: 0 0 auto; }
+/* ≤359 (узкий телефон): всё обязательное остаётся, но плотнее — треугольник
+   ▾ у pill области скрыт (бейдж CHAT/GLOBAL остаётся), бейдж роли короче,
+   зазоры минимальны. Иконочные кнопки сохраняют hit-цель 44×44: договорной
+   ориентир не понижается даже на 320 px — место берётся из второстепенных
+   деталей, а не из области касания. */
+@media (max-width: 359px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 { gap: .15rem; }
+  .app-shell.shell-mobile .scope-trigger > span[aria-hidden="true"] {
+    display: none;
+  }
+  .app-shell.shell-mobile .header-scope-row .header-user-role {
+    max-width: 4rem;
+  }
+}
+/* ID области — не в постоянной шапке (полные данные в «⋯», блок профиля). */
 .app-shell.shell-mobile .scope-tech { display: none; }
-/* U01.2: профиль в row A — компактно (аватар); имя/роль — в «Ещё»
-   (без третьей строки, всё влезает на 320px). */
-.app-shell.shell-mobile .header-user { gap: .25rem; }
-.app-shell.shell-mobile .header-user span { display: none; }
-/* mobile: ровно 2 flex-линии — row A (бренд/селектор/профиль/⛶) и row B.
-   Явный order у row B: без него (order auto = 0) topnav упаковывается
-   РАНЬШЕ scope-row(order 1) и шапка разваливается на 3–4 строки. */
-.app-shell.shell-mobile header.header-sticky.header-compact-v2 .mobile-topnav {
-  order: 10;
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-fs-btn {
+  order: 5; margin-left: 0;
 }
-.app-shell.shell-mobile header.header-sticky.header-compact-v2 {
-  row-gap: .3rem;
-}
+.app-shell.shell-mobile .header-more-btn { order: 6; }
 
 /* ── FS-HOTFIX FOLLOW-UP §8 (18.10): временная админ-диагностика геометрии ⛶
    Панель открывается только из меню «Ещё» (admin-гейт), закрыта по
@@ -3585,7 +3586,7 @@
 .more-menu-item.active { font-weight: 600; background: rgba(139, 92, 246, .18); }
 .more-menu-item .msr { font-size: 22px; color: var(--teal-500, #2dd4bf); flex-shrink: 0; }
 .more-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.more-menu-item:focus-visible, .mobile-topnav-link:focus-visible,
+.more-menu-item:focus-visible,
 .oversight-mobile-trigger:focus-visible, .oversight-mobile-option:focus-visible {
   outline: 2px solid rgba(139, 92, 246, .7);
   outline-offset: 2px;
@@ -3744,6 +3745,50 @@
   outline-offset: 2px;
 }
 /* ═══ /W2-FULLSCREEN ═══ */
+
+/* ═══ ASAP-UI-02 §2.3: иконочные контролы шапки ═════════════════════════
+   Кнопка навигации (drawer) и «второстепенные действия» — один тип:
+   прозрачная ghost-кнопка с оптическим знаком 20 px и hit-областью ≥44×44.
+   Иконки — inline-SVG из той же Material-семьи, что уже используется для ⛶
+   (сабсет шрифта собран под PUA-карту и menu/more_horiz в нём отсутствуют;
+   поэтому те же 24-px контуры идут инлайном, без правки шрифтового сабсета
+   и без второго набора иконок). Никаких четырёх-квадратных подмен. */
+.ui-ic {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.header-nav-btn,
+.header-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: none;
+  color: var(--text-2, #C7D0DC);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color .12s ease, color .12s ease;
+}
+.header-nav-btn:hover,
+.header-more-btn:hover {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text-1, #F2F5F9);
+}
+.header-nav-btn:active,
+.header-more-btn:active { background: rgba(255, 255, 255, .1); }
+.header-nav-btn:focus-visible,
+.header-more-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 
 /* ═════════════════════════════════════════════════════════════════════
    ═══ W2-GLASS (U08): слоистая модель Liquid Glass — lg-panel ═══
@@ -5818,7 +5863,6 @@ html.cover-editor-open { overflow: hidden; }
 .sidebar-link:focus-visible,
 .scope-trigger:focus-visible,
 .scope-option:focus-visible,
-.mobile-topnav-link:focus-visible,
 .breadcrumb-link:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
@@ -5834,12 +5878,10 @@ html.cover-editor-open { overflow: hidden; }
     width: var(--sidebar-w-rail);
     padding-left: .35rem; padding-right: .35rem;
   }
-  /* В rail 68 px иконка бренда и кнопка сворачивания вместе не помещаются:
-     верхним якорем остаётся кнопка «Развернуть меню» (44×44), подписи
-     разделов скрыты, полные имена — в title/aria-label. */
-  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand { justify-content: center; }
-  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand > .msr { display: none; }
-  .app-shell.ia-v2.sidebar-collapsed .sidebar-brand-title { display: none; }
+  /* Rail 68 px: верхний якорь — кнопка «Развернуть меню» (44×44), подписи
+     разделов скрыты, полные имена — в title/aria-label. Логотипа в панели
+     нет (ASAP-UI-02 §2.2), поэтому скрывать/центрировать больше нечего. */
+  .app-shell.ia-v2.sidebar-collapsed .sidebar-top { justify-content: center; }
   .app-shell.ia-v2.sidebar-collapsed .sidebar-collapse { margin-left: 0; }
   .app-shell.ia-v2.sidebar-collapsed .sidebar-label { display: none; }
   .app-shell.ia-v2.sidebar-collapsed .sidebar-link {
@@ -5856,12 +5898,12 @@ html.cover-editor-open { overflow: hidden; }
 /* ═══════════════════════════════════════════════════════════════════════
    EVOL-025 (W9) — сквозная adaptive/mobile-first система.
 
-   Требование (plans/current_task.md L341–355 + EVOL-033 §C L517–527):
-   компоновка реагирует на ФАКТИЧЕСКИЙ доступный размер, а не на список
-   моделей; в портрете контент начинается рано и навигация компактная
-   (нижняя панель разделов), в низком ландшафте nav не съедает высоту,
-   на планшете — 1–2 колонки по месту, на широком desktop контент больше не
-   «островок» фиксированной ширины.
+   Требование (plans/current_task.md L341–355 + EVOL-033 §C L517–527,
+   уточнено ASAP-UI-02 §2): компоновка реагирует на ФАКТИЧЕСКИЙ доступный
+   размер, а не на список моделей; в портрете контент начинается рано, а
+   навигация живёт в drawer (постоянной нижней панели нет), в низком
+   ландшафте nav не съедает высоту, на планшете — 1–2 колонки по месту, на
+   широком desktop контент больше не «островок» фиксированной ширины.
 
    СЛОЙ АДДИТИВНЫЙ: разметка навигации та же (один реестр, один экземпляр),
    меняется только её место в shell-колонке и геометрия. Защищённая оптика
@@ -5869,39 +5911,16 @@ html.cover-editor-open { overflow: hidden; }
    не затрагиваются — здесь только layout/touch/a11y-обвязка.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Мобильная навигация: последний слот shell-колонки ─────────────────
-   Разметка `.mobile-topnav` переехала из шапки в конец `.app-shell`
-   (index.html после `</main>`) и стала ПОСЛЕДНИМ flex-child колонки
-   [header / main.scroll-area / nav]. Панель не накрывает контент и не требует
-   ручного резерва высоты: `main` (flex: 1 1 auto) сам получает ровно
-   остаток видимой области — модель §92/§93 (shell = фактически видимая
-   высота) сохранена, bottom-offset по-прежнему никем не потребляется.
-   Шапка в портрете остаётся ОДНОЙ рабочей строкой (область/профиль/⛶):
-   бывшая вторая строка разделов ушла вниз, контент начинается сразу. */
-.app-shell.shell-mobile .mobile-topnav {
-  width: 100%;
-  padding: .1rem .35rem calc(.25rem + max(env(safe-area-inset-bottom, 0px),
-               var(--tg-safe-area-inset-bottom, 0px),
-               var(--tg-content-safe-area-inset-bottom, 0px)));
-  background-color: var(--shell-bg);
-  background-image: var(--shell-specular);
-  border-top: var(--shell-border);
-  box-shadow: 0 -6px 20px rgba(0, 0, 0, .22),
-              inset 0 1px 0 var(--shell-highlight);
-  -webkit-backdrop-filter: var(--shell-blur);
-  backdrop-filter: var(--shell-blur);
-  color: var(--text-2);
-  /* Панель ниже drawer (40) и overlay-меню (55/57), выше контента. */
-  z-index: 20;
-}
-.app-shell.shell-mobile .mobile-topnav-link {
+/* ASAP-UI-02 §2.1: пока открыт drawer, скроллер контента не двигается под
+   подложкой (тот же приём, что у меню «⋯»); закрытый drawer ничего не держит. */
+.app-shell.drawer-open main.scroll-area { overflow: hidden; }
+
+/* ── 1. Мобильная навигация: drawer вместо нижней панели (ASAP-UI-02 §2.1) ─
+   Постоянной панели разделов нет: `main` занимает всю доступную высоту,
+   `--bottom-nav-h` и его потребители удалены. Навигация открывается кнопкой
+   в шапке; закрытый drawer не занимает места (transform за левым краем). */
+.app-shell.shell-mobile .app-drawer .sidebar-link {
   min-height: var(--control-h-touch, 44px);
-  padding: .15rem .2rem; gap: 2px; border-radius: .55rem;
-}
-.app-shell.shell-mobile .mobile-topnav-link .msr { font-size: 21px; }
-.app-shell.shell-mobile .mobile-topnav-label { font-size: .625rem; }
-.app-shell.shell-mobile .mobile-topnav-link.active {
-  background: rgba(255, 255, 255, .09);
 }
 
 /* ── 2. Портрет: компактная шапка + ранний старт контента ─────────────────
@@ -5995,36 +6014,12 @@ html.cover-editor-open { overflow: hidden; }
   }
 }
 
-/* ── 3. Низкий ландшафт: навигация не отнимает высоту ─────────────────────
-   Портретная нижняя панель в landscape 320–520 px съедала бы ещё ~50 px
-   полезной высоты. Здесь она становится плавающим вертикальным рейлом у
-   правого края: высоту не занимает вообще, подписи скрыты (доступные имена —
-   в aria-label/title), контент получает РЕАЛЬНУЮ высоту и резерв справа,
-   поэтому ничего не уходит под рейл. Шапка — та же одна строка.
-   Ширина 768–1199 в низком ландшафте — compact shell (постоянной панели нет,
-   навигация в drawer): там вместо рейла сворачивается ШАПКА в одну строку,
-   иначе две строки + ряд разделов отбирали у контента почти всё. */
+/* ── 3. Низкий ландшафт: шапка не отнимает высоту ─────────────────────────
+   ASAP-UI-02 §2.4: на низком landscape остаются только обязательные элементы
+   в ОДНОЙ строке — второй постоянный ряд (нижняя панель, её рейл или ряд
+   разделов) запрещён. Навигация — та же кнопка drawer в шапке; контент
+   получает всю высоту (резерв справа под рейл удалён вместе с рейлом). */
 @media (orientation: landscape) and (max-height: 520px) {
-  .app-shell.shell-mobile .mobile-topnav {
-    position: fixed;
-    top: 50%;
-    right: max(.25rem, env(safe-area-inset-right, 0px));
-    left: auto; bottom: auto;
-    transform: translateY(-50%);
-    width: auto; flex-direction: column; gap: .15rem;
-    padding: .25rem;
-    border: var(--shell-border); border-top: var(--shell-border);
-    border-radius: 14px;
-  }
-  .app-shell.shell-mobile .mobile-topnav-link {
-    min-width: var(--control-h-touch, 44px);
-    min-height: var(--control-h-touch, 44px);
-    padding: .2rem;
-  }
-  .app-shell.shell-mobile .mobile-topnav-label { display: none; }
-  .app-shell.shell-mobile main.scroll-area {
-    padding-right: calc(58px + max(env(safe-area-inset-right, 0px), 0px));
-  }
   /* Шапка низкого ландшафта — одна строка в ЛЮБОМ shell-режиме. */
   header.header-sticky.header-compact-v2 {
     flex-wrap: nowrap;
@@ -6039,9 +6034,9 @@ html.cover-editor-open { overflow: hidden; }
     flex: 1 1 4rem; min-width: 0;
   }
   /* Крошка и полное имя пользователя — первыми под сжатие: путь назад
-     остаётся доступен через кнопку ←, имя/роль — в drawer. */
+     остаётся доступен через кнопку ←, имя — в «⋯». */
   header.header-sticky.header-compact-v2 .breadcrumb { display: none; }
-  header.header-sticky.header-compact-v2 .header-user span { display: none; }
+  header.header-sticky.header-compact-v2 .header-user-name { display: none; }
   header.header-sticky.header-compact-v2 .header-scope-row {
     order: 2; flex: 1 1 auto; flex-wrap: nowrap;
     width: auto; min-width: 0;
@@ -6051,37 +6046,20 @@ html.cover-editor-open { overflow: hidden; }
   }
 }
 
-/* ── 4. Меню «Ещё»: bottom sheet над нижней панелью (портрет) ─────────────
-   Триггер теперь внизу, поэтому панель раскрывается ВВЕРХ от него, а не
-   «под шапкой». Высота ограничена видимой областью, скролл — внутри панели
-   (никаких скролл-ловушек: overscroll-behavior уже contain).
-   ═══ B1 (review EVOL-025): считать от НИЗА SHELL, а не от низа вьюпорта.
-   В реальном Telegram `innerHeight` больше фактически используемой высоты
-   (нижняя системная зона/панель клиента), shell короче вьюпорта: при
-   `bottom: var(--bottom-nav-h)` от вьюпорта лист уезжал НИЖЕ панели
-   разделов и накрывал её. Тот же приём, что у модалок: shell =
-   `--app-usable-height`, остаток вьюпорта вычитается явно. */
+/* ── 4. Меню второстепенных действий («⋯») на телефоне ────────────────────
+   Триггер — в шапке справа, поэтому панель раскрывается ПОД шапкой и
+   прижата к правому краю (popover, не bottom sheet): нижней панели, над
+   которой раньше раскрывался лист, больше нет. Высота ограничена реально
+   видимой областью shell, скролл — внутри панели (overscroll contain). */
 @media (max-width: 767px) {
   .app-shell.shell-mobile .more-menu-panel {
-    top: auto;
-    bottom: calc(100dvh - var(--app-usable-height, 100dvh)
-                + var(--bottom-nav-h, 56px) + 6px);
-    max-height: min(62dvh, calc(var(--app-usable-height, 100dvh)
-                - var(--header-h, 56px) - 96px));
-  }
-}
-
-/* Меню «Ещё» из рейла (низкий ландшафт) — панель справа, в пределах видимой
-   высоты. Специфичность выше портретного правила выше: рейл у правого края,
-   лист не должен накрывать его и не может уезжать за верх вьюпорта. */
-@media (orientation: landscape) and (max-height: 520px) {
-  .app-shell.shell-mobile .more-menu-root .more-menu-panel {
-    top: max(6px, env(safe-area-inset-top, 0px));
-    bottom: max(6px, env(safe-area-inset-bottom, 0px));
-    right: calc(58px + max(env(safe-area-inset-right, 0px), 0px));
+    top: calc(var(--header-h, 56px) + env(safe-area-inset-top, 0px) + 6px);
+    bottom: auto;
     left: auto;
-    width: min(340px, 78vw);
-    max-height: none;
+    right: max(6px, env(safe-area-inset-right, 0px));
+    width: min(320px, calc(100vw - 2 * 6px));
+    max-height: calc(var(--app-usable-height, 100dvh)
+                - var(--header-h, 56px) - 24px);
   }
 }
 
@@ -6142,15 +6120,11 @@ html.w9-sheet-bottom .modal-card {
 
 /* ── 8. Клавиатура/увеличенный шрифт: подписи не обрезаются ───────────────
    Крупный системный шрифт (Android) и zoom 200 % увеличивают высоту строки:
-   сегменты навигации и триггер области не ограничивают высоту жёстко и
-   переносят подпись внутри контента, а не выталкивают её за вьюпорт. */
-.app-shell.shell-mobile .mobile-topnav-link,
+   триггер области и заголовок раздела не ограничивают высоту жёстко и
+   переносят/обрезают подпись внутри контента, а не выталкивают её за
+   вьюпорт. Ради этого же шапка не имеет фиксированной высоты. */
 .app-shell.shell-mobile .scope-trigger {
   height: auto;
-}
-.app-shell.shell-mobile .mobile-topnav-label {
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ═══ EVOL-026/027/028/029/030 (W10): секционные экраны и виджеты ═════════

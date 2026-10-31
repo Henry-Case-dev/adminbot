@@ -539,11 +539,12 @@ class TestMoreSheetClosedContract:
             "D13: transition-CSS удалён вместе с элементом"
         assert ".more-sheet-leave-to" not in css, \
             "D13: transition-CSS удалён вместе с элементом"
-        # U01: компактная верхняя навигация row B — БЕЗ scroll-thin.
-        assert 'class="mobile-topnav"' in html, \
-            "U01 §REQ-U01-3: компактная верхняя навигация присутствует"
-        assert 'mobile-topnav scroll-thin' not in html, \
-            "U01: мобильный topnav без горизонтального скролла"
+        # ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет —
+        # навигация на телефоне/планшете живёт в drawer.
+        assert 'mobile-topnav' not in html, \
+            "ASAP-UI-02 §2.1: постоянной нижней панели разделов нет"
+        assert 'data-drawer-trigger' in html and 'iaV2 && hasDrawer' in html, \
+            "ASAP-UI-02 §2.1: навигация открывается кнопкой drawer в шапке"
         # U01.4: popover «Ещё» смонтирован только при открыт menu → unmount.
         assert 'v-if="iaV2 && isMobileShell && moreMenuOpen"' in html, \
             "U01.4: more-menu gated v-if (unmount при закрытии)"

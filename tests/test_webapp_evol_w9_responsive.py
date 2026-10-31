@@ -1,19 +1,21 @@
-"""EVOL-025 (W9): сквозная адаптивная система — структурные контракты.
+"""EVOL-025 (W9) + ASAP-UI-02 §2: сквозная адаптивная система — структура.
 
 Проверяется ровно то, что видно пользователю и что нельзя «дорисовать»
 скриншотом одного устройства:
 
-  * мобильная навигация живёт в shell-колонке последним слотом (не внутри
-    шапки) — поэтому контент начинается сразу под ОДНОЙ строкой шапки, а
-    панель разделов стоит внизу и не накрывает контент;
-  * в низком ландшафте панель становится плавающим рейлом (высоту не ест),
-    а шапка — одна строка в любом shell-режиме;
+  * навигация на телефоне/планшете (<1200) — ОДИН drawer, открываемый
+    кнопкой в шапке; постоянной нижней панели разделов нет ни в одной
+    ориентации (ASAP-UI-02 §2.1, решение владельца 31.10.2026). Закрытый
+    drawer не занимает места, контент начинается сразу под ОДНОЙ строкой;
+  * шапка на телефоне — одна строка с названием раздела, областью,
+    аватаром+бейджем роли, ghost-⛶ и «⋯»; в низком ландшафте та же одна
+    строка, без второго ряда и без рейла;
   * планшет получает 2 колонки по месту, широкий desktop — не «островок»
     фиксированной ширины;
   * модалка на узком экране/низком ландшафте — bottom sheet с собственным
-    внутренним скроллом и safe-area (режим приходит из app.js, не из догадки);
-  * тач-цели ключевых контролов ≥44×44 (панель, триггер области, поля,
-    действия карточки модуля);
+    внутренним скроллом и safe-area (режим приходит из app.js);
+  * тач-цели ключевых контролов ≥44×44 (кнопки шапки, триггер области,
+    поля, действия карточки модуля);
   * защищённая оптика (glass/polygon/aurora) этой волной не тронута.
 
 Запуск: pytest tests/test_webapp_evol_w9_responsive.py
@@ -29,7 +31,8 @@ APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 TOOL = (ROOT / "tools" / "ui_evol_w9_responsive_e2e.py").read_text(
     encoding="utf-8")
 
-NAV_TAG = '<nav v-if="iaV2 && isMobileShell" class="mobile-topnav"'
+DRAWER_TRIGGER = 'data-drawer-trigger'
+MORE_TRIGGER = 'data-more-trigger'
 
 # Слой EVOL-025 в CSS: правила этой волны, чтобы не находить одноимённые
 # медиа-запросы из предыдущих волн (их в файле много).
@@ -53,42 +56,61 @@ def _header_block():
 
 
 class TestNavigationSlot:
-    """Панель разделов — последний слот shell-колонки, а не вторая строка."""
+    """Навигация: один drawer (<1200), постоянной нижней панели нет."""
 
-    def test_nav_is_outside_header(self):
+    def test_no_bottom_panel_anywhere(self):
         header = _header_block()
-        assert 'class="mobile-topnav' not in header, \
-            "EVOL-025: блок разделов больше не вторая строка шапки"
-        assert INDEX.count(NAV_TAG) == 1, "ровно один экземпляр навигации"
+        assert 'mobile-topnav' not in header, \
+            "ASAP-UI-02: панели разделов в шапке нет"
+        assert 'mobile-topnav' not in INDEX, \
+            "ASAP-UI-02 §2.1: постоянной нижней панели разделов нет"
+        assert 'mobile-topnav' not in CSS, \
+            "ASAP-UI-02 §2.1: CSS панели (включая ландшафтный рейл) удалён"
+        assert INDEX.count('class="app-drawer"') == 1, \
+            "ровно один экземпляр навигационной панели (drawer)"
 
-    def test_nav_render_slot_after_main(self):
-        i_nav = INDEX.find(NAV_TAG)
-        # В разметке несколько `<main>`/`</main>` (auth-ветка, комментарии):
-        # рабочий контент закрывается ПОСЛЕДНИМ `</main>`.
-        i_main_end = INDEX.rfind("</main>")
-        i_header_end = INDEX.find("</header>")
-        i_drawer = INDEX.find('class="app-drawer"')
-        i_outside = INDEX.find('class="speech-fullscreen"')
-        assert i_header_end < i_main_end < i_nav, \
-            "навигация объявлена после шапки и после контента (низ колонки)"
-        assert i_drawer < i_nav < i_outside, \
-            "навигация внутри .app-shell (flex-колонка), не отдельный слой"
+    def test_drawer_reachable_from_topbar_on_phone(self):
+        header = _header_block()
+        assert DRAWER_TRIGGER in header, \
+            "ASAP-UI-02 §2.1: кнопка навигации находится в шапке"
+        assert 'v-if="iaV2 && hasDrawer"' in header, \
+            "ASAP-UI-02: кнопка рендерится на mobile И tablet (<1200)"
+        assert 'aria-label="Открыть навигацию"' in header, \
+            "доступное имя кнопки навигации"
+        assert ':aria-expanded="drawerOpen' in header, "состояние drawer объявлено"
+        # Один и тот же механизм drawer для 768–1199 и <768.
+        assert 'v-if="iaV2 && hasDrawer && drawerOpen"' in INDEX, \
+            "backdrop одного drawer для всех не-desktop режимов"
+        assert 'hasDrawer: function () {' in APP_JS
+        assert "return this.shellMode !== 'desktop';" in APP_JS
 
-    def test_nav_accessible_names(self):
-        seg = INDEX[INDEX.find(NAV_TAG):INDEX.find("</nav>", INDEX.find(NAV_TAG))]
-        assert ':aria-label="n.label"' in seg, \
-            "сегмент навигации сохраняет доступное имя при скрытой подписи"
-        assert ':title="n.label"' in seg, "и tooltip на иконку"
-        assert 'aria-haspopup="menu"' in seg, "«Ещё» — меню с aria-haspopup"
-        assert ':aria-expanded="moreMenuOpen' in seg, "состояние меню объявлено"
+    def test_drawer_closed_takes_no_space(self):
+        seg = _section(".app-drawer {\n      position: fixed", 1400, source=CSS)
+        assert "transform: translateX(-105%)" in seg, \
+            "закрытый drawer вынесен за край и места не занимает"
+        assert ".app-drawer.open { transform: translateX(0); }" in CSS
+
+    def test_drawer_accessible_names(self):
+        i = INDEX.find('class="app-drawer"')
+        seg = INDEX[i:INDEX.find("</aside>", i)]
+        assert ':title="n.label"' in seg, "и tooltip на раздел"
+        assert "aria-current" in seg, "текущий раздел объявлен"
+        assert '@keydown.esc="closeDrawer()"' in seg, "Esc закрывает drawer"
+        trigger = INDEX[INDEX.find(DRAWER_TRIGGER) - 500:
+                        INDEX.find(DRAWER_TRIGGER) + 200]
+        assert 'aria-haspopup="menu"' in trigger, "кнопка — меню навигации"
+        assert MORE_TRIGGER in INDEX, "«⋯» — отдельная точка второстепенных"
 
     def test_routes_registry_unchanged(self):
-        # Один и тот же реестр mobileTopnavItems; новых списков не заводим.
-        assert INDEX.count('v-for="n in mobileTopnavItems"') == 1
+        # Один и тот же реестр разделов выводят sidebar и drawer.
+        assert INDEX.count('v-for="n in sidebarGroups.pub"') == 2, \
+            "sidebar и drawer используют один реестр разделов"
+        assert 'v-for="n in mobileTopnavItems"' not in INDEX, \
+            "ASAP-UI-02: второго списка разделов (row B) нет"
 
 
 class TestPortraitContract:
-    """Портрет: одна строка шапки, нижняя панель, ранний старт контента."""
+    """Портрет: одна строка шапки, ранний старт контента, drawer."""
 
     def test_portrait_header_is_one_line(self):
         seg = _section("@media (max-width: 767px) {", 1200)
@@ -97,19 +119,23 @@ class TestPortraitContract:
             "компактная верхняя строка с учётом safe-area"
         assert "padding-bottom: .4rem" in seg
 
-    def test_bottom_panel_material_and_safe_area(self):
-        seg = _section(".app-shell.shell-mobile .mobile-topnav {", 900)
-        assert "env(safe-area-inset-bottom" in seg, \
-            "нижняя системная зона учтена панелью (не наоборот)"
-        assert "var(--tg-safe-area-inset-bottom" in seg, \
-            "Telegram сообщает нижнюю зону собственными переменными"
-        assert "var(--shell-bg)" in seg, "панель — shell-слой, не прозрачный"
-        assert "position: fixed" not in seg, \
-            "панель в потоке: контент не уходит под неё"
+    def test_header_keeps_required_controls(self):
+        """ASAP-UI-02 §2.2: навигация, область, аватар+роль, ⛶, «⋯»."""
+        seg = _section("/* ── ASAP-UI-02 §2.1/§2.2", 5200, source=CSS)
+        assert "flex-wrap: nowrap" in seg, "шапка не переносится на второй ряд"
+        assert ".header-user-name { display: none; }" in seg, \
+            "имя скрыто, но бейдж роли остаётся видимым"
+        assert ".header-user-role" in seg and "text-overflow: ellipsis" in seg
+        assert ".app-shell.shell-mobile .scope-tech { display: none; }" in seg, \
+            "ID области не в постоянной шапке"
+        assert "order: 5" in seg and "order: 6" in seg, \
+            "⛶ и «⋯» — в конце той же строки, без второго ряда"
 
-    def test_panel_links_are_touch(self):
-        seg = _section(".app-shell.shell-mobile .mobile-topnav-link {", 400)
-        assert "min-height: var(--control-h-touch, 44px)" in seg
+    def test_no_bottom_panel_rules(self):
+        assert "mobile-topnav" not in W9_CSS, \
+            "ASAP-UI-02 §2.1: правил нижней панели больше нет"
+        assert "padding-right: calc(58px" not in CSS, \
+            "резерв под ландшафтный рейл удалён вместе с рейлом"
 
     def test_no_horizontal_scroll_reservation_hacks(self):
         # Никакого «второго вычета» нижней зоны: контент не смещается магией.
@@ -117,17 +143,17 @@ class TestPortraitContract:
 
 
 class TestLandscapeContract:
-    """Низкий ландшафт: рейл вместо полосы, шапка в одну строку."""
+    """Низкий ландшафт: только одна строка шапки, никакого рейла."""
 
-    def test_rail_on_low_landscape(self):
+    def test_no_rail_on_low_landscape(self):
         seg = _section(
             "@media (orientation: landscape) and (max-height: 520px) {", 2600)
-        assert "position: fixed" in seg, "рейл плавающий"
-        assert "flex-direction: column" in seg, "рейл вертикальный"
-        assert ".mobile-topnav-label { display: none; }" in seg, \
-            "подписи скрыты (имена остаются в aria-label/title)"
-        assert "padding-right: calc(58px + max(env(safe-area-inset-right" in seg, \
-            "контент получает резерв справа и не уходит под рейл"
+        assert "mobile-topnav" not in seg, \
+            "ASAP-UI-02 §2.4: ландшафтного рейла/второго ряда нет"
+        assert "position: fixed" not in seg, \
+            "в низком ландшафте нет плавающей навигационной панели"
+        assert "padding-right: calc(58px" not in seg, \
+            "контент не резервирует место под несуществующий рейл"
 
     def test_header_single_row_in_any_shell(self):
         seg = _section(
@@ -137,20 +163,22 @@ class TestLandscapeContract:
             "в низком ландшафте шапка не переносится на вторую строку"
         assert "min-height: 48px" in seg
 
-    def test_more_menu_of_rail(self):
-        seg = _section(".app-shell.shell-mobile .more-menu-root .more-menu-panel", 500)
-        assert "right: calc(58px + max(env(safe-area-inset-right" in seg
-        assert "max-height: none" in seg
+    def test_more_menu_anchors_to_header(self):
+        seg = _section(".app-shell.shell-mobile .more-menu-panel {", 600)
+        assert "var(--header-h" in seg, \
+            "лист второстепенных действий раскрывается под шапкой (triger вверху)"
+        assert "max-height: calc(var(--app-usable-height" in seg, \
+            "высота листа ограничена реально видимой областью shell"
+        assert "var(--bottom-nav-h" not in seg, \
+            "метрики нижней панели больше нет"
 
     def test_more_menu_counts_from_shell_not_viewport(self):
-        # B1: низ листа считается от НИЗА shell (--app-usable-height), иначе
-        # в реальном Telegram (usable < innerHeight) лист накрывает панель.
+        # Лист считается от фактически используемой высоты shell: в реальном
+        # Telegram `innerHeight` больше usable, иначе лист уезжает за экран.
         seg = _section(".app-shell.shell-mobile .more-menu-panel {", 600)
-        assert "100dvh - var(--app-usable-height, 100dvh)" in seg, \
-            "низ листа привязан к фактически используемой высоте"
-        assert "var(--bottom-nav-h" in seg
-        assert "var(--app-usable-height, 100dvh)\n" in seg or \
-            "var(--app-usable-height, 100dvh)" in seg
+        assert "var(--app-usable-height" in seg, \
+            "высота листа привязана к фактически используемой высоте"
+        assert "var(--bottom-nav-h" not in seg
 
 
 class TestTabletWideContract:
@@ -201,18 +229,17 @@ class TestSheetContract:
         assert "var sheet = (w > 0 && w <= 640) ||" in APP_JS
         assert "var h = window.innerHeight || 0;" in APP_JS
 
-    def test_nav_metric_measured(self):
-        assert "setProperty('--bottom-nav-h'" in APP_JS, \
-            "высота панели измеряется (safe-area, зум, крупный шрифт)"
-        assert "this._navObserver" in APP_JS, "пересчёт по ResizeObserver"
-        # Наблюдатель привязан к КОНКРЕТНОМУ узлу, который v-if пересоздаёт при
-        # смене shell-режима: метрика обязана переподключиться, иначе после
-        # поворота остаётся высота рейла и меню «Ещё» открывается с зазором.
-        assert "_syncBottomNavMetric" in APP_JS
-        assert "this._navObserverEl !== nav" in APP_JS
-        assert "this.$nextTick(function () {" in APP_JS
-        seg = _section(".app-shell.shell-mobile .more-menu-panel {", 300)
-        assert "var(--bottom-nav-h" in seg, "меню «Ещё» опирается на метрику"
+    def test_nav_metric_of_bottom_panel_removed(self):
+        # ASAP-UI-02 §2.1: нижней панели нет — её метрика и наблюдатель
+        # удалены целиком (никаких «залипших» значений после поворота).
+        assert "--bottom-nav-h" not in APP_JS
+        assert "_syncBottomNavMetric" not in APP_JS
+        assert "_navObserver" not in APP_JS
+        assert "setProperty('--header-h'" in APP_JS, \
+            "резерв шапки по-прежнему измеряется"
+        assert ":class=\"{ 'open': drawerOpen }\"" not in APP_JS  # только разметка
+        assert 'drawerOpen ? \'drawer-open\' : \'\'' in INDEX, \
+            "открытый drawer помечает shell (scroll-lock контента)"
 
 
 class TestTouchContract:
@@ -285,7 +312,7 @@ class TestLiveTool:
 
     def test_contract_checks_present(self):
         for marker in ("hScroll", "PROBE_TOUCH", "PROBE_MODAL",
-                       "aboveNav", "clearOfRail", "CONTENT_SHARE_PHONE",
+                       "belowHeader", "bottomNavCount", "CONTENT_SHARE_PHONE",
                        "CONTENT_SHARE_LAND", "PROBE_CLS", "INV_PROBE",
                        "w9-responsive-inventory.json"):
             assert marker in TOOL, "проверка %s присутствует" % marker
@@ -298,7 +325,7 @@ class TestLiveTool:
         assert "USABLE_MORE" in TOOL
         assert "(844, 788)" in TOOL and "(640, 584)" in TOOL
         assert "--app-usable-height" in TOOL
-        assert "gapToNav" in TOOL
+        assert "gapToHeader" in TOOL
         # плотная сетка часов проверяется отдельным порогом 24×24
         assert "COARSE_TOUCH_EXEMPT" in TOOL
         assert "24×24" in TOOL

@@ -170,8 +170,10 @@ PROBE = """
   const personaEntry = document.querySelector('[data-speech-entry]');
   return {
     hash: location.hash,
-    topnav: Array.from(document.querySelectorAll('.mobile-topnav-link'))
+    // ASAP-UI-02 §2.1: разделы на телефоне — в drawer (нижней панели нет).
+    topnav: Array.from(document.querySelectorAll('.app-drawer .sidebar-link'))
       .map((x) => strip(x.textContent)),
+    navBtn: !!document.querySelector('[data-drawer-trigger]'),
     hubCards: Array.from(document.querySelectorAll('.hub-card'))
       .map((x) => strip(x.querySelector('.hub-card-title') ?
         x.querySelector('.hub-card-title').textContent : x.textContent)),
@@ -215,17 +217,17 @@ def run_viewport(page, width, height, label, shots_dir=None):
 
     mobile = width < 768
     if mobile:
-        # Путь владельца: «Ещё» → «ИИ».
-        page.click(".mobile-topnav-more")
-        page.wait_for_selector(".more-menu-panel", state="visible")
-        data = check("%s/more" % label, page, shots_dir, "more_%s" % label)
+        # Путь владельца: навигация (drawer) → «ИИ».
+        page.click("[data-drawer-trigger]")
+        page.wait_for_selector(".app-drawer.open", state="visible")
+        data = check("%s/drawer" % label, page, shots_dir, "drawer_%s" % label)
         clicked = page.evaluate(
             "(() => { const s = %s; const b = Array.from("
-            "document.querySelectorAll('.more-menu-item')).find((x) => "
+            "document.querySelectorAll('.app-drawer .sidebar-link')).find((x) => "
             "s(x.textContent) === 'ИИ'); if (!b) return false; b.click(); "
             "return true; })()" % STRIP_JS)
         if not clicked:
-            fail(label, "пункт «ИИ» не найден в меню «Ещё»")
+            fail(label, "пункт «ИИ» не найден в drawer")
         page.wait_for_timeout(700)
     else:
         page.goto(BASE + "/#/ai", wait_until="load")

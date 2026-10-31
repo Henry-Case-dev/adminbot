@@ -91,16 +91,13 @@ class TestGeometry:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,220}overflow-y:\s*auto", APP_CSS)
-        # re-pin ASAP 8 v6 D13 (§18I.14) + EVOL-025 (W9): отдельного fixed-слоя
-        # нижней навигации нет. Мобильный блок разделов — flex-child shell-
-        # колонки (последний слот после `</main>`): в портрете занимает низ
-        # колонки, контент структурно не уходит под него; в низком ландшафте
-        # становится плавающим рейлом (отдельное медиа-правило ниже по файлу).
-        nav = re.search(r"\.mobile-topnav \{([^}]*)\}", APP_CSS)
-        assert nav, "D13: .mobile-topnav правило присутствует"
-        assert "flex: 0 0 auto" in nav.group(1)
-        assert "position: fixed" not in nav.group(1)
-        assert "--tg-viewport-bottom-offset" not in nav.group(1)
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1 (31.10.2026): нижней панели
+        # разделов нет вообще — ни fixed-слоя, ни flex-панели, ни рейла:
+        # навигация живёт в drawer, контент занимает всю высоту.
+        assert "mobile-topnav" not in APP_CSS, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
+        assert ".app-shell.drawer-open main.scroll-area { overflow: hidden; }" \
+            in APP_CSS, "ASAP-UI-02: открытый drawer блокирует скролл контента"
         # Единая модель геометрии (§92/§93) сохранена: shell = фактически
         # видимая высота; нижний offset в CSS не потребляется никем.
         assert "var(--tg-viewport-bottom-offset" not in APP_CSS
@@ -239,9 +236,10 @@ class TestFlagsAcceptance:
 
     def test_persist_and_ia_untouched(self):
         assert "persistItems" in APP_JS
-        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
-        # един (mobileTopnavItems); persistItems F0 не тронут.
+        # re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: нижней панели нет — канон
+        # navItems един (sidebar/drawer); persistItems F0 не тронут.
         assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
             "D13: bottomNavItems удалён"
-        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
+        assert not re.search(r"mobileTopnavItems:\s*function", APP_JS), \
+            "ASAP-UI-02: row B удалена"
         assert "computeBottomOffset" in TG_INIT

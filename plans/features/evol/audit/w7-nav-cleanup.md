@@ -370,3 +370,62 @@ computed-стилей и скриншотами на 1280 и 390). В перек
 в никуда. Добавлен машинный инвентарь вёрстки: 19 маршрутов × 6 вьюпортов =
 114 ячеек, ни одной с горизонтальным скроллом, выходом за экран или обрезанным
 без многоточия текстом (`evidence/w7-nav-inventory.json`).
+
+## §review-fix — ASAP-UI-02 §2 (навигация/топбар/иконки), 31.10.2026
+
+Основание: `plans/current_task.md` L1786–1818 (§2), `docs/ui-navigation-contract.md`,
+матрица `asap-ui-02-matrix.md` (8 конфликтующих строк). Отменённые решения не
+восстанавливались — заменено ровно конфликтующее.
+
+### Что изменено в продукте
+
+| Файл | Дельта |
+|---|---|
+| `web/index.html` | удалены `nav.mobile-topnav` (нижняя панель разделов), `.sidebar-brand`/`.sidebar-brand-title`, `.mobile-brand`; drawer и backdrop рендерятся по `iaV2 && hasDrawer`; кнопка навигации `[data-drawer-trigger]` (inline-SVG menu, `aria-label="Открыть навигацию"`, `aria-expanded`), точка входа `[data-more-trigger]` (троеточие) на mobile; `.header-user-name`/`.header-user-role`/`.header-user-initial`; `aria-current` у пунктов drawer; класс `drawer-open` на shell |
+| `web/app.js` | удалены `mobileTopnavItems`, `mobileMoreItems`, `moreMenuTriggerLabel`, `moreMenuActive`, `moreMenuPick`, `_syncBottomNavMetric` (+ наблюдатель `_navObserver` и `--bottom-nav-h`); добавлены `hasDrawer`, `meUserTitle`, `meInitial`; диагностика ⛶ фиксирует отсутствие узлов бренда |
+| `web/static/app.css` | удалены все правила `.mobile-topnav*` (включая ландшафтный рейл и резерв 58px), `.sidebar-brand*`, `.mobile-brand*`, `--bottom-nav-h`; мобильная шапка — одна строка (`flex-wrap: nowrap`) с названием раздела, областью, аватаром+ролью, ⛶ и «⋯»; `.ui-ic`/`.header-nav-btn`/`.header-more-btn` (20px знак, hit ≥44×44, тихий hover/focus); `.header-user-name{display:none}` вместо `.header-user span{display:none}`; меню «⋯» раскрывается под шапкой (не bottom-sheet); `.app-shell.drawer-open main.scroll-area{overflow:hidden}` |
+
+### Проверки (текущий кандидат)
+
+| команда | результат |
+|---|---|
+| `pytest tests/test_webapp_evol_w7_nav.py` | **30 passed** (новый класс `TestAsapUi02Navigation` — 8 проверок) |
+| `pytest tests/test_webapp_evol_w9_responsive.py` | **31 passed** |
+| `pytest tests/test_webapp_evol_w10_sections.py` | **35 passed** |
+| `pytest` (12 переписанных legacy-файлов) | **303 passed** |
+| `pytest` (5 файлов, читающих `ui_round1025_matrix.py`) | **217 passed** |
+| `node tests/js/*` (18 файлов) | все зелёные (`W2-SHELL-UNIT-OK`, `EVOL-W9-RESPONSIVE-OK`, `JS-UNIT-OK`, `CFG04-FORMS-OK`, `ASAP42-STEP2C2-LAYOUT-OK`, `HOTFIX4/6/7/9-*`, `MODULE-CATALOG-OK`, `MCA12-STORIES-UI-OK`, `FS-POLICY-OK`) |
+| `python tools/ui_evol_w7_nav_e2e.py` | **EVOL-W7-NAV OK**, инвентарь 19×6 = 114 ячеек, `hScroll 0 / offscreen 0 / clipped 0` |
+| `python tools/ui_evol_w9_responsive_e2e.py` | **EVOL-W9-RESPONSIVE OK**, инвентарь 19×8 = 152 ячейки, `hScroll 0 / offscreen 0 / clipped 0` |
+| `pytest tests -k "webapp or frontend or shell or nav or layout or responsive or asap8/42 or cfg04 or hotfix"` | 3084 passed, **12 failed — предсуществующие** (проверено на HEAD: `data-speech-entry` 0, `>✕</button>` 6, `badge-btn` 0 в HEAD — тесты/инструменты отстали от EVOL-028/026, к `web/**` этой волны отношения не имеют) |
+
+Живой Chromium (Playwright, реальные `web/index.html`+`app.js` с API-стабами):
+320×700, 390×844, 667×375, 812×375, 768×1024, 1024×768, 1280×800, 1440×900 —
+нижней панели нет нигде, кнопка навигации открывает drawer со всеми 8
+разделами (фокус внутрь, Esc, возврат фокуса), в шапке одна строка,
+аватар-инициал + бейдж роли видимы, логотипа нет, «⋯» — троеточие, меню
+раскрывается под шапкой, горизонтального скролла и перекрытий нет.
+Скрины: `evidence/w7-nav-mobile-header.png`, `w7-nav-mobile-drawer.png`,
+`w7-nav-mobile-more.png`, `w7-nav-landscape-drawer.png`,
+`w7-nav-fs-ghost-header-390.png`, `w7-nav-desktop-modules.png`,
+`w9-responsive-phone-*/land-*/mid-*/wide-*`.
+
+### Осознанные компромиссы (зафиксированы, не «баги»)
+
+- **320 px:** все обязательные элементы видны, hit-цели остаются 44×44;
+  место берётся из второстепенных деталей (имя чата и аватар чата в триггере
+  скрываются при `≤419px`, `▾` — при `≤359px`, бейдж роли — `4rem`).
+  Название раздела на 320 обрезается до 2–3 символов: по §2.2 имя раздела —
+  вторично («если есть место»), навигация/область/идентификация — постоянно.
+- **Бейдж роли** ограничен `4.75rem` с ellipsis и полным значением в `title`
+  (`admin`/`moderator`/`local_admin` помещаются целиком).
+
+### Открытые пункты (не эта волна)
+
+- `ui_asap8_w2_shell_e2e.py` — инструмент целиком описывает отменённую row B;
+  пересборка под drawer — отдельная evidence-задача (не влияет на продукт).
+- `ui_w4_ui_e2e.py`, `ui_speech_mobile_entry_e2e.py`, `ui_asap8_v6_d1213_e2e.py`
+  падают на устаревших селекторах предыдущих волн (`[data-speech-card]`,
+  `.intel-header .badge-btn`), а не на навигации; навигационные шаги в них уже
+  переведены на drawer.
+- EVOL-037 (глобальный поиск) и EVOL-COG (карта) — отдельные очереди.

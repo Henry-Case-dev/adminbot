@@ -333,7 +333,7 @@ FLOW_PROBE = r"""
     scopeBadges: Array.from(document.querySelectorAll('.scope-trigger .badge'))
       .map((b) => b.textContent.trim()),
     activeNav: (document.querySelector('.sidebar-link.active .sidebar-label')
-      || document.querySelector('.mobile-topnav-link.active .mobile-topnav-label')
+      || document.querySelector('.app-drawer .sidebar-link.active .sidebar-label')
       || {}).textContent || '',
     speechSection: (document.querySelector('.speech-section') ? 'open' : 'showcase'),
     headerBottom: (document.querySelector('.main-header') || {getBoundingClientRect: () => ({bottom: 0})})
@@ -1031,24 +1031,24 @@ def check_header(browser, width, height, label, shots):
         fail(label, "после прокрутки к элементу верх контента уходит под шапку")
     if shots:
         page.screenshot(path=str(SHOTS / ("header_%s.png" % label)))
-    # мобильная навигация: «Ещё» отдаёт ПОЛНЫЙ список разделов
+    # мобильная навигация: drawer отдаёт ПОЛНЫЙ список разделов
     if width < 768:
         page.evaluate("() => window.scrollTo(0, 0)")
-        page.click(".mobile-topnav-more")
+        page.click("[data-drawer-trigger]")
         page.wait_for_timeout(400)
         items = page.evaluate(
-            "(() => Array.from(document.querySelectorAll('.more-menu-item'))"
-            ".map((b) => b.textContent.trim()))()")
+            "(() => Array.from(document.querySelectorAll("
+            "'.app-drawer .sidebar-link')).map((b) => b.textContent.trim()))()")
         if len(items) < 4:
-            fail(label, "меню «Ещё» отдаёт лишь %s разделов: %s"
+            fail(label, "drawer отдаёт лишь %s разделов: %s"
                  % (len(items), items))
         labels = " ".join(items)
         for want in ("ИИ", "Память"):
             if want not in labels:
-                fail(label, "меню «Ещё» не содержит «%s» (%s)" % (want, items))
-        note(label=label + "/more_menu", items=items)
+                fail(label, "drawer не содержит «%s» (%s)" % (want, items))
+        note(label=label + "/drawer_menu", items=items)
         if shots:
-            page.screenshot(path=str(SHOTS / ("more_menu_%s.png" % label)))
+            page.screenshot(path=str(SHOTS / ("drawer_menu_%s.png" % label)))
         page.keyboard.press("Escape")
     else:
         # drawer 768–1199 / sidebar ≥1200 — полный набор

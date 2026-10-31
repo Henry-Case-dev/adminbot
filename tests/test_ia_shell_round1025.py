@@ -57,37 +57,37 @@ class TestKillSwitch:
 
 
 class TestShellMarkers:
-    def test_sidebar_drawer_bottom_nav(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-3): нижняя
-        # навигация удалена владельцем; мобильная навигация компактная
-        # ВЕРХНЯЯ (mobile-topnav, без scroll-thin); desktop sidebar сохранён.
+    def test_sidebar_drawer_single_navigation(self):
+        # re-pin ASAP-UI-02 §2.1 (31.10.2026): постоянной нижней панели
+        # разделов нет ни в одной ориентации; навигация — ОДИН drawer
+        # (<1200) или постоянный sidebar (≥1200).
         assert 'class="app-sidebar"' in HTML
         assert 'class="app-drawer"' in HTML
         assert 'class="bottom-nav"' not in HTML, \
             "D13: нижняя навигация удалена"
         assert 'class="more-sheet"' not in HTML, \
             "D13: шторка «Ещё» удалена"
-        assert 'class="mobile-topnav"' in HTML, \
-            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
-        assert 'mobile-topnav scroll-thin' not in HTML, \
-            "U01: мобильный topnav без scroll-thin"
+        assert 'mobile-topnav' not in HTML, \
+            "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
+        assert 'data-drawer-trigger' in HTML and 'iaV2 && hasDrawer' in HTML, \
+            "ASAP-UI-02 §2.1: навигация открывается кнопкой в шапке"
         # Постоянный sidebar — строго с 1200 px (инвариант D13-зоны не задет).
         assert "@media (min-width: 1200px)" in HTML
         assert ".app-shell.ia-v2 .app-sidebar" in HTML
 
     def test_mobile_shell_and_breakpoints(self):
         assert "isMobileShell: function ()" in JS
-        assert "isCompactShell: function ()" in JS
-        # re-pin D13 → v6.3 U01 (REQ-U01-1): bottomNavItems удалён;
-        # mobileMoreItems ВЕРНУЛСЯ как popover «Ещё» — строгая дополненность
-        # к фиксированной row B (navItems минус fixed), единый реестр.
+        assert "hasDrawer: function ()" in JS
+        # re-pin ASAP-UI-02 §2.1: bottomNavItems/mobileTopnavItems/
+        # mobileMoreItems удалены; мобильная навигация — drawer (hasDrawer).
         assert "bottomNavItems: function ()" not in JS, \
             "D13: bottomNavItems удалён"
-        assert "mobileMoreItems: function ()" in JS, \
-            "U01.1: popover «Ещё» (mobileMoreItems) на месте"
-        assert "!fixed[n.id]" in JS, \
-            "U01.1: «Ещё» = navItems минус фиксированные (без дублей)"
-        assert "mobileTopnavItems: function ()" in JS
+        assert "mobileMoreItems: function ()" not in JS, \
+            "ASAP-UI-02: список разделов в «Ещё» удалён"
+        assert "mobileTopnavItems: function ()" not in JS, \
+            "ASAP-UI-02: row B удалена"
+        assert "hasDrawer: function ()" in JS, \
+            "ASAP-UI-02: один механизм drawer для <1200"
         # touch ≥44×44 + safe-area.
         assert "min-height: 44px" in HTML
         assert "env(safe-area-inset-bottom" in HTML
@@ -103,16 +103,17 @@ class TestShellMarkers:
 
     def test_hotfix4_bottom_nav_order_and_viewport_offset(self):
         """hotfix4 (T-2514/T-2516/T-2519, ADR-1025-8 D2/D3) — SUPERSEDED
-        частично. re-pin ASAP 8 v6 D13: viewport-fit=cover сохранён; нижний
-        offset-токен больше не потребляется разметкой/CSS (панелей снизу
-        нет); порядок нижней навигации не существует — канонический реестр
-        navItems един для sidebar и mobile-topnav."""
+        частично. re-pin ASAP 8 v6 D13 + ASAP-UI-02 §2.1: viewport-fit=cover
+        сохранён; нижний offset-токен больше не потребляется разметкой/CSS
+        (панелей снизу нет); постоянной мобильной панели нет вовсе —
+        канонический реестр navItems един для sidebar и drawer."""
         assert "viewport-fit=cover" in HTML
         assert "--tg-viewport-bottom-offset" not in HTML, \
             "D13: нижний offset не потребляется web/*"
         assert "bottomNavItems: function" not in JS, \
             "D13: bottomNavItems удалён"
-        assert "mobileTopnavItems: function ()" in JS
+        assert "mobileTopnavItems: function ()" not in JS, \
+            "ASAP-UI-02: row B удалена (навигация — drawer)"
 
 
 class TestNoCompetingHome:

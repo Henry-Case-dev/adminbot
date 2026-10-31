@@ -157,15 +157,30 @@ PROBE_SHELL = r"""
   const de = document.documentElement;
   const hdr = document.querySelector('header.header-sticky');
   const main = document.querySelector('main.scroll-area');
-  const nav = document.querySelector('.mobile-topnav');
   const shell = document.querySelector('.app-shell');
+  const navBtn = document.querySelector('[data-drawer-trigger]');
+  const moreBtn = document.querySelector('[data-more-trigger]');
+  const roleEl = document.querySelector('.header-user-role');
+  const titleEl = document.querySelector('.header-title');
   const hb = hdr ? hdr.getBoundingClientRect() : null;
   const mb = main ? main.getBoundingClientRect() : null;
-  const nb = nav ? nav.getBoundingClientRect() : null;
   const sb = shell ? shell.getBoundingClientRect() : null;
-  const navCs = nav ? getComputedStyle(nav) : null;
   const scrolled = main ? (main.scrollHeight > main.clientHeight + 1) : null;
   const contentH = mb ? mb.height : null;
+  const rectOf = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x: Math.round(r.x), y: Math.round(r.y),
+            w: Math.round(r.width), h: Math.round(r.height),
+            right: Math.round(r.right), bottom: Math.round(r.bottom)};
+  };
+  const visible = (el) => {
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1;
+  };
   return {
     vw: window.innerWidth, vh: window.innerHeight,
     sw: de.scrollWidth,
@@ -175,25 +190,45 @@ PROBE_SHELL = r"""
     headerH: hb ? Math.round(hb.height) : null,
     headerBottom: hb ? Math.round(hb.bottom) : null,
     headerRows: hb && hdr
-      ? Array.from(hdr.children).filter(el => {
-          const r = el.getBoundingClientRect();
-          const cs = getComputedStyle(el);
-          return r.height > 1 && cs.display !== 'none'
-            && cs.position !== 'fixed';
-        }).length : null,
+      // Рядов шапки = число ПЕРЕСЕКАЮЩИХСЯ вертикальных полос видимых детей
+      // (одна flex-строка содержит много элементов разной высоты — это не
+      // «ряды»). Новый ряд начинается, только если элемент вышел за низ
+      // предыдущей полосы.
+      ? (() => {
+          const els = Array.from(hdr.children).filter(el => {
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            return r.height > 1 && cs.display !== 'none'
+              && cs.position !== 'fixed';
+          }).map(el => el.getBoundingClientRect())
+            .sort((a, b) => a.top - b.top);
+          let rows = 0, bottom = -Infinity;
+          els.forEach(r => {
+            if (r.top >= bottom - 4) { rows += 1; bottom = r.bottom; }
+            else if (r.bottom > bottom) { bottom = r.bottom; }
+          });
+          return rows;
+        })() : null,
     mainTop: mb ? Math.round(mb.top) : null,
     mainH: mb ? Math.round(mb.height) : null,
     mainBottom: mb ? Math.round(mb.bottom) : null,
     contentTopGap: (hb && mb) ? Math.round(mb.top - hb.bottom) : null,
     overlap: (hb && mb) ? Math.max(0, Math.round(hb.bottom - mb.top)) : null,
-    navPresent: !!nav,
-    navH: nb ? Math.round(nb.height) : null,
-    navTop: nb ? Math.round(nb.top) : null,
-    navBottom: nb ? Math.round(nb.bottom) : null,
-    navFixed: navCs ? navCs.position : null,
-    navFlexDir: navCs ? navCs.flexDirection : null,
-    navInsideHeader: nav ? !!nav.closest('header') : null,
-    navInsideViewport: nb ? (nb.top >= -1 && nb.bottom <= window.innerHeight + 1) : null,
+    // ASAP-UI-02 §2.1: постоянной нижней панели быть не должно ни в одной
+    // ориентации; навигация — кнопка в шапке (drawer), «⋯» — второстепенные.
+    bottomNavCount: document.querySelectorAll('.mobile-topnav').length,
+    brandCount: document.querySelectorAll('.mobile-brand, .sidebar-brand').length,
+    navBtn: navBtn ? Object.assign(rectOf(navBtn), {
+      label: navBtn.getAttribute('aria-label')}) : null,
+    moreBtn: moreBtn ? Object.assign(rectOf(moreBtn), {
+      label: moreBtn.getAttribute('aria-label')}) : null,
+    roleBadge: roleEl ? Object.assign(rectOf(roleEl), {
+      visible: visible(roleEl), text: (roleEl.textContent || '').trim(),
+      title: roleEl.getAttribute('title')}) : null,
+    avatarVisible: visible(document.querySelector(
+      '.header-user img:not([style*="display: none"]), .header-user-initial')),
+    titleNode: titleEl ? Object.assign(rectOf(titleEl), {
+      visible: visible(titleEl), text: (titleEl.textContent || '').trim()}) : null,
     shellBottom: sb ? Math.round(sb.bottom) : null,
     contentShare: (contentH && window.innerHeight)
       ? +(contentH / window.innerHeight).toFixed(3) : null,
@@ -267,23 +302,23 @@ PROBE_MORE = r"""
   const p = document.querySelector('.more-menu-panel');
   if (!p) return {open: false};
   const r = p.getBoundingClientRect();
-  const nav = document.querySelector('.mobile-topnav');
-  const nb = nav ? nav.getBoundingClientRect() : null;
-  const navCs = nav ? getComputedStyle(nav) : null;
+  const hdr = document.querySelector('header.header-sticky');
+  const hb = hdr ? hdr.getBoundingClientRect() : null;
   return {
     open: true,
     x: Math.round(r.x), y: Math.round(r.y),
     w: Math.round(r.width), h: Math.round(r.height),
+    top: Math.round(r.top),
     bottom: Math.round(r.bottom),
     vw: window.innerWidth, vh: window.innerHeight,
     inside: r.left >= -1 && r.right <= window.innerWidth + 1
             && r.top >= -1 && r.bottom <= window.innerHeight + 1,
-    aboveNav: (nb && navCs && navCs.position !== 'fixed')
-      ? r.bottom <= nb.top + 2 : true,
-    gapToNav: (nb && navCs && navCs.position !== 'fixed')
-      ? Math.round(nb.top - r.bottom) : null,
-    clearOfRail: (nb && navCs && navCs.position === 'fixed')
-      ? r.right <= nb.left + 2 : true,
+    // ASAP-UI-02 §2.3: триггер «⋯» стоит в шапке справа — панель
+    // раскрывается ПОД шапкой (не над нижней панелью: её больше нет).
+    belowHeader: hb ? r.top >= hb.bottom - 2 : null,
+    gapToHeader: hb ? Math.round(r.top - hb.bottom) : null,
+    items: p.querySelectorAll('.more-menu-item').length,
+    profile: !!p.querySelector('.more-menu-profile'),
     scrolls: p.scrollHeight > p.clientHeight + 1,
     focusInside: p.contains(document.activeElement),
   };
@@ -456,21 +491,34 @@ def run(out_dir, baseline=None, port=PORT):
             if d["headerH"] is None or d["headerH"] > HEAD_MAX_PHONE:
                 fails.append("%s: шапка %s px > %d (вторая строка вернулась?)"
                              % (key, d["headerH"], HEAD_MAX_PHONE))
+            if d["headerRows"] and d["headerRows"] > 1:
+                fails.append("%s: шапка разложилась на %s ряда(ов)"
+                             % (key, d["headerRows"]))
             if d["mainTop"] is None or d["mainTop"] > MAIN_TOP_MAX_PHONE:
                 fails.append("%s: контент начинается на %s px"
                              % (key, d["mainTop"]))
-            if not d["navPresent"]:
-                fails.append("%s: нижней панели разделов нет" % key)
-            elif d["navInsideHeader"]:
-                fails.append("%s: блок навигации остался внутри шапки" % key)
+            # ASAP-UI-02 §2.1: постоянной нижней панели нет, навигация — drawer.
+            if d["bottomNavCount"]:
+                fails.append("%s: вернулась постоянная нижняя панель разделов" % key)
+            if d["brandCount"]:
+                fails.append("%s: логотип Adminbot вернулся в UI" % key)
+            if not d["navBtn"]:
+                fails.append("%s: нет кнопки навигации в шапке" % key)
             else:
-                if d["navH"] < NAV_MIN_TOUCH:
-                    fails.append("%s: панель %s px ниже тач-минимума"
-                                 % (key, d["navH"]))
-                if d["navBottom"] and d["shellBottom"] and \
-                        abs(d["navBottom"] - d["shellBottom"]) > 2:
-                    fails.append("%s: панель не прижата к низу shell (%s vs %s)"
-                                 % (key, d["navBottom"], d["shellBottom"]))
+                if d["navBtn"]["w"] < NAV_MIN_TOUCH or \
+                        d["navBtn"]["h"] < NAV_MIN_TOUCH:
+                    fails.append("%s: кнопка навигации %sx%s < 44"
+                                 % (key, d["navBtn"]["w"], d["navBtn"]["h"]))
+                if not d["navBtn"]["label"]:
+                    fails.append("%s: у кнопки навигации нет доступного имени" % key)
+                if d["navBtn"]["right"] > d["vw"] + 1:
+                    fails.append("%s: кнопка навигации за вьюпортом" % key)
+            if d["roleBadge"] and not d["roleBadge"]["visible"]:
+                fails.append("%s: бейдж фактической роли скрыт" % key)
+            if d["roleBadge"] and not d["roleBadge"]["title"]:
+                fails.append("%s: полное имя роли недоступно (title)" % key)
+            if not d["avatarVisible"]:
+                fails.append("%s: аватар/инициал пользователя не виден" % key)
             if d["contentShare"] is not None and \
                     d["contentShare"] < CONTENT_SHARE_PHONE:
                 fails.append("%s: контенту остаётся %s высоты (<%s)"
@@ -519,34 +567,68 @@ def run(out_dir, baseline=None, port=PORT):
             pg.keyboard.press("Escape")
             pg.wait_for_timeout(220)
 
-            # меню «Ещё» над нижней панелью
-            click(pg, ".mobile-topnav-more", key)
+            # drawer из шапки: все разделы, фокус, Esc и возврат фокуса
+            click(pg, "[data-drawer-trigger]", key)
+            pg.wait_for_timeout(320)
+            dr = pg.evaluate(r"""() => {
+                const d = document.querySelector('.app-drawer');
+                if (!d) return {drawer: false};
+                const r = d.getBoundingClientRect();
+                return {drawer: true, open: d.classList.contains('open'),
+                        w: Math.round(r.width),
+                        inside: r.left >= -1 && r.right <= window.innerWidth + 1
+                                && r.bottom <= window.innerHeight + 1,
+                        links: d.querySelectorAll('.sidebar-link').length,
+                        focusInside: d.contains(document.activeElement)};
+            }""")
+            report["checks"][key + "-drawer"] = dr
+            if not dr.get("drawer") or not dr["open"]:
+                fails.append("%s: drawer не открылся из шапки" % key)
+            else:
+                if not dr["inside"]:
+                    fails.append("%s: drawer вне вьюпорта" % key)
+                if dr["links"] < 8:
+                    fails.append("%s: в drawer не все разделы (%s)"
+                                 % (key, dr["links"]))
+                if not dr["focusInside"]:
+                    fails.append("%s: фокус не вошёл в drawer" % key)
+            shot(pg, key + "-drawer")
+            pg.keyboard.press("Escape")
+            pg.wait_for_timeout(260)
+            drc = pg.evaluate(r"""() => ({
+                open: !!document.querySelector('.app-drawer.open'),
+                focused: !!(document.activeElement
+                  && document.activeElement.hasAttribute('data-drawer-trigger')),
+            })""")
+            if drc["open"] or not drc["focused"]:
+                fails.append("%s: Esc/возврат фокуса drawer: %s" % (key, drc))
+
+            # меню второстепенных действий «⋯» под шапкой
+            click(pg, "[data-more-trigger]", key)
             pg.wait_for_timeout(320)
             mm = pg.evaluate(PROBE_MORE)
             report["checks"][key + "-more"] = mm
             if not mm.get("open"):
-                fails.append("%s: меню «Ещё» не открылось" % key)
+                fails.append("%s: меню второстепенных действий не открылось" % key)
             else:
                 if not mm["inside"]:
-                    fails.append("%s: меню «Ещё» вне вьюпорта" % key)
-                if not mm["aboveNav"]:
-                    fails.append("%s: меню «Ещё» перекрывает нижнюю панель" % key)
-                if mm.get("gapToNav") is not None and mm["gapToNav"] > 12:
-                    fails.append("%s: лист «Ещё» не прижат к панели (зазор %s px)"
-                                 % (key, mm["gapToNav"]))
+                    fails.append("%s: меню вне вьюпорта" % key)
+                if not mm["belowHeader"]:
+                    fails.append("%s: меню не под шапкой (триггер в шапке)" % key)
+                if mm.get("items"):
+                    fails.append("%s: в «⋯» снова список разделов" % key)
                 if not mm["focusInside"]:
-                    fails.append("%s: фокус не вошёл в меню «Ещё»" % key)
+                    fails.append("%s: фокус не вошёл в меню «⋯»" % key)
             shot(pg, key + "-more")
             pg.keyboard.press("Escape")
             pg.wait_for_timeout(220)
             back = pg.evaluate(r"""() => ({
                 open: !!document.querySelector('.more-menu-panel'),
                 focusedTrigger: !!(document.activeElement
-                  && document.activeElement.classList
-                  && document.activeElement.classList.contains('mobile-topnav-more')),
+                  && document.activeElement.hasAttribute('data-more-trigger')),
             })""")
             if back["open"] or not back["focusedTrigger"]:
-                fails.append("%s: Esc/возврат фокуса меню «Ещё»: %s"
+                fails.append("%s: Esc/возврат фокуса меню «⋯»: %s"
                              % (key, back))
 
             # модалка = bottom sheet
@@ -597,23 +679,25 @@ def run(out_dir, baseline=None, port=PORT):
                 fails.append("%s: console errors: %s" % (key, errs[:2]))
             shot(pg, key + "-modules")
 
-            # safe area Telegram: панель поднимается над системной зоной
+            # safe area Telegram: drawer учитывает нижнюю системную зону
             sa = pg.evaluate(r"""() => {
                 const de = document.documentElement;
-                const nav = document.querySelector('.mobile-topnav');
-                const before = nav ? Math.round(nav.getBoundingClientRect().height) : null;
+                const dr = document.querySelector('.app-drawer');
+                const before = dr ? Math.round(
+                    parseFloat(getComputedStyle(dr).paddingBottom)) : null;
                 de.style.setProperty('--tg-safe-area-inset-bottom', '34px');
-                const after = nav ? Math.round(nav.getBoundingClientRect().height) : null;
+                const after = dr ? Math.round(
+                    parseFloat(getComputedStyle(dr).paddingBottom)) : null;
                 const shell = document.querySelector('.app-shell');
-                const nb = nav ? nav.getBoundingClientRect() : null;
+                const nb = dr ? dr.getBoundingClientRect() : null;
                 const sb = shell ? shell.getBoundingClientRect() : null;
                 de.style.removeProperty('--tg-safe-area-inset-bottom');
                 return {before: before, after: after,
-                        navInsideShell: (nb && sb) ? nb.bottom <= sb.bottom + 1 : null};
+                        drawerInsideShell: (nb && sb) ? nb.bottom <= sb.bottom + 1 : null};
             }""")
             report["checks"][key + "-safearea"] = sa
             if sa["before"] is not None and (sa["after"] or 0) - sa["before"] < 30:
-                fails.append("%s: нижний safe-area не учтён панелью (%s→%s)"
+                fails.append("%s: нижний safe-area не учтён drawer (%s→%s)"
                              % (key, sa["before"], sa["after"]))
             ctx.close()
 
@@ -639,66 +723,59 @@ def run(out_dir, baseline=None, port=PORT):
                 fails.append("%s: контент начинается на %s px"
                              % (key, d["mainTop"]))
             if mobile:
-                if not d["navPresent"]:
-                    fails.append("%s: рейла навигации нет" % key)
-                else:
-                    if d["navFlexDir"] != "column":
-                        fails.append("%s: nav не перестроилась в рейл (%s)"
-                                     % (key, d["navFlexDir"]))
-                    if d["navFixed"] != "fixed":
-                        fails.append("%s: рейл не плавающий (%s)"
-                                     % (key, d["navFixed"]))
-                    if d["mainBottom"] and d["shellBottom"] and \
-                            abs(d["mainBottom"] - d["shellBottom"]) > 2:
-                        fails.append("%s: рейл отнял высоту у контента" % key)
+                # ASAP-UI-02 §2.4: в низком ландшафте нет ни второго ряда,
+                # ни рейла — навигация та же кнопка drawer в шапке.
+                if d["bottomNavCount"]:
+                    fails.append("%s: вернулся рейл/нижняя панель разделов" % key)
+                if d["headerRows"] and d["headerRows"] > 1:
+                    fails.append("%s: шапка разложилась на %s ряда(ов)"
+                                 % (key, d["headerRows"]))
+                if d["mainBottom"] and d["shellBottom"] and \
+                        abs(d["mainBottom"] - d["shellBottom"]) > 2:
+                    fails.append("%s: навигация отняла высоту у контента" % key)
                 if d["contentShare"] is not None and \
                         d["contentShare"] < CONTENT_SHARE_LAND:
                     fails.append("%s: контенту остаётся %s высоты (<%s)"
                                  % (key, d["contentShare"], CONTENT_SHARE_LAND))
-                under = pg.evaluate(r"""() => {
-                    const nav = document.querySelector('.mobile-topnav');
-                    const main = document.querySelector('main.scroll-area');
-                    if (!nav || !main) return null;
-                    const nb = nav.getBoundingClientRect();
-                    const mb = main.getBoundingClientRect();
-                    // Контентом считается РАБОЧАЯ область main: рамка main
-                    // растянута на всю ширину, а резерв справа задан padding.
-                    const cs = getComputedStyle(main);
-                    const contentRight = mb.right - parseFloat(cs.paddingRight || 0);
-                    let widest = contentRight;
-                    const kids = main.children;
-                    for (let i = 0; i < kids.length; i++) {
-                        const kr = kids[i].getBoundingClientRect();
-                        if (kr.width > 1 && kr.right > widest) widest = kr.right;
-                    }
-                    return {contentRight: Math.round(contentRight),
-                            widestChildRight: Math.round(widest),
-                            railLeft: Math.round(nb.left),
-                            paddingRight: cs.paddingRight,
-                            ok: widest <= nb.left + 2};
+                if not d["navBtn"] or d["navBtn"]["right"] > d["vw"] + 1:
+                    fails.append("%s: кнопка навигации недоступна в ландшафте"
+                                 % key)
+                click(pg, "[data-drawer-trigger]", key)
+                pg.wait_for_timeout(320)
+                drl = pg.evaluate(r"""() => {
+                    const dd = document.querySelector('.app-drawer');
+                    const r = dd.getBoundingClientRect();
+                    return {open: dd.classList.contains('open'),
+                            inside: r.left >= -1
+                                    && r.right <= window.innerWidth + 1
+                                    && r.bottom <= window.innerHeight + 1,
+                            focusInside: dd.contains(document.activeElement)};
                 }""")
-                report["checks"][key + "-rail"] = under
-                if under and not under["ok"]:
-                    fails.append("%s: контент уходит под рейл (right %s > rail %s)"
-                                 % (key, under["widestChildRight"],
-                                    under["railLeft"]))
-                click(pg, ".mobile-topnav-more", key)
+                report["checks"][key + "-drawer"] = drl
+                if not drl["open"] or not drl["inside"]:
+                    fails.append("%s: drawer не помещается в ландшафте" % key)
+                if not drl["focusInside"]:
+                    fails.append("%s: фокус не вошёл в drawer" % key)
+                shot(pg, key + "-drawer")
+                pg.keyboard.press("Escape")
+                pg.wait_for_timeout(220)
+                click(pg, "[data-more-trigger]", key)
                 pg.wait_for_timeout(320)
                 mm = pg.evaluate(PROBE_MORE)
                 report["checks"][key + "-more"] = mm
                 if not mm.get("open"):
-                    fails.append("%s: меню «Ещё» из рейла не открылось" % key)
+                    fails.append("%s: меню второстепенных не открылось" % key)
                 else:
                     if not mm["inside"]:
-                        fails.append("%s: меню «Ещё» вне вьюпорта" % key)
-                    if not mm["clearOfRail"]:
-                        fails.append("%s: меню «Ещё» накрыло рейл" % key)
+                        fails.append("%s: меню вне вьюпорта" % key)
+                    if not mm["belowHeader"]:
+                        fails.append("%s: меню не под шапкой" % key)
                     shot(pg, key + "-more")
                 pg.keyboard.press("Escape")
                 pg.wait_for_timeout(200)
             else:
                 # compact shell: навигация — drawer, шапка в одну строку
-                if d["navPresent"]:
+                if d["bottomNavCount"]:
                     fails.append("%s: мобильная панель видна в compact shell"
                                  % key)
                 click(pg, "[data-drawer-trigger]", key)
@@ -829,13 +906,11 @@ def run(out_dir, baseline=None, port=PORT):
                             usable)
                 pg.wait_for_timeout(300)
                 nav_geo = pg.evaluate(r"""() => {
-                    const nav = document.querySelector('.mobile-topnav');
                     const shell = document.querySelector('.app-shell');
-                    const nb = nav ? nav.getBoundingClientRect() : null;
                     const sb = shell ? shell.getBoundingClientRect() : null;
-                    return {navTop: nb ? Math.round(nb.top) : null,
-                            navBottom: nb ? Math.round(nb.bottom) : null,
-                            shellBottom: sb ? Math.round(sb.bottom) : null,
+                    return {shellBottom: sb ? Math.round(sb.bottom) : null,
+                            bottomNavCount:
+                              document.querySelectorAll('.mobile-topnav').length,
                             vh: window.innerHeight};
                 }""")
                 report["checks"][key + "-nav"] = nav_geo
@@ -843,23 +918,24 @@ def run(out_dir, baseline=None, port=PORT):
                         abs(nav_geo["shellBottom"] - usable) > 2:
                     fails.append("%s: shell не стал usable-высотой (%s vs %s)"
                                  % (key, nav_geo["shellBottom"], usable))
-                click(pg, ".mobile-topnav-more", key)
+                if nav_geo["bottomNavCount"]:
+                    fails.append("%s: вернулась постоянная нижняя панель" % key)
+                click(pg, "[data-more-trigger]", key)
                 pg.wait_for_timeout(320)
                 mm = pg.evaluate(PROBE_MORE)
                 report["checks"][key + "-more"] = mm
                 if not mm.get("open"):
-                    fails.append("%s: меню «Ещё» не открылось" % key)
+                    fails.append("%s: меню второстепенных не открылось" % key)
                 else:
                     if not mm["inside"]:
-                        fails.append("%s: меню «Ещё» вне вьюпорта" % key)
-                    if not mm["aboveNav"]:
-                        fails.append("%s: меню «Ещё» накрыло панель разделов "
-                                     "(низ листа %s > верх панели %s)"
-                                     % (key, mm.get("bottom"),
-                                        nav_geo.get("navTop")))
-                    if mm.get("gapToNav") is None or not (0 <= mm["gapToNav"] <= 12):
-                        fails.append("%s: зазор до панели %s px (ожидался "
-                                     "0…12)" % (key, mm.get("gapToNav")))
+                        fails.append("%s: меню вне вьюпорта" % key)
+                    if not mm["belowHeader"]:
+                        fails.append("%s: меню не под шапкой (top %s)"
+                                     % (key, mm.get("top")))
+                    if mm.get("gapToHeader") is None or \
+                            not (0 <= mm["gapToHeader"] <= 12):
+                        fails.append("%s: зазор до шапки %s px (ожидался 0…12)"
+                                     % (key, mm.get("gapToHeader")))
                 shot(pg, key + "-more")
                 pg.keyboard.press("Escape")
                 pg.wait_for_timeout(200)
@@ -887,7 +963,7 @@ def run(out_dir, baseline=None, port=PORT):
                 fails.append("%s: sheet-режим включён на широком экране" % key)
             if d["headerH"] and d["headerH"] > HEAD_MAX_MID:
                 fails.append("%s: шапка %s px" % (key, d["headerH"]))
-            if d["navPresent"] and w >= 768:
+            if d["bottomNavCount"] and w >= 768:
                 fails.append("%s: мобильная панель видна вне mobile shell" % key)
             # модалка: окно по центру, внутренний скролл
             pg.evaluate("""() => {
@@ -949,11 +1025,11 @@ def run(out_dir, baseline=None, port=PORT):
                              % (key, d["sw"], d["vw"]))
             if d["overlap"]:
                 fails.append("%s: контент под шапкой при zoom 200%%" % key)
-            # Кнопки и подписи не обрезаны: сегменты навигации и триггер
-            # области остаются читаемыми (высота/подпись внутри).
+            # Кнопки и подписи не обрезаны: название раздела и триггер
+            # области остаются читаемыми (ellipsis — намеренное сокращение).
             labels = pg.evaluate(r"""() => {
                 const bad = [];
-                document.querySelectorAll('.mobile-topnav-label, .scope-name')
+                document.querySelectorAll('.header-title, .scope-name')
                   .forEach(el => {
                     const cs = getComputedStyle(el);
                     if (cs.display === 'none') return;
@@ -985,7 +1061,7 @@ def run(out_dir, baseline=None, port=PORT):
             d = pg.evaluate(PROBE_SHELL)
             d["labels"] = pg.evaluate(r"""() => {
                 const bad = [];
-                document.querySelectorAll('.mobile-topnav-label')
+                document.querySelectorAll('.header-title, .scope-name')
                   .forEach(el => {
                     const cs = getComputedStyle(el);
                     if (cs.display === 'none') return;
@@ -1000,11 +1076,11 @@ def run(out_dir, baseline=None, port=PORT):
                              % key)
             if d["overlap"]:
                 fails.append("%s: контент под шапкой при крупном шрифте" % key)
-            if d["navPresent"] and d["navH"] < NAV_MIN_TOUCH:
-                fails.append("%s: панель %s px при крупном шрифте"
-                             % (key, d["navH"]))
+            if d["bottomNavCount"]:
+                fails.append("%s: панель разделов вернулась при крупном шрифте"
+                             % key)
             if d["labels"]:
-                fails.append("%s: подписи панели обрезаны без ellipsis: %s"
+                fails.append("%s: подписи шапки обрезаны без ellipsis: %s"
                              % (key, d["labels"][:3]))
             shot(pg, key)
             ctx.close()
@@ -1026,10 +1102,13 @@ def run(out_dir, baseline=None, port=PORT):
             fails.append("rotate: контент под шапкой после поворота")
         if after["headerH"] and after["headerH"] > HEAD_MAX_LAND:
             fails.append("rotate: шапка %s px после поворота" % after["headerH"])
-        if before["navPresent"] and before["navFlexDir"] == "column":
-            fails.append("rotate: рейл остался в портрете")
-        if after["navPresent"] and after["navFlexDir"] != "column":
-            fails.append("rotate: навигация не перестроилась в рейл")
+        if before["bottomNavCount"]:
+            fails.append("rotate: нижняя панель была в портрете")
+        if after["bottomNavCount"]:
+            fails.append("rotate: навигационная панель появилась в ландшафте")
+        if after["headerRows"] and after["headerRows"] > 1:
+            fails.append("rotate: шапка разложилась на %s ряда(ов)"
+                         % after["headerRows"])
         if after["contentShare"] is not None and \
                 after["contentShare"] < CONTENT_SHARE_LAND:
             fails.append("rotate: контенту остаётся %s высоты"
@@ -1039,37 +1118,29 @@ def run(out_dir, baseline=None, port=PORT):
         pg.wait_for_timeout(700)
         back = pg.evaluate(PROBE_SHELL)
         report["checks"]["rotate-back"] = back
-        metric = pg.evaluate(r"""() => {
-            const v = getComputedStyle(document.documentElement)
-              .getPropertyValue('--bottom-nav-h').trim();
-            const nav = document.querySelector('.mobile-topnav');
-            return {var: v, nav: nav
-              ? Math.round(nav.getBoundingClientRect().height) : null};
-        }""")
-        report["checks"]["rotate-back-nav-metric"] = metric
-        if metric["nav"] is not None:
-            try:
-                mv = float(metric["var"].replace("px", "") or 0)
-            except ValueError:
-                mv = -1
-            if abs(mv - metric["nav"]) > 1:
-                fails.append("rotate-back: --bottom-nav-h %s не совпадает с "
-                             "фактической панелью %s (метрика залипла после "
-                             "поворота)" % (metric["var"], metric["nav"]))
-        # Лист «Ещё» после поворота тоже должен стоять вплотную к панели.
-        click(pg, ".mobile-topnav-more", "rotate-back")
+        # Метрики нижней панели больше нет — проверяем, что после поворота
+        # навигация та же (drawer из шапки) и ничего не «залипло».
+        if back["bottomNavCount"]:
+            fails.append("rotate-back: нижняя панель вернулась после поворота")
+        # Лист второстепенных действий после поворота стоит под шапкой.
+        click(pg, "[data-more-trigger]", "rotate-back")
         pg.wait_for_timeout(320)
         mm = pg.evaluate(PROBE_MORE)
         report["checks"]["rotate-back-more"] = mm
-        if mm.get("open") and mm.get("gapToNav") is not None \
-                and mm["gapToNav"] > 12:
-            fails.append("rotate-back: лист «Ещё» с зазором %s px от панели"
-                         % mm["gapToNav"])
+        if mm.get("open"):
+            if not mm.get("belowHeader"):
+                fails.append("rotate-back: меню не под шапкой")
+            if mm.get("gapToHeader") is not None and mm["gapToHeader"] > 12:
+                fails.append("rotate-back: меню с зазором %s px от шапки"
+                             % mm["gapToHeader"])
+        else:
+            fails.append("rotate-back: меню второстепенных не открылось")
         pg.keyboard.press("Escape")
         if back["hScroll"] or back["overlap"]:
             fails.append("rotate-back: overflow/перекрытие после возврата")
-        if back["navPresent"] and back["navFlexDir"] == "column":
-            fails.append("rotate-back: рейл остался после возврата в портрет")
+        if back["headerRows"] and back["headerRows"] > 1:
+            fails.append("rotate-back: шапка разложилась на %s ряда(ов)"
+                         % back["headerRows"])
         if back["headerH"] and back["headerH"] > HEAD_MAX_PHONE:
             fails.append("rotate-back: шапка %s px" % back["headerH"])
         ctx.close()

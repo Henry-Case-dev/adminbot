@@ -88,53 +88,35 @@ const computed = captured.computed;
     'OFF + #/ai* → активный «ИИ»');
 }
 
-// ── W2-SHELL (asap8-v6.3, U01.1): новый канон мобильной row B ────────────
-// (замена маркера D13 «mobile-topnav = весь navItems / Ещё удалён»):
-// ровно 3 фиксированных назначения + «Ещё»; остальное — только в меню.
+// ── ASAP-UI-02 §2.1: навигация — ОДИН drawer, второго списка разделов нет ──
 {
   const nav = computed.navItems.call(
     { route: '#/', iaV2: true, canViewTab() { return true; },
       isGlobalAdmin: true });
-  const ctx = {
-    route: '#/', iaV2: true, canViewTab() { return true; },
-    isGlobalAdmin: true,
-    navItems: nav,
-    mobileTopnavItems: computed.mobileTopnavItems.call({ navItems: nav }),
-    mobileMoreItems: computed.mobileMoreItems.call({
-      navItems: nav,
-      mobileTopnavItems: computed.mobileTopnavItems.call({ navItems: nav }),
-    }),
-  };
-  const topIds = computed.mobileTopnavItems.call(ctx).map((n) => n.id);
   assert.strictEqual(computed.bottomNavItems, undefined,
     'D13: computed bottomNavItems удалён (нижнего navbar нет)');
-  assert.deepStrictEqual(topIds, ['status', 'oversight', 'modules'],
-    'U01.1: row B = Статус/Аналитика/Модули в этом порядке');
-  const moreIds = computed.mobileMoreItems.call(ctx).map((n) => n.id);
-  assert.deepStrictEqual(moreIds.slice().sort(),
-    ['access', 'ai', 'how', 'memory', 'permsoc'],
-    'U01.1: остальное (ИИ/Память/Справка/Доступы/PERMsoc) — только в «Ещё»');
-  // U01.1: активный раздел из «Ещё» отражается в триггере («Ещё • …»).
-  const ctxAi = Object.assign({}, ctx, { activeNav: 'ai' });
-  assert.strictEqual(computed.moreMenuTriggerLabel.call(ctxAi), 'Ещё • ИИ',
-    'U01.1: активный пункт «Ещё» виден в триггере');
-  assert.strictEqual(computed.moreMenuActive.call(ctxAi), true,
-    'U01.1: триггер «Ещё» подсвечен для активного раздела меню');
-  const ctxStatus = Object.assign({}, ctx, { activeNav: 'status' });
-  assert.strictEqual(computed.moreMenuTriggerLabel.call(ctxStatus), 'Ещё',
-    'U01.1: без активного раздела меню триггер — просто «Ещё»');
-  // Пользователь без прав: скрытые права не показываются (row B и «Ещё»).
-  const user = {
-    route: '#/', iaV2: true, activeNav: '',
-    canViewTab(id) { return id === 'status'; },
+  assert.strictEqual(computed.mobileTopnavItems, undefined,
+    'ASAP-UI-02: mobileTopnavItems (row B) удалён');
+  assert.strictEqual(computed.mobileMoreItems, undefined,
+    'ASAP-UI-02: mobileMoreItems (разделы в «Ещё») удалён');
+  const groups = computed.sidebarGroups.call({ navItems: nav });
+  assert.deepStrictEqual(
+    groups.pub.concat(groups.admin, groups.local).map((n) => n.id).sort(),
+    ['access', 'ai', 'how', 'memory', 'modules', 'oversight', 'permsoc', 'status'],
+    'ASAP-UI-02: все разделы доступны в drawer (тот же реестр)');
+  // RBAC: скрытые права не показываются и в drawer-реестре.
+  const userGroups = computed.sidebarGroups.call({
     navItems: computed.navItems.call({
-      route: '#/', iaV2: true,
-      canViewTab(id) { return id === 'status'; } }),
-  };
-  user.mobileTopnavItems = computed.mobileTopnavItems.call(user);  assert.deepStrictEqual(computed.mobileTopnavItems.call(user).map((n) => n.id),
-    ['status'], 'U01: row B пользователя = только Статус');
-  assert.deepStrictEqual(computed.mobileMoreItems.call(user).map((n) => n.id),
-    ['how'], 'U01: в «Ещё» только доступные разделы');
+      route: '#/', iaV2: true, canViewTab(id) { return id === 'status'; } }),
+  });
+  assert.deepStrictEqual(
+    userGroups.pub.concat(userGroups.admin, userGroups.local)
+      .map((n) => n.id).sort(),
+    ['how', 'status'], 'ASAP-UI-02: RBAC — только доступные разделы');
+  // Drawer/topbar — один механизм: hasDrawer для <1200.
+  assert.strictEqual(computed.hasDrawer.call({ shellMode: 'mobile' }), true);
+  assert.strictEqual(computed.hasDrawer.call({ shellMode: 'compact' }), true);
+  assert.strictEqual(computed.hasDrawer.call({ shellMode: 'desktop' }), false);
 }
 
 // ── applyRoute: алиасы памяти + мусорный hash + nested parent ────────────
@@ -207,8 +189,9 @@ assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
   const mk = (w) => ({ shellMode: w >= 1200 ? 'desktop' : (w >= 768 ? 'compact' : 'mobile') });
   assert.strictEqual(computed.hasSidebar.call(mk(1200)), true, '≥1200 → sidebar');
   assert.strictEqual(computed.hasSidebar.call(mk(1199)), false, '1199 → без sidebar');
-  assert.strictEqual(computed.isCompactShell.call(mk(768)), true, '768 → drawer');
-  assert.strictEqual(computed.isMobileShell.call(mk(390)), true, '<768 → bottom-nav');
+  assert.strictEqual(computed.hasDrawer.call(mk(768)), true, '768 → drawer');
+  assert.strictEqual(computed.hasDrawer.call(mk(390)), true, '<768 → drawer');
+  assert.strictEqual(computed.isMobileShell.call(mk(390)), true, '<768 → mobile shell');
 }
 
 console.log('JS-UNIT-OK round1025_ia_routing_test');

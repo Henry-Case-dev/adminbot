@@ -354,9 +354,9 @@ PROBE_JS = """
     const r = el.getBoundingClientRect();
     return Math.min(m, Math.min(r.width || 999, r.height || 999));
   }, 999);
-  // D13/U01-BASE (2.58.77): нижняя навигация удалена, мобильный shell —
-  // компактная верхняя строка (`.mobile-topnav`, row B, тач-цель ≥44).
-  const mtLinks = Array.from(document.querySelectorAll('.mobile-topnav-link'));
+  // D13/U01-BASE + ASAP-UI-02 §2.1 (31.10.2026): постоянной нижней панели
+  // разделов НЕТ; навигация <1200 — кнопка drawer в шапке (тач-цель ≥44).
+  const mtLinks = Array.from(document.querySelectorAll('[data-drawer-trigger]'));
   const mtMinTouch = mtLinks.reduce((m, el) => {
     const r = el.getBoundingClientRect();
     return Math.min(m, Math.min(r.width || 999, r.height || 999));
@@ -377,9 +377,11 @@ PROBE_JS = """
     navbarBand: rect('.navbar-band'),
     bottomNavCount: links.length,
     minTouch: links.length ? Math.round(minTouch) : null,
-    mobileTopnav: rect('.mobile-topnav'),
+    mobileTopnav: rect('[data-drawer-trigger]'),
     mobileTopnavCount: mtLinks.length,
     mobileTopnavMinTouch: mtLinks.length ? Math.round(mtMinTouch) : null,
+    // ASAP-UI-02 §2.3: точка входа второстепенных действий («⋯»).
+    moreTrigger: rect('[data-more-trigger]'),
     hasAsideEl: !!document.querySelector('.app-sidebar'),
     // F3 (§5/§70): селектор области — постоянно доступный; на mobile
     // отдельной строкой ПОД заголовком; тач-цель U01.2 — min-height 40px.
@@ -1550,13 +1552,13 @@ def _low_tg_failures(probe: dict, label: str) -> list:
 
 
 def _scope_failures(probe: dict, label: str, width: int) -> list:
-    """F3 (§5/§70): селектор области — постоянно доступный элемент.
+    """F3 (§5/§70) + ASAP-UI-02 §2.2: селектор области — постоянно доступный.
 
-    Проверяем, что при наличии ≥1 чата он реально виден; на mobile (<768)
-    расположен ОТДЕЛЬНОЙ строкой под заголовком страницы. Тач-цель: row B
-    `.mobile-topnav-link` — ≥44×44 (U01.3), а сам scope-trigger в компактной
-    шапке по принятому U01.2 контракту — 40px (`.app-shell.shell-mobile
-    .scope-trigger { min-height: 40px }`; 32px только в landscape ≤500px)."""
+    Проверяем, что при наличии ≥1 чата он реально виден; на mobile (<768) он
+    стоит в ОДНОЙ строке шапки вместе с названием раздела (второго ряда нет).
+    Тач-цель: кнопки шапки — ≥44×44, сам scope-trigger на телефоне — 44px
+    (`.app-shell .scope-trigger { min-height: var(--control-h-touch) }` при
+    coarse-указателе; базовый clamp ≥88px ширины)."""
     out = []
     wrap = probe.get("scopeWrap")
     if not (wrap and wrap.get("visible")):
@@ -1565,14 +1567,14 @@ def _scope_failures(probe: dict, label: str, width: int) -> list:
         return out
     if width < 768:
         title = probe.get("headerTitle")
-        if title and title.get("visible") and wrap["y"] < title["bottom"] - 1:
-            out.append("%s: mobile-селектор не под заголовком "
-                       "(y=%d < title.bottom=%d)"
-                       % (label, wrap["y"], title["bottom"]))
+        if title and title.get("visible"):
+            # Одна строка: селектор области пересекается с полосой заголовка,
+            # но не должен уезжать ВЫШЕ шапки или за её пределы.
+            if wrap["y"] + wrap["h"] < title["y"]:
+                out.append("%s: селектор области выше строки заголовка "
+                           "(y=%d, title.y=%d)" % (label, wrap["y"], title["y"]))
         trig = probe.get("scopeTrigger")
-        # U01.2 (asap8-v6.3 W2): компактная шапка — scope-trigger 40px;
-        # 32px допустимы только в landscape ≤500px (см. CSS media-query).
-        limit = 32 if probe.get("innerHeight", 999) <= 500 else 40
+        limit = 32 if probe.get("innerHeight", 999) <= 500 else 44
         if trig and trig.get("visible") and trig["h"] < limit:
             out.append("%s: тач-цель селектора %dpx < %d"
                        % (label, trig["h"], limit))
@@ -2220,22 +2222,19 @@ def main() -> int:
                         failures.append("%s %s: bottom-nav не должен быть 768–1199"
                                         % (vp_key, route))
                 else:
-                    # D13/U01-BASE (2.58.77; re-pin asap8_w2_shell_mobile_nav):
-                    # bottom-nav УДАЛЁН — мобильный shell это компактная верхняя
-                    # строка `.mobile-topnav` (те же navItems, что sidebar).
+                    # D13/U01-BASE + ASAP-UI-02 §2.1 (31.10.2026): постоянной
+                    # нижней панели нет; навигация на телефоне — drawer,
+                    # открываемый кнопкой в шапке (реестр разделов тот же).
                     if probe["bottomNav"]:
                         failures.append("%s %s: bottom-nav удалён (D13), "
                                         "но отрендерен (<768)"
                                         % (vp_key, route))
                     if not (probe["mobileTopnav"]
                             and probe["mobileTopnav"]["visible"]):
-                        failures.append("%s %s: нет mobile-topnav (<768)"
-                                        % (vp_key, route))
-                    elif not probe["mobileTopnavCount"]:
-                        failures.append("%s %s: mobile-topnav пуст (<768)"
+                        failures.append("%s %s: нет кнопки навигации (<768)"
                                         % (vp_key, route))
                     elif (probe.get("mobileTopnavMinTouch") or 0) < 44:
-                        failures.append("%s %s: touch mobile-nav %spx < 44"
+                        failures.append("%s %s: touch nav-кнопки %spx < 44"
                                         % (vp_key, route,
                                            probe.get("mobileTopnavMinTouch")))
                     if probe["sidebar"] and probe["sidebar"]["visible"]:
