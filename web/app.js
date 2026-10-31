@@ -526,9 +526,10 @@
         { icon: 'smart_toy', title: 'Модели и подключения',
           subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
           route: '#/ai/llm', tab: 'llm_providers' },
-        { icon: 'psychology', title: 'Личность и стиль',
-          subtitle: 'Имя, биография, характер, осознание ИИ — и «Речь и характер»',
-          route: '#/ai/persona', tab: 'persona' },
+        // EVOL-028 v0.8 (W10): карточка «Личность и стиль» УДАЛЕНА как
+        // отдельный дублирующий пункт: личность/характер/манера речи
+        // редактируются в «Речи и характере» (#/ai/speech, секция
+        // `#speech-persona`), старый адрес `#/ai/persona` — deep-link туда.
         { icon: 'badge', title: 'Имена и алиасы',
           subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
           route: '#/ai/names', tab: 'people_names' },
@@ -1538,10 +1539,13 @@
     '#/memory/rag': 'memory_rag',
     '#/memory/lore': 'chat_lore',
     '#/memory/relations': 'relations',
-    // F3 (10.14): special-screen «Личность» (не зеркалит TABS/TAB_RULES).
-    '#/ai/persona': 'persona',
+    // EVOL-028 v0.8 (W10): «Личность и стиль» БОЛЬШЕ НЕ отдельный экран —
+    // единственный канонический редактор личности/характера/речи живёт в
+    // «Речь и характер». Старый адрес остаётся рабочим deep-link'ом в ту же
+    // секцию (никакого второго редактора), поэтому route → tab 'speech'.
+    '#/ai/persona': 'speech',
     // SOUL-1 W6 (§6): special-screen «Речь и характер» — внутри «ИИ»,
-    // логически вложен в «Личность и стиль» (та же зона identity/speech).
+    // единственное место редактирования личности/характера/манеры речи.
     '#/ai/speech': 'speech',
     '#/access': 'access',
     '#/access/roles': 'access',
@@ -1567,9 +1571,8 @@
     memory_rag: '#/memory/rag',
     people_names: '#/ai/names', relations: '#/memory/relations',
     chat_lore: '#/memory/lore', access: '#/access',
-    // F3 (10.14): persona — special-screen маршрут (нет записи в TABS).
-    persona: '#/ai/persona',
-    // SOUL-1 W6: «Речь и характер» — special-screen (нет записи в TABS).
+    // EVOL-028 v0.8: у вкладки «Личность» больше нет своего маршрута —
+    // она отдана канонической «Речи и характеру» (см. ROUTE_TO_TAB).
     speech: '#/ai/speech',
   };
   var ROOT_ROUTES = ['#/', '#/how', '#/modules', '#/permsoc', '#/ai',
@@ -2013,6 +2016,15 @@
         moduleOptimistic: {},     // storeKey → { value, opId } (только в полёте)
         modulePending: {},        // storeKey → true (in-flight)
         moduleSaveError: {},      // storeKey → понятный текст ошибки
+        // ═══ EVOL-027 (W10, v0.7): ГЛОБАЛЬНЫЙ master-toggle в карточке ═══
+        // Отдельное пространство операции для глобальной записи: она идёт
+        // своим путём (POST /api/config БЕЗ X-Chat-Id, per_chat=false) и
+        // НЕ является тем же действием, что per-chat override. Ключ —
+        // `global/null/<module_id>`; чатовое состояние продолжает жить в
+        // moduleOptimistic/modulePending и не смешивается с глобальным.
+        moduleGlobalOptimistic: {},   // globalKey → { value, opId }
+        moduleGlobalPending: {},      // globalKey → true (in-flight)
+        moduleGlobalError: {},        // globalKey → понятный текст ошибки
         // F4 (D4/§34–§36): избранное — UI-предпочтение (localStorage), НЕ
         // конфигурация бота; не включает/выключает модуль. Fail-open.
         moduleQuickpicks: null,   // string[] id модулей (init в created/loadMe)
@@ -2020,6 +2032,12 @@
         // F4 (D5/§32/§44): поиск/фильтр каталога — представление.
         moduleSearch: '',
         moduleFilter: 'all',      // all|on|off|issues|picks
+        // ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний ═══
+        // Поиск/тип/раскрытая сущность — представление (без новых API).
+        memoryCatalogQuery: '',
+        memoryCatalogType: 'all',
+        memoryCatalogOpenKey: '',
+        memoryCatalogPersonId: null,
         // A4/T-1207: LLM-блоки по модулям + черновики/результаты теста.
         providerBlocks: PROVIDER_BLOCKS,
         blockDrafts: {},
@@ -2106,6 +2124,9 @@
           error: '',
           families: [],
           focusKey: '',
+          // EVOL-028 (W10): «каталог уже загружен» — чтобы подпись на панели
+          // «ИИ» не путала пустой каталог с ещё не загруженным.
+          loaded: false,
         },
         // MCA-19 (T-5103/T-5116): живая effective-линия карточки «Распознава­
         // ние изображений» (GET /api/vision/state при открытии вкладки
@@ -2300,7 +2321,11 @@
         // (Δ каталога = 0: только перегруппировка в JS-витрине).
         memorySubgroup: '',
         // ── Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» (тикер) ──
+        // EVOL-026 (W10): лента живёт в «Статусе»; `dossierFeedAt` — реальное
+        // время последней ЗАГРУЗКИ (честная подпись «данные от …», без
+        // фиктивного «обновляется» при пустой/ошибочной ленте).
         dossierFeed: [],         // GET /api/oversight/dossier_feed
+        dossierFeedAt: 0,
         // ASAP-3.1: автобюджеты (GET /api/analytics/context-budgets).
         budgetsAuto: null,
         budgetsAutoBusy: false,
@@ -2384,6 +2409,10 @@
         vizActivityError: '',
         vizActivityAt: 0,
         vizActivityDays: 14,
+        // ═══ EVOL-026 (W10): выбранный час heatmap (Status) ═══
+        vizHeatSel: null,             // {d, h, c, errs} | null
+        // Подпись адресного перехода/фильтра, показанная на «Запусках».
+        oversightFocusNote: '',
         mca17cActivity: null,         // GET /api/analytics/viz/process-activity
         mca17cActivityBusy: false,
         mca17cActivityAt: 0,
@@ -2799,6 +2828,10 @@
         storiesFeedAt: 0,           // ts последнего успешного опроса (stale ≠ healthy)
         storiesFeedTimer: null,
         storiesFeedSeq: 0,          // guard устаревших ответов при смене чата
+        // EVOL-026/EVOL-030 (W10): фильтр ленты в «Аналитике».
+        // '' — все события; 'problems' — только неуспешные исходы (реальные
+        // `outcome !== 'success'`), чтобы причины были видны, а не «шум».
+        storiesFeedFilter: '',
         storiesEnabled: true,       // K1 (learned: enabled:false у API → скрыть)
         storiesManageEnabled: true, // K2 (learned с сервера)
         storiesCard: null,          // подробная карточка НА МЕСТЕ (без навигации)
@@ -3143,6 +3176,28 @@
         return this.route === '#/ai' && !!this.hubCards
           && this.canViewTab('speech');
       },
+      // ═══ EVOL-028 (W10): «ИИ» — рабочая панель вместо витрины ссылок ═══
+      // Панель показывает РЕАЛЬНЫЕ данные: /api/status.llm (роли/провайдер/
+      // модель/health), /api/prompts/catalog (число промптов и семейств),
+      // существующие права/области. Новых API не заводим.
+      aiHubPanel: function () {
+        return this.route === '#/ai' && !!this.hubCards;
+      },
+      // ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний на месте хаба.
+      // Отдельной «приборной панели» больше нет: поиск/типы/карточка сущности
+      // на существующем маршруте `#/memory` (новых маршрутов не заводим).
+      memoryHubPanel: function () {
+        return this.route === '#/memory' && !!this.hubCards;
+      },
+      // ═══ EVOL-030 (W10): стартовый экран «Доступов» — сводка + разделы.
+      accessHubPanel: function () {
+        return this.route === '#/access' && !!this.hubCards;
+      },
+      // Модели по фактическим ролям (module_title) + состояние соединения.
+      // Каталог промптов: честные счётчики из существующего API каталога.
+      // Ленивая загрузка данных панели «ИИ» (без новых запросов на каждый рендер).
+      // Адресный переход к секции канонического редактора «Речь и характер»
+      // (EVOL-028 v0.8: второго редактора личности не существует).
       // F1 (§6/§7, UPD §8.4): пункты shell’ов.
       // Desktop sidebar: публичные + админ + локальный (группы разделены).
       sidebarItems: function () {
@@ -6088,6 +6143,169 @@
           };
         });
       },
+      // ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний ═══════════════
+      // Источники — ТОЛЬКО существующие API/данные: записи досье
+      // (/api/oversight/dossier_feed), участники (/api/chat_lore/…/relations),
+      // связи графа (/api/memory/graph), контекст (/api/memory/dream/beliefs),
+      // эпизоды (/api/episodes/feed). Человеческое представление первично,
+      // технические ID/штуки — в «Диагностике».
+      memoryCatalogTypes: function () {
+        return [
+          { id: 'all', label: 'Всё' },
+          { id: 'facts', label: 'Факты' },
+          { id: 'people', label: 'Люди' },
+          { id: 'relations', label: 'Связи' },
+          { id: 'context', label: 'Контекст' },
+          { id: 'episodes', label: 'Эпизоды' },
+        ];
+      },
+      memoryCatalogItems: function () {
+        var out = [];
+        var self = this;
+        var stamp = function (ts) {
+          if (ts == null || ts === '') return '';
+          return (typeof self.fmtTs === 'function') ? self.fmtTs(ts) : String(ts);
+        };
+        // 1) Факты — записи досье (что бот знает о людях/чате).
+        (this.factsFeed || []).forEach(function (f) {
+          out.push({
+            key: 'fact|' + (f.id != null ? f.id : f.key),
+            type: 'facts', typeLabel: 'факт', source: 'fact', item: f,
+            title: f.name || 'Запись досье',
+            body: f.full || f.text || '',
+            status: f.confirmed_at ? ('подтверждено · ' + stamp(f.confirmed_at))
+              : 'подтверждение неизвестно',
+            meta: [
+              f.created_at ? ('когда: ' + stamp(f.created_at)) : 'когда: неизвестно',
+              f.chat_id != null ? ('чат: ' + f.chat_id) : 'чат: неизвестен',
+              f.origin ? ('источник: ' + f.origin) : '',
+              f.tg_message_id != null ? ('сообщение #' + f.tg_message_id) : '',
+            ].filter(Boolean),
+            raw: [
+              'id: ' + (f.id != null ? f.id : '—'),
+              f.chat_id != null ? ('chat_id: ' + f.chat_id) : '',
+              f.user_id != null ? ('user_id: ' + f.user_id) : '',
+              f.attribution_method ? ('attribution: ' + f.attribution_method) : '',
+            ].filter(Boolean),
+          });
+        });
+        // 2) Люди — участники активного чата (реальная модель участника).
+        (this.chatRelations || []).forEach(function (u) {
+          var nm = (typeof self.resolveRelationName === 'function')
+            ? self.resolveRelationName(u) : (u.name || '');
+          out.push({
+            key: 'person|' + u.user_id,
+            type: 'people', typeLabel: 'человек', source: 'person', item: u,
+            title: nm || ('Участник ' + u.user_id),
+            body: u.draft_note || u.note || 'Заметки о человеке пока нет.',
+            status: 'стадия: ' + ((typeof self.stageRu === 'function')
+              ? self.stageRu(u.stage_manual || u.stage_auto) : '—'),
+            meta: [
+              u.msg_count != null ? ('сообщений: ' + u.msg_count) : '',
+              u.last_seen ? ('активен: ' + stamp(u.last_seen)) : '',
+              u.username ? ('@' + u.username) : '',
+            ].filter(Boolean),
+            raw: ['user_id: ' + u.user_id],
+          });
+        });
+        // 3) Связи — рёбра графа с человеческими ярлыками узлов.
+        var g = this.cognitionGraphData || {};
+        var nodeLabel = {};
+        (g.nodes || []).forEach(function (n) {
+          nodeLabel[String(n.id)] = n.label || n.title || String(n.id);
+        });
+        (g.edges || []).slice(0, 200).forEach(function (e, i) {
+          var from = nodeLabel[String(e.from)] || String(e.from);
+          var to = nodeLabel[String(e.to)] || String(e.to);
+          out.push({
+            key: 'rel|' + i + '|' + e.from + '|' + e.to,
+            type: 'relations', typeLabel: 'связь', source: 'graph', item: e,
+            title: from + ' → ' + to,
+            body: e.label || e.relation || 'Тип связи не указан.',
+            status: 'связь графа памяти',
+            meta: [],
+            raw: ['from: ' + e.from, 'to: ' + e.to,
+                  e.weight != null ? ('вес: ' + e.weight) : ''].filter(Boolean),
+          });
+        });
+        // 4) Контекст — убеждения и парадигмы (подтверждённость реальная).
+        var pushCtx = function (list, src, label) {
+          (list || []).forEach(function (b) {
+            out.push({
+              key: src + '|' + b.id,
+              type: 'context', typeLabel: label, source: src, item: b,
+              title: (b.type === 'paradigm' ? 'Парадигма' : 'Убеждение')
+                + ' #' + b.id,
+              body: b.fact || '',
+              status: (b.status === 'archived_belief')
+                ? 'в архиве' : ('статус: ' + (b.status || 'неизвестен')),
+              meta: [
+                b.created_at ? ('когда: ' + stamp(b.created_at)) : 'когда: неизвестно',
+                b.chat_id != null ? ('чат: ' + b.chat_id) : '',
+                (b.source_ids && b.source_ids.length)
+                  ? ('оснований: ' + b.source_ids.length) : 'оснований: 0',
+              ].filter(Boolean),
+              raw: ['id: ' + b.id,
+                    b.weight != null ? ('вес: ' + b.weight) : '',
+                    b.importance != null ? ('важность: ' + b.importance) : '',
+                    b.supersedes != null ? ('заменяет: ' + b.supersedes) : ''
+              ].filter(Boolean),
+            });
+          });
+        };
+        pushCtx(this.cognitionBeliefs, 'belief', 'убеждение');
+        pushCtx(this.cognitionParadigms, 'paradigm', 'парадигма');
+        // 5) Эпизоды — адресное открытие конкретного сюжета.
+        var ev = this.episodeFeedView;
+        ((ev && ev.items) || []).forEach(function (it) {
+          out.push({
+            key: 'episode|' + it.id,
+            type: 'episodes', typeLabel: 'эпизод', source: 'episode', item: it,
+            title: it.hasTitle ? it.title : 'Без названия',
+            body: it.happened || 'Краткое описание не восстановлено — '
+              + 'реальная причина в карточке эпизода.',
+            status: it.completenessLabel || ('полнота: ' + (it.completeness || '—')),
+            meta: [
+              (it.periodStart || it.periodEnd)
+                ? ('период: ' + ((typeof this.episodePeriodLabel === 'function')
+                  ? this.episodePeriodLabel(it.periodStart, it.periodEnd) : '—'))
+                : 'период: неизвестен',
+              it.participantsCount ? ('участников: ' + it.participantsCount) : '',
+              it.linkedCount ? ('сообщений: ' + it.linkedCount) : '',
+              (it.chatId != null ? ('чат: ' + it.chatId) : ''),
+            ].filter(Boolean),
+            raw: ['episode_id: ' + it.id,
+                  (it.chatId != null ? ('chat_id: ' + it.chatId) : '')]
+              .filter(Boolean),
+          });
+        }, this);
+        return out;
+      },
+      memoryCatalogFiltered: function () {
+        var q = String(this.memoryCatalogQuery || '').trim().toLowerCase();
+        var t = this.memoryCatalogType || 'all';
+        var items = this.memoryCatalogItems;
+        return items.filter(function (it) {
+          if (t !== 'all' && it.type !== t) return false;
+          if (!q) return true;
+          var hay = (it.title + ' ' + it.body + ' ' + (it.meta || []).join(' '))
+            .toLowerCase();
+          return hay.indexOf(q) !== -1;
+        });
+      },
+      memoryCatalogCounts: function () {
+        var counts = {};
+        this.memoryCatalogItems.forEach(function (it) {
+          counts[it.type] = (counts[it.type] || 0) + 1;
+        });
+        return counts;
+      },
+      // Доступность поиска: индексы/провайдер — из существующего API
+      // /api/memory/embeddings; нет данных — честное «неизвестно».
+      // Открытие сущности: факты/контекст — существующая карточка записи
+      // (источники/соседние связи/изменения), эпизоды — адресная карточка.
+      // Загрузка данных каталога (один раз на вход; без новых API).
+
       // F11 (§16/D4): mobile-экран полного исследования графа доступен по
       // аддитивному hash-маршруту `#/status/graph` (владелец — F1) либо по
       // fallback-шторке (IA_V2_ENABLED=false).
@@ -6169,6 +6387,11 @@
             chat_id: it.chat_id,
             excerpt: it.excerpt,
             chatLabel: titles[it.chat_id] || ('Чат ' + it.chat_id),
+            // EVOL-026 (W10): на карточке Статуса нужны источник/дата/тип и
+            // контекст записи — без выдуманных значений (нет даты → null).
+            text: (it.text == null ? '' : String(it.text)),
+            created_at: (it.created_at == null ? null : it.created_at),
+            tg_message_id: (it.tg_message_id == null ? null : it.tg_message_id),
             dup: false,
           };
         });
@@ -6189,6 +6412,11 @@
       cognitionBeliefsLoop: function () {
         return this._ribbonLoop(this.cognitionBeliefs);
       },
+      // ═══ EVOL-026 (W10): честная подпись свежести ленты досье ═══
+      // Никакого фиктивного «обновляется»: показывается реальное время
+      // последней загрузки либо честная причина отсутствия данных.
+      // Метка часового пояса heatmap — из поля `timezone` ответа API,
+      // без догадок о зоне устройства.
       cognitionParadigmsLoop: function () {
         return this._ribbonLoop(this.cognitionParadigms);
       },
@@ -6728,6 +6956,186 @@
     },
 
     methods: {
+      aiModelGroups: function () {
+        var cards = (this.statusData && this.statusData.llm) || [];
+        var byGroup = {};
+        var order = [];
+        cards.forEach(function (c) {
+          var gid = c.group_id || 'other';
+          if (!byGroup[gid]) {
+            byGroup[gid] = { id: gid, title: c.group_title || gid, rows: [] };
+            order.push(gid);
+          }
+          byGroup[gid].rows.push({
+            role: c.module_title || c.module_id || 'роль',
+            provider: c.provider || '',
+            model: c.model || '',
+            modelSource: c.model_source === 'config' ? 'из настроек' : 'по умолчанию',
+            keyConfigured: !!(c.key && c.key.configured),
+            healthText: this.healthLabel(c.health),
+            healthBadge: this.healthBadge(c.health),
+          });
+        }, this);
+        return order.map(function (g) { return byGroup[g]; });
+      },
+      aiPromptCounts: function () {
+        var fams = (this.promptCatalog && this.promptCatalog.families) || [];
+        var total = 0, manageable = 0;
+        fams.forEach(function (f) {
+          (f.prompts || []).forEach(function (p) {
+            total += 1;
+            if (p.manageable) manageable += 1;
+          });
+        });
+        return { total: total, families: fams.length, manageable: manageable };
+      },
+      aiPromptCountsLabel: function () {
+        var c = this.aiPromptCounts();
+        var pc = this.promptCatalog || {};
+        if (!c.total) {
+          if (pc.loading) return 'каталог загружается…';
+          if (pc.error) return 'каталог недоступен: ' + pc.error;
+          if (pc.loaded) return 'в каталоге пока нет зарегистрированных промптов';
+          return 'каталог ещё не загружен';
+        }
+        return c.total + ' промптов в ' + c.families + ' семействах · '
+          + c.manageable + ' с версиями и диффами';
+      },
+      loadAiHubData: function () {
+        if (!this.statusData && typeof this.loadStatus === 'function') {
+          this.loadStatus();
+        }
+        if (typeof this.loadPromptCatalog === 'function'
+            && this.promptCatalog && !this.promptCatalog.families.length
+            && !this.promptCatalog.loading && !this.promptCatalog.error) {
+          this.loadPromptCatalog();
+        }
+        if (typeof this.maybeLoadVisionState === 'function') {
+          this.maybeLoadVisionState();
+        }
+      },
+      openSpeechPersonaSection: function () {
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/ai/speech');
+        } else if (typeof this.setTab === 'function') {
+          this.setTab('speech');
+        }
+        var self = this;
+        this.$nextTick(function () {
+          if (typeof document === 'undefined') return;
+          var el = document.querySelector('#speech-persona');
+          if (el && el.scrollIntoView) {
+            el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          }
+          if (el && el.focus) el.focus();
+        });
+      },
+      memoryCatalogTypeCount: function (id) {
+        if (id === 'all') return this.memoryCatalogItems.length;
+        return this.memoryCatalogCounts[id] || 0;
+      },
+      memoryCatalogLabel: function () {
+        var shown = this.memoryCatalogFiltered.length;
+        var total = this.memoryCatalogItems.length;
+        if (!total) return 'записей пока нет';
+        return 'показано ' + shown + ' из ' + total;
+      },
+      memorySearchAvailability: function () {
+        var ep = this.embeddingsPanel;
+        if (!ep) return 'состояние поиска неизвестно (данные не загружены)';
+        var idx = (ep.vector_memory && ep.vector_memory.indexes) || [];
+        var prov = (ep.provider && ep.provider.provider) || '';
+        if (!prov) return 'поиск по смыслу недоступен: провайдер эмбеддингов не настроен';
+        return 'поиск по смыслу доступен: ' + prov
+          + (ep.provider && ep.provider.model ? ' · ' + ep.provider.model : '')
+          + ' · индексов ' + idx.length;
+      },
+      openMemoryCatalogItem: function (it, ev) {
+        if (!it) return;
+        if (it.source === 'episode') {
+          this.openEpisodeCard(it.item && it.item.id);
+          return;
+        }
+        if (it.source === 'person') {
+          this.memoryCatalogPersonId =
+            (this.memoryCatalogPersonId === it.item.user_id)
+              ? null : it.item.user_id;
+          return;
+        }
+        if (it.source === 'graph') {
+          this.memoryCatalogOpenKey =
+            (this.memoryCatalogOpenKey === it.key) ? '' : it.key;
+          return;
+        }
+        this.openStatusRecord(it.source, it.item, ev);
+      },
+      memoryCatalogIsOpen: function (it) {
+        if (!it) return false;
+        if (it.source === 'person') return this.memoryCatalogPersonId === it.item.user_id;
+        return this.memoryCatalogOpenKey === it.key;
+      },
+      loadMemoryCatalog: function () {
+        if (!this.isGlobalAdmin) return;
+        if (typeof this.loadCognition === 'function' && !this.cognition) {
+          this.loadCognition();
+        }
+        if (typeof this.loadDossierFeed === 'function' && !this.dossierFeedLoaded) {
+          this.loadDossierFeed();
+        }
+        if (this.activeChatId != null
+            && typeof this.loadRelations === 'function'
+            && !(this.chatRelations || []).length && !this.relationsBusy) {
+          this.loadRelations(this.activeChatId);
+        }
+        if (typeof this.loadCognitionGraph === 'function'
+            && !this.cognitionGraphData && !this._memoryCatalogGraphLoading) {
+          this._memoryCatalogGraphLoading = true;
+          this.loadCognitionGraph();
+        }
+        if (typeof this.loadEpisodeFeed === 'function' && !this.episodeFeed
+            && !this.episodeFeedBusy) {
+          this.loadEpisodeFeed();
+        }
+        if (typeof this.loadEmbeddingsPanel === 'function' && !this.embeddingsPanel) {
+          this.loadEmbeddingsPanel();
+        }
+      },
+      dossierFeedStamp: function () {
+        if (this.dossierFeedError) {
+          return 'не удалось загрузить'
+            + (this.dossierFeedAt ? ' · последние данные от '
+              + this.fmtClock(Math.floor(this.dossierFeedAt / 1000)) : '');
+        }
+        if (!this.dossierFeedLoaded) return 'ещё не загружено';
+        if (!this.dossierFeedAt) return 'время загрузки неизвестно';
+        return 'данные от ' + this.fmtClock(Math.floor(this.dossierFeedAt / 1000));
+      },
+      vizHeatTzLabel: function () {
+        var tz = this.vizActivity && this.vizActivity.timezone;
+        if (!tz) return 'время сервера';
+        if (tz === 'server-local' || tz === 'server') return 'время сервера';
+        return String(tz);
+      },
+      accessScopeLabel: function () {
+        if (this.scopeKind === 'global' || this.activeChatId == null) {
+          return 'общая область (все чаты)';
+        }
+        if (this.scopeKind === 'dm') return 'личные сообщения';
+        return 'чат: ' + (this.activeChatTitle || this.activeChatId);
+      },
+      oversighRunsFilterLabel: function () {
+        var f = this.mca17cRunF || {};
+        var parts = [];
+        if (f.status) parts.push('статус: ' + this.oversightRunStatusLabel(f.status));
+        if (f.component) parts.push('компонент: ' + f.component);
+        if (f.pipeline_type) parts.push('тип: ' + f.pipeline_type);
+        if (f.chat_id) parts.push('chat_id: ' + f.chat_id);
+        var days = String(f.days || '');
+        var dayLabel = { '1': '24 часа', '7': '7 дней', '30': '30 дней',
+                         '90': '90 дней' }[days] || (days ? days + ' дн' : '');
+        if (dayLabel) parts.push('период: ' + dayLabel);
+        return parts.length ? parts.join(' · ') : 'все прогоны, без ограничений';
+      },
       // P0 (prod-incident F1, 21.09.2026): `stickyFieldFailed` ошибочно лежал
       // в `computed` → шаблоны (`index.html`) вызывают его как функцию
       // `stickyFieldFailed(item.key)`; computed-геттер отдавал boolean →
@@ -9197,6 +9605,21 @@
         this.episodeRecoveryOpen = !this.episodeRecoveryOpen;
         if (this.episodeRecoveryOpen) this.loadEpisodeRecovery();
       },
+      // ═══ EVOL-026 (W10): «Причины невосстановления» в «Аналитике» ═══
+      // Тот же существующий контракт /api/episodes/recovery (by_reason/status);
+      // при первом открытии дотягиваем ленту эпизодов тем же loader'ом — новых
+      // API не заводим.
+      openStoriesRecovery: async function () {
+        if (this.episodeRecoveryOpen) {
+          this.episodeRecoveryOpen = false;
+          return;
+        }
+        this.episodeRecoveryOpen = true;
+        if (!this.episodeFeed && typeof this.loadEpisodeFeed === 'function') {
+          await this.loadEpisodeFeed();
+        }
+        this.loadEpisodeRecovery();
+      },
       // Карточка РОВНО выбранного эпизода: id уходит на сервер, сервер сам
       // отсекает чужой чат (404). «Общий каталог» здесь не открывается.
       openEpisodeCard: async function (episodeId) {
@@ -9851,6 +10274,45 @@
         } else {
           this.setTab('memory_rag');
         }
+      },
+      // ═══ EVOL-026 (W10): полный виджет историй живёт в «Аналитике» ═══
+      // Адресный переход «Показать всё» из превью Статуса на суб-вкладку
+      // «Память и интеллект» (существующий маршрут/таб, новый не заводим).
+      openStoriesAnalytics: function () {
+        if (typeof this.oversightSetTab === 'function') {
+          this.oversightSetTab('memory');
+        }
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/oversight?tab=memory');
+        } else if (typeof this.setTab === 'function') {
+          this.setTab('oversight');
+        }
+      },
+      // Превью Статуса: строго последние 3 события (без полной ленты).
+      storiesPreviewEvents: function () {
+        return (this.storiesFeed || []).slice(0, 3);
+      },
+      // Честная подпись свежести превью (без фиктивного «обновляется»).
+      storiesFeedStampShort: function () {
+        if (this.storiesFeedError) {
+          return 'данные устарели'
+            + (this.storiesFeedAt ? ' · ' + this.fmtClock(Math.floor(this.storiesFeedAt / 1000)) : '');
+        }
+        if (!this.storiesFeedAt) return 'лента не загружена';
+        return 'данные от ' + this.fmtClock(Math.floor(this.storiesFeedAt / 1000));
+      },
+      // Фильтр ленты Аналитики: реальный `outcome` события, не эвристика.
+      storiesFeedFiltered: function () {
+        var list = this.storiesFeed || [];
+        if (this.storiesFeedFilter !== 'problems') return list;
+        return list.filter(function (ev) {
+          return !!ev && ev.outcome !== 'success';
+        });
+      },
+      storiesFeedFilterLabel: function () {
+        var all = (this.storiesFeed || []).length;
+        var shown = this.storiesFeedFiltered().length;
+        return 'показано ' + shown + ' из ' + all;
       },
       // Таблица «Памяти»: серверная keyset-пагинация + фильтры (D6).
       storiesFilterQuery: function (overrides) {
@@ -10828,6 +11290,37 @@
         this.route = route;
         _routeApplied = true;
         try { sessionStorage.setItem('adminbot.route', route); } catch (e) { /* quota */ }
+        // ═══ EVOL-028/EVOL-029 (W10): данные рабочих панелей хабов.
+        // «ИИ» — модели/health/каталог промптов; «Память» — каталог знаний.
+        // Оба пути используют существующие загрузчики (без новых API).
+        if (route === '#/ai' && typeof this.loadAiHubData === 'function') {
+          this.loadAiHubData();
+        }
+        if (route === '#/memory' && typeof this.loadMemoryCatalog === 'function') {
+          this.loadMemoryCatalog();
+        }
+        // EVOL-028 v0.8: `#/ai/persona` — deep-link в ЕДИНСТВЕННЫЙ канонический
+        // редактор «Речь и характер» (секция личности), а не второй экран.
+        if (route === '#/ai/persona') {
+          // Секция личности живёт на витрине «Речи и характера» — закрываем
+          // открытую деталь, чтобы deep-link гарантированно попадал в цель.
+          this.speechSection = '';
+          var focusPersona = function () {
+            try {
+              if (typeof document === 'undefined' || !document
+                  || typeof document.querySelector !== 'function') return;
+              var el = document.querySelector('#speech-persona');
+              if (el && el.scrollIntoView) {
+                el.scrollIntoView({ block: 'start' });
+              }
+            } catch (e) { /* no-op: unit-стабы без DOM */ }
+          };
+          if (typeof this.$nextTick === 'function') {
+            this.$nextTick(focusPersona);
+          } else {
+            focusPersona();
+          }
+        }
         // 10.8/ADR-001: окно подраздела «Доступов» — производная от hash;
         // любой не-`#/access/*` маршрут обнуляет состояние (нет stale-окна).
         this.accessOpen = route.indexOf('#/access/') === 0
@@ -12218,6 +12711,7 @@
           var data = await this.api(url);
           this.dossierFeed = (data && data.items) || [];
           this.dossierFeedError = '';
+          this.dossierFeedAt = Date.now();
           // EVOL-005: пустое состояние отличается от «ещё не запрашивали».
           this.dossierFeedLoaded = true;
         } catch (e) {
@@ -12503,8 +12997,6 @@
           // данные strips — из существующих /api/status и /api/oversight
           if (!this.statusData) this.loadStatus();
           if (!this.oversightData) this.loadOversight();
-          // W3-ANALYTICS: heatmap фактической активности (лениво, кэш 60с)
-          this.vizLoadActivity();
           // D12 §18I.12-P: popover overrides чатов — карта уже глобальная
           // (loadOverrideMap в global-скоупе); досчитываем при входе.
           if (this.isGlobalAdmin && !(this.overrideMap || []).length
@@ -12517,6 +13009,15 @@
           // W3-ANALYTICS: цикл памяти (flow) считает рёбра по тем же
           // durable-событиям процессов — один и тот же запрос, кэш 60с.
           this.vizLoadProcessActivity();
+          // ═══ EVOL-026 (W10): полный виджет «Истории памяти» живёт здесь ═══
+          // (переехал из «Статуса»). Данные — существующие /api/stories/*,
+          // поллинг тот же (startStoriesPolling), без нового API.
+          if (typeof this.startStoriesPolling === 'function' && this.storiesEnabled) {
+            this.startStoriesPolling();
+          }
+          if (typeof this.loadAdjacentVitrines === 'function') {
+            this.loadAdjacentVitrines();
+          }
         }
         if (t === 'models') {
           if (!this.budgetsAuto && !this.budgetsAutoBusy) {
@@ -12866,6 +13367,51 @@
           + ':00 — событий: ' + cell.c
           + (cell.errs ? (' (ошибок: ' + cell.errs + ')') : '');
       },
+      // ═══ EVOL-026 (W10): интерактивный выбор часа на heatmap ═══════════
+      // Hover/touch/keyboard: каждая ячейка — фокусируемая кнопка с доступным
+      // именем (значение читаемо, а не «микроточка»). Клик/Enter/Space
+      // выбирает час; выбранный час разворачивается в подпись с числами и
+      // адресной ссылкой в Аналитику. Никаких выдуманных значений: всё из
+      // существующего /api/analytics/viz/activity.
+      vizHeatPick: function (cell) {
+        if (!cell) return;
+        var cur = this.vizHeatSel;
+        if (cur && cur.d === cell.d && cur.h === cell.h) {
+          this.vizHeatSel = null;
+          return;
+        }
+        this.vizHeatSel = {
+          d: cell.d, h: cell.h, c: cell.c, errs: cell.errs || 0,
+        };
+      },
+      vizHeatIsPicked: function (cell) {
+        var s = this.vizHeatSel;
+        return !!(s && cell && s.d === cell.d && s.h === cell.h);
+      },
+      vizHeatSelLabel: function () {
+        var s = this.vizHeatSel;
+        if (!s) return '';
+        var hh = (s.h < 10 ? '0' : '') + s.h;
+        var next = ((s.h + 1) % 24);
+        var nhh = (next < 10 ? '0' : '') + next;
+        return s.d + ', ' + hh + ':00–' + nhh + ':00 · событий: ' + s.c
+          + (s.errs ? (' · с ошибками: ' + s.errs) : ' · ошибок нет');
+      },
+      // Адресный переход: heatmap → «Запуски» Аналитики с фильтром периода,
+      // покрывающим выбранный день (серверный фильтр по часу отсутствует —
+      // не выдумываем параметр, а передаём период и подпись выбранного часа).
+      vizHeatOpenEvents: function () {
+        var s = this.vizHeatSel;
+        if (!s) return;
+        // День выбранного часа → «дни» для серверного фильтра запусков.
+        this.mca17cRunF = Object.assign({}, this.mca17cRunF || {}, {
+          days: '7',
+        });
+        this.oversightFocusNote = 'Выбранный час: ' + s.d + ' '
+          + ((s.h < 10 ? '0' : '') + s.h) + ':00 (время сервера)';
+        this.navigateTo('#/oversight?tab=runs');
+      },
+
 
       // ── Viz 1 (§18I.12-C): цикл памяти (flow) ──
       // Рёбра — РЕАЛЬНЫЕ счётчики durable-событий процессов (24ч) из
@@ -14337,6 +14883,184 @@
         this.moduleQuickpicks = this._sanitizeQuickpicks(ids);
         this._writeQuickpicks();
       },
+
+      // ════════════════════════════════════════════════════════════════════
+      // EVOL-027 (W10, жёсткое уточнение владельца v0.7): ГЛОБАЛЬНЫЙ тумблер
+      // остаётся ПРЯМО в карточке каталога и выполняет штатную операцию сразу.
+      // Отдельное пространство ключей (`global/null/<id>`), отдельный
+      // write-path (per_chat=false → глобальная запись конфигурации без
+      // X-Chat-Id): локальное переключение не может подменить глобальное
+      // состояние, а глобальное — не создаёт и не трогает per-chat override.
+      // ════════════════════════════════════════════════════════════════════
+      moduleGlobalOpKey: function (m) {
+        return 'global/null/' + (m && m.id ? m.id : '');
+      },
+      moduleGlobalPendingFor: function (m) {
+        var k = this.moduleGlobalOpKey(m);
+        return !!(this.moduleGlobalPending && this.moduleGlobalPending[k]);
+      },
+      moduleGlobalErrorFor: function (m) {
+        var k = this.moduleGlobalOpKey(m);
+        return (this.moduleGlobalError && this.moduleGlobalError[k]) || '';
+      },
+      // Глобальное состояние: берём `global_value` элемента (он есть и в
+      // chat-области — контракт конфигурации), в глобальной области значение
+      // и есть глобальное. Нет данных — честное `unknown`, не «выключено».
+      moduleGlobalState: function (m) {
+        var pending = this.moduleGlobalPendingFor(m);
+        var key = this.moduleGlobalOpKey(m);
+        var overlay = this.moduleGlobalOptimistic
+          ? this.moduleGlobalOptimistic[key] : null;
+        var item = this._moduleConfigItem(m);
+        var known = !!(item && item.value !== null && item.value !== undefined);
+        var gv = null;
+        if (item && item.global_value !== null && item.global_value !== undefined) {
+          gv = item.global_value;
+        } else if (known && this.scopeKind === 'global') {
+          gv = item.value;
+        }
+        var has = (gv !== null && gv !== undefined);
+        var display = (overlay && pending) ? !!overlay.value : (has ? gv : null);
+        return {
+          known: has, value: gv, display: display, pending: pending,
+          error: this.moduleGlobalErrorFor(m),
+        };
+      },
+      // Право на глобальное действие: только глобальный админ + RBAC по ключу.
+      moduleGlobalCanEdit: function (m) {
+        if (!m || !m.toggleKey) return false;
+        return !!this.isGlobalAdmin && this.canEditModule(m);
+      },
+      moduleGlobalStateText: function (m) {
+        if (m && m.noToggle) return 'управляется параметрами';
+        var st = this.moduleGlobalState(m);
+        if (!st.known) return 'неизвестно';
+        return st.display ? 'включён' : 'выключен';
+      },
+      // Явная подпись глобального тумблера: имя области + текущее значение.
+      moduleGlobalToggleLabel: function (m) {
+        var st = this.moduleGlobalState(m);
+        var v = (st.known) ? (st.display ? 'включён' : 'выключен')
+                           : 'состояние неизвестно';
+        return 'Глобально: ' + v + ' — ' + (m ? m.title : '');
+      },
+      // Эффективное состояние ВЫБРАННОЙ области + источник отличия.
+      moduleEffectiveLine: function (m) {
+        if (!m || m.noToggle) return '';
+        if (this.scopeKind === 'global') return '';
+        var st = this.getModuleState(this.storeScope(), m.id);
+        var eff = (st.runtime === 'unknown' || st.display === null)
+          ? 'неизвестно' : (st.display ? 'включён' : 'выключен');
+        var src = (st.known && st.effective === st.globalValue)
+          ? 'как глобально' : 'своё значение для чата';
+        return 'Для этой области: ' + eff + ' · источник: ' + src;
+      },
+      // ═══ EVOL-027 v0.7: немедленная глобальная операция ═══
+      // Никакого перехода в детали/настройки: одна мутация, подтверждение
+      // сервером, pending-состояние, откат при отказе, аудит со scope.
+      setModuleGlobalState: async function (m, enabled) {
+        if (!m || !m.toggleKey) return { ok: false, error: 'unknown-module' };
+        if (!this.moduleGlobalCanEdit(m)) {
+          this.toast('Нет права на глобальную настройку', 'err');
+          return { ok: false, error: 'forbidden' };
+        }
+        var key = this.moduleGlobalOpKey(m);
+        if (!this.moduleGlobalPending) this.moduleGlobalPending = {};
+        if (!this.moduleGlobalOptimistic) this.moduleGlobalOptimistic = {};
+        if (!this.moduleGlobalError) this.moduleGlobalError = {};
+        if (this.moduleGlobalPending[key]) return { ok: false, skipped: true };
+        var opId = 'modg-' + (++this._opSeq);
+        this.moduleGlobalOptimistic[key] = { value: !!enabled, opId: opId };
+        this.moduleGlobalPending[key] = true;
+        this.moduleGlobalError[key] = '';
+        var res;
+        try {
+          res = await this.persistItems(
+            [{ key: m.toggleKey, value: !!enabled, per_chat: false }],
+            { operationId: opId });
+        } catch (e) {
+          res = { saved: [], skipped: [],
+                  failed: [{ key: m.toggleKey,
+                             reason: (e && e.message) || 'error' }],
+                  state: 'error' };
+        }
+        res = res || {};
+        var saved = (res.saved || []).indexOf(m.toggleKey) >= 0;
+        var skipped = (res.skipped || []).indexOf(m.toggleKey) >= 0;
+        var failedObj = null;
+        (res.failed || []).forEach(function (f) {
+          if (f && f.key === m.toggleKey) failedObj = f;
+        });
+        if (skipped) {
+          delete this.moduleGlobalOptimistic[key];
+          this.moduleGlobalPending[key] = false;
+          return { ok: false, skipped: true };
+        }
+        if (saved || res.revalidated) {
+          // Подтверждение сервером: перечитываем канонический конфиг активной
+          // области (в chat-области он же возвращает свежий global_value).
+          try {
+            if (typeof this._preserveScroll === 'function') {
+              await this._preserveScroll(this.loadConfig);
+            } else {
+              await this.loadConfig();
+            }
+          } catch (e) { /* fail-open */ }
+          delete this.moduleGlobalOptimistic[key];
+          this.moduleGlobalPending[key] = false;
+          this.moduleGlobalError[key] = '';
+          this.toast((enabled ? 'Глобально включено: ' : 'Глобально выключено: ')
+            + m.title, 'ok');
+          return { ok: true };
+        }
+        // Отказ: overlay снимаем — UI возвращается к серверному значению.
+        delete this.moduleGlobalOptimistic[key];
+        this.moduleGlobalPending[key] = false;
+        this.moduleGlobalError[key] = (failedObj && failedObj.reason === 'conflict')
+          ? 'Конфликт версии — значение перечитано'
+          : 'Не удалось изменить глобально';
+        return { ok: false, error: (failedObj && failedObj.reason) || 'error' };
+      },
+      // ═══ EVOL-027: здоровье и последнее подтверждённое событие карточки ═══
+      // Источник — ТОЛЬКО существующие health-данные подсистем (EVOL-032);
+      // у модуля без собственной health-оси честно возвращается null
+      // («здоровье: нет данных»), а `enabled` НЕ выдаётся за `healthy`.
+      moduleHealthView: function (m) {
+        if (!m) return null;
+        var id = String(m.id || '');
+        var st = null;
+        if (id === 'mod_vision') {
+          st = this.visionHealthView;
+        } else if (id === 'mod_sleep') {
+          st = healthStateFrom('sleep', this.sleepHealthSource, 'global');
+        } else if (id === 'mod_experience') {
+          st = healthStateFrom('experience', this.experienceHealthSource,
+            this.healthScope);
+        }
+        if (!st) return null;
+        // «неизвестно/нет данных» — честно, но не выдаём за проблему: карточке
+        // нужен только подтверждённый вердикт или явное «нет данных».
+        return st;
+      },
+      moduleHealthLine: function (m) {
+        var h = this.moduleHealthView(m);
+        if (!h) return '';
+        var when = h.observedAt ? ' · ' + this.fmtLogTs(h.observedAt) : '';
+        return 'Здоровье: ' + h.label + (h.reason ? ' — ' + h.reason : '') + when;
+      },
+      // Последняя подтверждённая ошибка/выполнение — только реальные данные.
+      moduleLastEventLine: function (m) {
+        var err = this.moduleSaveErrorFor(m);
+        if (err) return 'Последняя операция: ошибка — ' + err;
+        var gerr = this.moduleGlobalErrorFor(m);
+        if (gerr) return 'Последняя глобальная операция: ошибка — ' + gerr;
+        var h = this.moduleHealthView(m);
+        if (h && h.observedAt) {
+          return 'Последнее подтверждённое наблюдение: '
+            + this.fmtLogTs(h.observedAt);
+        }
+        return '';
+      },
       // F5 (ADR-1025-15 D2/§46): шов F4 меняет РЕАЛИЗАЦИЮ — теперь это
       // навигация на страницу модуля `#/modules/<slug>` (§46). Точка входа
       // (кнопка «Настроить») не меняется. Если workspace-определение или
@@ -14371,6 +15095,16 @@
       routeSlugOf: function (m) {
         if (!m) return '';
         return m.routeSlug || String(m.id || '').replace(/^mod_/, '');
+      },
+      // EVOL-027 v0.8: из деталей модуля — назад к каталогу, где живёт
+      // единственный глобальный тумблер («Управляется из каталога»).
+      backToModulesCatalog: function () {
+        if (typeof this.closeModule === 'function') this.closeModule();
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/modules');
+        } else if (typeof this.setTab === 'function') {
+          this.setTab('modules');
+        }
       },
       // Поиск модуля по slug среди ТЕКУЩЕГО `this.modules` (production/MODULES).
       moduleBySlug: function (slug) {
@@ -15092,6 +15826,7 @@
           var data = await this.api('/api/prompts/catalog',
                                     { global: true, silent403: true });
           c.families = (data && data.families) || [];
+          c.loaded = true;
         } catch (e) {
           c.error = (e && e.message) ? String(e.message) : 'Каталог недоступен';
           c.families = [];
@@ -17218,13 +17953,22 @@
           this.startStatusPolling();
           this.loadCognition();          // F5/§5: блок «Осмысление»
           this.startCognitionPolling();  // F5-Q3: polling 15с
+          // ═══ EVOL-026 (W10): «Активность по часам» + «Живая лента досье»
+          // живут в «Статусе» (перенос из «Аналитики»). Источники прежние:
+          // /api/analytics/viz/activity (кэш 60с) и /api/oversight/dossier_feed
+          // (поллинг 45с) — новых API/маршрутов нет.
+          if (typeof this.vizLoadActivity === 'function') this.vizLoadActivity();
+          if (typeof this.startDossierFeedPolling === 'function') {
+            this.startDossierFeedPolling();
+          }
         } else {
           this.stopStatusPolling();
           this.stopCognitionPolling();   // F5-Q3: вне «Статуса» — стоп
           this.destroyCognitionGraph();  // R10.11-5: нет stale-инстанса
         }
-        // MCA-12: лента «Истории чата» живёт ТОЛЬКО на «Статусе» (12с);
-        // витрины смежных T-5169 — лениво, ~30с кэш (fail-open).
+        // MCA-12: превью «Истории памяти» — на «Статусе»; ПОЛНЫЙ виджет
+        // (EVOL-026, W10) — в «Аналитике → Память и интеллект»; поллинг один
+        // и тот же (startStoriesPolling), витрины смежных T-5169 — лениво.
         if (typeof this.startStoriesPolling === 'function') {
           if (id === 'status') {
             this.startStoriesPolling();
@@ -17255,9 +17999,11 @@
           if (typeof this.loadEmbeddingsPanel === 'function') {
             this.loadEmbeddingsPanel();
           }
-          // 10.20 (T-1897): «Живая лента досье» (guard — unit-стабы setTab).
-          if (typeof this.startDossierFeedPolling === 'function') {
-            this.startDossierFeedPolling();
+          // 10.20 (T-1897): «Живая лента досье» — ПО ЕВОЛ-026 (W10) живёт
+          // в «Статусе»; здесь только останавливаем её, если пришли из
+          // «Статуса» (двойного поллера нет).
+          if (typeof this.stopDossierFeedPolling === 'function') {
+            this.stopDossierFeedPolling();
           }
           // mca-17a (§4.6/SC-16): refresh индикатора инцидентов ≤10 с.
           if (typeof this.startIncidentPolling === 'function') {
@@ -17298,6 +18044,8 @@
         }
         // F3 (10.14): «Личность» — special-screen, всегда перечитываем свой
         // скоуп при входе (черновик мог быть от прошлого чата).
+        // EVOL-028 v0.8: отдельного экрана больше нет (route → 'speech'),
+        // ветка оставлена как no-op на случай программного setTab('persona').
         if (id === 'persona' && !this.personaLoading) {
           this.loadPersona();
         }
@@ -17305,6 +18053,11 @@
         // перечитывается при входе, черновики разделов сохраняются.
         if (id === 'speech' && !this.speechLoading) {
           this.loadSpeechOverview();
+        }
+        // EVOL-028 v0.8: личность теперь часть «Речи и характера» — данные
+        // персонального редактора грузятся вместе с разделом.
+        if (id === 'speech' && !this.personaLoading && !this.personaDraft) {
+          if (typeof this.loadPersona === 'function') this.loadPersona();
         }
         if (id === 'access' && this.canViewTab('access')) {
           this.loadAdmins();
@@ -19483,6 +20236,21 @@
       matrixChecked: function (item, field, role) {
         return arr(item && item[field]).indexOf(role) >= 0;
       },
+      // ═══ EVOL-030 (W10): матрица прав на mobile ═══════════════════════
+      // Компактная модель «сущность → доступные права → эффективные роли»:
+      // вместо плотной таблицы чекбоксов на узком экране показываем роли,
+      // которые фактически получают чтение/запись (данные — те же поля).
+      matrixEffectiveRoles: function (item, field) {
+        var rows = arr(item && item[field]);
+        var names = { user: 'пользователь', moderator: 'модератор',
+                      local_admin: 'лок. админ' };
+        var out = rows.map(function (r) { return names[r] || r; });
+        if (!out.length) return 'только глобальный админ';
+        return out.join(', ');
+      },
+      // Подпись области для сводки «Доступов» (тот же активный scope).
+      // ═══ EVOL-030 (W10): понятная подпись активных фильтров «Запусков» ═══
+      // Ничего не выдумываем: только реально выставленные поля.
       matrixRoleToggle: async function (key, field, role) {
         var item = this.matrixItems[key];
         if (!item) return;

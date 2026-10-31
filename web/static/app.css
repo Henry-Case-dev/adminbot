@@ -6089,3 +6089,179 @@ html.w9-sheet-bottom .modal-card {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ═══ EVOL-026/027/028/029/030 (W10): секционные экраны и виджеты ═════════
+   Слой только описывает геометрию/состояния НОВЫХ блоков; материалы —
+   существующие токены (card/hairline/overlay/focus-ring). Refraction,
+   прозрачность стекла и полигональный фон не затрагиваются. */
+
+/* ── W10-1. «Статус»: активность по часам (перенос из «Аналитики») ─────── */
+.status-activity .viz-heat { max-height: 240px; }
+/* Ячейка — настоящая кнопка: та же геометрия/палитра уровней, но с
+   клавиатурным фокусом и состоянием выбора (значение читаемо в aria-label). */
+.viz-heat__row .viz-heat__cell {
+  padding: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  /* Читаемая сетка: у пустой ячейки виден контур (не «микроточка»), у
+     заполненной — уровень заливки; красная точка — были ошибки. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+.viz-heat__row .viz-heat__cell:hover { outline: 1px solid rgba(210, 235, 255, .45); }
+.viz-heat__row .viz-heat__cell:focus-visible {
+  outline: var(--focus-ring, 2px solid #a78bfa);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+.viz-heat__row .viz-heat__cell.is-picked {
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, .85) inset;
+}
+.viz-heat__legend {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.viz-heat__legend-cell {
+  width: 12px; height: 12px; border-radius: 3px;
+  background: rgba(255, 255, 255, .05);
+  display: inline-block;
+}
+.viz-heat__legend-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #F87171; display: inline-block; margin-left: 6px;
+}
+.viz-heat__picked {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 6px 8px; border-radius: 8px;
+  background: rgba(148, 163, 184, .10);
+}
+/* Мобильный: легенда и подпись выбранного часа не выдавливают сетку. */
+@media (max-width: 480px) {
+  .status-activity .viz-heat { max-height: 200px; }
+  .viz-heat__legend { font-size: 11px; }
+}
+
+/* ── W10-2. «Статус»: живая лента досье (перенос из «Аналитики») ───────── */
+/* Компактная высота: на «Статусе» лента — превью (2–6 записей), а не
+   бесконечный тикер; полная история досье — в «Аналитике». */
+.status-dossier__track { max-height: 132px; --dossier-h: 132px; }
+.dossier-ticker__excerpt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dossier-ticker__meta { display: block; width: 100%; }
+
+/* ── W10-3. «Статус»: строго ограниченное превью историй памяти ────────── */
+.status-stories-preview__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.status-stories-preview__list li { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── W10-4. «Модули»: карточка каталога (EVOL-027 v0.7/v0.8) ───────────── */
+/* Глобальный и чатовый тумблеры — один ритм высот, подпись слева, контрол
+   справа; положение не зависит от длины описания (grid, не flex-поток). */
+.module-controls { display: grid; gap: 6px; margin-top: 8px; }
+.module-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 12px;
+}
+.module-control-row__label {
+  min-width: 0;
+  color: rgba(178, 192, 212, .92);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.module-control-row__state {
+  color: rgba(244, 247, 251, .92);
+  font-weight: 600;
+  margin-left: 4px;
+}
+.module-control-row .module-toggle { min-width: 44px; min-height: 44px; justify-content: flex-end; }
+.module-control-row--readonly .module-control-row__label { color: rgba(148, 163, 184, .85); }
+.module-status-line { font-size: 11px; color: rgba(178, 192, 212, .85); }
+.module-status-line--error { color: #FCA5A5; }
+.module-health { font-size: 11px; }
+.module-health--problem { color: #FCA5A5; }
+.module-health--unknown { color: rgba(178, 192, 212, .8); }
+.module-catalog-caption { font-size: 11px; color: rgba(178, 192, 212, .85); }
+/* Компактная карточка: детали (проверки/источники/события) — в окне. */
+.module-card { display: flex; flex-direction: column; min-width: 0; }
+.module-card-actions { margin-top: auto; padding-top: 8px; }
+
+/* ── W10-5. «ИИ»: рабочая панель (EVOL-028) ────────────────────────────── */
+.w10-panel { display: grid; gap: 12px; grid-column: 1 / -1; }
+.w10-panel__sections {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+.w10-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.w10-section__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.w10-section__title { font-size: 13px; font-weight: 700; }
+.w10-section__hint { font-size: 11px; color: rgba(178, 192, 212, .85); }
+.w10-rows { display: grid; gap: 6px; }
+.w10-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 8px;
+  background: rgba(148, 163, 184, .08);
+  font-size: 12px; min-width: 0;
+}
+.w10-row__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.w10-row__value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.w10-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── W10-6. «Память»: читаемый каталог знаний (EVOL-029) ───────────────── */
+.mem-search { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mem-types { display: flex; gap: 6px; flex-wrap: wrap; }
+.mem-list { display: grid; gap: 8px; }
+.mem-item {
+  display: grid; gap: 4px; min-width: 0;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(148, 163, 184, .06);
+  text-align: left; width: 100%;
+}
+.mem-item:hover { background: rgba(148, 163, 184, .12); }
+.mem-item:focus-visible {
+  outline: var(--focus-ring, 2px solid #a78bfa);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+.mem-item__title { font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.mem-item__body { font-size: 12px; color: rgba(244, 247, 251, .88); overflow-wrap: anywhere; }
+.mem-item__meta { font-size: 11px; color: rgba(178, 192, 212, .85); display: flex; gap: 6px; flex-wrap: wrap; }
+.mem-detail { display: grid; gap: 8px; }
+.mem-detail__sources { display: flex; gap: 6px; flex-wrap: wrap; }
+.mem-tech summary { cursor: pointer; font-size: 12px; color: rgba(178, 192, 212, .9); }
+
+/* ── W10-7. «Доступы»: сводка и разделы (EVOL-030) ─────────────────────── */
+.access-summary { display: grid; gap: 8px; }
+.access-stat-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+.access-sections { display: grid; gap: 8px; }
+.access-section-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(148, 163, 184, .06);
+  text-align: left; width: 100%; min-height: 44px;
+}
+.access-section-row:hover { background: rgba(148, 163, 184, .12); }
+.access-section-row:focus-visible {
+  outline: var(--focus-ring, 2px solid #a78bfa);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+/* Матрица прав: на узком экране — сущность → права → эффективные роли. */
+.matrix-perm-summary { display: none; }
+@media (max-width: 767px) {
+  .matrix-table thead { display: none; }
+  .matrix-perm-summary { display: block; font-size: 11px; color: rgba(178, 192, 212, .9); }
+}
+
+/* ── W10-8. «Аналитика»: метаданные фильтров и advanced ─────────────────── */
+.oversight-focus-note {
+  font-size: 11px; color: rgba(178, 192, 212, .9);
+  padding: 4px 8px; border-radius: 8px;
+  background: rgba(148, 163, 184, .10);
+}

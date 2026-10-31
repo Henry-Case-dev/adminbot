@@ -473,41 +473,342 @@
               style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content: start;">
           <!-- T-1100: hub-экраны (карточная сетка → дочерние маршруты) -->
           <template v-if="hubCards">
-            <div class="hub-head">
-              <div class="hub-title">{{ hubCards.title }}</div>
-              <div class="hub-sub">{{ hubCards.subtitle }}</div>
-            </div>
-            <div class="hub-grid">
-              <!-- ═══ FIX-SPEECH-MOBILE (18.10, директива владельца §6.3):
-                   явная строка-вход «Речь и характер» на хабе «ИИ» —
-                   владелец на мобильном не находил раздел (дверь была только
-                   внутри «Личность и стиль»). Маршрут прежний (#/ai/speech);
-                   карточки/страницы хаба и навигация не меняются. ═══ -->
-              <button v-if="hubSpeechEntry" type="button"
-                      class="speech-hub-entry" data-speech-hub-entry
-                      @click="navigateTo('#/ai/speech')">
-                <span class="msr speech-hub-entry__icon" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
-                <span class="speech-hub-entry__body">
-                  <span class="speech-hub-entry__title">Речь и характер</span>
-                  <span class="speech-hub-entry__sub">Характер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранение</span>
-                </span>
-                <span class="speech-hub-entry__cta">Открыть →</span>
-              </button>
-              <button v-for="c in hubCards.cards"
-                      :key="c.route + (c.section || '')"
-                      class="hub-card" @click="openHubCard(c)">
-                <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
-                <span class="min-w-0">
-                  <span class="hub-card-title block truncate">
-                    {{ c.title }}
-                    <span v-if="c.readonly" class="badge badge-muted">read-only</span>
-                    <span v-if="c.anchor" class="badge badge-muted"
-                          title="Открывается на экране «Модули» (B2 вне скоупа)">↪</span>
+            <!-- ═══ EVOL-028 (W10): «ИИ» — рабочая панель, а не витрина ссылок.
+                 Показывает ФАКТИЧЕСКИЕ данные существующих API:
+                 /api/status.llm (роли/провайдер/модель/здоровье соединения),
+                 /api/prompts/catalog (число промптов и семейств), права/области.
+                 Соединение (HTTP) ≠ работа функции — подписи различают это. ═══ -->
+            <template v-if="aiHubPanel">
+              <div class="hub-head col-span-full">
+                <div class="hub-title">ИИ</div>
+                <div class="hub-sub">Текущие модели по ролям и состояние подключения, речь и характер, имена, каталог промптов с версиями — с одной страницы</div>
+              </div>
+              <div class="w10-panel" data-ai-hub>
+                <div class="w10-panel__sections">
+                  <!-- 1. Модели по ролям + соединение -->
+                  <section class="card p-4 w10-section" data-ai-models>
+                    <div class="w10-section__head">
+                      <span class="w10-section__title">Модели и подключение</span>
+                      <span class="w10-section__hint">проверка соединения · не проверка работы функции</span>
+                      <button class="btn-ghost text-xs ml-auto" @click="loadStatus()"
+                              aria-label="Обновить" title="Обновить">⟳</button>
+                      <button type="button" class="btn-ghost text-xs"
+                              @click="navigateTo('#/ai/llm')">Открыть →</button>
+                    </div>
+                    <div v-if="!statusData" class="spinner my-2"></div>
+                    <div v-else-if="!aiModelGroups().length" class="text-xs text-gray-500">
+                      Провайдеры не настроены — данные о моделях отсутствуют.
+                    </div>
+                    <div v-else class="w10-rows" role="list">
+                      <template v-for="g in aiModelGroups()" :key="'aig-' + g.id">
+                        <div class="w10-section__hint">{{ g.title }}</div>
+                        <div v-for="row in g.rows" :key="'aim-' + g.id + row.role"
+                             class="w10-row" role="listitem">
+                          <span class="w10-row__label">
+                            {{ row.role }}<template v-if="row.provider"> · {{ row.provider }}</template>
+                            <span class="text-[10px] text-gray-500 block">
+                              {{ row.model || 'модель не задана' }} · {{ row.modelSource }}
+                              <template v-if="!row.keyConfigured"> · ключ не настроен</template>
+                            </span>
+                          </span>
+                          <span class="badge w10-row__value" :class="row.healthBadge">{{ row.healthText }}</span>
+                        </div>
+                      </template>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      HTTP-проверка провайдера не доказывает, что функция отвечает:
+                      функциональная проверка — в «Моделях и подключениях» (кнопка «Проверить»).
+                    </div>
+                  </section>
+
+                  <!-- 2. Речь и характер — единственный канонический редактор -->
+                  <section class="card p-4 w10-section" data-ai-speech>
+                    <div class="w10-section__head">
+                      <span class="w10-section__title">Речь и характер</span>
+                      <span class="badge badge-info" data-ai-speech-scope>{{ speechScopeBadge }}</span>
+                    </div>
+                    <div class="text-xs text-gray-400">
+                      Характер (постоянный Core), стиль письма, манера речи, юмор,
+                      примеры и обучение. Личность (имя, биография, характер,
+                      самоосознание) редактируется здесь же — отдельного экрана
+                      «Личность и стиль» больше нет: это один канонический редактор.
+                    </div>
+                    <div class="w10-links">
+                      <button type="button" class="btn-accent text-sm"
+                              @click="navigateTo('#/ai/speech')">Открыть редактор</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              data-ai-persona-link
+                              @click="openSpeechPersonaSection()">Личность и характер →</button>
+                    </div>
+                  </section>
+
+                  <!-- 3. Имена и алиасы -->
+                  <section class="card p-4 w10-section" data-ai-names>
+                    <div class="w10-section__head">
+                      <span class="w10-section__title">Имена и алиасы</span>
+                      <button type="button" class="btn-ghost text-xs ml-auto"
+                              @click="navigateTo('#/ai/names')">Открыть →</button>
+                    </div>
+                    <div class="text-xs text-gray-400">
+                      Как бот называет людей: имена, алиасы, отдельные значения для
+                      чата и личных сообщений. Правки — на существующей странице.
+                    </div>
+                  </section>
+
+                  <!-- 4. Каталог промптов с версиями (EVOL-016–018) -->
+                  <section class="card p-4 w10-section" data-ai-prompts>
+                    <div class="w10-section__head">
+                      <span class="w10-section__title">Библиотека промптов</span>
+                      <button type="button" class="btn-ghost text-xs ml-auto"
+                              @click="navigateTo('#/ai/prompts')">Открыть каталог →</button>
+                    </div>
+                    <div class="text-xs text-gray-400" data-ai-prompt-counts>
+                      {{ aiPromptCountsLabel() }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Активная ревизия, заводская версия, диффы и включение —
+                      в карточке промпта каталога. Второй библиотеки версий нет.
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Кеш готовых ответов выведен из эксплуатации — управляющих
+                      настроек кеша ответов в интерфейсе нет.
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </template>
+            <!-- Прочие хабы: прежняя карточная сетка (маршруты/права те же). -->
+            <!-- ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний вместо
+                 приборной панели. Поиск человеческим текстом, типы знаний по
+                 реальной модели данных, человеческое содержание + когда/откуда +
+                 подтверждение + чат/пользователь. Карточка сущности открывает
+                 существующее окно записи (источники/соседние связи). Чисla
+                 берутся из существующих API; ничего не выдумывается. ═══ -->
+            <template v-else-if="memoryHubPanel">
+              <div class="hub-head col-span-full">
+                <div class="hub-title">Память</div>
+                <div class="hub-sub">Что бот знает: найдите запись обычным текстом и посмотрите, откуда она и насколько подтверждена</div>
+              </div>
+              <div class="w10-panel" data-memory-catalog>
+                <div class="card p-4">
+                  <div class="mem-search">
+                    <input class="field flex-1 min-w-0" type="search"
+                           placeholder="Найти: человек, факт, тема…"
+                           v-model="memoryCatalogQuery"
+                           aria-label="Поиск по памяти обычным текстом"
+                           data-memory-search>
+                    <button class="btn-ghost text-xs" @click="loadMemoryCatalog()"
+                            aria-label="Обновить" title="Обновить">⟳</button>
+                  </div>
+                  <div class="mem-types mt-2" role="group" aria-label="Тип знаний">
+                    <button type="button" v-for="t in memoryCatalogTypes" :key="'mt-' + t.id"
+                            class="module-filter-btn"
+                            :class="{ active: memoryCatalogType === t.id }"
+                            :aria-pressed="memoryCatalogType === t.id ? 'true' : 'false'"
+                            @click="memoryCatalogType = t.id">{{ t.label }}
+                      <span class="text-[10px] opacity-70">{{ memoryCatalogTypeCount(t.id) }}</span>
+                    </button>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-2" data-memory-caption>
+                    {{ memoryCatalogLabel() }} · {{ memorySearchAvailability() }}
+                  </div>
+                  <div v-if="activeChatId == null" class="text-xs text-gray-500 mt-1">
+                    Выбрана общая область: люди/эпизоды/факты показываются только
+                    для конкретного чата — выберите чат сверху.
+                  </div>
+                </div>
+
+                <div class="card p-4">
+                  <div v-if="!memoryCatalogItems.length" class="text-xs text-gray-500">
+                    Записей пока нет — память наполняется из переписки выбранного чата.
+                  </div>
+                  <div v-else-if="!memoryCatalogFiltered.length"
+                       class="text-xs text-gray-500" data-memory-empty>
+                    Ничего не найдено. Измените запрос или тип знаний.
+                  </div>
+                  <div v-else class="mem-list" data-memory-list>
+                    <button type="button" v-for="it in memoryCatalogFiltered.slice(0, 60)"
+                            :key="it.key" class="mem-item"
+                            :data-memory-item="it.type"
+                            :aria-expanded="memoryCatalogIsOpen(it) ? 'true' : 'false'"
+                            @click="openMemoryCatalogItem(it, $event)">
+                      <span class="mem-item__title">{{ it.title }}</span>
+                      <span class="mem-item__body">{{ it.body }}</span>
+                      <span class="mem-item__meta">
+                        <span class="badge badge-muted">{{ it.typeLabel }}</span>
+                        <span>{{ it.status }}</span>
+                        <span v-for="(m, i) in it.meta" :key="'mm-' + it.key + i">{{ m }}</span>
+                      </span>
+                      <!-- Раскрытие строки «на месте» для людей/связей: соседние
+                           связи и технические поля — под «Диагностикой». -->
+                      <span v-if="memoryCatalogIsOpen(it)" class="text-xs text-gray-400 mt-1"
+                            data-memory-inline>
+                        <span v-if="it.type === 'people'">
+                          Пометки и стадии участника правятся на странице «Люди и связи».
+                        </span>
+                        <span v-else-if="it.type === 'relations'">
+                          Связь графа памяти: узлы и рёбра — в «Диагностике».
+                        </span>
+                        <span v-else>Запись открыта в отдельном окне.</span>
+                      </span>
+                    </button>
+                  </div>
+                  <div v-if="memoryCatalogFiltered.length > 60"
+                       class="text-[10px] text-gray-500 mt-2">
+                    Показаны первые 60 записей — уточните запрос, чтобы сузить выборку.
+                  </div>
+                </div>
+
+                <!-- Диагностика: технические инструменты сохранены и явно отделены. -->
+                <details class="card p-4 mem-tech" data-memory-diagnostics>
+                  <summary>Диагностика / расширенный режим</summary>
+                  <div class="text-xs text-gray-400 mt-2 grid gap-1">
+                    <div>Поиск: {{ memorySearchAvailability() }}</div>
+                    <div v-if="memoryHealth && memoryHealth.beliefs_active != null">
+                      Убеждения активные: {{ memoryHealth.beliefs_active }} ·
+                      в архиве: {{ memoryHealth.beliefs_archived }} ·
+                      воскрешений: {{ memoryHealth.resurrections_total }}
+                    </div>
+                    <div v-if="cognitionStats && cognitionStats.facts != null">
+                      Факты: {{ cognitionStats.facts }} · убеждения:
+                      {{ cognitionStats.beliefs }} · узлы графа:
+                      {{ cognitionStats.graph_nodes }} · рёбра: {{ cognitionStats.graph_edges }}
+                    </div>
+                    <div class="flex gap-2 flex-wrap mt-1">
+                      <button class="btn-ghost text-xs" @click="navigateTo('#/memory/rag')">Настройки памяти и фильтры →</button>
+                      <button class="btn-ghost text-xs" @click="navigateTo('#/memory/relations')">Люди и связи →</button>
+                      <button class="btn-ghost text-xs" @click="openStoriesTable()">Таблица историй (проверка/правка) →</button>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mt-1">
+                      Сырые идентификаторы записей доступны в открытом окне записи
+                      (раздел «Технические поля»); очередь FTS/vector и индексы —
+                      в «Настройках памяти».
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </template>
+            <!-- ═══ EVOL-030 (W10): «Доступы» — стартовый экран без трёх
+                 гигантских плиток: краткая сводка ролей/прав и ясные разделы
+                 (Матрица прав, Администраторы чата, Роли и пользователи).
+                 Маршруты/права подразделов не менялись. ═══ -->
+            <template v-else-if="accessHubPanel">
+              <div class="hub-head col-span-full">
+                <div class="hub-title">Доступы</div>
+                <div class="hub-sub">Понять права до редактирования: сводка действующих разрешений и разделы управления</div>
+              </div>
+              <div class="col-span-full access-summary" data-access-summary>
+                <div class="card p-4">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <div class="text-sm font-bold">
+                      <span class="msr" aria-hidden="true">{{ iconGlyph('supervisor_account') }}</span>
+                      Сводка
+                    </div>
+                    <span class="badge badge-muted">{{ accessScopeLabel() }}</span>
+                    <span class="badge" :class="isGlobalAdmin ? 'badge-info' : 'badge-muted'">
+                      {{ isGlobalAdmin ? 'глобальный администратор' : 'локальная роль' }}
+                    </span>
+                  </div>
+                  <div class="access-stat-grid mt-2 text-xs">
+                    <div class="rounded-lg bg-white/5 px-3 py-2">
+                      <div class="text-gray-500">Роли</div>
+                      <div class="text-sm font-semibold" data-access-roles-count>
+                        {{ rolesLoading ? '…' : rolesList.length }}
+                      </div>
+                      <div class="text-gray-500">включая пользовательские</div>
+                    </div>
+                    <div class="rounded-lg bg-white/5 px-3 py-2">
+                      <div class="text-gray-500">Администраторы чата</div>
+                      <div class="text-sm font-semibold" data-access-admins-count>
+                        {{ adminsLoading ? '…' : admins.length }}
+                      </div>
+                      <div class="text-gray-500">{{ accessScopeLabel() }}</div>
+                    </div>
+                    <div class="rounded-lg bg-white/5 px-3 py-2">
+                      <div class="text-gray-500">Права матрицы</div>
+                      <div class="text-sm font-semibold" data-access-matrix-count>
+                        {{ matrixLoading ? '…' : Object.keys(matrixItems).length }}
+                      </div>
+                      <div class="text-gray-500">параметров с настройкой прав</div>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-2">
+                    Права проверяются на сервере (RBAC): скрытые или запрещённые
+                    действия недоступны, а не только невидимы.
+                  </div>
+                </div>
+                <div class="card p-4 access-sections">
+                  <div class="text-sm font-bold mb-1">Разделы</div>
+                  <button type="button" class="access-section-row"
+                          data-access-section="matrix"
+                          @click="openAccessWindow('roles')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
+                    <span class="min-w-0 text-left">
+                      <span class="block font-semibold">Матрица прав</span>
+                      <span class="block text-xs text-gray-500">Что каждая роль может читать и менять по параметрам</span>
+                    </span>
+                    <span class="text-xs text-gray-500">Открыть →</span>
+                  </button>
+                  <button type="button" class="access-section-row"
+                          data-access-section="admins"
+                          @click="openAccessWindow('local')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('group') }}</span>
+                    <span class="min-w-0 text-left">
+                      <span class="block font-semibold">Администраторы чата</span>
+                      <span class="block text-xs text-gray-500">Локальные админы {{ accessScopeLabel() }}</span>
+                    </span>
+                    <span class="text-xs text-gray-500">Открыть →</span>
+                  </button>
+                  <button type="button" class="access-section-row"
+                          data-access-section="roles"
+                          @click="openAccessWindow('admins')">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('supervisor_account') }}</span>
+                    <span class="min-w-0 text-left">
+                      <span class="block font-semibold">Роли и пользователи</span>
+                      <span class="block text-xs text-gray-500">Суперадмины, модераторы, пользователи и назначения ролей</span>
+                    </span>
+                    <span class="text-xs text-gray-500">Открыть →</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="hub-head">
+                <div class="hub-title">{{ hubCards.title }}</div>
+                <div class="hub-sub">{{ hubCards.subtitle }}</div>
+              </div>
+              <div class="hub-grid">
+                <!-- ═══ FIX-SPEECH-MOBILE (18.10, директива владельца §6.3):
+                     явная строка-вход «Речь и характер» на хабе «ИИ» —
+                     владелец на мобильном не находил раздел (дверь была только
+                     внутри «Личность и стиль»). Маршрут прежний (#/ai/speech);
+                     карточки/страницы хаба и навигация не меняются. ═══ -->
+                <button v-if="hubSpeechEntry" type="button"
+                        class="speech-hub-entry" data-speech-hub-entry
+                        @click="navigateTo('#/ai/speech')">
+                  <span class="msr speech-hub-entry__icon" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
+                  <span class="speech-hub-entry__body">
+                    <span class="speech-hub-entry__title">Речь и характер</span>
+                    <span class="speech-hub-entry__sub">Характер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранение</span>
                   </span>
-                  <span class="hub-card-sub block">{{ c.subtitle }}</span>
-                </span>
-              </button>
-            </div>
+                  <span class="speech-hub-entry__cta">Открыть →</span>
+                </button>
+                <button v-for="c in hubCards.cards"
+                        :key="c.route + (c.section || '')"
+                        class="hub-card" @click="openHubCard(c)">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph(c.icon) }}</span>
+                  <span class="min-w-0">
+                    <span class="hub-card-title block truncate">
+                      {{ c.title }}
+                      <span v-if="c.readonly" class="badge badge-muted">read-only</span>
+                      <span v-if="c.anchor" class="badge badge-muted"
+                            title="Открывается на экране «Модули» (B2 вне скоупа)">↪</span>
+                    </span>
+                    <span class="hub-card-sub block">{{ c.subtitle }}</span>
+                  </span>
+                </button>
+              </div>
+          </template>
           </template>
           <!-- ═══ Конфиг-вкладки: LLM Провайдеры / Промпты / Лимиты /
                Память / Сон / Ностальгия / Реакции и Триггеры —
@@ -536,25 +837,16 @@
                   <span class="badge" :class="moduleEnabled(workspaceModule) ? 'badge-ok' : 'badge-muted'">
                     {{ moduleStateText(workspaceModule) }}
                   </span>
-                  <!-- B06.2: global-only мастер на области чата/ЛС —
-                       read-only тумблер + «Настроить глобально». -->
+                  <!-- EVOL-027 v0.8: тождественный master-toggle в деталях
+                       ИСКЛЮЧЁН (он живёт только в карточке каталога). Здесь —
+                       read-only статус и ссылка «Управляется из каталога»;
+                       отдельные независимые оси модуля ниже не тронуты. -->
+                  <button v-if="!workspaceModule.noToggle"
+                          type="button" class="btn-ghost text-xs shrink-0"
+                          data-module-managed-link
+                          @click="backToModulesCatalog()">Управляется из каталога →</button>
                   <span v-if="moduleChatToggleReadonly(workspaceModule)"
                         class="badge badge-muted shrink-0">глобальный рубильник</span>
-                  <label v-if="!workspaceModule.noToggle"
-                         class="relative inline-flex items-center shrink-0"
-                         :class="moduleChatToggleReadonly(workspaceModule) ? '' : 'cursor-pointer'">
-                    <input type="checkbox" class="sr-only peer"
-                           :checked="moduleEnabled(workspaceModule)"
-                           :disabled="moduleChatToggleReadonly(workspaceModule) || !canEditModule(workspaceModule) || modulePendingFor(workspaceModule)"
-                           @change="toggleModule(workspaceModule, $event.target.checked)"
-                           :aria-label="'Включить модуль ' + workspaceModule.title">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                  </label>
-                  <button v-if="moduleChatToggleReadonly(workspaceModule) && isGlobalAdmin"
-                          type="button" class="btn-ghost text-xs shrink-0"
-                          :aria-label="'Настроить глобально: ' + workspaceModule.title"
-                          @click="configureModuleGlobally(workspaceModule)">Настроить глобально</button>
                 </div>
                 <div v-if="moduleRuntimeNotice(workspaceModule)" class="text-xs text-amber-300 mt-1">
                   {{ moduleRuntimeNotice(workspaceModule) }}
@@ -4909,18 +5201,14 @@
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
-            <!-- ═══ Модули (A2/T-1165 + F4 §31–§45): оперативный пульт ═══ -->
+            <!-- ═══ EVOL-027 (W10): «Модули» — единый каталог. ═══ -->
             <div class="hub-head col-span-full">
               <div class="hub-title">Модули</div>
-              <div class="hub-sub">Оперативный пульт: найдите модуль, проверьте область и включите или выключите его — без открытия отдельной страницы параметров</div>
-              <!-- F4 §45: общие индикаторы для выбранной области -->
-              <div class="module-counters" role="status"
-                   aria-label="Сводка по модулям для выбранной области">
-                <span class="module-counter"><b>{{ moduleCounters.total }}</b> Всего</span>
-                <span class="module-counter module-counter--on"><b>{{ moduleCounters.on }}</b> Включено</span>
-                <span class="module-counter module-counter--off"><b>{{ moduleCounters.off }}</b> Выключено</span>
-                <span class="module-counter module-counter--issue"><b>{{ moduleCounters.issues }}</b> Есть проблемы</span>
-              </div>
+              <div class="hub-sub">Найдите модуль, посмотрите его состояние для выбранной области и включите или выключите его — прямо здесь, без перехода в настройки.</div>
+              <!-- EVOL-027 v0.8: тяжёлая агрегатная KPI-строка («20 всего /
+                   18 включено / …») удалена. Число результатов живёт в
+                   подписи списка, проблемы — фильтром и статусом конкретных
+                   модулей (аналитическая диагностика — в «Аналитике»). -->
             </div>
 
             <!-- ASAP 4.2 (D5.3, T-4825): панель избранного (quick access)
@@ -4928,7 +5216,9 @@
                  (название/человеческое описание/status/toggle/избранное/
                  Настроить); дубля панели нет. -->
 
-            <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам -->
+            <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам.
+                 EVOL-027 v0.8: быстрые локальные фильтры сохранены; число
+                 результатов — в подписи под фильтрами, не отдельной панелью. -->
             <div class="module-toolbar col-span-full">
               <input class="field module-search" type="search"
                      placeholder="Найти модуль…" v-model="moduleSearch"
@@ -4938,6 +5228,11 @@
                         class="module-filter-btn" :class="{ active: moduleFilter === f.id }"
                         :aria-pressed="moduleFilter === f.id"
                         @click="moduleFilter = f.id">{{ f.label }}</button>
+              </div>
+              <div class="module-catalog-caption col-span-full" data-module-caption>
+                Показано {{ filteredModules.length }} из {{ visibleModules.length }}
+                <template v-if="moduleSearch || moduleFilter !== 'all'">· фильтр активен</template>
+                · здоровье показывается там, где для модуля есть данные
               </div>
             </div>
 
@@ -4952,50 +5247,100 @@
                       <div class="module-title text-sm font-semibold">{{ m.title }}</div>
                       <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
                     </div>
-                    <!-- F4 D6: карточка ≠ тумблер; noToggle — только «Всего».
-                         B06.2: global-only мастер на области чата/ЛС — тумблер
-                         read-only (инертный override не создаём), hitbox тот же. -->
+                    <!-- Здоровье — ОТДЕЛЬНО от «включён» (enabled ≠ healthy).
+                         Данных нет → строка не показывается вовсе (не «ОК»). -->
+                    <span v-if="moduleHealthView(m)"
+                          class="module-health shrink-0"
+                          :class="moduleHealthView(m).badge === 'badge-ok' ? ''
+                            : (moduleHealthView(m).state === 'normal' ? ''
+                              : (moduleHealthView(m).state === 'unknown'
+                                ? 'module-health--unknown' : 'module-health--problem'))"
+                          :title="moduleHealthLine(m)">
+                      {{ moduleHealthView(m).label }}
+                    </span>
                     <span v-if="m.noToggle" class="badge badge-muted shrink-0">без тумблера</span>
-                    <label v-else class="module-toggle relative inline-flex items-center shrink-0"
-                           :class="{ 'is-saving': modulePendingFor(m), 'is-readonly': moduleChatToggleReadonly(m) }">
-                      <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
-                             :disabled="moduleChatToggleReadonly(m) || !canEditModule(m) || modulePendingFor(m)"
-                             @change="toggleModule(m, $event.target.checked)"
-                             :aria-label="'Включить модуль ' + m.title">
-                      <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                      <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                    </label>
                   </div>
-                  <!-- F4 §33/§43: фактическое состояние выбранной области -->
-                  <div class="module-state text-xs">
-                    <span class="module-state-value">{{ moduleStateText(m) }}</span>
-                    <span v-if="moduleSourceText(m)" class="module-source">
-                      · {{ moduleSourceText(m) }}</span>
+
+                  <!-- EVOL-027 v0.7: управление в предсказуемом порядке.
+                       Глобальный master-toggle — ПРЯМО на карточке, подписан,
+                       выполняет штатную операцию сразу. Per-chat override —
+                       отдельная строка со своим смыслом. -->
+                  <div class="module-controls" v-if="!m.noToggle">
+                    <div class="module-control-row">
+                      <span class="module-control-row__label">
+                        Глобально
+                        <span class="module-control-row__state">{{ moduleGlobalStateText(m) }}</span>
+                        <span v-if="!isGlobalAdmin" class="text-[10px] text-gray-500"> · только чтение (нет прав global admin)</span>
+                      </span>
+                      <label class="module-toggle relative inline-flex items-center shrink-0"
+                             :class="{ 'is-saving': moduleGlobalPendingFor(m), 'is-readonly': !moduleGlobalCanEdit(m) }">
+                        <input type="checkbox" class="sr-only peer"
+                               data-module-global-toggle
+                               :checked="moduleGlobalState(m).display === true"
+                               :disabled="!moduleGlobalCanEdit(m) || moduleGlobalPendingFor(m)"
+                               @change="setModuleGlobalState(m, $event.target.checked)"
+                               :aria-label="moduleGlobalToggleLabel(m)">
+                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                      </label>
+                    </div>
+                    <!-- Per-chat: только там, где локальное значение реально
+                         читается runtime (runtimeGate='per_chat'). -->
+                    <div class="module-control-row"
+                         v-if="scopeKind !== 'global' && (m.runtimeGate || 'global') === 'per_chat'">
+                      <span class="module-control-row__label">
+                        В этом чате
+                        <span class="module-control-row__state">{{ moduleEnabled(m) ? 'включён' : 'выключен' }}</span>
+                      </span>
+                      <label class="module-toggle relative inline-flex items-center shrink-0"
+                             :class="{ 'is-saving': modulePendingFor(m) }">
+                        <input type="checkbox" class="sr-only peer"
+                               data-module-chat-toggle
+                               :checked="moduleEnabled(m)"
+                               :disabled="!canEditModule(m) || modulePendingFor(m)"
+                               @change="toggleModule(m, $event.target.checked)"
+                               :aria-label="'Включить модуль для этого чата: ' + m.title">
+                        <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
+                        <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                      </label>
+                    </div>
+                    <!-- Global-only на чатовой области: локального тумблера нет,
+                         причина написана словами (не «read-only» без смысла). -->
+                    <div class="module-control-row module-control-row--readonly"
+                         v-else-if="scopeKind !== 'global'">
+                      <span class="module-control-row__label">
+                        В этом чате · управляется глобально
+                        <span class="module-control-row__state">{{ moduleStateText(m) }}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Эффективное состояние области + источник отличия. -->
+                  <div class="module-state text-xs" v-if="moduleEffectiveLine(m)">
+                    <span class="module-state-value">{{ moduleEffectiveLine(m) }}</span>
                   </div>
                   <div v-if="moduleRuntimeNotice(m)" class="module-problem text-xs">
                     ⚠ {{ moduleRuntimeNotice(m) }}
                   </div>
-                  <div v-if="moduleGlobalHint(m)" class="module-global-hint text-xs">
-                    {{ moduleGlobalHint(m) }}
-                  </div>
-                  <div v-if="moduleSaveErrorFor(m)" class="module-error text-xs">
+                  <div v-if="moduleSaveErrorFor(m)" class="module-error module-status-line module-status-line--error">
                     {{ moduleSaveErrorFor(m) }}
                   </div>
-                  <!-- F4 D6: «Настроить» — отдельное действие (шов F5) -->
+                  <div v-if="moduleGlobalErrorFor(m)" class="module-error module-status-line module-status-line--error">
+                    {{ moduleGlobalErrorFor(m) }}
+                  </div>
+                  <div v-if="moduleLastEventLine(m)" class="module-status-line">
+                    {{ moduleLastEventLine(m) }}
+                  </div>
+
+                  <!-- Один основной путь в детали + избранное. -->
                   <div class="module-card-actions">
+                    <button class="btn-ghost module-params-btn text-xs shrink-0"
+                            @click="openModuleWorkspace(m)">Настроить</button>
                     <button type="button" class="btn-ghost module-pin-btn text-xs shrink-0"
                             :aria-label="(isQuickpick(m) ? 'Убрать из быстрого управления: ' : 'Закрепить в быстром управлении: ') + m.title"
                             @click="toggleQuickpick(m)">
                       {{ isQuickpick(m) ? '★ В избранном' : '☆ В избранное' }}
                     </button>
-                    <button class="btn-ghost module-params-btn text-xs shrink-0"
-                            @click="openModuleWorkspace(m)">Настроить</button>
-                    <!-- B06.2: глобальный мастер на области чата — переход к
-                         общему рубильнику (существующий канал смены scope). -->
-                    <button v-if="moduleChatToggleReadonly(m) && isGlobalAdmin"
-                            type="button" class="btn-ghost module-global-btn text-xs shrink-0"
-                            :aria-label="'Настроить глобально: ' + m.title"
-                            @click="configureModuleGlobally(m)">Настроить глобально</button>
                   </div>
                 </article>
               </div>
@@ -5023,25 +5368,31 @@
                   <h2 class="modal-title text-base font-bold" :id="'mod-title-' + activeModule.id">
                     {{ activeModule.title }}
                   </h2>
-                  <!-- F4 §37/§40: головной тумблер модуля — тот же канонический
-                       store, что карточка каталога и панель избранного.
-                       B06.2: global-only мастер на области чата — read-only. -->
-                  <label v-if="!activeModule.noToggle"
-                         class="module-toggle relative inline-flex items-center shrink-0 ml-auto"
-                         :class="{ 'is-saving': modulePendingFor(activeModule), 'is-readonly': moduleChatToggleReadonly(activeModule) }">
-                    <input type="checkbox" class="sr-only peer"
-                           :checked="moduleEnabled(activeModule)"
-                           :disabled="moduleChatToggleReadonly(activeModule) || !canEditModule(activeModule) || modulePendingFor(activeModule)"
-                           @change="toggleModule(activeModule, $event.target.checked)"
-                           :aria-label="'Включить модуль ' + activeModule.title">
-                    <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
-                    <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
-                  </label>
+                  <!-- EVOL-027 v0.8: master-toggle, тождественный тумблеру
+                       карточки каталога, здесь ИСКЛЮЧЁН. Внутри — только
+                       read-only статус и навигационная подсказка «Управляется
+                       из каталога». Отдельные независимые параметры/предохранители
+                       модуля остаются ниже без изменений. -->
+                  <span v-if="!activeModule.noToggle"
+                        class="badge badge-muted ml-auto" data-module-readonly-status>
+                    {{ moduleStateText(activeModule) }}
+                    <template v-if="scopeKind === 'global'"> · глобально</template>
+                    <template v-else> · {{ moduleGlobalStateText(activeModule) }} глобально</template>
+                  </span>
                   <button class="modal-close btn-ghost text-sm px-2"
                           :class="activeModule.noToggle ? 'ml-auto' : ''"
                           @click="closeModule()" aria-label="Закрыть">✕</button>
                 </header>
                 <div class="modal-body">
+                  <div v-if="!activeModule.noToggle" class="text-xs text-gray-500 mb-3"
+                       data-module-managed-hint>
+                    Включение и выключение — прямо в карточке каталога
+                    («Управляется из каталога»): глобальный тумблер выполняет
+                    штатную операцию сразу, отдельный чатовый override не меняет
+                    глобальное состояние.
+                    <button type="button" class="btn-ghost text-xs ml-1"
+                            @click="closeModule()">К каталогу</button>
+                  </div>
                   <!-- ASAP-3.1 (T-4072, §136/§135): Саммаризация — read-only
                        «полнота источника» (без ручного input cap на обычном
                        экране; manual cap — только в «Расширенные системные»). -->
@@ -5580,59 +5931,13 @@
                   нет данных: {{ (oversightData.mca_metrics.unknown || []).join(', ') || '—' }}
                 </div>
               </div>
-              <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-L): heatmap фактической
-                   активности — durable mca_events, день × час (время сервера).
-                   Телеметрия OFF / пустое окно — честная причина, НЕ нули. ═══ -->
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
-                   data-viz-heatmap
-                   v-if="oversightTab === 'overview'">
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <div class="text-xs font-bold">Активность по часам</div>
-                  <span class="text-xs text-gray-500">события телеметрии ·
-                    {{ vizActivityDays }} дней · время сервера</span>
-                  <select class="field viz-heat__select ml-auto" v-model.number="vizActivityDays"
-                          @change="vizLoadActivity(true)"
-                          aria-label="Окно heatmap">
-                    <option :value="7">7 дн</option>
-                    <option :value="14">14 дн</option>
-                    <option :value="30">30 дн</option>
-                  </select>
-                  <button class="btn-ghost text-xs" :disabled="vizActivityBusy"
-                          @click="vizLoadActivity(true)" aria-label="Обновить" title="Обновить">⟳</button>
-                </div>
-                <div v-if="vizActivityBusy && !vizActivity" class="spinner my-2"></div>
-                <div v-else-if="vizActivityError" class="text-xs text-amber-300">
-                  Heatmap недоступна: {{ vizActivityError }} — обновите кнопкой ⟳.
-                </div>
-                <div v-else-if="!vizActivity || vizActivity.available === false"
-                     class="text-xs text-gray-500">
-                  Данных нет: {{ (vizActivity && vizActivity.reason) || 'телеметрия отключена' }}.
-                </div>
-                <div v-else-if="vizActivity.empty_reason"
-                     class="text-xs text-gray-500">
-                  За окно {{ vizActivityDays }} дней событий не было
-                  (честное пустое состояние — нули не рисуем).
-                </div>
-                <template v-else>
-                  <div class="viz-heat" role="img"
-                       aria-label="Тепловая карта активности по часам">
-                    <div class="viz-heat__hours">
-                      <span class="viz-heat__day"></span>
-                      <span v-for="h in 24" :key="'hh' + h"
-                            class="viz-heat__hour">{{ (h - 1) % 6 === 0 ? (h - 1) : '' }}</span>
-                    </div>
-                    <div v-for="(row, di) in vizHeatRows" :key="'hr' + row.day"
-                        class="viz-heat__row">
-                      <span class="viz-heat__day">{{ di % 2 === 0 ? row.day.slice(5) : '' }}</span>
-                      <span v-for="c in row.cells" :key="'hc' + c.d + ':' + c.h"
-                            :class="vizHeatClass(c)" :title="vizHeatTitle(c)"></span>
-                    </div>
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">
-                    всего событий: {{ vizActivity.total }}<template v-if="vizActivity.errors_total"> · с ошибками: {{ vizActivity.errors_total }}</template>
-                    · ячейка темнее — больше событий; красная точка — были ошибки
-                  </div>
-                </template>
+              <!-- ═══ EVOL-026 (W10): heatmap «Активность по часам» ПЕРЕНЕСЕНА в
+                   «Статус» (утверждённая схема: «Статус — быстро увидеть, что
+                   происходит», «Аналитика — почему и как менялось»). Здесь
+                   остаётся расширенная динамика по дням/периодам (см. блоки
+                   viz «цикл памяти»/«маршрут»/«зависимости» ниже). Дубликата
+                   нет: маркер viz-heatmap существует ровно один раз — на
+                   «Статусе». ═══ -->
               </div>
               </div><!-- /Wave 2: шапка «Обзора» (поиск/бюджет фона/здоровье) -->
               <!-- MCA-20 (round 10.44, ADR-1028-20 D14/T-5143): «Временной
@@ -5642,7 +5947,202 @@
                    по клику: timeline дат, «почему выбрана дата», evidence,
                    trace стадий, версии. -->
               <!-- Wave 2: «Временной фактчек» — суб-вкладка
-                   «Память и интеллект» (перенос по visual-preservation-map). -->
+              <!-- ═══ EVOL-026 + EVOL-030 (W10): «Истории памяти / эпизоды» —
+                   ПОЛНЫЙ аналитический виджет переехал из «Статуса» сюда
+                   (утверждённая схема §D.2: сюжет/статус восстановления/период/
+                   участники/источники, невосстановленные — отдельной
+                   диагностической группой). Лента: курсор/дедуп, prepend без
+                   сброса scroll, пауза, фильтр по РЕАЛЬНОМУ исходу события.
+                   Причины невосстановления — реальные `/api/episodes/recovery`
+                   (by_reason/status), без выдуманного пересказа. ═══ -->
+              <div v-if="storiesEnabled && oversightTab === 'memory'"
+                   class="card p-4 col-span-full mb-3"
+                   data-stories data-stories-analytics>
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории памяти</div>
+                  <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
+                    Всего: {{ storiesSummary.counters.total }}
+                  </span>
+                  <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
+                    Новых за 24ч: {{ storiesSummary.counters.new_window }}
+                  </span>
+                  <span v-if="storiesSummary && storiesSummary.state === 'ok' && storiesSummary.counters.extended_window" class="badge badge-muted">
+                    дополнено за 24ч: {{ storiesSummary.counters.extended_window }}
+                  </span>
+                  <span v-if="storiesSummary && storiesSummary.counters && storiesSummary.counters.pending_verification"
+                        class="badge badge-warn">ожидают проверки: {{ storiesSummary.counters.pending_verification }}</span>
+                  <span class="text-[10px] text-gray-500" :title="storiesFeedError ? 'данные устарели — лента недоступна' : ''">
+                    {{ storiesFeedStampShort() }}
+                  </span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="storiesFeedBusy"
+                          :aria-pressed="storiesFeedPaused ? 'true' : 'false'"
+                          @click="toggleStoriesFeedPause()">{{ storiesFeedPaused ? 'Продолжить' : 'Пауза' }}</button>
+                  <button class="btn-ghost text-xs" :disabled="storiesFeedBusy"
+                          @click="loadStoriesSummary(); loadStoriesFeed()" aria-label="Обновить" title="Обновить">⟳</button>
+                  <button class="btn-ghost text-xs" @click="openStoriesTable()">Открыть таблицу в «Памяти»</button>
+                </div>
+                <p class="text-xs text-gray-400 mb-2" data-stories-explain>
+                  Истории памяти — это связанные куски разговора, объединённые в эпизоды,
+                  чтобы бот помнил ситуации целиком, а не только отдельные сообщения.
+                  Это не Telegram Stories и не Summary.
+                </p>
+                <!-- Фильтр ленты: по реальному исходу события (не эвристика). -->
+                <div class="flex items-center gap-2 flex-wrap mb-2"
+                     role="group" aria-label="Фильтр событий историй">
+                  <button type="button" class="module-filter-btn"
+                          :class="{ active: storiesFeedFilter === '' }"
+                          :aria-pressed="storiesFeedFilter === '' ? 'true' : 'false'"
+                          @click="storiesFeedFilter = ''">Все события</button>
+                  <button type="button" class="module-filter-btn"
+                          :class="{ active: storiesFeedFilter === 'problems' }"
+                          :aria-pressed="storiesFeedFilter === 'problems' ? 'true' : 'false'"
+                          @click="storiesFeedFilter = 'problems'">Только проблемы</button>
+                  <span class="text-xs text-gray-500">{{ storiesFeedFilterLabel() }}</span>
+                </div>
+                <!-- Честные состояния витрины (D5/TH-8): нет чата / нет историй /
+                     нет событий / недоступно — различимы, нулей без расчёта нет. -->
+                <div v-if="!storiesSummary" class="spinner my-2"></div>
+                <div v-else-if="storiesSummary.state === 'no_chat'" class="text-xs text-gray-500">
+                  Выберите чат (сверху) — истории показываются только разрешённого чата.
+                </div>
+                <div v-else-if="storiesSummary.state === 'restricted'" class="text-xs text-gray-500">
+                  Нет доступа к историям этого чата (chat scope).
+                </div>
+                <div v-else-if="storiesSummary.state === 'unavailable'" class="text-xs text-gray-500">
+                  Данные недоступны — база памяти не инициализирована. Повторите позже.
+                </div>
+                <div v-else-if="storiesSummary.state === 'disabled'" class="text-xs text-gray-500">
+                  Витрина историй выключена (MCA_STORIES_VITRINA_ENABLED=OFF).
+                </div>
+                <template v-else>
+                  <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress
+                       v-if="storiesSummary.progress">
+                    <span class="badge badge-muted">
+                      Последняя сборка: {{ storiesBuildLabel(storiesSummary.progress) }}
+                    </span>
+                    <span class="badge badge-muted">
+                      Backfill: {{ storiesBackfillLabel(storiesSummary.progress) }}
+                    </span>
+                    <span v-if="storiesSummary.counters && storiesSummary.counters.contradictions_window"
+                          class="badge badge-warn">противоречий за окно: {{ storiesSummary.counters.contradictions_window }}</span>
+                  </div>
+                  <div v-else class="text-xs text-gray-500 mb-2">
+                    Состояние процессов обработки пока неизвестно.
+                  </div>
+                  <!-- Живая вертикальная лента (A26: prepend без сброса scroll;
+                       стабильный :key — открытая карточка не дёргается). -->
+                  <div ref="storiesFeed" class="stories-feed scroll-thin" data-stories-feed>
+                    <div v-if="!storiesFeedFiltered().length" class="text-xs text-gray-500 py-3">
+                      <template v-if="storiesSummary.state === 'empty'">Историй пока нет — появятся после обработки переписки.</template>
+                      <template v-else-if="storiesFeedFilter === 'problems'">Событий с проблемным исходом в окне нет.</template>
+                      <template v-else>Событий историй пока не было.</template>
+                    </div>
+                    <div v-for="ev in storiesFeedFiltered()" :key="ev.id"
+                         class="stories-item rounded-lg bg-white/5 px-2 py-1"
+                         :class="{ 'stories-item--stale': ev.outcome !== 'success' }">
+                      <div class="flex items-center gap-2 flex-wrap text-xs">
+                        <span class="badge" :class="storiesEventClass(ev.event)">{{ storiesEventLabel(ev.event) }}</span>
+                        <b v-if="ev.title" class="truncate">{{ ev.title }}</b>
+                        <span v-if="ev.text && ev.text !== ev.title" class="text-gray-400 truncate">{{ ev.text }}</span>
+                        <span v-if="ev.outcome && ev.outcome !== 'success'"
+                              class="badge badge-warn">исход: {{ ev.outcome }}</span>
+                      </div>
+                      <div class="text-[10px] text-gray-500">
+                        <template v-if="ev.event_start || ev.event_end">
+                          события: {{ fmtStoryDate(ev.event_start || ev.event_end) }}<template v-if="ev.event_start && ev.event_end && ev.event_end !== ev.event_start"> — {{ fmtStoryDate(ev.event_end) }}</template>
+                        </template>
+                        <template v-if="storiesHasBothDates(ev)">
+                          · обнаружена: {{ fmtStoryDate(ev.discovered_at) }}</template>
+                        <template v-if="(ev.display_names || []).length || (ev.participants || []).length">
+                          · участники: {{ storiesParticipantsLabel(ev.display_names, ev.participants) }}</template>
+                        · {{ fmtStoryDateTime(ev.ts) }}
+                      </div>
+                      <div v-if="ev.story_id" class="mt-1">
+                        <button class="btn-ghost text-[10px]" @click="openStoriesCard(ev.story_id)">
+                          {{ storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id ? 'Скрыть карточку' : 'Подробнее' }}
+                        </button>
+                      </div>
+                      <!-- Подробная карточка НА МЕСТЕ (без навигации).
+                           Текст — только интерполяциями (без html-вставок). -->
+                      <div v-if="storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id"
+                           class="mt-1 rounded border border-white/10 p-2 text-xs" data-stories-manage>
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                          <b>{{ storiesCard.story.title || 'Без названия' }}</b>
+                          <span class="badge badge-muted">{{ storiesStateRu(storiesCard.story.state) }}</span>
+                          <span class="badge badge-muted">{{ storiesVerificationRu(storiesCard.story.verification) }}</span>
+                          <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesCard()">скрыть</button>
+                        </div>
+                        <div class="text-gray-300">{{ storiesCard.story.summary || 'Краткое содержание: неизвестно.' }}</div>
+                        <div class="text-gray-400 mt-1">
+                          Период: {{ fmtStoryDate(storiesCard.story.event_start_ts || storiesCard.story.discovered_at) }}<template v-if="storiesCard.story.event_start_ts && storiesCard.story.event_end_ts && storiesCard.story.event_end_ts !== storiesCard.story.event_start_ts"> — {{ fmtStoryDate(storiesCard.story.event_end_ts) }}</template>
+                          · обнаружена: {{ fmtStoryDate(storiesCard.story.discovered_at) }}
+                        </div>
+                        <div class="text-gray-400 mt-1">
+                          Участники: {{ storiesParticipantsLabel(storiesCard.story.display_names, storiesCard.story.participants) || 'неизвестно' }}
+                        </div>
+                        <div class="text-gray-400 mt-1">
+                          Исходных сообщений: {{ storiesSourceCount(storiesCard) }} ·
+                          бот: {{ storiesUsageLabel(storiesCard.story) }} ·
+                          эпизодов: {{ (storiesCard.episodes || []).length }}
+                        </div>
+                        <div v-if="storiesCard.contradictions && storiesCard.contradictions.length"
+                             class="text-amber-300 mt-1">Противоречия: {{ storiesCard.contradictions.length }} (см. карточку в «Памяти»)</div>
+                        <!-- F7: raw IDs и служебные поля — только здесь (collapsed). -->
+                        <details class="mt-1" data-stories-dev>
+                          <summary class="cursor-pointer text-gray-500">Developer details</summary>
+                          <div class="text-[10px] text-gray-500 ml-2">
+                            story_id: <span class="mono">{{ storiesCard.story.story_id }}</span> ·
+                            версия: v{{ storiesCard.story.expected_version }} ·
+                            участники (ID): {{ (storiesCard.story.participants || []).join(', ') || '—' }} ·
+                            эпизоды (ID): {{ storiesEpisodeIds(storiesCard) || '—' }}
+                          </div>
+                        </details>
+                        <div class="mt-1">
+                          <button class="btn-ghost text-[10px]" @click="openStoriesTable()">Открыть в «Памяти»</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="storiesFeedHasMore" class="text-[10px] text-gray-500 mt-1">
+                    История ограничена окном/ретенцией — ранние события в ленте не показаны (это не «ноль событий»).
+                  </div>
+                  <div v-if="storiesFeedError" class="text-xs text-amber-300 mt-1">
+                    Лента недоступна ({{ storiesFeedError }}) — показаны последние загруженные данные.
+                  </div>
+                  <!-- Причины невосстановления: реальные /api/episodes/recovery
+                       (by_reason + status); ничего не придумываем. -->
+                  <div class="mt-2 border-t border-white/10 pt-2">
+                    <button type="button" class="btn-ghost text-xs"
+                            data-stories-recovery-toggle
+                            :aria-expanded="episodeRecoveryOpen ? 'true' : 'false'"
+                            @click="openStoriesRecovery()">
+                      Причины невосстановления
+                      <template v-if="episodeFeedView && episodeFeedView.recovery">: {{ episodeFeedView.recovery.count }}</template>
+                      {{ episodeRecoveryOpen ? '▲' : '▼' }}
+                    </button>
+                    <div v-if="episodeRecoveryOpen" class="mt-1 text-xs text-gray-400"
+                         data-stories-recovery>
+                      <div v-if="activeChatId == null" class="text-gray-500">
+                        Выберите чат — причины считаются для конкретного чата.
+                      </div>
+                      <div v-else-if="episodeRecoveryBusy && !episodeRecovery"
+                           class="spinner my-2"></div>
+                      <template v-else-if="episodeRecovery">
+                        <div v-for="r in episodeRecovery.by_reason" :key="'sr-' + r.reason">
+                          {{ r.reason_label || r.reason }} · затронуто: {{ r.count }}
+                          <span class="text-gray-600">({{ r.status === 'pending_rebuild'
+                            ? 'ждёт пересборки' : 'восстановить нечего' }})</span>
+                        </div>
+                        <div v-if="!(episodeRecovery.by_reason || []).length" class="text-gray-500">
+                          Невосстановленных эпизодов нет.
+                        </div>
+                        <div class="text-gray-600">{{ episodeRecovery.note }}</div>
+                      </template>
+                      <div v-else class="text-gray-500">Данные недоступны.</div>
+                    </div>
+                  </div>
+                </template>
+              </div>
               <div class="card p-4 col-span-full mb-3"
                    id="temporal-factcheck-block"
                    v-if="oversightTab === 'memory'">
@@ -5983,12 +6483,16 @@
                   </div>
                   <div class="flex items-center gap-2 flex-wrap mb-2">
                     <input class="field w-36 text-xs" placeholder="component (напр. summary)"
+                           aria-label="Фильтр: компонент"
                            v-model="mca17cRunF.component" @change="oversightApplyRunFilters()">
                     <input class="field w-36 text-xs" placeholder="pipeline_type"
+                           aria-label="Фильтр: тип прогона"
                            v-model="mca17cRunF.pipeline_type" @change="oversightApplyRunFilters()">
                     <input class="field w-28 text-xs" placeholder="chat_id"
+                           aria-label="Фильтр: chat_id"
                            v-model="mca17cRunF.chat_id" @change="oversightApplyRunFilters()">
                     <select class="field w-24 text-xs" v-model="mca17cRunF.days"
+                            aria-label="Фильтр: период"
                             @change="oversightApplyRunFilters()">
                       <option value="1">24 часа</option>
                       <option value="7">7 дней</option>
@@ -5996,6 +6500,14 @@
                       <option value="90">90 дней</option>
                     </select>
                     <span class="text-xs text-gray-500">фильтры применяются на сервере</span>
+                  </div>
+                  <!-- ═══ EVOL-030 (W10): метаданные активных фильтров —
+                       одна понятная подпись вместо набора «сырых» полей.
+                       Адресный переход из «Статуса» (heatmap → час) тоже
+                       подписан здесь, чтобы не терялся контекст. ═══ -->
+                  <div class="oversight-focus-note mb-2" data-runs-filter-meta>
+                    Активные фильтры: {{ oversighRunsFilterLabel() }}
+                    <template v-if="oversightFocusNote"> · {{ oversightFocusNote }}</template>
                   </div>
                   <div v-if="mca17cRunsError" class="text-xs text-red-300 mb-1">
                     данные недоступны: {{ mca17cRunsError }}
@@ -7245,72 +7757,20 @@
                   <span class="badge badge-muted">Экстрактор последний раз: {{ personaHealth && personaHealth.extractor_last_at ? fmtLogTime(personaHealth.extractor_last_at) : '—' }}</span>
                 </div>
               </div>
-              <!-- ═══ Раунд 10.20 (БЛОК 3.3/T-1897): «Живая лента досье» ═══
-                   Реактивный тикер: GLOBAL → случайные выдержки по всем чатам;
-                   конкретный чат → только его участники. CSS-анимация без
-                   сторонних библиотек (CSP). Реактивность — один запрос на
-                   смену чата (см. setActiveChat/setTab('oversight')). -->
-              <!-- Wave 2: «Живая лента досье» + таблица чатов — суб-вкладка
-                   «Обзор» (п.11/п.12 visual-preservation-map). -->
+              <!-- ═══ EVOL-026 (W10): «Живая лента досье» ПЕРЕНЕСЕНА в «Статус»
+                   (компактные события: сущность, источник/дата, тип, контекст).
+                   Здесь остаётся аналитическая часть — таблица чатов
+                   (сводка областей), без дубликата ленты. ═══ -->
+              <!-- Wave 2: таблица чатов — суб-вкладка «Обзор» (п.12
+                   visual-preservation-map). -->
               <div class="card glass-panel p-4 col-span-full" data-glass="b"
                    v-if="oversightTab === 'overview'">
-              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2 dossier-ticker-wrap">
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <div class="text-xs font-bold">Живая лента досье</div>
-                  <span class="text-xs text-gray-500">
-                    {{ activeChatId == null ? 'по всем чатам' : 'только этот чат' }}
-                  </span>
-                  <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
-                          @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold">Чаты и их области</div>
+                  <span class="text-xs text-gray-500">сводка по всем чатам (кэш 60 с)</span>
+                  <button type="button" class="btn-ghost text-xs ml-auto"
+                          @click="navTo('#/')">Лента досье — в «Статусе» →</button>
                 </div>
-                <div v-if="dossierFeedError" class="text-xs text-red-300">Ошибка ленты: {{ dossierFeedError }}</div>
-                <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
-                  Пока нечего показать — в графе памяти нет подтверждённых фактов.
-                </div>
-                <!-- Wave 2 UX (Visual Neighborhood Sweep): пустая лента не
-                     резервирует высокую зону тикера — empty-state вместо
-                     пустого трека. Флаг-ветки сохранены для непустой ленты. -->
-                <template v-else-if="uiFlag('DOSSIER_LIVE_FEED_ENABLED')">
-                  <!-- F4 (10.24, ADR-1024-8 D1/D4): вертикальная лента
-                       «снизу вверх»; строка с user_id — кнопка (клик/Enter/
-                       Space → openFeedDossier: контекст чата + модалка
-                       «Досье»). Строка без user_id — обычный текст. -->
-                  <div class="dossier-ticker dossier-ticker--y"
-                       aria-label="Живая лента досье"
-                       :style="{ '--dossier-speed': dossierFeedSpeed }">
-                    <div class="dossier-ticker__track dossier-ticker__track--y">
-                      <div v-for="it in dossierFeedLoop" :key="it.key"
-                           class="dossier-ticker__item"
-                           :class="{ 'dossier-ticker__item--click': !it.dup && it.user_id != null,
-                                     'dossier-ticker__item--dup': it.dup }"
-                           :aria-hidden="it.dup ? 'true' : null"
-                           :role="(!it.dup && it.user_id != null) ? 'button' : null"
-                           :tabindex="(!it.dup && it.user_id != null) ? 0 : null"
-                           @click="!it.dup && it.user_id != null && openFeedDossier(it)"
-                           @keydown.enter.prevent="!it.dup && it.user_id != null && openFeedDossier(it)"
-                           @keydown.space.prevent="!it.dup && it.user_id != null && openFeedDossier(it)">
-                        <b>{{ it.name }}</b>
-                        <span class="text-gray-500">({{ it.chatLabel }})</span>
-                        <span>{{ it.excerpt }}</span>
-                        <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <!-- OFF (DOSSIER_LIVE_FEED_ENABLED=false): прежняя
-                     горизонтальная бегущая строка 42s, строки некликабельны. -->
-                <div v-else class="dossier-ticker" role="marquee"
-                     aria-label="Живая лента досье">
-                  <div class="dossier-ticker__track">
-                    <span v-for="it in dossierFeedLoop" :key="it.key" class="dossier-ticker__item">
-                      <b>{{ it.name }}</b>
-                      <span class="text-gray-500">({{ it.chatLabel }})</span>
-                      <span>{{ it.excerpt }}</span>
-                      <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
               <div v-if="oversightBusy" class="spinner my-4"></div>
               <div v-else-if="oversightRows().length === 0"
                    class="text-gray-500 text-sm py-3">Чатов нет.</div>
@@ -7494,32 +7954,14 @@
               Управление доступом доступно только ролям с правом «access».
             </div>
             <template v-else>
-            <!-- 10.8/§4 (ADR-001): «Доступы» — подразделы отдельными
-                 route-driven окнами. Три плитки открывают
-                 #/access/roles|local|admins; ниже — взаимоисключающие
-                 модалки (deep-link/BackButton работают через hash). -->
-            <div class="hub-grid">
-              <button class="hub-card" @click="openAccessWindow('roles')">
-                <span class="msr" aria-hidden="true">{{ iconGlyph('admin_panel_settings') }}</span>
-                <span class="min-w-0">
-                  <span class="hub-card-title block">Матрица ролей</span>
-                  <span class="hub-card-sub block">Права на параметры: чтение и запись</span>
-                </span>
-              </button>
-              <button class="hub-card" @click="openAccessWindow('local')">
-                <span class="msr" aria-hidden="true">{{ iconGlyph('group') }}</span>
-                <span class="min-w-0">
-                  <span class="hub-card-title block">Локальные админы</span>
-                  <span class="hub-card-sub block">Администраторы активного чата</span>
-                </span>
-              </button>
-              <button class="hub-card" @click="openAccessWindow('admins')">
-                <span class="msr" aria-hidden="true">{{ iconGlyph('supervisor_account') }}</span>
-                <span class="min-w-0">
-                  <span class="hub-card-title block">Роли</span>
-                  <span class="hub-card-sub block">Суперадмины, модераторы, пользователи</span>
-                </span>
-              </button>
+            <!-- 10.8/§4 (ADR-001): «Доступы» — route-driven окна подразделов
+                 (#/access/<section>); стартовый экран хаба — сводка в hubCards. -->
+            <div class="col-span-full flex items-center gap-2 flex-wrap">
+              <button type="button" class="btn-ghost text-sm"
+                      data-access-back @click="navigateTo('#/access')">← Все разделы доступов</button>
+              <span class="badge badge-muted">{{ accessScopeLabel() }}</span>
+              <button type="button" class="btn-ghost text-xs"
+                      @click="navigateTo('#/access')">Управление доступом</button>
             </div>
 
             <!-- Окно «Роли» (#/access/admins): назначения ролей.
@@ -7700,13 +8142,22 @@
                                 {{ r === 'local_admin' ? 'лок' : r }}
                               </label>
                             </td>
-                            <td>
-                              <button class="btn-ghost text-[10px] px-1"
-                                      :disabled="row.item.default || !!matrixSaving[row.key]"
-                                      title="Сбросить к дефолту"
-                                      @click="matrixReset(row.key)">Сбросить</button>
-                            </td>
-                          </tr>
+                             <td>
+                               <button class="btn-ghost text-[10px] px-1"
+                                       :disabled="row.item.default || !!matrixSaving[row.key]"
+                                       title="Сбросить к дефолту"
+                                       @click="matrixReset(row.key)">Сбросить</button>
+                             </td>
+                             <!-- EVOL-030 (W10): mobile-модель «сущность →
+                                  права → эффективные роли» (видна только на
+                                  узком экране; desktop остаётся таблицей). -->
+                             <td class="matrix-perm-summary" colspan="4"
+                                 data-label="Эффективные роли"
+                                 data-matrix-effective>
+                               <div>Читают: {{ matrixEffectiveRoles(row.item, 'view_roles') }}</div>
+                               <div>Меняют: {{ matrixEffectiveRoles(row.item, 'edit_roles') }}</div>
+                             </td>
+                           </tr>
                         </tbody>
                       </table>
                     </details>
@@ -8446,6 +8897,202 @@
                 <button type="button" class="btn-ghost text-sm mt-2"
                         @click="reloadSpeech(true)">Повторить</button>
               </div>
+
+              <!-- ═══ EVOL-028 v0.8 (W10): «Личность и стиль» переехала СЮДА.
+                   «Речь и характер» — единственное основное место редактирования
+                   личности/характера/манеры речи. Поля (имя, биография, характер,
+                   «осознаёт себя ИИ») и сохранение — те же самые (personaDraft/
+                   savePersona), уникальные значения не потеряны. Старый адрес
+                   `#/ai/persona` ведёт в эту секцию, второго редактора нет. ═══ -->
+              <section v-if="!speechSection" id="speech-persona" data-speech-persona
+                       tabindex="-1" class="speech-persona-section">
+                <div class="card p-4">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <div class="text-sm font-bold">
+                      <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
+                      Личность и характер
+                    </div>
+                    <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
+                    <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
+                    <span v-if="personaMeta && personaMeta.scope === 'chat'"
+                          class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
+                      {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
+                    </span>
+                    <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
+                    <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    Только статические параметры личности. Динамические черты и
+                    метрики — в «Статусе».
+                  </div>
+                </div>
+            <div class="card p-5 col-span-full" style="max-width: 760px;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Личность
+                </div>
+                <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
+                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
+                <span v-if="personaMeta && personaMeta.scope === 'chat'"
+                      class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
+                  {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
+                </span>
+                <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
+                <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
+              </div>
+              <div v-if="personaLoading" class="spinner my-6"></div>
+              <template v-else>
+                <div class="text-xs text-gray-500 mb-3">
+                  Только статические параметры. Динамические черты и метрики — в разделе «Статус».
+                </div>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Имя</span>
+                  <input class="field w-full" type="text" autocomplete="off"
+                         placeholder="Не задано — бот без имени"
+                         :value="personaDraft ? personaDraft.name : ''"
+                         :disabled="personaDisabled"
+                         @input="personaSetField('name', $event.target.value)">
+                </label>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Биография</span>
+                  <textarea class="field w-full scroll-thin" rows="3"
+                            placeholder="Не задано — базовый лор/биография"
+                            :value="personaDraft ? personaDraft.biography : ''"
+                            :disabled="personaDisabled"
+                            @input="personaSetField('biography', $event.target.value)"></textarea>
+                </label>
+                <label class="block mb-2">
+                  <span class="text-xs text-gray-400">Характер</span>
+                  <textarea class="field w-full scroll-thin" rows="4"
+                            placeholder="Не задано — характер по умолчанию (system prompt overrides)"
+                            :value="personaDraft ? personaDraft.system_prompt_overrides : ''"
+                            :disabled="personaDisabled"
+                            @input="personaSetField('system_prompt_overrides', $event.target.value)"></textarea>
+                </label>
+                <label class="flex items-center gap-2 mb-4">
+                  <input type="checkbox"
+                         :checked="personaDraft ? personaDraft.is_aware_ai : false"
+                         :disabled="personaDisabled"
+                         @change="personaSetField('is_aware_ai', $event.target.checked)">
+                  <span class="text-sm">Осознаёт себя ИИ</span>
+                </label>
+                <div class="flex gap-2 flex-wrap">
+                  <button class="btn-accent text-sm"
+                          :disabled="personaBusy || personaDisabled"
+                          @click="savePersona()">{{ personaBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                  <button v-if="personaMeta && personaMeta.scope === 'chat'"
+                          class="btn-ghost text-sm"
+                          :disabled="personaBusy || personaDisabled"
+                          @click="resetPersona()">Сбросить к глобальному</button>
+                </div>
+              </template>
+            </div>
+            <!-- ═══ mca-18 (T-5085/T-5086): компакт «Что сейчас формирует
+                 характер» — effective/наследование трёх переключателей,
+                 правила (пауза/возобновление/источники), версии. Три статуса
+                 различимы: «передано модели» (applied_now) ≠ «проявилось» ≠
+                 «доказан эффект» (полная матрица — mca-17c). Fail-open. ═══ -->
+            <div v-if="selfModel" class="card p-5 col-span-full"
+                 style="max-width: 760px;">
+              <div class="flex items-center gap-2 flex-wrap mb-3">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
+                  Что сейчас формирует характер
+                </div>
+                <span v-if="selfModel.version"
+                      class="badge badge-muted">кадр v{{ selfModel.frame_version || selfModel.version }}</span>
+                <span v-if="selfModel.stale" class="badge badge-warn"
+                      title="last-known-good: PG недоступен">fallback: {{
+                  selfModel.fallback === 'lkg' ? 'устаревший снимок' :
+                  'минимальная тех-идентичность' }}</span>
+                <span v-if="selfModel.rules_status && selfModel.rules_status !== 'on'"
+                      class="badge badge-muted">правила черт: {{ selfModel.rules_status }}</span>
+                <span class="badge badge-muted"
+                      title="widget-ID — контракт mca-17c">{{ selfModel.widget_id }}</span>
+              </div>
+              <template v-if="selfModel.enabled">
+                <div class="grid gap-2 mb-3">
+                  <div v-for="(exp, key) in selfModel.explanations" :key="key"
+                       class="text-xs p-2 rounded"
+                       style="background: rgba(148,163,184,.08);">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-semibold">{{ key === 'persona_enabled' ? 'Личность в речи'
+                        : key === 'is_aware_ai' ? 'Осознаёт себя ИИ'
+                        : 'Рефлексия собственных ответов' }}</span>
+                      <span class="badge" :class="switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'ошибка загрузки' ? 'badge-err' : (switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'выкл' ? 'badge-warn' : 'badge-info')">
+                        {{ switchBadgeText(selfModel.switches && selfModel.switches[key]) }}
+                      </span>
+                      <span class="text-gray-500">{{ switchSourceText(selfModel.switches && selfModel.switches[key]) }}</span>
+                    </div>
+                    <div class="text-gray-500 mt-1">{{ exp }}</div>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-500 mb-1">
+                  База: {{ selfModel.composition && selfModel.composition.base ? 'задана' : 'пусто' }} ·
+                  Динамика: {{ selfModel.composition ? selfModel.composition.dynamics : '—' }} прав. ·
+                  Настроение: {{ selfModel.composition && selfModel.composition.mood ? 'активно (обратимо)' : 'нет' }} ·
+                  Позиции: {{ selfModel.positions_count }}
+                </div>
+                <div v-if="selfModel.applied_now && selfModel.applied_now.length"
+                     class="text-xs mb-2">
+                  <div class="text-gray-400 mb-1">Передано модели в этом кадре:</div>
+                  <div v-for="r in selfModel.applied_now" :key="'a' + r.id"
+                       class="p-2 rounded mb-1"
+                       style="background: rgba(59,130,246,.10);">
+                    #{{ r.id }} {{ r.dimension }} (v{{ r.version }}) — {{
+                    r.instruction }}
+                  </div>
+                </div>
+                <div v-if="selfModel.rejected_now && selfModel.rejected_now.length"
+                     class="text-xs mb-2">
+                  <div class="text-gray-400 mb-1">Подавлено (с причиной):</div>
+                  <div v-for="r in selfModel.rejected_now" :key="'r' + r.id"
+                       class="p-2 rounded mb-1"
+                       style="background: rgba(148,163,184,.10);">
+                    #{{ r.id || '—' }} {{ r.dimension || '—' }} — {{ r.reason }}
+                  </div>
+                </div>
+                <div v-if="selfModel.active_rules && selfModel.active_rules.length">
+                  <div class="text-gray-400 text-xs mb-1">Правила характера:</div>
+                  <div v-for="r in selfModel.active_rules" :key="r.id"
+                       class="text-xs p-2 rounded mb-1 flex items-center gap-2 flex-wrap"
+                       style="background: rgba(148,163,184,.08);">
+                    <span class="font-semibold">#{{ r.id }} {{ r.dimension }}</span>
+                    <span class="badge badge-muted">v{{ r.version }}</span>
+                    <span v-if="r.scope" class="badge badge-muted">{{ r.scope }}</span>
+                    <span v-if="!r.included" class="badge badge-warn">{{
+                      r.excluded_reason }}</span>
+                    <span class="ml-auto flex gap-1">
+                      <button v-if="r.included" class="btn-ghost text-xs"
+                              :disabled="selfModelLoading"
+                              @click="pauseRule(r.id)">Пауза</button>
+                      <button v-else class="btn-ghost text-xs"
+                              :disabled="selfModelLoading"
+                              @click="resumeRule(r.id)">Возобновить</button>
+                      <button class="btn-ghost text-xs"
+                              @click="loadRuleSources(r.id)">Источники</button>
+                    </span>
+                    <div v-if="selfModelSources[r.id]"
+                         class="w-full text-gray-500">
+                      <div v-for="o in selfModelSources[r.id]" :key="o.id">
+                        набл. #{{ o.id }} · {{ o.subject_status }} · refs: {{
+                        (o.source_refs || []).join(', ') || '—' }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-500">
+                  Активных правил черт пока нет.
+                </div>
+              </template>
+              <template v-else>
+                <div class="text-xs text-gray-500">
+                  Модуль SelfModel выключен (честный disabled) — характер
+                  собирается legacy-путём.
+                </div>
+              </template>
+            </div>
+              </section>
 
               <!-- ── Витрина (§2): 4 группы; ежедневное — в первых трёх,
                    техника/диагностика — в «Дополнительно» (TJ-4: служебная
@@ -11549,17 +12196,167 @@
               </div>
             </div>
 
-            <!-- ═══ Раунд 10.46 (MCA-12, ADR-1028-21 D3, §16.1): «Истории чата» —
-                 ЕДИНСТВЕННАЯ структурная вставка в F11-композицию (после зоны
-                 мониторинга интеллекта, до нижних логов; новый верхнеуровневый
-                 маршрут не создаётся — GEN-R12). Liquid Glass сохранён
-                 (карточка витрины, не админ-таблица). Данные — /api/stories/*
-                 под TMA-auth + chat scope; K1 OFF → блок скрыт (честный
-                 disabled API). Счётчики/лента (cursor/dedup, prepend без
-                 сброса scroll — A26), краткая карточка НА МЕСТЕ + переход в
-                 «Память», прогресс обработки, обе даты (A11), реальные данные
-                 (D5) и честные пустые состояния. -->
-            <div v-if="storiesEnabled" class="card p-4 sg-12" data-stories>
+            <!-- ═══ EVOL-026 (W10): «Активность по часам» — ПЕРЕЕХАЛА из «Аналитики» в
+                 «Статус» (утверждённая целевая схема §«Статус — быстро увидеть, что
+                 происходит»). Интерактивность: каждая ячейка — кнопка с доступным именем
+                 (значение читаемо, не «микроточка»), hover/touch/клавиатура (Tab + Enter/
+                 Space + стрелки), выбранный час разворачивается подписью с числами и
+                 адресным переходом к событиям. Zona времени — из поля `timezone` API
+                 (`vizHeatTzLabel`), без догадок о зоне браузера. Высота ограничена,
+                 данные не прыгают (значения не пересобираются на каждый тик). ═══ -->
+            <div class="card p-4 sg-12 status-activity" data-viz-heatmap
+                 data-status-activity>
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <div class="text-sm font-bold">Активность по часам</div>
+                <span class="text-xs text-gray-500">
+                  события телеметрии · {{ vizActivityDays }} дней · {{ vizHeatTzLabel() }}</span>
+                <select class="field viz-heat__select ml-auto" v-model.number="vizActivityDays"
+                        @change="vizLoadActivity(true)"
+                        aria-label="Окно активности по часам">
+                  <option :value="7">7 дн</option>
+                  <option :value="14">14 дн</option>
+                  <option :value="30">30 дн</option>
+                </select>
+                <button class="btn-ghost text-xs" :disabled="vizActivityBusy"
+                        @click="vizLoadActivity(true)" aria-label="Обновить" title="Обновить">⟳</button>
+              </div>
+              <div v-if="vizActivityBusy && !vizActivity" class="spinner my-2"></div>
+              <div v-else-if="vizActivityError" class="text-xs text-amber-300">
+                Активность недоступна: {{ vizActivityError }} — обновите кнопкой ⟳.
+              </div>
+              <div v-else-if="!vizActivity || vizActivity.available === false"
+                   class="text-xs text-gray-500">
+                Данных нет: {{ (vizActivity && vizActivity.reason) || 'телеметрия отключена' }}.
+              </div>
+              <div v-else-if="vizActivity.empty_reason"
+                   class="text-xs text-gray-500">
+                За окно {{ vizActivityDays }} дней событий не было
+                (честное пустое состояние — нули не рисуем).
+              </div>
+              <template v-else>
+                <div class="viz-heat" role="group"
+                     aria-label="Тепловая карта активности: день на час, значения в кнопках">
+                  <div class="viz-heat__hours" aria-hidden="true">
+                    <span class="viz-heat__day"></span>
+                    <span v-for="h in 24" :key="'hh' + h"
+                          class="viz-heat__hour">{{ (h - 1) % 6 === 0 ? (h - 1) : '' }}</span>
+                  </div>
+                  <div v-for="(row, di) in vizHeatRows" :key="'hr' + row.day"
+                      class="viz-heat__row">
+                    <span class="viz-heat__day">{{ di % 2 === 0 ? row.day.slice(5) : '' }}</span>
+                    <button type="button" v-for="c in row.cells" :key="'hc' + c.d + ':' + c.h"
+                            :class="vizHeatClass(c)"
+                            :class="{ 'is-picked': vizHeatIsPicked(c) }"
+                            :data-viz-cell="c.d + ':' + c.h"
+                            :tabindex="c.has ? 0 : -1"
+                            :aria-label="vizHeatTitle(c)"
+                            :aria-pressed="vizHeatIsPicked(c) ? 'true' : 'false'"
+                            :title="vizHeatTitle(c)"
+                            @click="vizHeatPick(c)"
+                            @keydown.enter.prevent="vizHeatPick(c)"
+                            @keydown.space.prevent="vizHeatPick(c)"
+                            @keydown.right.prevent="vizHeatStep(1, 0)"
+                            @keydown.left.prevent="vizHeatStep(-1, 0)"
+                            @keydown.down.prevent="vizHeatStep(0, 1)"
+                            @keydown.up.prevent="vizHeatStep(0, -1)"></button>
+                  </div>
+                </div>
+                <!-- Читаемая легенда: шкала уровней + что означает красная точка. -->
+                <div class="viz-heat__legend text-xs text-gray-500 mt-2"
+                     data-viz-heat-legend>
+                  <span>меньше</span>
+                  <span class="viz-heat__legend-cell viz-heat__cell--l0" aria-hidden="true"></span>
+                  <span class="viz-heat__legend-cell viz-heat__cell--l1" aria-hidden="true"></span>
+                  <span class="viz-heat__legend-cell viz-heat__cell--l2" aria-hidden="true"></span>
+                  <span class="viz-heat__legend-cell viz-heat__cell--l3" aria-hidden="true"></span>
+                  <span class="viz-heat__legend-cell viz-heat__cell--l4" aria-hidden="true"></span>
+                  <span>больше</span>
+                  <span class="viz-heat__legend-dot" aria-hidden="true"></span>
+                  <span>точка — были ошибки</span>
+                </div>
+                <div v-if="vizHeatSel" class="viz-heat__picked text-xs mt-2"
+                     data-viz-heat-picked>
+                  <span>{{ vizHeatSelLabel() }}</span>
+                  <button type="button" class="btn-ghost text-xs ml-2"
+                          @click="vizHeatOpenEvents()">Показать события →</button>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  всего событий: {{ vizActivity.total }}<template v-if="vizActivity.errors_total"> · с ошибками: {{ vizActivity.errors_total }}</template>
+                </div>
+              </template>
+            </div>
+
+            <!-- ═══ EVOL-026 (W10): «Живая лента досье» — ПЕРЕЕХАЛА из «Аналитики» в
+                 «Статус». Компактные события: сущность, чат-контекст, источник/дата, тип
+                 записи, разворот записи (клик/Enter/Space → существующий openFeedDossier).
+                 Подпись свежести — реальное время последней загрузки (dossierFeedStamp),
+                 без фиктивного «обновляется» при пустой/ошибочной ленте. ═══ -->
+            <div class="card p-4 sg-12 status-dossier" data-status-dossier>
+              <div class="mb-2 dossier-ticker-wrap">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-sm font-bold">Живая лента досье</div>
+                  <span class="text-xs text-gray-500">
+                    {{ activeChatId == null ? 'по всем чатам' : 'только этот чат' }}
+                    · {{ dossierFeedStamp() }}</span>
+                  <button class="btn-ghost text-xs ml-auto" :disabled="dossierFeedBusy"
+                          @click="loadDossierFeed()" aria-label="Обновить" title="Обновить">⟳</button>
+                </div>
+                <div v-if="dossierFeedError" class="text-xs text-red-300">
+                  Ошибка ленты: {{ dossierFeedError }}
+                  <template v-if="dossierFeedAt">· показаны последние загруженные данные</template>
+                </div>
+                <div v-else-if="!dossierFeedLoop.length" class="text-xs text-gray-500">
+                  Пока нечего показать — в графе памяти нет подтверждённых фактов.
+                </div>
+                <template v-else-if="uiFlag('DOSSIER_LIVE_FEED_ENABLED')">
+                  <div class="dossier-ticker dossier-ticker--y status-dossier__track"
+                       aria-label="Живая лента досье"
+                       :style="{ '--dossier-speed': dossierFeedSpeed }">
+                    <div class="dossier-ticker__track dossier-ticker__track--y">
+                      <div v-for="it in dossierFeedLoop" :key="it.key"
+                           class="dossier-ticker__item"
+                           :class="{ 'dossier-ticker__item--click': !it.dup && it.user_id != null,
+                                     'dossier-ticker__item--dup': it.dup }"
+                           :aria-hidden="it.dup ? 'true' : null"
+                           :role="(!it.dup && it.user_id != null) ? 'button' : null"
+                           :tabindex="(!it.dup && it.user_id != null) ? 0 : null"
+                           @click="!it.dup && it.user_id != null && openFeedDossier(it)"
+                           @keydown.enter.prevent="!it.dup && it.user_id != null && openFeedDossier(it)"
+                           @keydown.space.prevent="!it.dup && it.user_id != null && openFeedDossier(it)">
+                        <b>{{ it.name }}</b>
+                        <span class="text-gray-500">({{ it.chatLabel }})</span>
+                        <span class="dossier-ticker__excerpt">{{ it.excerpt }}</span>
+                        <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
+                        <span class="dossier-ticker__meta text-[10px] text-gray-500">
+                          запись досье ·
+                          {{ it.created_at ? fmtTs(it.created_at) : 'дата записи неизвестна' }}
+                          <template v-if="it.tg_message_id"> · источник: сообщение {{ it.tg_message_id }}</template>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <div v-else class="dossier-ticker" role="marquee"
+                     aria-label="Живая лента досье">
+                  <div class="dossier-ticker__track">
+                    <span v-for="it in dossierFeedLoop" :key="it.key" class="dossier-ticker__item">
+                      <b>{{ it.name }}</b>
+                      <span class="text-gray-500">({{ it.chatLabel }})</span>
+                      <span>{{ it.excerpt }}</span>
+                      <span class="dossier-ticker__dot" aria-hidden="true">◆</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ EVOL-026 (W10): «Истории памяти» — в «Статусе» остаётся СТРОГО
+                 ОГРАНИЧЕННОЕ превью («что изменилось и когда»): счётчики, последняя сборка
+                 и 3 последних события. Полный виджет (лента, карточки, фильтры, причины
+                 невосстановления) живёт в «Аналитике» → «Память и интеллект» по
+                 утверждённой схеме. K1 OFF → блок скрыт (честный disabled). ═══ -->
+            <div v-if="storiesEnabled" class="card p-4 sg-12 status-stories-preview"
+                 data-stories data-stories-preview>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории памяти</div>
                 <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
@@ -11568,33 +12365,14 @@
                 <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
                   Новых за 24ч: {{ storiesSummary.counters.new_window }}
                 </span>
-                <span v-if="storiesSummary && storiesSummary.state === 'ok' && storiesSummary.counters.extended_window" class="badge badge-muted">
-                  дополнено за 24ч: {{ storiesSummary.counters.extended_window }}
-                </span>
                 <span v-if="storiesSummary && storiesSummary.counters && storiesSummary.counters.pending_verification"
                       class="badge badge-warn">ожидают проверки: {{ storiesSummary.counters.pending_verification }}</span>
-                <span class="text-[10px] text-gray-500" :title="storiesFeedError ? 'данные устарели — лента недоступна' : ''">
-                  <template v-if="storiesFeedPaused">пауза</template>
-                  <template v-else-if="storiesFeedError">данные от {{ storiesFeedAt ? fmtTs(Math.floor(storiesFeedAt / 1000)) : '—' }} · устарели</template>
-                  <template v-else-if="storiesFeedAt">данные от {{ fmtTs(Math.floor(storiesFeedAt / 1000)) }}</template>
-                  <template v-else>лента не загружена</template>
-                </span>
+                <span class="text-[10px] text-gray-500">{{ storiesFeedStampShort() }}</span>
                 <button class="btn-ghost text-xs ml-auto" :disabled="storiesFeedBusy"
-                        :aria-pressed="storiesFeedPaused ? 'true' : 'false'"
-                        @click="toggleStoriesFeedPause()">{{ storiesFeedPaused ? 'Продолжить' : 'Пауза' }}</button>
-                <button class="btn-ghost text-xs" :disabled="storiesFeedBusy"
                         @click="loadStoriesSummary(); loadStoriesFeed()" aria-label="Обновить" title="Обновить">⟳</button>
-                <button class="btn-ghost text-xs" @click="openStoriesTable()">Открыть таблицу в «Памяти»</button>
+                <button class="btn-ghost text-xs" data-stories-show-all
+                        @click="openStoriesAnalytics()">Показать всё →</button>
               </div>
-              <!-- F7 (ASAP 8 §14): человеческое объяснение — что это такое и
-                   чем НЕ является (не Telegram Stories, не Summary). -->
-              <p class="text-xs text-gray-400 mb-2" data-stories-explain>
-                Истории памяти — это связанные куски разговора, объединённые в эпизоды,
-                чтобы бот помнил ситуации целиком, а не только отдельные сообщения.
-                Это не Telegram Stories и не Summary.
-              </p>
-              <!-- Честные состояния витрины (D5/TH-8): нет чата / нет историй /
-                   нет событий / недоступно — различимы, нулей без расчёта нет. -->
               <div v-if="!storiesSummary" class="spinner my-2"></div>
               <div v-else-if="storiesSummary.state === 'no_chat'" class="text-xs text-gray-500">
                 Выберите чат (сверху) — истории показываются только разрешённого чата.
@@ -11609,102 +12387,23 @@
                 Витрина историй выключена (MCA_STORIES_VITRINA_ENABLED=OFF).
               </div>
               <template v-else>
-                <!-- Прогресс архивной обработки и последнее состояние (D5):
-                     read-рендер существующих процессов episodes.build/backfill.
-                     Fail-open (прецедент P0-guard storiesSummary.counters):
-                     частичный ответ без progress → честная подпись, не падение
-                     рендера всей витрины. -->
-                <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress
-                     v-if="storiesSummary.progress">
-                  <span class="badge badge-muted">
-                    Последняя сборка: {{ storiesBuildLabel(storiesSummary.progress) }}
-                  </span>
-                  <span class="badge badge-muted">
-                    Backfill: {{ storiesBackfillLabel(storiesSummary.progress) }}
-                  </span>
-                  <span v-if="storiesSummary.counters && storiesSummary.counters.contradictions_window"
-                        class="badge badge-warn">противоречий за окно: {{ storiesSummary.counters.contradictions_window }}</span>
+                <div class="text-xs text-gray-500 mb-1" v-if="storiesSummary.progress">
+                  Последняя сборка: {{ storiesBuildLabel(storiesSummary.progress) }}
                 </div>
-                <div v-else class="text-xs text-gray-500 mb-2">
-                  Состояние процессов обработки пока неизвестно.
+                <div v-if="!storiesPreviewEvents().length" class="text-xs text-gray-500">
+                  <template v-if="storiesSummary.state === 'empty'">Историй пока нет — появятся после обработки переписки.</template>
+                  <template v-else>Событий историй пока не было.</template>
                 </div>
-                <!-- Живая вертикальная лента (A26: prepend без сброса scroll;
-                     стабильный :key — открытая карточка не дёргается). -->
-                <div ref="storiesFeed" class="stories-feed scroll-thin" data-stories-feed>
-                  <div v-if="!storiesFeed.length" class="text-xs text-gray-500 py-3">
-                    <template v-if="storiesSummary.state === 'empty'">Историй пока нет — появятся после обработки переписки.</template>
-                    <template v-else>Событий историй пока не было.</template>
-                  </div>
-                  <div v-for="ev in storiesFeed" :key="ev.id"
-                       class="stories-item rounded-lg bg-white/5 px-2 py-1"
-                       :class="{ 'stories-item--stale': ev.outcome !== 'success' }">
-                    <div class="flex items-center gap-2 flex-wrap text-xs">
-                      <span class="badge" :class="storiesEventClass(ev.event)">{{ storiesEventLabel(ev.event) }}</span>
-                      <b v-if="ev.title" class="truncate">{{ ev.title }}</b>
-                      <span v-if="ev.text && ev.text !== ev.title" class="text-gray-400 truncate">{{ ev.text }}</span>
-                    </div>
-                    <div class="text-[10px] text-gray-500">
-                      <template v-if="ev.event_start || ev.event_end">
-                        события: {{ fmtStoryDate(ev.event_start || ev.event_end) }}<template v-if="ev.event_start && ev.event_end && ev.event_end !== ev.event_start"> — {{ fmtStoryDate(ev.event_end) }}</template>
-                      </template>
-                      <template v-if="storiesHasBothDates(ev)">
-                        · обнаружена: {{ fmtStoryDate(ev.discovered_at) }}</template>
-                      <template v-if="(ev.display_names || []).length || (ev.participants || []).length">
-                        · участники: {{ storiesParticipantsLabel(ev.display_names, ev.participants) }}</template>
-                      · {{ fmtStoryDateTime(ev.ts) }}
-                    </div>
-                    <div v-if="ev.story_id" class="mt-1">
-                      <button class="btn-ghost text-[10px]" @click="openStoriesCard(ev.story_id)">
-                        {{ storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id ? 'Скрыть карточку' : 'Подробнее' }}
-                      </button>
-                    </div>
-                    <!-- Подробная карточка НА МЕСТЕ (без навигации, :784).
-                         Текст — только интерполяциями (без html-вставок,
-                         TH-3). -->
-                    <div v-if="storiesCard && storiesCard.story && storiesCard.story.story_id === ev.story_id"
-                         class="mt-1 rounded border border-white/10 p-2 text-xs" data-stories-card>
-                      <div class="flex items-center gap-2 flex-wrap mb-1">
-                        <b>{{ storiesCard.story.title || 'Без названия' }}</b>
-                        <span class="badge badge-muted">{{ storiesStateRu(storiesCard.story.state) }}</span>
-                        <span class="badge badge-muted">{{ storiesVerificationRu(storiesCard.story.verification) }}</span>
-                        <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesCard()">скрыть</button>
-                      </div>
-                      <div class="text-gray-300">{{ storiesCard.story.summary || 'Краткое содержание: неизвестно.' }}</div>
-                      <div class="text-gray-400 mt-1">
-                        Период: {{ fmtStoryDate(storiesCard.story.event_start_ts || storiesCard.story.discovered_at) }}<template v-if="storiesCard.story.event_start_ts && storiesCard.story.event_end_ts && storiesCard.story.event_end_ts !== storiesCard.story.event_start_ts"> — {{ fmtStoryDate(storiesCard.story.event_end_ts) }}</template>
-                        · обнаружена: {{ fmtStoryDate(storiesCard.story.discovered_at) }}
-                      </div>
-                      <div class="text-gray-400 mt-1">
-                        Участники: {{ storiesParticipantsLabel(storiesCard.story.display_names, storiesCard.story.participants) || 'неизвестно' }}
-                      </div>
-                      <div class="text-gray-400 mt-1">
-                        Исходных сообщений: {{ storiesSourceCount(storiesCard) }} ·
-                        бот: {{ storiesUsageLabel(storiesCard.story) }} ·
-                        эпизодов: {{ (storiesCard.episodes || []).length }}
-                      </div>
-                      <div v-if="storiesCard.contradictions && storiesCard.contradictions.length"
-                           class="text-amber-300 mt-1">Противоречия: {{ storiesCard.contradictions.length }} (см. карточку в «Памяти»)</div>
-                      <!-- F7: raw IDs и служебные поля — только здесь (collapsed). -->
-                      <details class="mt-1" data-stories-dev>
-                        <summary class="cursor-pointer text-gray-500">Developer details</summary>
-                        <div class="text-[10px] text-gray-500 ml-2">
-                          story_id: <span class="mono">{{ storiesCard.story.story_id }}</span> ·
-                          версия: v{{ storiesCard.story.expected_version }} ·
-                          участники (ID): {{ (storiesCard.story.participants || []).join(', ') || '—' }} ·
-                          эпизоды (ID): {{ storiesEpisodeIds(storiesCard) || '—' }}
-                        </div>
-                      </details>
-                      <div class="mt-1">
-                        <button class="btn-ghost text-[10px]" @click="openStoriesTable()">Открыть в «Памяти»</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="storiesFeedHasMore" class="text-[10px] text-gray-500 mt-1">
-                  История ограничена окном/ретенцией — ранние события в ленте не показаны (это не «ноль событий»).
-                </div>
-                <div v-if="storiesFeedError" class="text-xs text-amber-300 mt-1">
-                  Лента недоступна ({{ storiesFeedError }}) — показаны последние загруженные данные.
+                <ul v-else class="status-stories-preview__list">
+                  <li v-for="ev in storiesPreviewEvents()" :key="'sp-' + ev.id"
+                      class="text-xs">
+                    <span class="badge" :class="storiesEventClass(ev.event)">{{ storiesEventLabel(ev.event) }}</span>
+                    <b class="ml-1">{{ ev.title || 'Без названия' }}</b>
+                    <span class="text-gray-500">· {{ fmtStoryDateTime(ev.ts) }}</span>
+                  </li>
+                </ul>
+                <div class="text-xs text-gray-500 mt-1">
+                  Полная лента, фильтры и причины невосстановления — в «Аналитике».
                 </div>
               </template>
             </div>
@@ -12261,200 +12960,6 @@
               </div>
             </div>
             </template>
-          </template>
-          <template v-else-if="activeTab === 'persona'">
-            <!-- ═══ F3 (persona-ui-tab-round1014): "Личность" — special-screen.
-                 ТОЛЬКО статические параметры (Имя/Биография/Характер +
-                 «Осознаёт себя ИИ»). Никакой визуализации (динамика — F4). ═══ -->
-            <!-- ═══ SOUL-1 W6 (§6.1): «Речь и характер» — единая точка входа
-                 раздела речи внутри той же зоны identity/speech. Карточка
-                 «Личность и стиль» — компактный showcase, который ведёт на
-                 отдельный special-screen #/ai/speech (не шесть вкладок). ═══ -->
-            <div class="card p-4 col-span-full speech-entry" style="max-width: 760px;">
-              <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-sm font-bold">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
-                  Речь и характер
-                </div>
-                <span class="badge badge-info">{{ speechScopeBadge }}</span>
-                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
-              </div>
-              <div class="text-xs text-gray-500 mt-1">
-                Характер (постоянный Core), стиль письма, выражение, юмор, примеры,
-                тестовая лаборатория и обучение — обычным языком, одним экраном за раз.
-              </div>
-              <div class="mt-2">
-                <button type="button" class="btn-accent text-sm"
-                        data-speech-entry
-                        @click="navigateTo('#/ai/speech')">Открыть «Речь и характер»</button>
-              </div>
-            </div>
-            <div class="card p-5 col-span-full" style="max-width: 760px;">
-              <div class="flex items-center gap-2 flex-wrap mb-3">
-                <div class="text-sm font-bold">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Личность
-                </div>
-                <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
-                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
-                <span v-if="personaMeta && personaMeta.scope === 'chat'"
-                      class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
-                  {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
-                </span>
-                <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
-                <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
-              </div>
-              <div v-if="personaLoading" class="spinner my-6"></div>
-              <template v-else>
-                <div class="text-xs text-gray-500 mb-3">
-                  Только статические параметры. Динамические черты и метрики — в разделе «Статус».
-                </div>
-                <label class="block mb-2">
-                  <span class="text-xs text-gray-400">Имя</span>
-                  <input class="field w-full" type="text" autocomplete="off"
-                         placeholder="Не задано — бот без имени"
-                         :value="personaDraft ? personaDraft.name : ''"
-                         :disabled="personaDisabled"
-                         @input="personaSetField('name', $event.target.value)">
-                </label>
-                <label class="block mb-2">
-                  <span class="text-xs text-gray-400">Биография</span>
-                  <textarea class="field w-full scroll-thin" rows="3"
-                            placeholder="Не задано — базовый лор/биография"
-                            :value="personaDraft ? personaDraft.biography : ''"
-                            :disabled="personaDisabled"
-                            @input="personaSetField('biography', $event.target.value)"></textarea>
-                </label>
-                <label class="block mb-2">
-                  <span class="text-xs text-gray-400">Характер</span>
-                  <textarea class="field w-full scroll-thin" rows="4"
-                            placeholder="Не задано — характер по умолчанию (system prompt overrides)"
-                            :value="personaDraft ? personaDraft.system_prompt_overrides : ''"
-                            :disabled="personaDisabled"
-                            @input="personaSetField('system_prompt_overrides', $event.target.value)"></textarea>
-                </label>
-                <label class="flex items-center gap-2 mb-4">
-                  <input type="checkbox"
-                         :checked="personaDraft ? personaDraft.is_aware_ai : false"
-                         :disabled="personaDisabled"
-                         @change="personaSetField('is_aware_ai', $event.target.checked)">
-                  <span class="text-sm">Осознаёт себя ИИ</span>
-                </label>
-                <div class="flex gap-2 flex-wrap">
-                  <button class="btn-accent text-sm"
-                          :disabled="personaBusy || personaDisabled"
-                          @click="savePersona()">{{ personaBusy ? 'Сохранение…' : 'Сохранить' }}</button>
-                  <button v-if="personaMeta && personaMeta.scope === 'chat'"
-                          class="btn-ghost text-sm"
-                          :disabled="personaBusy || personaDisabled"
-                          @click="resetPersona()">Сбросить к глобальному</button>
-                </div>
-              </template>
-            </div>
-            <!-- ═══ mca-18 (T-5085/T-5086): компакт «Что сейчас формирует
-                 характер» — effective/наследование трёх переключателей,
-                 правила (пауза/возобновление/источники), версии. Три статуса
-                 различимы: «передано модели» (applied_now) ≠ «проявилось» ≠
-                 «доказан эффект» (полная матрица — mca-17c). Fail-open. ═══ -->
-            <div v-if="selfModel" class="card p-5 col-span-full"
-                 style="max-width: 760px;">
-              <div class="flex items-center gap-2 flex-wrap mb-3">
-                <div class="text-sm font-bold">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
-                  Что сейчас формирует характер
-                </div>
-                <span v-if="selfModel.version"
-                      class="badge badge-muted">кадр v{{ selfModel.frame_version || selfModel.version }}</span>
-                <span v-if="selfModel.stale" class="badge badge-warn"
-                      title="last-known-good: PG недоступен">fallback: {{
-                  selfModel.fallback === 'lkg' ? 'устаревший снимок' :
-                  'минимальная тех-идентичность' }}</span>
-                <span v-if="selfModel.rules_status && selfModel.rules_status !== 'on'"
-                      class="badge badge-muted">правила черт: {{ selfModel.rules_status }}</span>
-                <span class="badge badge-muted"
-                      title="widget-ID — контракт mca-17c">{{ selfModel.widget_id }}</span>
-              </div>
-              <template v-if="selfModel.enabled">
-                <div class="grid gap-2 mb-3">
-                  <div v-for="(exp, key) in selfModel.explanations" :key="key"
-                       class="text-xs p-2 rounded"
-                       style="background: rgba(148,163,184,.08);">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-semibold">{{ key === 'persona_enabled' ? 'Личность в речи'
-                        : key === 'is_aware_ai' ? 'Осознаёт себя ИИ'
-                        : 'Рефлексия собственных ответов' }}</span>
-                      <span class="badge" :class="switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'ошибка загрузки' ? 'badge-err' : (switchBadgeText(selfModel.switches && selfModel.switches[key]) === 'выкл' ? 'badge-warn' : 'badge-info')">
-                        {{ switchBadgeText(selfModel.switches && selfModel.switches[key]) }}
-                      </span>
-                      <span class="text-gray-500">{{ switchSourceText(selfModel.switches && selfModel.switches[key]) }}</span>
-                    </div>
-                    <div class="text-gray-500 mt-1">{{ exp }}</div>
-                  </div>
-                </div>
-                <div class="text-xs text-gray-500 mb-1">
-                  База: {{ selfModel.composition && selfModel.composition.base ? 'задана' : 'пусто' }} ·
-                  Динамика: {{ selfModel.composition ? selfModel.composition.dynamics : '—' }} прав. ·
-                  Настроение: {{ selfModel.composition && selfModel.composition.mood ? 'активно (обратимо)' : 'нет' }} ·
-                  Позиции: {{ selfModel.positions_count }}
-                </div>
-                <div v-if="selfModel.applied_now && selfModel.applied_now.length"
-                     class="text-xs mb-2">
-                  <div class="text-gray-400 mb-1">Передано модели в этом кадре:</div>
-                  <div v-for="r in selfModel.applied_now" :key="'a' + r.id"
-                       class="p-2 rounded mb-1"
-                       style="background: rgba(59,130,246,.10);">
-                    #{{ r.id }} {{ r.dimension }} (v{{ r.version }}) — {{
-                    r.instruction }}
-                  </div>
-                </div>
-                <div v-if="selfModel.rejected_now && selfModel.rejected_now.length"
-                     class="text-xs mb-2">
-                  <div class="text-gray-400 mb-1">Подавлено (с причиной):</div>
-                  <div v-for="r in selfModel.rejected_now" :key="'r' + r.id"
-                       class="p-2 rounded mb-1"
-                       style="background: rgba(148,163,184,.10);">
-                    #{{ r.id || '—' }} {{ r.dimension || '—' }} — {{ r.reason }}
-                  </div>
-                </div>
-                <div v-if="selfModel.active_rules && selfModel.active_rules.length">
-                  <div class="text-gray-400 text-xs mb-1">Правила характера:</div>
-                  <div v-for="r in selfModel.active_rules" :key="r.id"
-                       class="text-xs p-2 rounded mb-1 flex items-center gap-2 flex-wrap"
-                       style="background: rgba(148,163,184,.08);">
-                    <span class="font-semibold">#{{ r.id }} {{ r.dimension }}</span>
-                    <span class="badge badge-muted">v{{ r.version }}</span>
-                    <span v-if="r.scope" class="badge badge-muted">{{ r.scope }}</span>
-                    <span v-if="!r.included" class="badge badge-warn">{{
-                      r.excluded_reason }}</span>
-                    <span class="ml-auto flex gap-1">
-                      <button v-if="r.included" class="btn-ghost text-xs"
-                              :disabled="selfModelLoading"
-                              @click="pauseRule(r.id)">Пауза</button>
-                      <button v-else class="btn-ghost text-xs"
-                              :disabled="selfModelLoading"
-                              @click="resumeRule(r.id)">Возобновить</button>
-                      <button class="btn-ghost text-xs"
-                              @click="loadRuleSources(r.id)">Источники</button>
-                    </span>
-                    <div v-if="selfModelSources[r.id]"
-                         class="w-full text-gray-500">
-                      <div v-for="o in selfModelSources[r.id]" :key="o.id">
-                        набл. #{{ o.id }} · {{ o.subject_status }} · refs: {{
-                        (o.source_refs || []).join(', ') || '—' }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="text-xs text-gray-500">
-                  Активных правил черт пока нет.
-                </div>
-              </template>
-              <template v-else>
-                <div class="text-xs text-gray-500">
-                  Модуль SelfModel выключен (честный disabled) — характер
-                  собирается legacy-путём.
-                </div>
-              </template>
-            </div>
           </template>
           <template v-else-if="activeTab === 'info'">
             <!-- ═══ "Справка" (T-2400): desktop — оглавление + контент;

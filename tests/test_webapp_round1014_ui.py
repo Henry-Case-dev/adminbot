@@ -56,8 +56,15 @@ class TestCatalogInvariant:
 
 class TestRoutes:
     def test_route_map(self):
-        assert "'#/ai/persona': 'persona'," in JS
-        assert "persona: '#/ai/persona'," in JS
+        # L-F11S-1 (EVOL-028 v0.8, W10): отдельного экрана «Личность и стиль»
+        # больше нет — маршрут `#/ai/persona` остаётся РАБОЧИМ deep-link'ом в
+        # секцию личности канонического редактора «Речь и характер»
+        # (plans/current_task.md L402: «Личность и стиль … переезжает в
+        # „Речь и характер“, которая становится единственным основным местом
+        # редактирования»). Инвариант «persona — НЕ config-вкладка» сохранён:
+        # tab `persona` в TABS по-прежнему нет.
+        assert "'#/ai/persona': 'speech'," in JS
+        assert "persona: '#/ai/persona'," not in JS
         assert "'#/ai/persona': '#/ai'," in JS
 
     def test_hub_card(self):
@@ -65,6 +72,14 @@ class TestRoutes:
         assert "title: 'Личность'" in hub
         assert "route: '#/ai/persona', tab: 'persona'" in hub
         assert "icon: 'psychology'" in hub
+
+
+def _persona_section() -> str:
+    """L-F11S-1 (EVOL-028 v0.8, W10): форма личности живёт в единственном
+    каноническом редакторе «Речь и характер» — секция `#speech-persona`.
+    Инварианты (только статические поля, без визуализаций/v-html) сохранены,
+    сменился только дом разметки."""
+    return _block(HTML, 'id="speech-persona"', '</section>')
 
 
 class TestPersonaForm:
@@ -77,8 +92,7 @@ class TestPersonaForm:
             assert marker in JS, marker
 
     def test_template_controls_only_static(self):
-        block = _block(HTML, "activeTab === 'persona'",
-                       "activeTab === 'info'")
+        block = _persona_section()
         # ровно 2 textarea (Биография/Характер) + 1 input (Имя) + чекбокс.
         assert block.count("<textarea") == 2
         assert block.count("<input") == 2      # Имя (text) + checkbox
@@ -106,16 +120,14 @@ class TestPersonaForm:
         assert "personaDisabled" in block
 
     def test_no_visualization(self):
-        block = _block(HTML, "activeTab === 'persona'",
-                       "activeTab === 'info'")
+        block = _persona_section()
         for forbidden in ("dynamic_traits", "traits", "ribbon", "canvas",
                           "chart", "v-html"):
             assert forbidden not in block, forbidden
 
     def test_fail_closed_no_html(self):
         # R17-дух: форма — только value-биндинги, без сырого HTML.
-        assert "v-html" not in _block(
-            HTML, "activeTab === 'persona'", "activeTab === 'info'")
+        assert "v-html" not in _persona_section()
 
 
 class TestScopeReactivity:
@@ -162,8 +174,11 @@ class TestJsUnit:
     def test_routing_test_covers_persona(self):
         test = (ROOT / "tests" / "js" / "routing_test.js").read_text(
             encoding="utf-8")
+        # L-F11S-1 (EVOL-028 v0.8, W10): маршрут #/ai/persona — deep-link в
+        # канонический редактор «Речь и характер» (tab 'speech'); покрытие
+        # сохранено, изменилась ожидаемая вкладка.
         assert "persona-ui-tab-round1014" in test
-        assert "routeToTab(#/ai/persona) == persona" in test
+        assert "EVOL-028: routeToTab(#/ai/persona) == speech" in test
         assert "loadPersona" in test
 
 
@@ -269,8 +284,12 @@ class TestPersonaHealthPanel:
 # переехал в «Аналитику» (см. TestStatusLayoutOrderF7.ORDER).
 
 def _status_block() -> str:
-    """Срез разметки активной вкладки «Статус» (T-1535: границы v-else-if)."""
-    return _block(HTML, "activeTab === 'status'", "activeTab === 'persona'")
+    """Срез разметки активной вкладки «Статус» (T-1535: границы v-else-if).
+
+    L-F11S-1 (EVOL-028 v0.8, W10): ветки `activeTab === 'persona'` больше нет
+    (личность переехала в «Речь и характер»), поэтому правая граница — ветка
+    «Справка». Инварианты порядка блоков не изменены."""
+    return _block(HTML, "activeTab === 'status'", "activeTab === 'info'")
 
 
 class TestStatusLayoutOrderF7:

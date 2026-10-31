@@ -251,8 +251,10 @@ class TestD6Invariants:
     def test_csp_zero_build(self):
         # Нет inline `onclick=`/`<script>`-блоков в добавленной разметке и
         # нет внешних CDN в композиции Статуса.
+        # L-F11S-1 (EVOL-028 v0.8, W10): ветки persona больше нет — правая
+        # граница среза теперь «Справка»; инварианты CSP те же.
         status = INDEX[INDEX.index("activeTab === 'status'"):
-                       INDEX.index("activeTab === 'persona'")]
+                       INDEX.index("activeTab === 'info'")]
         assert "http://" not in status and "https://" not in status
         assert "<script" not in status
         assert "v-html" not in status

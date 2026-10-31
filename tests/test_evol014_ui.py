@@ -275,10 +275,15 @@ def test_ui_meme_settings_block():
     # Второго мастер-тумблера модуля нет (EVOL-035/040): только своя ось.
     assert "flags.initiative_enabled" not in block
     assert "toggleModule" not in block
-    # Мастер остаётся в каталоге модулей (app.js MODULES) и в шапке модуля.
+    # Мастер остаётся в каталоге модулей (app.js MODULES).
     js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     assert "toggleKey: 'flags.initiative_enabled'" in js
-    assert "toggleModule(workspaceModule" in html
+    # L-F11S-1 (EVOL-027 v0.8, W10): в шапке деталей модуля тождественного
+    # master-toggle БОЛЬШЕ НЕТ (plans/current_task.md L389) — только read-only
+    # статус и ссылка «Управляется из каталога», где живёт единственный
+    # глобальный тумблер.
+    assert "toggleModule(workspaceModule" not in html
+    assert "data-module-managed-link" in html
 
 
 def test_ui_quota_text_is_generated_from_server_data():

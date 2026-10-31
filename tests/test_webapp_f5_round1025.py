@@ -314,11 +314,18 @@ def test_ai_hub_five_pages_order():
     # EVOL-031 (30.10.2026): карточка «Умный кэш» удалена из хаба «ИИ»
     # (Exact Match Cache выведен из эксплуатации; старый маршрут
     # #/ai/smart-cache алиасится на витрину «ИИ») → 5 → 4 карточки.
+    # L-F11S-1 (EVOL-028 v0.8, W10): карточка «Личность и стиль» удалена как
+    # дублирующий пункт — личность/характер/манера речи редактируются в
+    # единственном каноническом редакторе «Речь и характер» (#/ai/speech),
+    # куда ведёт и старый deep-link #/ai/persona (plans/current_task.md L402).
     assert titles[1:] == ["Библиотека промптов", "Модели и подключения",
-                          "Личность и стиль", "Имена и алиасы"], titles
+                          "Имена и алиасы"], titles
     routes = re.findall(r"route: '([^']+)'", block)
-    assert routes == ["#/ai/prompts", "#/ai/llm", "#/ai/persona",
-                      "#/ai/names"], routes
+    assert routes == ["#/ai/prompts", "#/ai/llm", "#/ai/names"], routes
+    # Вход в канонический редактор сохранён отдельной строкой хаба (UI):
+    # [data-speech-hub-entry] → #/ai/speech (см. test_speech_mobile_entry).
+    assert "data-speech-hub-entry" in INDEX
+    assert "navigateTo('#/ai/speech')" in INDEX
 
 
 # ── Инварианты окружения ────────────────────────────────────────────────────

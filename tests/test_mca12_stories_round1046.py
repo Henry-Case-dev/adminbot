@@ -736,25 +736,39 @@ def test_a26_structure_single_insert_no_new_route():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
     html = (root / "web/index.html").read_text(encoding="utf-8")
-    # единственная вставка витрины в F11-сетку
-    assert html.count('data-stories>') == 1
+    # L-F11S-1 (EVOL-026, W10): витрина «Истории памяти» разделена по смыслу —
+    # превью остаётся на «Статусе», полный виджет (лента) переехал в
+    # «Аналитику» (plans/current_task.md L367, L418). Инварианты сохранены:
+    # единственная вставка каждой части, без нового маршрута, таблица — в
+    # существующей memory_rag-вкладке, без html-вставок.
+    assert html.count('data-stories-preview') == 1
     assert html.count('data-stories-feed') == 1
     # верхнеуровневого маршрута историй нет (GEN-R12)
     assert "#/stories" not in html
     # таблица — внутри существующей memory_rag-вкладки
-    rag = html.index("currentTab.id === 'memory_rag'")
+    rag = html.index("currentTab.id == 'memory_rag'") if (
+        "currentTab.id == 'memory_rag'" in html) else html.index(
+            "currentTab.id === 'memory_rag'")
     manage = html.index("data-stories-manage")
     assert rag < manage
-    # вставка витрины: после «Бюджетов интеллекта», до «Доступности ключей»
-    assert html.index("status-budgets") < html.index('data-stories>')
-    assert html.index('data-stories>') < html.index("Доступность ключей")
+    # превью — после «Бюджетов интеллекта», до «Доступности ключей»
+    assert html.index("status-budgets") < html.index('data-stories-preview')
+    assert html.index('data-stories-preview') < html.index("Доступность ключей")
+    # полный виджет — в «Аналитике» (существующий маршрут #/oversight)
+    oversight = html.index("activeTab === 'oversight'")
+    analytics = html.index('data-stories-analytics')
+    assert oversight < analytics < html.index("data-stories-feed")
     # блок инициативы — в карточке мониторинга интеллекта
     assert "data-intents" in html
     assert "data-stories-settings" in html
     assert "data-adjacent" in html
     # без html-вставок в новых зонах (TH-3)
-    zone = html[html.index('data-stories>'):html.index("Доступность ключей")]
+    zone = html[html.index('data-stories-preview'):
+                html.index("Доступность ключей")]
     assert not re.search(r"v-html|innerHTML|<script", zone)
+    zone2 = html[html.index('data-stories-analytics'):
+                 html.index("data-stories-manage")]
+    assert not re.search(r"v-html|innerHTML|<script", zone2)
 
 
 def test_a26_ui_flags_not_extended():

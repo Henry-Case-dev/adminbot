@@ -52,16 +52,27 @@ def test_entry_gated_by_existing_speech_permission():
 
 
 def test_navigation_untouched_five_hub_pages():
-    # «Ровно 5 страниц хаба» (F5/W6-контракт) сохраняется: вход — не карточка
-    # HUBS_V2, а строка-дверь на том же экране.
+    # L-F11S-1: «5 страниц хаба» исторически менялось дважды и НЕ является
+    # целью само по себе: EVOL-031 убрал «Умный кэш» (5→4), EVOL-028 v0.8 убрал
+    # дублирующий пункт «Личность и стиль» (4→3) — личность редактируется в
+    # единственном каноническом редакторе «Речь и характер»
+    # (plans/current_task.md L402). Инвариант W6 сохранён: вход в «Речь и
+    # характер» — отдельная строка-дверь на том же экране, а не новая карточка.
     hub = _hub_v2_ai_block()
-    assert hub.count("route: '#/ai/") == 5
+    assert hub.count("route: '#/ai/") == 3
+    assert "tab: 'persona'" not in hub
 
 
 def test_persona_entry_still_present():
-    # Вторая дверь (W6) не удалена — навигация не переделана.
-    i = INDEX.index("data-speech-entry")
-    area = INDEX[i:i + 400]
+    # L-F11S-1 (EVOL-028 v0.8, W10): второй двери `data-speech-entry` больше
+    # нет — она жила в отдельном экране «Личность и стиль», который удалён
+    # вместе с дублирующей навигацией. Вход остался один (строка хаба), а
+    # старый адрес `#/ai/persona` стал deep-link'ом в секцию личности того же
+    # канонического редактора.
+    assert "data-speech-entry" not in INDEX
+    assert "data-speech-hub-entry" in INDEX
+    area = INDEX[INDEX.index("data-speech-hub-entry"):
+                 INDEX.index("data-speech-hub-entry") + 400]
     assert "navigateTo('#/ai/speech')" in area
     assert "Речь и характер" in area
 

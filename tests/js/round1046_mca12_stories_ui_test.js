@@ -242,12 +242,27 @@ v1.api = async function (p) {
   const permsocIdx = indexHtml.indexOf("activeTab === 'permsoc'");
   assert.ok(ragIdx > 0 && manageIdx > ragIdx && permsocIdx > manageIdx,
             'data-stories-manage внутри memory_rag-вкладки');
-  // позиция вставки витрины: после «Бюджетов интеллекта», до «Доступности ключей»
-  const vitrinaIdx = indexHtml.indexOf('data-stories>');
+  // EVOL-026 (W10): «Истории памяти» разделены по смыслу —
+  //   * ПРЕВЬЮ (`data-stories-preview`) остаётся на «Статусе» между
+  //     «Бюджетами интеллекта» и «Доступностью ключей»;
+  //   * ПОЛНЫЙ виджет (лента `data-stories-feed` + карточка) живёт в
+  //     «Аналитике» (plans/current_task.md L367/L418: «полноценный виджет
+  //     историй памяти — из Статуса в Аналитику»).
+  const vitrinaIdx = indexHtml.indexOf('data-stories-preview');
   const budgetsIdx = indexHtml.indexOf('status-budgets');
   const keysIdx = indexHtml.indexOf('Доступность ключей');
   assert.ok(budgetsIdx > 0 && vitrinaIdx > budgetsIdx && vitrinaIdx < keysIdx,
-            'вставка после зоны мониторинга интеллекта, до нижних логов (D3)');
+            'превью историй — после мониторинга интеллекта, до нижних логов (D3)');
+  const statusIdx = indexHtml.indexOf("activeTab === 'status'");
+  const oversightIdx = indexHtml.indexOf("activeTab === 'oversight'");
+  const feedIdx = indexHtml.indexOf('data-stories-feed');
+  const memoryTabIdx = indexHtml.indexOf('data-stories-analytics');
+  assert.ok(oversightIdx > 0 && memoryTabIdx > oversightIdx,
+            'полный виджет историй — в «Аналитике» (EVOL-026)');
+  assert.ok(feedIdx > memoryTabIdx,
+            'лента историй — внутри аналитического виджета');
+  assert.ok(!(feedIdx > statusIdx && feedIdx < oversightIdx),
+            'ленты историй больше нет в «Статусе»');
   //TH-3: в новых блоках нет html-вставок
   const storiesZone = indexHtml.slice(
     indexHtml.indexOf('data-stories>'), indexHtml.indexOf('data-stories-manage'));

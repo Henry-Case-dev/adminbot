@@ -137,18 +137,20 @@ assert.strictEqual(ctx.route, '#/ai/prompts',
 assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 7 }, 7), true);
 assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
 
-// ── F3 (10.14 persona-ui-tab-round1014): special-screen #/ai/persona ───────
+// ── F3 persona-ui-tab-round1014 + EVOL-028 v0.8 (W10): #/ai/persona ──────
+// L-F11S-1: отдельного экрана «Личность и стиль» больше нет. Маршрут остаётся
+// рабочим и открывает единственный канонический редактор «Речь и характер»
+// (tab 'speech'); инвариант «persona — не config-вкладка» сохранён.
 (function () {
-  // routeToTab('#/ai/persona') == 'persona' (через applyRoute).
-  const ctx = makeCtx(['status', 'persona']);
+  const ctx = makeCtx(['status', 'speech']);
   ctx.personaLoading = false;
   methods.applyRoute.call(ctx, '#/ai/persona');
   assert.strictEqual(ctx.route, '#/ai/persona',
-    'F3: маршрут #/ai/persona открывается');
-  assert.strictEqual(ctx.activeTab, 'persona',
-    'F3: routeToTab(#/ai/persona) == persona');
+    'EVOL-028: маршрут #/ai/persona открывается');
+  assert.strictEqual(ctx.activeTab, 'speech',
+    'EVOL-028: routeToTab(#/ai/persona) == speech (канонический редактор)');
   assert.strictEqual(ctx.accessOpen, null,
-    'F3: persona-роут не трогает accessOpen');
+    'EVOL-028: persona-роут не трогает accessOpen');
 
   // routeParent('#/ai/persona') == '#/ai' (через goBack).
   const back = { route: '#/ai/persona', navigateTo(r) { this._nav = r; } };

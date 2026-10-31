@@ -29,26 +29,35 @@ const MOD = INDEX.slice(branchStart, branchEnd);
 // ── (a) Порядок страницы ────────────────────────────────────────────────
 {
   const posHead = MOD.indexOf('hub-title">Модули');
-  const posCounters = MOD.indexOf('module-counters');
   const posToolbar = MOD.indexOf('module-toolbar');
   const posCatalog = MOD.indexOf('module-catalog');
   // ASAP 4.2 (D5.3): панель «Быстрое управление» удалена полностью —
   // единственный список модулей — каталог.
-  for (const [name, pos] of [['заголовок', posHead], ['счётчики', posCounters],
+  // L-F11S-1 (EVOL-027 v0.8, W10): тяжёлая агрегатная KPI-строка
+  // («всего/включено/выключено/проблемы») удалена из каталога
+  // (plans/current_task.md L389); число результатов живёт в подписи списка.
+  for (const [name, pos] of [['заголовок', posHead],
     ['поиск/фильтры', posToolbar], ['каталог', posCatalog]]) {
     assert.ok(pos >= 0, 'a: нет блока «' + name + '»');
   }
-  assert.ok(posHead < posCounters && posCounters < posToolbar
-    && posToolbar < posCatalog,
+  assert.ok(posHead < posToolbar && posToolbar < posCatalog,
     'a: порядок блоков §32 нарушен');
+  assert.strictEqual(MOD.indexOf('module-counters'), -1,
+    'a: KPI-строка модулей должна отсутствовать (EVOL-027 v0.8)');
+  assert.strictEqual(MOD.indexOf('module-counter'), -1,
+    'a: плитки KPI модулей должны отсутствовать');
+  assert.ok(MOD.indexOf('data-module-caption') >= 0,
+    'a: нет подписи числа результатов в списке');
   assert.strictEqual(MOD.indexOf('module-quick-wrap'), -1,
     'a: Quick Access панель должна быть удалена');
   assert.strictEqual(MOD.indexOf('Быстрое управление'), -1,
     'a: «Быстрое управление» отсутствует');
-  for (const m of ['moduleCounters.total', 'moduleCounters.on',
-    'moduleCounters.off', 'moduleCounters.issues']) {
-    assert.ok(MOD.indexOf(m) >= 0, 'a: нет индикатора ' + m);
-  }
+  // EVOL-027 v0.7 (жёсткое требование владельца): глобальный тумблер —
+  // прямо в карточке каталога, отдельный от чатового override.
+  assert.ok(MOD.indexOf('data-module-global-toggle') >= 0,
+    'a: нет глобального тумблера в карточке');
+  assert.ok(MOD.indexOf('setModuleGlobalState(m') >= 0,
+    'a: глобальный тумблер не вызывает серверную операцию сразу');
 }
 
 // ── (b) Поиск и фильтры §44/§32 ─────────────────────────────────────────
@@ -107,9 +116,12 @@ const MOD = INDEX.slice(branchStart, branchEnd);
   assert.ok(cardTag, 'e: нет карточки модуля');
   assert.ok(cardTag[0].indexOf('@click') < 0, 'e: карточка работает как тумблер');
   assert.ok(MOD.indexOf('role="listitem"') >= 0, 'e: нет роли listitem');
-  // aria-label на тумблере сохранён
-  assert.ok(MOD.indexOf(":aria-label=\"'Включить модуль ' + m.title\"") >= 0,
-    'e: нет aria-label тумблера');
+  // aria-label на тумблерах сохранён (глобальный — подписан явно, чатовый —
+  // своим смыслом; L-F11S-1: текст чатового тумблера уточнён в EVOL-027).
+  assert.ok(MOD.indexOf(':aria-label="moduleGlobalToggleLabel(m)"') >= 0,
+    'e: нет aria-label глобального тумблера');
+  assert.ok(MOD.indexOf("'Включить модуль для этого чата: ' + m.title") >= 0,
+    'e: нет aria-label чатового тумблера');
   assert.ok(MOD.indexOf('module-card-head') >= 0, 'e: нет верхней строки карточки');
   assert.ok(MOD.indexOf('module-state') >= 0, 'e: нет фактического состояния');
 }
@@ -136,10 +148,21 @@ const MOD = INDEX.slice(branchStart, branchEnd);
   const listCount = (INDEX.match(/class="module-list\b/g) || []).length;
   assert.strictEqual(listCount, 1, 'g: должен быть ровно один .module-list');
   // панель/карточка/модалка используют одни moduleEnabled/toggleModule
+  // L-F11S-1 (EVOL-027 v0.7, W10): у карточки теперь ДВА разных действия —
+  // глобальное (`setModuleGlobalState`, тот же канонический write-path
+  // persistItems с per_chat:false) и чатовый override (`toggleModule`).
   const en = (MOD.match(/moduleEnabled\(/g) || []).length;
   const tg = (MOD.match(/toggleModule\(/g) || []).length;
-  assert.ok(en >= 2, 'g: тумблеры не через единый store (' + en + ')');
-  assert.ok(tg >= 2, 'g: переключение не через единый store (' + tg + ')');
+  const gtg = (MOD.match(/setModuleGlobalState\(/g) || []).length;
+  assert.ok(en >= 1, 'g: тумблеры не через единый store (' + en + ')');
+  assert.ok(tg >= 1, 'g: чатовое переключение не через единый store (' + tg + ')');
+  assert.ok(gtg >= 1, 'g: глобальное переключение не через store (' + gtg + ')');
+  assert.ok(/setModuleGlobalState: async function/.test(APP_JS),
+    'g: глобальная операция не реализована методом store');
+  const gblock = APP_JS.slice(APP_JS.indexOf('setModuleGlobalState: async function'),
+                              APP_JS.indexOf('moduleHealthView: function'));
+  assert.ok(gblock.indexOf('per_chat: false') >= 0,
+    'g: глобальная запись не идёт своим путём (per_chat:false)');
 }
 
 console.log('MODULE-CATALOG-OK');
