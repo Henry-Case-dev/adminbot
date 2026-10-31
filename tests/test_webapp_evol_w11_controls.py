@@ -381,8 +381,10 @@ class TestToggleStates:
     def test_every_toggle_container_has_contract_class(self):
         """Все треки живут в метке с классом контракта (иначе CSS не совпадёт)."""
         labels = _toggle_labels()
-        assert len(labels) == 15, \
-            "тумблеров контракта должно быть 15, найдено %d" % len(labels)
+        # Точное число — не контракт (меняется вместе с числом настроек);
+        # контракт — КАЖДАЯ метка с треком на общем компоненте.
+        assert len(labels) >= 15, \
+            "тумблеры контракта не найдены, найдено %d" % len(labels)
         assert INDEX.count("ctl-toggle__track") == len(labels), \
             "есть трек вне метки тумблера (сирота без состояния)"
         bad = [(x["line"], x["classes"]) for x in labels

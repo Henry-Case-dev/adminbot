@@ -73,7 +73,13 @@ class TestExecuteWebSearch:
         out = await router.dispatch("execute_web_search", {"query": "РЖД"},
                                     _ctx("что по ржд?"))
         assert out == "Результаты поиска по запросу «РЖД»:\nТекст результатов"
-        search.search.assert_awaited_once_with("РЖД", max_symbols=4000)
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3): агрегатору отдаётся технический
+        # ceiling (класс C), а не 4000 — содержательный лимит применяется один
+        # раз, структурно, по индексу кандидатов (URL не теряются).
+        awaited = search.search.await_args
+        assert awaited.args[0] == "РЖД"
+        assert awaited.kwargs["max_symbols"] != 4000
+        assert awaited.kwargs["max_symbols"] >= 4000
 
     @pytest.mark.asyncio
     async def test_all_engines_failed_structured_error(self):
@@ -90,7 +96,9 @@ class TestExecuteWebSearch:
         search.search = AsyncMock(return_value="данные")
         router = ToolRouter(_deps(search=search))
         await router.dispatch("execute_web_search", {}, _ctx("исходный вопрос"))
-        search.search.assert_awaited_once_with("исходный вопрос", max_symbols=4000)
+        awaited = search.search.await_args
+        assert awaited.args[0] == "исходный вопрос"
+        assert awaited.kwargs["max_symbols"] >= 4000
 
     @pytest.mark.asyncio
     async def test_timeout_bounded(self, monkeypatch):
@@ -109,15 +117,58 @@ class TestExecuteWebSearch:
         assert "ОШИБКА execute_web_search: поиск недоступен (timeout)" in out
 
     @pytest.mark.asyncio
-    async def test_result_truncated_to_4000(self):
+    async def test_result_not_capped_at_legacy_4000(self):
+        """ASAP-EVIDENCE-ROUTING-01 v3 (сценарий 36): 4000 — не потолок.
+
+        Реальное окно модели (deepseek 128K) позволяет доставить больше, чем
+        прежний слепой срез 4k; содержательный лимит наблюдаем в конверте."""
         search = MagicMock()
         search.search = AsyncMock(return_value="x" * 9000)
+        ctx = _ctx()
         router = ToolRouter(_deps(search=search))
-        out = await router.dispatch("execute_web_search", {"query": "q"}, _ctx())
-        # тело ≤ 4000 символов (+ заголовок инструмента и многоточие)
-        assert "x" * 4001 not in out
-        assert len(out) <= 4100
-        assert out.endswith("…")
+        out = await router.dispatch("execute_web_search", {"query": "q"}, ctx)
+        assert "x" * 9000 in out
+        limits = ctx.evidence_limits
+        assert limits and limits[0]["tool"] == "execute_web_search"
+        assert limits[0]["effective_limit"] > 4000
+        assert limits[0]["limit_source"] in ("window", "call_budget")
+        assert limits[0]["truncated"] is False
+
+    @pytest.mark.asyncio
+    async def test_small_window_bounded_and_observed(self):
+        """Маленькое/unknown окно: срез по границе токена + все поля конверта."""
+        import services.auto_budget as auto_budget_mod
+        import services.model_capacity as capacity_mod
+
+        search = MagicMock()
+        search.search = AsyncMock(
+            return_value="Заголовок\nсниппет\nhttps://official.example/docs\n\n" * 400)
+        ctx = _ctx()
+        router = ToolRouter(_deps(search=search))
+
+        original = auto_budget_mod.resolve_evidence_tool_window
+
+        def _tiny(kind, **kwargs):
+            window = original(kind, **kwargs)
+            return auto_budget_mod.EvidenceToolWindow(
+                kind=window.kind, effective_limit=1200, source="window",
+                budget_chars=960, window_tokens=16384,
+                window_source=capacity_mod.WINDOW_SOURCE_FALLBACK,
+                hard_ceiling=window.hard_ceiling, floor=4000)
+
+        auto_budget_mod.resolve_evidence_tool_window = _tiny
+        try:
+            out = await router.dispatch("execute_web_search", {"query": "q"}, ctx)
+        finally:
+            auto_budget_mod.resolve_evidence_tool_window = original
+        record = ctx.evidence_limits[0]
+        assert record["truncated"] is True
+        assert record["why"].startswith("over_window")
+        assert record["effective_limit"] == 1200
+        assert record["used"] <= 1200 + 120
+        # URL не разрезан и выдача не «схлопнута» до одного куска.
+        assert "https://official.example/docs" in out
+        assert record["retrievable_remainder"] >= 0
 
 
 class TestQueryChatMemory:

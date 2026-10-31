@@ -1,0 +1,197 @@
+{
+ "viewports": {
+  "1280": {
+   "palette": {
+    "open": true,
+    "panelW": 720,
+    "panelH": 177,
+    "panelTop": 48,
+    "vh": 900,
+    "inputFocused": true,
+    "inputs": 1,
+    "ph": "Раздел, модуль, настройка, ключ или промпт…",
+    "bg": "rgb(28, 37, 55)",
+    "bf": "none",
+    "inputValue": "",
+    "inputH": 40,
+    "rows": 0,
+    "groups": [],
+    "dests": [],
+    "scopeLabel": "ЧАТ",
+    "hScroll": false
+   }
+  },
+  "390": {
+   "palette": {
+    "open": true,
+    "panelW": 390,
+    "panelH": 844,
+    "panelTop": 0,
+    "vh": 844,
+    "inputFocused": true,
+    "inputs": 1,
+    "ph": "Раздел, модуль, настройка, ключ или промпт…",
+    "bg": "rgb(21, 27, 42)",
+    "bf": "none",
+    "inputValue": "юмор",
+    "inputH": 44,
+    "rows": 9,
+    "groups": [
+     "section",
+     "setting"
+    ],
+    "dests": [
+     "#/ai/speech",
+     "#/permsoc",
+     "#/modules/initiative/settings",
+     "#/memory/rag",
+     "#/modules",
+     "#/memory/rag",
+     "#/memory/rag",
+     "#/memory/rag",
+     "#/memory/rag"
+    ],
+    "scopeLabel": "ЧАТ",
+    "hScroll": false
+   }
+  }
+ },
+ "checks": {
+  "palette_settings": {
+   "open": true,
+   "panelW": 720,
+   "panelH": 630,
+   "panelTop": 48,
+   "vh": 900,
+   "inputFocused": true,
+   "inputs": 1,
+   "ph": "Раздел, модуль, настройка, ключ или промпт…",
+   "bg": "rgb(28, 37, 55)",
+   "bf": "none",
+   "inputValue": "инициатива",
+   "inputH": 40,
+   "rows": 12,
+   "groups": [
+    "module",
+    "setting",
+    "prompt"
+   ],
+   "dests": [
+    "#/modules/initiative",
+    "#/modules/initiative/limits",
+    "#/modules/initiative/settings",
+    "#/modules/initiative/settings",
+    "#/modules/initiative/settings",
+    "#/modules",
+    "#/modules/initiative/settings",
+    "#/modules/images/settings",
+    "#/modules/images/settings",
+    "#/modules/initiative/settings",
+    "#/memory/relations",
+    "#/modules/direct/prompts/prompts.direct_l1_planner_system_prompt"
+   ],
+   "scopeLabel": "ЧАТ",
+   "hScroll": false
+  },
+  "palette_secrets": {
+   "open": true,
+   "panelW": 720,
+   "panelH": 177,
+   "panelTop": 48,
+   "vh": 900,
+   "inputFocused": true,
+   "inputs": 1,
+   "ph": "Раздел, модуль, настройка, ключ или промпт…",
+   "bg": "rgb(28, 37, 55)",
+   "bf": "none",
+   "inputValue": "api_key",
+   "inputH": 40,
+   "rows": 0,
+   "groups": [],
+   "dests": [],
+   "scopeLabel": "ЧАТ",
+   "hScroll": false
+  },
+  "palette_navigation": {
+   "picked": "setting:limits.intent_heartbeat_batch_max",
+   "hash": "#/modules/initiative/settings?focus=limits.intent_heartbeat_batch_max",
+   "focused": "BODY"
+  },
+  "prompt_editor": {
+   "editor": true,
+   "full": false,
+   "textarea": true,
+   "meta": true,
+   "fullscreenBtn": true,
+   "search": true,
+   "hScroll": false
+  },
+  "inspector": {
+   "found": true,
+   "modes": [
+    "real",
+    "preview"
+   ],
+   "checked": [
+    "real"
+   ],
+   "notSent": false,
+   "noSnapshot": true,
+   "exact": false,
+   "preview": false,
+   "honest": "Подтверждённого снимка нет — предпросмотр не выдаётся за отправку."
+  },
+  "inspector_preview": {
+   "found": true,
+   "modes": [
+    "real",
+    "preview"
+   ],
+   "checked": [
+    "preview"
+   ],
+   "notSent": true,
+   "noSnapshot": false,
+   "exact": false,
+   "preview": true,
+   "honest": "Локальная сборка текущей конфигурации. В модель и в Telegram ничего не отправляется."
+  },
+  "initiative": {
+   "found": true,
+   "groups": [
+    "auto",
+    "schedule",
+    "safety",
+    "diag"
+   ],
+   "perChat": true,
+   "masterToggle": 0,
+   "masterLink": true,
+   "advancedClosed": true,
+   "advancedKeys": [
+    "flags.send_recheck_enabled",
+    "flags.initiative_diagnostics_publish_enabled"
+   ],
+   "primaryKeys": [
+    "flags.initiative_observer_enabled",
+    "flags.intent_decision_enabled",
+    "flags.intent_heartbeat_enabled"
+   ]
+  },
+  "initiative_truth": {
+   "recheck": true,
+   "publish": true,
+   "master": true,
+   "perChat": true
+  },
+  "module_overview": {
+   "overview": true,
+   "actions": true,
+   "primary": true,
+   "last": "Последних действий в журнале нет",
+   "scope": "ЧАТ",
+   "tabs": 3
+  }
+ },
+ "fails": []
+}

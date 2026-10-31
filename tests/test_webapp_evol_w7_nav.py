@@ -414,8 +414,11 @@ class TestAsapUi02Navigation:
             "⛶ снова возвращается в шапку с 420 px и съедает имя раздела"
         assert (".app-shell.shell-mobile .more-menu-action { display: flex; }"
                 in block), "у действия ⛶ нет входа в «⋯»"
-        # Один экземпляр действия в разметке (шапка) + один пункт меню.
-        assert INDEX.count('class="more-menu-action"') == 1
+        # Один экземпляр действия ⛶ в разметке (шапка) + один пункт меню.
+        # EVOL-037 (W12): «⋯» содержит и другие второстепенные действия
+        # (поиск по приложению) — контракт держит именно ⛶.
+        assert INDEX.count('class="more-menu-action"') >= 1
+        assert INDEX.count('data-fs-menu-item') == 1
         assert INDEX.count("header-fs-btn") == 1
         # На ≤419 второстепенные правила (имя/аватар чата) остались в своём
         # блоке — перенос ⛶ их не «переехал» и не отменил.

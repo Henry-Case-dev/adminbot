@@ -43,16 +43,16 @@
    "text": "global_admin",
    "visible": true,
    "title": "global_admin",
-   "right": 1214
+   "right": 1076
   },
   "avatarNode": {
    "visible": true,
-   "right": 1087
+   "right": 949
   },
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 496
+   "w": 358
   },
   "scopeName": {
    "text": "Очень длинное название рабочего чата с уточнением и подписью",
@@ -64,10 +64,10 @@
  },
  "desktop_panel": {
   "open": true,
-  "x": 734,
-  "right": 1114,
+  "x": 596,
+  "right": 976,
   "top": 55,
-  "bottom": 230,
+  "bottom": 224,
   "vw": 1280,
   "vh": 800,
   "insideViewport": true,
@@ -130,16 +130,16 @@
    "text": "global_admin",
    "visible": true,
    "title": "global_admin",
-   "right": 1214
+   "right": 1076
   },
   "avatarNode": {
    "visible": true,
-   "right": 1087
+   "right": 949
   },
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 644
+   "w": 506
   },
   "scopeName": {
    "text": "Очень длинное название рабочего чата с уточнением и подписью",
@@ -193,16 +193,16 @@
    "text": "global_admin",
    "visible": true,
    "title": "global_admin",
-   "right": 1214
+   "right": 1076
   },
   "avatarNode": {
    "visible": true,
-   "right": 1087
+   "right": 949
   },
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 644
+   "w": 506
   },
   "scopeName": {
    "text": "Очень длинное название рабочего чата с уточнением и подписью",
@@ -375,13 +375,13 @@
   "x": 0,
   "w": 280,
   "inside": true,
-  "links": 8,
+  "links": 9,
   "focusInside": true,
   "ariaHidden": "false"
  },
  "mobile_drawer_trap": {
   "escaped": null,
-  "distinct": 8
+  "distinct": 9
  },
  "mobile_drawer_closed": {
   "open": false,
@@ -397,7 +397,7 @@
   "x": 145,
   "right": 270,
   "top": 54,
-  "bottom": 281,
+  "bottom": 254,
   "vw": 390,
   "vh": 844,
   "insideViewport": true,
@@ -414,7 +414,7 @@
   "inside": true,
   "items": 0,
   "profile": true,
-  "bottom": 232,
+  "bottom": 278,
   "vh": 844
  },
  "mobile_fs_menu": {

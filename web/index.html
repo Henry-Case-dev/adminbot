@@ -343,6 +343,22 @@
                входа с горизонтальным ТРОЕТОЧИЕМ (не сетка из четырёх
                квадратов). Панель не создаёт второй ряд шапки: это popover
                поверх контента, открывается из этой кнопки. -->
+          <!-- EVOL-037 (W12): desktop-точка входа в глобальный поиск.
+               На телефоне кнопка скрыта — там вход в меню «⋯», чтобы не
+               перегружать и без того тесную шапку. -->
+          <button v-if="!hasDrawer" type="button"
+                  class="btn-ghost header-search-btn shrink-0"
+                  data-palette-open
+                  title="Поиск по приложению (Ctrl+K)"
+                  aria-label="Поиск по приложению"
+                  aria-keyshortcuts="Control+K Meta+K"
+                  @click="openPalette()">
+            <svg class="ui-ic" viewBox="0 0 24 24" width="18" height="18"
+                 aria-hidden="true" focusable="false"><path fill="currentColor"
+                 d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+            <span class="header-search-label">Поиск</span>
+            <kbd class="header-search-kbd" aria-hidden="true">Ctrl K</kbd>
+          </button>
           <button v-if="iaV2 && isMobileShell" class="btn-ghost header-more-btn shrink-0"
                   data-more-trigger ref="moreMenuTrigger"
                   title="Дополнительно" aria-label="Дополнительные действия"
@@ -376,6 +392,72 @@
                остаётся ОДНОЙ рабочей строкой (область/профиль/⛶) — контент
                начинается сразу под ней. ═══ -->
         </header>
+
+        <!-- ═══ EVOL-037 (W12): ЕДИНЫЙ поиск/command palette. Desktop —
+             компактная точка входа в topbar + Ctrl+K; mobile — пункт в
+             меню второстепенных действий и полноэкранный лист (safe-area,
+             клавиатура). Индекс — структурный реестр приложения; секреты и
+             ключи API не индексируются, LLM не вызывается. ═══ -->
+        <div v-if="paletteOpen" class="palette-root" data-command-palette>
+          <div class="palette-backdrop" aria-hidden="true"
+               @click="closePalette()"></div>
+          <div class="palette-panel" role="dialog" aria-modal="true"
+               aria-label="Поиск по приложению"
+               tabindex="-1" @keydown="paletteKeydown($event)">
+            <div class="palette-head">
+              <svg class="ui-ic palette-head-ic" viewBox="0 0 24 24" width="18"
+                   height="18" aria-hidden="true" focusable="false"><path
+                   fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+              <input id="palette-input" class="palette-input" type="search"
+                     autocomplete="off" spellcheck="false"
+                     data-palette-input
+                     aria-label="Поиск по разделам, модулям, настройкам, промптам и моделям"
+                     placeholder="Раздел, модуль, настройка, ключ или промпт…"
+                     :value="paletteQuery"
+                     @input="paletteOnInput($event)">
+              <button type="button" class="btn-ghost text-xs palette-close"
+                      data-palette-close
+                      aria-label="Закрыть поиск"
+                      @click="closePalette()">Esc</button>
+            </div>
+            <div class="palette-meta">
+              <span v-if="paletteQuery.trim()" data-palette-count>
+                {{ paletteFlat.length }} · ↑↓ выбор · Enter открыть
+              </span>
+              <span v-else>Название, часть ключа или prompt_id.</span>
+              <span class="palette-scope" data-palette-scope>{{ scopeLabel }}</span>
+            </div>
+            <div class="palette-list scroll-thin" role="listbox"
+                 aria-label="Результаты поиска">
+              <template v-for="g in paletteGroups" :key="'pg-' + g.id">
+                <div class="palette-group-title" :data-palette-group="g.id">
+                  {{ g.title }}
+                </div>
+                <button v-for="e in g.items" :key="'pe-' + e.id" type="button"
+                        class="palette-row"
+                        :class="{ 'is-active': paletteCursorId === e.id }"
+                        role="option"
+                        :aria-selected="paletteCursorId === e.id ? 'true' : 'false'"
+                        :data-palette-item="e.id"
+                        :data-palette-dest="e.route"
+                        @mouseenter="paletteCursorId = e.id"
+                        @click="paletteSelect(e)">
+                  <span class="palette-row-main">
+                    <span class="palette-row-title">{{ e.title }}</span>
+                    <span class="palette-row-sub">{{ e.subtitle }}</span>
+                  </span>
+                  <code v-if="e.key" class="palette-row-key">{{ e.key }}</code>
+                  <span class="msr palette-row-go" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+                </button>
+              </template>
+              <div v-if="!paletteGroups.length" class="palette-empty"
+                   data-palette-empty>
+                Ничего не найдено. Проверьте название, ключ или права доступа —
+                поиск показывает только доступные вам объекты.
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- ═══ ASAP-UI-02 §2.3: меню второстепенных действий («⋯» в шапке).
              Основные разделы живут в drawer — здесь их НЕТ (два конкурирующих
@@ -419,6 +501,16 @@
                    fill="currentColor"
                    d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
               <span class="more-menu-label">{{ isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран' }}</span>
+            </button>
+            <!-- EVOL-037 (W12): глобальный поиск — второстепенное действие
+                 (не раздел навигации), поэтому живёт здесь и открывает
+                 полноэкранный лист с safe-area и клавиатурой. -->
+            <button type="button" class="more-menu-action" data-palette-open-mobile
+                    @click="closeMoreMenu(false); openPalette()">
+              <svg class="ui-ic" viewBox="0 0 24 24" width="18" height="18"
+                   aria-hidden="true" focusable="false"><path fill="currentColor"
+                   d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+              <span class="more-menu-label">Поиск по приложению</span>
             </button>
             <div v-if="me" class="more-menu-profile">
               <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
@@ -879,6 +971,15 @@
                     <div class="text-xs text-gray-500 truncate">{{ workspaceModule.subtitle }}</div>
                   </div>
                   <span class="flex-1"></span>
+                  <!-- EVOL-036 (W12): область настройки и здоровье — в шапке,
+                       отдельно от «включён/выключен». -->
+                  <span class="badge badge-info shrink-0" data-workspace-scope>
+                    {{ scopeLabel }}
+                  </span>
+                  <span v-if="moduleHealthView(workspaceModule)"
+                        class="badge shrink-0"
+                        :class="moduleHealthView(workspaceModule).cls"
+                        data-workspace-health>{{ moduleHealthView(workspaceModule).text }}</span>
                   <span class="badge" :class="moduleEnabled(workspaceModule) ? 'badge-ok' : 'badge-muted'">
                     {{ moduleStateText(workspaceModule) }}
                   </span>
@@ -915,11 +1016,34 @@
                 <div class="text-sm font-bold mb-1">Обзор модуля</div>
                 <div class="text-xs text-gray-400 mb-2">
                   {{ workspaceModule.subtitle }}. Настройки модуля сгруппированы по
-                  вкладкам; генеральный переключатель — сверху.
+                  вкладкам; включение модуля — в каталоге «Модули» (здесь только
+                  состояние и вход).
                 </div>
                 <div class="text-xs text-gray-500">
                   Состояние: <b>{{ moduleStateText(workspaceModule) }}</b>
                   <span v-if="moduleSourceText(workspaceModule)"> · {{ moduleSourceText(workspaceModule) }}</span>
+                  <span v-if="activeChatTitle"> · область: {{ activeChatTitle }}</span>
+                </div>
+                <!-- EVOL-036 (W12): обзор = 2–4 честных состояния + последнее
+                     действие + ОДНО основное действие + переход в события.
+                     Второй панели «агрегированных чисел для красоты» нет. -->
+                <div class="flex flex-wrap items-center gap-2 mt-2"
+                     data-module-overview-actions>
+                  <span v-if="moduleLastEventLine(workspaceModule)"
+                        class="text-xs text-gray-500" data-module-last-action>
+                    Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
+                  </span>
+                  <span v-else class="text-xs text-gray-500"
+                        data-module-last-action>Последних действий в журнале нет</span>
+                  <span class="flex-1"></span>
+                  <button type="button" class="btn-accent text-xs"
+                          data-module-primary-action
+                          @click="openWorkspaceTab('settings')">
+                    Открыть настройки модуля
+                  </button>
+                  <a v-if="isGlobalAdmin && canViewTab('oversight')"
+                     class="btn-ghost text-xs" data-module-events-link
+                     href="#/oversight?tab=runs">События →</a>
                 </div>
                 <div v-if="!moduleEnabled(workspaceModule) && workspaceModule.toggleKey" class="text-xs text-amber-300 mt-1">
                   Модуль выключен — включите его тумблером сверху.
@@ -1393,6 +1517,103 @@
                    модель выжимки, эффективный потолок длины с источником,
                    шаблон картинки (заводской/ручной) и отношение к публикации.
                    Аналитика — отдельно от текстовой инициативы. -->
+              <!-- ═══ EVOL-035/040 (W12): семантические группы тумблеров
+                   «Инициативы». Мастер-ключ здесь НЕ редактируется (только
+                   статус + вход в каталог); per-chat opt-in — отдельное явно
+                   подписанное действие; предохранители и диагностика — в
+                   «Дополнительно», чтобы нельзя было включить публикацию,
+                   трогая диагностику. Ключи/хранение/consumer не меняются. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
+                        && workspaceTab === 'settings'"
+                   class="col-span-full card p-4" data-initiative-flags>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-sm font-bold">Что включено</div>
+                  <span class="text-xs text-gray-500">
+                    мастер-тумблер модуля — в каталоге «Модули»
+                  </span>
+                  <button type="button" class="btn-ghost text-xs ml-auto"
+                          data-initiative-master-link
+                          @click="backToModulesCatalog()">К каталогу →</button>
+                </div>
+                <div class="text-xs text-gray-400 mb-2">
+                  Ниже — отдельные оси модуля. Проверка перед отправкой не
+                  включает публикацию; диагностика сама ничего не отправляет.
+                </div>
+                <div v-if="initiativePerChatItem"
+                       class="initiative-flag-row" data-initiative-per-chat>
+                  <span class="initiative-flag-row__label">
+                    <span class="initiative-flag-row__title">Инициатива в этом чате</span>
+                    <span class="initiative-flag-row__hint">
+                      {{ scopeKind === 'global'
+                         ? 'Отдельная настройка чата: выберите чат, чтобы включить только его'
+                         : 'Действует только для выбранного чата, глобальные чаты не меняются' }}
+                    </span>
+                  </span>
+                  <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                    <input type="checkbox" class="sr-only peer"
+                           :data-cfg-key="initiativePerChatItem.key"
+                           v-model="initiativePerChatItem.value"
+                           :disabled="!canEditConfig(initiativePerChatItem.key)"
+                           @change="saveConfigItem(initiativePerChatItem)">
+                    <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                  </label>
+                </div>
+                <div class="initiative-flags mt-2">
+                  <div v-for="g in initiativePrimaryGroups" :key="'ifg-' + g.id"
+                       class="initiative-flag-group" :data-initiative-group="g.id">
+                    <div class="initiative-flag-group__title">{{ g.title }}</div>
+                    <div class="initiative-flag-group__note">{{ g.note }}</div>
+                    <div v-for="it in g.items" :key="'ifr-' + it.key"
+                           class="initiative-flag-row" :data-initiative-key="it.key">
+                      <span class="initiative-flag-row__label">
+                        <span class="initiative-flag-row__title">{{ it.title }}</span>
+                        <span class="initiative-flag-row__hint">{{ it.description }}</span>
+                      </span>
+                      <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                        <input type="checkbox" class="sr-only peer"
+                               :data-cfg-key="it.key" v-model="it.value"
+                               :disabled="!canEditConfig(it.key)"
+                               @change="saveConfigItem(it)">
+                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <details class="mt-2" data-initiative-advanced>
+                  <summary class="cursor-pointer text-xs text-gray-500">
+                    Дополнительно: предохранители и диагностика
+                  </summary>
+                  <div class="initiative-flags mt-2">
+                    <div v-for="g in initiativeAdvancedGroups" :key="'ifga-' + g.id"
+                         class="initiative-flag-group" :data-initiative-group="g.id">
+                      <div class="initiative-flag-group__title">{{ g.title }}</div>
+                      <div class="initiative-flag-group__note">{{ g.note }}</div>
+                      <div v-for="it in g.items" :key="'ifra-' + it.key"
+                             class="initiative-flag-row" :data-initiative-key="it.key">
+                        <span class="initiative-flag-row__label">
+                          <span class="initiative-flag-row__title">{{ it.title }}</span>
+                          <span class="initiative-flag-row__hint">{{ it.description }}</span>
+                        </span>
+                        <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                          <input type="checkbox" class="sr-only peer"
+                                 :data-cfg-key="it.key" v-model="it.value"
+                                 :disabled="!canEditConfig(it.key)"
+                                 @change="saveConfigItem(it)">
+                          <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                        </label>
+                      </div>
+                      <div v-if="g.links.length" class="flex flex-wrap gap-2 mt-1">
+                        <template v-for="l in g.links" :key="'ifl-' + g.id + '-' + l.label">
+                          <a v-if="l.route" :href="l.route"
+                             class="btn-ghost text-xs">{{ l.label }} →</a>
+                          <button v-else type="button" class="btn-ghost text-xs"
+                                  @click="openSpeechSection('try')">{{ l.label }}</button>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
               <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
                         && workspaceTab === 'settings'"
                    class="col-span-full card p-4" data-meme-settings>
@@ -2461,7 +2682,8 @@
                 </div>
                 <div class="prov-block card p-4 w-full conn-card" v-for="c in g.cards"
                      :key="'wmb-' + c.id" :data-block="c.id"
-                     :data-connection-card="c.id">
+                     :data-connection-card="c.id"
+                     :data-focus-id="'conn-' + c.id">
                   <header class="prov-head flex items-center gap-2 mb-2">
                     <span class="prov-title text-sm font-bold">{{ c.title }}</span>
                     <span v-if="c.display" class="prov-modules text-xs text-gray-500">{{ c.display }}</span>
@@ -2502,6 +2724,24 @@
                     </div>
                   </div>
                   <div v-if="c.note" class="text-xs text-gray-500 mt-2">{{ c.note }}</div>
+                  <!-- EVOL-039 (W12): два разных факта рядом, в самой карточке:
+                       проверка СОЕДИНЕНИЯ (HTTP/API) с результатом и временем,
+                       и что именно считается проверкой ФУНКЦИИ для этого
+                       назначения. Тост больше не единственный носитель итога. -->
+                  <div class="conn-check-meta" :data-conn-check="c.id"
+                       :data-check-state="connCheckMeta(c) ? (connCheckMeta(c).ok ? 'ok' : 'err') : 'idle'">
+                    <span>
+                      <b>Соединение</b> (HTTP/API):
+                      <template v-if="connCheckMeta(c)">
+                        {{ connCheckMeta(c).ok ? 'успешно' : 'ошибка' }}
+                        · {{ connCheckWhen(c) || '—' }}
+                      </template>
+                      <template v-else>ещё не проверялось</template>
+                    </span>
+                    <span :data-conn-check-function="c.id">
+                      <b>Функция</b>: {{ connFunctionalCheckLabel(c) }}
+                    </span>
+                  </div>
                   <div class="flex items-center gap-2 flex-wrap mt-3">
                     <button v-if="c.canTest" class="btn-accent prov-test-btn text-xs"
                             data-conn-test
@@ -2652,19 +2892,30 @@
                 <aside class="prompt-tree card p-3" role="group"
                        aria-label="Промпты" data-prompt-tree>
                   <div class="text-xs font-bold uppercase tracking-wide mb-2">Промпты</div>
+                  <!-- EVOL-038 (W12): поиск по каталогу промптов модуля —
+                       по человеческому названию, ключу и описанию. Фильтр
+                       витрины, данные/версии не меняются. -->
+                  <input class="field prompt-tree-search" type="search"
+                         placeholder="Найти промпт: название или ключ…"
+                         aria-label="Поиск промпта в каталоге модуля"
+                         data-prompt-tree-search
+                         :value="promptTreeQuery"
+                         @input="promptTreeQuery = $event.target.value">
                   <!-- ASAP-2.1 (T-3984, §9): группы витрины для Саммаризации
                        (Hybrid Summary / Обложка / Legacy Summary Fallback);
-                       прочие модули — прежний плоский список. -->
-                  <template v-if="workspacePromptGroups.length">
-                    <div v-for="grp in workspacePromptGroups"
-                         :key="'pg-' + grp.title" class="mb-2"
-                         :data-prompt-group="grp.title">
-                      <div class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                       прочие модули — прежний плоский список.
+                       EVOL-038 (W12): один и тот же список с учётом поиска —
+                       выбранный промпт всегда ОДИН (master-detail). -->
+                  <template v-for="grp in promptTreeGroups" :key="'pg-' + grp.title">
+                    <div class="mb-2" :data-prompt-group="grp.title">
+                      <div v-if="grp.title"
+                           class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
                         {{ grp.title }}
                       </div>
                       <button v-for="it in grp.items" :key="'pt-' + it.key"
                               class="prompt-tree-item w-full text-left"
                               :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
+                              :aria-current="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'true' : 'false'"
                               :data-prompt-key="it.key"
                               @click="openWorkspacePrompt(it)">
                         {{ configItemTitle(it) }}
@@ -2673,17 +2924,13 @@
                       </button>
                     </div>
                   </template>
-                  <template v-else>
-                    <button v-for="it in workspacePromptList" :key="'pt-' + it.key"
-                            class="prompt-tree-item w-full text-left"
-                            :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
-                            :data-prompt-key="it.key"
-                            @click="openWorkspacePrompt(it)">
-                      {{ configItemTitle(it) }}
-                    </button>
-                  </template>
+                  <div v-if="!promptTreeGroups.length" class="text-xs text-gray-500"
+                       data-prompt-tree-empty>
+                    Ничего не найдено: измените запрос (название или ключ промпта).
+                  </div>
                 </aside>
                 <section v-if="workspacePromptFocus" class="prompt-editor card p-4"
+                         :class="{ 'prompt-editor--full': promptEditorFull }"
                          data-prompt-editor>
                   <div class="flex items-center gap-2 flex-wrap mb-1">
                     <!-- ASAP-2.1 (T-3982, §13:3199): явный back «editor → список». -->
@@ -2693,14 +2940,44 @@
                     <span v-if="summaryPromptMeta(workspacePromptFocus.key)
                               && summaryPromptMeta(workspacePromptFocus.key).badge"
                           class="badge badge-info">{{ summaryPromptMeta(workspacePromptFocus.key).badge }}</span>
+                    <span class="flex-1"></span>
+                    <!-- EVOL-038 (W12): полноэкранный редактор для больших
+                         инструкций. Это ТА ЖЕ форма/тот же item — не вторая
+                         копия; выход — Esc или повторная кнопка. -->
+                    <button type="button" class="btn-ghost text-xs px-2"
+                            data-prompt-fullscreen
+                            :aria-pressed="promptEditorFull ? 'true' : 'false'"
+                            :title="promptEditorFull
+                              ? 'Выйти из полноэкранного редактора'
+                              : 'Открыть полноэкранный редактор'"
+                            :aria-label="promptEditorFull
+                              ? 'Выйти из полноэкранного редактора'
+                              : 'Открыть полноэкранный редактор'"
+                            @click="promptEditorFull = !promptEditorFull">
+                      <svg v-if="!promptEditorFull" class="ui-ic" viewBox="0 0 24 24"
+                           width="16" height="16" aria-hidden="true"
+                           focusable="false"><path fill="currentColor"
+                           d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                      <svg v-else class="ui-ic" viewBox="0 0 24 24" width="16"
+                           height="16" aria-hidden="true" focusable="false"><path
+                           fill="currentColor"
+                           d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+                    </button>
                   </div>
                   <div class="text-sm font-bold">{{ configItemTitle(workspacePromptFocus) }}</div>
                   <tech-key :value="workspacePromptFocus.key" class="mb-1"></tech-key>
-                  <div v-if="configSourceLabel(workspacePromptFocus)" class="text-[10px] text-gray-500 mb-1">
-                    {{ configSourceLabel(workspacePromptFocus) }}
-                  </div>
                   <div v-if="configItemNotice(workspacePromptFocus)"
                        class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(workspacePromptFocus) }}</div>
+                  <!-- EVOL-038 (W12): конфликт версий (старая вкладка / параллельный
+                       редактор / новый релиз) не перетирается молча — показываем
+                       остановку сохранения и явный путь к обновлению. -->
+                  <div v-if="saveState === 'conflict'" class="speech-warn"
+                       data-prompt-conflict>
+                    Версия изменилась в другом окне или релизе: сохранение
+                    остановлено, ваш текст не потерян.
+                    <button type="button" class="btn-ghost text-xs ml-1"
+                            @click="loadConfig()">Обновить и сравнить</button>
+                  </div>
                   <!-- EVOL-044 (W11): перенос строк в длинном промпте — явная
                        опция (по умолчанию перенос включён, как раньше), а не
                        скрытое поведение; сам редактор не переставляется. -->
@@ -2720,8 +2997,17 @@
                             rows="12"
                             :data-nowrap="workspacePromptNoWrap ? '1' : '0'"
                             :data-prompt-textarea="workspacePromptFocus.key"
+                            :data-focus-id="'prompt:' + workspacePromptFocus.key"
                             v-model="workspacePromptFocus.value"
                             :disabled="!canEditConfig(workspacePromptFocus.key)"></textarea>
+                  <div class="prompt-editor-meta" data-prompt-editor-meta
+                       aria-label="Объект правки">
+                    <span>prompt_id: <code>{{ workspacePromptFocus.key }}</code></span>
+                    <span>потребитель: {{ workspaceModule ? workspaceModule.title : '—' }}</span>
+                    <span>scope: {{ configSourceLabel(workspacePromptFocus) || 'глобальная настройка' }}</span>
+                    <span v-if="promptHistory.data">активная: {{ promptHistoryActiveLabel }}</span>
+                    <span v-if="phWhen(phActiveCreated)">изменён: {{ phWhen(phActiveCreated) }}</span>
+                  </div>
                   <!-- EVOL-017: «История версий» — журнал ревизий/активаций,
                        сравнение (difflib unified), полный текст, откат/вперёд.
                        Это ВЫБОР сохранённого состояния, а не правка: версии
@@ -3173,7 +3459,9 @@
                    мастер выведен в ОТДЕЛЬНЫЙ уровень §61, а персоны/ID/
                    рубильники — в 6 collapsible owner-блоках PERMsoc
                    (currentTabGroups → _permsocOwnerGroups). -->
-              <div class="card p-3 col-span-full flex items-center gap-2">
+              <div v-if="!(workspaceModule && workspaceTab === 'overview')"
+                   class="card p-3 col-span-full flex items-center gap-2"
+                   data-config-search>
                 <input class="field flex-1" placeholder="Поиск по параметрам…" v-model="configSearch">
                 <button v-if="configSearch" class="btn-ghost text-xs shrink-0"
                         title="Очистить поиск"
@@ -4756,7 +5044,19 @@
                     <div v-if="configItemNotice(item)"
                          class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                     <!-- bool → тумблер с автосейвом -->
-                    <template v-if="item.type === 'bool'">
+                    <template v-if="item.readonly_master">
+                      <div class="flex items-center justify-between gap-3">
+                        <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
+                        <span class="badge" :class="item.value ? 'badge-ok' : 'badge-muted'"
+                          data-module-master-state>{{ item.value ? 'включён' : 'выключен' }}</span>
+                      </div>
+                      <div class="module-master-note" data-module-master-note>
+                        <span>Управляется из каталога «Модули» — здесь только состояние.</span>
+                        <button type="button" class="btn-ghost text-xs"
+                          @click="backToModulesCatalog()">К каталогу →</button>
+                      </div>
+                    </template>
+                    <template v-else-if="item.type === 'bool'">
                       <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                           <div class="text-sm font-semibold">{{ item.title }}</div>
@@ -5302,7 +5602,8 @@
             <div class="module-catalog col-span-full">
               <div class="module-list" role="list" v-if="filteredModules.length">
                 <article class="module-card card p-4" v-for="m in filteredModules" :key="m.id"
-                         role="listitem" :data-mod="m.id">
+                         role="listitem" :data-mod="m.id"
+                         :data-focus-id="'module-card:' + m.id">
                   <div class="module-card-head">
                     <span class="msr module-icon" aria-hidden="true">{{ iconGlyph(m.icon) }}</span>
                     <div class="module-meta min-w-0">
@@ -5480,7 +5781,19 @@
                       <div class="text-xs text-gray-500 mb-3">{{ groupDescription(grp) }}</div>
                       <div class="grid gap-3 md:grid-cols-2">
                         <div v-for="item in basicItems(grp)" :key="item.key" class="card p-3" style="min-width:0;">
-                          <template v-if="item.type === 'bool'">
+                          <template v-if="item.readonly_master">
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
+                              <span class="badge" :class="item.value ? 'badge-ok' : 'badge-muted'"
+                                data-module-master-state>{{ item.value ? 'включён' : 'выключен' }}</span>
+                            </div>
+                            <div class="module-master-note" data-module-master-note>
+                              <span>Управляется из каталога «Модули» — здесь только состояние.</span>
+                              <button type="button" class="btn-ghost text-xs"
+                                @click="backToModulesCatalog()">К каталогу →</button>
+                            </div>
+                          </template>
+                          <template v-else-if="item.type === 'bool'">
                             <div class="flex items-center justify-between gap-3">
                               <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
                               <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
@@ -5544,7 +5857,19 @@
                         <summary class="cursor-pointer text-gray-500">Расширенные настройки</summary>
                         <div class="grid gap-3 md:grid-cols-2 mt-2">
                           <div v-for="item in advancedItems(grp)" :key="'a-' + item.key" class="card p-3" style="min-width:0;">
-                            <template v-if="item.type === 'bool'">
+                            <template v-if="item.readonly_master">
+                              <div class="flex items-center justify-between gap-3">
+                                <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
+                                <span class="badge" :class="item.value ? 'badge-ok' : 'badge-muted'"
+                                  data-module-master-state>{{ item.value ? 'включён' : 'выключен' }}</span>
+                              </div>
+                              <div class="module-master-note" data-module-master-note>
+                                <span>Управляется из каталога «Модули» — здесь только состояние.</span>
+                                <button type="button" class="btn-ghost text-xs"
+                                  @click="backToModulesCatalog()">К каталогу →</button>
+                              </div>
+                            </template>
+                            <template v-else-if="item.type === 'bool'">
                               <div class="flex items-center justify-between gap-3">
                                 <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
                                 <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
@@ -8978,6 +9303,22 @@
                 </button>
               </div>
 
+              <!-- EVOL-041 (W12): навигация по ЗАДАЧАМ, а не второй набор
+                   настроек. Области только открывают существующие секции
+                   («Характер» → core, «Манера речи» → style/expression и т.д.);
+                   один экран за раз, без бесконечной прокрутки. -->
+              <nav class="speech-area-nav" aria-label="Области «Речи и характера»"
+                    data-speech-area-nav>
+                <button v-for="a in speechAreaNav" :key="'sparea-' + a.id"
+                        type="button" class="speech-area-nav__btn"
+                        :data-speech-area="a.id"
+                        :data-focus-id="'speech-area:' + a.id"
+                        :aria-current="a.active ? 'true' : 'false'"
+                        @click="openSpeechArea(a.id)">
+                  <span>{{ a.title }}</span>
+                </button>
+              </nav>
+
               <div v-if="speechLoading && !speechSection" class="spinner my-6"></div>
               <div v-else-if="speechError" class="card speech-pad">
                 <div class="text-sm">Не удалось получить данные: {{ speechError }}</div>
@@ -8991,29 +9332,16 @@
                    «осознаёт себя ИИ») и сохранение — те же самые (personaDraft/
                    savePersona), уникальные значения не потеряны. Старый адрес
                    `#/ai/persona` ведёт в эту секцию, второго редактора нет. ═══ -->
-              <section v-if="!speechSection" id="speech-persona" data-speech-persona
-                       tabindex="-1" class="speech-persona-section">
-                <div class="card p-4">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <div class="text-sm font-bold">
-                      <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span>
-                      Личность и характер
-                    </div>
-                    <span class="badge badge-info" title="Область настроек">{{ personaScopeBadge }}</span>
-                    <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
-                    <span v-if="personaMeta && personaMeta.scope === 'chat'"
-                          class="badge" :class="personaMeta.is_global ? 'badge-muted' : 'badge-warn'">
-                      {{ personaMeta.is_global ? 'унаследовано от глобального' : 'переопределено для чата' }}
-                    </span>
-                    <span v-else-if="personaMeta" class="badge badge-muted">глобальная личность</span>
-                    <span v-if="personaDisabled" class="badge badge-err">Фича выключена</span>
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">
-                    Только статические параметры личности. Динамические черты и
-                    метрики — в «Статусе».
-                  </div>
-                </div>
-            <div class="card p-5 col-span-full" style="max-width: 760px;">
+              <!-- EVOL-034/041 (W12): «Личность» живёт в единственном
+                   каноническом редакторе «Речи и характера». Дубль шапки
+                   (второй одинаковый заголовок с тем же scope) удалён;
+                   id/data-speech-persona остаются на самом редакторе —
+                   deep-link #/ai/persona и палитра фокусируют его. -->
+              <section v-if="!speechSection" id="speech-persona"
+                       data-speech-persona tabindex="-1"
+                       class="speech-persona-section">
+            <div class="card p-5 col-span-full" style="max-width: 760px;"
+                 data-speech-persona-editor>
               <div class="flex items-center gap-2 flex-wrap mb-3">
                 <div class="text-sm font-bold">
                   <span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Личность
@@ -10936,6 +11264,62 @@
                 <template v-if="speechSection === 'inspector'">
                   <div v-if="speechSectionLoading" class="spinner my-4"></div>
                   <template v-else-if="speechInspector">
+                    <!-- EVOL-042 (W12): ДВА явно разделённых режима.
+                         «Последний реальный вызов» — только подтверждённый
+                         снимок из журнала; «Предпросмотр» — локальная сборка
+                         без вызова модели, всегда с меткой «не отправлено».
+                         Смешивать их в одном потоке текста запрещено. -->
+                    <div class="inspector-mode-bar" data-inspector-modes>
+                      <span class="ctl-seg" role="group"
+                            aria-label="Режим инспектора">
+                        <button type="button" class="ctl-seg__btn"
+                                data-inspector-mode="real"
+                                :aria-checked="speechInspectorMode === 'real'"
+                                @click="setSpeechInspectorMode('real')">
+                          Последний реальный вызов
+                        </button>
+                        <button type="button" class="ctl-seg__btn"
+                                data-inspector-mode="preview"
+                                :aria-checked="speechInspectorMode === 'preview'"
+                                @click="setSpeechInspectorMode('preview')">
+                          Предпросмотр
+                        </button>
+                      </span>
+                      <span class="inspector-honest-note"
+                            data-inspector-honest-note>
+                        <template v-if="speechInspectorMode === 'real'">
+                          {{ speechInspectorHasReal
+                             ? 'Подтверждённый снимок реально отправленного запроса.'
+                             : 'Подтверждённого снимка нет — предпросмотр не выдаётся за отправку.' }}
+                        </template>
+                        <template v-else>
+                          Локальная сборка текущей конфигурации. В модель и в
+                          Telegram ничего не отправляется.
+                        </template>
+                      </span>
+                    </div>
+                    <div v-if="speechInspectorMode === 'real' && !speechInspectorHasReal"
+                         class="card speech-pad" data-inspector-no-snapshot>
+                      <div class="text-sm font-bold mb-1">Нет подтверждённого снимка</div>
+                      <div class="text-xs text-gray-500">
+                        Реальный вызов ещё не записан в журнал (или запись
+                        вытеснена из bounded-кэша). Это не ошибка интерфейса:
+                        собранный шаблон здесь не показывается как отправленный.
+                        <template v-if="speechInspector.last_run_note">
+                          {{ speechInspector.last_run_note }}
+                        </template>
+                      </div>
+                      <button type="button" class="btn-ghost text-xs mt-2"
+                              data-inspector-goto-preview
+                              @click="setSpeechInspectorMode('preview')">
+                        Посмотреть предпросмотр (не отправлено) →
+                      </button>
+                    </div>
+                    <div v-if="speechInspectorMode === 'preview'"
+                         class="inspector-not-sent" data-inspector-not-sent>
+                      Предпросмотр — НЕ отправлено: сборка выполняется локально,
+                      модель не вызывается.
+                    </div>
                     <div class="card speech-pad">
                       <div class="speech-row">
                         <div class="text-sm font-bold">Effective Prompt Inspector</div>
@@ -10958,7 +11342,8 @@
                     <!-- INS-EXACT: «полный итоговый промпт» = РЕАЛЬНЫЙ запрос
                          провайдера (system+user, порядок, checksum), а не
                          превью отдельной настройки. -->
-                    <div class="card speech-pad" data-speech-exact>
+                    <div v-if="speechInspectorMode === 'real' && speechInspectorHasReal"
+                         class="card speech-pad" data-speech-exact>
                       <div class="speech-row">
                         <div class="text-sm font-bold">Полный итоговый промпт</div>
                         <span class="badge"
@@ -11110,7 +11495,8 @@
                         </div>
                       </div>
                     </div>
-                    <div class="card speech-pad">
+                    <div v-if="speechInspectorMode === 'preview'"
+                         class="card speech-pad">
                       <div class="text-sm font-bold mb-1">Предпросмотр (сборка сейчас)</div>
                       <div class="text-xs text-gray-500">
                         manifest {{ speechInspector.preview.manifest_id }} ·
@@ -11141,7 +11527,8 @@
                     <!-- ASAP3 §1.5: Style Policy в ФАКТИЧЕСКОЙ сборке.
                          Показывает оба слоя, лимит, исключённые правила и
                          точную редакцию попавших в payload инструкций. -->
-                    <div class="card speech-pad" v-if="speechInspector.preview.style"
+                    <div class="card speech-pad"
+                         v-if="speechInspectorMode === 'preview' && speechInspector.preview.style"
                          data-speech-inspector-style>
                       <div class="speech-row">
                         <div class="text-sm font-bold">Стиль письма в сборке</div>
@@ -11210,7 +11597,8 @@
                            :data-speech-inspector-style-payload-included="
                              speechStyleBuildInPayload(speechInspector.preview.style) ? 'yes' : 'no'">{{ speechInspector.preview.style.hint_text || '(подсказка пуста)' }}</pre>
                     </div>
-                    <div class="card speech-pad" v-if="speechInspector.last_run_present">
+                    <div class="card speech-pad"
+                         v-if="speechInspectorMode === 'real' && speechInspector.last_run_present">
                       <div class="text-sm font-bold mb-1">Фактически отправленный payload</div>
                       <div class="text-xs text-gray-500">
                         writer {{ speechInspector.sent.writer }} · профиль {{ speechInspector.sent.profile }} ·
@@ -13140,6 +13528,19 @@
              @keydown="drawerOnKeydown($event)"
              @keydown.esc="closeDrawer()">
         <nav class="sidebar-nav">
+          <!-- EVOL-037 (W12): поиск доступен из любого shell-режима. На
+               планшете/телефоне точка входа — здесь (шапку не раздуваем),
+               на desktop — кнопка в topbar. -->
+          <button type="button" class="sidebar-link" data-palette-open-drawer
+                  title="Поиск по приложению (Ctrl+K)"
+                  aria-label="Поиск по приложению"
+                  @click="closeDrawer(); openPalette()">
+            <svg class="ui-ic" viewBox="0 0 24 24" width="18" height="18"
+                 aria-hidden="true" focusable="false"><path fill="currentColor"
+                 d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+            <span class="sidebar-label">Поиск</span>
+          </button>
+          <div class="sidebar-sep" role="presentation"></div>
           <button v-for="n in sidebarGroups.pub" :key="'dr-' + n.id"
                   type="button" class="sidebar-link"
                   :class="{ active: activeNav === n.id }"

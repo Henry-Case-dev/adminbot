@@ -7031,3 +7031,252 @@ html.kb-open .ctl-keyboard-spacer {
   .ctl-toggle__track,
   .ctl-btn { transition: none; }
 }
+
+/* Микро-размеры витрин W12: единые токены (литералы font-size/radius в
+   этом блоке запрещены контрактом W11). Объявлены на body, а не :root -
+   контракт токенов :root не расширяем. */
+body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
+       --w12-radius-xs: 6px; --w12-radius-sm: 8px; }
+
+/* ══ W12-01. EVOL-037: единый поиск/command palette ═══════════════════════
+   Точка входа в topbar (desktop) + пункт меню «⋯» (mobile). Панель — тот же
+   материал, что у существующих оверлеев (.card-solid/--glass-*), новых
+   красок/стекла не вводит. Мобильный режим — полноэкранный лист с safe-area
+   и клавиатурой (--vv-h/--kb-offset из EVOL-044). */
+.header-search-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: var(--ctl-h-sm, 32px);
+  padding: 0 8px; white-space: nowrap;
+}
+.header-search-kbd {
+  font: inherit; font-size: var(--w12-fs-micro); line-height: 1;
+  padding: 3px 5px; border-radius: var(--w12-radius-xs);
+  border: 1px solid var(--surface-border);
+  color: var(--text-3); background: rgba(255, 255, 255, .04);
+}
+@media (max-width: 1240px) {
+  .header-search-label { display: none; }
+  .header-search-kbd { display: none; }
+}
+
+.palette-root { position: fixed; inset: 0; z-index: 1300; }
+.palette-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(3, 7, 18, .62);
+}
+.palette-panel {
+  position: absolute;
+  top: max(48px, calc(env(safe-area-inset-top, 0px) + 40px));
+  left: 50%; transform: translateX(-50%);
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(70vh, calc(var(--vv-h, 100vh) - 96px));
+  display: flex; flex-direction: column;
+  /* Панель поиска — непрозрачная рабочая поверхность: строки результатов
+     не должны читаться сквозь подложку страницы. Материал — тот же surface. */
+  background: var(--surface-2, #1C2537);
+  border: var(--glass-border, 1px solid var(--surface-border));
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--glass-shadow, 0 18px 40px -18px rgba(3, 7, 18, .55));
+  overflow: hidden;
+}
+.palette-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--surface-border);
+}
+.palette-head-ic { color: var(--text-3); }
+.palette-input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  background: transparent; border: 0; outline: 0;
+  color: var(--text-1); font: inherit; font-size: var(--tx-reg);
+  min-height: var(--ctl-h, 40px);
+}
+.palette-input::placeholder { color: var(--text-3); }
+.palette-input::-webkit-search-cancel-button,
+.palette-input::-webkit-search-decoration { display: none; }
+.palette-close { flex: 0 0 auto; }
+.palette-meta {
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+  padding: 6px 12px; font-size: var(--w12-fs-small); color: var(--text-3);
+  border-bottom: 1px solid var(--surface-border);
+}
+.palette-scope { flex: 0 0 auto; }
+.palette-list { flex: 1 1 auto; overflow-y: auto; padding: 4px 6px 10px; }
+.palette-group-title {
+  font-size: var(--w12-fs-micro); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-3); padding: 8px 8px 4px;
+}
+.palette-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  text-align: left; padding: 8px; border-radius: var(--radius-md, 8px);
+  background: transparent; border: 1px solid transparent; color: inherit;
+  min-height: var(--ctl-h-touch, 44px);
+}
+.palette-row:hover, .palette-row.is-active {
+  background: rgba(119, 168, 255, .14);
+  border-color: rgba(119, 168, 255, .35);
+}
+.palette-row:focus-visible {
+  outline: 2px solid var(--teal-500, #42D6C4); outline-offset: 1px;
+}
+.palette-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.palette-row-title { font-size: var(--tx-small); color: var(--text-1); }
+.palette-row-sub { font-size: var(--w12-fs-small); color: var(--text-3); }
+.palette-row-key {
+  flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: var(--w12-fs-micro); color: var(--text-3);
+}
+.palette-row-go { color: var(--text-3); flex: 0 0 auto; }
+.palette-empty { padding: 14px 10px; font-size: var(--tx-small); color: var(--text-3); }
+
+@media (max-width: 767px) {
+  .palette-panel {
+    top: 0; left: 0; transform: none; width: 100%;
+    height: 100%;
+    max-height: calc(var(--vv-h, 100vh) - var(--kb-offset, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: 0; border-left: 0; border-right: 0;
+    /* Полноэкранный лист — непрозрачная рабочая поверхность: под ним
+       страница не должна «просвечивать» сквозь строки результатов. */
+    background: var(--surface-1, #151B2A);
+  }
+  .palette-input { min-height: var(--ctl-h-touch, 44px); font-size: var(--tx-reg); }
+  .palette-row { min-height: 48px; }
+}
+
+/* ══ W12-02. Общий deep-link фокус (палитра/меню/внешние ссылки) ═════════
+   Подсветка ровно на 1.6 c, без постоянного «мигания»; reduced-motion —
+   статичная рамка (состояние остаётся видимым). */
+.focus-pulse {
+  outline: 2px solid var(--teal-500, #42D6C4);
+  outline-offset: 2px;
+  border-radius: var(--radius-md, 8px);
+  animation: w12-focus-pulse 1.6s ease-out 1;
+}
+@keyframes w12-focus-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(66, 214, 196, .55); }
+  100% { box-shadow: 0 0 0 12px rgba(66, 214, 196, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .focus-pulse { animation: none; }
+}
+
+/* ══ W12-03. EVOL-041: навигация «Речи и характера» по задачам ══════════
+   Компактные сегменты (не десяток стеклянных карточек). На мобильном —
+   две строки переносимых чипов, без горизонтального скролла. */
+.speech-area-nav {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px; margin-bottom: 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-1, #151B2A);
+}
+.speech-area-nav__btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: var(--ctl-h-sm, 32px);
+  padding: 4px 10px; border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--surface-border);
+  background: transparent; color: var(--text-2);
+  font-size: var(--tx-small); white-space: nowrap;
+}
+.speech-area-nav__btn[aria-current="true"] {
+  color: var(--text-1);
+  border-color: rgba(66, 214, 196, .55);
+  background: rgba(66, 214, 196, .12);
+}
+.speech-area-nav__btn:focus-visible {
+  outline: 2px solid var(--teal-500, #42D6C4); outline-offset: 1px;
+}
+@media (max-width: 767px) {
+  .speech-area-nav { gap: 4px; padding: 6px; }
+  .speech-area-nav__btn {
+    flex: 0 1 auto; min-height: var(--ctl-h-touch, 44px);
+    font-size: var(--tx-tiny); padding: 4px 8px;
+  }
+}
+
+/* ══ W12-04. EVOL-042: режимы инспектора (реальный снимок ≠ предпросмотр) ══ */
+.inspector-mode-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin-bottom: 8px;
+}
+.inspector-honest-note {
+  font-size: var(--w12-fs-small); color: var(--text-3);
+}
+.inspector-not-sent {
+  border: 1px dashed rgba(246, 197, 111, .55);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 10px; margin-bottom: 8px;
+  font-size: var(--w12-fs-small); color: #F6C56F;
+}
+
+/* ══ W12-05. EVOL-038: каталог промптов (поиск + полноэкранный редактор) ══ */
+.prompt-tree-search {
+  width: 100%; margin-bottom: 8px;
+  min-height: var(--ctl-h-sm, 32px);
+}
+.prompt-tree-item[aria-current="true"] { font-weight: 600; }
+.prompt-editor-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  font-size: var(--w12-fs-micro); color: var(--text-3); margin: 4px 0 6px;
+}
+.prompt-editor-meta code { font-size: var(--w12-fs-micro); }
+.prompt-editor--full {
+  position: fixed; inset: 0; z-index: 1250;
+  margin: 0; border-radius: 0; overflow: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px
+           calc(env(safe-area-inset-bottom, 0px) + 10px);
+  background: var(--surface-1, #151B2A);
+}
+.prompt-editor--full .ctl-editor-area {
+  min-height: min(62vh, calc(var(--vv-h, 100vh) - 220px));
+}
+@media (max-width: 767px) {
+  .prompt-editor--full { padding-left: 8px; padding-right: 8px; }
+}
+
+/* ══ W12-06. EVOL-039: результат проверки соединения в карточке ══════════ */
+.conn-check-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  font-size: var(--w12-fs-micro); color: var(--text-3); margin-top: 6px;
+}
+.conn-check-meta b { color: var(--text-2); font-weight: 600; }
+.conn-check-meta[data-check-state="ok"] { color: var(--ok, #3DD68C); }
+.conn-check-meta[data-check-state="err"] { color: var(--err-text, #FCA5A5); }
+
+/* ══ W12-07. EVOL-035/040: строки тумблеров модуля (без гигантских карточек) ═ */
+.initiative-flags { display: flex; flex-direction: column; gap: 10px; }
+.initiative-flag-group {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg, 12px);
+  padding: 8px 10px;
+}
+.initiative-flag-group__title {
+  font-size: var(--tx-small); font-weight: 600; color: var(--text-1);
+  margin-bottom: 2px;
+}
+.initiative-flag-group__note {
+  font-size: var(--w12-fs-small); color: var(--text-3); margin-bottom: 6px;
+}
+.initiative-flag-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; min-height: var(--ctl-h-touch, 44px);
+  padding: 2px 0; border-top: 1px solid rgba(170, 182, 200, .08);
+}
+.initiative-flag-row:first-of-type { border-top: 0; }
+.initiative-flag-row__label {
+  min-width: 0; display: flex; flex-direction: column; gap: 1px;
+}
+.initiative-flag-row__title { font-size: var(--tx-small); color: var(--text-1); }
+.initiative-flag-row__hint {
+  font-size: var(--w12-fs-micro); color: var(--text-3);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.module-master-note {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: var(--w12-fs-small); color: var(--text-3);
+  border: 1px dashed rgba(170, 182, 200, .3);
+  border-radius: var(--radius-md, 8px);
+  padding: 6px 8px; margin-top: 4px;
+}

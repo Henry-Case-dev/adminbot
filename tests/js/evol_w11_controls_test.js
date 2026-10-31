@@ -378,7 +378,10 @@ function resetViewport() {
       siblingAfterInput: between !== null && /^\s*$/.test(between),
     });
   }
-  assert.strictEqual(toggles.length, 15, 'тумблеров контракта должно быть 15');
+  // Контракт: КАЖДАЯ метка с треком — на общем компоненте .ctl-toggle
+  // (точное число меняется вместе с числом настроек — это не контракт).
+  assert.ok(toggles.length >= 15, 'тумблеры контракта не найдены (было ' +
+    toggles.length + ')');
   const orphan = toggles.filter((t) => t.classes.indexOf('ctl-toggle') < 0);
   assert.deepStrictEqual(orphan.map((t) => t.line), [],
     'метка без контейнера .ctl-toggle — CSS состояния не совпадёт');

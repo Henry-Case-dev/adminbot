@@ -586,7 +586,15 @@ class TestFetchArticle:
         assert payload["chars"] == len(payload["markdown"])
         assert payload["truncated"] is False
         assert payload["title"] == "Заголовок"
-        assert extractor.calls == [("https://example.com/a", 8000)]
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3): извлечение идёт до технического
+        # ceiling'а (класс C, 120k), а не до 8000 — доставку ограничивает
+        # section selection по бюджету evidence.
+        from services import auto_budget as _ab
+        assert extractor.calls == [
+            ("https://example.com/a",
+             _ab.ARTICLE_EXTRACT_CEILING_DEFAULT)]
+        assert payload["read_level"] in ("parsed", "selected")
+        assert payload["budget_source"] in ("window", "call_budget", "legacy")
 
     @pytest.mark.asyncio
     async def test_uses_resolved_url_from_context(self):
@@ -603,7 +611,13 @@ class TestFetchArticle:
     async def test_no_url_is_honest_error(self):
         router = _article_router(FakeExtractor())
         raw = await self._dispatch(router, {}, ToolContext(-100, "q"))
-        assert json.loads(raw) == {"status": "error", "error": "no_url"}
+        payload = json.loads(raw)
+        # v3 (сценарий 9): честная причина + retryable, без фантомного URL.
+        assert payload["status"] == "error"
+        assert payload["error"] == "no_url"
+        assert payload["reason"] == "no_url"
+        assert payload["retryable"] is False
+        assert "url" not in payload
 
     @pytest.mark.asyncio
     async def test_extraction_failure_structured(self):
@@ -625,13 +639,37 @@ class TestFetchArticle:
 
     @pytest.mark.asyncio
     async def test_truncated_flag_when_capped(self, monkeypatch):
+        """v3 (сценарий 37/39): ``truncated`` = есть достижимый остаток.
+
+        Малый per-call бюджет → выдержка ограничена, ``remainder_chars > 0``,
+        указатель на полный источник отдаёт остаток (это НЕ «потеряно»)."""
         extractor = FakeExtractor(text="y" * 9000)
+        router = _article_router(extractor)
+        ctx = ToolContext(-100, "q")
+        ctx.evidence_budget_chars = 1000
+        raw = await self._dispatch(router, {"url": "https://a.b/c"}, ctx)
+        payload = json.loads(raw)
+        assert payload["truncated"] is True
+        assert payload["chars"] == payload["excerpt_chars"] <= 1250
+        assert payload["total_chars"] == 9000
+        assert payload["remainder_chars"] == 9000 - payload["chars"]
+        assert payload["budget_source"] == "call_budget"
+        pointer = payload["full_source_pointer"]
+        assert pointer["tool"] == "fetch_article"
+        assert pointer["offset"] == payload["chars"]
+        assert pointer["total_chars"] == 9000
+
+    @pytest.mark.asyncio
+    async def test_article_not_capped_at_legacy_8000(self):
+        """v3: 8000 — не потолок; длинный документ отдаётся по окну модели."""
+        extractor = FakeExtractor(text="z" * 9000)
         router = _article_router(extractor)
         raw = await self._dispatch(router, {"url": "https://a.b/c"},
                                    ToolContext(-100, "q"))
         payload = json.loads(raw)
-        assert payload["truncated"] is True
-        assert payload["chars"] == 8000
+        assert payload["chars"] == 9000
+        assert payload["truncated"] is False
+        assert payload["remainder_chars"] == 0
 
     @pytest.mark.asyncio
     async def test_fetch_article_timeout(self, monkeypatch):

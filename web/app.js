@@ -1784,6 +1784,175 @@
     return new Date(ms).toLocaleString('ru-RU', { hour12: false });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // EVOL-037/040/035/041 (W12, 01.11.2026): СТРУКТУРНЫЕ РЕЕСТРЫ
+  // внутренних экранов. Один источник правды для поиска, для семантических
+  // групп тумблеров и для навигации по «Речи и характеру».
+  //
+  // Реестры НЕ дублируют каталог: они описывают только витрину/адреса и
+  // строятся из уже существующих структур (TABS/MODULES/configItems/
+  // MODULE_MODEL_BLOCKS/PROVIDER_BLOCKS). Ни один пункт здесь не пишет
+  // настройки — запись идёт единственным каноническим путём
+  // (saveConfigItem → persistItems, либо операция каталога для master-флага).
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── EVOL-037: группы результатов поиска (порядок фиксирован) ──
+  var SEARCH_GROUP_ORDER = ['section', 'module', 'setting', 'prompt',
+                            'model', 'data'];
+  var SEARCH_GROUP_TITLES = {
+    section: 'Разделы', module: 'Модули', setting: 'Настройки',
+    prompt: 'Промпты', model: 'Модели', data: 'Данные',
+  };
+  // Объекты данных/диагностики, у которых есть собственный экран. Список
+  // статический намеренно: это адреса РАЗДЕЛОВ (не перечень модулей/ключей),
+  // они не появляются/исчезают вместе с каталогом. Секретов здесь нет.
+  var SEARCH_STATIC_ENTRIES = [
+    { id: 'data-status-log', kind: 'data', title: 'Статус и журнал событий',
+      subtitle: 'Что происходит с ботом сейчас, последние события',
+      aliases: 'статус журнал события логи статус-борд', route: '#/' },
+    { id: 'data-oversight-runs', kind: 'data',
+      title: 'Аналитика: запуски и вызовы моделей',
+      subtitle: 'Трассы пайплайна, этапы, стоимость',
+      aliases: 'аналитика запуски вызовы логи токены oversight',
+      route: '#/oversight?tab=runs' },
+    { id: 'data-oversight-costs', kind: 'data',
+      title: 'Аналитика: токены и стоимость',
+      subtitle: 'Расход моделей по задачам и часам',
+      aliases: 'аналитика стоимость токены бюджет расход',
+      route: '#/oversight?tab=costs' },
+    { id: 'data-oversight-models', kind: 'data',
+      title: 'Аналитика: модели и контекст',
+      subtitle: 'Какие модели использовались и что попало в контекст',
+      aliases: 'аналитика модели контекст вызовы', route: '#/oversight?tab=models' },
+    { id: 'data-memory-catalog', kind: 'data', title: 'Память: каталог знаний',
+      subtitle: 'Объекты памяти, граф, факты и их источники',
+      aliases: 'память знания граф rag факты', route: '#/memory' },
+    { id: 'data-memory-lore', kind: 'data', title: 'Память: лор чата',
+      subtitle: 'События и договорённости выбранного чата',
+      aliases: 'лор чата memory lore', route: '#/memory/lore' },
+    { id: 'data-memory-relations', kind: 'data',
+      title: 'Память: участники и отношения',
+      subtitle: 'Люди, алиасы и связи между ними',
+      aliases: 'участники отношения люди алиасы relations',
+      route: '#/memory/relations' },
+    { id: 'data-access', kind: 'data', title: 'Доступы и роли',
+      subtitle: 'Кто что видит и может менять',
+      aliases: 'доступ роли права админы доступы access', route: '#/access' },
+    { id: 'data-help', kind: 'data', title: 'Как это работает (справка)',
+      subtitle: 'Справка по разделам и терминам',
+      aliases: 'справка помощь как работает help', route: '#/how' },
+    { id: 'data-permsoc', kind: 'data', title: 'PERMsoc: персоны и реакции',
+      subtitle: 'Реакции участников, персоны и их права',
+      aliases: 'permsoc персоны реакции участники', route: '#/permsoc' },
+  ];
+
+  // ── EVOL-038: полный поиск промптов строится по реестру (id/ключ) ──
+  // Нормализация запроса — единая для всех групп: нижний регистр, ё→е,
+  // пунктуация → пробел. Никаких if-исключений под конкретный запрос.
+  function _searchNorm(value) {
+    return String(value == null ? '' : value)
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^0-9a-zа-яё_.\-\/ ]+/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  // Последовательное вхождение символов (терпит опечатки/разрывы).
+  function _searchSubseq(haystack, needle) {
+    if (!needle) return true;
+    var h = 0;
+    for (var i = 0; i < needle.length; i++) {
+      var at = haystack.indexOf(needle.charAt(i), h);
+      if (at < 0) return false;
+      h = at + 1;
+    }
+    return true;
+  }
+  // Оценка релевантности. 0 = не совпало. Строго убывающая по точности;
+  // используется только для сортировки внутри группы.
+  function _searchScore(entry, query) {
+    if (!entry) return 0;
+    var q = _searchNorm(query);
+    if (!q) return 1;
+    var title = entry._nTitle || _searchNorm(entry.title);
+    var sub = entry._nSubtitle || _searchNorm(entry.subtitle);
+    var key = entry._nKey || _searchNorm(entry.key);
+    var alias = entry._nAliases || _searchNorm(entry.aliases);
+    if (title === q) return 1000;
+    if (key && key === q) return 980;
+    if (title.indexOf(q) === 0) return 900;
+    if (key && key.indexOf(q) === 0) return 880;
+    if (title.indexOf(q) >= 0) return 800;
+    if (key && key.indexOf(q) >= 0) return 760;
+    if (alias && alias.indexOf(q) >= 0) return 700;
+    var tokens = q.split(' ');
+    var hits = 0;
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (!t) continue;
+      if (title.indexOf(t) >= 0 || (key && key.indexOf(t) >= 0)
+          || (alias && alias.indexOf(t) >= 0)
+          || (sub && sub.indexOf(t) >= 0)) {
+        hits++;
+      }
+    }
+    if (hits && hits === tokens.length) return 640 + hits * 10;
+    if (sub && sub.indexOf(q) >= 0) return 560;
+    if (_searchSubseq(title, q)) return 420;
+    if (alias && _searchSubseq(alias, q)) return 380;
+    if (key && _searchSubseq(key, q)) return 340;
+    return 0;
+  }
+
+  // ── EVOL-035: семантические группы тумблеров «Инициативы» ──
+  // Ключи — существующие pg_id каталога (services/param_catalog.py,
+  // GroupSpec flags_intent/limits_intent). Группировка — ВИТРИНА: ключи,
+  // хранение, дефолты и consumer'ы не меняются. Master-ключ сюда НЕ входит:
+  // его единственная активная точка — карточка каталога «Модули».
+  var INITIATIVE_MASTER_KEY = 'flags.initiative_enabled';
+  var INITIATIVE_PER_CHAT_KEY = 'initiative.enabled';
+  var INITIATIVE_FLAG_GROUPS = [
+    { id: 'auto', title: 'Автономная активность',
+      note: 'Бот сам решает, когда напомнить, спросить или отреагировать.',
+      keys: ['flags.initiative_observer_enabled',
+             'flags.intent_decision_enabled'] },
+    { id: 'schedule', title: 'Планирование и расписание',
+      note: 'Фоновый тик находит намерения, которым пора работать.',
+      keys: ['flags.intent_heartbeat_enabled'] },
+    { id: 'safety', title: 'Проверки безопасности',
+      note: 'Проверка актуальности на границе отправки и разрешение '
+        + 'реальной публикации из диагностики. Выключено — бот не публикует.',
+      keys: ['flags.send_recheck_enabled',
+             'flags.initiative_diagnostics_publish_enabled'] },
+    { id: 'diag', title: 'Диагностика и журнал решений',
+      note: 'Наблюдение, причины пропусков и воронка. Сами по себе ничего '
+        + 'не отправляют.',
+      keys: [],
+      links: [
+        { label: 'Воронка на «Статусе»', route: '#/' },
+        { label: 'Журнал решений', route: '#/oversight?tab=runs' },
+        { label: 'Проверить инициативу (без публикации)', target: 'try' },
+      ] },
+  ];
+
+  // ── EVOL-041: рабочие области «Речи и характера» ──
+  // Композиция — навигация по задачам, а не второй набор настроек: области
+  // только открывают существующие секции (`speechSection`) и диагностику.
+  var SPEECH_AREAS = [
+    { id: 'overview', title: 'Обзор', short: 'Обзор', icon: 'space_dashboard',
+      section: '' },
+    { id: 'character', title: 'Характер', short: 'Характер',
+      icon: 'psychology', section: 'core' },
+    { id: 'speech', title: 'Манера речи', short: 'Речь',
+      icon: 'edit_note', section: 'style', alsoSections: ['expression'] },
+    { id: 'humor', title: 'Юмор', short: 'Юмор', icon: 'mood',
+      section: 'humor' },
+    { id: 'experience', title: 'Опыт и обучение', short: 'Опыт',
+      icon: 'school', section: 'learning' },
+    { id: 'assembly', title: 'Как собирается ответ', short: 'Сборка',
+      icon: 'account_tree', section: 'inspector' },
+  ];
+
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
   function normalizeRoute(hash) {
     if (typeof hash !== 'string') return null;
@@ -2878,6 +3047,23 @@
         // перемонтировал редактор (реактивность prop на замену массива).
         configVersion: 0,
         configGroups: [],          // 84.24: метаданные групп (с сервера)
+        // EVOL-037 (W12): один глобальный поиск/command palette. Состояние —
+        // только UI: индекс строится из загруженных структур (никаких новых
+        // API/LLM-вызовов), выбор открывает существующий маршрут и фокусирует
+        // конкретный элемент через ?focus=<ключ>.
+        paletteOpen: false,
+        paletteQuery: '',
+        paletteCursorId: '',
+        // EVOL-038 (W12): поиск в каталоге промптов модуля + полноэкранный
+        // редактор (не создаёт вторую форму — тот же item/история).
+        promptTreeQuery: '',
+        promptEditorFull: false,
+        // EVOL-042 (W12): режим инспектора — «последний реальный вызов» или
+        // локальный предпросмотр; предпросмотр никогда не выдаётся за отправку.
+        speechInspectorMode: 'real',
+        // EVOL-039 (W12): результат и время проверок по подключению —
+        // соединение (HTTP/API) отдельно от функциональной проверки.
+        blockTestMeta: {},
         configSearch: '',          // 84.24: фильтр по title/description/key
         configLoading: false,
         configError: '',          // F-13 (AC-3, MED-021): баннер loadConfig
@@ -3448,6 +3634,231 @@
         if (r.indexOf('#/access') === 0) return 'access';
         return '';
       },
+      // ═══ EVOL-037 (W12): структурный индекс глобального поиска ═══
+      // Собирается из УЖЕ загруженных структур; секреты и ключи API не
+      // индексируются вовсе (пункт «Ключ/токен» не попадает в выдачу).
+      paletteIndexEntries: function () {
+        var self = this;
+        var out = [];
+        var seen = {};
+        function push(e) {
+          if (!e || !e.route) return;
+          if (seen[e.id]) return;
+          seen[e.id] = true;
+          e._nTitle = _searchNorm(e.title);
+          e._nSubtitle = _searchNorm(e.subtitle);
+          e._nKey = _searchNorm(e.key);
+          e._nAliases = _searchNorm(e.aliases);
+          out.push(e);
+        }
+        // 1) Разделы (навигация) — только доступные роли вкладки.
+        (this.tabs || []).forEach(function (t) {
+          if (!t || !t.id) return;
+          if (!self.canViewTab(t.id)) return;
+          // Вкладки модулей (mod_*) индексируются как «Модули»/подразделы
+          // модуля выше — отдельный «Раздел» для них не нужен и не имеет
+          // собственного корневого маршрута.
+          if (t.id.indexOf('mod_') === 0) return;
+          var route = tabToRoute(t.id);
+          if (!route) return;
+          push({ id: 'section:' + t.id, kind: 'section', title: t.label,
+                 subtitle: 'Раздел', key: '', route: route,
+                 focus: '', aliases: t.id });
+        });
+        // 2) Модули — карточки каталога (kill-switch уважается).
+        (this.modules || []).forEach(function (m) {
+          if (!m || !m.id) return;
+          if (m.tab && !self.canViewTab(m.tab)) return;
+          if (typeof self._flagTabHidden === 'function'
+              && self._flagTabHidden(m.tab)) return;
+          var slug = self.routeSlugOf ? self.routeSlugOf(m) : m.routeSlug;
+          push({ id: 'module:' + m.id, kind: 'module', title: m.title,
+                 subtitle: (m.subtitle || 'Модуль'),
+                 key: m.toggleKey || '', route: '#/modules/' + slug,
+                 focus: 'module-card:' + m.id,
+                 aliases: ['модуль', slug].join(' ') });
+          // 2b) Подразделы модуля (его рабочие вкладки) — тоже адреса,
+          // а не «верх страницы модуля» (EVOL-037 §«подразделы»).
+          (m.tabs || []).forEach(function (wt) {
+            if (wt === 'overview') return;
+            if (!_workspaceTabApplicable(m, wt)) return;
+            push({ id: 'module-tab:' + m.id + ':' + wt, kind: 'module',
+                   title: m.title + ' · ' + (WORKSPACE_TAB_LABELS[wt] || wt),
+                   subtitle: 'Подраздел модуля',
+                   key: '', route: '#/modules/' + slug + '/' + wt,
+                   focus: '', aliases: [slug, wt].join(' ') });
+          });
+        });
+        // 2c) Области «Речи и характера» (Характер/Манера речи/Юмор/Опыт/
+        // Как собирается ответ) — реальные рабочие экраны, не карточки.
+        if (this.canViewTab('speech')) {
+          SPEECH_AREAS.forEach(function (a) {
+            if (!a.section) return;
+            push({ id: 'speech-area:' + a.id, kind: 'section',
+                   title: 'Речь и характер · ' + a.title,
+                   subtitle: 'Рабочая область',
+                   key: '', route: '#/ai/speech',
+                   focus: 'speech-area:' + a.id,
+                   aliases: 'речь характер личность ' + a.id });
+          });
+        }
+        // 3) Настройки и 4) промпты — из configItems (сервер уже отфильтровал
+        // по правам). Секреты/ключи исключены: значение не индексируется.
+        (this.configItems || []).forEach(function (it) {
+          if (!it || !it.key) return;
+          if (it.secret === true || it.category === 'keys') return;
+          var dest = self._settingDestination(it);
+          if (!dest) return;
+          var isPrompt = (it.category === 'prompts');
+          var isMaster = (typeof self.isModuleMasterItem === 'function')
+            && self.isModuleMasterItem(it);
+          push({ id: (isPrompt ? 'prompt:' : 'setting:') + it.key,
+                 kind: isPrompt ? 'prompt' : 'setting',
+                 title: self.configItemTitle ? self.configItemTitle(it)
+                   : (it.title || it.key),
+                 subtitle: isPrompt ? 'Промпт (реестр версий)'
+                   : (isMaster ? 'Включается в каталоге «Модули»'
+                     : (self.tabLabelOf ? self.tabLabelOf(it.tab) : 'Настройка')),
+                 key: it.key, route: dest.route, focus: dest.focus,
+                 aliases: (it.description || '') + ' '
+                   + (it.group || '') + ' ' + (it.category || '') });
+        });
+        // 5) Модели/подключения — существующие блоки провайдеров.
+        ((this.providerConnectionBlocks || []) || []).forEach(function (b) {
+          if (!b) return;
+          var route = self._modelRouteOf(b.id);
+          if (!route) return;
+          push({ id: 'model:' + b.id, kind: 'model',
+                 title: self.blockDisplayName ? (self.blockDisplayName(b) || b.title)
+                   : b.title,
+                 subtitle: 'Подключение: ' + (b.modules || b.title || ''),
+                 key: '', route: route, focus: 'conn-' + b.id,
+                 aliases: 'модель провайдер подключение ключ ' + (b.title || '') });
+        });
+        // 6) Данные/диагностика — статический список адресов разделов.
+        SEARCH_STATIC_ENTRIES.forEach(function (e) {
+          if (e.route === '#/oversight?tab=runs'
+              || e.route === '#/oversight?tab=costs'
+              || e.route === '#/oversight?tab=models') {
+            if (!self.isGlobalAdmin) return;      // RBAC: «Аналитика» — админ
+          }
+          push(Object.assign({}, e));
+        });
+        return out;
+      },
+      // Отфильтрованная и упорядоченная выдача (пустой запрос → пусто:
+      // палитра не превращается в список всего приложения).
+      paletteMatches: function () {
+        var q = (this.paletteQuery || '').trim();
+        if (!q) return [];
+        var self = this;
+        var hits = [];
+        (this.paletteIndexEntries || []).forEach(function (e) {
+          var score = _searchScore(e, q);
+          if (!score) return;
+          hits.push({ entry: e, score: score });
+        });
+        hits.sort(function (a, b) {
+          if (b.score !== a.score) return b.score - a.score;
+          var ai = SEARCH_GROUP_ORDER.indexOf(a.entry.kind);
+          var bi = SEARCH_GROUP_ORDER.indexOf(b.entry.kind);
+          if (ai !== bi) return ai - bi;
+          return String(a.entry.title).localeCompare(
+            String(b.entry.title), 'ru');
+        });
+        return hits.slice(0, 40).map(function (h) { return h.entry; });
+      },
+      paletteGroups: function () {
+        var list = this.paletteMatches || [];
+        var by = {};
+        list.forEach(function (e) { (by[e.kind] = by[e.kind] || []).push(e); });
+        return SEARCH_GROUP_ORDER.filter(function (k) { return by[k]; })
+          .map(function (k) {
+            return { id: k, title: SEARCH_GROUP_TITLES[k] || k,
+                     items: by[k].slice(0, 8) };
+          });
+      },
+      paletteFlat: function () {
+        var out = [];
+        (this.paletteGroups || []).forEach(function (g) {
+          g.items.forEach(function (e) { out.push(e); });
+        });
+        return out;
+      },
+      // ═══ EVOL-041 (W12): навигация «Речи и характера» по задачам ═══
+      speechAreaNav: function () {
+        var section = this.speechSection || '';
+        return SPEECH_AREAS.map(function (a) {
+          var active = (a.section === section)
+            || ((a.alsoSections || []).indexOf(section) >= 0);
+          return { id: a.id, title: a.title, short: a.short || a.title,
+                   icon: a.icon, section: a.section, active: active };
+        });
+      },
+      // ═══ EVOL-035 (W12): сгруппированные тумблеры инициативы ═══
+      // Возвращает ТОЛЬКО реально существующие ключи (нет ключа → нет строки,
+      // никаких декоративных пустых тумблеров). Master-ключ исключён: он живёт
+      // в карточке каталога, здесь только read-only статус.
+      initiativeFlagGroups: function () {
+        var self = this;
+        var items = this.configItems || [];
+        var byKey = {};
+        items.forEach(function (it) { if (it && it.key) byKey[it.key] = it; });
+        return INITIATIVE_FLAG_GROUPS.map(function (g) {
+          var rows = [];
+          (g.keys || []).forEach(function (k) {
+            var it = byKey[k];
+            if (it) rows.push(it);
+          });
+          return { id: g.id, title: g.title, note: g.note,
+                   items: rows, links: g.links || [] };
+        }).filter(function (g) { return g.items.length || g.links.length; });
+      },
+      // Две витрины групп: основные пользовательские действия сверху,
+      // предохранители/диагностика — в раскрытом «Дополнительно» (EVOL-035).
+      initiativePrimaryGroups: function () {
+        return (this.initiativeFlagGroups || []).filter(function (g) {
+          return g.id === 'auto' || g.id === 'schedule';
+        });
+      },
+      initiativeAdvancedGroups: function () {
+        return (this.initiativeFlagGroups || []).filter(function (g) {
+          return g.id !== 'auto' && g.id !== 'schedule';
+        });
+      },
+      initiativePerChatItem: function () {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === INITIATIVE_PER_CHAT_KEY) {
+            return items[i];
+          }
+        }
+        return null;
+      },
+      // ═══ EVOL-038 (W12): поиск в каталоге промптов модуля ═══
+      promptTreeGroups: function () {
+        var q = (this.promptTreeQuery || '').trim();
+        var self = this;
+        var groups = this.workspacePromptGroups;
+        if (!groups.length) {
+          var list = this.workspacePromptList || [];
+          if (!list.length) return [];
+          var hits = list.filter(function (it) {
+            return self._promptTreeMatch(it, q);
+          });
+          return hits.length ? [{ title: '', items: hits }] : [];
+        }
+        return groups.map(function (g) {
+          return { title: g.title, items: (g.items || []).filter(function (it) {
+            return self._promptTreeMatch(it, q);
+          }) };
+        }).filter(function (g) { return g.items.length; });
+      },
+      // ═══ EVOL-042 (W12): честное состояние снимка реального вызова ═══
+      speechInspectorHasReal: function () {
+        var insp = this.speechInspector;
+        return !!(insp && insp.last_run_present && insp.exact);
+      },
       // T-1100: карточки активного hub-экрана (или null, если не hub).
       hubCards: function () {
         var map = this.iaV2 ? HUBS_V2 : HUBS;
@@ -3639,7 +4050,14 @@
           var extra = this._syntheticGroup('content', 'content_media');
           if (extra) groups = groups.concat([extra]);
         }
-        return groups;
+        // EVOL-040 (W12): master-флаг модуля внутри деталей — только
+        // read-only статус со ссылкой в каталог (вторая записывающая копия
+        // запрещена); ключи семантических групп «Инициативы» рендерит её
+        // собственная секция, поэтому в generic-сетке они не дублируются.
+        var self = this;
+        return groups.map(function (g) {
+          return self._moduleViewGroup(g, m);
+        }).filter(function (g) { return (g.items || []).length; });
       },
       // ═══ F5 (ADR-1025-15 D1/D3/D6): workspace модуля — производная hash ═══
       // Своей копии маршрута НЕТ: всё выводится из `this.route`.
@@ -4203,7 +4621,13 @@
           // ASAP-2 §13: generic-сетка групп для двух новых секций Summary.
           if (wt === 'hybrid') return this._workspaceGroupsFor(m, 'hybrid');
           if (wt === 'legacy') return this._workspaceGroupsFor(m, 'legacy');
-          if (wt === 'settings') return this._workspaceGroupsFor(m, 'settings');
+          if (wt === 'settings') {
+            // EVOL-040/035: группы, у которых все ключи переехали в
+            // канонические секции (master → каталог, флаги инициативы →
+            // семантические группы), не рендерятся пустыми карточками.
+            return this._workspaceGroupsFor(m, 'settings')
+              .filter(function (g) { return (g.items || []).length; });
+          }
           return [];
         }
         if (t.id === 'permsoc') return this._permsocOwnerGroups();
@@ -7259,6 +7683,13 @@
       // И route-driven окна «Доступов» (фокус может быть вне модалки —
       // keydown на карточке недостаточно; закрытие окна = hash → #/access).
       _onKeydown = function (e) {
+        // EVOL-037 (W12): Ctrl+K / Cmd+K — единственный глобальный хоткей
+        // палитры. Обычный ввод не перехватывается (нужен модификатор),
+        // Esc обслуживает уже открытую панель через escClose().
+        if (_appVm && typeof _appVm._paletteHotkey === 'function'
+            && _appVm._paletteHotkey(e)) {
+          return;
+        }
         if (e.key === 'Escape' && _appVm) {
           _appVm.escClose();
         }
@@ -11744,6 +12175,11 @@
         }
         if (route === this.route && _routeApplied) {
           this.syncBackButton();
+          // EVOL-037: повторный выбор того же адреса с ?focus=… должен
+          // дофокусировать элемент (route не изменился — hashchange молчит).
+          if (typeof this._applyRouteFocus === 'function') {
+            this._applyRouteFocus();
+          }
           return;
         }
         // D13 (§18I.4/§18I.13): уход с dirty-страницы защищает черновик —
@@ -11837,6 +12273,12 @@
           }
         }
         this.syncBackButton();
+        // EVOL-037 (W12): deep-link `?focus=<токен>` — прокрутить и
+        // сфокусировать конкретный элемент (общий контракт для палитры,
+        // меню и внешних ссылок), а не просто открыть верх страницы.
+        if (typeof this._applyRouteFocus === 'function') {
+          this._applyRouteFocus();
+        }
       },
       // D2/§15.1.7 (R10.4-2): отбрасывание устаревших in-flight ответов при
       // смене scope — снимок epoch перед await, сверка после.
@@ -11859,6 +12301,293 @@
       // T-1100: navbar → маршрут (hash).
       navTo: function (route) {
         this.navigateTo(route);
+      },
+
+      // ═══════════════════════════════════════════════════════════════════
+      // EVOL-037 (W12): глобальный поиск/command palette.
+      // Индекс не хранится отдельно: источник — paletteIndexEntries
+      // (TABS/MODULES/configItems/PROVIDER_BLOCKS/статические адреса данных).
+      // Выбор открывает существующий маршрут и фокусирует конкретный элемент
+      // через `?focus=<токен>` — общий deep-link контракт для меню/карточек.
+      // ═══════════════════════════════════════════════════════════════════
+      openPalette: function (seed) {
+        this.paletteOpen = true;
+        this.paletteQuery = (typeof seed === 'string') ? seed : '';
+        this.paletteCursorId = '';
+        var self = this;
+        var focusInput = function () {
+          try {
+            if (typeof document === 'undefined' || !document) return;
+            var el = document.getElementById
+              ? document.getElementById('palette-input') : null;
+            if (el && el.focus) el.focus();
+            if (el && el.select) el.select();
+          } catch (e) { /* unit-стабы без DOM */ }
+        };
+        if (typeof this.$nextTick === 'function') this.$nextTick(focusInput);
+        else focusInput();
+      },
+      closePalette: function () {
+        this.paletteOpen = false;
+        this.paletteQuery = '';
+        this.paletteCursorId = '';
+      },
+      togglePalette: function () {
+        if (this.paletteOpen) this.closePalette();
+        else this.openPalette();
+      },
+      paletteOnInput: function (event) {
+        var v = (event && event.target) ? event.target.value : '';
+        this.paletteQuery = v;
+        this.paletteCursorId = '';
+      },
+      paletteMove: function (delta) {
+        var flat = this.paletteFlat || [];
+        if (!flat.length) return;
+        var idx = -1;
+        for (var i = 0; i < flat.length; i++) {
+          if (flat[i].id === this.paletteCursorId) { idx = i; break; }
+        }
+        var next = (idx < 0) ? (delta > 0 ? 0 : flat.length - 1)
+                             : (idx + delta + flat.length) % flat.length;
+        this.paletteCursorId = flat[next].id;
+      },
+      // Клавиатура палитры: ↑↓/Enter/Esc. Ввод текста не перехватывается —
+      // обработчик висит на панели, а не на документе (см. _paletteHotkey).
+      paletteKeydown: function (event) {
+        if (!event || !event.key) return;
+        if (event.key === 'ArrowDown') {
+          if (event.preventDefault) event.preventDefault();
+          this.paletteMove(1);
+        } else if (event.key === 'ArrowUp') {
+          if (event.preventDefault) event.preventDefault();
+          this.paletteMove(-1);
+        } else if (event.key === 'Enter') {
+          if (event.preventDefault) event.preventDefault();
+          var flat = this.paletteFlat || [];
+          var hit = null;
+          for (var i = 0; i < flat.length; i++) {
+            if (flat[i].id === this.paletteCursorId) { hit = flat[i]; break; }
+          }
+          if (!hit && flat.length) hit = flat[0];
+          if (hit) this.paletteSelect(hit);
+        } else if (event.key === 'Escape') {
+          if (event.preventDefault) event.preventDefault();
+          if (event.stopPropagation) event.stopPropagation();
+          this.closePalette();
+        }
+      },
+      // Ctrl+K / Cmd+K из любого места (не перехватывает обычный ввод:
+      // требуется модификатор и отсутствие alt/shift-конфликтов с TMA).
+      _paletteHotkey: function (event) {
+        if (!event || !event.key) return false;
+        var k = String(event.key).toLowerCase();
+        if (k !== 'k') return false;
+        if (!(event.ctrlKey || event.metaKey) || event.altKey) return false;
+        if (event.preventDefault) event.preventDefault();
+        this.togglePalette();
+        return true;
+      },
+      paletteEntryActive: function (id) {
+        return !!id && this.paletteCursorId === id;
+      },
+      // Переход к элементу выдачи. `?focus=` — единый deep-link: маршрут
+      // нормализуется как раньше (query отбрасывается), фокус применяется
+      // после рендера и переживает перезагрузку страницы.
+      paletteSelect: function (entry) {
+        if (!entry || !entry.route) return;
+        var route = entry.route;
+        var focus = entry.focus || '';
+        this.closePalette();
+        var target = route;
+        if (focus) {
+          target += (route.indexOf('?') >= 0 ? '&' : '?')
+            + 'focus=' + encodeURIComponent(focus);
+        }
+        if (route === this.route && focus) {
+          // Тот же маршрут: hashchange не сработает — применяем фокус сами.
+          try { history.replaceState(null, '', target); } catch (e) { /* file:// */ }
+          this._applyRouteFocus();
+          return;
+        }
+        try { window.location.hash = target; } catch (e) { this.navigateTo(route); }
+      },
+      // Фокус конкретного элемента по deep-link. Токен ищется в двух
+      // контрактах: `data-focus-id` (составные цели: prompt:, conn-) и
+      // `data-cfg-key` (любое поле настройки). Раскрываем <details> вокруг.
+      _applyRouteFocus: function () {
+        var self = this;
+        var hash = '';
+        try { hash = String(window.location.hash || ''); } catch (e) { return; }
+        var q = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
+        if (!q) return;
+        var token = '';
+        q.split('&').forEach(function (pair) {
+          var kv = pair.split('=');
+          if (decodeURIComponent(kv[0] || '') === 'focus') {
+            token = decodeURIComponent(kv.slice(1).join('=') || '');
+          }
+        });
+        if (!token) return;
+        var run = function () {
+          try {
+            if (typeof document === 'undefined' || !document
+                || typeof document.querySelector !== 'function') return;
+            var el = null;
+            var sel1 = '[data-focus-id="' + token.replace(/"/g, '\\"') + '"]';
+            var sel2 = '[data-cfg-key="' + token.replace(/"/g, '\\"') + '"]';
+            el = document.querySelector(sel1) || document.querySelector(sel2);
+            if (!el) return;
+            var node = el;
+            while (node && node.tagName) {
+              if (String(node.tagName).toLowerCase() === 'details') {
+                node.open = true;
+              }
+              node = node.parentNode;
+            }
+            if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+            if (el.focus) el.focus({ preventScroll: true });
+            if (el.classList && el.classList.add) el.classList.add('focus-pulse');
+            if (typeof setTimeout === 'function') {
+              setTimeout(function () {
+                if (el.classList && el.classList.remove) {
+                  el.classList.remove('focus-pulse');
+                }
+              }, 1600);
+            }
+          } catch (e) { /* no-op: unit-стабы без DOM */ }
+        };
+        if (typeof this.$nextTick === 'function') this.$nextTick(run);
+        else run();
+      },
+      // Вкладка каталога, которой принадлежит параметр (зеркало TAB_RULES).
+      _tabOfItem: function (item) {
+        if (!item) return '';
+        var cat = item.category || '';
+        var grp = item.group || '';
+        var tabs = this.tabs || [];
+        for (var i = 0; i < tabs.length; i++) {
+          var t = tabs[i];
+          if (!t || !t.sources) continue;
+          for (var j = 0; j < t.sources.length; j++) {
+            var s = t.sources[j];
+            if (s.category !== cat) continue;
+            if (!s.groups) return t.id;
+            if (s.groups.indexOf(grp) >= 0) return t.id;
+          }
+        }
+        return '';
+      },
+      tabLabelOf: function (tabId) {
+        var t = (this.tabs || []).find(function (x) { return x.id === tabId; });
+        return t ? t.label : 'Настройка';
+      },
+      // Адрес редактирования конкретного параметра. Промпт → тот же
+      // мастер-детейл редактор модуля (один объект/история, без копий).
+      // Адрес редактирования конкретного параметра. Промпт → тот же
+      // мастер-детейл редактор модуля (один объект/история, без копий);
+      // master-флаг модуля → карточка каталога (единственная запись).
+      _settingDestination: function (item) {
+        if (!item || !item.key) return null;
+        if (typeof this.isModuleMasterItem === 'function'
+            && this.isModuleMasterItem(item)) {
+          var owner = (this.modules || []).filter(function (m) {
+            return m && !m.noToggle && m.toggleKey === item.key;
+          })[0];
+          if (owner) return { route: '#/modules',
+                              focus: 'module-card:' + owner.id };
+        }
+        var tabId = this._tabOfItem(item);
+        if (!tabId) return null;
+        if (item.category === 'prompts') {
+          var mods = this.modules || [];
+          for (var i = 0; i < mods.length; i++) {
+            var g = MODULE_PROMPT_GROUPS[mods[i].id];
+            if (g && g === item.group) {
+              var slug = this.routeSlugOf ? this.routeSlugOf(mods[i])
+                : mods[i].routeSlug;
+              return { route: '#/modules/' + slug + '/prompts/' + item.key,
+                       focus: 'prompt:' + item.key };
+            }
+          }
+        }
+        var mod = (this.modules || []).find(function (m) {
+          return m.id === tabId;
+        });
+        if (mod) {
+          var mslug = this.routeSlugOf ? this.routeSlugOf(mod) : mod.routeSlug;
+          return { route: '#/modules/' + mslug + '/settings',
+                   focus: item.key };
+        }
+        var tabRoute = tabToRoute(tabId) || '';
+        return tabRoute ? { route: tabRoute, focus: item.key } : null;
+      },
+      // Совместимость: только маршрут (без токена фокуса).
+      _settingRouteOf: function (item) {
+        var d = this._settingDestination(item);
+        return d ? d.route : '';
+      },
+      // Адрес карточки подключения: первый модуль, реально потребляющий блок.
+      _modelRouteOf: function (blockId) {
+        if (!blockId) return '';
+        var mods = this.modules || [];
+        var preferred = (blockId === 'direct') ? 'mod_direct' : '';
+        var pick = null;
+        for (var i = 0; i < mods.length; i++) {
+          var m = mods[i];
+          if (preferred && m.id === preferred) { pick = m; break; }
+          var blocks = MODULE_MODEL_BLOCKS[m.id] || [];
+          if (blocks.indexOf(blockId) >= 0 && !pick) pick = m;
+        }
+        if (pick) {
+          var slug = this.routeSlugOf ? this.routeSlugOf(pick) : pick.routeSlug;
+          return '#/modules/' + slug + '/models';
+        }
+        // Блок без модуля-потребителя (эмбеддинги/фоновые) — витрина «ИИ»,
+        // где подключения показаны в «Модели и подключение».
+        return '#/ai';
+      },
+      // EVOL-038: поиск в каталоге промптов (название/ключ/описание).
+      _promptTreeMatch: function (item, query) {
+        if (!item) return false;
+        var q = (query || '').trim();
+        if (!q) return true;
+        var title = this.configItemTitle ? this.configItemTitle(item)
+          : (item.title || '');
+        return _searchScore({ title: title, key: item.key,
+                              subtitle: item.description || '', aliases: '' },
+                            q) > 0;
+      },
+      // EVOL-040: master-ключ модуля управляется ТОЛЬКО из каталога.
+      // Возвращает true для параметра, который является чьим-то master-флагом
+      // (одна запись-источник, вторая активная копия внутри модуля запрещена).
+      isModuleMasterItem: function (item) {
+        if (!item || !item.key) return false;
+        var mods = this.modules || [];
+        for (var i = 0; i < mods.length; i++) {
+          var m = mods[i];
+          if (m && !m.noToggle && m.toggleKey && m.toggleKey === item.key) {
+            return true;
+          }
+        }
+        return false;
+      },
+      // Параметры, у которых ВНУТРИ модуля есть каноническая секция
+      // (инициатива: семантические группы) — в generic-сетке не дублируются.
+      // Навигация по областям «Речи и характера» (один экран за раз).
+      openSpeechArea: function (areaId) {
+        var area = SPEECH_AREAS.filter(function (a) { return a.id === areaId; })[0];
+        if (!area) return null;
+        if (!area.section) {
+          this.speechSection = '';
+          return null;
+        }
+        return this.openSpeechSection(area.section);
+      },
+      // Режимы инспектора: реальный снимок ≠ предпросмотр. Переключение —
+      // только витрина, данные не пересобираются и ничего не отправляется.
+      setSpeechInspectorMode: function (mode) {
+        this.speechInspectorMode = (mode === 'preview') ? 'preview' : 'real';
       },
       // F1 (T-2400): инъекция id-анкеров в h1..h3 санитайзенного HTML +
       // сбор оглавления. Без DOMParser (тесты/старый браузер) — no-op.
@@ -12226,6 +12955,11 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // EVOL-037 (W12): открытая палитра — верхний слой; Esc закрывает её
+        // первой и возвращает пользователя туда, откуда он её открыл.
+        if (this.paletteOpen) { this.closePalette(); return; }
+        // EVOL-038 (W12): полноэкранный редактор промпта — тоже верхний слой.
+        if (this.promptEditorFull) { this.promptEditorFull = false; return; }
         // EVOL-003: окно записи статусного виджета — верхний слой (открывается
         // из строки поверх страницы), Esc закрывает его первым.
         if (this.statusRecordOpen) { this.closeStatusRecord(); return; }
@@ -16576,7 +17310,48 @@
         return this.groupedForTab(t).filter(function (g) {
           if (allow && allow.indexOf(g.id) < 0) return false;
           return self.workspaceGroupTab(m, g) === tabId;
+        }).map(function (g) {
+          // EVOL-040/035 (W12): та же нормализация, что в окне модуля —
+          // одна записывающая точка на ключ. В урезанных тест-контекстах
+          // (без полного набора методов) группа отдаётся как есть.
+          if (typeof self._moduleViewGroup !== 'function') return g;
+          return self._moduleViewGroup(g, m);
         });
+      },
+      // Нормализация группы для экранов модуля:
+      //  * master-ключ модуля → read-only строка (запись только из каталога);
+      //  * ключи семантических групп «Инициативы» → скрыты здесь (их рендерит
+      //    собственная секция «Автономная активность / …»);
+      //  * остальные параметры не меняются (тот же key/значение/права).
+      _moduleViewGroup: function (grp, moduleRef) {
+        if (!grp) return grp;
+        var self = this;
+        var m = (moduleRef && moduleRef.id) ? moduleRef : this.workspaceModule;
+        var items = (grp.items || []).filter(function (it) {
+          if (!m || m.id !== 'mod_initiative') return true;
+          if (it.key === INITIATIVE_PER_CHAT_KEY) return false;
+          var hidden = false;
+          INITIATIVE_FLAG_GROUPS.forEach(function (g) {
+            if ((g.keys || []).indexOf(it.key) >= 0) hidden = true;
+          });
+          return !hidden;
+        }).map(function (it) {
+          if (self.isModuleMasterItem(it)) {
+            // Master-ключ модуля внутри деталей — read-only статус со
+            // ссылкой в каталог (единственная записывающая точка — карточка
+            // каталога «Модули», EVOL-040). Значение остаётся видимым.
+            return Object.assign({}, it, {
+              readonly_master: true,
+              master_owner: (m && m.title) || '',
+            });
+          }
+          return it;
+        });
+        var original = grp.items || [];
+        var same = original.length === items.length
+          && original.every(function (it, i) { return it === items[i]; });
+        if (same) return grp;      // идентичность важна для :key-списков
+        return Object.assign({}, grp, { items: items });
       },
       // Вкладка рендерится, только если у неё есть содержимое (§4.3 п.2).
       // Стадии Саммари §85 — честный placeholder (не декоративная пустышка).
@@ -18159,6 +18934,9 @@
           this.blockResults[b.id] = { ok: false, text: msg };
         } finally {
           this.blockTesting[b.id] = false;
+          if (typeof this._recordBlockCheck === 'function') {
+            this._recordBlockCheck(b.id, 'connection');
+          }
         }
       },
       // MINOR-2: тест КОНКРЕТНОГО ключа блока (search_keys:tavily/exa).
@@ -18189,7 +18967,62 @@
           this.blockResults[target] = { ok: false, text: msg };
         } finally {
           this.blockTesting[target] = false;
+          if (typeof this._recordBlockCheck === 'function') {
+            this._recordBlockCheck(target, 'connection');
+          }
         }
+      },
+      // EVOL-039 (W12): в карточке видно РЕЗУЛЬТАТ и ВРЕМЯ проверки, а не
+      // только тост. Различаем два разных факта:
+      //   connection — доступность HTTP/API (эта кнопка);
+      //   function   — проверенный вызов/результат функции (если он есть
+      //                отдельно; иначе честно говорим, что его нет).
+      _recordBlockCheck: function (blockId, kind) {
+        if (!blockId) return;
+        var res = (this.blockResults || {})[blockId];
+        if (!res) return;
+        var meta = Object.assign({}, this.blockTestMeta || {});
+        meta[blockId] = { at: Date.now(), kind: kind || 'connection',
+                          ok: !!res.ok, text: res.text || '' };
+        this.blockTestMeta = meta;
+      },
+      // Метаданные проверки для карточки: сначала целевой подблок (его
+      // реально тестирует кнопка), затем сам блок.
+      connCheckMeta: function (card) {
+        if (!card) return null;
+        var map = this.blockTestMeta || {};
+        var target = (card.testTarget && card.testTarget.id) || card.id;
+        return map[target] || map[card.id] || null;
+      },
+      connCheckWhen: function (card) {
+        var m = this.connCheckMeta(card);
+        return (m && m.at) ? this.fmtTs(m.at) : '';
+      },
+      blockCheckMetaFor: function (blockId) {
+        if (!blockId) return null;
+        var map = this.blockTestMeta || {};
+        return map[blockId] || null;
+      },
+      blockCheckWhen: function (blockId) {
+        var m = this.blockCheckMetaFor(blockId);
+        return (m && m.at) ? this.fmtTs(m.at) : '';
+      },
+      // Назначение подключения → какой ФУНКЦИОНАЛЬНЫЙ тест существует на
+      // самом деле. Ничего не выдумываем: где отдельной проверки нет — так и
+      // написано (проверка соединения не доказывает работу функции).
+      connFunctionalCheckLabel: function (card) {
+        var id = card && (card.id || '');
+        if (id === 'vision') {
+          return 'отдельная проверка распознавания (блок ниже)';
+        }
+        if (id === 'image_generation') {
+          return 'отдельная проверка генерации (в модуле «Генерация изображений»)';
+        }
+        if (id === 'direct') {
+          return 'проверка пайплайна — вкладка «Тестирование» модуля «Прямые ответы»';
+        }
+        return 'отдельной функциональной проверки нет — доступность API не '
+          + 'доказывает, что функция работает';
       },
       // MODERATE-1: сохранение полей блока через /api/config (без потери
       // черновика). Секреты пишутся только если введён новый ключ.
@@ -20292,6 +21125,14 @@
         // Возврат: true — сохранено; null — пропущено (уже в полёте);
         // false — реальный провал.
         if (!item || item.key == null) return false;
+        // EVOL-040 (W12): master-флаг модуля пишется ТОЛЬКО из карточки
+        // каталога. Любая вторая кнопка внутри модуля — read-only; попытка
+        // записи отклоняется здесь (защита от обхода UI).
+        if (item.readonly_master) {
+          this.toast('Включение модуля — в карточке каталога «Модули»',
+                     'warn');
+          return false;
+        }
         // F7 (ADR-1025-20 D1/§60): PERMsoc-ключ нельзя записать как global.
         // Без выбранного чата или с per_chat=false — отказ с понятным текстом
         // (защита от любого обхода UI; §4 «PERMsoc не глобальная конфигурация»).
