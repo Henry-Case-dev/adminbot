@@ -81,6 +81,9 @@ EXECUTION_MODES = (EXECUTION_NONE, EXECUTION_SIMPLE, EXECUTION_ADAPTIVE)
 REASON_NO_TOOLS = "no_resolved_tools"
 REASON_ADAPTIVE_DISABLED = "adaptive_disabled"
 REASON_ADAPTIVE_NO_TOOLS = "adaptive_no_tools"
+#: ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C1): план просил ``none``, но runtime
+#: требует read-only проверку — mode переопределён (не молчаливо).
+REASON_EVIDENCE_REQUIRED = "evidence_required_overrides_plan"
 
 # ── Границы adaptive-цепочки (§18C.7: max steps/time/tokens/cost) ───────────
 # Числа — код-дефолты; env-overrides читаются per-call (см. ниже). При
@@ -144,13 +147,20 @@ def orchestrator_max_metered_calls() -> int:
                   ORCHESTRATOR_MAX_METERED_CALLS)
 
 
-def resolve_execution_mode(plan, tool_schemas) -> tuple[str, str]:
+def resolve_execution_mode(plan, tool_schemas, *,
+                           required_caps=()) -> tuple[str, str]:
     """(mode, demote_reason) по контракту §18C.7. Никогда не бросает.
 
     * схем нет → ``none`` (Writer без evidence);
     * план просит adaptive → только при ON kill-switch и наличии схем,
       иначе честная демотация в simple_tools (reason не молчаливый);
-    * всё остальное с непустым resolved-подсетом → simple_tools."""
+    * всё остальное с непустым resolved-подсетом → simple_tools.
+
+    ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C1): ``execution_mode == "none"``
+    (allowlisted-поле L1-плана) больше НЕ может скрыть обязательную
+    runtime-проверку — при непустом ``required_caps`` mode переопределяется
+    в ``simple_tools`` с наблюдаемой причиной. Демотация adaptive-цепочки
+    не меняется."""
     try:
         if not tool_schemas:
             return EXECUTION_NONE, REASON_NO_TOOLS
@@ -160,6 +170,9 @@ def resolve_execution_mode(plan, tool_schemas) -> tuple[str, str]:
                 return EXECUTION_SIMPLE, REASON_ADAPTIVE_DISABLED
             return EXECUTION_ADAPTIVE, ""
         if requested in (EXECUTION_NONE, EXECUTION_SIMPLE):
+            if requested == EXECUTION_NONE and tuple(required_caps or ()):
+                # C1: required read-only evidence сильнее мнения плана.
+                return EXECUTION_SIMPLE, REASON_EVIDENCE_REQUIRED
             return (requested, "" if requested == EXECUTION_SIMPLE
                     else REASON_NO_TOOLS)
         return EXECUTION_SIMPLE, ""
@@ -231,13 +244,19 @@ _QUERY_CAPS: dict[str, tuple[str, ...]] = {
 
 def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                         ctx=None, announced=(), addressee: str = "",
-                        max_fetch_steps: int = 3) -> tuple[list[dict], list[str]]:
+                        max_fetch_steps: int = 3,
+                        required_caps=()) -> tuple[list[dict], list[str]]:
     """Детерминированные шаги simple_tools из L1 capabilities (0 LLM).
 
     Возврат ``(steps, limitations)``: шаги — тот же контракт, что
     ``tool_loop.normalize_tool_plan`` (tool/arguments/depends_on/
     failure_policy); limitations — честные оси «capability не исполнена»
-    (никогда не молчаливое удаление, §18C.3). Никогда не бросает."""
+    (никогда не молчаливое удаление, §18C.3). Никогда не бросает.
+
+    ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): ``required_caps`` — runtime-обязательные
+    read-only capabilities, деривируемые и при ПУСТОМ L1-плане (технический
+    вопрос без «погугли» не должен остаться без проверки из-за
+    ``capabilities_needed=[]``/``tool_policy=none``)."""
     steps: list[dict] = []
     limitations: list[str] = []
     try:
@@ -258,8 +277,14 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                 and str(getattr(ctx, "resolved_url")) not in urls:
             urls.insert(0, str(getattr(ctx, "resolved_url")))
         index = 0
-        for raw_cap in (getattr(plan, "capabilities_needed", ()) or ()):
+        caps: list[str] = []
+        for raw_cap in tuple(getattr(plan, "capabilities_needed", ()) or ()) \
+                + tuple(required_caps or ()):
             cap = str(raw_cap or "").strip().lower()
+            if not cap or cap in caps:
+                continue
+            caps.append(cap)
+        for cap in caps:
             if not cap:
                 continue
             if cap == "fetch_url":
@@ -590,16 +615,22 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
 
 async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
                            correlation_id, announced=(), addressee: str = "",
-                           reply_text: str = "") -> ChainResult | None:
+                           reply_text: str = "",
+                           required_caps=()) -> ChainResult | None:
     """simple_tools (§18C.7): детерминированные/параллельные tools →
     evidence sources. 0 LLM-вызовов (третий вызов запрещён). Шаги без
     зависимостей исполняются волной (asyncio.gather). Возврат ``None``
     — исполняемых шагов нет (Writer без evidence). CancelledError —
-    проброс (чистый выход хода)."""
+    проброс (чистый выход хода).
+
+    ``required_caps`` — runtime-обязательные read-only capabilities
+    (ASAP-EVIDENCE-ROUTING-01 v3 §2.1): деривация шагов не зависит от того,
+    запросил ли их L1-план."""
     try:
         steps, limitations = derive_simple_steps(
             plan, query=query, reply_text=reply_text, ctx=ctx,
-            announced=announced, addressee=addressee)
+            announced=announced, addressee=addressee,
+            required_caps=required_caps)
         if not steps:
             for line in limitations:
                 logger.info("[direct-exec] simple skip | %s", line)
@@ -914,10 +945,15 @@ EVIDENCE_MAX_SHARE = 0.4                # доля окна L2 на evidence (ce
 
 
 def l2_evidence_budget_chars(input_budget_tokens, other_chars: int,
-                             output_reserve_tokens: int = 512) -> int | None:
+                             output_reserve_tokens: int = 0) -> int | None:
     """Capacity evidence под РЕАЛЬНОЕ окно финальной L2 (§18C.2: не
     магическая константа). input_budget None → None (legacy-дефолт).
-    Формула: доля окна (≤40%) минус прочие блоки пакета, floor 300."""
+    Формула: доля окна (≤40%) минус прочие блоки пакета, floor 300.
+
+    ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C4): резерв вывода вычитается РОВНО
+    один раз — в композере (`l2_input_budget` уже без резерва), поэтому
+    дефолт ``output_reserve_tokens=0``. Повторный резерв здесь урезал
+    evidence дважды."""
     try:
         if input_budget_tokens is None:
             return None
@@ -925,9 +961,34 @@ def l2_evidence_budget_chars(input_budget_tokens, other_chars: int,
         others = max(0, int(other_chars)) // 4        # ~4 симв/токен
         evidence_tokens = min(int(budget * EVIDENCE_MAX_SHARE),
                               budget - others - int(output_reserve_tokens))
-        return max(300, evidence_tokens * 4)
+        return max(EVIDENCE_FLOOR_CHARS, evidence_tokens * 4)
     except (TypeError, ValueError):
         return None
+
+
+#: §4.2: фиксированный запас на неучтённые разделители/подписи пакета.
+EVIDENCE_SAFETY_MARGIN_CHARS = 200
+
+
+def measure_nonevidence_chars(*, system_base: str = "", plan_block: str = "",
+                              time_line: str = "", user_blocks=(),
+                              lessons: str = "", speech: str = "",
+                              character: str = "") -> int:
+    """ОДИН измеритель «прочего» payload L2 (§4.2, снимает ручную сумму).
+
+    Считается ВСЁ, что реально едет в запрос Writer'а кроме evidence:
+    системная база, план-блок, временная строка, user-блоки хода, уроки,
+    речь/характер. Ручной пересчёт подмножества блоков (без базы Writer и
+    plan-блока) занижал `others` → evidence переполнял окно."""
+    try:
+        total = len(str(system_base or "")) + len(str(plan_block or "")) \
+            + len(str(time_line or "")) + len(str(lessons or "")) \
+            + len(str(speech or "")) + len(str(character or ""))
+        for block in (user_blocks or ()):
+            total += len(str(block or ""))
+        return max(0, int(total))
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return 0
 
 
 def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,

@@ -326,7 +326,9 @@ class TestObservabilityContract:
         # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
         # пустой content ответа модели ≠ не-JSON; code_defect — честный код
         # детерминированной ошибки кода embeddings вместо fake transport).
-        assert len(mca_events.REASON_CODES) == 311
+        # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, §1.4:
+        # evidence_skipped/evidence_reused/evidence_unverified_claim_removed).
+        assert len(mca_events.REASON_CODES) == 314
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \

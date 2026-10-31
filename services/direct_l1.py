@@ -225,6 +225,13 @@ class L1Plan:
     delivery: str = ""
     target_message_id: int | None = None
     target_user_id: int | None = None
+    # ── ASAP-EVIDENCE-ROUTING-01 v3 (§1.6): ОПЦИОНАЛЬНАЯ claim-аннотация в
+    # ТОМ ЖЕ единственном L1-вызове (allowlisted-поле, прецедент
+    # ``future_intent``): ``{"entity","relation","version","date","metric"}``.
+    # Поле уточняет claim-key для reuse/coverage и НЕ отменяет обязательную
+    # проверку, если её требует runtime-политика. Невалидный элемент
+    # отбрасывается; отсутствие поля → пустой кортеж (план валиден).
+    external_claims: tuple = ()
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -376,6 +383,50 @@ def _clip_word(value, max_len: int, default: str) -> str:
     return candidate[:max_len]
 
 
+#: ASAP-EVIDENCE-ROUTING-01 v3 (§1.6): кап claim-аннотации в плане (bounded).
+EXTERNAL_CLAIMS_MAX = 4
+EXTERNAL_CLAIM_FIELD_MAX = 120
+
+
+def _parse_external_claims(raw) -> tuple:
+    """Allowlisted ``external_claims`` → кортеж валидных словарей (§1.6).
+
+    Невалидный элемент отбрасывается (план не инвалидируется); не-список/
+    отсутствие поля → ``()``. Поле только УТОЧНЯЕТ claim-key: права отменить
+    обязательную проверку оно не даёт (решение — у runtime-политики).
+    Никогда не бросает."""
+    try:
+        if not isinstance(raw, (list, tuple)):
+            return ()
+        from services.evidence_policy import CLAIM_RELATIONS
+        out: list[dict] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            entity = _WS_RE.sub(" ", str(item.get("entity") or "")).strip()
+            if not entity:
+                continue
+            relation = str(item.get("relation") or "").strip().lower()
+            if relation not in CLAIM_RELATIONS:
+                # Отсутствующая связь — «существует» (минимальное утверждение);
+                # невалидная — элемент отбрасывается.
+                if relation:
+                    continue
+                relation = "exists"
+            claim = {"entity": entity[:EXTERNAL_CLAIM_FIELD_MAX],
+                     "relation": relation}
+            for name in ("version", "date", "metric"):
+                value = _WS_RE.sub(" ", str(item.get(name) or "")).strip()
+                if value:
+                    claim[name] = value[:40]
+            out.append(claim)
+            if len(out) >= EXTERNAL_CLAIMS_MAX:
+                break
+        return tuple(out)
+    except Exception:      # pragma: no cover - защитная ветка
+        return ()
+
+
 def canonical_response_act(value) -> str:
     """`response_act` из плана → каноническое значение схемы (никогда не бросает).
 
@@ -497,6 +548,11 @@ def normalize_l1_plan(data) -> L1Plan | None:
     else:
         plan.execution_mode = derive_execution_mode(plan.capabilities_needed)
         plan.execution_mode_source = "derived"
+    # ── ASAP-EVIDENCE-ROUTING-01 v3 (§1.6): optional claim-аннотация в том же
+    # L1-вызове. Аддитивное allowlisted-поле: невалидное → отбрасывается,
+    # отсутствие → (); решение об обязательности проверки принимает runtime
+    # (`services/evidence_policy`), не модель.
+    plan.external_claims = _parse_external_claims(data.get("external_claims"))
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")

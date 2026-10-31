@@ -180,7 +180,9 @@ def test_reason_codes_269():
     # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
     # пустой content ответа модели ≠ не-JSON; code_defect — честный код
     # детерминированной ошибки кода embeddings).
-    assert len(mca_events.REASON_CODES) == 311       # 309 → 311
+    # ASAP-EVIDENCE-ROUTING-01 v3 (01.11.2026): 311 → 314 (+3, санкция §1.4:
+    # evidence_skipped / evidence_reused / evidence_unverified_claim_removed).
+    assert len(mca_events.REASON_CODES) == 314       # 309 → 311 → 314
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды

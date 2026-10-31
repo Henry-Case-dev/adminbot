@@ -366,6 +366,15 @@ REASON_CODES = frozenset({
     # `initiative_observer.reason_label`. Второй словарь не вводится.
     "target_invalid", "target_missing", "target_no_tg_id", "target_stale",
     "target_addressee_mismatch", "target_unavailable", "target_gone",
+    # ASAP-EVIDENCE-ROUTING-01 v3 (§1.4; санкция — РОВНО +3 в единый словарь):
+    # честная семантика runtime evidence-политики. Подпричина skip'а едет
+    # отдельным полем события (`usage_json`), а не вторым кодом словаря:
+    # `evidence_skipped` — внешний вызов не нужен/невозможен по нормальному
+    # основанию; `evidence_reused` — свежий claim-bound источник переиспользован;
+    # `evidence_unverified_claim_removed` — неподтверждённое высокорисковое
+    # предложение удалено исходящим guard'ом (§2.3). Второй словарь запрещён.
+    "evidence_skipped", "evidence_reused",
+    "evidence_unverified_claim_removed",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

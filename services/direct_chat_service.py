@@ -261,6 +261,10 @@ from services import direct_l1 as _l1
 from services import direct_capabilities as _caps
 # ── ASAP 8 v6 (D04, §18C.7): execution modes / orchestrator / evidence. ────
 from services import direct_execution as _dx
+# ── ASAP-EVIDENCE-ROUTING-01 v3 (§1): runtime evidence policy. Единственный
+# владелец решения «нужна ли внешняя read-only проверка»; чистые функции —
+# ни LLM, ни сети, ни БД. ──────────────────────────────────────────────────
+from services import evidence_policy as _evp
 
 logger = logging.getLogger(__name__)
 
@@ -2354,6 +2358,255 @@ def _mark_rag_fact(item, ranks: dict):
         return item
 
 
+# ── ASAP-EVIDENCE-ROUTING-01 v3 (§1.3/§1.5): сбор входов runtime-политики ────
+# Здесь только СБОР существующих детерминированных сигналов и разрешений:
+# сам вывод класса/обязательности живёт в `services/evidence_policy.py`
+# (чистые функции). Новых словарей фраз не заводится.
+
+#: capability политики → id в `capability_registry` (источник реального
+#: состояния провайдера/ключа/квоты). `source_read` отсутствует по
+#: конструкции (EVOL-SRC-READER `PENDING`).
+_EVIDENCE_CAP_REGISTRY = {
+    "web_search": "web_search",
+    "fetch_url": "fetch_url",
+    "fact_check": "fact_check",
+    "chat_history": "chat_history",
+    "chat_memory": "chat_memory",
+}
+
+#: Статус capability-реестра → код отказа `allowed()` (§1.5, шаги 3–4).
+_CAP_STATUS_TO_BLOCK = {
+    "ready": ("", ),
+    "quota_exhausted": (_evp.BLOCK_QUOTA,),
+    "disabled": (_evp.BLOCK_EXTERNAL_DISABLED,),
+    "not_configured": (_evp.BLOCK_PROVIDER_UNCONFIGURED,),
+    "temporarily_unavailable": (_evp.BLOCK_PROVIDER_UNAVAILABLE,),
+    "unsupported": (_evp.BLOCK_CAPABILITY_NOT_READY,),
+    "unknown": (_evp.BLOCK_CAPABILITY_NOT_READY,),
+}
+
+#: Эмиссия `EVIDENCE_*` — существующая шина `agentic_events` (не молчаливая).
+_EVIDENCE_EVENT_POLICY = "EVIDENCE_POLICY_DECIDED"
+_EVIDENCE_EVENT_DELIVERY = "EVIDENCE_DELIVERY"
+_EVIDENCE_EVENT_EGRESS = "EVIDENCE_EGRESS_CHECK"
+
+
+def _evidence_urls(*texts) -> tuple[str, ...]:
+    """Явные ссылки хода (существующий `smartmodule_urls.extract_urls`)."""
+    out: list[str] = []
+    try:
+        from services.smartmodule_urls import extract_urls
+        for text in texts:
+            for url in extract_urls(str(text or "")):
+                if url not in out:
+                    out.append(url)
+    except Exception:      # pragma: no cover - защитная ветка
+        return ()
+    return tuple(out)
+
+
+def _evidence_explicit_request(query: str,
+                               reply_text: str = "") -> "_evp.ExplicitRequest":
+    """Детерминированные сигналы поручения (§1.3) — только существующие.
+
+    * ``search`` — ``direct_capabilities.detect_action_intent``
+      (``INTENT_WEB_SEARCH``; тот же класс запроса, что ``_SEARCH_RE``);
+    * ``verify`` — ``temporal_factcheck.is_referential_claim`` («проверь это»
+      на replied-сообщение);
+    * ``read_source`` — поручение читать код/файл; инструмента нет до
+      EVOL-SRC, поэтому политика честно вернёт ``capability_not_ready``
+      только когда такое поручение реально распознано (сейчас — никогда,
+      детектор не заводится)."""
+    search = False
+    try:
+        intent = _caps.detect_action_intent(str(query or ""),
+                                            reply_text=str(reply_text or ""))
+        search = getattr(intent, "intent", "") == _caps.INTENT_WEB_SEARCH
+    except Exception:      # pragma: no cover - защитная ветка
+        search = False
+    verify = False
+    try:
+        from services import temporal_factcheck as _tf
+        verify = bool(_tf.is_referential_claim(str(query or "")))
+    except Exception:      # pragma: no cover - защитная ветка
+        verify = False
+    return _evp.ExplicitRequest(search=bool(search), verify=bool(verify),
+                                read_source=False)
+
+
+def _evidence_supplied(query: str, reply_text: str, plan,
+                       urls=()) -> "_evp.SuppliedSources":
+    """Уже поданные источники и детерминированные свойства реплики (§1.2)."""
+    act = str(getattr(plan, "response_act", "") or "")
+    structure = str(getattr(plan, "structure", "") or "")
+    has_text = bool(str(reply_text or "").strip())
+    # Только трансформация поданного текста (пересказ/сводка): план не несёт
+    # собственных новых внешних claim (проверка claims — в политике).
+    transformed = bool(has_text and (act == "summarization"
+                                     or structure == "summary"))
+    attributed = False
+    try:
+        attributed = _evp.is_attributed_speech(str(query or ""))
+    except Exception:      # pragma: no cover - защитная ветка
+        attributed = False
+    return _evp.SuppliedSources(
+        text=str(reply_text or ""), urls=tuple(urls or ()),
+        transformed_only=transformed, attributed_only=bool(attributed))
+
+
+def _capability_block_code(status: str) -> tuple[bool, str]:
+    """Статус реестра → ``(ok, block_code)`` для :func:`_evp.allowed`."""
+    key = str(status or "").strip().lower()
+    codes = _CAP_STATUS_TO_BLOCK.get(key)
+    if codes is None:
+        return (False, _evp.BLOCK_CAPABILITY_NOT_READY)
+    return (True, "") if codes == ("",) else (False, codes[0])
+
+
+async def _evidence_context(chat_id: int, required_caps=(), *,
+                            user_forbids: bool = False
+                            ) -> "_evp.EvidenceContext":
+    """Снимок разрешений `allowed()` из существующих источников (§1.5).
+
+    Флаги сети читаются ДО любого сетевого вызова (C3): глобальный рубильник
+    «Модуль Поиск» (`flags.search_enabled`) и «чтение страниц»
+    (`flags.webpage_enabled`) — тот же источник истины, что у хендлеров.
+    Доступность провайдера/ключа/квоты — `capability_registry.resolve`
+    (без сетевых проб). SSRF/размер/тип остаются в `safe_fetch` (класс A —
+    политика их не дублирует). Никогда не бросает."""
+    network: dict[str, bool] = {}
+    states: dict[str, tuple[bool, str]] = {}
+    try:
+        network["web_search"] = bool(hot.get(
+            "flags.search_enabled", getattr(settings, "SEARCH_ENABLED", True)))
+        network["fetch_url"] = bool(hot.get(
+            "flags.webpage_enabled", getattr(settings, "WEBPAGE_ENABLED", True)))
+    except Exception:      # pragma: no cover - защитная ветка
+        network.setdefault("web_search", True)
+        network.setdefault("fetch_url", True)
+    try:
+        from services import capability_registry as _capsreg
+        for cap in tuple(required_caps or ()):
+            name = str(cap or "").strip().lower()
+            registry_id = _EVIDENCE_CAP_REGISTRY.get(name)
+            if not registry_id:
+                continue
+            try:
+                state = await _capsreg.resolve(registry_id, chat_id)
+            except Exception:      # pragma: no cover - реестр не бросает
+                states[name] = (False, _evp.BLOCK_CAPABILITY_NOT_READY)
+                continue
+            states[name] = _capability_block_code(
+                getattr(state, "status", ""))
+    except Exception:      # pragma: no cover - защитная ветка
+        for cap in tuple(required_caps or ()):
+            states.setdefault(str(cap or "").strip().lower(),
+                              (False, _evp.BLOCK_CAPABILITY_NOT_READY))
+    return _evp.EvidenceContext(
+        network_allowed=network, capabilities=states,
+        user_forbids_external=bool(user_forbids))
+
+
+#: Bounded резерв под машинную строку `[EVIDENCE]` в payload Writer'а:
+#: считается в «прочем» ДО упаковки (иначе evidence забирает её место).
+_EVIDENCE_NOTE_RESERVE_CHARS = 260
+
+#: Одна машинная инструкция для единственной повторной генерации (§2.3).
+EVIDENCE_EGRESS_HINT = (
+    "[SYSTEM] В предыдущем ответе есть существенное внешнее утверждение, "
+    "которого нет в доставленных доказательствах. Убери это утверждение "
+    "(или замени на подтверждённое) и сохрани остальной текст: тон, шутку и "
+    "форму. Не пиши, что ты что-то проверял, если проверки не было; "
+    "«ничего не найдено» не означает «не существует».")
+
+
+async def _run_evidence_egress_guard(*, answer, decision, evidence_text="",
+                                     delivered_keys=(), lookup=None,
+                                     rewrite=None, drop_allowed: bool = True
+                                     ) -> tuple[str, dict]:
+    """Bounded outbound guard (§2.3): ≤1 lookup, ≤1 regeneration, затем
+    детерминированное удаление ТОЛЬКО неподтверждённого предложения.
+
+    Второго Writer'а нет: ``rewrite`` — существующий Writer-вызов хода
+    (hint-ретрай), ``lookup`` — существующий tool-путь (один адресный
+    запрос). При недоступности проверки ответ НЕ превращается в «данных
+    недостаточно»: максимум честная пометка в статистике события.
+    Возврат ``(answer, stats)``; никогда не бросает."""
+    stats: dict = {"guard_action": _evp.GUARD_NONE, "lookup_used": 0,
+                   "retry_used": 0, "dropped_claim": 0, "reason_code": "",
+                   "note": ""}
+    if decision is None or not str(answer or "").strip() \
+            or not _evp.egress_guard_enabled():
+        return answer, stats
+    text = str(answer)
+    extra = ""
+    try:
+        lookup_used = False
+        retry_used = False
+        verdict = _evp.guard_egress(
+            answer=text, decision=decision, evidence_text=evidence_text,
+            delivered_keys=delivered_keys)
+        stats["guard_action"] = verdict.action
+        stats["note"] = verdict.note
+        if verdict.action == _evp.GUARD_NONE:
+            return text, stats
+        # 1. Один адресный lookup по существу claim (существующий tool-путь).
+        if verdict.lookup_allowed and lookup is not None:
+            lookup_used = True
+            stats["lookup_used"] = 1
+            try:
+                fetched = await lookup(verdict.sentence)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                fetched = ""
+            extra = str(fetched or "")
+            verdict = _evp.guard_egress(
+                answer=text, decision=decision,
+                evidence_text=(str(evidence_text or "") + "\n" + extra),
+                delivered_keys=delivered_keys, lookup_used=True)
+            stats["guard_action"] = verdict.action
+            stats["note"] = verdict.note
+            if verdict.action == _evp.GUARD_NONE:
+                return text, stats
+        # 2. Одна повторная генерация тем же Writer'ом (взаимоисключающе с
+        #    freshness-ретраем — решает вызывающий).
+        if verdict.rewrite_allowed and rewrite is not None:
+            retry_used = True
+            stats["retry_used"] = 1
+            try:
+                new_text = await rewrite(EVIDENCE_EGRESS_HINT,
+                                         str(evidence_text or "") + extra)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                new_text = None
+            if new_text and str(new_text).strip():
+                text = str(new_text).strip()
+                verdict = _evp.guard_egress(
+                    answer=text, decision=decision,
+                    evidence_text=(str(evidence_text or "") + "\n" + extra),
+                    delivered_keys=delivered_keys, lookup_used=lookup_used,
+                    retry_used=True)
+                stats["guard_action"] = verdict.action
+                stats["note"] = verdict.note
+                if verdict.action == _evp.GUARD_NONE:
+                    return text, stats
+        # 3. Удаление только высокорискового предложения (остальной текст —
+        #    тон/шутка/ритм — сохраняется).
+        if drop_allowed and verdict.drop_allowed:
+            text = _evp.drop_claim_sentence(text, verdict.sentence)
+            stats["dropped_claim"] = 1
+            stats["guard_action"] = _evp.GUARD_DROP_CLAIM
+            stats["reason_code"] = _evp.REASON_EVIDENCE_CLAIM_REMOVED
+        return text, stats
+    except asyncio.CancelledError:
+        raise
+    except Exception:      # pragma: no cover - защитная ветка
+        stats["note"] = (stats.get("note") or "") + "+guard_error"
+        return answer, stats
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -3858,6 +4111,10 @@ class DirectChatService:
                     await send_chunked_reply(bot, chat_id, _clarify,
                                              message.message_id)
                     return
+            # ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): решение политики этого хода
+            # (None вне L1-пути) — нужно ниже упаковке evidence/Writer/egress.
+            _evidence_decision = None
+            _evidence_delivered = ""
             try:
                 async with typing_active(bot, chat_id):
                     # ── ASAP 7 (F1, §1.4): capability resolve (allowlist).
@@ -3865,12 +4122,23 @@ class DirectChatService:
                     # needs_clarification → tools не запускаются (вопрос
                     # вместо платных вызовов, §1.9).
                     _l1_tool_schemas = None
+                    # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): preflight ДО
+                    # tool-фазы — после готовых l1_plan/response_plan, до
+                    # `_l1_tool_subset`. Решение политики входит в merge
+                    # capability (required не понижается уверенностью/mode).
+                    if direct_l1_on:
+                        _evidence_decision = await self._evidence_preflight(
+                            chat_id, correlation_id, query=query,
+                            reply_text=str(getattr(
+                                tool_ctx, "reply_source_text", "") or ""),
+                            l1_plan=l1_plan, response_plan=response_plan)
                     if direct_l1_on:
                         _l1_tool_schemas, _l1_rejected = \
                             await self._l1_tool_subset(
                                 chat_id, correlation_id,
                                 bool(lore_enabled), bool(image_enabled),
-                                l1_plan, denied=_cap_denied)
+                                l1_plan, denied=_cap_denied,
+                                decision=_evidence_decision)
                     if direct_l1_on:
                         raw = await self._l1_tool_phase(
                             payload, tool_ctx, query=query,
@@ -3882,7 +4150,10 @@ class DirectChatService:
                             fallback_meta=_fallback_meta,
                             time_line=time_line,
                             tool_schemas=_l1_tool_schemas,
-                            longform_max_tokens=longform_max_tokens)
+                            longform_max_tokens=longform_max_tokens,
+                            required_caps=tuple(getattr(
+                                _evidence_decision, "required_caps", ())
+                                or ()))
                     elif self.tool_router is not None:
                         # ASAP-3.2 (ADR-1028-5 D10, §44/§45): fallback
                         # recompose на tool-пути — tool schemas ВХОДЯТ в
@@ -4221,15 +4492,47 @@ class DirectChatService:
                 # Топология reply-пути: L1 (1) + [tools (0..n orchest.)] +
                 # L2 (1). Capacity пакета — под РЕАЛЬНОЕ окно L2
                 # (l2_input_budget из композера), не магическая константа.
+                # ASAP-EVIDENCE-ROUTING-01 v3 (§2.1/§4.2): план-блок Writer'а
+                # строится ДО измерения «прочего» — один измеритель обязан
+                # видеть весь payload (база Writer + план), иначе evidence
+                # переполняет окно (C4).
+                _plan_block = _l1.build_l2_plan_block(
+                    l1_plan,
+                    rejected=_l1_rejected,
+                    clarification=bool(
+                        getattr(l1_plan, "needs_clarification", False)),
+                    low_confidence=(getattr(l1_plan,
+                                            "confidence_bucket", "high")
+                                    == "low"),
+                    include_analysis=_l1.analysis_directive_needed(
+                        l1_plan,
+                        modes_on=bool(getattr(
+                            settings, "SMART_VERBALIZER_MODES_ENABLED",
+                            True))),
+                    include_delta=_l1.delta_instruction_needed(l1_plan),
+                    modes_on=bool(getattr(
+                        settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
+                    social_hint=str(l1_meta.get("social_hint") or ""))
                 if isinstance(raw, ToolLoopResult):
+                    _ev_others = _dx.measure_nonevidence_chars(
+                        system_base=_system_prompt_base,
+                        plan_block=_plan_block,
+                        time_line=str(time_line or ""),
+                        user_blocks=(user_blocks or []),
+                        lessons=str(_lessons_block or ""),
+                        speech=str(_speech_block or ""),
+                        character=str(character_block or ""))
+                    # Резерв под машинную строку `[EVIDENCE]` (она добавляется
+                    # ПОСЛЕ упаковки, но занимает место в том же payload).
+                    if _evidence_decision is not None and (
+                            _evidence_decision.required
+                            or _evidence_decision.claims
+                            or str(_evidence_decision.evidence_class)
+                            == "runtime"):
+                        _ev_others += _EVIDENCE_NOTE_RESERVE_CHARS
                     _ev_budget = _dx.l2_evidence_budget_chars(
                         _fallback_meta.get("l2_input_budget"),
-                        other_chars=len(str(time_line or ""))
-                        + sum(len(str(b or ""))
-                              for b in (user_blocks or []))
-                        + len(str(_lessons_block or ""))
-                        + len(str(_speech_block or ""))
-                        + len(str(character_block or "")))
+                        other_chars=_ev_others)
                     _ev_cap = (_ev_budget if _ev_budget is not None
                                else _l1.evidence_max_chars())
                     # P0-HA SEGMENTS (архконтракт §2): накопление находок
@@ -4241,43 +4544,31 @@ class DirectChatService:
                     await self.collect_history_segments(
                         tool_ctx, raw, slot_chars=_ev_cap, chat_id=chat_id,
                         correlation_id=correlation_id)
-                    _evidence = _dx.build_evidence_pack(
-                        raw, response_plan, capacity_chars=_ev_cap).text
+                    _ev_pack = _dx.build_evidence_pack(
+                        raw, response_plan, capacity_chars=_ev_cap)
+                    _evidence = _ev_pack.text
+                    # `source_fetched ≠ evidence_delivered_to_writer` (§4.5):
+                    # в coverage/egress идёт РЕАЛЬНО доставленный пакет.
+                    _evidence_delivered = _evidence
+                    self._emit_evidence_delivery_event(
+                        chat_id, correlation_id, _evidence_decision,
+                        _ev_pack, capacity=_ev_cap)
                 else:
                     _evidence = ""
+                    _evidence_delivered = ""
                 _media_skip = (isinstance(raw, ToolLoopResult)
                                and not _extent.media_writer_needed(
                                    response_plan, raw))
                 _clarify_sent = False
+                # ── §4.5/§5.6: машинная строка Writer'у — что РЕАЛЬНО
+                # доставлено (coverage/route); пусто → payload байт-в-байт.
+                _ev_note = self._evidence_writer_note(
+                    _evidence_decision, _evidence_delivered,
+                    route=str(getattr(self.llm, "_chat_model", "") or ""))
+                if _ev_note:
+                    user_blocks = list(user_blocks or []) + [_ev_note]
                 if not _media_skip:
-                    _plan_block = _l1.build_l2_plan_block(
-                        l1_plan,
-                        rejected=_l1_rejected,
-                        clarification=bool(
-                            getattr(l1_plan, "needs_clarification", False)),
-                        low_confidence=(getattr(l1_plan,
-                                                "confidence_bucket", "high")
-                                        == "low"),
-                        # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума):
-                        # serious-разбор получает дословную analysis-директиву;
-                        # deep_research — когда его режимный блок заменён
-                        # extent-блоком плана (предикат решает по плану).
-                        include_analysis=_l1.analysis_directive_needed(
-                            l1_plan,
-                            modes_on=bool(getattr(
-                                settings, "SMART_VERBALIZER_MODES_ENABLED",
-                                True))),
-                        # DELTA-DEPTH (26.10.2026, §11): дословная инструкция
-                        # владельца + выводы по существу — на research/deep
-                        # ответах; casual/answer остаётся без неё.
-                        include_delta=_l1.delta_instruction_needed(l1_plan),
-                        modes_on=bool(getattr(
-                            settings, "SMART_VERBALIZER_MODES_ENABLED",
-                            True)),
-                        # EVOL social (§§1–3): короткая источниковая строка
-                        # кадра хода (адресат/ветка/цитата + статус) в том же
-                        # реальном plan-блоке Writer'а; пусто → байт-паритет.
-                        social_hint=str(l1_meta.get("social_hint") or ""))
+                    # plan-блок уже построен выше (нужен измерителю payload).
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -4358,6 +4649,61 @@ class DirectChatService:
                     "fallback=%s", chat_id,
                     bool(_numeric_stats.get("corrected")),
                     bool(_numeric_stats.get("fallback")))
+            # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.3): bounded outbound guard.
+            # Ровно один раз, после L2 и до отправки. Неподтверждённое
+            # существенное внешнее утверждение → максимум один адресный
+            # lookup + одна регенерация, затем детерминированное удаление
+            # только этого предложения. Второго Writer'а нет; ответ не
+            # превращается в «данных недостаточно».
+            _evidence_retry_used_here = False
+            if _evidence_decision is not None and _evp.egress_guard_enabled():
+                async def _ev_lookup(claim):
+                    return await self._evidence_lookup(
+                        tool_ctx, claim, chat_id=chat_id,
+                        correlation_id=correlation_id,
+                        lore=bool(lore_enabled),
+                        image=bool(image_enabled))
+
+                async def _ev_rewrite(hint, extra_evidence):
+                    return await self._evidence_rewrite(
+                        chat_id, query, plan_block=_plan_block,
+                        user_blocks=user_blocks,
+                        response_plan=response_plan,
+                        character_block=character_block,
+                        style_directives=style_directives,
+                        numeric_contract=numeric_contract,
+                        time_line=time_line,
+                        evidence=(_evidence + "\n" + extra_evidence).strip(),
+                        lessons_block=_lessons_block,
+                        speech_block=_speech_block,
+                        temperature=temperature,
+                        correlation_id=correlation_id,
+                        hint=hint,
+                        max_tokens=(longform_max_tokens
+                                    if response_plan is not None
+                                    and response_plan.is_longform()
+                                    else None))
+
+                _answer_guarded, _ev_egress = \
+                    await _run_evidence_egress_guard(
+                        answer=answer, decision=_evidence_decision,
+                        evidence_text=_evidence_delivered,
+                        delivered_keys=_evp.delivered_claim_keys(
+                            _evidence_decision, _evidence_delivered),
+                        lookup=_ev_lookup, rewrite=_ev_rewrite)
+                if _answer_guarded != answer:
+                    answer = _answer_guarded
+                    _evidence_retry_used_here = bool(
+                        _ev_egress.get("retry_used"))
+                self._emit_evidence_egress_event(
+                    chat_id, correlation_id, _ev_egress)
+                if _ev_egress.get("reason_code"):
+                    logger.info(
+                        "[direct] evidence egress | chat=%s | action=%s | "
+                        "lookup=%s | retry=%s", chat_id,
+                        _ev_egress.get("guard_action"),
+                        _ev_egress.get("lookup_used"),
+                        _ev_egress.get("retry_used"))
             if not answer:
                 if coordinator is not None:
                     _log_coordinator_outcome(
@@ -4376,7 +4722,8 @@ class DirectChatService:
             # (loop запрещён). Exemptions §18 — детерминированные тексты.
             # Paraphrase-postprocessor НЕ создаётся (инвариант тестом).
             _freshness_retry_used = False
-            if _fresh.freshness_guard_enabled() and self.db is not None:
+            if _fresh.freshness_guard_enabled() and self.db is not None \
+                    and not _evidence_retry_used_here:
                 try:
                     _recent = await self.db.list_recent_bot_outputs(
                         chat_id, limit=1)
@@ -5052,8 +5399,288 @@ class DirectChatService:
         await _reply(bot, chat_id, reply_phrase, message.message_id)
         self._mark_turn_text_replied(chat_id)  # F6: текст в ходе есть
 
+    async def _evidence_preflight(self, chat_id: int, correlation_id, *,
+                                  query: str, reply_text: str, l1_plan,
+                                  response_plan, task_kind: str = ""
+                                  ) -> "_evp.EvidenceDecision":
+        """ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): preflight ДО tool-фазы.
+
+        Один детерминированный вызов политики после готовых ``l1_plan`` и
+        ``response_plan``: класс берётся из планируемого содержания (поля
+        плана + optional ``external_claims`` из того же L1-вызова), затем
+        обязательные read-only capabilities проверяются `allowed()` (RBAC →
+        запрет сети → доступность провайдера → квота → SSRF → privacy).
+        Ни LLM, ни сети; сбой политики не роняет ход (решение «не требуется»
+        с машинной пометкой — честная деградация, не тишина).
+        """
+        try:
+            plan = l1_plan if l1_plan is not None else _l1.L1Plan()
+            urls = _evidence_urls(query, reply_text)
+            explicit = _evidence_explicit_request(query, reply_text)
+            supplied = _evidence_supplied(query, reply_text, plan, urls)
+            forbids = _evp.is_external_forbidden(query)
+            runtime_state = _evp.RuntimeState(
+                effective_route=str(
+                    getattr(self.llm, "_chat_model", "") or "")[:64],
+                self_status_question=_evp.is_runtime_self_question(
+                    f"{query}\n{reply_text}"),
+                user_forbids_external=bool(forbids),
+                enabled=_evp.policy_enabled())
+            if task_kind:
+                kind = str(task_kind)
+            else:
+                kind = str(getattr(response_plan, "task_kind", "") or "")
+            # Первый проход — класс/claims (без разрешений), затем контекст
+            # ровно под обязательные capabilities этого класса.
+            first = _evp.evaluate_evidence_need(
+                plan=plan, task_kind=kind, explicit=explicit,
+                supplied=supplied, runtime_state=runtime_state)
+            decision = first
+            if first.required and first.required_caps:
+                context = await _evidence_context(
+                    chat_id, first.required_caps, user_forbids=forbids)
+                decision = _evp.evaluate_evidence_need(
+                    plan=plan, task_kind=kind, explicit=explicit,
+                    supplied=supplied, runtime_state=runtime_state,
+                    context=context)
+            self._emit_evidence_policy_event(
+                chat_id, correlation_id, decision)
+            if decision.required and decision.note:
+                logger.info(
+                    "[direct] evidence policy | chat=%s | class=%s | "
+                    "required=%d | unmet=%d | caps=%s | note=%s",
+                    chat_id, decision.evidence_class, int(decision.required),
+                    int(decision.required_unmet),
+                    ",".join(decision.required_caps) or "-", decision.note)
+            return decision
+        except asyncio.CancelledError:
+            raise
+        except Exception:      # pragma: no cover - защитная ветка
+            logger.warning("[direct] evidence preflight failed — обычный ход "
+                           "| chat=%s", chat_id, exc_info=True)
+            return _evp.EvidenceDecision(required=False,
+                                         evidence_class="background",
+                                         note="preflight_error")
+
+    def _emit_evidence_policy_event(self, chat_id: int, correlation_id,
+                                    decision) -> None:
+        """`EVIDENCE_POLICY_DECIDED` (§4.5) — R17-safe поля, fail-open."""
+        try:
+            fields = decision.event_fields()
+            _mca_events.emit_mca_event(
+                "evidence_policy_decided", outcome="success",
+                component="direct_chat", stage=_evp.EVIDENCE_STAGE,
+                reason_code=fields.get("reason_code") or None,
+                chat_id=chat_id,
+                usage_json={k: v for k, v in fields.items()
+                            if k != "reason_code"})
+            emit_agentic_event(
+                _EVIDENCE_EVENT_POLICY, run_id=correlation_id,
+                chat_id=chat_id,
+                required=bool(decision.required),
+                evidence_class=str(decision.evidence_class),
+                claim_count=len(decision.claims),
+                network_calls=0,
+                source_kind=str(decision.source_kind or ""),
+                reason=(fields.get("skip_reason")
+                        or fields.get("failure_code") or ""))
+        except Exception:      # pragma: no cover - телеметрия не рвёт чат
+            pass
+
+    def _emit_evidence_delivery_event(self, chat_id: int, correlation_id,
+                                      decision, pack, *, capacity: int = 0
+                                      ) -> None:
+        """`EVIDENCE_DELIVERY` (§4.5): `source_fetched ≠ delivered`.
+
+        Только enum/числа: сколько источников создано, сколько реально
+        доставлено в пакет Writer'а, покрытие планируемых claim, ёмкость.
+        Никаких текстов/URL (R17)."""
+        try:
+            sources = list(getattr(pack, "sources", None) or ())
+            fetched = sum(1 for s in sources if getattr(s, "content", ""))
+            delivered = sum(1 for s in sources
+                            if getattr(s, "delivered_chars", 0))
+            delivered_keys = ()
+            if decision is not None:
+                delivered_keys = _evp.delivered_claim_keys(
+                    decision, str(getattr(pack, "text", "") or ""))
+                coverage = _evp.claims_coverage(decision, delivered_keys)
+            else:
+                coverage = {"required_claim_keys": [], "covered": [],
+                            "missing": []}
+            required = len(coverage["required_claim_keys"])
+            ratio = (len(coverage["covered"]) / required) if required else 1.0
+            limitations = len(getattr(pack, "limitations", None) or ())
+            emit_agentic_event(
+                _EVIDENCE_EVENT_DELIVERY, run_id=correlation_id,
+                chat_id=chat_id, fetched=fetched,
+                reused=int(bool(getattr(decision, "skip_reason", None)
+                                is _evp.EvidenceSkipReason
+                                .QUALIFIED_VERIFIED_REUSE)),
+                delivered_to_writer=delivered,
+                required_claims=required,
+                covered_claims=len(coverage["covered"]),
+                missing_claims=len(coverage["missing"]),
+                limits=limitations,
+                capacity_chars=int(capacity or 0),
+                delivered_chars=len(str(getattr(pack, "text", "") or "")),
+                reason=(_evp.REASON_EVIDENCE_REUSED
+                        if getattr(decision, "skip_reason", None)
+                        is not None else ""))
+            _mca_events.emit_mca_event(
+                "evidence_delivery", outcome="success",
+                component="direct_chat", stage=_evp.EVIDENCE_STAGE,
+                chat_id=chat_id,
+                usage_json={"fetched": fetched,
+                            "delivered_to_writer": delivered,
+                            "coverage_ratio": round(float(ratio), 3),
+                            "capacity_chars": int(capacity or 0),
+                            "limits": limitations})
+        except Exception:      # pragma: no cover - телеметрия не рвёт чат
+            pass
+
+    def _evidence_writer_note(self, decision, delivered_text: str, *,
+                              route: str = "") -> str:
+        """Машинная строка Writer'у (§4.5/§5.6): что реально доставлено.
+
+        Нужна, чтобы фактовая дисциплина опиралась на доставленные
+        доказательства: пустой пакет ≠ «не существует», а вопрос о собственной
+        модели отвечается из фактического маршрута, а не из промпта.
+        Пустая строка → payload байт-в-байт прежний."""
+        try:
+            blocks: list[str] = []
+            if decision is not None \
+                    and str(getattr(decision, "evidence_class", "")) \
+                    == "runtime":
+                note = _evp.runtime_source_note(route)
+                if note:
+                    blocks.append(note)
+            if decision is None:
+                return "\n".join(blocks)
+            if not decision.required and not decision.claims:
+                return "\n".join(blocks)
+            delivered_keys = _evp.delivered_claim_keys(decision,
+                                                       delivered_text)
+            coverage = _evp.claims_coverage(decision, delivered_keys)
+            parts = [
+                "[EVIDENCE] класс: " + str(decision.evidence_class),
+                "проверка обязательна: " + ("да" if decision.required else "нет"),
+                "источников в пакете: " + str(len(delivered_keys)),
+                "покрыто claim: "
+                + f"{len(coverage['covered'])}/{len(coverage['required_claim_keys'])}",
+            ]
+            if decision.required_unmet:
+                code = decision.failure_code.value \
+                    if decision.failure_code is not None else "unknown"
+                parts.append("внешняя проверка НЕ выполнена (" + code + ")")
+                parts.append("не утверждай, что проверил; «не найдено» ≠ "
+                             "«не существует»")
+            if str(delivered_text or "").strip():
+                parts.append("опирайся только на доставленные выдержки")
+            else:
+                parts.append("выдержек нет — не добавляй внешних фактов")
+            blocks.append("; ".join(parts))
+            return "\n".join(blocks)
+        except Exception:      # pragma: no cover - защитная ветка
+            return ""
+
+    async def _evidence_lookup(self, tool_ctx, claim_text: str, *,
+                               chat_id: int, correlation_id, lore: bool,
+                               image: bool) -> str:
+        """Один адресный read-only lookup для egress-guard (§2.3).
+
+        Тот же существующий tool-путь (`run_simple_tools`, 0 LLM-вызовов) с
+        единственным шагом web_search по существу claim. Ровно один раз на
+        ход; сбой → пустая выдержка (guard деградирует честно, а не молчит)."""
+        if self.tool_router is None:
+            return ""
+        try:
+            plan = _l1.L1Plan(action="reply", execution_mode="simple_tools",
+                              confidence=1.0, confidence_bucket="high",
+                              source="llm")
+            plan.capabilities_needed = ("web_search",)
+            schemas = active_tools(bool(lore), bool(image))
+            announced = {t["function"]["name"] for t in schemas
+                         if isinstance(t, dict) and t.get("function")}
+            result = await _dx.run_simple_tools(
+                plan=plan, router=self.tool_router, ctx=tool_ctx,
+                query=str(claim_text or "")[:256], chat_id=chat_id,
+                correlation_id=correlation_id, announced=announced)
+            if result is None:
+                return ""
+            pack = _dx.build_evidence_pack(
+                result, None, capacity_chars=_l1.evidence_max_chars())
+            return str(pack.text or "")
+        except asyncio.CancelledError:
+            raise
+        except Exception:      # pragma: no cover - защитная ветка
+            return ""
+
+    async def _evidence_rewrite(self, chat_id: int, query: str, *,
+                                plan_block: str, user_blocks, response_plan,
+                                character_block: str, style_directives: str,
+                                numeric_contract, time_line: str,
+                                evidence: str, lessons_block: str,
+                                speech_block: str, temperature,
+                                correlation_id, hint: str, max_tokens=None
+                                ) -> str | None:
+        """Единственная повторная генерация egress-guard (§2.3).
+
+        Тот же Writer (`_l2_write_answer`), тот же route — второго Writer'а
+        нет; ``hint`` едет одним user-блоком в том же payload. Вызывается не
+        более одного раза и взаимоисключающе с freshness-ретраем."""
+        try:
+            blocks = list(user_blocks or []) + [str(hint or "")]
+            out = await self._l2_write_answer(
+                chat_id, query, temperature=temperature,
+                correlation_id=correlation_id,
+                character_block=character_block,
+                style_directives=style_directives,
+                numeric_contract=numeric_contract,
+                response_plan=response_plan,
+                plan_block=plan_block, user_blocks=blocks,
+                time_line=time_line, evidence=evidence,
+                lessons_block=lessons_block, speech_block=speech_block,
+                max_tokens=max_tokens)
+            if out is None:
+                return None
+            text, _mode = out
+            return strip_reasoning_tags(str(text or "").strip())
+        except asyncio.CancelledError:
+            raise
+        except Exception:      # pragma: no cover - защитная ветка
+            return None
+
+    def _emit_evidence_egress_event(self, chat_id: int, correlation_id,
+                                    stats: dict) -> None:
+        """`EVIDENCE_EGRESS_CHECK` (§4.5) — только enum/числа (R17)."""
+        try:
+            outcome = "success" if stats.get("guard_action") == _evp.GUARD_NONE \
+                else ("skipped" if stats.get("note") else "success")
+            emit_agentic_event(
+                _EVIDENCE_EVENT_EGRESS, run_id=correlation_id,
+                chat_id=chat_id,
+                guard_action=str(stats.get("guard_action") or ""),
+                lookup_used=int(stats.get("lookup_used") or 0),
+                retry_used=int(stats.get("retry_used") or 0),
+                dropped_claim=int(stats.get("dropped_claim") or 0),
+                reason=str(stats.get("reason_code") or ""))
+            _mca_events.emit_mca_event(
+                "evidence_egress_check", outcome=outcome,
+                component="direct_chat", stage=_evp.EVIDENCE_STAGE,
+                reason_code=stats.get("reason_code") or None,
+                chat_id=chat_id,
+                usage_json={"guard_action": str(
+                    stats.get("guard_action") or ""),
+                    "lookup_used": int(stats.get("lookup_used") or 0),
+                    "retry_used": int(stats.get("retry_used") or 0),
+                    "dropped_claim": int(stats.get("dropped_claim") or 0)})
+        except Exception:      # pragma: no cover - телеметрия не рвёт чат
+            pass
+
     async def _l1_tool_subset(self, chat_id: int, correlation_id, lore: bool,
-                              image: bool, l1_plan, denied=()) -> tuple:
+                              image: bool, l1_plan, denied=(),
+                              *, decision=None) -> tuple:
         """§1.4: resolved-подсет схем tools (единственный анонс для цикла).
         Возврат ``(schemas, rejected)``; ``[]`` → тулов нет; hallucinated/
         неактивные → drop + L1_CAPABILITY_REJECTED (D15); low_confidence →
@@ -5070,21 +5697,50 @@ class DirectChatService:
                          if isinstance(t, dict) and t.get("function")}
             skip = ()
             plan = l1_plan or _l1.L1Plan()
+            # ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C2): runtime-обязательные
+            # capabilities (evidence-policy решения) — ЗАЩИЩЁННЫЙ набор:
+            # уверенность L1 не может их снять, код `low_confidence` для них
+            # не эмитится. Skip применяется только к L1-запрошенным.
+            required = tuple(getattr(decision, "required_caps", ()) or ())
+            required_set = {str(c or "").strip().lower() for c in required
+                            if str(c or "").strip()}
             if getattr(plan, "confidence_bucket", "high") == "low" \
                     and getattr(plan, "source", "llm") != "fallback":
-                # §1.3: low → capabilities НЕ исполняются (честная пометка).
-                # §18C.3: deterministic fallback-план — НЕ LLM-уверенность
-                # (confidence 0.0 по конструкции): inferred required tools
-                # от skip-гейта не страдают (planner outage не стирает
-                # required capability).
-                skip = tuple(plan.capabilities_needed or ())
+                # §1.3: low → L1-запрошенные capabilities НЕ исполняются
+                # (честная пометка). §18C.3: deterministic fallback-план —
+                # НЕ LLM-уверенность (confidence 0.0 по конструкции):
+                # inferred required tools от skip-гейта не страдают.
+                skip = tuple(c for c in (plan.capabilities_needed or ())
+                             if str(c or "").strip().lower() not in required_set)
+            # §1.5: effective_readonly = allowed(L1_requested ∪ runtime_required);
+            # union вычислен здесь, разрешение уже применено политикой.
+            requested = tuple(plan.capabilities_needed or ()) + required
             resolved, rejected = _caps.resolve_capabilities(
-                plan.capabilities_needed or (), announced,
-                skip_capabilities=skip)
+                requested, announced, skip_capabilities=skip)
             denied_caps = {str(c or "").strip().lower()
                            for c in (denied or ()) if str(c or "").strip()}
+            # §1.5 п.2 (C3): глобальный/чатовый рубильник сети действует и в
+            # Direct tool-пути — проверяется ДО любого сетевого вызова (тот
+            # же источник истины, что у хендлеров). Выключенный модуль =
+            # 0 вызовов + наблюдаемая причина.
+            net_off: dict[str, str] = {}
+            blocked_tools: set[str] = set()
+            try:
+                if not bool(hot.get("flags.search_enabled", getattr(
+                        settings, "SEARCH_ENABLED", True))):
+                    net_off["web_search"] = _evp.BLOCK_EXTERNAL_DISABLED
+                if not bool(hot.get("flags.webpage_enabled", getattr(
+                        settings, "WEBPAGE_ENABLED", True))):
+                    net_off["fetch_url"] = _evp.BLOCK_EXTERNAL_DISABLED
+            except Exception:      # pragma: no cover - защитная ветка
+                net_off = {}
+            for cap in sorted(net_off):
+                blocked_tools.update(_caps.CAPABILITY_TOOLS.get(cap, ()))
+                rejected = tuple(rejected) + ((
+                    cap, _evp.blocked_reason_code(net_off[cap])),)
+            if net_off:
+                resolved = [t for t in resolved if t not in blocked_tools]
             if denied_caps:
-                blocked_tools: set[str] = set()
                 for cap in sorted(denied_caps):
                     blocked_tools.update(_caps.CAPABILITY_TOOLS.get(cap, ()))
                     rejected = tuple(rejected) + ((cap,
@@ -5102,19 +5758,29 @@ class DirectChatService:
                              temperature, chat_id: int,
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
-                             tool_schemas, longform_max_tokens=None):
+                             tool_schemas, longform_max_tokens=None,
+                             required_caps=()):
         """v6 D04 (§18C.7): tool-фаза L1-пайплайна со СТРОГИМИ execution
         modes. ``none`` (или resolved tools = ∅ / needs_clarification) →
         ``None`` (Writer без evidence). ``simple_tools`` →
         детерминированные/параллельные tools (0 LLM — третий вызов
         запрещён). ``adaptive_tool_chain`` → bounded orchestrator
         (kill-switch OFF → честная демотация в simple). Возврат —
-        ChainResult (ToolLoopResult-совместимый) или ``None``."""
+        ChainResult (ToolLoopResult-совместимый) или ``None``.
+
+        ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C1/§2.1): ``required_caps`` —
+        runtime-обязательные read-only capabilities. ``execution_mode=none``
+        от L1-плана не может скрыть обязательную проверку (mode
+        переопределяется с наблюдаемой причиной), а деривация шагов получает
+        их независимо от ``capabilities_needed``."""
         plan = l1_plan or _l1.L1Plan()
-        if not tool_schemas or self.tool_router is None \
-                or getattr(plan, "needs_clarification", False):
+        required = tuple(required_caps or ())
+        if getattr(plan, "needs_clarification", False) or self.tool_router is None:
             return None
-        mode, demote_reason = _dx.resolve_execution_mode(plan, tool_schemas)
+        if not tool_schemas:
+            return None
+        mode, demote_reason = _dx.resolve_execution_mode(
+            plan, tool_schemas, required_caps=required)
         announced = {t["function"]["name"] for t in tool_schemas
                      if isinstance(t, dict) and t.get("function")}
         if mode == _dx.EXECUTION_ADAPTIVE:
@@ -5130,7 +5796,8 @@ class DirectChatService:
             result = await _dx.run_simple_tools(
                 plan=plan, router=self.tool_router, ctx=tool_ctx,
                 query=query, chat_id=chat_id,
-                correlation_id=correlation_id, announced=announced)
+                correlation_id=correlation_id, announced=announced,
+                required_caps=required)
         except Exception:      # паритет fail-soft прежнего tool-пути
             logger.warning("[direct] simple execution failed — fail-soft",
                            exc_info=True)
