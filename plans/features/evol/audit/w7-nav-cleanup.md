@@ -417,6 +417,8 @@ computed-стилей и скриншотами на 1280 и 390). В перек
   скрываются при `≤419px`, `▾` — при `≤359px`, бейдж роли — `4rem`).
   Название раздела на 320 обрезается до 2–3 символов: по §2.2 имя раздела —
   вторично («если есть место»), навигация/область/идентификация — постоянно.
+  *(Обновлено §review-fix2: имя чата больше НЕ скрывается — приоритет
+  изменён ревью, см. ниже.)*
 - **Бейдж роли** ограничен `4.75rem` с ellipsis и полным значением в `title`
   (`admin`/`moderator`/`local_admin` помещаются целиком).
 
@@ -429,3 +431,96 @@ computed-стилей и скриншотами на 1280 и 390). В перек
   `.intel-header .badge-btn`), а не на навигации; навигационные шаги в них уже
   переведены на drawer.
 - EVOL-037 (глобальный поиск) и EVOL-COG (карта) — отдельные очереди.
+
+## §review-fix2 — блокеры второго ревью ASAP-UI-02 §2 (31.10.2026)
+
+Кандидат: `evol/impl` @ `64204306` + правки этого раздела (в рабочем дереве,
+без коммита). Затронуто: `web/index.html`, `web/app.js`, `web/static/app.css`,
+`tests/test_webapp_evol_w7_nav.py`, `tests/test_webapp_evol_w9_responsive.py`,
+`tests/js/evol_w7_nav_test.js`, `tests/js/asap8_w2_shell_mobile_nav_test.js`,
+`tools/ui_evol_w7_nav_e2e.py`. `services/**` и защищённая оптика — нулевой
+дифф.
+
+### F1 (BLOCKER) — имя раздела дублировалось на телефоне
+
+* **Было (замер):** `.hub-head .hub-title` скрывался только внутри
+  `@media (min-width: 768px)`, а ASAP-UI-02 §2.2 вернул название раздела в
+  мобильную шапку — на 390 в `#/ai`, `#/modules`, `#/memory`, `#/access` имя
+  стояло ДВАЖДЫ (шапка + заголовок хаба). Структурный тест этого не видел:
+  он проверял только видимость шапки.
+* **Стало:** одно правило верхнего уровня
+  `.app-shell.ia-v2 .hub-head .hub-title { display: none; }` — имя раздела
+  ровно один раз, в шапке, на любой ширине. Содержимое хаба (подзаголовок,
+  поиск, фильтры, счётчики) не тронуто.
+* **Проверки:** новый e2e-блок `title_once` в `tools/ui_evol_w7_nav_e2e.py`
+  считает именно ВИДИМЫЕ вхождения (`display/visibility/rect`), а не только
+  видимость шапки: 4 маршрута × 320/390 → `count = 1`;
+  `TestAsapUi02Navigation::test_title_once_and_single_row` и
+  `TestTopbar::test_no_duplicate_hub_title` дополнительно требуют, чтобы
+  правило не было заперто в `@media`; JS-аналог — §4
+  `asap8_w2_shell_mobile_nav_test.js`.
+
+### F2 (BLOCKER) — на 320–419 выбранный чат не опознавался
+
+* **Было:** `@media (max-width: 419px)` прятал `.scope-name` и аватар чата —
+  в триггере оставался только бейдж «ЧАТ ▾».
+* **Стало:** имя чата остаётся (ellipsis `clamp(2.5rem, 16vw, 5.5rem)`,
+  при `≤359` — `2.8rem`), полное — в `title` и в раскрытой панели; место
+  освобождено переносом ghost-⛶ в меню «⋯» (`data-fs-menu-item`,
+  `moreMenuFullscreen()` → существующий `toggleFullscreen`, тот же `fsSlot`;
+  выше 420 px пункт скрыт CSS, чтобы не дублировать ⛶ из шапки). Аватар чата
+  уступает место имени; бейдж типа области `CHAT/GLOBAL` и ▾ не сжимаются.
+* **Живой замер (Chromium, DPR 2):** 320 — имя `45 px` («Оче…»), бейдж «ЧАТ»
+  `37 px`, аватар пользователя `24`, роль `45`, «⋯» `44`, горизонтального
+  скролла нет; 390 — имя `62 px`. Пункт «На весь экран» в «⋯»: высота `44 px`,
+  ширина `294/306 px`, внутри вьюпорта.
+
+### F3 (BLOCKER) — drawer без ловушки Tab, Esc и Back
+
+* **Было:** после 8-го пункта Tab уходил на BODY/кнопки шапки при открытой
+  панели; `escClose()` про `drawerOpen` не знал (Esc не работал, если фокус уже
+  вне панели); `goBack()` уводил маршрут под открытой панелью.
+* **Стало:** `drawerOnKeydown($event)` — Tab/Shift+Tab замыкаются на
+  первом/последнем фокусируемом пункте (тот же приём, что у «⋯»);
+  `escClose()` получил ветку `if (this.drawerOpen) { this.closeDrawer(); return; }`
+  (после «⋯», до остальных слоёв); `goBack()` первым делом закрывает панель.
+  Закрытие, как и раньше, возвращает фокус в кнопку «Навигация».
+* **Проверки:** e2e — 10 настоящих нажатий Tab: фокус прошёл 8 РАЗНЫХ пунктов
+  и не вышел (`escaped: null`, `distinct: 8`; добавлена защита от «пустого»
+  теста, если Tab не доставляется); Esc при фокусе ВНЕ панели
+  (`[data-more-trigger]`) закрывает и возвращает фокус; `goBack()` закрывает
+  панель, маршрут `#/oversight` не меняется. Живьём (Chromium): Tab с
+  последнего пункта → первый, Shift+Tab с первого → последний
+  (`defaultPrevented` + реальный `focus()`), Esc/Back — закрыто.
+
+### Неблокирующее
+
+* `.header-user-initial` раньше был оформлен ТОЛЬКО под `.shell-mobile` — на
+  desktop/compact инициал выводился голым текстом. Правило поднято на уровень
+  компонента (замер 1280: `24×24`, `radius 999px`, фон `.08`, рамка).
+
+### Прогоны этого раздела
+
+| команда | результат |
+|---|---|
+| `pytest tests/test_webapp_evol_w7_nav.py` | **33 passed** (было 30: +F2-тест, +F3-тест, +инициал; усилены F1-проверки) |
+| `pytest tests/test_webapp_evol_w9_responsive.py` | **31 passed** (обновлён `test_header_keeps_required_controls` под перенос ⛶) |
+| `pytest tests/test_webapp_evol_w10_sections.py` | **35 passed** |
+| `node tests/js/evol_w7_nav_test.js` | `JS-UNIT-OK` (+§5b/5c/5d: ловушка, Esc/Back, пункт ⛶) |
+| `node tests/js/asap8_w2_shell_mobile_nav_test.js` | `W2-SHELL-UNIT-OK` (+F1/F2/F3 пины) |
+| `node tests/js/round1020_ui_test.js`, `round1020_ui_rework_test.js` | `JS-UNIT-OK` |
+| `python tools/ui_evol_w7_nav_e2e.py` | **EVOL-W7-NAV OK**, инвентарь 19×6 = 114 ячеек, `hScroll 0 / offscreen 0 / clipped 0` |
+| `python tools/ui_evol_w9_responsive_e2e.py` | **EVOL-W9-RESPONSIVE OK**, 19×8 = 152 ячейки, `hScroll 0 / offscreen 0 / clipped 0` |
+| `pytest tests -k "webapp or … or hotfix"` | 2381 passed, 10 failed — **предсуществующие** (по HEAD: `>✕</button>` 6≠5, `data-speech-entry` 0, round1021/round1024-jargon/round1024-image + пять сервисных), к правкам `web/**` отношения не имеют |
+
+Артефакты живого браузера: `evidence/w7-nav-live-fix2-320-header.png`,
+`-390-header.png`, `-320-drawer.png`, `-390-drawer.png`, `-320-more.png`,
+`-1280-header.png`; машинные факты — `evidence/w7-nav-probe.json`
+(`title_once`, `mobile_scope`, `mobile_drawer_trap/closed/back`,
+`mobile_fs_menu`).
+
+Оговорка о инструменте: в Browser Use (реальный Chrome) синтетические
+`Input.dispatchKeyEvent` для Tab/Esc в страницу не доставлялись, поэтому
+поведение клавиатуры проверено (а) реальными DOM-событиями `KeyboardEvent`
+через штатные обработчики и (б) Playwright с настоящим вводом (`Tab`/`Escape`),
+где фокус действительно двигался между 8 пунктами.

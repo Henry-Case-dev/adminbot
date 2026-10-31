@@ -54,6 +54,12 @@ def _media_block(css: str, header: str, needle: str) -> str:
     raise AssertionError("недостижимо")
 
 
+def _brace_depth(css: str, idx: int) -> int:
+    """Глубина вложенности правила: 0 — верхний уровень, >0 — внутри @media."""
+    head = re.sub(r"/\*.*?\*/", "", css[:idx], flags=re.S)
+    return head.count("{") - head.count("}")
+
+
 class TestUnifiedScopeSwitcher:
     def test_single_switcher_markup(self):
         """ОДИН компонент области на всё приложение (в topbar)."""
@@ -143,11 +149,18 @@ class TestTopbar:
         assert "if (!parent || parent === '#/') return null;" in JS
 
     def test_no_duplicate_hub_title(self):
-        """Имя раздела не дублируется заголовком внутри контента (≥768)."""
-        block = _media_block(CSS, "@media (min-width: 768px)",
-                             ".hub-head .hub-title")
-        assert ".app-shell.ia-v2 .hub-head .hub-title { display: none; }" in block
-        # Заголовок остаётся в разметке (mobile <768 — единственный).
+        """Имя раздела не дублируется заголовком внутри контента (любая ширина).
+
+        ASAP-UI-02 §2.2 вернул название раздела в МОБИЛЬНУЮ шапку (<768),
+        поэтому контентный дубль `.hub-title` скрыт не только с ≥768, а
+        всегда (ревью F1, 31.10.2026: на 390 в #/ai, #/modules, #/memory,
+        #/access имя стояло дважды).
+        """
+        rule = ".app-shell.ia-v2 .hub-head .hub-title { display: none; }"
+        assert rule in CSS
+        assert _brace_depth(CSS, CSS.index(rule)) == 0, \
+            "правило снова заперто в @media — на телефоне дубль вернётся"
+        # Заголовок остаётся в разметке (legacy IA и контекст/подзаголовок).
         assert '<div class="hub-title">Модули</div>' in INDEX
 
 
@@ -326,6 +339,16 @@ class TestAsapUi02Navigation:
         assert "header-user-initial" in INDEX, \
             "аватар не исчезает при отсутствии фото"
 
+    def test_user_initial_styled_for_all_shells(self):
+        """Инициал-аватар оформлен не только для `.shell-mobile`.
+
+        Раньше правило жило под `.app-shell.shell-mobile` — на desktop и
+        compact при отсутствии фото инициал выводился «голым» текстом.
+        """
+        assert "\n.header-user-initial {" in CSS
+        assert ".app-shell.shell-mobile .header-user-initial {" not in CSS, \
+            "правило снова заперто в мобильном shell"
+
     def test_title_once_and_single_row(self):
         assert ".app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-title-wrap" in CSS
         assert not re.search(
@@ -335,6 +358,81 @@ class TestAsapUi02Navigation:
         seg = CSS[CSS.index(".app-shell.shell-mobile header.header-sticky.header-compact-v2 {"):]
         seg = seg[:seg.index("}")]
         assert "flex-wrap: nowrap" in seg, "второго ряда шапки нет"
+        # Ревью F1: имя раздела — РОВНО один раз и на телефоне. Пока правило
+        # жило в @media (min-width:768), на 390 имя стояло и в шапке, и в
+        # контентном заголовке хаба (#/ai, #/modules, #/memory, #/access).
+        rule = ".app-shell.ia-v2 .hub-head .hub-title { display: none; }"
+        assert rule in CSS, "контентный дубль заголовка не скрыт"
+        assert _brace_depth(CSS, CSS.index(rule)) == 0, \
+            "правило дубля снова заперто в @media — на <768 дубль вернётся"
+        assert not re.search(r"\.hub-head \.hub-title \{[^}]*display:\s*"
+                             r"(block|flex|inline|inline-block)", CSS), \
+            "какое-то правило снова показывает заголовок хаба"
+        # Единственный источник имени в контенте — тот же `.hub-title`, и он
+        # скрыт; второго (видимого) имени раздел в контент не рисует.
+        assert ".hub-head .hub-title { font-size" in CSS, \
+            "`.hub-title` остаётся в разметке (legacy IA) — скрыт только дубль"
+
+    def test_chat_name_stays_identifiable_on_narrow_phone(self):
+        """Ревью F2: на 320–419 триггер области называет ВЫБРАННЫЙ чат.
+
+        Было: `@media (max-width:419px)` прятал `.scope-name` и аватар чата —
+        оставался только бейдж «ЧАТ ▾», и выбранный чат нельзя было опознать.
+        Стало: имя чата остаётся (обрезается ellipsis, полное — в title и в
+        панели), а место освобождает перенос ghost-⛶ в меню «⋯» (§2.3).
+        """
+        assert (".app-shell.shell-mobile .scope-trigger .scope-name "
+                "{ display: none; }") not in CSS, \
+            "имя выбранного чата снова скрывается на узком телефоне"
+        block = _media_block(CSS, "@media (max-width: 419px)", ".scope-name")
+        assert "display: inline-block" in block
+        # Идентифицирует ИМЯ чата: аватар-инициал уступает ему место (двух
+        # подсказок об одном чате на 320 px не хватает).
+        assert (".scope-trigger > .scope-initial { display: none; }" in block), \
+            "место освобождается не у аватара чата"
+        # Место берётся из второстепенного действия, а не из идентификации.
+        assert ("header.header-sticky.header-compact-v2 .header-fs-btn "
+                "{\n    display: none;") in block, \
+            "⛶ не убран из шапки на ≤419 — имя чата снова не поместится"
+        assert ".app-shell.shell-mobile .more-menu-action { display: flex; }" in block
+        assert ".app-shell.shell-mobile .more-menu-action { display: flex; }" in block
+        assert "data-fs-menu-item" in INDEX
+        assert '@click="moreMenuFullscreen()"' in INDEX
+        assert "moreMenuFullscreen: function" in JS
+        # Бейдж типа области (CHAT/GLOBAL) и ▾ по-прежнему не сжимаются.
+        assert ".scope-trigger .badge," in CSS
+        # Обрезка — только визуальная: полное имя в title и в опциях панели.
+        assert ':title="scopeTriggerTitle"' in INDEX
+        assert 'class="scope-name truncate"' in INDEX
+
+    def test_drawer_keyboard_trap_esc_and_back(self):
+        """Ревью F3: drawer держит Tab, Esc и Back.
+
+        Было: после восьмого пункта Tab уходил на BODY/кнопки шапки при
+        открытой панели; глобальный `escClose()` про drawer не знал (Esc не
+        работал, если фокус уже вне панели); `goBack()` уводил маршрут под
+        открытой панелью.
+        """
+        assert '@keydown="drawerOnKeydown($event)"' in INDEX
+        assert 'drawerOpen ? \'drawer-open\' : \'\'' in INDEX
+        trap = JS[JS.index("drawerOnKeydown: function"):]
+        trap = trap[:trap.index("\n      },")]
+        assert "e.key !== 'Tab'" in trap
+        assert "preventDefault" in trap
+        assert "shiftKey" in trap
+        assert ".app-drawer" in trap and "offsetParent" in trap, \
+            "ловушка считает реально фокусируемые узлы панели"
+        esc = JS[JS.index("escClose: function () {"):]
+        esc = esc[:esc.index("\n      },")]
+        assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in esc
+        assert esc.index("moreMenuOpen") < esc.index("drawerOpen"), \
+            "порядок слоёв: «⋯» выше открытого drawer"
+        back = JS[JS.index("goBack: function () {"):]
+        back = back[:back.index("\n      },")]
+        assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in back, \
+            "Back не закрывает drawer перед переходом"
+        # Возврат фокуса — в кнопку «Навигация» (тот же паттерн closeDrawer).
+        assert "document.querySelector('[data-drawer-trigger]')" in JS
 
     def test_more_entry_is_ellipsis_not_grid(self):
         assert 'data-more-trigger' in INDEX

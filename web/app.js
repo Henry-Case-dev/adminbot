@@ -11536,6 +11536,32 @@
           } catch (e) { /* no-op */ }
         }
       },
+      // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): Tab/Shift+Tab не
+      // выводят фокус из открытого drawer. Без ловушки после восьмого пункта
+      // фокус уходил на BODY и кнопки шапки — клавиатурный пользователь
+      // «терял» панель, хотя она открыта. Тот же приём, что у «⋯»
+      // (moreMenuOnKeydown): замыкание первого/последнего фокусируемого узла.
+      drawerOnKeydown: function (e) {
+        if (e.key !== 'Tab') return;
+        var panel = document.querySelector('.app-drawer');
+        if (!panel) return;
+        var focusables = Array.prototype.slice.call(
+          panel.querySelectorAll('button, [href], input,' +
+            ' [tabindex]:not([tabindex="-1"])')
+        ).filter(function (el) {
+          return !el.disabled && el.offsetParent !== null;
+        });
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      },
       // ═══ EVOL-023 §3: сворачивание постоянной панели (desktop ≥1200) ═══
       // Только иконки (rail 68 px) + title/aria-label; маршруты, RBAC и
       // состав разделов не меняются. Состояние персистится. Отдельный
@@ -11595,6 +11621,14 @@
             try { trigger.focus(); } catch (e) { /* no-op */ }
           }
         }
+      },
+      // ASAP-UI-02 §2.2 (ревью, блокер F2, 31.10.2026): на ≤419px ghost-⛶
+      // скрыт в шапке (место отдано имени выбранного чата) и вызывается
+      // отсюда. Механизм не новый: закрываем поповер и вызываем существующий
+      // toggleFullscreen (политика fsSlot/safe-area не меняется).
+      moreMenuFullscreen: function () {
+        this.closeMoreMenu(false);
+        this.toggleFullscreen();
       },
 
       // ═══ FS-HOTFIX FOLLOW-UP §8 (18.10): админ-диагностика геометрии ⛶ ═══
@@ -11761,6 +11795,11 @@
         // W2-SHELL (U01.4): меню «Ещё» — верхний mobile-оверлей, Esc
         // закрывает его первым (как модалки ниже).
         if (this.moreMenuOpen) { this.closeMoreMenu(); return; }
+        // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): открытый drawer
+        // навигации закрывается Esc даже когда фокус уже вне панели (Tab
+        // уводил его в шапку/на BODY — локальный @keydown.esc тогда молчит).
+        // Закрытие возвращает фокус в кнопку «Навигация» (closeDrawer).
+        if (this.drawerOpen) { this.closeDrawer(); return; }
         if (this.oversightMobileOpen) { this.oversightMobileClose(); return; }
         // F11 (L-F11S-3, §16/D4): полноэкранный граф — верхний слой;
         // Esc закрывает его первым (fallback-шторка или hash-маршрут).
@@ -17993,6 +18032,10 @@
       },
       // Определённый родитель (§6.4.4), БЕЗ history.back().
       goBack: function () {
+        // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): Back при открытом
+        // drawer сначала закрывает навигацию (слой выше страницы), иначе
+        // «назад» уводило контент под открытую панель.
+        if (this.drawerOpen) { this.closeDrawer(); return; }
         // A2/T-1167: при открытом окне модуля back СНАЧАЛА закрывает окно
         // (роут не меняется — важно для Android).
         if (this.openModuleId != null) { this.closeModule(); return; }

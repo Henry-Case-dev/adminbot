@@ -252,6 +252,22 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     'ASAP-UI-02: название раздела видно в мобильной шапке');
   assert.ok(/\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.breadcrumb \{\s*\n\s*display: none;/.test(CSS),
     'ASAP-UI-02: крошка не создаёт второй заголовок на телефоне');
+  // РОВНО один раз: контентный дубль имени раздела скрыт на ВСЕХ ширинах
+  // (ревью F1, 31.10.2026: пока правило жило в @media(≥768), на 390 имя
+  // стояло и в шапке, и в контенте хаба).
+  assert.ok(CSS.indexOf(
+    '.app-shell.ia-v2 .hub-head .hub-title { display: none; }') >= 0,
+    'ASAP-UI-02: контентный заголовок хаба скрыт — второго имени раздела нет');
+  // Узкий телефон: имя выбранного чата остаётся в триггере, ⛶ уходит в «⋯»
+  // (ревью F2: «ЧАТ ▾» без имени не идентифицировал чат).
+  assert.ok(CSS.indexOf(
+    '.app-shell.shell-mobile .scope-trigger .scope-name { display: none; }') < 0,
+    'ASAP-UI-02: имя выбранного чата не скрывается на 320–419');
+  assert.ok(/@media \(max-width: 419px\) \{[\s\S]{0,900}\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-fs-btn \{\s*\n\s*display: none;/.test(CSS),
+    'ASAP-UI-02: на ≤419 ghost-⛶ не занимает место в шапке');
+  assert.ok(INDEX.indexOf('data-fs-menu-item') >= 0
+    && methods.moreMenuFullscreen.toString().indexOf('toggleFullscreen') >= 0,
+    'ASAP-UI-02: «на весь экран» доступно из «⋯» тем же механизмом');
   // Идентификация: имя скрыто, БЕЙДЖ РОЛИ виден (прежнее правило прятало оба).
   assert.ok(/\.app-shell\.shell-mobile \.header-user-name \{ display: none; \}/.test(CSS),
     'ASAP-UI-02: имя пользователя скрыто (полное — в title/«⋯»)');
@@ -337,10 +353,19 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   assert.strictEqual(data.oversightMobileOpen, false,
     'U02: oversightMobileOpen в data');
   for (const m of ['toggleMoreMenu', 'openMoreMenu', 'closeMoreMenu',
-    'moreMenuOnKeydown', 'moreMenuProfileId',
+    'moreMenuOnKeydown', 'moreMenuProfileId', 'moreMenuFullscreen',
+    'drawerOnKeydown',
     'oversightMobileToggle', 'oversightMobileClose', 'oversightMobilePick']) {
     assert.strictEqual(typeof methods[m], 'function', 'метод: ' + m);
   }
+  // Ревью F3: Tab-ловушка drawer подключена к разметке панели.
+  assert.ok(INDEX.indexOf('@keydown="drawerOnKeydown($event)"') >= 0,
+    'ASAP-UI-02: Tab-ловушка подключена к drawer');
+  const esc = methods.escClose.toString();
+  assert.ok(esc.indexOf('this.drawerOpen') >= 0,
+    'ASAP-UI-02: глобальный Esc знает про открытый drawer');
+  assert.ok(methods.goBack.toString().indexOf('this.drawerOpen') >= 0,
+    'ASAP-UI-02: Back закрывает открытый drawer');
   // shellNavTo закрывает «Ещё» (навигация из любого пункта).
   assert.ok(methods.shellNavTo.toString().indexOf('closeMoreMenu') >= 0,
     'U01.4: shell-переход закрывает меню «Ещё»');

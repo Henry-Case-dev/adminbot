@@ -148,6 +148,98 @@ assert.strictEqual(data.sidebarCollapsed, false,
   global.document.querySelector = oldQ;
 }
 
+// ── 5b. Ревью F3: drawer держит Tab, Esc (фокус вне панели) и Back ────────
+{
+  const focusCalls = [];
+  const mkItem = (tag) => ({ tag, disabled: false, offsetParent: {},
+    focus() { focusCalls.push(tag); global.document.activeElement = this; } });
+  const items = [mkItem('first'), mkItem('mid'), mkItem('last')];
+  const panel = { querySelectorAll() { return items; } };
+  const oldQ = global.document.querySelector;
+  const hadActive = Object.prototype.hasOwnProperty
+    .call(global.document, 'activeElement');
+  const oldActive = global.document.activeElement;
+  global.document.querySelector = function (sel) {
+    return sel === '.app-drawer' ? panel : null;
+  };
+  const prevented = {};
+  const keyEvent = (key, shift) => ({
+    key, shiftKey: !!shift,
+    preventDefault() { prevented.at = true; },
+  });
+  // 1) Tab с последнего пункта замыкается на первый (а не уходит на BODY).
+  global.document.activeElement = items[2];
+  prevented.at = false;
+  methods.drawerOnKeydown.call({}, keyEvent('Tab', false));
+  assert.strictEqual(prevented.at, true, 'F3: Tab с последнего пункта перехвачен');
+  assert.deepStrictEqual(focusCalls, ['first'],
+    'F3: фокус уходит на первый пункт drawer, а не на BODY/шапку');
+  // 2) Shift+Tab с первого — на последний.
+  global.document.activeElement = items[0];
+  prevented.at = false;
+  methods.drawerOnKeydown.call({}, keyEvent('Tab', true));
+  assert.strictEqual(prevented.at, true, 'F3: Shift+Tab с первого перехвачен');
+  assert.strictEqual(focusCalls[focusCalls.length - 1], 'last',
+    'F3: Shift+Tab замыкается на последний пункт');
+  // 3) В середине списка поведение браузера не перебивается.
+  global.document.activeElement = items[1];
+  prevented.at = false;
+  methods.drawerOnKeydown.call({}, keyEvent('Tab', false));
+  assert.strictEqual(prevented.at, false,
+    'F3: штатный переход внутри панели не блокируется');
+  // 4) Панели нет (юнит-стабы) — исключения нет.
+  global.document.querySelector = oldQ;
+  assert.doesNotThrow(function () {
+    methods.drawerOnKeydown.call({}, keyEvent('Tab', false));
+  }, 'F3: без DOM ловушка не падает');
+  if (hadActive) global.document.activeElement = oldActive;
+  else delete global.document.activeElement;
+}
+
+// ── 5c. Ревью F3: Esc закрывает открытый drawer при внешнем фокусе ────────
+{
+  const calls = [];
+  const ctx = {
+    drawerOpen: true,
+    closeDrawer() { calls.push('drawer'); },
+    closeMoreMenu() { calls.push('more'); },
+  };
+  methods.escClose.call(ctx);
+  assert.deepStrictEqual(calls, ['drawer'],
+    'F3: глобальный Esc закрывает drawer, даже если фокус вне панели');
+  const src = methods.escClose.toString();
+  assert.ok(src.indexOf('moreMenuOpen') < src.indexOf('drawerOpen'),
+    'F3: порядок слоёв — «⋯» закрывается выше drawer');
+  // goBack: Back закрывает панель, а не уводит страницу под ней.
+  const nav = [];
+  methods.goBack.call({
+    drawerOpen: true, route: '#/memory/lore',
+    closeDrawer() { nav.push('drawer'); },
+    navigateTo(r) { nav.push('nav:' + r); },
+  });
+  assert.deepStrictEqual(nav, ['drawer'],
+    'F3: Back при открытом drawer закрывает панель, маршрут не меняется');
+  const noDrawer = [];
+  methods.goBack.call({
+    drawerOpen: false, route: '#/memory/lore',
+    closeDrawer() { noDrawer.push('drawer'); },
+    navigateTo(r) { noDrawer.push('nav:' + r); },
+  });
+  assert.deepStrictEqual(noDrawer, ['nav:#/memory'],
+    'F3: закрытый drawer поведение Back не меняет');
+}
+
+// ── 5d. Ревью F2: «На весь экран» из «⋯» (узкий телефон) ──────────────────
+{
+  const calls = [];
+  methods.moreMenuFullscreen.call({
+    closeMoreMenu(refocus) { calls.push('close:' + refocus); },
+    toggleFullscreen() { calls.push('fs'); },
+  });
+  assert.deepStrictEqual(calls, ['close:false', 'fs'],
+    'F2: пункт «⋯» закрывает поповер без возврата фокуса и зовёт политику ⛶');
+}
+
 // ── 6. _focusOpenedDialog: мягкий no-op без диалога ───────────────────────
 {  const ctx = { $nextTick(cb) { cb(); } };
   assert.doesNotThrow(function () {

@@ -23,6 +23,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
+   "display": "flex",
    "right": 1264,
    "vw": 1280,
    "bg": "rgba(0, 0, 0, 0)",
@@ -51,13 +52,20 @@
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 512
+   "w": 496
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 175,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "desktop_panel": {
   "open": true,
-  "x": 751,
-  "right": 1131,
+  "x": 734,
+  "right": 1114,
   "top": 55,
   "bottom": 230,
   "vw": 1280,
@@ -102,6 +110,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
+   "display": "flex",
    "right": 1264,
    "vw": 1280,
    "bg": "rgba(0, 0, 0, 0)",
@@ -130,7 +139,14 @@
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 660
+   "w": 644
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 175,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "desktop_rail_persisted": {
@@ -157,6 +173,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
+   "display": "flex",
    "right": 1264,
    "vw": 1280,
    "bg": "rgba(0, 0, 0, 0)",
@@ -185,7 +202,14 @@
   "titleNode": {
    "text": "Модули",
    "visible": true,
-   "w": 660
+   "w": 644
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 175,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "desktop_modal": {
@@ -217,6 +241,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
+   "display": "flex",
    "right": 884,
    "vw": 900,
    "bg": "rgba(0, 0, 0, 0)",
@@ -252,6 +277,13 @@
    "text": "Память",
    "visible": true,
    "w": 767
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 176,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "tablet_drawer": {
@@ -283,10 +315,11 @@
   "mainX": 0,
   "collapsed": false,
   "fsBtn": {
-   "w": 44,
-   "h": 44,
+   "w": 0,
+   "h": 0,
    "title": "На весь экран",
-   "right": 337,
+   "display": "none",
+   "right": 0,
    "vw": 390,
    "bg": "rgba(0, 0, 0, 0)",
    "bgImage": "none",
@@ -317,16 +350,23 @@
    "text": "global_admin",
    "visible": true,
    "title": "global_admin",
-   "right": 290
+   "right": 337
   },
   "avatarNode": {
    "visible": true,
-   "right": 210
+   "right": 279
   },
   "titleNode": {
    "text": "Аналитика",
    "visible": true,
-   "w": 56
+   "w": 58
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 62,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "mobile_drawer": {
@@ -339,14 +379,23 @@
   "focusInside": true,
   "ariaHidden": "false"
  },
+ "mobile_drawer_trap": {
+  "escaped": null,
+  "distinct": 8
+ },
  "mobile_drawer_closed": {
   "open": false,
-  "focused": true
+  "focused": true,
+  "focusOutside": true
+ },
+ "mobile_drawer_back": {
+  "open": false,
+  "route": "#/oversight"
  },
  "mobile_panel": {
   "open": true,
-  "x": 112,
-  "right": 182,
+  "x": 114,
+  "right": 251,
   "top": 54,
   "bottom": 281,
   "vw": 390,
@@ -357,7 +406,7 @@
   "bg": "rgba(23, 28, 42, 0.94)",
   "search": true,
   "options": 3,
-  "nameTruncated": false,
+  "nameTruncated": true,
   "badgeOverlapsName": false,
   "triggerInsideViewport": true
  },
@@ -365,8 +414,15 @@
   "inside": true,
   "items": 0,
   "profile": true,
-  "bottom": 186,
+  "bottom": 232,
   "vh": 844
+ },
+ "mobile_fs_menu": {
+  "w": 305,
+  "h": 44,
+  "label": "На весь экран",
+  "pressed": "false",
+  "display": "flex"
  },
  "mobile_landscape": {
   "vw": 667,
@@ -380,7 +436,7 @@
   "title": "Модули",
   "scopeTriggers": 1,
   "scopeWrap": 1,
-  "hubTitleDisplay": "block",
+  "hubTitleDisplay": "none",
   "sidebar": null,
   "sidebarLabels": null,
   "mainX": 0,
@@ -389,6 +445,7 @@
    "w": 44,
    "h": 44,
    "title": "На весь экран",
+   "display": "flex",
    "right": 614,
    "vw": 667,
    "bg": "rgba(0, 0, 0, 0)",
@@ -430,12 +487,77 @@
    "text": "Модули",
    "visible": true,
    "w": 183
+  },
+  "scopeName": {
+   "text": "Очень длинное название рабочего чата с уточнением и подписью",
+   "visible": true,
+   "w": 107,
+   "ellipsis": "ellipsis",
+   "title": "Очень длинное название рабочего чата с уточнением и подписью"
   }
  },
  "mobile_landscape_drawer": {
   "open": true,
   "inside": true,
   "fitsHeight": true
+ },
+ "title_once": {
+  "#/ai@320x700": {
+   "name": "ИИ",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/modules@320x700": {
+   "name": "Модули",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/memory@320x700": {
+   "name": "Память",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/access@320x700": {
+   "name": "Доступы",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/ai@390x844": {
+   "name": "ИИ",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/modules@390x844": {
+   "name": "Модули",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/memory@390x844": {
+   "name": "Память",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  },
+  "#/access@390x844": {
+   "name": "Доступы",
+   "count": 1,
+   "where": [
+    "header-title text-sm font-semibold truncate"
+   ]
+  }
  },
  "case_320x700-z1-d0": {
   "vw": 320,

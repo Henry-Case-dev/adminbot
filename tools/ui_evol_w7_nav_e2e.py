@@ -194,6 +194,7 @@ PROBE_SHELL = r"""
       const cs = getComputedStyle(b);
       return {w: Math.round(r.width), h: Math.round(r.height),
               title: b.getAttribute('title'),
+              display: cs.display,
               right: Math.round(r.right), vw: window.innerWidth,
               // EVOL-023 §4 (ревью F1): ghost-icon — прозрачная hit-цель,
               // никакого декоративного материала (линза снята с узла).
@@ -251,6 +252,19 @@ PROBE_SHELL = r"""
       return {text: (el.textContent || '').trim(),
               visible: cs.display !== 'none' && r.width > 1,
               w: Math.round(r.width)}; })(),
+    // Ревью F2 (31.10.2026): триггер области обязан называть выбранный чат
+    // и на 320–419 (раньше имя и аватар чата там скрывались).
+    scopeName: (() => {
+      const el = document.querySelector('.scope-trigger .scope-name');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      const trig = el.closest('.scope-trigger');
+      return {text: (el.textContent || '').trim(),
+              visible: cs.display !== 'none' && r.width > 1 && r.height > 1,
+              w: Math.round(r.width),
+              ellipsis: cs.textOverflow,
+              title: trig ? trig.getAttribute('title') : null}; })(),
   };
 }
 """
@@ -590,7 +604,20 @@ def run(out_dir: str) -> int:
         if d3["headerH"] > HEAD_MAX_MOBILE:
             fails.append("mobile: шапка %s px — больше одной строки (%d)"
                          % (d3["headerH"], HEAD_MAX_MOBILE))
-        fails.extend(_ghost_fails(d3["fsBtn"], "mobile"))
+        # Ревью F2 (31.10.2026): на самых узких экранах (≤419) ghost-⛶ уезжает
+        # из шапки в «⋯» — там он и проверяется (hit 44×44 + видимое имя).
+        narrow_fs = (not d3["fsBtn"]) or d3["fsBtn"]["display"] == "none"
+        if not narrow_fs:
+            fails.extend(_ghost_fails(d3["fsBtn"], "mobile"))
+        # ASAP-UI-02 §2.2 (ревью F1): имя раздела — РОВНО один раз: контентный
+        # дубль `.hub-title` скрыт и на телефоне.
+        if d3["hubTitleDisplay"] not in (None, "none"):
+            fails.append("mobile: дубль имени раздела в контенте (hub-title)")
+        # Ревью F2: триггер области называет выбранный чат, полное имя — title.
+        if not d3.get("scopeName") or not d3["scopeName"]["visible"]:
+            fails.append("mobile: имя выбранного чата не видно в триггере")
+        elif not d3["scopeName"]["title"]:
+            fails.append("mobile: полное имя чата недоступно (title)")
         # ASAP-UI-02 §2.1: нижней панели нет, есть кнопка навигации.
         if d3["topnav"]:
             fails.append("mobile: вернулась постоянная нижняя панель разделов")
@@ -653,6 +680,38 @@ def run(out_dir: str) -> int:
             if dr3["ariaHidden"] != "false":
                 fails.append("mobile: aria-hidden drawer не снят")
         shot(p3, "mobile-drawer")
+        # Ревью F3 (31.10.2026): Tab не выходит из открытого drawer — 10
+        # нажатий подряд остаются внутри панели (было: после 8-го пункта фокус
+        # уходил на BODY и кнопки шапки).
+        escaped = None
+        seen_focus = set()
+        for _ in range(10):
+            p3.keyboard.press("Tab")
+            step = p3.evaluate(r"""() => {
+                const d = document.querySelector('.app-drawer');
+                const a = document.activeElement;
+                return {inside: !!d && d.contains(a),
+                        label: a ? ((a.textContent || '').trim().slice(0, 12)
+                                   || a.tagName) : null};
+            }""")
+            seen_focus.add(step["label"])
+            if not step["inside"]:
+                escaped = step["label"] or "NONE"
+                break
+        report["mobile_drawer_trap"] = {"escaped": escaped,
+                                        "distinct": len(seen_focus)}
+        if escaped:
+            fails.append("mobile: Tab выводит фокус из drawer (%s)" % escaped)
+        # Тест не должен быть «пустым»: настоящие нажатия Tab обязаны реально
+        # двигать фокус между пунктами панели.
+        if escaped is None and len(seen_focus) < 2:
+            fails.append("mobile: Tab не двигает фокус — ловушка не проверена")
+        # Esc при фокусе ВНЕ панели (фокус переведён на кнопку «⋯» шапки).
+        p3.evaluate("() => { const b = document.querySelector('[data-more-trigger]');"
+                    " if (b) b.focus(); }")
+        outside_focus = p3.evaluate(
+            "() => !!document.querySelector('.app-drawer')"
+            " && !document.querySelector('.app-drawer').contains(document.activeElement)")
         p3.keyboard.press("Escape")
         p3.wait_for_timeout(300)
         closed3 = p3.evaluate(r"""() => ({
@@ -660,9 +719,25 @@ def run(out_dir: str) -> int:
             focused: !!document.activeElement
               && document.activeElement.hasAttribute('data-drawer-trigger'),
         })""")
-        report["mobile_drawer_closed"] = closed3
+        report["mobile_drawer_closed"] = dict(closed3, focusOutside=outside_focus)
+        if not outside_focus:
+            fails.append("mobile: Esc-проверка не воспроизвела внешний фокус")
         if closed3["open"] or not closed3["focused"]:
             fails.append("mobile: Esc/возврат фокуса drawer не работает")
+        # Back (goBack → navigateTo) сначала закрывает панель, а не уводит
+        # страницу под открытым drawer.
+        p3.click("[data-drawer-trigger]")
+        p3.wait_for_timeout(320)
+        p3.evaluate("() => { const vm = window.__adminbotVm;"
+                    " if (vm && typeof vm.goBack === 'function') vm.goBack(); }")
+        p3.wait_for_timeout(300)
+        back3 = p3.evaluate(r"""() => ({
+            open: !!document.querySelector('.app-drawer.open'),
+            route: window.location.hash,
+        })""")
+        report["mobile_drawer_back"] = back3
+        if back3["open"]:
+            fails.append("mobile: Back не закрыл открытый drawer")
 
         p3.click(".scope-trigger")
         p3.wait_for_timeout(400)
@@ -675,6 +750,9 @@ def run(out_dir: str) -> int:
                 fails.append("mobile: панель области вне вьюпорта")
             if _backdrop_alpha(pj3["bg"]) < 0.9:
                 fails.append("mobile: подложка панели слишком прозрачна")
+            # Ревью F2: имя чата обрезается, но не наезжает на бейдж области.
+            if pj3.get("badgeOverlapsName"):
+                fails.append("mobile: имя чата наезжает на бейдж области")
         shot(p3, "mobile-scope-panel")
         p3.keyboard.press("Escape")
         p3.wait_for_timeout(250)
@@ -703,6 +781,24 @@ def run(out_dir: str) -> int:
                              % more["items"])
             if not more["profile"]:
                 fails.append("mobile: в «⋯» нет идентификации пользователя")
+        # Ревью F2: на ≤419 действие «на весь экран» живёт в «⋯» — проверяем,
+        # что оно видимо, с видимым именем и hit-целью ≥44.
+        if narrow_fs:
+            fs_menu = p3.evaluate(r"""() => {
+                const b = document.querySelector('[data-fs-menu-item]');
+                if (!b) return null;
+                const r = b.getBoundingClientRect();
+                const cs = getComputedStyle(b);
+                return {w: Math.round(r.width), h: Math.round(r.height),
+                        label: (b.textContent || '').trim().replace(/\s+/g, ' '),
+                        pressed: b.getAttribute('aria-pressed'),
+                        display: cs.display};
+            }""")
+            report["mobile_fs_menu"] = fs_menu
+            if not fs_menu or fs_menu["display"] == "none" or fs_menu["h"] < 44:
+                fails.append("mobile: в «⋯» нет действия ⛶ с hit-целью ≥44")
+            elif not fs_menu["label"]:
+                fails.append("mobile: действие ⛶ в «⋯» без видимого имени")
         shot(p3, "mobile-more")
         p3.keyboard.press("Escape")
         p3.wait_for_timeout(200)
@@ -746,6 +842,54 @@ def run(out_dir: str) -> int:
         shot(pl, "landscape-drawer")
         ctx3l.close()
 
+        # ── Имя раздела РОВНО один раз (ревью F1, 31.10.2026) ────────────
+        # Было: на 390 в #/ai, #/modules, #/memory, #/access имя стояло дважды
+        # (шапка + контентный `.hub-title`). Проверяем именно ВИДИМЫЕ
+        # вхождения, а не только видимость шапки.
+        NAME_ROUTES = ("#/ai", "#/modules", "#/memory", "#/access")
+        NAME_PROBE = r"""
+        () => {
+          const cs = (el) => getComputedStyle(el);
+          const vis = (el) => {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const s = cs(el);
+            return s.display !== 'none' && s.visibility !== 'hidden'
+              && r.width > 1 && r.height > 1;
+          };
+          const head = document.querySelector('.header-title');
+          const name = ((head && head.textContent) || '').trim();
+          const nodes = Array.prototype.slice.call(
+            document.querySelectorAll('.header-title, .hub-head .hub-title'));
+          const shown = nodes.filter((n) => vis(n)
+            && (n.textContent || '').trim() === name);
+          return {name: name, count: shown.length,
+                  where: shown.map((n) => n.className)};
+        }
+        """
+        name_rows = {}
+        for (w, h) in ((320, 700), (390, 844)):
+            c = browser.new_context(viewport={"width": w, "height": h})
+            c.add_init_script(M.TMA_STUB)
+            c.route("**/api/**", _routes())
+            pg = c.new_page()
+            pg.goto(_app() + "#/", wait_until="load")
+            pg.wait_for_selector(".app-shell", timeout=10000)
+            pg.wait_for_timeout(800)
+            for route in NAME_ROUTES:
+                pg.evaluate("(r) => { window.location.hash = r; }", route)
+                pg.wait_for_timeout(350)
+                res = pg.evaluate(NAME_PROBE)
+                key = "%s@%dx%d" % (route, w, h)
+                name_rows[key] = res
+                if not res["name"]:
+                    fails.append("title-once %s: имя раздела пустое" % key)
+                elif res["count"] != 1:
+                    fails.append("title-once %s: имя раздела показано %s раз %s"
+                                 % (key, res["count"], res["where"][:3]))
+            c.close()
+        report["title_once"] = name_rows
+
         # ── 320 + zoom 200% + slow API ─────────────────────────────────
         for (w, h, zoom, delay) in ((320, 700, 1, 0), (1280, 800, 2, 0),
                                     (1280, 800, 1, 900)):
@@ -769,6 +913,12 @@ def run(out_dir: str) -> int:
                              % (key, shell["sw"], shell["vw"]))
             if shell["overlap"]:
                 fails.append("%s: контент под шапкой" % key)
+            # Ревью F2: самый узкий экран тоже обязан называть выбранный чат.
+            if w <= 320:
+                sn = shell.get("scopeName")
+                if not sn or not sn["visible"]:
+                    fails.append("%s: имя выбранного чата не видно в триггере"
+                                 % key)
             shot(pg, "case-" + key)
             c.close()
 

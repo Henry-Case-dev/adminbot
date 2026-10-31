@@ -120,8 +120,14 @@ class TestPortraitContract:
         assert "padding-bottom: .4rem" in seg
 
     def test_header_keeps_required_controls(self):
-        """ASAP-UI-02 §2.2: навигация, область, аватар+роль, ⛶, «⋯»."""
-        seg = _section("/* ── ASAP-UI-02 §2.1/§2.2", 5200, source=CSS)
+        """ASAP-UI-02 §2.2: навигация, область, аватар+роль, ⛶, «⋯».
+
+        Ревью F2 (31.10.2026): на ≤419 место в шапке отдаётся ИМЕНИ
+        выбранного чата, поэтому ghost-⛶ оттуда уезжает в «⋯» — постоянный
+        набор остаётся: навигация, имя раздела, область с именем чата,
+        аватар+бейдж роли, «⋯».
+        """
+        seg = _section("/* ── ASAP-UI-02 §2.1/§2.2", 7000, source=CSS)
         assert "flex-wrap: nowrap" in seg, "шапка не переносится на второй ряд"
         assert ".header-user-name { display: none; }" in seg, \
             "имя скрыто, но бейдж роли остаётся видимым"
@@ -130,6 +136,13 @@ class TestPortraitContract:
             "ID области не в постоянной шапке"
         assert "order: 5" in seg and "order: 6" in seg, \
             "⛶ и «⋯» — в конце той же строки, без второго ряда"
+        # Ширина 320–419: имя чата остаётся в триггере, ⛶ уходит в «⋯».
+        assert "@media (max-width: 419px) {" in seg
+        assert ".scope-trigger .scope-name {\n    display: inline-block;" in seg, \
+            "имя выбранного чата не должно скрываться на узком телефоне"
+        assert ("header.header-sticky.header-compact-v2 .header-fs-btn {\n"
+                "    display: none;") in seg, \
+            "ghost-⛶ не убран из шапки на ≤419 (место под имя чата)"
 
     def test_no_bottom_panel_rules(self):
         assert "mobile-topnav" not in W9_CSS, \

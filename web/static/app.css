@@ -3363,7 +3363,11 @@
 /* ASAP-UI-02 §2.2: имя пользователя скрыто (полное — в title и в «⋯»),
    бейдж фактической роли ОСТАЁТСЯ видимым — прежнее правило прятало оба. */
 .app-shell.shell-mobile .header-user-name { display: none; }
-.app-shell.shell-mobile .header-user-initial {
+/* ASAP-UI-02 §2.2 (ревью, 31.10.2026): инициал-аватар был оформлен ТОЛЬКО
+   для `.shell-mobile` — на desktop/compact при отсутствии фото он выводился
+   «голым» текстом. Правило поднято на уровень компонента: один и тот же
+   компактный круг во всех shell-режимах. */
+.header-user-initial {
   display: inline-flex;
   align-items: center; justify-content: center;
   width: 24px; height: 24px;
@@ -3425,12 +3429,19 @@
 .app-shell.shell-mobile .scope-trigger .scope-name {
   max-width: clamp(2rem, 16vw, 8rem);
 }
-/* <420: у триггера области уступают место (по приоритету ASAP-UI-02 §2.2)
-   имя чата и его аватар — остаётся бейдж типа области CHAT/GLOBAL/ЛС и ▾,
-   поэтому триггер целиком помещается и НЕ обрезается посередине бейджа.
-   Полное имя и аватар — в раскрытом селекторе, title и бейдже. */
+/* <420 (ревью ASAP-UI-02, блокер F2, 31.10.2026): раньше здесь скрывались
+   имя и аватар чата — в триггере оставался только бейдж «ЧАТ ▾», и на
+   телефоне нельзя было понять, какой чат выбран. Теперь имя чата ОСТАЁТСЯ
+   (обрезается ellipsis, полное — в title и в раскрытой панели), а место
+   освобождается переносом ghost-⛶ в меню «⋯» (§2.3: второстепенные действия
+   живут в троеточии). Бейдж типа области CHAT/GLOBAL/ЛС и ▾ не сжимаются. */
 @media (max-width: 419px) {
-  .app-shell.shell-mobile .scope-trigger .scope-name { display: none; }
+  .app-shell.shell-mobile .scope-trigger .scope-name {
+    display: inline-block;
+    max-width: clamp(2.5rem, 16vw, 5.5rem);
+  }
+  /* Аватар чата уступает место его ИМЕНИ: идентифицирует название (полное —
+     в title и в раскрытой панели), инициал же повторял бы бейдж области. */
   .app-shell.shell-mobile .scope-trigger > img,
   .app-shell.shell-mobile .scope-trigger > .scope-initial { display: none; }
   .app-shell.shell-mobile .scope-trigger {
@@ -3438,6 +3449,14 @@
     gap: .3rem;
     padding-left: .45rem; padding-right: .4rem;
   }
+  .app-shell.shell-mobile .header-scope-row .header-user-role {
+    max-width: 3.4rem;
+  }
+  /* ⛶ не помещается в шапке рядом с именем чата — уезжает в «⋯». */
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-fs-btn {
+    display: none;
+  }
+  .app-shell.shell-mobile .more-menu-action { display: flex; }
 }
 .app-shell.shell-mobile .header-user { flex: 0 0 auto; }
 /* ≤359 (узкий телефон): всё обязательное остаётся, но плотнее — треугольник
@@ -3450,8 +3469,13 @@
   .app-shell.shell-mobile .scope-trigger > span[aria-hidden="true"] {
     display: none;
   }
+  /* Имя чата остаётся идентифицирующим (начало названия + полное в title и
+     панели), бейдж типа области — целиком видимым; оба ужимаются умеренно. */
+  .app-shell.shell-mobile .scope-trigger .scope-name {
+    max-width: 2.8rem;
+  }
   .app-shell.shell-mobile .header-scope-row .header-user-role {
-    max-width: 4rem;
+    max-width: 2.8rem;
   }
 }
 /* ID области — не в постоянной шапке (полные данные в «⋯», блок профиля). */
@@ -3587,9 +3611,30 @@
 .more-menu-item .msr { font-size: 22px; color: var(--teal-500, #2dd4bf); flex-shrink: 0; }
 .more-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .more-menu-item:focus-visible,
+.more-menu-action:focus-visible,
 .oversight-mobile-trigger:focus-visible, .oversight-mobile-option:focus-visible {
   outline: 2px solid rgba(139, 92, 246, .7);
   outline-offset: 2px;
+}
+/* ASAP-UI-02 §2.2 (ревью F2, 31.10.2026): на самых узких экранах (≤419px)
+   ghost-⛶ не помещается в шапке рядом с именем выбранного чата и уезжает
+   сюда — второстепенное действие в «⋯» (§2.3). Класс отдельный от
+   `.more-menu-item`, чтобы меню осталось меню второстепенных действий, а не
+   списком разделов (инвариант «в «⋯» нет навигации»). На ≥420px пункт скрыт:
+   там ⛶ есть в шапке, дубль не нужен. */
+.more-menu-action {
+  display: none;
+  align-items: center; gap: .6rem;
+  min-height: 44px;
+  padding: .5rem .6rem;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--text-1);
+  font-size: .875rem; text-align: left; cursor: pointer;
+  width: 100%;
+}
+.more-menu-action:hover { background: rgba(255, 255, 255, .07); }
+.more-menu-action .msr {
+  font-size: 20px; color: var(--text-3, #8B96A5); flex-shrink: 0;
 }
 .more-menu-profile {
   display: flex; align-items: center; gap: .5rem;
@@ -5745,14 +5790,15 @@ html.cover-editor-open { overflow: hidden; }
   header.header-sticky.header-compact-v2 .breadcrumb { margin-bottom: 1px; }
 }
 
-/* ── 2. Дубли заголовков: имя раздела живёт в topbar ──────────────────────
-   С ≥768 заголовок шапки уже показывает раздел, а `.hub-title` внутри
-   контента повторял его («Модули» дважды). Содержимое (subtitle, счётчики,
-   поиск/фильтры) остаётся — убирается только дубль имени. На <768 заголовок
-   шапки скрыт намеренно (U01.5) — там `.hub-title` единственный. */
-@media (min-width: 768px) {
-  .app-shell.ia-v2 .hub-head .hub-title { display: none; }
-}
+/* ── 2. Дубли заголовков: имя раздела живёт в topbar (любая ширина) ───────
+   С ≥768 заголовок шапки уже показывал раздел, а `.hub-title` внутри
+   контента повторял его («Модули» дважды). ASAP-UI-02 §2.2 вернул название
+   раздела в МОБИЛЬНУЮ шапку (<768) — значит `.hub-title` стал дублем и там:
+   на 390 в #/ai, #/modules, #/memory, #/access имя стояло дважды
+   (ревью, блокер F1, 31.10.2026). Имя раздела — РОВНО один раз, в шапке,
+   на всех ширинах и во всех shell-режимах; содержимое хаба (subtitle,
+   счётчики, поиск/фильтры) остаётся. */
+.app-shell.ia-v2 .hub-head .hub-title { display: none; }
 
 /* ── 3. Scope-switcher: геометрия выпадающей панели ───────────────────────
    Базовая панель якорилась `right: 0` от триггера и уезжала ВЛЕВО под
