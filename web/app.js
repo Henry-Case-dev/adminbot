@@ -1938,19 +1938,24 @@
   // ── EVOL-041: рабочие области «Речи и характера» ──
   // Композиция — навигация по задачам, а не второй набор настроек: области
   // только открывают существующие секции (`speechSection`) и диагностику.
+  // §4.2 v2.1 (ASAP-SUMMARY-COVER-INTEGRITY-01): «Речь и характер» — ПЯТЬ
+  // независимых рабочих разделов с отдельной видимой навигацией. Названия
+  // даны по реально существующим группам настроек (не фантомы). Сервисные
+  // разделы (проверка голоса, опыт, сборка, возможности, реестр инструкций)
+  // остаются доступны из витрины «Назад» и не превращаются в шестую вкладку.
   var SPEECH_AREAS = [
-    { id: 'overview', title: 'Обзор', short: 'Обзор', icon: 'space_dashboard',
-      section: '' },
-    { id: 'character', title: 'Характер', short: 'Характер',
-      icon: 'psychology', section: 'core' },
-    { id: 'speech', title: 'Манера речи', short: 'Речь',
-      icon: 'edit_note', section: 'style', alsoSections: ['expression'] },
-    { id: 'humor', title: 'Юмор', short: 'Юмор', icon: 'mood',
-      section: 'humor' },
-    { id: 'experience', title: 'Опыт и обучение', short: 'Опыт',
-      icon: 'school', section: 'learning' },
-    { id: 'assembly', title: 'Как собирается ответ', short: 'Сборка',
-      icon: 'account_tree', section: 'inspector' },
+    { id: 'persona', title: 'Личность', short: 'Личность', icon: 'badge',
+      section: 'persona', alsoSections: ['core'] },
+    { id: 'style', title: 'Речь и стиль', short: 'Речь',
+      icon: 'edit_note', section: 'style',
+      alsoSections: ['expression', 'humor', 'try'] },
+    { id: 'profanity', title: 'Мат', short: 'Мат', icon: 'forum',
+      section: 'profanity' },
+    { id: 'examples', title: 'Примеры', short: 'Примеры', icon: 'format_quote',
+      section: 'examples' },
+    { id: 'rules', title: 'Правила и источники', short: 'Правила',
+      icon: 'account_tree', section: 'rules',
+      alsoSections: ['learning', 'inspector', 'capabilities', 'all'] },
   ];
 
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
@@ -2474,13 +2479,11 @@
         moduleGlobalOptimistic: {},   // globalKey → { value, opId }
         moduleGlobalPending: {},      // globalKey → true (in-flight)
         moduleGlobalError: {},        // globalKey → понятный текст ошибки
-        // F4 (D4/§34–§36): избранное — UI-предпочтение (localStorage), НЕ
-        // конфигурация бота; не включает/выключает модуль. Fail-open.
-        moduleQuickpicks: null,   // string[] id модулей (init в created/loadMe)
-        moduleQuickpicksOpen: false,   // «Все избранные» раскрыты
+        // ASAP-SUMMARY-COVER-INTEGRITY-01 §7: «Избранное» удалено как
+        // концепция (замена запрещена) — ни состояния, ни ключа хранилища.
         // F4 (D5/§32/§44): поиск/фильтр каталога — представление.
         moduleSearch: '',
-        moduleFilter: 'all',      // all|on|off|issues|picks
+        moduleFilter: 'all',      // all|on|off|issues
         // ═══ EVOL-029 (W10): «Память» — читаемый каталог знаний ═══
         // Поиск/тип/раскрытая сущность — представление (без новых API).
         memoryCatalogQuery: '',
@@ -2523,10 +2526,8 @@
         // оверлей. Мобильные режимы (drawer/mobile-topnav) не затрагиваются.
         sidebarCollapsed: false,
         // ═══ W2-SHELL (asap8-v6.3, REQ-U01.4/REQ-U02): состояние мобильных
-        // оверлеев навигации. «Ещё» — popover поверх контента (<768);
-        // oversight-mobile-dropdown — компактный выбор суб-вкладки
-        // Аналитики (<768). Оба состояния НЕ персистятся. ═══
-        moreMenuOpen: false,          // U01.4: меню «Ещё» (mobile <768)
+        // оверлеев навигации. §6.1 v2.1: меню «…» удалено — остаётся только
+        // компактный выбор суб-вкладки «Аналитики» (<768). Не персистится. ═══
         oversightMobileOpen: false,   // U02: dropdown суб-вкладок (<768)
         helpQuery: '',       // T-2400: поиск по «Справке» (mobile)
         me: null,
@@ -3425,13 +3426,19 @@
         selfModel: null,
         selfModelLoading: false,
         selfModelSources: {},   // rule_id → observations[]
+        // §4.2 v2.1: черновик «Личности» (несохранён) — защищён при
+        // переключении вкладок и виден на самой вкладке.
+        personaDirty: false,
         // ── SOUL-1 W6 (source-architectural-clarification §6): «Речь и
         //    характер» — special-screen #/ai/speech. Витрина + разделы;
         //    черновики живут отдельно от серверного состояния, поэтому
         //    обновление данных/переключение разделов их не затирает. ──
-        speechSection: '',            // '' | core|style|expression|humor|
-                                      // examples|try|learning|all|inspector|
-                                      // capabilities
+        speechSection: '',            // '' (витрина) | persona|core|style|
+                                      // expression|profanity|humor|examples|
+                                      // try|learning|all|inspector|capabilities
+        // §4.2: явный выбор пользователя (в т.ч. «Назад» к витрине) не
+        // перетирается автодефолтом «Личность» при повторном входе.
+        speechSectionTouched: false,
         speechLoading: false,
         speechSectionLoading: false,
         speechBusy: false,
@@ -4301,9 +4308,10 @@
         if (!d || !d.active || !d.active.revision_id) return false;
         return !!this.phLatestFactoryRevision();
       },
-      // Событие, которым текущая ревизия стала активной. Отдельного таймера
-      // активации сервисный payload не отдаёт — время рядом это время записи
-      // версии, не выдуманные часы включения.
+      // Событие, которым текущая ревизия стала активной. Время события
+      // активации журнал отдаёт (prompt_activations.created_at) — показываем
+      // его честно; старые строки без времени не превращаются в выдуманные
+      // часы (никакого «таймера активации не отдаётся» в UI больше нет).
       phActivationNote: function () {
         var d = this.promptHistory.data;
         if (!d || !d.active) return '';
@@ -4318,7 +4326,9 @@
           }
         }
         if (!hit) return 'Событие включения для активной версии не зафиксировано';
-        return 'Включена событием: ' + this.phEventLabel(hit);
+        var when = this.phWhen(hit.created_at);
+        return 'Включена ' + (when ? when + ' · ' : '')
+          + 'событием: ' + this.phEventLabel(hit);
       },
       // §9.3 spec: инвариант покрытия §117(1–4) — ДОКАЗАТЕЛЬНЫЙ.
       workspaceCoverage: function () {
@@ -4542,29 +4552,8 @@
         });
         return { total: total, on: on, off: off, issues: issues };
       },
-      // §34–§35: кандидаты панели быстрого управления (витрина, без
-      // noToggle и uiFlag-скрытых).
-      quickpickCandidates: function () {
-        return this.visibleModules.filter(function (m) {
-          return !!m.toggleKey && !m.noToggle;
-        });
-      },
-      // §34: избранные модули в сохранённом порядке (после валидации).
-      quickpickModules: function () {
-        var byId = {};
-        this.quickpickCandidates.forEach(function (m) { byId[m.id] = m; });
-        return (this.moduleQuickpicks || []).map(function (id) {
-          return byId[id];
-        }).filter(Boolean);
-      },
-      // §35: лимит начального отображения (остальные — «Все избранные»).
-      quickpickVisible: function () {
-        var list = this.quickpickModules;
-        return this.moduleQuickpicksOpen ? list : list.slice(0, 4);
-      },
-      quickpickHiddenCount: function () {
-        return Math.max(0, this.quickpickModules.length - 4);
-      },
+      // §7 (v2.1): панель/список избранного удалены — кандидатов, «видимых
+      // избранных» и раскрытия больше нет (замена «Закреплено» запрещена).
       // §32/§44: фильтры каталога — представление (ноль мутаций).
       moduleFilterOptions: function () {
         return [
@@ -4572,7 +4561,6 @@
           { id: 'on', label: 'Включённые' },
           { id: 'off', label: 'Выключенные' },
           { id: 'issues', label: 'Есть проблемы' },
-          { id: 'picks', label: 'Избранные' },
         ];
       },
       // §32/§44: основной каталог после поиска+фильтра (генеральные
@@ -4586,7 +4574,6 @@
           if (q && self._moduleSearchHaystack(m).indexOf(q) < 0) return false;
           if (f === 'all') return true;
           if (m.noToggle) return false;
-          if (f === 'picks') return self.isQuickpick(m);
           var st = self.getModuleState(scope, m.id);
           if (f === 'on') return st.runtime === 'on';
           if (f === 'off') return st.runtime === 'off';
@@ -7589,7 +7576,6 @@
       this._syncShellMode();               // F1: shell-режим по ширине
       this.initSidebarCollapsed();         // EVOL-023 §3: rail на desktop
       this.initExpandState();              // F24: реактивный стейт аккордеонов
-      this.initQuickpicks();               // F4 D4: избранное модулей (fail-open)
       var r = initialRoute();
       this.route = r;
       var tabId = routeToTab(r);
@@ -7852,6 +7838,24 @@
             el.scrollIntoView({ block: 'start', behavior: 'smooth' });
           }
           if (el && el.focus) el.focus();
+        });
+      },
+      // §4.2 v2.1: вход с хаба «ИИ» в КОНКРЕТНУЮ вкладку канонического
+      // редактора (не второй экран и не копия настроек).
+      openSpeechAreaFromHub: function (areaId) {
+        if (!areaId) return;
+        if (typeof this.navigateTo === 'function') {
+          this.navigateTo('#/ai/speech');
+        } else if (typeof this.setTab === 'function') {
+          this.setTab('speech');
+        }
+        var self = this;
+        this.$nextTick(function () {
+          if (typeof self.openSpeechArea === 'function') {
+            self.openSpeechArea(areaId);
+          } else if (typeof self.openSpeechSection === 'function') {
+            self.openSpeechSection(areaId);
+          }
         });
       },
       // ── F5 (review EVOL-029): человеческое имя чата по id ───────────────
@@ -12133,7 +12137,6 @@
         // W2-SHELL (U01.4/U02): мобильные навигационные оверлеи не
         // переживают смену маршрута (назад/вперёд и hash-переходы мимо
         // shellNavTo). Без refocus-джагглера — фокус следует за контентом.
-        if (this.moreMenuOpen) this.closeMoreMenu(false);
         if (this.oversightMobileOpen) this.oversightMobileClose(false);
         // MINOR-1: legacy-алиасы нормализуем в канонический hash (replaceState).
         var aliasTarget = ROUTE_ALIAS[route];
@@ -12237,9 +12240,10 @@
         // EVOL-028 v0.8: `#/ai/persona` — deep-link в ЕДИНСТВЕННЫЙ канонический
         // редактор «Речь и характер» (секция личности), а не второй экран.
         if (route === '#/ai/persona') {
-          // Секция личности живёт на витрине «Речи и характера» — закрываем
-          // открытую деталь, чтобы deep-link гарантированно попадал в цель.
-          this.speechSection = '';
+          // §4.2 v2.1: секция личности — самостоятельная вкладка «Личность»;
+          // deep-link открывает ИМЕННО её (второго редактора нет).
+          this.speechSection = 'persona';
+          this.speechSectionTouched = true;
           var focusPersona = function () {
             try {
               if (typeof document === 'undefined' || !document
@@ -12705,8 +12709,9 @@
       // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): Tab/Shift+Tab не
       // выводят фокус из открытого drawer. Без ловушки после восьмого пункта
       // фокус уходил на BODY и кнопки шапки — клавиатурный пользователь
-      // «терял» панель, хотя она открыта. Тот же приём, что у «⋯»
-      // (moreMenuOnKeydown): замыкание первого/последнего фокусируемого узла.
+      // «терял» панель, хотя она открыта. Тот же приём, что у панели
+      // dev-диагностики (moreMenuOnKeydown): замыкание первого/последнего
+      // фокусируемого узла.
       drawerOnKeydown: function (e) {
         if (e.key !== 'Tab') return;
         var panel = document.querySelector('.app-drawer');
@@ -12755,47 +12760,12 @@
       // мобильных панелей нет вообще — навигация только drawer.
       shellNavTo: function (route) {
         this.closeDrawer();
-        this.closeMoreMenu();
         this.navigateTo(route);
       },
-      // ═══ ASAP-UI-02 §2.3: меню второстепенных действий («⋯» в шапке) —
-      // popover/sheet ПОВЕРХ контента (не новый ряд шапки). Клавиатура
-      // (Esc/Tab-trap), outside click, focus management (фокус в панель при
-      // открытии, возврат в триггер при закрытии), body-scroll-lock без
-      // прыжков (класс на .app-shell блокирует единственный скроллер
-      // main.scroll-area). Разделы здесь НЕ дублируются — они в drawer. ═══
-      toggleMoreMenu: function () {
-        if (this.moreMenuOpen) this.closeMoreMenu();
-        else this.openMoreMenu();
-      },
-      openMoreMenu: function () {
-        if (this.moreMenuOpen) return;
-        this.moreMenuOpen = true;
-        this.$nextTick(function () {
-          var panel = this.$refs.moreMenuPanel;
-          if (panel && typeof panel.focus === 'function') panel.focus();
-        }.bind(this));
-      },
-      closeMoreMenu: function (refocus) {
-        if (!this.moreMenuOpen) return;
-        this.moreMenuOpen = false;
-        // Возврат фокуса в кнопку-триггер «⋯»; refocus=false — когда
-        // закрытие сопровождается переходом/открытием другого слоя.
-        if (refocus !== false) {
-          var trigger = this.$refs.moreMenuTrigger;
-          if (trigger && typeof trigger.focus === 'function') {
-            try { trigger.focus(); } catch (e) { /* no-op */ }
-          }
-        }
-      },
-      // ASAP-UI-02 §2.2 (ревью, блокер F2, 31.10.2026): на ≤419px ghost-⛶
-      // скрыт в шапке (место отдано имени выбранного чата) и вызывается
-      // отсюда. Механизм не новый: закрываем поповер и вызываем существующий
-      // toggleFullscreen (политика fsSlot/safe-area не меняется).
-      moreMenuFullscreen: function () {
-        this.closeMoreMenu(false);
-        this.toggleFullscreen();
-      },
+      // ═══ §6.1 v2.1 (ASAP-SUMMARY-COVER-INTEGRITY-01): app-level «…» удалён
+      // владельцем. Меню второстепенных действий, дубль идентичности и
+      // отдельный пункт fullscreen больше не существуют; единственная точка
+      // входа ⛶ — кнопка в шапке (header-fs-btn). ═══
 
       // ═══ FS-HOTFIX FOLLOW-UP §8 (18.10): админ-диагностика геометрии ⛶ ═══
       // Временный режим: компактный снимок фактической геометрии для владельца
@@ -12880,8 +12850,9 @@
         return this.fsGeomText;
       },
       openFsGeomDiag: function () {
-        if (!this.isGlobalAdminEffective) return;   // гейт: admin-права
-        if (this.moreMenuOpen) this.closeMoreMenu(false);
+        // §6.1 v2.1: dev-only. В prod-UI входа нет; панель открывается только
+        // при явном внутреннем флаге (?fs_geom_dev=1 / localStorage).
+        if (!this.fsGeomDevEnabled) return;
         this.fsGeomDiagOpen = true;
         var self = this;
         // Снимок собирается ПОСЛЕ закрытия меню (иначе в layout-режим
@@ -12911,11 +12882,11 @@
       moreMenuOnKeydown: function (e) {
         if (e.key === 'Escape') {
           e.preventDefault();
-          this.closeMoreMenu();
+          this.closeFsGeomDiag();
           return;
         }
         if (e.key !== 'Tab') return;
-        var panel = this.$refs.moreMenuPanel;
+        var panel = this.$refs.fsGeomPanel;
         if (!panel) return;
         var focusables = Array.prototype.slice.call(
           panel.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')
@@ -12933,10 +12904,17 @@
           first.focus();
         }
       },
-      moreMenuProfileId: function () {
-        if (!this.isChatContext() || this.activeChatId == null) return '';
-        return this.isDmCtx() ? 'ЛС #' + this.activeChatId
-                              : '#' + this.activeChatId;
+      // §6.1 v2.1: dev-only путь для диагностики геометрии. В prod-UI входа
+      // нет; флаг включается только явно (?fs_geom_dev=1 в URL или
+      // localStorage adminbot.fs_geom_dev=1) — для E2E, не для владельца.
+      fsGeomDevEnabled: function () {
+        try {
+          if (typeof window !== 'undefined' && window.location
+              && String(window.location.search || '')
+                .indexOf('fs_geom_dev=1') >= 0) return true;
+          var ls = (typeof window !== 'undefined') ? window.localStorage : null;
+          return !!(ls && ls.getItem('adminbot.fs_geom_dev') === '1');
+        } catch (e) { return false; }
       },
       // A9/T-1206 + 10.8/ADR-001: «Доступы» — route-driven окна подразделов
       // (hash `#/access/<id>`; состояние окна — производная applyRoute).
@@ -12963,9 +12941,11 @@
         // EVOL-003: окно записи статусного виджета — верхний слой (открывается
         // из строки поверх страницы), Esc закрывает его первым.
         if (this.statusRecordOpen) { this.closeStatusRecord(); return; }
-        // W2-SHELL (U01.4): меню «Ещё» — верхний mobile-оверлей, Esc
-        // закрывает его первым (как модалки ниже).
-        if (this.moreMenuOpen) { this.closeMoreMenu(); return; }
+        // W2-SHELL (U01.4): dev-диагностика геометрии (если открыта по
+        // внутреннему флагу) — верхний слой.
+        if (this.fsGeomDevEnabled && this.fsGeomDiagOpen) {
+          this.closeFsGeomDiag(); return;
+        }
         // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): открытый drawer
         // навигации закрывается Esc даже когда фокус уже вне панели (Tab
         // уводил его в шапку/на BODY — локальный @keydown.esc тогда молчит).
@@ -16163,93 +16143,11 @@
         }, function () { cb(self.getModuleState(fixedScope, moduleId)); });
         return function () { try { stop(); } catch (e) { /* noop */ } };
       },
-      // ═══ F4 D4/§34–§36: избранное — UI-предпочтение (localStorage) ═══
-      _quickpicksStorageKey: function () {
-        var suffix = '';
-        if (this.me && this.me.telegram_id != null) {
-          suffix = ':' + this.me.telegram_id;
-        }
-        return 'adminbot.modules_quickpicks.v1' + suffix;
-      },
-      _lsGet: function (k) {
-        try {
-          var ls = (typeof window !== 'undefined' && window.localStorage)
-            ? window.localStorage
-            : ((typeof localStorage !== 'undefined') ? localStorage : null);
-          return ls ? ls.getItem(k) : null;
-        } catch (e) { return null; }
-      },
-      _lsSet: function (k, v) {
-        try {
-          var ls = (typeof window !== 'undefined' && window.localStorage)
-            ? window.localStorage
-            : ((typeof localStorage !== 'undefined') ? localStorage : null);
-          if (!ls) return false;
-          ls.setItem(k, v);
-          return true;
-        } catch (e) { return false; }
-      },
-      _defaultQuickpicks: function () {
-        var base = ['mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search'];
-        var allowed = {};
-        this.quickpickCandidates.forEach(function (m) { allowed[m.id] = true; });
-        var out = [];
-        base.forEach(function (id) { if (allowed[id]) out.push(id); });
-        if (!out.length) {
-          this.quickpickCandidates.slice(0, 4).forEach(function (m) {
-            out.push(m.id);
-          });
-        }
-        return out;
-      },
-      _sanitizeQuickpicks: function (ids) {
-        var allowed = {};
-        this.quickpickCandidates.forEach(function (m) { allowed[m.id] = true; });
-        var out = [];
-        (ids || []).forEach(function (id) {
-          if (allowed[id] && out.indexOf(id) < 0) out.push(id);
-        });
-        return out;
-      },
-      _readQuickpicks: function () {
-        var raw = this._lsGet(this._quickpicksStorageKey());
-        if (!raw) return null;
-        try {
-          var parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed : null;
-        } catch (e) { return null; }
-      },
-      _writeQuickpicks: function () {
-        try {
-          return this._lsSet(this._quickpicksStorageKey(),
-            JSON.stringify(this.moduleQuickpicks || []));
-        } catch (e) { return false; }
-      },
-      // fail-open: нет localStorage / битый JSON → стартовый набор §34.
-      initQuickpicks: function () {
-        var stored = this._readQuickpicks();
-        if (!stored) {
-          if (Array.isArray(this.moduleQuickpicks)
-              && this.moduleQuickpicks.length) {
-            return;   // уже инициализировано (повторный вызов после loadMe)
-          }
-          stored = this._defaultQuickpicks();
-        }
-        this.moduleQuickpicks = this._sanitizeQuickpicks(stored);
-      },
-      isQuickpick: function (m) {
-        return !!m && (this.moduleQuickpicks || []).indexOf(m.id) >= 0;
-      },
-      // Закрепление/открепление НЕ включает/выключает модуль (§36).
-      toggleQuickpick: function (m) {
-        if (!m) return;
-        var ids = (this.moduleQuickpicks || []).slice();
-        var idx = ids.indexOf(m.id);
-        if (idx >= 0) ids.splice(idx, 1);
-        else ids.push(m.id);
-        this.moduleQuickpicks = this._sanitizeQuickpicks(ids);
-        this._writeQuickpicks();
-      },
+      // ════════════════════════════════════════════════════════════════════
+      // §7 (v2.1): «Избранное» удалено целиком — методов закрепления,
+      // localStorage-ключа и стартового набора больше нет. Замена другим
+      // именем («Закреплено»/«Быстрый доступ») запрещена.
+      // ════════════════════════════════════════════════════════════════════
 
       // ════════════════════════════════════════════════════════════════════
       // EVOL-027 (W10, жёсткое уточнение владельца v0.7): ГЛОБАЛЬНЫЙ тумблер
@@ -16312,16 +16210,157 @@
         return 'Глобально: ' + v + ' — ' + (m ? m.title : '');
       },
       // Эффективное состояние ВЫБРАННОЙ области + источник отличия.
+      // §5 v2.1: это КОРОТКАЯ подсказка рядом с единственным переключателем
+      // («наследуется»/«переопределено»), а не вторая строка со всеми
+      // значениями областей.
       moduleEffectiveLine: function (m) {
-        if (!m || m.noToggle) return '';
-        if (this.scopeKind === 'global') return '';
-        var st = this.getModuleState(this.storeScope(), m.id);
-        var eff = (st.runtime === 'unknown' || st.display === null)
-          ? 'неизвестно' : (st.display ? 'включён' : 'выключен');
-        var src = (st.known && st.effective === st.globalValue)
-          ? 'как глобально' : 'своё значение для чата';
-        return 'Для этой области: ' + eff + ' · источник: ' + src;
+        return this.moduleScopeSourceHint(m);
       },
+      // ════════════════════════════════════════════════════════════════════
+      // §5 v2.1 (окончательное решение владельца): на карточке каталога
+      // РОВНО ОДИН переключатель. Его область — верхний селектор
+      // (GLOBAL / выбранный чат). Глобальный и чатовый тумблеры одновременно
+      // больше не показываются; «всегда глобального» контрола вне GLOBAL нет.
+      // ════════════════════════════════════════════════════════════════════
+      moduleScopeIsGlobal: function () {
+        return this.scopeKind === 'global';
+      },
+      // Есть ли у модуля РЕАЛЬНОЕ chat-scoped управление: runtime читает флаг
+      // с чатом (runtimeGate='per_chat'). Для gate='global' локальный override
+      // инертен — UI не имеет права обещать там ON.
+      moduleHasChatScope: function (m) {
+        return !!(m && m.toggleKey && !m.noToggle
+                  && (m.runtimeGate || 'global') !== 'global');
+      },
+      moduleScopeToggleAvailable: function (m) {
+        if (!m || m.noToggle || !m.toggleKey) return false;
+        if (this.moduleScopeIsGlobal()) return true;
+        return this.moduleHasChatScope(m);
+      },
+      // Состояние ЕДИНСТВЕННОГО контрола: global-scope → глобальный ключ;
+      // chat-scope → серверное effective-значение этой области (с учётом
+      // наследования/override), а не производная от выбранного тумблера.
+      moduleScopeState: function (m) {
+        if (this.moduleScopeIsGlobal()) {
+          var g = this.moduleGlobalState(m);
+          return { display: g.display, known: g.known, pending: g.pending,
+                   error: g.error, hasOverride: false, runtime: '' };
+        }
+        var st = this.getModuleState(this.storeScope(), m.id);
+        return { display: st.display, known: st.known, pending: st.pending,
+                 error: st.error, hasOverride: !!st.hasOverride,
+                 runtime: st.runtime };
+      },
+      moduleScopeCanEdit: function (m) {
+        if (this.moduleScopeIsGlobal()) return this.moduleGlobalCanEdit(m);
+        return this.canEditModule(m);
+      },
+      moduleScopePending: function (m) {
+        return this.moduleScopeIsGlobal() ? this.moduleGlobalPendingFor(m)
+                                          : this.modulePendingFor(m);
+      },
+      moduleScopeErrorFor: function (m) {
+        return this.moduleScopeIsGlobal() ? this.moduleGlobalErrorFor(m)
+                                          : this.moduleSaveErrorFor(m);
+      },
+      moduleScopeLabel: function () {
+        return this.moduleScopeIsGlobal() ? 'Глобально' : 'В этом чате';
+      },
+      moduleScopeStateText: function (m) {
+        if (!this.moduleScopeToggleAvailable(m)) return this.moduleStateText(m);
+        var st = this.moduleScopeState(m);
+        if (!st.known || st.display === null) return 'состояние неизвестно';
+        var base = st.display ? 'включён' : 'выключен';
+        // enabled ≠ healthy: «включён, но не работает» — по runtime-оси.
+        if (st.display && st.runtime === 'blocked') return base + ', но не работает';
+        return base;
+      },
+      // Короткая подпись источника. НЕ тумблер и не второй набор значений.
+      moduleScopeSourceHint: function (m) {
+        if (!m || m.noToggle) return '';
+        if (this.moduleScopeIsGlobal()) return '';
+        if (!this.moduleHasChatScope(m)) return 'управляется глобально';
+        var st = this.moduleScopeState(m);
+        if (!st.known) return '';
+        return st.hasOverride ? 'переопределено для этого чата'
+                              : 'наследуется от глобального';
+      },
+      moduleScopeReadonlyReason: function (m) {
+        if (!this.moduleScopeToggleAvailable(m)) return 'управляется глобально';
+        if (this.moduleScopeCanEdit(m)) return '';
+        return this.moduleScopeIsGlobal()
+          ? 'только чтение (нет прав global admin)'
+          : 'только чтение (нет прав)';
+      },
+      moduleScopeToggleAria: function (m) {
+        var st = this.moduleScopeState(m);
+        var v = st.known ? (st.display ? 'включён' : 'выключен')
+                         : 'состояние неизвестно';
+        var area = this.moduleScopeIsGlobal()
+          ? 'Глобально' : 'В этом чате';
+        return area + ': ' + v + ' — ' + (m ? m.title : '');
+      },
+      // ЕДИНСТВЕННАЯ мутация карточки: область фиксируется верхним селектором
+      // ДО await (setModuleState/setModuleGlobalState фиксируют scope+epoch).
+      setModuleScopeState: async function (m, enabled) {
+        if (!m) return { ok: false, error: 'unknown-module' };
+        if (this.moduleScopeIsGlobal()) {
+          return await this.setModuleGlobalState(m, enabled);
+        }
+        return await this.setModuleState(this.storeScope(), m.id, enabled);
+      },
+      // «Наследовать глобальное» — компактное ДЕЙСТВИЕ, только когда override
+      // действительно существует. Это не второй тумблер и не запись global.
+      moduleOverrideResetAvailable: function (m) {
+        if (!m || m.noToggle || this.moduleScopeIsGlobal()) return false;
+        if (!this.moduleHasChatScope(m)) return false;
+        var item = this._moduleConfigItem(m);
+        return !!(item && item.chat_source === 'chat');
+      },
+      // Удаляет ТОЛЬКО chat override текущего чата (DELETE /api/config/chat/
+      // <key> с X-Chat-Id); глобальное значение не меняется. Ответ поздней
+      // области не применяется: снимок scope/epoch берётся до await.
+      resetModuleChatOverride: async function (m) {
+        if (!m || !m.toggleKey) return { ok: false, error: 'unknown-module' };
+        if (!this.canEditModule(m)) {
+          this.toast('Нет права изменить модуль', 'err');
+          return { ok: false, error: 'forbidden' };
+        }
+        var scope = this.storeScope();
+        if (scope.type === 'global' || scope.id == null) {
+          return { ok: false, error: 'inactive-scope' };
+        }
+        var epoch = this.scopeEpoch;
+        var key = this.storeKey(scope, m.id);
+        if (this.modulePending && this.modulePending[key]) {
+          return { ok: false, skipped: true };
+        }
+        if (!this.modulePending) this.modulePending = {};
+        if (!this.moduleSaveError) this.moduleSaveError = {};
+        this.modulePending[key] = true;
+        this.moduleSaveError[key] = '';
+        try {
+          await this.api('/api/config/chat/' + encodeURIComponent(m.toggleKey),
+                         { method: 'DELETE', chatId: scope.id });
+        } catch (e) {
+          if (this.scopeEpoch === epoch) {
+            this.modulePending[key] = false;
+            this.moduleSaveError[key] = (e && e.status === 409)
+              ? 'Конфликт версии — значение перечитано'
+              : 'Не удалось наследовать глобальное';
+            if (e && e.status === 409) {
+              try { await this.loadConfig(); } catch (err) { /* fail-open */ }
+            }
+          }
+          return { ok: false, error: (e && e.message) || 'error' };
+        }
+        if (this.scopeEpoch !== epoch) return { ok: true, stale: true };
+        this.modulePending[key] = false;
+        try { await this.loadConfig(); } catch (e) { /* fail-open */ }
+        this.toast('Наследует глобальное: ' + m.title, 'ok');
+        return { ok: true };
+      },
+
       // ═══ EVOL-027 v0.7: немедленная глобальная операция ═══
       // Никакого перехода в детали/настройки: одна мутация, подтверждение
       // сервером, pending-состояние, откат при отказе, аудит со scope.
@@ -16417,10 +16456,10 @@
       },
       // Последняя подтверждённая ошибка/выполнение — только реальные данные.
       moduleLastEventLine: function (m) {
-        var err = this.moduleSaveErrorFor(m);
+        // §5 v2.1: одна область — одна ошибка (запоздавший ответ чужой
+        // области не показывается: он живёт под своим scope-ключом).
+        var err = this.moduleScopeErrorFor(m);
         if (err) return 'Последняя операция: ошибка — ' + err;
-        var gerr = this.moduleGlobalErrorFor(m);
-        if (gerr) return 'Последняя глобальная операция: ошибка — ' + gerr;
         var h = this.moduleHealthView(m);
         if (h && h.observedAt) {
           return 'Последнее подтверждённое наблюдение: '
@@ -17858,15 +17897,105 @@
       // ASAP 4.3 (§2/§11, T-4853): Test Style — durable job + polling.
       // НЕ держит долгий fetch; НЕ открывает file picker; не публикует;
       // не тратит issue number. Двойной тап не создаёт повторный job.
+      // §3.4 v2.1: единственный источник времени — СЕРВЕР (`elapsed_ms`/
+      // `elapsed_seconds`/`queued_at`/`started_at`); локальный тик только
+      // прибавляет прошедшее время к серверной базе через performance.now(),
+      // без Date.now()−0 и без смешивания Unix-времени с монотонным.
+      _coverPerfNow: function () {
+        try {
+          if (typeof performance !== 'undefined' && performance.now) {
+            return performance.now();
+          }
+        } catch (e) { /* нет performance — таймер честно замирает */ }
+        return null;
+      },
+      // Состояние автомата теста: idle → queued → running(base) →
+      // running(edit) → succeeded | failed | cancelled | expired.
+      coverTestState: function () {
+        var st = this.coverStyles || {};
+        var j = st.previewJob;
+        if (j && j.terminal) {
+          if (j.terminal === 'succeeded') return 'succeeded';
+          if (j.terminal === 'cancelled') return 'cancelled';
+          if (j.terminal === 'expired') return 'expired';
+          return 'failed';
+        }
+        if (j && (j.job_id || j.pending_start)) {
+          var stage = String(j.stage || '');
+          if (stage === 'style_editing' || stage === 'saving_preview') {
+            return 'running_edit';
+          }
+          if (stage === 'base_generating' || stage === 'base_ready') {
+            return 'running_base';
+          }
+          if (stage === 'queued') return 'queued';
+          return j.started_at ? 'running_base' : 'queued';
+        }
+        return 'idle';
+      },
+      coverTestStateLabel: function () {
+        return {
+          idle: '',
+          queued: 'В очереди',
+          running_base: 'Генерация базовой обложки',
+          running_edit: 'Применение стиля',
+          succeeded: 'Готово: стиль применён',
+          failed: 'Проверка не удалась',
+          cancelled: 'Проверка отменена',
+          expired: 'Проверка истекла',
+        }[this.coverTestState()] || '';
+      },
+      coverTestActive: function () {
+        return ['queued', 'running_base', 'running_edit']
+          .indexOf(this.coverTestState()) >= 0;
+      },
+      // Прошедшее время: серверная база + локальная дельта (монотонная).
+      // Нет `started_at` (job ещё в очереди) → «—», а не миллионы секунд.
+      coverTestElapsedText: function () {
+        var j = this.coverStyles && this.coverStyles.previewJob;
+        // Реактивная зависимость для секундного тика (значение не считается
+        // временем — только триггер перерисовки).
+        var _tick = this.coverStyles.tickCount || 0;  // eslint-disable-line
+        if (!j) return '';
+        var baseMs = j.server_elapsed_ms;
+        if (baseMs === null || baseMs === undefined) return '—';
+        var now = this._coverPerfNow();
+        var extra = 0;
+        if (j.timing_fetched_at !== null && j.timing_fetched_at !== undefined
+            && now !== null) {
+          extra = Math.max(0, now - j.timing_fetched_at);
+        }
+        var total = Math.max(0, Number(baseMs) + extra);
+        var secs = Math.floor(total / 1000);
+        return secs + ' с';
+      },
+      _coverTestTickStart: function () {
+        var st = this.coverStyles;
+        if (!st) return;
+        var self = this;
+        if (st.previewTickTimer) clearInterval(st.previewTickTimer);
+        st.previewTickTimer = setInterval(function () {
+          if (!self.coverTestActive()) return;
+          st.tickCount = (st.tickCount || 0) + 1;
+        }, 1000);
+      },
+      _coverTestTickStop: function () {
+        var st = this.coverStyles;
+        if (st && st.previewTickTimer) {
+          clearInterval(st.previewTickTimer);
+          st.previewTickTimer = null;
+        }
+      },
       coverPreviewStageText: function (stage) {
         return {
-          queued: 'Генерируем базовую обложку…',
+          queued: 'В очереди',
           base_generating: 'Генерируем базовую обложку…',
           base_ready: 'Генерируем базовую обложку…',
           style_editing: 'Применяем стиль…',
           saving_preview: 'Сохраняем результат…',
         }[stage] || '';
       },
+
       coverPreviewConnectionLost: function () {
         return 'Потеряно соединение с сервером. ' +
           'Генерация могла продолжиться; пробуем восстановить состояние.';
@@ -17916,11 +18045,15 @@
         var self = this;
         st.previewBusy = true;
         st.preview = null;
+        // `pending_start` — job стартует; время берётся ТОЛЬКО с сервера,
+        // поэтому локальной метки старта здесь нет.
         st.previewJob = {
           job_id: null, profile_id: c.profile_id, stage: 'queued',
-          started_at: Math.floor(Date.now() / 1000), elapsed: 0,
-          failures: 0, finished: false, timer: null, result: null,
+          status: 'queued', pending_start: true, server_elapsed_ms: null,
+          timing_fetched_at: null, failures: 0, finished: false,
+          terminal: '', timer: null, result: null,
         };
+        this._coverTestTickStart();
         this.api('/api/cover/test-style', {
           global: true, method: 'POST',
           body: JSON.stringify({ profile_id: c.profile_id,
@@ -17931,6 +18064,7 @@
           j.job_id = (data && data.job_id) || j.job_id;
           j.reused = !!(data && data.reused);
           j.stage = (data && data.stage) || 'queued';
+          j.pending_start = false;
           self.coverStylePollJob();
         }).catch(function (e) {
           // §3: сырой Failed to fetch никогда не финал; серверный dedup
@@ -17944,14 +18078,29 @@
               return;
             }
           }
-          self.coverStyles.previewBusy = false;
-          self.coverStyles.preview = {
+          self.coverStyleFinishJob('failed', {
             applied: false,
             message: (e && e.status && e.message) ? e.message
               : self.coverPreviewConnectionLost(),
             developer_reason: (e && e.message) || 'network',
-          };
+          });
         });
+      },
+      // Терминальное состояние: спиннер/«Обработка…» снимаются ВСЕГДА,
+      // поздний poll больше не возвращает `running`, кнопка снова доступна,
+      // окно закрывается без блокировки (закрытие не зависит от job'а).
+      coverStyleFinishJob: function (terminal, result) {
+        var st = this.coverStyles;
+        var j = st && st.previewJob;
+        if (j) {
+          j.finished = true;
+          j.terminal = terminal;
+          j.pending_start = false;
+          if (j.timer) { clearTimeout(j.timer); j.timer = null; }
+        }
+        st.previewBusy = false;
+        this._coverTestTickStop();
+        if (result) st.preview = result;
       },
       coverStyleRetryStart: function () {
         var self = this;
@@ -17972,17 +18121,17 @@
             if (!jj) return;
             jj.job_id = (data && data.job_id) || jj.job_id;
             jj.stage = (data && data.stage) || 'queued';
+            jj.pending_start = false;
             self.coverStylePollJob();
           }).catch(function () {
             var jj = self.coverStyles.previewJob;
             if (!jj) return;
             jj.failures = (jj.failures || 0) + 1;
             if (jj.failures <= 8) { self.coverStyleRetryStart(); return; }
-            self.coverStyles.previewBusy = false;
-            self.coverStyles.preview = {
+            self.coverStyleFinishJob('failed', {
               applied: false, message: self.coverPreviewConnectionLost(),
               developer_reason: 'network',
-            };
+            });
           });
         }, delay);
       },
@@ -17998,27 +18147,36 @@
           .then(function (snap) {
             var jj = self.coverStyles.previewJob;
             if (!jj || jj.job_id !== j.job_id) return;
+            if (jj.finished) return;      // поздний ответ не «оживляет» job
             jj.failures = 0;
             jj.stage = (snap && snap.stage) || jj.stage;
             jj.status = (snap && snap.status) || jj.status;
-            if (snap && snap.started_at) jj.started_at = snap.started_at;
+            // §3.4: время — ТОЛЬКО серверное; база + монотонная дельта.
+            var srvMs = (snap && snap.elapsed_ms !== null
+                         && snap.elapsed_ms !== undefined)
+              ? Number(snap.elapsed_ms)
+              : ((snap && snap.elapsed_seconds !== null
+                  && snap.elapsed_seconds !== undefined)
+                 ? Number(snap.elapsed_seconds) * 1000 : null);
+            jj.server_elapsed_ms = (isFinite(srvMs) && srvMs !== null)
+              ? srvMs : null;
+            jj.timing_fetched_at = self._coverPerfNow();
+            jj.timing_source = (snap && snap.timing_source) || '';
+            if (snap && snap.queued_at != null) jj.queued_at = snap.queued_at;
+            if (snap && snap.started_at != null) jj.started_at = snap.started_at;
             if (snap && snap.prompt) jj.prompt = snap.prompt;
-            // §11: elapsed — только информационный, не решает про ошибку.
-            jj.elapsed = Math.max(0, Math.floor(Date.now() / 1000)
-              - (jj.started_at || 0));
             if (snap && snap.status === 'completed') {
-              jj.finished = true;
-              st.previewBusy = false;
-              st.preview = {
+              self.coverStyleFinishJob('succeeded', {
                 applied: true, message: 'Стиль применён',
                 provider: snap.provider, model: snap.model,
                 preview_issue: c_issue(self),
                 preview_before_url: snap.preview_before_url,
                 preview_after_url: snap.preview_after_url,
+                preview_revision: snap.preview_revision || null,
+                duration_ms: snap.elapsed_ms != null ? snap.elapsed_ms : null,
                 prompt: snap.prompt || null,
                 prompt_manifest: snap.prompt_manifest || null,
-                duration_ms: null,
-              };
+              });
               var c = st.current;
               if (c && c.profile_id === jj.profile_id) {
                 self.coverStyleLoadMeta(jj.profile_id);
@@ -18026,27 +18184,62 @@
               self.loadCoverStyles();
               return;
             }
-            if (snap && snap.status === 'failed') {
-              jj.finished = true;
-              st.previewBusy = false;
-              st.preview = {
+            if (snap && (snap.status === 'cancelled'
+                         || snap.status === 'interrupted')) {
+              self.coverStyleFinishJob('cancelled', {
                 applied: false,
-                message: (snap && snap.human_message) ||
-                  'Стиль не применён: провайдер отклонил запрос.',
+                message: (snap && snap.human_message)
+                  || 'Проверка отменена — стиль не применён.',
                 developer_reason: (snap && snap.machine_reason) || '',
                 prompt: snap.prompt || null,
                 prompt_manifest: snap.prompt_manifest || null,
-              };
+              });
               return;
             }
-            // queued/running — продолжаем наблюдение.
+            if (snap && (snap.status === 'expired'
+                         || (snap && snap.status === 'failed'))) {
+              var reason = (snap && snap.machine_reason) || '';
+              var stateKey = (snap && snap.status === 'expired')
+                ? 'expired' : 'failed';
+              self.coverStyleFinishJob(stateKey, {
+                applied: false,
+                message: (snap && snap.human_message) ||
+                  'Стиль не применён: провайдер отклонил запрос.',
+                developer_reason: reason,
+                error_class: (snap && snap.error_class) || '',
+                warnings: (snap && snap.warnings) || [],
+                prompt: snap.prompt || null,
+                prompt_manifest: snap.prompt_manifest || null,
+              });
+              return;
+            }
+            // queued/running — продолжаем наблюдение (конечный watchdog).
             jj.timer = setTimeout(function () {
               self.coverStylePollJob();
             }, 1500);
           })
           .catch(function (e) {
             var jj = self.coverStyles.previewJob;
-            if (!jj || jj.job_id !== j.job_id) return;
+            if (!jj || jj.job_id !== j.job_id || jj.finished) return;
+            // 404 — job неизвестен серверу (журнал очищен/перезапуск):
+            // это ФИНАЛ с честной причиной, а не бесконечное «Обработка…».
+            if (e && e.status === 404) {
+              self.coverStyleFinishJob('failed', {
+                applied: false,
+                message: 'Проверка недоступна: сервер не нашёл задачу. '
+                  + 'Запустите проверку заново.',
+                developer_reason: 'job_not_found',
+              });
+              return;
+            }
+            if (e && (e.status === 403 || e.status === 401)) {
+              self.coverStyleFinishJob('failed', {
+                applied: false,
+                message: 'Нет доступа к результату проверки.',
+                developer_reason: (e && e.message) || 'forbidden',
+              });
+              return;
+            }
             jj.failures = (jj.failures || 0) + 1;
             // §3 (п.4/5): временная недоступность/обрыв — человеческая фраза,
             // НЕ финал; reconnect и дочитывание job.
@@ -19552,6 +19745,11 @@
         // перечитывается при входе, черновики разделов сохраняются.
         if (id === 'speech' && !this.speechLoading) {
           this.loadSpeechOverview();
+          // §4.2 v2.1: по умолчанию виден АКТИВНЫЙ рабочий блок (первая
+          // вкладка «Личность»), а не длинная витрина/скролл всех редакторов.
+          if (!this.speechSection && !this.speechSectionTouched) {
+            this.openSpeechSection('persona');
+          }
         }
         // EVOL-028 v0.8: личность теперь часть «Речи и характера» — данные
         // персонального редактора грузятся вместе с разделом.
@@ -20326,8 +20524,6 @@
         try {
           this.me = await this.api('/api/me');
           this.authError = null;
-          // F4 D4: ключ избранного модулей — с суффиксом аккаунта, если есть.
-          this.initQuickpicks();
           // UI-полировка TMA: свежий аватар (CDN photo_url / blob-прокси);
           // после ошибок поле сбрасывается — img может появиться вновь
           this.refreshMeAvatar();
@@ -23400,6 +23596,9 @@
       personaSetField: function (field, value) {
         if (!this.personaDraft) return;
         this.personaDraft[field] = value;
+        // §4.2 v2.1: несохранённая правка личности видна и защищена при
+        // переходе между вкладками (черновик не сбрасывается).
+        this.personaDirty = true;
       },
       loadPersona: async function () {
         var epoch = this.scopeEpoch;
@@ -23415,6 +23614,7 @@
             system_prompt_overrides: v.system_prompt_overrides || '',
             is_aware_ai: !!v.is_aware_ai,
           };
+          this.personaDirty = false;
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           this.personaMeta = null;
@@ -23823,7 +24023,21 @@
         if (d.coreCompact) n += 1;
         if (d.style) n += 1;
         if (d.expression) n += 1;
+        if (d.examples) n += 1;
+        if (d.humor) n += 1;
+        if (this.personaDirty) n += 1;
         return n;
+      },
+      // §4.2 v2.1: несохранённый черновик виден на САМОЙ вкладке — переход
+      // между вкладками его не теряет и не прячет.
+      speechAreaDirty: function (areaId) {
+        var d = this.speechDirty || {};
+        if (areaId === 'persona') return !!(this.personaDirty
+          || d.coreFull || d.coreCompact);
+        if (areaId === 'style') return !!(d.style || d.humor);
+        if (areaId === 'profanity') return !!d.expression;
+        if (areaId === 'examples') return !!d.examples;
+        return false;
       },
       // P0A-UX §5.5: «Сохранено ✓ HH:MM» — 10 с или до следующего ввода.
       markSpeechSaved: function (section) {
@@ -24046,15 +24260,37 @@
       speechBack: function () {
         // Один экран за раз: возврат к витрине; черновики сохраняются.
         this.speechSection = '';
+        this.speechSectionTouched = true;
+      },
+      // §4.2: «Мат» — ОТДЕЛЬНАЯ вкладка, но ТА ЖЕ серверная сущность
+      // (`/api/speech/expression`, тот же saveSpeechExpression) — второго
+      // write-path и второй истины нет.
+      // §4.2 v2.1: контролы выражения показываются по вкладке — «Мат» только
+      // свой контроль, «Речь и стиль» — остальные; данные и save-путь ОДНИ.
+      speechExpressionControls: function (scope) {
+        var list = (this.speechExpression && this.speechExpression.controls) || [];
+        var profOnly = (scope === 'profanity');
+        var styleOnly = (scope === 'style');
+        return list.filter(function (c) {
+          if (!c) return false;
+          if (profOnly) return c.id === 'profanity';
+          if (styleOnly) return c.id !== 'profanity';
+          return true;
+        });
+      },
+      _speechSectionLoadKey: function (id) {
+        return id === 'profanity' ? 'expression' : id;
       },
       openSpeechSection: function (id) {
         if (!id) return null;
         this.speechSection = id;
-        this.speechSectionLoading = !this.speechLoaded[id];
+        this.speechSectionTouched = true;
+        var key = this._speechSectionLoadKey(id);
+        this.speechSectionLoading = !this.speechLoaded[key];
         // B1 (ревью W4): возвращаем промис первой загрузки, чтобы вызывающий
         // мог дождаться отрисованного раздела, а не прокручивать к ещё пустому
         // DOM (иначе detail «прыгает» после прихода списка).
-        var load = this.speechLoaded[id] ? null : this.loadSpeechSection(id);
+        var load = this.speechLoaded[key] ? null : this.loadSpeechSection(key);
         this.scrollSpeechTop();
         return load;
       },
@@ -24145,6 +24381,9 @@
       },
       loadSpeechSection: async function (id, force) {
         var self = this;
+        // §4.2: «Мат» — та же серверная сущность, что «Речь и стиль»
+        // (expression); отдельного endpoint/второй истины нет.
+        id = this._speechSectionLoadKey(id);
         // U-07 (§8): перечитывание раздела снимает состояние конфликта —
         // база для следующей правки снова актуальна.
         if (this.speechConflict && this.speechConflict.section === id) {
@@ -24220,6 +24459,11 @@
           } else if (id === 'inspector') {
             this.speechInspectorLayer = '';
             this.speechInspector = await this.api('/api/speech/inspector');
+          } else if (id === 'persona' || id === 'rules') {
+            // §4.2: «Личность» и «Правила и источники» питаются уже
+            // существующими endpoint'ами (`/api/persona` +
+            // `/api/persona/self-model`), вторая истина не создаётся.
+            await this.loadPersona();
           }
           this.speechLoaded[id] = true;
           if (force) this.speechLoaded[id] = true;
@@ -26038,6 +26282,7 @@
           // PUT отдаёт {scope, chat_id, values, is_global}; persona_enabled
           // приходит только из GET — мёржим, не теряем индикатор флага.
           this.personaMeta = Object.assign({}, this.personaMeta || {}, data || {});
+          this.personaDirty = false;
           this.toast('Личность сохранена', 'ok');
         } catch (e) {
           if (e.status === 409) {

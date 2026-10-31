@@ -1511,10 +1511,53 @@
       .graph-search { max-width: 460px; }        /* не на всю ширину */
       .graph-search .graph-search__input { flex: 1 1 220px; }
     }
-    /* F5 (T-1819, ТЗ п.5): объединённый блок «Статус» —
-       Сердцебиение + Бот + Сервер (мобила — столбик, десктоп — рядом). */
+    /* F5 (T-1819, ТЗ п.5) + §6.4 v2.1: ОДИН блок оперативного здоровья —
+       сверху компактная строка ошибок/предупреждений, ниже три сегмента
+       (мобила — столбик, десктоп — рядом) с тонкими внутренними разделителями
+       на существующих токенах, без отдельных толстых рамок. */
     .status-block { grid-column: 1 / -1; }
     .status-block__grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .status-health { padding: var(--space-4); }
+    .status-health__line {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: var(--space-1) var(--space-3);
+      padding-bottom: var(--space-2);
+      border-bottom: var(--border-hairline) solid var(--surface-border);
+      min-width: 0;
+    }
+    /* Сегменты — ВНУТРИ одной поверхности: никакой второй рамки/blur. */
+    .status-block__grid.status-health__segs {
+      gap: 0;
+      border-top: none;
+      grid-template-columns: 1fr;
+    }
+    .status-health__seg { min-width: 0; padding: var(--space-3) 0 0; }
+    .status-health__seg + .status-health__seg {
+      margin-top: var(--space-3);
+      border-top: var(--border-hairline) solid var(--surface-border);
+    }
+    @media (min-width: 768px) {
+      .status-block__grid.status-health__segs {
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1.2fr);
+        align-items: start;
+      }
+      .status-health__seg { padding: var(--space-3) var(--space-3) 0; }
+      .status-health__seg:first-child { padding-left: 0; }
+      .status-health__seg + .status-health__seg {
+        margin-top: 0;
+        border-top: none;
+        border-left: var(--border-hairline) solid var(--surface-border);
+      }
+    }
+    /* §6.3 v2.1: на телефоне действия бота — компактные кнопки с tap ≥44px,
+       а не три огромные плитки. */
+    .status-health__bot-actions { gap: 6px; }
+    .status-health__bot-btn {
+      min-height: var(--control-h-touch, 44px);
+      padding: 2px 10px;
+      font-size: var(--tx-small, 12px);
+      line-height: 1.2;
+    }
     @media (min-width: 768px) {
       .status-block__grid {
         grid-template-columns: 1.4fr 1fr 1.2fr; align-items: start;
@@ -1543,9 +1586,8 @@
     .status-grid > .sg-8 { grid-column: span 8; }
     .status-grid > .sg-4 { grid-column: span 4; }
     .status-grid > .sg-12 { grid-column: 1 / -1; }
-    /* §14: метрики+heartbeat — 7 колонок (класс `.status-block` сохранён
-       байт-в-байт для hotfix6/10-контракта; спаны задаются селектором). */
-    .status-grid > .status-block { grid-column: span 7; }
+    /* §14: оперативный блок здоровья занимает всю ширину (одна поверхность). */
+    .status-grid > .status-block { grid-column: 1 / -1; }
     .status-grid > .glass-surface { grid-column: 1 / -1; }
     @media (max-width: 991px) {
       .status-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
@@ -2842,8 +2884,21 @@
     }
 
     /* Drawer (768–1199): без постоянного sidebar — временная панель. */
+    /* §6.2 v2.1: панель начинается НИЖЕ фактически занятой системной/
+       Telegram-области (safeAreaInset + contentSafeAreaInset + env()), поэтому
+       не заходит под строку состояния, «Закрыть» и верхнюю панель — включая
+       fullscreen. Фиксированных «магических» пикселей под конкретный телефон
+       нет: только реальные платформенные величины. */
     .app-drawer {
-      position: fixed; top: 0; left: 0; bottom: 0; width: min(280px, 84vw);
+      position: fixed; left: 0; bottom: 0;
+      top: calc(max(env(safe-area-inset-top, 0px),
+                     var(--tg-safe-area-inset-top, 0px))
+                + var(--tg-content-safe-area-inset-top, 0px));
+      width: min(280px, 84vw);
+      max-height: calc(var(--vv-h, 100vh) - calc(
+                     max(env(safe-area-inset-top, 0px),
+                         var(--tg-safe-area-inset-top, 0px))
+                     + var(--tg-content-safe-area-inset-top, 0px)));
       padding: .75rem .5rem calc(.75rem + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)));
       /* HOTFIX8 (ADR-1025-16 D2/D4): drawer — тот же §4 shell-слой, что
          sidebar/bottom-nav; скруглён с внутренней стороны (18 px). */
@@ -2857,9 +2912,11 @@
       -webkit-backdrop-filter: var(--shell-blur);
       backdrop-filter: var(--shell-blur);
       transform: translateX(-105%); transition: transform .2s ease;
-      overflow-y: auto; z-index: 40;
+      overflow-y: auto; overscroll-behavior: contain; z-index: 40;
     }
     .app-drawer.open { transform: translateX(0); }
+    .app-shell:not(.drawer-open) .app-drawer { visibility: hidden; }
+    .app-shell.drawer-open .app-drawer { visibility: visible; }
     .drawer-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 35;
     }
@@ -3091,7 +3148,7 @@
     @media (prefers-reduced-motion: reduce) {
       .module-toggle.is-saving::after { animation: none; }
     }
-    .module-pin-btn { white-space: nowrap; }
+    /* §7 (v2.1): стиль кнопки закрепления удалён вместе с концепцией. */
     /* Тач-цели фильтров — ≥44×44 на mobile. */
     @media (max-width: 767px) {
       .module-filter-btn { min-height: 44px; }
@@ -3560,13 +3617,13 @@
    (тот же `fsSlot`, тот же toggleFullscreen через moreMenuFullscreen), дубля
    нет: в шапке ⛶ скрыт, в меню — единственный пункт «На весь экран». */
 @media (max-width: 519px) {
-  .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-fs-btn {
-    display: none;
-  }
-  .app-shell.shell-mobile .more-menu-action { display: flex; }
+  /* §6.1 v2.1: единственная кнопка ⛶ ОСТАЁТСЯ в шапке на любой узкой ширине
+     (бывший пункт меню «…» удалён). Место освобождает ИМЯ области, а не
+     fullscreen-действие. */
+  .app-shell.shell-mobile .header-fs-btn { display: inline-flex; }
   /* Бюджет строки на телефоне: имя области/чата растёт не бесконечно (иначе
      его min-content вытесняет имя раздела), бейдж роли — короткий (полная
-     роль в title и в «⋯»). */
+     роль в title). */
   .app-shell.shell-mobile .scope-trigger .scope-name {
     display: inline-block;
     max-width: clamp(2.5rem, 15vw, 5.5rem);
@@ -4246,10 +4303,12 @@ html.cover-editor-open { overflow: hidden; }
 /* U06.1: секции рабочего инструмента — solid-карточки Tier C (читаемый
    текст без стекла/рефракции на textarea и selection). */
 .cover-editor-sec {
-  border: 1px solid var(--surface-border);
+  /* §6.3 v2.1: секция внутри стеклянного редактора — волосяная рамка из
+     токенов и единый радиус/отступ (без второй «тяжёлой» рамки). */
+  border: var(--border-hairline) solid var(--surface-border);
   background: var(--surface-0, #090D17);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-3);
 }
 .cover-sec-title {
   font-size: 0.7rem;
@@ -5445,6 +5504,33 @@ html.cover-editor-open { overflow: hidden; }
 /* EVOL-017: «История версий» в редакторе промпта. На 390px портрет
    контролы переносятся, тач-цели ≥44px, длинный diff не раздувает страницу. */
 .prompt-history { min-width: 0; max-width: 100%; }
+/* §2 UI v2.1: строка активной редакции больше не «слипается» — единый
+   интервал токенов + волосяные разделители между смысловыми частями
+   (одинаково на 1280 и 390, без локальных магических пикселей). */
+.prompt-history-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+.prompt-history-active > * { min-width: 0; overflow-wrap: anywhere; }
+.prompt-history-active > * + * { position: relative; }
+.prompt-history-active > * + *::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--space-2) + 1px);
+  top: 50%;
+  width: var(--border-hairline);
+  height: 10px;
+  transform: translateY(-50%);
+  background: var(--surface-border);
+}
+@media (max-width: 767px) {
+  .prompt-history-active { gap: 2px var(--space-2); }
+  .prompt-history-active > * + *::before { display: none; }
+}
 .prompt-history-toggle { min-height: 44px; }
 .prompt-history-diff-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .prompt-history-select { min-width: 0; flex: 1 1 12rem; max-width: 100%; }
@@ -6499,6 +6585,18 @@ html.w9-sheet-bottom .modal-card {
 }
 .module-control-row .module-toggle { min-width: 44px; min-height: 44px; justify-content: flex-end; }
 .module-control-row--readonly .module-control-row__label { color: rgba(148, 163, 184, .85); }
+/* §5 v2.1: «Наследовать глобальное» — компактное действие под единственным
+   тумблером (не второй переключатель, не отдельная строка значений). */
+.module-override-reset {
+  justify-self: start;
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+@media (max-width: 767px) {
+  .module-override-reset { min-height: 44px; }
+}
 .module-status-line { font-size: 11px; color: rgba(178, 192, 212, .85); }
 .module-status-line--error { color: #FCA5A5; }
 .module-health { font-size: 11px; }
@@ -6510,10 +6608,24 @@ html.w9-sheet-bottom .modal-card {
 .module-card-actions { margin-top: auto; padding-top: 8px; }
 
 /* ── W10-5. «ИИ»: рабочая панель (EVOL-028) ────────────────────────────── */
+/* §4.2 v2.1: компактный функциональный хаб. Карточки НЕ растягиваются до
+   высоты самой длинной соседки (никаких четырёх вытянутых пустых колонок):
+   модели занимают широкий слот, остальные — компактные входы по контенту. */
 .w10-panel { display: grid; gap: 12px; grid-column: 1 / -1; }
 .w10-panel__sections {
   display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: start;                 /* карточка = её контент, без stretch */
+  grid-auto-rows: min-content;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+@media (min-width: 1024px) {
+  .w10-panel__sections {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+  .w10-panel__sections > [data-ai-models] { grid-row: span 3; }
+  .w10-panel__sections > [data-ai-speech],
+  .w10-panel__sections > [data-ai-names],
+  .w10-panel__sections > [data-ai-prompts] { align-self: start; }
 }
 .w10-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .w10-section__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -7187,10 +7299,18 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
 .speech-area-nav__btn:focus-visible {
   outline: 2px solid var(--teal-500, #42D6C4); outline-offset: 1px;
 }
+/* §4.2 v2.1: несохранённый черновик вкладки — маленькая точка, не бейдж. */
+.speech-area-nav__dot {
+  color: var(--warn, #FBBF24);
+  font-size: var(--tx-small, 12px); line-height: 1;
+}
 @media (max-width: 767px) {
   .speech-area-nav { gap: 4px; padding: 6px; }
   .speech-area-nav__btn {
     flex: 0 1 auto; min-height: var(--ctl-h-touch, 44px);
+    /* Короткие названия («Мат») тоже дают tap-цель ≥44px по ширине. */
+    min-width: var(--ctl-h-touch, 44px);
+    justify-content: center;
     font-size: var(--tx-tiny); padding: 4px 8px;
   }
 }

@@ -101,7 +101,6 @@
                   (shellFlexV3 && shellLayoutV2) ? 'shell-flex-v3' : 'shell-layout-legacy',
                   shellGlassV2 ? 'shell-glass-v2' : 'shell-glass-legacy',
                   shellGraphiteV3 ? 'shell-v3' : 'shell-v3-off',
-                  moreMenuOpen ? 'more-menu-open' : '',
                   drawerOpen ? 'drawer-open' : '',
                   statusRecordOpen ? 'sfeed-modal-open' : '']">
       <!-- ═══ F1 (ADR-1025-1 D6, §4.2): desktop sidebar — СТРОГО ≥1200 px.
@@ -227,27 +226,7 @@
             <span>{{ headerSaveChip.label }}</span>
           </div>
           <!-- W2-FULLSCREEN (REQ-U07-2/U07.2) + FS-HOTFIX 18.10: -->
-          <!-- ЕДИНСТВЕННЫЙ узел ⛶. Слот (inline|hidden) решает -->
-          <!-- fullscreen-policy.js (html.fs-hidden, data-fs-reason на <html>); -->
-          <!-- hidden (вне Telegram/клиент без API) → кнопка не рендерится -->
-          <!-- вовсе (v-if, без мёртвого контрола). Материал (EVOL-023 §4, -->
-          <!-- ревью F1 31.10.2026): compact GHOST-ICON — только иконка и -->
-          <!-- прозрачная hit-цель ≥44×44, БЕЗ декоративной мини-линзы -->
-          <!-- (.lg-mini-lens снят: в шапке читался как отдельный стеклянный -->
-          <!-- объект). aria по ACK-состоянию; aria-pressed — только при -->
-          <!-- подтверждённом факте (fsAriaPressed). -->
-          <button v-if="me && fsSlot !== 'hidden'" type="button"
-                  class="text-xs shrink-0 header-fs-btn"
-                  :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
-                  :aria-label="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
-                  :aria-pressed="fsAriaPressed"
-                  @click="toggleFullscreen()"><svg v-if="!isFullscreen" class="fs-ic"
-                  viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
-                  focusable="false"><path fill="currentColor"
-                  d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg
-                  v-else class="fs-ic" viewBox="0 0 24 24" width="18" height="18"
-                  aria-hidden="true" focusable="false"><path fill="currentColor"
-                  d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+          <!-- ЕДИНСТВЕННЫЙ узел ⛶ — теперь на месте бывшего «…» (см. ниже). -->
           <!-- D2/T-2608: обёртка строки 2 — селектор/бейдж/аватар/роль.
                В legacy `display:contents` → дети снова flex-элементы шапки. -->
           <div class="header-scope-row">
@@ -359,15 +338,23 @@
             <span class="header-search-label">Поиск</span>
             <kbd class="header-search-kbd" aria-hidden="true">Ctrl K</kbd>
           </button>
-          <button v-if="iaV2 && isMobileShell" class="btn-ghost header-more-btn shrink-0"
-                  data-more-trigger ref="moreMenuTrigger"
-                  title="Дополнительно" aria-label="Дополнительные действия"
-                  aria-haspopup="menu" :aria-expanded="moreMenuOpen ? 'true' : 'false'"
-                  @click="toggleMoreMenu()">
-            <svg class="ui-ic" viewBox="0 0 24 24" width="20" height="20"
-                 aria-hidden="true" focusable="false"><path fill="currentColor"
-                 d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-          </button>
+          <!-- §6.1 v2.1 (решение владельца): app-level «…» удалён полностью.
+               На его месте — ЕДИНСТВЕННАЯ кнопка fullscreen (иконка по
+               реальному режиму, компактный оптический размер, tap ≥44px).
+               Второй точки входа ⛶ (бывший пункт меню) больше нет. -->
+          <button v-if="me && fsSlot !== 'hidden'" type="button"
+                  class="text-xs shrink-0 header-fs-btn"
+                  data-fs-toggle
+                  :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
+                  :aria-label="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
+                  :aria-pressed="fsAriaPressed"
+                  @click="toggleFullscreen()"><svg v-if="!isFullscreen" class="fs-ic"
+                  viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
+                  focusable="false"><path fill="currentColor"
+                  d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg
+                  v-else class="fs-ic" viewBox="0 0 24 24" width="18" height="18"
+                  aria-hidden="true" focusable="false"><path fill="currentColor"
+                  d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
           <!-- Раунд 10.6 (A1/T-1158/T-1159): navbar — ровно 6 пунктов;
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
                активный — по route (activeNav), aria-current.
@@ -459,81 +446,15 @@
           </div>
         </div>
 
-        <!-- ═══ ASAP-UI-02 §2.3: меню второстепенных действий («⋯» в шапке).
-             Основные разделы живут в drawer — здесь их НЕТ (два конкурирующих
-             меню запрещены). Содержимое: редкие/служебные действия и
-             идентификация (полное имя, роль, ID области), которая в шапке
-             показана компактно. Popover поверх контента, не новый ряд шапки. -->
-        <div v-if="iaV2 && isMobileShell && moreMenuOpen" class="more-menu-root">
-          <div class="more-menu-backdrop" aria-hidden="true"
-               @click="closeMoreMenu()"></div>
-          <div ref="moreMenuPanel" class="more-menu-panel" data-glass="c"
-               role="menu" aria-label="Дополнительные действия" tabindex="-1"
-               @keydown="moreMenuOnKeydown($event)">
-            <!-- FS-HOTFIX FOLLOW-UP §8 (директива владельца 18.10): временная
-                 админ-диагностика геометрии ⛶. Закрыта по умолчанию (вход —
-                 только здесь), места в обычном UI не занимает; гейт —
-                 существующие admin-права (isGlobalAdminEffective). Это НЕ
-                 раздел навигации (потому и не .more-menu-item): отдельный
-                 admin-инструмент в подвале того же меню. Убрать после приёмки. -->
-            <button v-if="isGlobalAdminEffective" type="button"
-                    class="more-menu-admin-tool" data-fs-geom-diag-entry
-                    title="Компактный снимок геометрии fullscreen (временная админ-диагностика)"
-                    @click="openFsGeomDiag()">
-              <span class="msr" aria-hidden="true">{{ iconGlyph('visibility') }}</span>
-              <span class="more-menu-label">Диагностика геометрии ⛶</span>
-            </button>
-            <!-- ASAP-UI-02 §2.2/§2.3 (ревью, блокер F2, 31.10.2026): на самых
-                 узких экранах (≤419px) ghost-⛶ не помещается в шапке рядом с
-                 именем выбранного чата — там действие живёт здесь (то же
-                 действие и та же политика `fsSlot`). Выше 420px пункт скрыт
-                 CSS: ⛶ есть в шапке, дубля нет. -->
-            <button v-if="me && fsSlot !== 'hidden'" type="button"
-                    class="more-menu-action" data-fs-menu-item
-                    :aria-pressed="fsAriaPressed"
-                    @click="moreMenuFullscreen()">
-              <svg v-if="!isFullscreen" class="ui-ic" viewBox="0 0 24 24"
-                   width="18" height="18" aria-hidden="true"
-                   focusable="false"><path fill="currentColor"
-                   d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-              <svg v-else class="ui-ic" viewBox="0 0 24 24" width="18"
-                   height="18" aria-hidden="true" focusable="false"><path
-                   fill="currentColor"
-                   d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
-              <span class="more-menu-label">{{ isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран' }}</span>
-            </button>
-            <!-- EVOL-037 (W12): глобальный поиск — второстепенное действие
-                 (не раздел навигации), поэтому живёт здесь и открывает
-                 полноэкранный лист с safe-area и клавиатурой. -->
-            <button type="button" class="more-menu-action" data-palette-open-mobile
-                    @click="closeMoreMenu(false); openPalette()">
-              <svg class="ui-ic" viewBox="0 0 24 24" width="18" height="18"
-                   aria-hidden="true" focusable="false"><path fill="currentColor"
-                   d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
-              <span class="more-menu-label">Поиск по приложению</span>
-            </button>
-            <div v-if="me" class="more-menu-profile">
-              <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
-                   class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
-                   @error="onMeAvatarError()">
-              <span v-else class="scope-initial">{{ me.first_name || '?' }}</span>
-              <span class="more-menu-profile-main">
-                <span class="more-menu-profile-name">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
-                <span class="more-menu-profile-meta">
-                  {{ me.role_name }}<template v-if="moreMenuProfileId()"> · {{ moreMenuProfileId() }}</template>
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
+        <!-- §6.1 v2.1: app-level меню «…» удалено целиком (триггер, панель,
+             дублирующий блок идентичности и пункт fullscreen — у ⛶ теперь
+             одна точка входа в шапке). Основные разделы — в drawer. -->
 
         <!-- ═══ FS-HOTFIX FOLLOW-UP §8: панель админ-диагностики геометрии ⛶.
-             Открывается ТОЛЬКО из меню «Ещё» (admin-гейт), закрыта по
-             умолчанию, в обычном UI места не занимает. Компактный снимок
-             фактов геометрии + копирование одним действием; без токенов,
-             initData, ID чатов и персональных данных. Временная (18.10):
-             удалить после приёмки владельца на живых клиентах. ═══ -->
-        <div v-if="fsGeomDiagOpen" class="fs-geom-diag-root" data-fs-geom-diag>
+             §6.1 v2.1: из prod-UI удалена. Остаётся ТОЛЬКО по внутреннему
+             dev-флагу (?fs_geom_dev=1 или localStorage adminbot.fs_geom_dev=1)
+             для E2E-проверок: обычный пользователь не видит ни пункта, ни панели. ═══ -->
+        <div v-if="fsGeomDevEnabled && fsGeomDiagOpen" class="fs-geom-diag-root" data-fs-geom-diag>
           <div class="fs-geom-diag-backdrop" aria-hidden="true"
                @click="closeFsGeomDiag()"></div>
           <div ref="fsGeomPanel" class="fs-geom-diag-panel" role="dialog"
@@ -570,7 +491,7 @@
         </div>
         <!-- Оверлей вычисленных границ safe area (сверка с нативной панелью,
              §8). pointer-events:none — тапы не перехватываются. -->
-        <div v-if="fsGeomOverlay" class="fs-safe-overlay" data-fs-safe-overlay
+        <div v-if="fsGeomDevEnabled && fsGeomOverlay" class="fs-safe-overlay" data-fs-safe-overlay
              aria-hidden="true">
           <div class="fs-safe-overlay__band"
                :style="{ height: fsGeomSafeTop + 'px' }">
@@ -668,6 +589,22 @@
                       <button type="button" class="btn-ghost text-sm"
                               data-ai-persona-link
                               @click="openSpeechPersonaSection()">Личность и характер →</button>
+                    </div>
+                    <!-- §4.2 v2.1: deep links ведут в КОНКРЕТНУЮ вкладку
+                         канонического редактора (второго редактора нет). -->
+                    <div class="w10-links" data-ai-speech-tabs>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ai-speech-tab="style"
+                              @click="openSpeechAreaFromHub('style')">Речь и стиль</button>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ai-speech-tab="profanity"
+                              @click="openSpeechAreaFromHub('profanity')">Мат</button>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ai-speech-tab="examples"
+                              @click="openSpeechAreaFromHub('examples')">Примеры</button>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ai-speech-tab="rules"
+                              @click="openSpeechAreaFromHub('rules')">Правила и источники</button>
                     </div>
                   </section>
 
@@ -2312,29 +2249,47 @@
               <!-- ASAP 4.2 (D5.5): НЕ file picker — реальный тестовый pipeline
                    (base cover → style edit), upload остаётся отдельным действием. -->
               <button type="button" class="btn-ghost text-xs"
-                      :disabled="coverStyles.previewBusy || !coverServer('can_edit', true)"
+                      :disabled="coverTestActive() || !coverServer('can_edit', true)"
                       @click="coverStylePreview()"
+                      :data-cover-test-state="coverTestState()"
                       data-cover-test-button>
-                {{ coverStyles.previewBusy ? 'Обработка…' : 'Проверить стиль' }}
+                {{ coverTestActive() ? coverTestStateLabel() + '…' : 'Проверить стиль' }}
               </button>
               <span class="text-gray-500">Тест не тратит номер выпуска и не публикует пост.</span>
             </div>
-            <!-- ASAP 4.3 (§11, T-4853): stage-прогресс durable job; elapsed —
-                 информация, решение об ошибке по времени НЕ принимается. -->
-            <div v-if="coverStyleJobActive()"
+            <!-- ASAP 4.3 (§11, T-4853) + §3.4 v2.1: stage-прогресс durable job;
+                 время — СЕРВЕРНОЕ (queued_at/started_at/elapsed_ms); в очереди
+                 без started_at честно «—», а не миллионы секунд. Решение об
+                 ошибке по времени НЕ принимается. -->
+            <div v-if="coverTestActive()"
                  class="text-gray-300 flex items-center gap-2 flex-wrap"
+                 :data-cover-test-stage-state="coverTestState()"
                  data-cover-test-progress>
               <span class="spinner"></span>
-              <span data-cover-test-stage>{{ coverPreviewStageText(coverStyles.previewJob.stage) }}</span>
-              <span class="text-gray-500">Прошло: {{ coverStyles.previewJob.elapsed }} с</span>
+              <span data-cover-test-stage>{{ coverTestStateLabel() }}</span>
+              <span class="text-gray-500" data-cover-test-elapsed>Прошло: {{ coverTestElapsedText() }}</span>
+            </div>
+            <!-- Терминальные состояния видны явно (без вечного спиннера). -->
+            <div v-else-if="coverTestState() !== 'idle'"
+                 class="text-xs"
+                 :class="coverTestState() === 'succeeded' ? 'text-green-400' : 'text-amber-300'"
+                 :data-cover-test-final="coverTestState()"
+                 data-cover-test-final-state>
+              {{ coverTestStateLabel() }}
             </div>
             <div v-if="coverServer('preview_stale', false)"
                  class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
                  data-cover-preview-stale>
-              <span>Пример создан для предыдущей версии стиля.</span>
+              <span data-cover-preview-stale-rev>
+                Пример создан для предыдущей версии стиля<template
+                  v-if="coverServer('preview_revision') != null"> (ревизия
+                  {{ coverServer('preview_revision') }}, действующая —
+                  {{ coverServer('revision') != null ? coverServer('revision') : '—' }})</template>.
+                Это не успешная проверка текущей версии.
+              </span>
               <button class="btn-ghost text-xs"
                       @click="coverStyleRefreshExample()"
-                      :disabled="coverStyles.previewBusy"
+                      :disabled="coverTestActive()"
                       data-cover-preview-update>Обновить пример</button>
             </div>
           </div>
@@ -2345,14 +2300,24 @@
           <div class="cover-sec-title">Результат</div>
           <div class="flex flex-col text-xs gap-2">
             <div v-if="coverStyles.preview" class="rounded-lg border border-white/10 p-2"
+                 :data-cover-test-final="coverStyles.preview.applied ? 'succeeded' : 'failed'"
                  data-cover-test-result>
             <div v-if="coverStyles.preview.applied" class="flex items-center gap-2 flex-wrap">
               <span class="text-green-400" data-cover-test-human>{{ coverStyles.preview.message || 'Стиль применён' }}</span>
+              <span class="badge badge-ok" data-cover-test-styled>styled</span>
               <span v-if="coverStyles.preview.provider || coverStyles.preview.model"
                     class="text-gray-500" data-cover-test-model>
                 {{ coverStyles.preview.provider || '' }}<span v-if="coverStyles.preview.provider && coverStyles.preview.model"> · </span>{{ coverStyles.preview.model || '' }}
               </span>
               <span class="text-gray-500">{{ coverStyles.preview.preview_issue }}</span>
+              <span v-if="coverStyles.preview.duration_ms != null"
+                    class="text-gray-500" data-cover-test-duration>
+                · заняло {{ Math.round(coverStyles.preview.duration_ms / 1000) }} с
+              </span>
+              <span v-if="coverStyles.preview.preview_revision != null"
+                    class="text-gray-500" data-cover-test-rev>
+                · ревизия {{ coverStyles.preview.preview_revision }}
+              </span>
             </div>
             <div v-else>
               <!-- D5.8 + ASAP 4.3 (§3): основной вид — человеческая фраза;
@@ -2360,11 +2325,24 @@
               <div class="text-amber-300" data-cover-test-human>
                 {{ coverStyles.preview.message || 'Стиль не применён: провайдер отклонил запрос.' }}
               </div>
+              <!-- §3.3/§3.4: Base под ярлыком `styled` не выдаётся. Тест ничего
+                   не публикует, поэтому честная строка различает состояние. -->
+              <div class="text-gray-500 mt-1" data-cover-test-base-note>
+                Стиль не применён (styled нет). Номер выпуска не потрачен,
+                публикации в чат не было.
+              </div>
+              <ul v-if="(coverStyles.preview.warnings || []).length"
+                  class="text-amber-300 mt-1 list-disc list-inside"
+                  data-cover-test-warnings>
+                <li v-for="(w, wi) in coverStyles.preview.warnings" :key="'w' + wi">{{ w.message }}</li>
+              </ul>
               <details v-if="coverStyles.preview.developer_reason"
                        class="mt-1 text-gray-500">
                 <summary class="cursor-pointer" data-cover-developer-toggle>
                   Детали для разработчика</summary>
                 <span data-cover-developer-reason>{{ coverStyles.preview.developer_reason }}</span>
+                <span v-if="coverStyles.preview.error_class"
+                      class="ml-1" data-cover-test-error-class>· {{ coverStyles.preview.error_class }}</span>
               </details>
             </div>
             <div v-if="coverPromptBreakdownText(coverStyles.preview.prompt)"
@@ -3051,11 +3029,8 @@
                                 data-prompt-history-created>версия от {{ phWhen(phActiveCreated) }}</span>
                           <span v-if="phActivationNote" class="text-[10px] text-gray-500"
                                 data-prompt-history-activation>{{ phActivationNote }}</span>
-                          <span v-if="promptHistory.data.active" class="text-[10px] text-gray-500 font-mono">{{ promptHistory.data.active.sha256_12 }}</span>
-                        </div>
-                        <div class="text-[10px] text-gray-500 mb-1" data-prompt-history-time-note>
-                          Время — момент записи версии в журнал. Отдельный таймер
-                          активации сервис не отдаёт, поэтому он не выдумывается.
+                          <span v-if="promptHistory.data.active" class="text-[10px] text-gray-500 font-mono"
+                                data-prompt-history-sha>{{ promptHistory.data.active.sha256_12 }}</span>
                         </div>
                         <div class="text-[10px] mb-1" data-prompt-history-factory>
                           <span class="text-gray-500">Актуальная заводская:
@@ -5573,10 +5548,8 @@
                    модулей (аналитическая диагностика — в «Аналитике»). -->
             </div>
 
-            <!-- ASAP 4.2 (D5.3, T-4825): панель избранного (quick access)
-                 удалена полностью. Единственный список модулей — каталог ниже
-                 (название/человеческое описание/status/toggle/избранное/
-                 Настроить); дубля панели нет. -->
+            <!-- §7 (v2.1): второй панели быстрого доступа нет —
+                 единственный список модулей каталог ниже. -->
 
             <!-- F4 §32/§44: поиск по названию/описанию/тех.имени/синонимам.
                  EVOL-027 v0.8: быстрые локальные фильтры сохранены; число
@@ -5624,58 +5597,50 @@
                     <span v-if="m.noToggle" class="badge badge-muted shrink-0">без тумблера</span>
                   </div>
 
-                  <!-- EVOL-027 v0.7: управление в предсказуемом порядке.
-                       Глобальный master-toggle — ПРЯМО на карточке, подписан,
-                       выполняет штатную операцию сразу. Per-chat override —
-                       отдельная строка со своим смыслом. -->
+                  <!-- §5 v2.1 (решение владельца): РОВНО ОДИН переключатель.
+                       Его область — верхний селектор GLOBAL/чат: в GLOBAL он
+                       управляет только глобальным состоянием, в чате — только
+                       настройкой этого чата. Второго (global+chat) тумблера,
+                       а также «всегда глобального» контрола при выбранном чате
+                       здесь нет. -->
                   <div class="module-controls" v-if="!m.noToggle">
-                    <div class="module-control-row">
+                    <div class="module-control-row" v-if="moduleScopeToggleAvailable(m)">
                       <span class="module-control-row__label">
-                        Глобально
-                        <span class="module-control-row__state">{{ moduleGlobalStateText(m) }}</span>
-                        <span v-if="!isGlobalAdmin" class="text-[10px] text-gray-500"> · только чтение (нет прав global admin)</span>
+                        {{ moduleScopeLabel() }}
+                        <span class="module-control-row__state">{{ moduleScopeStateText(m) }}</span>
+                        <span v-if="moduleScopeReadonlyReason(m)"
+                              class="text-[10px] text-gray-500"> · {{ moduleScopeReadonlyReason(m) }}</span>
                       </span>
                       <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
-                             :class="{ 'is-saving': moduleGlobalPendingFor(m), 'is-readonly': !moduleGlobalCanEdit(m) }">
+                             :class="{ 'is-saving': moduleScopePending(m), 'is-readonly': !moduleScopeCanEdit(m) }">
                         <input type="checkbox" class="sr-only peer"
-                               data-module-global-toggle
-                               :checked="moduleGlobalState(m).display === true"
-                               :disabled="!moduleGlobalCanEdit(m) || moduleGlobalPendingFor(m)"
-                               @change="setModuleGlobalState(m, $event.target.checked)"
-                               :aria-label="moduleGlobalToggleLabel(m)">
+                               data-module-scope-toggle
+                               :data-module-scope="moduleScopeIsGlobal() ? 'global' : 'chat'"
+                               :checked="moduleScopeState(m).display === true"
+                               :disabled="!moduleScopeCanEdit(m) || moduleScopePending(m)"
+                               @change="setModuleScopeState(m, $event.target.checked)"
+                               :aria-label="moduleScopeToggleAria(m)">
                         <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
-                        
                       </label>
                     </div>
-                    <!-- Per-chat: только там, где локальное значение реально
-                         читается runtime (runtimeGate='per_chat'). -->
-                    <div class="module-control-row"
-                         v-if="scopeKind !== 'global' && (m.runtimeGate || 'global') === 'per_chat'">
+                    <!-- Модуль без chat-scope управления: фиктивный локальный
+                         override не создаём — только честный read-only статус. -->
+                    <div v-else class="module-control-row module-control-row--readonly"
+                         data-module-scope-readonly>
                       <span class="module-control-row__label">
-                        В этом чате
-                        <span class="module-control-row__state">{{ moduleEnabled(m) ? 'включён' : 'выключен' }}</span>
-                      </span>
-                      <label class="ctl-toggle module-toggle relative inline-flex items-center shrink-0"
-                             :class="{ 'is-saving': modulePendingFor(m) }">
-                        <input type="checkbox" class="sr-only peer"
-                               data-module-chat-toggle
-                               :checked="moduleEnabled(m)"
-                               :disabled="!canEditModule(m) || modulePendingFor(m)"
-                               @change="toggleModule(m, $event.target.checked)"
-                               :aria-label="'Включить модуль для этого чата: ' + m.title">
-                        <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
-                        
-                      </label>
-                    </div>
-                    <!-- Global-only на чатовой области: локального тумблера нет,
-                         причина написана словами (не «read-only» без смысла). -->
-                    <div class="module-control-row module-control-row--readonly"
-                         v-else-if="scopeKind !== 'global'">
-                      <span class="module-control-row__label">
-                        В этом чате · управляется глобально
+                        {{ moduleScopeLabel() }} · управляется глобально
                         <span class="module-control-row__state">{{ moduleStateText(m) }}</span>
                       </span>
                     </div>
+                    <!-- Возврат к наследованию — компактное ДЕЙСТВИЕ (не тумблер),
+                         только когда override реально существует. -->
+                    <button v-if="moduleOverrideResetAvailable(m)" type="button"
+                            class="btn-ghost module-override-reset text-xs"
+                            data-module-override-reset
+                            :disabled="moduleScopePending(m)"
+                            @click="resetModuleChatOverride(m)">
+                      Наследовать глобальное
+                    </button>
                   </div>
 
                   <!-- Эффективное состояние области + источник отличия. -->
@@ -5685,25 +5650,19 @@
                   <div v-if="moduleRuntimeNotice(m)" class="module-problem text-xs">
                     ⚠ {{ moduleRuntimeNotice(m) }}
                   </div>
-                  <div v-if="moduleSaveErrorFor(m)" class="module-error module-status-line module-status-line--error">
-                    {{ moduleSaveErrorFor(m) }}
-                  </div>
-                  <div v-if="moduleGlobalErrorFor(m)" class="module-error module-status-line module-status-line--error">
-                    {{ moduleGlobalErrorFor(m) }}
+                  <div v-if="moduleScopeErrorFor(m)" class="module-error module-status-line module-status-line--error"
+                       data-module-scope-error>
+                    {{ moduleScopeErrorFor(m) }}
                   </div>
                   <div v-if="moduleLastEventLine(m)" class="module-status-line">
                     {{ moduleLastEventLine(m) }}
                   </div>
 
-                  <!-- Один основной путь в детали + избранное. -->
+                  <!-- §7 (v2.1): единственный путь в детали. Кнопка
+                       избранного удалена вместе с концепцией. -->
                   <div class="module-card-actions">
                     <button class="btn-ghost module-params-btn text-xs shrink-0"
                             @click="openModuleWorkspace(m)">Настроить</button>
-                    <button type="button" class="btn-ghost module-pin-btn text-xs shrink-0"
-                            :aria-label="(isQuickpick(m) ? 'Убрать из быстрого управления: ' : 'Закрепить в быстром управлении: ') + m.title"
-                            @click="toggleQuickpick(m)">
-                      {{ isQuickpick(m) ? '★ В избранном' : '☆ В избранное' }}
-                    </button>
                   </div>
                 </article>
               </div>
@@ -5736,11 +5695,13 @@
                        read-only статус и навигационная подсказка «Управляется
                        из каталога». Отдельные независимые параметры/предохранители
                        модуля остаются ниже без изменений. -->
+                  <!-- §5 v2.1: второго контрола того же состояния здесь нет —
+                       только актуальный scoped статус и предметные параметры. -->
                   <span v-if="!activeModule.noToggle"
                         class="badge badge-muted ml-auto" data-module-readonly-status>
-                    {{ moduleStateText(activeModule) }}
-                    <template v-if="scopeKind === 'global'"> · глобально</template>
-                    <template v-else> · {{ moduleGlobalStateText(activeModule) }} глобально</template>
+                    {{ moduleScopeStateText(activeModule) }}
+                    <template v-if="moduleScopeSourceHint(activeModule)">
+                      · {{ moduleScopeSourceHint(activeModule) }}</template>
                   </span>
                   <button class="modal-close btn-ghost text-sm px-2"
                           :class="activeModule.noToggle ? 'ml-auto' : ''"
@@ -5750,9 +5711,9 @@
                   <div v-if="!activeModule.noToggle" class="text-xs text-gray-500 mb-3"
                        data-module-managed-hint>
                     Включение и выключение — прямо в карточке каталога
-                    («Управляется из каталога»): глобальный тумблер выполняет
-                    штатную операцию сразу, отдельный чатовый override не меняет
-                    глобальное состояние.
+                    («Управляется из каталога»): единственный переключатель
+                    управляет той областью, которая выбрана сверху
+                    (GLOBAL или конкретный чат).
                     <button type="button" class="btn-ghost text-xs ml-1"
                             @click="closeModule()">К каталогу</button>
                   </div>
@@ -9314,8 +9275,11 @@
                         :data-speech-area="a.id"
                         :data-focus-id="'speech-area:' + a.id"
                         :aria-current="a.active ? 'true' : 'false'"
+                        :data-speech-area-dirty="speechAreaDirty(a.id) ? 'true' : 'false'"
                         @click="openSpeechArea(a.id)">
                   <span>{{ a.title }}</span>
+                  <span v-if="speechAreaDirty(a.id)" class="speech-area-nav__dot"
+                        aria-label="есть несохранённые изменения">•</span>
                 </button>
               </nav>
 
@@ -9337,7 +9301,7 @@
                    (второй одинаковый заголовок с тем же scope) удалён;
                    id/data-speech-persona остаются на самом редакторе —
                    deep-link #/ai/persona и палитра фокусируют его. -->
-              <section v-if="!speechSection" id="speech-persona"
+              <section v-if="speechSection === 'persona'" id="speech-persona"
                        data-speech-persona tabindex="-1"
                        class="speech-persona-section">
             <div class="card p-5 col-span-full" style="max-width: 760px;"
@@ -9402,6 +9366,44 @@
                 </div>
               </template>
             </div>
+              </section>
+
+              <!-- ═══ §4.2 v2.1: «Правила и источники» — просмотрово-
+                   диагностическая секция: активные черты/правила, откуда они
+                   взялись (пауза/источники), effective-провенанс и переход в
+                   КАНОНИЧЕСКИЙ prompt inspector. Это НЕ второй редактор тех
+                   же полей. ═══ -->
+              <section v-else-if="speechSection === 'rules'" id="speech-rules"
+                       data-speech-rules tabindex="-1"
+                       class="speech-persona-section">
+                <div class="card p-5 col-span-full" style="max-width: 760px;"
+                     data-speech-rules-links>
+                  <div class="text-sm font-bold mb-2">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('account_tree') }}</span>
+                    Правила и источники
+                  </div>
+                  <div class="text-xs text-gray-500 mb-3">
+                    Откуда берутся правила и где смотреть фактическую сборку:
+                    это существующие разделы, второй редактор здесь не создаётся.
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="inspector"
+                            @click="openSpeechSection('inspector')">Эффективный промпт (инспектор)</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="core"
+                            @click="openSpeechSection('core')">Редактор Core</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="all"
+                            @click="openSpeechSection('all')">Все инструкции</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="learning"
+                            @click="openSpeechSection('learning')">Опыт и обучение</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-speech-rules-link="capabilities"
+                            @click="openSpeechSection('capabilities')">Возможности и ограничения</button>
+                  </div>
+                </div>
             <!-- ═══ mca-18 (T-5085/T-5086): компакт «Что сейчас формирует
                  характер» — effective/наследование трёх переключателей,
                  правила (пауза/возобновление/источники), версии. Три статуса
@@ -10220,7 +10222,7 @@
                     </div>
                     <div class="speech-split">
                       <div>
-                        <label v-for="c in speechExpression.controls" :key="'c-' + c.id" class="block mb-3">
+                        <label v-for="c in speechExpressionControls('style')" :key="'c-' + c.id" class="block mb-3">
                           <span class="text-xs text-gray-400">{{ c.label }} — {{ c.question }}</span>
                           <select class="field w-full" :aria-label="c.label"
                                   :value="speechExpressionDraft[c.id]"
@@ -10345,6 +10347,83 @@
                               type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechExpression.can_edit"
                               @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ §4.2 v2.1: «Мат» — отдельная рабочая вкладка, ТОТ ЖЕ
+                     серверный документ выражения (values.profanity) и ТОТ ЖЕ
+                     save-путь; отдельного хранилища/второй истины нет. ═ -->
+                <template v-if="speechSection === 'profanity' && speechExpression">
+                  <div class="card speech-pad" data-speech-profanity>
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Мат</div>
+                      <span v-if="speechDirty.expression" class="badge badge-warn"
+                            data-speech-profanity-dirty>черновик не сохранён</span>
+                      <span v-if="speechSavedText('expression')" class="text-xs speech-saved"
+                            data-speech-saved>{{ speechSavedText('expression') }}</span>
+                    </div>
+                    <div class="text-xs text-gray-500" data-speech-source>
+                      {{ speechSourceText(speechExpression.inheritance) }}
+                    </div>
+                    <div class="text-xs text-gray-500" data-speech-effective>
+                      {{ speechEffectiveText() }}
+                    </div>
+                    <div v-if="speechExpression.runtime_wired === false" class="speech-warn"
+                         data-speech-profanity-runtime>
+                      {{ speechExpression.runtime_note }}
+                    </div>
+                    <div v-else class="text-xs text-gray-500 speech-note"
+                         data-speech-profanity-runtime>
+                      {{ speechExpression.runtime_note }}
+                    </div>
+                    <label v-for="c in speechExpressionControls('profanity')"
+                           :key="'prof-' + c.id" class="block mb-3">
+                      <span class="text-xs text-gray-400">{{ c.label }} — {{ c.question }}</span>
+                      <select class="field w-full" :aria-label="c.label"
+                              data-speech-profanity-select
+                              :value="speechExpressionDraft[c.id]"
+                              @change="setExpressionValue(c.id, $event.target.value)">
+                        <option v-for="o in c.options" :key="'po-' + c.id + o.value" :value="o.value">
+                          {{ o.label }}
+                        </option>
+                      </select>
+                      <span class="text-xs text-gray-500">{{ c.effect }}</span>
+                      <span v-if="speechControlEffectiveText(c)"
+                            class="text-xs text-gray-400 block" data-speech-control-effective>
+                        {{ speechControlEffectiveText(c) }}
+                      </span>
+                    </label>
+                    <div class="text-xs text-gray-500 speech-note" data-speech-profanity-writer>
+                      Инструкция мата передаётся Writer отдельным слоем выражения и не
+                      гасится правилами Core: они живут в разных слоях сборки.
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Длина, тон и остальные контролы выражения — во вкладке
+                      «Речь и стиль».
+                      <button type="button" class="btn-ghost text-xs"
+                              data-speech-profanity-goto-style
+                              @click="openSpeechSection('style')">Открыть</button>
+                    </div>
+                    <div class="speech-actions">
+                      <label class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-gray-400">Куда сохранить</span>
+                        <select class="field speech-select" :value="speechScopeFor('expression')"
+                                aria-label="Куда сохранить настройку мата"
+                                @change="setSpeechScope('expression', $event.target.value)">
+                          <option value="global">Глобально (все чаты)</option>
+                          <option value="chat" :disabled="!speechChatId">Только этот чат</option>
+                        </select>
+                      </label>
+                      <span class="text-xs text-gray-500">{{ speechScopeNow(speechExpression) }}</span>
+                    </div>
+                    <div class="speech-actions">
+                      <button type="button" class="btn-accent text-sm" data-speech-profanity-save
+                              :disabled="speechBusy || !speechExpression.can_edit"
+                              @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <span v-if="!speechExpression.can_edit" class="text-xs text-gray-500">
+                        Только чтение: нет прав на правку выражения
+                      </span>
                     </div>
                   </div>
                 </template>
@@ -11707,20 +11786,6 @@
               {{ statusError }}
             </div>
             <template v-if="!statusError">
-            <!-- F11 (§20/D5): быстрый переход «Ошибки: N · Предупреждения: N» —
-                 из существующего /api/status/logs (один лёгкий запрос, читается
-                 аддитивный `counts` по всему буферу — H-F11S-1); клик
-                 прокручивает к карточке логов. ВНЕ `.status-grid` (над ним),
-                 чтобы строки §12 остались ровно шесть. -->
-            <div class="status-counts card p-3" style="grid-column: 1 / -1;"
-                 role="group" aria-label="Сводка логов">
-              <button type="button" class="btn-ghost text-sm"
-                      @click="scrollToLogs()" title="Прокрутить к логам">
-                <span class="badge badge-err mr-1">Ошибки: {{ logErrorCount == null ? '—' : logErrorCount }}</span>
-                <span class="badge badge-warn">Предупреждения: {{ logWarnCount == null ? '—' : logWarnCount }}</span>
-                <span class="text-xs text-gray-500 ml-1">↓ к логам</span>
-              </button>
-            </div>
             <!-- F11 (§12/D1, ADR-1025-23): ЕДИНЫЙ 12-колоночный контейнер
                  витрины «Статус» внутри ветки `activeTab === 'status'`.
                  `main.scroll-area` и прочие вкладки НЕ меняются (контейнер —
@@ -11753,11 +11818,40 @@
                  визуальный блок с внутренними секциями (мобила — столбик,
                  десктоп — рядом). Строка со служебными полями удалена
                  (T-1820); API-контракт «Статуса» не менялся (R16). -->
-            <!-- ═══ F11 (§12/§13, ADR-1025-23 D2): Строка 1 — Hero — 5 кол.
-                 Название/статус/последняя активность/компактная ошибка +
-                 контролы. Liquid Glass; без длинной таблицы/постоянной
-                 пульсации. Секции метрик остаются в `.status-block` (7 кол.). -->
-            <health-glass-surface class="card p-4 status-hero sg-5" data-glass="a"
+            <!-- ═══ §6.4 v2.1 (решение владельца): ОДИН объединённый блок
+                 оперативного здоровья вместо нескольких крупных стеклянных
+                 контейнеров. Сверху — компактная строка реальных
+                 ошибок/предупреждений с адресным переходом (логи в «Статусе»,
+                 агрегаты — в «Аналитике»); ниже в ТОЙ ЖЕ поверхности — три
+                 семантически разделённых сегмента `Бот | Сердцебиение | Сервер`
+                 с тонкими внутренними разделителями. EVOL-032 тонирует только
+                 виновный сегмент, а не весь блок; физика стекла не меняется. -->
+            <div class="card p-4 status-block status-health sg-12"
+                 data-status-health>
+              <div class="status-health__line status-counts" role="group"
+                   aria-label="Сводка ошибок и предупреждений"
+                   data-status-counts>
+                <button type="button" class="btn-ghost text-xs"
+                        @click="scrollToLogs()" title="Прокрутить к логам">
+                  <span class="badge badge-err mr-1">Ошибки: {{ logErrorCount == null ? '—' : logErrorCount }}</span>
+                  <span class="badge badge-warn">Предупреждения: {{ logWarnCount == null ? '—' : logWarnCount }}</span>
+                  <span class="text-xs text-gray-500 ml-1">↓ к логам</span>
+                </button>
+                <a v-if="statusProblemsCount" class="text-xs text-amber-300 underline"
+                   href="#/oversight?tab=overview"
+                   data-status-health-analytics>Проблемы: {{ statusProblemsCount }} · Открыть в Аналитике →</a>
+                <span v-else class="text-xs text-gray-500" data-status-health-ok>
+                  Новых ошибок и предупреждений нет
+                </span>
+              </div>
+
+              <div class="status-block__grid status-health__segs"
+                   data-status-block-grid>
+            <!-- ═══ Сегмент 1 — «Бот»: hero БЕЗ собственной рамки (одна общая
+                 поверхность блока); тонируется только при проблеме Бота. -->
+            <health-glass-surface
+                 class="status-block__bot status-health__seg status-hero"
+                 id="status-bot" data-status-seg="bot"
                  subsystem="bot" scope="global" material="bg"
                  :source="botHealthSource" :href="botProblemHref">
               <div class="flex items-center gap-2 flex-wrap mb-2">
@@ -11766,40 +11860,47 @@
                 <span v-if="statusData" class="badge"
                       :class="stateBadge(statusData.bot.state)">{{ statusData.bot.state }}</span>
                 <span v-else class="spinner"></span>
+                <span class="health-status-line" data-health-inline="bot"
+                      role="status" aria-live="polite"
+                      :data-health-indicator="botSectionHealth.state"
+                      :aria-label="botSectionHealth.ariaLabel">
+                  <span class="msr" aria-hidden="true">{{ botSectionHealth.glyph }}</span>
+                  <span class="health-status-line__label">{{ botSectionHealth.label }}</span>
+                </span>
               </div>
               <template v-if="statusData">
                 <div class="text-xs text-gray-400 space-y-1.5">
                   <div>Последняя активность: <b>{{ botLastActivity }}</b></div>
+                  <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
                   <div v-if="statusData.bot.errors_total > 0" class="text-red-300">
                     ⚠ Ошибок с момента старта: {{ statusData.bot.errors_total }}
                   </div>
-                  <!-- Wave 2 UX: деградации — не приборная панель, а одна
-                       строка-переход (данные из существующих /api/status.llm
-                       и /api/oversight mca_metrics; нет данных → строки нет). -->
-                  <div v-if="statusProblemsCount" class="text-amber-300">
-                    <a class="underline hover:text-amber-200"
-                       href="#/oversight?tab=overview">Проблемы: {{ statusProblemsCount }} · Открыть в Аналитике →</a>
-                  </div>
+                  <div v-else class="text-gray-500">Ошибок с момента старта: {{ statusData.bot.errors_total }}</div>
                 </div>
-                <div class="flex gap-2 pt-3">
-                  <button v-if="hasPerm('action.control.restart')" class="btn-ghost text-sm"
+                <div class="flex gap-2 pt-3 flex-wrap status-health__bot-actions">
+                  <button v-if="hasPerm('action.control.restart')"
+                          class="btn-ghost status-health__bot-btn"
                           :disabled="controlLocked" @click="requestControl('restart')">
                     <span class="msr" aria-hidden="true">{{ iconGlyph('restart_alt') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Рестарт' }}
                   </button>
-                  <button v-if="hasPerm('action.control.stop')" class="btn-ghost text-sm"
+                  <button v-if="hasPerm('action.control.stop')"
+                          class="btn-ghost status-health__bot-btn"
                           :disabled="controlLocked" @click="requestControl('stop')">
                     <span class="msr" aria-hidden="true">{{ iconGlyph('stop') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Стоп' }}
                   </button>
-                  <button v-if="hasPerm('action.control.start')" class="btn-ghost text-sm"
+                  <button v-if="hasPerm('action.control.start')"
+                          class="btn-ghost status-health__bot-btn"
                           :disabled="controlLocked" @click="requestControl('start')">
                     <span class="msr" aria-hidden="true">{{ iconGlyph('play_arrow') }}</span> {{ controlLocked ? controlLockSeconds + 'с' : 'Старт' }}
                   </button>
                 </div>
               </template>
             </health-glass-surface>
-              <div class="card p-4 status-block">
-                <div class="status-block__grid">
-                <section class="status-block__pulse">
+                <health-glass-surface
+                     class="status-block__pulse status-health__seg hb-surface"
+                     data-status-seg="heartbeat"
+                     subsystem="heartbeat" scope="global" material="bg"
+                     :status-line="false" :source="heartbeatHealthSource">
                   <!-- ASAP-UI-02 (§6, wave 2, review-fix2): у «Сердцебиения» —
                        СВОЯ тонируемая стеклянная поверхность. Состояние берётся
                        из ТОГО ЖЕ адаптера, что у строки статуса ниже
@@ -11816,9 +11917,6 @@
                        отключён (`:status-line="false"`), потому что
                        каноническая строка с иконкой/причиной уже здесь
                        (`data-health-inline="heartbeat"`). -->
-                  <health-glass-surface class="hb-surface" subsystem="heartbeat"
-                       scope="global" material="bg" :status-line="false"
-                       :source="heartbeatHealthSource">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
                     <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('monitoring') }}</span> Сердцебиение</div>
                     <span class="badge" :class="heartbeat.badge">{{ heartbeat.label }}</span>
@@ -11863,28 +11961,9 @@
                     </div>
                   </div>
                   </health-glass-surface>
-                </section>
 
-                <section class="status-block__bot">
-                  <div class="text-sm font-bold mb-2 flex items-center gap-2 flex-wrap">
-                    <span class="msr" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span> Бот
-                    <span class="health-status-line" data-health-inline="bot"
-                          role="status" aria-live="polite"
-                          :data-health-indicator="botSectionHealth.state"
-                          :aria-label="botSectionHealth.ariaLabel">
-                      <span class="msr" aria-hidden="true">{{ botSectionHealth.glyph }}</span>
-                      <span class="health-status-line__label">{{ botSectionHealth.label }}</span>
-                    </span>
-                  </div>
-                  <div v-if="!statusData" class="spinner"></div>
-                  <div v-else class="text-sm space-y-1.5">
-                    <div>Аптайм: <b>{{ humanizeUptime(statusData.bot.uptime_seconds) }}</b></div>
-                    <div>Состояние: <span class="badge" :class="stateBadge(statusData.bot.state)">{{ statusData.bot.state }}</span></div>
-                    <div>Ошибок с момента старта: <b :class="statusData.bot.errors_total ? 'text-red-400' : ''">{{ statusData.bot.errors_total }}</b></div>
-                  </div>
-                </section>
-
-                <section class="status-block__server">
+                <section class="status-block__server status-health__seg"
+                         data-status-seg="server">
                   <div class="text-sm font-bold mb-2"><span class="msr" aria-hidden="true">{{ iconGlyph('dns') }}</span> Сервер</div>
                   <!-- F3 (§14): серверные метрики относятся ко всему серверу,
                        а не к выбранному чату — явная пометка. -->

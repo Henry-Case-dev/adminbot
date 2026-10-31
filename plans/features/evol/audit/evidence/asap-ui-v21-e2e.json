@@ -1,0 +1,211 @@
+{
+ "checks": {
+  "modules_initial": {
+   "cards": 15,
+   "maxToggles": 1,
+   "labels": [
+    "В этом чате включён",
+    "В этом чате · управляется глобально Включён, но не работает",
+    "В этом чате · управляется глобально Включён, но не работает"
+   ],
+   "scopes": [
+    "chat",
+    "chat",
+    "chat"
+   ],
+   "readonly": 9,
+   "legacy": 0,
+   "pins": 0,
+   "favoritesText": false,
+   "width": 1280,
+   "hScroll": false
+  },
+  "modules_global": {
+   "cards": 15,
+   "maxToggles": 1,
+   "labels": [
+    "Глобально выключен",
+    "Глобально выключен",
+    "Глобально выключен"
+   ],
+   "scopes": [
+    "global",
+    "global",
+    "global"
+   ],
+   "readonly": 0,
+   "legacy": 0,
+   "pins": 0,
+   "favoritesText": false,
+   "width": 1280,
+   "hScroll": false
+  },
+  "posts_global": [
+   {
+    "url": "http://127.0.0.1:8863/api/config",
+    "chat": "-1001234567890"
+   }
+  ],
+  "modules_chat": {
+   "cards": 15,
+   "maxToggles": 1,
+   "labels": [
+    "В этом чате выключен",
+    "В этом чате · управляется глобально Выключен",
+    "В этом чате · управляется глобально Выключен"
+   ],
+   "scopes": [
+    "chat",
+    "chat",
+    "chat"
+   ],
+   "readonly": 9,
+   "legacy": 0,
+   "pins": 0,
+   "favoritesText": false,
+   "width": 1280,
+   "hScroll": false
+  },
+  "posts_chat": [
+   {
+    "url": "http://127.0.0.1:8863/api/config",
+    "chat": "-1001234567890"
+   }
+  ],
+  "speech": {
+   "tabs": [
+    "Личность",
+    "Речь и стиль",
+    "Мат",
+    "Примеры",
+    "Правила и источники"
+   ],
+   "active": "persona",
+   "persona": true,
+   "profanity": false,
+   "rules": false,
+   "dirtyDots": 0
+  },
+  "speech_profanity": {
+   "tabs": [
+    "Личность",
+    "Речь и стиль",
+    "Мат",
+    "Примеры",
+    "Правила и источники"
+   ],
+   "active": "profanity",
+   "persona": false,
+   "profanity": true,
+   "rules": false,
+   "dirtyDots": 0
+  },
+  "ai_hub": {
+   "tiles": 4,
+   "heights": [
+    174,
+    258,
+    108,
+    172
+   ],
+   "chips": 4,
+   "sameHeight": false
+  },
+  "status": {
+   "present": true,
+   "segs": [
+    "bot",
+    "heartbeat",
+    "server"
+   ],
+   "innerCards": 0,
+   "line": true,
+   "analytics": false,
+   "okLine": true,
+   "segBoxes": [
+    {
+     "w": 342,
+     "h": 192
+    },
+    {
+     "w": 314,
+     "h": 157
+    },
+    {
+     "w": 342,
+     "h": 228
+    }
+   ]
+  },
+  "shell_390": {
+   "moreTrigger": 0,
+   "moreMenu": 0,
+   "geomEntry": 0,
+   "identityInMenu": 0,
+   "fsCount": 1,
+   "fsTap": {
+    "w": 44,
+    "h": 44
+   },
+   "fsLabel": "На весь экран",
+   "headerH": 58,
+   "hScroll": false,
+   "avatar": 1,
+   "role": 1
+  },
+  "status_390": {
+   "present": true,
+   "segs": [
+    "bot",
+    "heartbeat",
+    "server"
+   ],
+   "innerCards": 0,
+   "line": true,
+   "analytics": false,
+   "okLine": true,
+   "segBoxes": [
+    {
+     "w": 340,
+     "h": 192
+    },
+    {
+     "w": 340,
+     "h": 154
+    },
+    {
+     "w": 340,
+     "h": 229
+    }
+   ]
+  },
+  "drawer_390": {
+   "present": true,
+   "top": 70,
+   "left": 0,
+   "visible": "visible",
+   "inView": true
+  },
+  "drawer_closed_390": {
+   "drawer": false,
+   "mask": false
+  },
+  "shell_667": {
+   "moreTrigger": 0,
+   "moreMenu": 0,
+   "geomEntry": 0,
+   "identityInMenu": 0,
+   "fsCount": 1,
+   "fsTap": {
+    "w": 44,
+    "h": 44
+   },
+   "fsLabel": "На весь экран",
+   "headerH": 58,
+   "hScroll": false,
+   "avatar": 1,
+   "role": 1
+  }
+ },
+ "fails": []
+}
