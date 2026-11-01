@@ -1045,9 +1045,16 @@ def _clip_middle(body: str, start: int, end: int, target: int,
 
         chosen: list[tuple[int, int]] = []
         atomic_used = 0
+        # ER-08-RC (P2, ревью B2): claim-first обязан уложиться в долю середины.
+        # Иначе плотный высокорисковый текст раздувает строку окна выше капа,
+        # шаг 0 `_cap_context` упирается в пол 200 и шаг 1 выбрасывает СТАРЫЕ
+        # реплики — терялось то самое, что полоса защищает. 320 — бюджет
+        # атомарной части середины (жёсткий потолок при большом капе), а при
+        # тесном бюджете приоритет отдаётся окну: claim вписывается в `target`.
+        claim_budget = min(L1_CLIP_ATOMIC_CHARS_MAX, max(0, target))
         for s, e in sorted(inner, key=_dist):
             piece = body[s:e]
-            if atomic_used + len(piece) > L1_CLIP_ATOMIC_CHARS_MAX:
+            if atomic_used + len(piece) > claim_budget:
                 continue
             if not _high_risk(piece):
                 continue
@@ -1057,6 +1064,8 @@ def _clip_middle(body: str, start: int, end: int, target: int,
             url_start, url_end = match.span()
             if any(s <= url_start and url_end <= e for s, e in chosen):
                 continue
+            # Ссылка — атомарный источник: полу-URL хуже, чем перебор на
+            # длину самого URL (тот же инвариант, что был у головы/хвоста).
             if atomic_used + (url_end - url_start) > L1_CLIP_ATOMIC_CHARS_MAX:
                 continue
             chosen.append((url_start, url_end))
@@ -1072,11 +1081,13 @@ def _clip_middle(body: str, start: int, end: int, target: int,
                 slice_start = _url_safe_cut(body, slice_start, keep_head=False)
                 slice_end = _url_safe_cut(body, slice_end, keep_head=True)
                 # Границы середины не рвут слово: тянем к ближайшему пробелу,
-                # но только в пределах слака. Пробела нет (одно «слово» длиной
-                # в текст) — оставляем точную длину среза.
-                slice_start = _word_cut(body, slice_start, start,
-                                        forward=False)
-                slice_end = _word_cut(body, slice_end, end, forward=True)
+                # но только в пределах слака И только если середина остаётся в
+                # своей доле (иначе срез вылезает за кап и ломает бюджет окна).
+                snapped_start = _word_cut(body, slice_start, start,
+                                          forward=False)
+                snapped_end = _word_cut(body, slice_end, end, forward=True)
+                if snapped_end - snapped_start <= room:
+                    slice_start, slice_end = snapped_start, snapped_end
                 if slice_end > slice_start and not any(
                         slice_start < e and s < slice_end
                         for s, e in chosen):
@@ -1100,14 +1111,18 @@ def clip_body(body: str, cap: int) -> str:
     * границы двигаются к ближайшей границе предложения (существующий
       регексп `evidence_policy._SENTENCE_SPLIT_RE`; своего парсера нет);
     * середина собирается claim-first: высокорисковые предложения
-      (существующий детектор `evidence_policy._high_risk`) берутся первыми,
-      атомарная часть ограничена :data:`L1_CLIP_ATOMIC_CHARS_MAX`; остальное
+      (существующий детектор `evidence_policy._high_risk`) берутся первыми в
+      пределах доли середины, но не более :data:`L1_CLIP_ATOMIC_CHARS_MAX`
+      (320 симв.) суммарно; при тесном бюджете приоритет у окна — claim
+      вписывается в долю середины, а не раздувает строку. Остальное
       добирается от центральной точки наружу. Справочника контрдоводов НЕТ;
     * ссылки — атомарный источник: границы не режут URL (см.
-      :func:`_url_safe_cut`), поэтому перебор ограничен длиной самого URL.
+      :func:`_url_safe_cut`).
 
-    Длина результата ≤ ``cap``, кроме атомарного URL (bounded). Никогда не
-    бросает."""
+    Длина результата ≤ ``cap``. Единственное исключение — атомарный URL:
+    если срез попадает внутрь ссылки, граница отодвигается до её края, и
+    перебор ограничен длиной самого URL (не более одной ссылки на границу).
+    Никогда не бросает."""
     try:
         text = str(body or "")
         limit = int(cap or 0)
@@ -1167,6 +1182,49 @@ def message_cap_chars(budget_tokens: int | None = None) -> int:
                    max(800, int(max(0, budget) * 4 * L1_MESSAGE_SHARE)))
     except (TypeError, ValueError):      # pragma: no cover - защитная ветка
         return 800
+
+
+def _reply_section_body(context_text: str) -> str:
+    """Тело секции «ОТВЕТ НА» из собранного L1-пакета ("" — секции нет)."""
+    try:
+        text = str(context_text or "")
+        marker = f"[{L1_REPLY_SECTION}]\n"
+        if marker not in text:
+            return ""
+        body = text.split(marker, 1)[1]
+        return body.split("\n\n[", 1)[0]
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
+def reply_delivery_stats(context_text: str, reply_input: str = "",
+                         budget_tokens: int | None = None) -> dict:
+    """Факт доставки цитаты в СОБРАННОМ пакете — R17-safe числа/флаг (§3).
+
+    Отвечает на единственный вопрос, который важно видеть в проде: сколько
+    цитаты реально доехало до планера и уцелела ли её середина. Считается по
+    фактическому тексту пакета (после `_cap_context`), а не по намерению:
+    ``delivered_chars`` — длина тела секции «ОТВЕТ НА», ``total_chars`` — длина
+    поданного блока цитаты. Текста, URL и промптов в полях нет.
+    Никогда не бросает; пустая цитата → честные нули."""
+    try:
+        cap = int(reply_block_chars(budget_tokens))
+    except Exception:      # pragma: no cover - защитная ветка
+        cap = L1_REPLY_BLOCK_CHARS
+    try:
+        total = len(str(reply_input or "").strip())
+        body = _reply_section_body(context_text)
+        delivered = len(body)
+        return {
+            "chars_cap": int(cap),
+            "total_chars": int(total),
+            "delivered_chars": int(delivered),
+            "truncated": bool(total > delivered),
+            "kept_mid": bool(body.count(CLIP_MARK) >= 2),
+        }
+    except Exception:      # pragma: no cover - защитная ветка
+        return {"chars_cap": int(cap), "total_chars": 0,
+                "delivered_chars": 0, "truncated": False, "kept_mid": False}
 
 
 def _explicit_l1_context_cap() -> int | None:
@@ -2048,6 +2106,7 @@ __all__ = [
     "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
     "window_line_chars", "reply_block_chars", "message_cap_chars",
     "resolve_l1_context_budget", "clip_body", "L1_REPLY_SECTION",
+    "reply_delivery_stats",
     "build_evidence_packet", "fallback_plan", "plan_response_mode",
     "emit_l1_plan_event", "build_l2_plan_block",
     "analysis_directive_needed", "rejected_note",

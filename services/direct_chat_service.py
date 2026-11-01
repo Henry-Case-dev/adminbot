@@ -733,6 +733,18 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
     l1_source = str(meta.get("l1_context_source") or "")
     if l1_source:
         out["l1_context_source"] = l1_source[:64]
+    # ER-08-RC (§3 «Наблюдаемость», arch/reply-cap-decision.md): что именно
+    # доехало из цитаты и окна. Только числа и bool — ни текста, ни URL.
+    for _key in ("l1_reply_chars_cap", "l1_line_chars_cap",
+                 "l1_reply_total_chars", "l1_reply_delivered_chars"):
+        _value = meta.get(_key)
+        if isinstance(_value, int) and not isinstance(_value, bool) \
+                and _value >= 0:
+            out[_key] = int(_value)
+    for _key in ("l1_reply_truncated", "l1_kept_mid"):
+        _flag = meta.get(_key)
+        if isinstance(_flag, bool):
+            out[_key] = bool(_flag)
     if fallback_flag:
         out["fallback"] = str(fallback_flag)
     return out
@@ -5330,6 +5342,11 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
+        # ER-08-RC (§3): эффективный кап строки окна — рядом с бюджетом пакета.
+        meta["l1_line_chars_cap"] = int(_l1.window_line_chars(
+            window, budget_tokens=_l1_budget))
+        _l1_reply_text = self._l1_reply_block(message,
+                                              budget_tokens=_l1_budget)
         # T10-BOUNDARY: честная граница истории (факт из БД, не эвристика).
         history_partial = await self._history_partial(chat_id, window)
         # ── EVOL social (доп. директива §§1–3, 31.10.2026): кадр хода —
@@ -5381,8 +5398,7 @@ class DirectChatService:
                 # ER-08: исходное сообщение — внутри бюджета L1, а не 800
                 # символов Writer-пути.
                 cap_chars=_l1.message_cap_chars(_l1_budget)),
-            reply_block=self._l1_reply_block(message,
-                                             budget_tokens=_l1_budget),
+            reply_block=_l1_reply_text,
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
             social_frame=_social_line,
@@ -5397,6 +5413,16 @@ class DirectChatService:
             budget_tokens=_l1_budget)
         input_chars = len(context_text)
         meta["l1_context_chars"] = int(input_chars)
+        # ER-08-RC (§3): фактическая доставка цитаты в СОБРАННОМ пакете —
+        # считается по реальному тексту секции «ОТВЕТ НА», не по намерению.
+        _l1_reply_stats = _l1.reply_delivery_stats(
+            context_text, _l1_reply_text, _l1_budget)
+        meta["l1_reply_chars_cap"] = int(_l1_reply_stats["chars_cap"])
+        meta["l1_reply_total_chars"] = int(_l1_reply_stats["total_chars"])
+        meta["l1_reply_delivered_chars"] = int(
+            _l1_reply_stats["delivered_chars"])
+        meta["l1_reply_truncated"] = bool(_l1_reply_stats["truncated"])
+        meta["l1_kept_mid"] = bool(_l1_reply_stats["kept_mid"])
         messages = [
             {"role": "system", "content": system_prompt_l1},
             {"role": "user", "content": context_text},
@@ -5522,7 +5548,15 @@ class DirectChatService:
             temperature_unsupported=bool(
                 meta.get("temperature_unsupported")),
             repair=int(meta.get("repair") or 0),
-            fallback=fallback_flag)
+            fallback=fallback_flag,
+            # ER-08-RC §3: те же оси, что в plan_meta (Inspector видит
+            # срез цитаты без обращения к durable-таблице).
+            l1_reply_chars_cap=meta.get("l1_reply_chars_cap"),
+            l1_line_chars_cap=meta.get("l1_line_chars_cap"),
+            l1_reply_total_chars=meta.get("l1_reply_total_chars"),
+            l1_reply_delivered_chars=meta.get("l1_reply_delivered_chars"),
+            l1_reply_truncated=meta.get("l1_reply_truncated"),
+            l1_kept_mid=meta.get("l1_kept_mid"))
         # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
         # (reply/silent/react) идут через этот единственный вызов, строка
         # step="l1_planner" уже записана (llm.generate / manual record).
@@ -11866,6 +11900,23 @@ class DirectChatService:
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
             budget_tokens=_init_budget)
+        # ER-08-RC (§3 «Наблюдаемость»): у инициативного хода цитаты нет
+        # (reply_block не подаётся) — честные нули по доставке + действующие
+        # капы; те же оси, что у Direct-сайта, в существующем канале.
+        _init_reply_stats = _l1.reply_delivery_stats(
+            context_text, "", _init_budget)
+        _l1.record_l1_diagnostics(
+            chat_id, source="initiative_l1",
+            l1_context_budget=int(_init_budget),
+            l1_context_source=str(_init_budget_meta.get("source") or ""),
+            l1_reply_chars_cap=int(_init_reply_stats["chars_cap"]),
+            l1_line_chars_cap=int(_l1.window_line_chars(
+                window, budget_tokens=_init_budget)),
+            l1_reply_total_chars=int(_init_reply_stats["total_chars"]),
+            l1_reply_delivered_chars=int(
+                _init_reply_stats["delivered_chars"]),
+            l1_reply_truncated=bool(_init_reply_stats["truncated"]),
+            l1_kept_mid=bool(_init_reply_stats["kept_mid"]))
         messages = [
             {"role": "system",
              "content": _init_prompt},

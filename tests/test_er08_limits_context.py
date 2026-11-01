@@ -40,6 +40,21 @@ def _quote_3000():
     return head + " " + RISK_CLAIM + " " + tail
 
 
+def _dense_rows(n=20, total=4096, gap=200):
+    """Плотное высокорисковое окно (фикстура ревьюера B2): claim каждые ~gap."""
+    rows = []
+    for i in range(1, n + 1):
+        parts: list[str] = []
+        size = 0
+        while size < total - 40:
+            parts.append(("рассуждение " * (gap // 12))[:gap])
+            parts.append(RISK_CLAIM)
+            size = sum(len(p) for p in parts)
+        body = " ".join(parts)[:total - 20] + f" ХВОСТ{i}"
+        rows.append(_row(i, body))
+    return rows
+
+
 def _mid_counter_row(total=755, pos=325):
     """Реплика с контрдоводом в СЕРЕДИНЕ (позиция ``pos`` из ``total``)."""
     head = ("контекст " * (pos // 9))[:pos]
@@ -210,6 +225,30 @@ class TestL1PackageLosses:
         assert MSG_TAIL in ctx
 
     @pytest.mark.asyncio
+    async def test_plain_counterargument_at_1500_of_quote_is_delivered_5400(
+            self):
+        """ДИСКРИМИНИРУЮЩИЙ КЕЙС (ревью §6.1): цитата 3000, ОБЫЧНАЯ фраза
+        (не высокорисковая — `_high_risk` её не ловит) на позиции 1500, бюджет
+        5400. На базе кап цитаты был 1200 (голова 720 + хвост 480): позиция 1500
+        попадала в выброшенную середину и фраза НЕ доезжала. Здесь доезжает
+        именно благодаря середине среза (кап 2160, середина 25 % вокруг центра),
+        то есть тест различает базу и кандидата."""
+        from services import direct_l1 as l1
+
+        assert l1._high_risk(COUNTER_MID) is False, "фраза должна быть НЕ риск"
+        head = ("начало цитаты о версии " * 200)[:1490]
+        tail = ("дальше идут подробности " * 200)[:3000 - 1490
+                                                  - len(COUNTER_MID) - 2]
+        quote = head + " " + COUNTER_MID + " " + tail
+        assert len(quote) == 3000
+        assert 1490 <= quote.index(COUNTER_MID) <= 1495
+
+        assert l1.reply_block_chars(5400) == 2160
+        ctx = l1.build_l1_context(query="q", reply_block=quote, speaker="Аня",
+                                  budget_tokens=5400)
+        assert COUNTER_MID in ctx, "обычный контрдовод из середины не доехал"
+
+    @pytest.mark.asyncio
     async def test_mid_message_counterargument_reaches_middle_window(
             self, monkeypatch):
         """ПОЗИТИВНАЯ ГАРАНТИЯ СЕРЕДИНЫ (ER-08-RC P2): контрдовод из СЕРЕДИНЫ
@@ -287,6 +326,38 @@ class TestL1PackageLosses:
                                         window=rows_with(long_row_plain),
                                         speaker="Аня", budget_tokens=1600)
         assert COUNTER_MID not in ctx_plain       # честная граница: не claim
+
+    def test_dense_high_risk_window_keeps_all_replies(self):
+        """РЕГРЕССИЯ B2 (ревью): плотное высокорисковое окно не теряет РЕПЛИКИ.
+
+        Фикстура ревьюера: 20 реплик по 4096 символов, высокорисковое
+        предложение каждые ~200 символов. На базе 613fae5d при 1600/2000/2600
+        доезжали все 20 реплик (2000/240/312 симв. на строку). Кандидат с
+        безлимитным claim-first раздувал строку до 294 симв., шаг 0 упирался в
+        пол 200, и шаг 1 выбрасывал старые реплики (10 и 5 из 20).
+
+        Инвариант: claim-first не выходит за кап строки, поэтому число
+        доставленных реплик не ниже базы, а строка не длиннее капа (+префикс
+        автора)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+
+        rows = _dense_rows()
+        for budget in (1600, 2000, 2600):
+            line_cap = l1.window_line_chars(rows, budget_tokens=budget)
+            ctx = l1.build_l1_context(query="q", window=rows, speaker="Аня",
+                                      budget_tokens=budget)
+            assert count_tokens(ctx) <= budget
+            delivered = set(re.findall(r"ХВОСТ(\d+)", ctx))
+            assert len(delivered) == 20, (
+                f"бюджет {budget}: доехало {len(delivered)} из 20 реплик")
+            block = ctx.split("[ПОСЛЕДНИЕ СООБЩЕНИЯ]\n", 1)[1].split(
+                "\n\n[", 1)[0]
+            longest = max(len(line) for line in block.splitlines())
+            # +5 — префикс «Аня: », который добавляется к срезу строки.
+            assert longest <= line_cap + 5, (
+                f"бюджет {budget}: строка {longest} длиннее капа {line_cap}")
 
     def test_reply_section_protected_under_hint_pressure(self):
         """Переполнение: сжимается ОКНО, а не цитата; claim в цитате выживает,
@@ -462,6 +533,29 @@ class TestL1PackageLosses:
         assert "await _l1.resolve_l1_context_budget(" in init
         assert "budget_tokens=_init_budget" in init
 
+    def test_live_path_emits_reply_cap_axes(self):
+        """ER-08-RC §3: шесть осей доставки цитаты проводятся на ОБОИХ L1-сайтах
+        (Direct — через meta/plan_meta, инициатива — через существующий канал
+        record_l1_diagnostics), и обе идут в `_l1_usage_plan_meta`."""
+        text = (ROOT / "services/direct_chat_service.py").read_text(
+            encoding="utf-8")
+        keys = ("l1_reply_chars_cap", "l1_line_chars_cap",
+                "l1_reply_total_chars", "l1_reply_delivered_chars",
+                "l1_reply_truncated", "l1_kept_mid")
+        plan = text[text.index("async def _plan_direct_l1"):]
+        plan = plan[:plan.index("async def _attach_l1_plan_meta")]
+        for key in keys:
+            assert f'meta["{key}"]' in plan, f"{key} не доезжает до plan_meta"
+        init = text[text.index("async def plan_initiative_decision"):]
+        init = init[:init.index("async def generate_initiative_reply")]
+        for key in keys:
+            assert f"{key}=" in init, f"{key} нет в инициативном L1-сайте"
+        helper = text[text.index("def _l1_usage_plan_meta"):]
+        helper = helper[:helper.index("def _l1_usage_diag")] \
+            if "def _l1_usage_diag" in helper else helper[:4000]
+        for key in keys:
+            assert key in helper, f"{key} не проходит через _l1_usage_plan_meta"
+
     def test_plan_meta_exposes_effective_budget_and_source(self):
         """Durable-наблюдаемость (§8 «контракт замера»): эффективный лимит и
         его источник доезжают до usage-plan_meta."""
@@ -478,6 +572,71 @@ class TestL1PackageLosses:
         assert safe["l1_context_source"] == "model_window"
         assert {"l1_context_budget", "l1_context_source"} <= set(
             ue.PLAN_META_FIELDS)
+
+    def test_reply_delivery_axes_are_present_and_truthful(self):
+        """ER-08-RC §3 (ревью B1): шесть осей есть, они ПРАВДИВЫ и не несут
+        текста.
+
+        Короткая цитата → ``truncated=False`` и ``delivered == total``;
+        длинная → ``truncated=True``, ``delivered < total``, ``kept_mid``
+        отражает сохранённую середину среза. Те же числа принимает
+        ``record_l1_diagnostics`` (Inspector), и весь набор проходит
+        R17-whitelist `sanitize_plan_meta`."""
+        from services import direct_l1 as l1
+        from services import usage_events as ue
+        from services.direct_chat_service import _l1_usage_plan_meta
+
+        keys = ("l1_reply_chars_cap", "l1_line_chars_cap",
+                "l1_reply_total_chars", "l1_reply_delivered_chars",
+                "l1_reply_truncated", "l1_kept_mid")
+
+        short = "короткая цитата целиком"
+        ctx_short = l1.build_l1_context(query="q", reply_block=short,
+                                        speaker="Аня", budget_tokens=1600)
+        stats_short = l1.reply_delivery_stats(ctx_short, short, 1600)
+        assert stats_short["chars_cap"] == l1.reply_block_chars(1600) == 640
+        assert stats_short["total_chars"] == len(short)
+        assert stats_short["delivered_chars"] == stats_short["total_chars"]
+        assert stats_short["truncated"] is False
+        assert stats_short["kept_mid"] is False
+
+        quote = _quote_3000()
+        ctx_long = l1.build_l1_context(query="q", reply_block=quote,
+                                       speaker="Аня", budget_tokens=1600)
+        stats_long = l1.reply_delivery_stats(ctx_long, quote, 1600)
+        assert stats_long["truncated"] is True
+        assert stats_long["delivered_chars"] < stats_long["total_chars"]
+        assert stats_long["kept_mid"] is True
+        assert stats_long["delivered_chars"] <= stats_long["chars_cap"]
+
+        meta = {"l1_line_chars_cap": 200,
+                "l1_reply_chars_cap": stats_long["chars_cap"],
+                "l1_reply_total_chars": stats_long["total_chars"],
+                "l1_reply_delivered_chars": stats_long["delivered_chars"],
+                "l1_reply_truncated": stats_long["truncated"],
+                "l1_kept_mid": stats_long["kept_mid"]}
+        out = _l1_usage_plan_meta(l1.L1Plan(), meta, fallback_flag="",
+                                  latency_ms=5, input_chars=100)
+        safe = ue.sanitize_plan_meta(out)
+        assert set(keys) <= set(safe)
+        assert safe["l1_reply_truncated"] is True
+        assert safe["l1_kept_mid"] is True
+        assert safe["l1_reply_total_chars"] == stats_long["total_chars"]
+        assert safe["l1_reply_delivered_chars"] == \
+            stats_long["delivered_chars"]
+        assert safe["l1_reply_chars_cap"] == stats_long["chars_cap"]
+        assert safe["l1_line_chars_cap"] == 200
+        # R17: в полях нет текста — только числа и bool.
+        for key in keys:
+            assert not isinstance(safe[key], str), f"{key} содержит текст"
+
+        # Same axes in the existing Inspector channel (record_l1_diagnostics).
+        from services import direct_l1 as _l1
+        _l1.record_l1_diagnostics(987654, **{k: safe[k] for k in keys})
+        stored = _l1.get_l1_diagnostics(987654) or {}
+        for key in keys:
+            assert stored.get(key) == safe[key]
+        _l1._l1_diagnostics.pop(987654, None)
 
 
 # ── 2. metered / деньги ────────────────────────────────────────────────────
