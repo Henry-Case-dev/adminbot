@@ -1553,6 +1553,39 @@ def test_wave3_delivered_chars_no_false_credit_on_version_prefix():
         version_claim.key(): 40}
 
 
+@pytest.mark.asyncio
+async def test_wave3_initiative_reuse_still_runs_nonnetwork_tools(monkeypatch):
+    """Review-fix 5: инициатива — не отдельный контур (та же семантика).
+
+    На reuse-ходе инициативный Writer тоже обязан получить историю чата, а не
+    только кешированную выдержку; сеть при этом не вызывается.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    search = _NetSearchSpy()
+    extractor = _NetExtractorSpy()
+    memory = _HistoryMemory([_history_row("говорили про deepseek v4.1 flash")])
+    router = ToolRouter(ToolDeps(search=search, memory=memory,
+                                 extractor=extractor))
+    svc, writer_calls = _init_service(router, monkeypatch)
+    plan = _plan(response_act="answer",
+                 capabilities_needed=["web_search", "chat_history"],
+                 external_claims=[{"entity": "deepseek v4.1 flash",
+                                   "relation": "version", "version": "4.1"}])
+    _seed_reuse(ep.classify_claims(plan)[0])
+
+    called = _spy_router(router)
+    text = await svc.generate_initiative_reply(
+        CHAT, {"goal": "напомнить про deepseek v4.1 flash"},
+        l1_plan=plan, correlation_id="run-w3i")
+    assert text
+    assert "get_recent_history" in called
+    assert "reuse: " in writer_calls[0]["evidence"]
+    assert "говорили про deepseek v4.1 flash" in writer_calls[0]["evidence"]
+    assert search.calls == []
+    assert extractor.calls == []
+    assert not (set(called) & {"execute_web_search", "fetch_article"})
+
+
 @pytest.mark.parametrize("query", [
     "правда ли, что deepseek v4.1 flash вышел",
     "проверь факт: deepseek v4.1 flash вышел",
