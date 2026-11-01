@@ -173,7 +173,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # различимых фаз «саммари» и «проверь, кто прав» (сводка без вердиктов,
     # проверка в external_claims, пересказ не переписывается). Прежние байты —
     # PREV_DIRECT_L1_PLANNER_EVR1 (= прод 2.58.147).
-    "direct.base.l1_planner": "l1-planner-two-phase-scenario25",
+    # W17c (02.11.2026, блокер ревью): в тот же невыпущенный блок добавлено
+    # ОДНО предложение приоритета над правилом 7 («обобщить материал» →
+    # research), иначе противоречие двух текстов в одном payload оставляло
+    # достижимым возврат response_act=research и потерю маркера сводки.
+    # Правило 7 не менялось. Новые байты — метка ниже.
+    "direct.base.l1_planner": "l1-planner-two-phase-precedence",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -351,8 +356,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
     "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-two-phase-scenario25",
-                               "7637864d50b5"),
+    "direct.base.l1_planner": ("l1-planner-two-phase-precedence",
+                               "09f3d533d173"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2733,8 +2738,16 @@ def factory_set_fingerprint() -> str:
 #: байты PREV_FACTCHECK_SINGLE_PHASE_SCOPE = прод 2.58.147. Эталон
 #: ``plans/docs/canon/architecture.md`` (Section 72) обновлён теми же байтами.
 #: Было ``63c0ae3546d1``, стало ``748641ded024``.
+#: Бампа EVOL W17c (02.11.2026, блокер независимого ревью): changed = 1 —
+#: ``direct.base.l1_planner``: в тот же невыпущенный блок двух фаз добавлено
+#: ОДНО предложение приоритета (плановая просьба «свод/пересказ + разбор
+#: правоты» даёт ``summarization``+``summary`` с ``external_claims``, и это
+#: правило старше правила 7 «обобщить материал → research»). Правило 7 и
+#: owner-тексты не менялись; метка ``l1-planner-two-phase-precedence``, прежние
+#: байты по-прежнему PREV_DIRECT_L1_PLANNER_EVR1 = прод 2.58.147.
+#: Было ``748641ded024``, стало ``f84baaf69559``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "748641ded024"
+FACTORY_SET_SHA256_12 = "f84baaf69559"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

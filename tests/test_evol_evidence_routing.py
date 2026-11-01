@@ -2212,7 +2212,7 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    assert "l1-planner-two-phase-scenario25" in label
+    assert "l1-planner-two-phase-precedence" in label
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"

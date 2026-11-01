@@ -255,7 +255,7 @@ def test_labels_and_fingerprint_consistent():
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # Волна 5: метки трёх каналов Direct бампнуты (прежние метки — история).
     # EVOL W17: метка L1 — ревизия EVR2 (две фазы «саммари/проверка»).
-    assert "l1-planner-two-phase-scenario25" in pr.factory_revision(
+    assert "l1-planner-two-phase-precedence" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "l2-writer-evidence-discipline" in pr.factory_revision(
         "direct.base.l2_writer")

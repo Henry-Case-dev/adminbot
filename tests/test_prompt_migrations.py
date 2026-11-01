@@ -903,13 +903,13 @@ class TestMca23Migration:
         # (c987c03e3ee0 / d1b210c156c8) не изменились. Решение Architect «г»:
         # та же невыпущенная ревизия EVR1 расширена полем recheck — меняются
         # только байты L1-планера, откат по-прежнему на 2.58.146/2.58.113.
-        # EVOL W17 (02.11.2026): L1-планер — ревизия EVR2 (7637864d50b5,
+        # EVOL W17 (02.11.2026): L1-планер — ревизия EVR2 (09f3d533d173,
         # контракт двух фаз «саммари/проверка»); целевые байты отката
         # по-прежнему 2.58.146 (EVR1) / 2.58.113 (CLAR).
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("7637864d50b5", "68f0233d7050")
+            ("09f3d533d173", "68f0233d7050")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

@@ -183,7 +183,7 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # EVOL W17: слепок EVR1 = прод 2.58.147 (eb496e938c49), активные байты —
     # ревизия EVR2 (контракт двух фаз «саммари/проверка»).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "7637864d50b5"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "09f3d533d173"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок

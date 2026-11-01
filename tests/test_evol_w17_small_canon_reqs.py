@@ -12,7 +12,7 @@
 Что проверяется (и чем это может упасть):
 
 1. ER-S25 — контракт двух различимых фаз живёт в АКТИВНОМ каноне L1-планера
-   (`l1-planner-two-phase-scenario25`), а не в комментарии; план по сценарию 25
+   (`l1-planner-two-phase-precedence`), а не в комментарии; план по сценарию 25
    различает фазы существующими полями (structure=summary +
    external_claims), фаза проверки реально доходит до runtime-политики
    (`required=True`), а чисто пересказный план проверку не запускает.
@@ -117,9 +117,19 @@ def test_scenario25_canon_has_two_phase_contract():
     assert "собственных вердиктов не выносит" in canon
     assert "уже сделанный пересказ не переписывает" in canon
     assert "Исходные сообщения в обеих фазах неизменны" in canon
+    # W17c (блокер ревью): приоритет над правилом 7 обязан стоять В ТОМ ЖЕ
+    # блоке. Без него в одном payload живут два взаимоисключающих указания
+    # («обобщить материал → research» против «свод → summarization»), и
+    # планировщик может вернуть research, потеряв маркер сводки.
+    assert "это правило старше правила 7" in canon
+    assert "в response_act=research не превращает" in canon
+    # Разрешение конфликта — приоритетом, а не правкой правила 7: его текст
+    # (и весь owner-текст) на месте байт-в-байт.
+    assert "обобщить сообщения, переписку, историю" in canon
+    assert "Материал важнее оценки" in canon
     # Печать и метка — та же ревизия, что в реестре (канон не «висит» мимо).
     label, seal = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-two-phase-scenario25"
+    assert label == "l1-planner-two-phase-precedence"
     assert pr.FACTORY_REVISION_LABELS["direct.base.l1_planner"] == label
     assert pr.sha12(pr.factory_text("direct.base.l1_planner")) == seal
     assert pr.seal_integrity() == {}

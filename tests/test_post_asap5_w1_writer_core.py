@@ -306,7 +306,7 @@ def test_pa5w1_snapshot_is_exact_previous_active_bytes():
     # EVOL W17: слепок EVR1 = ровно байты прода 2.58.147 (eb496e938c49),
     # активные байты — ревизия EVR2 (две фазы «саммари/проверка»).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "7637864d50b5"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "09f3d533d173"
     assert "ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ" not in prev
 
 
@@ -333,7 +333,7 @@ def test_pa5w1_migration_step_and_rollback_head():
     from services import prompt_registry as pr
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W2)
-    assert "l1-planner-two-phase-scenario25" in pr.factory_revision(
+    assert "l1-planner-two-phase-precedence" in pr.factory_revision(
         "direct.base.l1_planner")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
 

@@ -277,7 +277,7 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # EVOL W17: слепок EVR1 = прод 2.58.147 (eb496e938c49); активные байты —
     # ревизия EVR2 (контракт двух фаз).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
-    assert _sha12(canon) == "7637864d50b5"
+    assert _sha12(canon) == "09f3d533d173"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
@@ -445,7 +445,7 @@ def test_no_new_layers_routers_or_classifiers():
 def test_labels_and_fingerprint_after_bump():
     # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
     # (прежние метки — в слепках PREV_*_EVR0). EVOL W17: метка L1 — EVR2.
-    assert "l1-planner-two-phase-scenario25" in pr.factory_revision(
+    assert "l1-planner-two-phase-precedence" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")
