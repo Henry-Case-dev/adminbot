@@ -3,7 +3,7 @@
   "source_path": "plans/current_task.md",
   "source_sha256": "b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62",
   "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
-  "deployed_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+  "deployed_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
   "strict_evidence": false,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -22453,10 +22453,48 @@
       "acceptance": "Один стандарт детального просмотра: по строке факта/убеждения/парадигмы/эволюции всегда открывается карточка того же record_id с текстом, датами разных типов, источником и адресными переходами (не общий раздел без фильтра); desktop — короткий modal или side-panel по назначению, mobile — единый адаптивный sheet с понятным закрытием и возвратом, при длинном тексте/клавиатуре расширяется в доступный viewport без двух конкурирующих вертикальных скроллов; одна система z-index/portal/focus trap/backdrop (overlay выше стекла и фонового текста, dropdown не прозрачный до нечитаемости, не обрезается родительским overflow, корректно flip у краёв); закрытие Esc/Back/явной кнопкой/внешним кликом, незаписанный текст не теряется молча; после возврата сохранены scope, фильтры, scroll position, выбор объекта и ввод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
-      "note": "Открыто: acceptance строки - весь контракт §4.2, включая «одна система z-index/portal/focus trap/backdrop». Модалка записи приведена (db890035: один instance на #app, Esc/крестик/внешний клик, focus trap, scroll-lock, max-height 86dvh, один record_id) и guard несохранённого текста есть (web/app.js:8530, 8595), но z-index остаётся россыпью (30/35/40/45/46/50/55/56/57/59/60/70/80 против --overlay-z:50). Зависимость: overlay-дельта (L01848)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01843/L01848) + Re-check 2 проба 2 (лист записи на корневом маршруте, 390)",
+          "observation": "По строке факта/убеждения/парадигмы открывается карточка того же record_id (один instance на #app, db890035); на 390 кнопка закрытия 44x44, scrim 75 выше шапки 40, лист целиком во вьюпорте, Back/Esc/внешний клик закрывают и маршрут не меняется, фокус возвращается на строку; desktop — модалка, длинные формы — fullscreen-редактор; единая z-лестница: 14 токенов `--z-*`, 27 правил, числовых z-index не осталось, `--overlay-z: 50` цел, живые ранги header 40 < scope 50 < scrim 75 < toast 90 < palette 100.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по дельте (z-лестница, лист области, Back-stack, палитра)",
+          "observation": "Реализованы и измерены: лестница слоёв вместо локальных чисел, `backStackLayers` как единственный список слоёв, лист области через `_ctlScopePlacement`, маркеры в отданных ассетах.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json — геометрия/порядок/фокус на 320/360/390/667/1280",
+          "observation": "E2E-прогон дельты: запись и палитра открываются/закрываются по одному слою, hit-цели и позиции панелей внутри видимой области.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
     },
     {
       "source_id": "L01845",
@@ -22511,10 +22549,48 @@
       "acceptance": "Один стандарт детального просмотра: по строке факта/убеждения/парадигмы/эволюции всегда открывается карточка того же record_id с текстом, датами разных типов, источником и адресными переходами (не общий раздел без фильтра); desktop — короткий modal или side-panel по назначению, mobile — единый адаптивный sheet с понятным закрытием и возвратом, при длинном тексте/клавиатуре расширяется в доступный viewport без двух конкурирующих вертикальных скроллов; одна система z-index/portal/focus trap/backdrop (overlay выше стекла и фонового текста, dropdown не прозрачный до нечитаемости, не обрезается родительским overflow, корректно flip у краёв); закрытие Esc/Back/явной кнопкой/внешним кликом, незаписанный текст не теряется молча; после возврата сохранены scope, фильтры, scroll position, выбор объекта и ввод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
-      "note": "Открыто: desktop-поверхность есть (короткая запись - modal; длинные редакторы - fullscreen), но в том же acceptance требуется единая система z-index/portal/backdrop, которая не сведена (--overlay-z:50 против фактических 30..80). Зависимость: L01848."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01843/L01848) + Re-check 2 проба 2 (лист записи на корневом маршруте, 390)",
+          "observation": "По строке факта/убеждения/парадигмы открывается карточка того же record_id (один instance на #app, db890035); на 390 кнопка закрытия 44x44, scrim 75 выше шапки 40, лист целиком во вьюпорте, Back/Esc/внешний клик закрывают и маршрут не меняется, фокус возвращается на строку; desktop — модалка, длинные формы — fullscreen-редактор; единая z-лестница: 14 токенов `--z-*`, 27 правил, числовых z-index не осталось, `--overlay-z: 50` цел, живые ранги header 40 < scope 50 < scrim 75 < toast 90 < palette 100.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по дельте (z-лестница, лист области, Back-stack, палитра)",
+          "observation": "Реализованы и измерены: лестница слоёв вместо локальных чисел, `backStackLayers` как единственный список слоёв, лист области через `_ctlScopePlacement`, маркеры в отданных ассетах.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json — геометрия/порядок/фокус на 320/360/390/667/1280",
+          "observation": "E2E-прогон дельты: запись и палитра открываются/закрываются по одному слою, hit-цели и позиции панелей внутри видимой области.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
     },
     {
       "source_id": "L01847",
@@ -22528,10 +22604,48 @@
       "acceptance": "Один стандарт детального просмотра: по строке факта/убеждения/парадигмы/эволюции всегда открывается карточка того же record_id с текстом, датами разных типов, источником и адресными переходами (не общий раздел без фильтра); desktop — короткий modal или side-panel по назначению, mobile — единый адаптивный sheet с понятным закрытием и возвратом, при длинном тексте/клавиатуре расширяется в доступный viewport без двух конкурирующих вертикальных скроллов; одна система z-index/portal/focus trap/backdrop (overlay выше стекла и фонового текста, dropdown не прозрачный до нечитаемости, не обрезается родительским overflow, корректно flip у краёв); закрытие Esc/Back/явной кнопкой/внешним кликом, незаписанный текст не теряется молча; после возврата сохранены scope, фильтры, scroll position, выбор объекта и ввод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
-      "note": "Открыто: на мобильном используется адаптивная модалка (max-height min(86dvh,720px), @media 479px), а не bottom-sheet, и общий z-index-слой не сведён - обе части одного acceptance. Зависимость: overlay-дельта (L01848)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01843/L01848) + Re-check 2 проба 2 (лист записи на корневом маршруте, 390)",
+          "observation": "По строке факта/убеждения/парадигмы открывается карточка того же record_id (один instance на #app, db890035); на 390 кнопка закрытия 44x44, scrim 75 выше шапки 40, лист целиком во вьюпорте, Back/Esc/внешний клик закрывают и маршрут не меняется, фокус возвращается на строку; desktop — модалка, длинные формы — fullscreen-редактор; единая z-лестница: 14 токенов `--z-*`, 27 правил, числовых z-index не осталось, `--overlay-z: 50` цел, живые ранги header 40 < scope 50 < scrim 75 < toast 90 < palette 100.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по дельте (z-лестница, лист области, Back-stack, палитра)",
+          "observation": "Реализованы и измерены: лестница слоёв вместо локальных чисел, `backStackLayers` как единственный список слоёв, лист области через `_ctlScopePlacement`, маркеры в отданных ассетах.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json — геометрия/порядок/фокус на 320/360/390/667/1280",
+          "observation": "E2E-прогон дельты: запись и палитра открываются/закрываются по одному слою, hit-цели и позиции панелей внутри видимой области.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
     },
     {
       "source_id": "L01848",
@@ -22545,10 +22659,48 @@
       "acceptance": "Один стандарт детального просмотра: по строке факта/убеждения/парадигмы/эволюции всегда открывается карточка того же record_id с текстом, датами разных типов, источником и адресными переходами (не общий раздел без фильтра); desktop — короткий modal или side-panel по назначению, mobile — единый адаптивный sheet с понятным закрытием и возвратом, при длинном тексте/клавиатуре расширяется в доступный viewport без двух конкурирующих вертикальных скроллов; одна система z-index/portal/focus trap/backdrop (overlay выше стекла и фонового текста, dropdown не прозрачный до нечитаемости, не обрезается родительским overflow, корректно flip у краёв); закрытие Esc/Back/явной кнопкой/внешним кликом, незаписанный текст не теряется молча; после возврата сохранены scope, фильтры, scroll position, выбор объекта и ввод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
-      "note": "Открыто целиком: единая система z-index/portal/backdrop/focus не сведена - в app.css живут 30/35/40/45/46/50/55/56/57/59/60/70/80, токен --overlay-z:50 применяется в одном месте (строка 6079). Зависимость: UI-дельта overlay."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01848) + Re-check 1 §5",
+          "observation": "Единая система z-index/portal/focus/backdrop: числовые z-index заменены лестницей токенов (14 токенов, 27 правил), `--overlay-z: 50` сохранён, палитра и scrim записи перекрывают шапку и стекло (замер + Browser Use), dropdown не обрезается родителем, фокус возвращается.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по дельте (z-лестница, лист области, Back-stack, палитра)",
+          "observation": "Реализованы и измерены: лестница слоёв вместо локальных чисел, `backStackLayers` как единственный список слоёв, лист области через `_ctlScopePlacement`, маркеры в отданных ассетах.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json — геометрия/порядок/фокус на 320/360/390/667/1280",
+          "observation": "E2E-прогон дельты: запись и палитра открываются/закрываются по одному слою, hit-цели и позиции панелей внутри видимой области.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
     },
     {
       "source_id": "L01849",
@@ -22562,10 +22714,48 @@
       "acceptance": "Один стандарт детального просмотра: по строке факта/убеждения/парадигмы/эволюции всегда открывается карточка того же record_id с текстом, датами разных типов, источником и адресными переходами (не общий раздел без фильтра); desktop — короткий modal или side-panel по назначению, mobile — единый адаптивный sheet с понятным закрытием и возвратом, при длинном тексте/клавиатуре расширяется в доступный viewport без двух конкурирующих вертикальных скроллов; одна система z-index/portal/focus trap/backdrop (overlay выше стекла и фонового текста, dropdown не прозрачный до нечитаемости, не обрезается родительским overflow, корректно flip у краёв); закрытие Esc/Back/явной кнопкой/внешним кликом, незаписанный текст не теряется молча; после возврата сохранены scope, фильтры, scroll position, выбор объекта и ввод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
-      "note": "Открыто: Esc/крестик/внешний клик, focus trap, scroll-lock и guard несохранённого ввода (web/app.js:8530, 8595) есть; единый overlay-слой (z-index/portal/backdrop) из того же acceptance - нет. Зависимость: L01848."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01843/L01848) + Re-check 2 проба 2 (лист записи на корневом маршруте, 390)",
+          "observation": "По строке факта/убеждения/парадигмы открывается карточка того же record_id (один instance на #app, db890035); на 390 кнопка закрытия 44x44, scrim 75 выше шапки 40, лист целиком во вьюпорте, Back/Esc/внешний клик закрывают и маршрут не меняется, фокус возвращается на строку; desktop — модалка, длинные формы — fullscreen-редактор; единая z-лестница: 14 токенов `--z-*`, 27 правил, числовых z-index не осталось, `--overlay-z: 50` цел, живые ранги header 40 < scope 50 < scrim 75 < toast 90 < palette 100.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по дельте (z-лестница, лист области, Back-stack, палитра)",
+          "observation": "Реализованы и измерены: лестница слоёв вместо локальных чисел, `backStackLayers` как единственный список слоёв, лист области через `_ctlScopePlacement`, маркеры в отданных ассетах.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json — геометрия/порядок/фокус на 320/360/390/667/1280",
+          "observation": "E2E-прогон дельты: запись и палитра открываются/закрываются по одному слою, hit-цели и позиции панелей внутри видимой области.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
     },
     {
       "source_id": "L01851",
@@ -22661,10 +22851,48 @@
       "acceptance": "Select/combobox — одинаковые варианты и placement во всех местах; на телефоне удобный лист, а не desktop-dropdown, выходящий за границу окна.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: селектор области — кастомный a11y-listbox с flip и поиском (scopePanelStyle), но остальные экраны ещё используют .field select; сводить к одному компоненту нужно при касании соответствующего экрана (asap-ui-02-matrix.md §6, PARTIAL).",
-      "note": "Открыто: select/combobox не сведён к общему компоненту - .ctl-pop/.ctl-pop__search определены в app.css (6811, 6901-6919), но в web/index.html и web/app.js нет ни одного применения (0 вхождений); scope-панель остаётся собственным listbox. Зависимость: UI-дельта controls."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-check 2 §2 (лист области на телефоне) + Re-check 3 §1-3 (B1: подпись не режется)",
+          "observation": "На телефоне панель области — лист (`data-placement=\"sheet\"`, fixed): 320/360/390/667/767 — внутри видимой области, `hitInside=true`, горизонтального скролла нет, пункты 44-51 px, выбор тапом работает, граница 767/768 та же, что у всей раскладки; подпись после B1 переносится на две строки без вертикальной обрезки (`clientHeight` 42 при `line-height` 21, `max-height` удалён, `-webkit-line-clamp: 2`), у длинных имён видимое многоточие; desktop-усечение не тронуто.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — JS-контракт дельты",
+          "observation": "`test_scope_sheet_title_wraps_instead_of_ellipsis` и `_check_sheet` проверяют clamp и отсутствие `max-height`; мутации «вернуть max-height» и «убрать clamp» дают FAILED (не вакуумно).",
+          "type": "test",
+          "artifact_path": "tests/js/asap_ui02_delta_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "2a417240951ba5e3154d45b5e77d3f5927475b21657fc93791c88978aafa1640"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — python-пины дельты",
+          "observation": "`test_scope_sheet_title_wraps_instead_of_ellipsis` и `_check_sheet` проверяют clamp и отсутствие `max-height`; мутации «вернуть max-height» и «убрать clamp» дают FAILED (не вакуумно).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_asap_ui02_delta.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "dcc61b4bf45516b7389d70268a4a3d455d6ffb395f301e16b25478067d2dfa8c"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: селектор области — кастомный a11y-listbox с flip и поиском (scopePanelStyle), но остальные экраны ещё используют .field select; сводить к одному компоненту нужно при касании соответствующего экрана (asap-ui-02-matrix.md §6, PARTIAL)."
     },
     {
       "source_id": "L01855",
@@ -24453,10 +24681,48 @@
       "acceptance": "Единый EVOL-037 command palette: desktop доступен из верхней области и по Ctrl+K, mobile — компактная точка входа в панели вторичных действий → читаемый поисковый sheet; никакой большой постоянно закреплённой строки поиска на каждой странице; локальные фильтры таблицы/каталога допустимы, но не конкурируют с глобальным поиском; выбор результата открывает конкретную настройку, prompt, модуль, запись или секцию с focus/scroll и сохранением scope, а не верх общего раздела; при переходе и возврате сохраняются чат, фильтры, черновики, позиция и RBAC; секреты и запрещённые данные не индексируются; отсутствующий объект даёт честное состояние без silent fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
-      "note": "Открыто: acceptance - весь контракт §9. Desktop-вход и Ctrl+K работают (data-palette-open, web/app.js:3055+), фокус-переходы исправлены (48830edf), но мобильная точка входа отсутствует: кнопка v-if=\"!hasDrawer\", а app-level «...» удалён в 26905a89. Зависимость: UI-дельта palette (L01940)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §6 (адъюдикация входа) + Re-check 2 §3-§4 (RBAC живьём, ?focus=, позиция)",
+          "observation": "Desktop: кнопка «Поиск» и Ctrl+K; на телефоне единственный вход — пункт «Поиск» в drawer (`data-palette-open-drawer`), лист на 390 занимает весь экран, поле 44 px, фокус сразу в поле; постоянной строки поиска на страницах нет. Результат открывает конкретную настройку/модуль/запись (`?focus=` с пульсом ровно на токене, честное сообщение при отсутствии). RBAC палитры доказан живьём на ограниченном payload: 627 → 536 записей, исчезли статические `#/access`; deep-link `#/oversight` без прав даёт «Нет доступа к разделу»; 43 конфиг-элемента secret/keys в индекс не попали (0 утечек). Возврат: позиция 420 → 420, новый раздел сверху, чат/scope сохранены.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по палитре и scroll memory",
+          "observation": "Палитра читает существующие источники (разделы, модули, настройки, промпты, модели, данные), не индексирует secret/keys, не вызывает ни сервер, ни LLM; переходы через `?focus=` с ограниченным бюджетом ретраев.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json + asap-ui-delta-rbac-restricted.png",
+          "observation": "Живой прогон с ограниченной ролью: индекс палитры урезан относительно админского, скриншот `rbac-restricted` приложен.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. Маркер мобильного входа `data-palette-open-drawer` = 1 в отданном index.html (проверено в дереве e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
     },
     {
       "source_id": "L01940",
@@ -24470,10 +24736,48 @@
       "acceptance": "Единый EVOL-037 command palette: desktop доступен из верхней области и по Ctrl+K, mobile — компактная точка входа в панели вторичных действий → читаемый поисковый sheet; никакой большой постоянно закреплённой строки поиска на каждой странице; локальные фильтры таблицы/каталога допустимы, но не конкурируют с глобальным поиском; выбор результата открывает конкретную настройку, prompt, модуль, запись или секцию с focus/scroll и сохранением scope, а не верх общего раздела; при переходе и возврате сохраняются чат, фильтры, черновики, позиция и RBAC; секреты и запрещённые данные не индексируются; отсутствующий объект даёт честное состояние без silent fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
-      "note": "Открыто: мобильная точка входа в палитру отсутствует - триггер только для desktop (v-if=\"!hasDrawer\", web/index.html:327-337), меню «...» как вторичная панель удалено в 26905a89, поискового sheet на телефоне нет. Зависимость: UI-дельта palette."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §6 — адъюдикация мобильной точки входа (L01940)",
+          "observation": "Клауза «mobile — компактная точка входа → читаемый лист» удовлетворена: панель «...» удалена более поздним решением владельца (§6.1 v2.1), смысл сохранён — вход один и компактный (пункт «Поиск» в drawer), большой постоянной строки нет, лист читаемый (390: весь экран, поле 44 px, фокус в поле, честный пустой результат).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по палитре и scroll memory",
+          "observation": "Палитра читает существующие источники (разделы, модули, настройки, промпты, модели, данные), не индексирует secret/keys, не вызывает ни сервер, ни LLM; переходы через `?focus=` с ограниченным бюджетом ретраев.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json + asap-ui-delta-rbac-restricted.png",
+          "observation": "Живой прогон с ограниченной ролью: индекс палитры урезан относительно админского, скриншот `rbac-restricted` приложен.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. Маркер мобильного входа `data-palette-open-drawer` = 1 в отданном index.html (проверено в дереве e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
     },
     {
       "source_id": "L01941",
@@ -24487,10 +24791,48 @@
       "acceptance": "Единый EVOL-037 command palette: desktop доступен из верхней области и по Ctrl+K, mobile — компактная точка входа в панели вторичных действий → читаемый поисковый sheet; никакой большой постоянно закреплённой строки поиска на каждой странице; локальные фильтры таблицы/каталога допустимы, но не конкурируют с глобальным поиском; выбор результата открывает конкретную настройку, prompt, модуль, запись или секцию с focus/scroll и сохранением scope, а не верх общего раздела; при переходе и возврате сохраняются чат, фильтры, черновики, позиция и RBAC; секреты и запрещённые данные не индексируются; отсутствующий объект даёт честное состояние без silent fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
-      "note": "Открыто: локальные фильтры не конкурируют с глобальным поиском (true), но acceptance строки включает весь контракт §9, в том числе мобильную точку входа, которой нет. Зависимость: L01940."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §6 (адъюдикация входа) + Re-check 2 §3-§4 (RBAC живьём, ?focus=, позиция)",
+          "observation": "Desktop: кнопка «Поиск» и Ctrl+K; на телефоне единственный вход — пункт «Поиск» в drawer (`data-palette-open-drawer`), лист на 390 занимает весь экран, поле 44 px, фокус сразу в поле; постоянной строки поиска на страницах нет. Результат открывает конкретную настройку/модуль/запись (`?focus=` с пульсом ровно на токене, честное сообщение при отсутствии). RBAC палитры доказан живьём на ограниченном payload: 627 → 536 записей, исчезли статические `#/access`; deep-link `#/oversight` без прав даёт «Нет доступа к разделу»; 43 конфиг-элемента secret/keys в индекс не попали (0 утечек). Возврат: позиция 420 → 420, новый раздел сверху, чат/scope сохранены.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по палитре и scroll memory",
+          "observation": "Палитра читает существующие источники (разделы, модули, настройки, промпты, модели, данные), не индексирует secret/keys, не вызывает ни сервер, ни LLM; переходы через `?focus=` с ограниченным бюджетом ретраев.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json + asap-ui-delta-rbac-restricted.png",
+          "observation": "Живой прогон с ограниченной ролью: индекс палитры урезан относительно админского, скриншот `rbac-restricted` приложен.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. Маркер мобильного входа `data-palette-open-drawer` = 1 в отданном index.html (проверено в дереве e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
     },
     {
       "source_id": "L01942",
@@ -24504,10 +24846,48 @@
       "acceptance": "Единый EVOL-037 command palette: desktop доступен из верхней области и по Ctrl+K, mobile — компактная точка входа в панели вторичных действий → читаемый поисковый sheet; никакой большой постоянно закреплённой строки поиска на каждой странице; локальные фильтры таблицы/каталога допустимы, но не конкурируют с глобальным поиском; выбор результата открывает конкретную настройку, prompt, модуль, запись или секцию с focus/scroll и сохранением scope, а не верх общего раздела; при переходе и возврате сохраняются чат, фильтры, черновики, позиция и RBAC; секреты и запрещённые данные не индексируются; отсутствующий объект даёт честное состояние без silent fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
-      "note": "Открыто: адресный переход с focus/scroll реализован (48830edf: _settingRenderMap + retries 20x200ms + честное сообщение), но acceptance включает мобильную точку входа в палитру, которой нет. Зависимость: L01940."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §6 (адъюдикация входа) + Re-check 2 §3-§4 (RBAC живьём, ?focus=, позиция)",
+          "observation": "Desktop: кнопка «Поиск» и Ctrl+K; на телефоне единственный вход — пункт «Поиск» в drawer (`data-palette-open-drawer`), лист на 390 занимает весь экран, поле 44 px, фокус сразу в поле; постоянной строки поиска на страницах нет. Результат открывает конкретную настройку/модуль/запись (`?focus=` с пульсом ровно на токене, честное сообщение при отсутствии). RBAC палитры доказан живьём на ограниченном payload: 627 → 536 записей, исчезли статические `#/access`; deep-link `#/oversight` без прав даёт «Нет доступа к разделу»; 43 конфиг-элемента secret/keys в индекс не попали (0 утечек). Возврат: позиция 420 → 420, новый раздел сверху, чат/scope сохранены.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по палитре и scroll memory",
+          "observation": "Палитра читает существующие источники (разделы, модули, настройки, промпты, модели, данные), не индексирует secret/keys, не вызывает ни сервер, ни LLM; переходы через `?focus=` с ограниченным бюджетом ретраев.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json + asap-ui-delta-rbac-restricted.png",
+          "observation": "Живой прогон с ограниченной ролью: индекс палитры урезан относительно админского, скриншот `rbac-restricted` приложен.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. Маркер мобильного входа `data-palette-open-drawer` = 1 в отданном index.html (проверено в дереве e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
     },
     {
       "source_id": "L01943",
@@ -24521,10 +24901,48 @@
       "acceptance": "Единый EVOL-037 command palette: desktop доступен из верхней области и по Ctrl+K, mobile — компактная точка входа в панели вторичных действий → читаемый поисковый sheet; никакой большой постоянно закреплённой строки поиска на каждой странице; локальные фильтры таблицы/каталога допустимы, но не конкурируют с глобальным поиском; выбор результата открывает конкретную настройку, prompt, модуль, запись или секцию с focus/scroll и сохранением scope, а не верх общего раздела; при переходе и возврате сохраняются чат, фильтры, черновики, позиция и RBAC; секреты и запрещённые данные не индексируются; отсутствующий объект даёт честное состояние без silent fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
-      "note": "Открыто: RBAC/секреты и сохранение перехода описаны в W12 §4 и 48830edf, но acceptance включает весь контракт §9 (мобильный вход, слой overlay палитры) - целиком не закрыт. Зависимость: L01940."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-check 2 §3-§4 (L01943) — сохранение позиции/области и RBAC",
+          "observation": "Позиция скролла `#/modules` 420 → уход → `history.back()` → 420, новый раздел `#/ai` с нуля; чат/scope сохраняются; RBAC палитры доказан живым ограниченным payload (627 → 536, статические адреса исчезли, отказ по deep-link честный); секреты не индексируются.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "w16-ui-delta.md — отчёт Builder по палитре и scroll memory",
+          "observation": "Палитра читает существующие источники (разделы, модули, настройки, промпты, модели, данные), не индексирует secret/keys, не вызывает ни сервер, ни LLM; переходы через `?focus=` с ограниченным бюджетом ретраев.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "ef0acbe118eef2d05cd3b78df84c83504139c4bbb21a97ba59e11a77cc2839c3"
+        },
+        {
+          "ref": "evidence/asap-ui-delta/asap-ui-delta-e2e.json + asap-ui-delta-rbac-restricted.png",
+          "observation": "Живой прогон с ограниченной ролью: индекс палитры урезан относительно админского, скриншот `rbac-restricted` приложен.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/asap-ui-delta/asap-ui-delta-e2e.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "782e03085bc5da98197a5bd29d022e070143cae7bd734a039713c73e5c00a49d"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. Маркер мобильного входа `data-palette-open-drawer` = 1 в отданном index.html (проверено в дереве e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
     },
     {
       "source_id": "L01945",
@@ -24702,10 +25120,48 @@
       "acceptance": "Единые motion tokens для анимации переходов и лент: не создавать индивидуальные JS intervals в каждом виджете, не ухудшать рендер liquid-glass и мобильную производительность.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: CSS-токены --dur-*/--ease-out и один JS DEFAULTS у лент есть, но единого сквозного токена, общего для CSS и JS, нет (asap-ui-02-matrix.md §12, PARTIAL).",
-      "note": "Открыто: сквозного motion-токена нет - CSS-токены --motion-* есть (16 вхождений), но JS-движок лент использует собственный DEFAULTS (web/app.js:28360), CSS и JS не делят один токен. Зависимость: UI-дельта motion."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01950) + Re-check 1 проба 5 (токены движения)",
+          "observation": "Transition-токены — алиасы `--motion-*`; ленты читают `--motion-feed-*` (значения совпали с прежним поведением); `resolveMotionTokens` на «мусор», «0» и «2.6s» даёт фолбэк 16/2600/1600/900/600, секунды честно переводятся в мс — молчаливого нуля нет; стекло и его рендер не затронуты.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — JS-контракт дельты",
+          "observation": "Проверки токенов движения и лент зелёные (ASAP-UI02-DELTA-OK, 17 passed).",
+          "type": "test",
+          "artifact_path": "tests/js/asap_ui02_delta_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "2a417240951ba5e3154d45b5e77d3f5927475b21657fc93791c88978aafa1640"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — python-пины дельты",
+          "observation": "Проверки токенов движения и лент зелёные (ASAP-UI02-DELTA-OK, 17 passed).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_asap_ui02_delta.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "dcc61b4bf45516b7389d70268a4a3d455d6ffb395f301e16b25478067d2dfa8c"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0. `--motion-feed` — 5 вхождений в отданном app.css (дерево e18a86eb).",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: CSS-токены --dur-*/--ease-out и один JS DEFAULTS у лент есть, но единого сквозного токена, общего для CSS и JS, нет (asap-ui-02-matrix.md §12, PARTIAL)."
     },
     {
       "source_id": "L01952",
@@ -24924,10 +25380,48 @@
       "acceptance": "Back внутри карты/детали/поиска сначала закрывает текущую вложенную область и не закрывает всю Telegram Mini App: один Back-stack вход на каждый overlay в правильном порядке (drawer/поиск/sheet/fullscreen/TG).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "PENDING: нативная политика BackButton и закрытие drawer/scope работают, но per-layer Back для поиска/sheet в большинстве поверхностей опирается на Esc и кнопки закрытия (asap-ui-02-matrix.md §12, PARTIAL).",
-      "note": "Открыто: единого Back-stack нет (grep backStack/overlayStack = 0); закрытие слоёв точечное (Esc/кнопки, goBack закрывает drawer первым - 30f9920f). Зависимость: UI-дельта Back-stack."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w16 §5 (L01958) + Re-check 1 пробы 1-3 + Re-check 2 §3 (сценарий 6)",
+          "observation": "Единый список слоёв `backStackLayers`, ровно один слой за Back: два открытых слоя (палитра+scope) закрываются по одному, маршрут не меняется; лист записи на корневом `#/` закрывается Back без выгрузки Mini App; на корневом слое вызывается `BackButton.show()` (на базе не вызывался); Back из fullscreen-графа не зацикливается (сценарий 6).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/reports/w16-ui-delta-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "d6cd508983a7b570af4e88e8e7e2328143c3dacd54e50fd2267651c4fbf3a007",
+          "artifact_commit": "087c9a1cd5af5733015a015442c49ca9137569a3"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — JS-контракт дельты",
+          "observation": "Проверки Back-stack и графа зелёные; порядок совпадает с визуальным старшинством.",
+          "type": "test",
+          "artifact_path": "tests/js/asap_ui02_delta_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "2a417240951ba5e3154d45b5e77d3f5927475b21657fc93791c88978aafa1640"
+        },
+        {
+          "ref": "tests/js + tests/test_webapp_asap_ui02_delta.py — python-пины дельты",
+          "observation": "Проверки Back-stack и графа зелёные; порядок совпадает с визуальным старшинством.",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_asap_ui02_delta.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "ea00266fc68db3b9ec1620a6cedaae75697db86d",
+          "artifact_sha256": "dcc61b4bf45516b7389d70268a4a3d455d6ffb395f301e16b25478067d2dfa8c"
+        },
+        {
+          "ref": "deploy-2.58.147.md §5 — маркеры дельты в отданных ассетах",
+          "observation": "Прод 2.58.147 @ e18a86eb (release/2.58.147), 01.11.2026 12:07 UTC: /healthz 200 version=2.58.147 (локально и публично), /web/ 200 1 107 546 Б, /api/health 200, NRestarts=0, 1 процесс, SQLite user_version=40 quick_check=ok, media 66 без изменений, отданные HTML/CSS/JS байт-в-байт с кандидатом после подстановки версии; в отданных ассетах маркеры дельты: `--z-` токены 43, `var(--z-modal)` 4, `.scope-panel[data-placement=\"sheet\"]` 2, `-webkit-line-clamp: 2` 9, `function backStackLayers` 1, `function _ctlScopePlacement` 1, `out.sheet = true` 2; журнал 246 строк, Traceback/ERROR = 0.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.147.md",
+          "artifact_branch": "release/2.58.147",
+          "candidate_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+          "artifact_sha256": "773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2",
+          "artifact_commit": "7f7feed01f1a561ab95feb1305eef392dd230b0d"
+        }
+      ],
+      "status_note": "PENDING: нативная политика BackButton и закрытие drawer/scope работают, но per-layer Back для поиска/sheet в большинстве поверхностей опирается на Esc и кнопки закрытия (asap-ui-02-matrix.md §12, PARTIAL)."
     },
     {
       "source_id": "L01960",
@@ -24974,7 +25468,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №1 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01967",
@@ -24991,7 +25485,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №2 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01968",
@@ -25008,7 +25502,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №3 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01969",
@@ -25025,7 +25519,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №4 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01970",
@@ -25042,7 +25536,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №5 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01971",
@@ -25059,7 +25553,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: сценарий №6 «правильный порядок Back» - drawer и Telegram Back закрываются корректно, но поиск/деталь/sheet не имеют единого стека закрытия (grep backStack/overlayStack = 0). Зависимость: UI-дельта Back-stack (L01958)."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №6 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Механика самого №6 при этом доказана (backStackLayers, нативный Back на корневом слое, по одному слою за Back) — не хватает именно сводной приёмки набора."
     },
     {
       "source_id": "L01972",
@@ -25076,7 +25570,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №7 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01973",
@@ -25093,7 +25587,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №8 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01974",
@@ -25110,7 +25604,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №9 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01975",
@@ -25127,7 +25621,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №10 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01976",
@@ -25144,7 +25638,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: сценарий №11 «встроенная карта со свайпом страницы и режимом Исследовать» - на «Статусе» по-прежнему legacy «Граф связей»; реализация - слайс EVOL-COG-MAP (очередь владельца, W7). Остальные сценарии §12 подтверждены (114+152 ячейки, w10-sec-probe.json)."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №11 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сценарий №11 (встроенная карта) не реализован: карта — слайс EVOL-COG-MAP."
     },
     {
       "source_id": "L01977",
@@ -25161,7 +25655,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: сценарий №12 «fullscreen карта с LOD и восстановлением камеры» - fullscreen-механика есть, но карта легаси; реализация - EVOL-COG-MAP (очередь владельца, W7). Остальные сценарии §12 подтверждены (114+152 ячейки, w10-sec-probe.json)."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №12 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сценарий №12 (fullscreen-карта с LOD) не реализован: карта — слайс EVOL-COG-MAP."
     },
     {
       "source_id": "L01978",
@@ -25178,7 +25672,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №13 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01979",
@@ -25195,7 +25689,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №14 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сам №14 доказан (RBAC живьём, `?focus=` резолв, секреты не индексируются), но набор из 17 сценариев не закрыт."
     },
     {
       "source_id": "L01980",
@@ -25212,7 +25706,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №15 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01981",
@@ -25229,7 +25723,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №16 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01982",
@@ -25246,7 +25740,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
+      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №17 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
     },
     {
       "source_id": "L01986",
@@ -26956,7 +27450,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью."
+      "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02168",
@@ -27059,7 +27554,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью."
+      "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02171",
@@ -27542,7 +28038,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Часть полей (reason_code, source_fetched) уже в 2.58.146; полный набор — волны 3-5."
+      "status_note": "Часть полей (reason_code, source_fetched) уже в 2.58.146; полный набор — волны 3-5.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02193",
@@ -28269,7 +28766,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Дефект закрыт кодом на 49caaf6c; до приёмки ревью строка остаётся PENDING."
+      "status_note": "Дефект закрыт кодом на 49caaf6c; до приёмки ревью строка остаётся PENDING.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02256",
@@ -28304,7 +28802,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Публичная форма уже защищена тестами 16/17; окончательная формулировка канона ждёт ревью."
+      "status_note": "Публичная форма уже защищена тестами 16/17; окончательная формулировка канона ждёт ревью.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02257",
@@ -28339,7 +28838,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Часть (сценарии 7/9/10) уже задеплоена; полный сквозной набор полей ждёт приёмки."
+      "status_note": "Часть (сценарии 7/9/10) уже задеплоена; полный сквозной набор полей ждёт приёмки.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02258",
@@ -28408,7 +28908,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Требуется grep-тест по effective payload как постоянный инвариант."
+      "status_note": "Требуется grep-тест по effective payload как постоянный инвариант.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02260",
@@ -28452,7 +28953,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Проверяется вместе с волной 5; до приёмки PENDING."
+      "status_note": "Проверяется вместе с волной 5; до приёмки PENDING.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02261",
@@ -29674,7 +30176,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02397",
@@ -30141,7 +30644,8 @@
           "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02416",
@@ -30244,7 +30748,8 @@
           "artifact_sha256": "db8f2c3c73e1dc6773198d962fb73baa57232e16be0f95800300922cba1ca58b"
         }
       ],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02426",
@@ -33548,7 +34053,8 @@
           "artifact_sha256": "5da4422e9826e7d566c064c81a5b5bc44455e92ac138faf50efee5a0e2ae8344"
         }
       ],
-      "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов."
+      "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02656",
@@ -33583,7 +34089,8 @@
           "artifact_sha256": "5da4422e9826e7d566c064c81a5b5bc44455e92ac138faf50efee5a0e2ae8344"
         }
       ],
-      "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов."
+      "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов.",
+      "note": "Код и тесты этих строк входят в задеплоенный 2.58.147 @ e18a86eb: коммиты-кандидаты 78a213e8 и 4c7c34b5 — его предки, а файлы `services/evidence_policy.py`, `services/direct_chat_service.py`, `services/direct_capabilities.py`, `services/chat_prompts.py`, `services/prompt_registry.py` и `tests/test_evol_evidence_routing.py` побайтно совпадают между кандидатом и e18a86eb (`git diff` по ним пуст). deploy-2.58.147.md подтверждает на проде маркеры канона (`l1-planner-external-claims-recheck` ×3, seal `eb496e938c49`) и запуск `prompt_release` с `factory_activate` для `direct.base.l1_planner`. Перепривязка evidence не нужна: строки остаются привязанными к ревью-кандидату 78a213e8/4c7c34b5, который целиком вошёл в выпуск. Не наблюдалось на проде: живые события `EVIDENCE_POLICY_DECIDED` (не было трафика) — это ограничение наблюдения, а не строки."
     },
     {
       "source_id": "L02657",
@@ -35301,26 +35808,26 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.",
   "deployed_release": {
-    "version": "2.58.146",
-    "deployed_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-    "branch": "release/2.58.146",
-    "equivalent_branch": "evol/impl",
-    "deployed_at_utc": "2026-11-01T05:01:00Z",
-    "deploy_report": "plans/features/evol/audit/deploy-2.58.146.md",
-    "deploy_report_note": "Файл отчёта существует на ветке release/2.58.146 в коммите 774a1c4295a8a90a8979d783f5e981e8b71c63cd (sha256 0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a); в дереве evol/impl на 49caaf6c его ещё нет — путь машинно проверяем через Git-объект, а не через рабочий каталог worktree.",
-    "previous_production": "4bf3604a (2.58.145)",
+    "version": "2.58.147",
+    "deployed_commit": "e18a86ebd2d499be3e0cecf78e22394d478eb4c9",
+    "branch": "release/2.58.147",
+    "equivalent_branch": "evol/impl @ 087c9a1cd5af5733015a015442c49ca9137569a3 (родитель bump-коммита)",
+    "deployed_at_utc": "2026-11-01T12:07:09Z",
+    "deploy_report": "plans/features/evol/audit/deploy-2.58.147.md",
+    "deploy_report_note": "Файл отчёта существует на ветке release/2.58.147 в коммите 7f7feed01f1a561ab95feb1305eef392dd230b0d (sha256 773689b3472ba45bfcc942537412339ff07af16d0076709923541e5b91b479f2); в дереве evol/impl его нет — путь машинно проверяем через Git-объект.",
+    "previous_production": "6cf06db4 (2.58.146)",
     "previous_release": {
-      "version": "2.58.145",
-      "commit": "4bf3604a",
-      "map_state": "2.58.144/ebec502b"
+      "version": "2.58.146",
+      "commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+      "map_state": "2.58.146/6cf06db4"
     },
-    "reviewed_candidate": "26905a89 / 7e427fc8 (продуктовый код партии)",
-    "previous_reviewed_candidate": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
-    "checks": "compileall rc=0; pytest пин-набор 1009 passed / 0 failed; node 5/5 OK; tests/js 95/99 (4 пре-существующих провала идентичны baseline 4bf3604a)",
-    "prod_observations": "/healthz 200 {\"status\":\"ok\",\"version\":\"2.58.146\"}; /web/ 200 (1 106 788 Б); /api/health 200; active/running MainPID=957080, NRestarts=0, 1 процесс; SQLite user_version=40 quick_check=ok; media 66 без изменений; ассеты (HTML/app.css/app.js) байт-в-байт с кандидатом; маркеры UI: data-module-scope-toggle=1, data-status-health=3, class=\"speech-tab\"=5, header-fs-btn=1, favorit=0, more-menu-root=0; журнал 349 строк, 4 ERROR — пре-существующий Wikipedia 403 в anticliche_worker",
-    "note": "Прод переведён с 2.58.145 (4bf3604a) на 2.58.146 (6cf06db4) 01.11.2026; карта до этого прохода держала 2.58.144/ebec502b. В релиз вошли: ASAP-SUMMARY-COVER-INTEGRITY-01 P0/P1/P2 (26905a89, 7e427fc8, 993e8c03, ffd9b562, 5da2b7b8, 0f4da87b), ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d, 7e427fc8), W12/EVOL-034..042 (00ab8d4c, 48830edf); 425c3c9d и c26d798b — только тесты. Волны 3-5 (49caaf6c) в релиз НЕ входят и остаются PENDING."
+    "reviewed_candidate": "ea00266f (UI-delta, Re-check 3) + 78a213e8/4c7c34b5 (ASAP-EVIDENCE-ROUTING waves 3-5); продуктовый код релиза = 087c9a1c",
+    "previous_reviewed_candidate": "6cf06db4 / 26905a89",
+    "checks": "compileall rc=0; pytest пин-набор 1093 passed / 0 failed; node 5/5 OK",
+    "prod_observations": "/healthz 200 {\"status\":\"ok\",\"version\":\"2.58.147\"} локально и публично; /web/ 200 (1 107 546 Б); /api/health 200; NRestarts=0, 1 процесс; SQLite user_version=40 quick_check=ok; media 66 без изменений; отданные HTML/CSS/JS байт-в-байт с кандидатом; маркеры дельты (`--z-` 43, backStackLayers 1, _ctlScopePlacement 1, scope sheet 2, line-clamp 2 = 9, data-palette-open-drawer 1) и канона EVR1 (label ×3, seal eb496e938c49); prompt_release blocks=109 changed=3, direct.base.l1_planner factory_activate; журнал 246 строк, Traceback/ERROR = 0",
+    "note": "Прод переведён с 2.58.146 (6cf06db4) на 2.58.147 (e18a86eb) 01.11.2026 12:07 UTC. В релиз вошли ASAP-UI-02 delta (z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory; ea00266f) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8, 4c7c34b5). Честные ограничения наблюдения (deploy-2.58.147.md §7): живые события EVIDENCE_POLICY_DECIDED не наблюдались (нет трафика в окне), сохранность владельческих кастомов промптов NOT_OBSERVED (нет psql/DSN на сервере); откат — 6cf06db4 + /tmp/predeploy-258147.db."
   },
   "delta_addenda": [
     {
