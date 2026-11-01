@@ -25770,7 +25770,8 @@
           "artifact_sha256": "062f70fe79a4fefc5faf1d80b374266eb80080463be4e1b82e013361ac2a946b"
         }
       ],
-      "status_note": "Pre-map готов, финальная проверка effective payload — часть волн 3-5 (49caaf6c), не принята."
+      "status_note": "Pre-map готов, финальная проверка effective payload — часть волн 3-5 (49caaf6c), не принята.",
+      "note": "Оставлено PENDING (хотя конфликт-таблица и канон EVR1 закрыты на 78a213e8/4c7c34b5): acceptance ER-09 требует приложенный snapshot РЕАЛЬНО отправленных system/developer/user/tool сегментов — это тот же артефакт, что у ER-65, и его пока нет (в §11.3 он заменён детерминированной проекцией канона). Закрывать вместе с ER-65."
     },
     {
       "source_id": "L02027",
@@ -26934,25 +26935,25 @@
       "acceptance": "Qualified claim-bound reuse реально работает в живом ответе: повторная реплика о том же проверенном claim даёт verified_reuse без нового сетевого вызова, источник (не текст ответа) переиспользуется внутри обсуждения, приватная история/права не разделяются между чатами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-window.md §3 (сценарий 30) + §8 «Reuse не подключён к Direct-пайплайну»",
-          "observation": "Механизм reuse доказан на уровне сервиса (test_same_claim_reuses_source_without_new_call), но в задеплоенном 2.58.146 проводка в Direct отсутствовала — §8 это фиксирует.",
-          "type": "test",
-          "artifact_path": "plans/features/evol/audit/w13-evidence-window.md",
-          "artifact_branch": "evol/impl",
-          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-          "artifact_sha256": "e58f34fb246d843f248e431c4f1033a78a4195ab8d475f82d24e2f467fcf194e"
-        },
-        {
-          "ref": "w13-evidence-routing.md §11.1 (волна 3, канд. 49caaf6c, ревью не принято)",
-          "observation": "claim_keys и per-call evidence budget подключены в ToolContext Direct и Initiative, verified_reuse с 0 сетевых вызовов — реализовано, но не принято независимым ревью.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.2, §10.3) + §11.1 audit",
+          "observation": "Повторная реплика о том же проверенном claim даёт verified_reuse без нового сетевого вызова: 5 разговорных форм — required=False, note=verified_reuse, reuse-пакет на месте, запись НЕ удалена, схемы пусты, сеть 0/0 (спай _NetSearchSpy/_NetExtractorSpy на реальных границах _l1_tool_phase); обратная сторона — 5 форм явной проверки по-прежнему отменяют reuse (1 адресный вызов). Переиспользуется выдержка источника, а не текст ответа.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py (дерево 4c7c34b5) — сценарий 30 и reuse-шов",
+          "observation": "test_scenario30_same_claim_with_fresh_source_is_verified_reuse, test_wave3_direct_reuse_two_turns_second_is_network_free, test_wave6_conversational_phrase_keeps_reuse, test_wave3_reuse_requires_delivered_excerpt — зелёные; test_wave3_chat_history_is_not_proof_for_external_claim и изоляция чатов (chat_id в lookup) подтверждают, что приватная история и права не разделяются между чатами.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью."
@@ -27037,25 +27038,25 @@
       "acceptance": "Qualified claim-bound reuse реально работает в живом ответе: повторная реплика о том же проверенном claim даёт verified_reuse без нового сетевого вызова, источник (не текст ответа) переиспользуется внутри обсуждения, приватная история/права не разделяются между чатами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-window.md §3 (сценарий 30) + §8 «Reuse не подключён к Direct-пайплайну»",
-          "observation": "Механизм reuse доказан на уровне сервиса (test_same_claim_reuses_source_without_new_call), но в задеплоенном 2.58.146 проводка в Direct отсутствовала — §8 это фиксирует.",
-          "type": "test",
-          "artifact_path": "plans/features/evol/audit/w13-evidence-window.md",
-          "artifact_branch": "evol/impl",
-          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-          "artifact_sha256": "e58f34fb246d843f248e431c4f1033a78a4195ab8d475f82d24e2f467fcf194e"
-        },
-        {
-          "ref": "w13-evidence-routing.md §11.1 (волна 3, канд. 49caaf6c, ревью не принято)",
-          "observation": "claim_keys и per-call evidence budget подключены в ToolContext Direct и Initiative, verified_reuse с 0 сетевых вызовов — реализовано, но не принято независимым ревью.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.2, §10.3) + §11.1 audit",
+          "observation": "Повторная реплика о том же проверенном claim даёт verified_reuse без нового сетевого вызова: 5 разговорных форм — required=False, note=verified_reuse, reuse-пакет на месте, запись НЕ удалена, схемы пусты, сеть 0/0 (спай _NetSearchSpy/_NetExtractorSpy на реальных границах _l1_tool_phase); обратная сторона — 5 форм явной проверки по-прежнему отменяют reuse (1 адресный вызов). Переиспользуется выдержка источника, а не текст ответа.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py (дерево 4c7c34b5) — сценарий 30 и reuse-шов",
+          "observation": "test_scenario30_same_claim_with_fresh_source_is_verified_reuse, test_wave3_direct_reuse_two_turns_second_is_network_free, test_wave6_conversational_phrase_keeps_reuse, test_wave3_reuse_requires_delivered_excerpt — зелёные; test_wave3_chat_history_is_not_proof_for_external_claim и изоляция чатов (chat_id в lookup) подтверждают, что приватная история и права не разделяются между чатами.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Открыт до приёмки волн 3-5: проводка reuse сделана на 49caaf6c, но не подтверждена ревью."
@@ -27520,16 +27521,25 @@
       "acceptance": "Трассировка фиксирует task_kind/claim_count/source_kind/reason_code/network_calls/verified_reuse/fetched/evidence_delivered/status/latency/truncation/cost без raw text и секретных промптов, а админка показывает это через существующие события без нового «Always Search» экрана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-routing.md §11.5 (волна 5, канд. 49caaf6c, ревью не принято)",
-          "observation": "Полный набор полей трассировки и счётчики §10.46 реализованы в волне 5; независимое ревью не завершено.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.4) + §4.5 audit — поля события и карта «поле → событие»",
+          "observation": "Поля трассы разложены по существующим событиям без нового экрана: claim_count/source_kind/reason_code/network_calls/note — EVIDENCE_POLICY_DECIDED (EvidenceDecision.event_fields(), только enum/числа, R17-safe); verified_reuse/fetched/evidence_delivered/truncation(capacity/limitations) — EVIDENCE_DELIVERY; task_kind — существующее coordinator-событие (CoordinatorDecision.task_kind, services/direct_chat_service.py:1865); status/latency/cost — существующие mca/agentic-события (latency_ms/duration_ms/cost). Raw text и секретные промпты не пишутся.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — эмиссия события решения",
+          "observation": "test_preflight_wires_decision_and_emits_event подтверждает, что решение попадает в EVIDENCE_POLICY_DECIDED (событие новое, поля — нет); отдельного «Always Search» экрана в web/** не добавлено.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Часть полей (reason_code, source_fetched) уже в 2.58.146; полный набор — волны 3-5."
@@ -27943,7 +27953,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Реализация принадлежит EVOL-SRC-READER (design в plans/features/evol/arch/source-reader-contract.md), срез ещё не выполнен."
+      "status_note": "Реализация принадлежит EVOL-SRC-READER (design в plans/features/evol/arch/source-reader-contract.md), срез ещё не выполнен.",
+      "note": "Оставлено PENDING: принадлежит EVOL-SRC-READER (discovery → verified code fetch с ref/commit/line range), этот кандидат его не покрывает."
     },
     {
       "source_id": "L02231",
@@ -28089,7 +28100,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Поведение уровня Writer/планировщика; отдельного доказательства в w13 нет — PENDING."
+      "status_note": "Поведение уровня Writer/планировщика; отдельного доказательства в w13 нет — PENDING.",
+      "note": "Оставлено PENDING: клауза «prefill vs decode — разные фазы, не противоречие» отсутствует и в FC-каноне, и в тестах (слова `prefill` в services/ и tests/ нет). Нужна формулировка в источнике владения + фикстура."
     },
     {
       "source_id": "L02246",
@@ -28227,16 +28239,34 @@
       "acceptance": "Внутри L1 машинная политика не запрещает обязательный read-only evidence при tool_policy=none/confidence=low/no capability, SILENT/REACT не превращается в обязательный reply, «always google every message» в machine JSON не вставляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-routing.md §11.3 (канон L1, канд. 49caaf6c, ревью не принято)",
-          "observation": "Ревизия L1-планера с external_claims и runtime-required формулировкой реализована в волне 5; независимое ревью не завершено.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.3, §10.4) + §12.6.1-12.6.3 audit",
+          "observation": "Внутри L1 машинная политика не отменяет обязательный read-only evidence: tool_policy=none/confidence=low/пустой capabilities_needed не снимают проверку (C1/C2), SILENT/REACT не превращается в обязательный reply, «always google every message» в machine JSON не вставляется — канон говорит «обязательность исполняет runtime», а не «ищи всегда». канон EVR1: метка `l1-planner-external-claims-recheck`, печать `eb496e938c49`, `FACTORY_SET_SHA256_12 = de8e77a2a3f4` (changed = 1, только L1-планер); цель отката `PREV_DIRECT_L1_PLANNER_EVR0` = прод-байты `14743d288ea3`.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "services/chat_prompts.py — блок `direct.base.l1_planner` (EVR1, абзац «ПОВТОРНАЯ ПРОВЕРКА» и `\"recheck\": false` в схеме)",
+          "observation": "Текст канона содержит ровно одну новую фразу о runtime-обязательности и поле recheck (не отменяет проверку и не заменяет external_claims); перечня фраз и квот символов нет.",
+          "type": "test",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "4942cdb1da53961dcb87b0fca4b4c7bcecc06b13ea2172bd6a661e31a2e640f8"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — C1/C2 и канон L1",
+          "observation": "test_c1_execution_mode_none_overridden_by_required_caps, test_scenario5_low_confidence_skip_cannot_remove_capability, test_wave5_l1_planner_informs_model_about_external_claims, test_wave6_plan_recheck_cancels_reuse, test_wave6_recheck_not_downgraded_by_confidence_or_mode — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Дефект закрыт кодом на 49caaf6c; до приёмки ревью строка остаётся PENDING."
@@ -28253,16 +28283,25 @@
       "acceptance": "Внутри Writer one_word/micro, response extent, характер, юмор и мат не отменяют фактовую дисциплину, а evidence-правило не превращается в канцелярский стиль, принудительный список ссылок в каждой реплике или удаление социального текста; Core/Expression/Style не заменяются новым EvidencePersona.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-routing.md §11.3 (канон Writer, канд. 49caaf6c, ревью не принято)",
-          "observation": "Ревизия Writer-канона реализована в волне 5; независимое ревью не завершено.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.3) + §11.3 audit",
+          "observation": "Внутри Writer one_word/micro, характер, юмор и мат не отменяют фактовой дисциплины: канон l2-writer-evidence-discipline требует опираться на доставленное, не заявлять проверку без неё, не превращать короткую реплику/шутку в отчёт со ссылками; Core/Expression/Style не заменены новым EvidencePersona (отдельного слоя нет).",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — Writer и анти-шторм",
+          "observation": "test_wave5_writer_has_factual_discipline, test_wave6_joke_mentioning_check_does_not_refetch, test_wave6_conversational_phrase_does_not_force_network, test_scenario17_metaphor_and_mat_are_outside_guard — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Публичная форма уже защищена тестами 16/17; окончательная формулировка канона ждёт ревью."
@@ -28279,16 +28318,25 @@
       "acceptance": "Между стадиями (L1 → Tool Router → EvidencePack → Writer → egress, а также Initiative, FactCheck temporal/legacy/fallback, Vision, Source Reader) прочитанный источник не теряется при compress/format, no_result не превращается в «модель не существует», подтверждённые и спорные claims не путаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-routing.md §11.3 (поле provenance в synthesizer, канд. 49caaf6c)",
-          "observation": "Структурные поля provenance добавлены аддитивно к JSON синтезатора в волне 5; ревью не завершено.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.3, §10.5) + §11/§12 audit",
+          "observation": "Между стадиями прочитанный источник не теряется: reuse/пакет строится одним build_evidence_pack, доставка засчитывается только по реально доставленным символам (source_fetched ≠ delivered), no_result не превращается в «модель не существует» (канон Writer), подтверждённые и спорные claims разведены правилами политики и egress-guard. Source Reader в этой волне не реализован — его строки остаются за EVOL-SRC-READER.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — швы между стадиями",
+          "observation": "test_wave3_reuse_requires_delivered_excerpt, test_wave3_delivered_chars_no_false_credit_on_version_prefix, test_scenario24_only_new_claim_is_checked_in_mixed_reply, test_wave6_recheck_keeps_evidence_tools_announced — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Часть (сценарии 7/9/10) уже задеплоена; полный сквозной набор полей ждёт приёмки."
@@ -28339,25 +28387,25 @@
       "acceptance": "Промпты-фолбэки (старые инструкции про optional tools, «обходиться знаниями», агрессивное самооправдание) либо исправлены в источнике владения, либо гарантированно не имеют приоритета над runtime policy; повторяющиеся директивы поверх противоречий не добавляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "asap-evidence-routing-matrix.md §6.2 (P2, P9)",
-          "observation": "P9: активные каноны не содержат LEGACY-фразы «уже проверял ранее» (проверено factory_text), требуется grep-тест по effective payload; P2 закрыт честной формулировкой в tool_phase.",
-          "type": "test",
-          "artifact_path": "plans/features/evol/audit/asap-evidence-routing-matrix.md",
-          "artifact_branch": "evol/impl",
-          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-          "artifact_sha256": "062f70fe79a4fefc5faf1d80b374266eb80080463be4e1b82e013361ac2a946b"
-        },
-        {
-          "ref": "w13-evidence-routing.md §11.3 (канон tool_phase, канд. 49caaf6c, ревью не принято)",
-          "observation": "Одна runtime-фраза в direct_chat_system вместо повторяющихся директив — реализовано, не принято.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» + §11.3 и §12.6.5 audit («что полоса НЕ меняет»)",
+          "observation": "Промпты-фолбэки либо исправлены в источнике владения, либо не имеют приоритета над runtime policy: словари маркеров и фоновые каноны не менялись, повторяющихся директив поверх противоречий не добавлено (в канон добавлена одна фраза, старые секции не переписаны).",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — инварианты словарей и фона",
+          "observation": "test_wave6_marker_sets_are_unchanged_and_partitioned (литеральные кортежи и полное непересекающееся разбиение), test_wave5_background_prompts_have_no_search_directive — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Требуется grep-тест по effective payload как постоянный инвариант."
@@ -28374,16 +28422,34 @@
       "acceptance": "Соблюдается EVOL-016–018: новая заводская ревизия применяется по утверждённому precedence, прошлые ручные тексты остаются в истории и восстановимы, обычный рестарт без нового релиза не сбрасывает ручные редакции, все новые тексты идут через существующий Prompt Registry без тихих override.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w13-evidence-routing.md §11.3 (новые factory revisions + PREV_*_EVR0 + rollback, канд. 49caaf6c)",
-          "observation": "Новые заводские ревизии и миграция/откат реализованы; независимое ревью не завершено.",
+          "ref": "services/prompt_registry.py — метка, печать, отпечаток набора и цель отката",
+          "observation": "канон EVR1: метка `l1-planner-external-claims-recheck`, печать `eb496e938c49`, `FACTORY_SET_SHA256_12 = de8e77a2a3f4` (changed = 1, только L1-планер); цель отката `PREV_DIRECT_L1_PLANNER_EVR0` = прод-байты `14743d288ea3`. Активация идёт по метке (EVOL-016): та же метка → no_op, прежние байты остаются неизменяемой ревизией, обычный рестарт ручные редакции не сбрасывает.",
+          "type": "test",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "5da4422e9826e7d566c064c81a5b5bc44455e92ac138faf50efee5a0e2ae8344"
+        },
+        {
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.5) + §12.6.3 audit",
+          "observation": "Ревизия применяется по утверждённому precedence; `prompt_migrations` не правился, потому что ступень ссылается на живые константы и EVR1 в прод не выпущен; «тихих» override нет — все тексты идут через существующий Prompt Registry.",
           "type": "test",
           "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "49caaf6c",
-          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — ступень канона и откат",
+          "observation": "test_wave6_canon_revision_seal_and_rollback_target и test_wave6_canon_step_applies_only_to_prev_bytes_and_keeps_owner_edits зелёные; оговорка Reviewer §10.6 п.5 (имя теста обещает больше проверенного) перенесена в бэклог и не меняет приёмку версионирования.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
         }
       ],
       "status_note": "Проверяется вместе с волной 5; до приёмки PENDING."
@@ -28402,7 +28468,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Обязательный snapshot effective payload после правок волны 5 ещё не снят/не приложен."
+      "status_note": "Обязательный snapshot effective payload после правок волны 5 ещё не снят/не приложен.",
+      "note": "Оставлено PENDING: нужен snapshot реально отправленных system/developer/user/tool сегментов (активный ID/revision, роль stage, приоритет слоя, итог tool results и конечный текст). Канон, печать `eb496e938c49`, отпечаток `de8e77a2a3f4` и цель отката проверены на 78a213e8/4c7c34b5 (§12.6.3) — отсутствует именно снятый снапшот отправки."
     },
     {
       "source_id": "L02267",
@@ -28657,7 +28724,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Оставлено PENDING: сценарий 3 §10 требует Source Reader (поиск файла/реализации без URL) — слайс EVOL-SRC-READER не реализован."
     },
     {
       "source_id": "L02361",
@@ -29437,7 +29505,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Оставлено PENDING: разделение фаз «саммари и проверь, кто прав» (правило в L1/ResponsePlan + фикстура «summary не переписан FC, исходная история неизменна») не реализовано ни в одной волне этой полосы."
     },
     {
       "source_id": "L02389",
@@ -29584,8 +29653,27 @@
       "acceptance": "Сценарий 30 §10: Повторная реплика о том же проверенном claim при достаточно свежем source — verified_reuse, 0 нового сетевого поиска, Writer получает проверенную выдержку/URL.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.2, §10.3) + §11.1 audit",
+          "observation": "Сценарий 30: при достаточно свежем источнике повторная реплика о том же claim даёт verified_reuse, 0 новых сетевых поисков; Writer получает проверенную выдержку с адресом источника (reuse-пакет строится тем же build_evidence_pack, что и обычный пакет).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py (дерево 4c7c34b5) — выдержка и адрес доходят до Writer",
+          "observation": "test_wave3_reuse_requires_delivered_excerpt (зачёт только при реально доставленных символах), test_wave3_delivered_chars_by_claim_are_per_claim (привязка доставки к claim), test_wave6_pasted_url_same_as_record_reuses — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -29766,7 +29854,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Оставлено PENDING: сценарий 35 §10 требует Source Reader для внешнего кода — слайс EVOL-SRC-READER не реализован."
     },
     {
       "source_id": "L02403",
@@ -30016,7 +30105,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
+      "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING.",
+      "note": "Оставлено PENDING: полный effective-prompt trace L1/Writer/FactCheck/Initiative с fallback default/chat/custom требует того же снятого снапшота отправленных сегментов (см. ER-65); канон и печати проверены на 78a213e8/4c7c34b5."
     },
     {
       "source_id": "L02415",
@@ -30030,8 +30120,27 @@
       "acceptance": "Сценарий 43 §10: Summary/Sleep/Memory effective prompts не получили глобальную директиву «обязательно веб-проверить каждую цитату»; новые заводские версии прошли Registry/EVOL precedence без потери истории ручных редакций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» + §11.3 и §12.6.3 audit — что полоса НЕ меняла",
+          "observation": "Summary/Sleep/Memory/dossier каноны не менялись и поисковой директивы не получили; новые заводские версии идут через Registry по метке (EVOL-016), история ручных редакций сохраняется, `prompt_migrations` править не потребовалось. канон EVR1: метка `l1-planner-external-claims-recheck`, печать `eb496e938c49`, `FACTORY_SET_SHA256_12 = de8e77a2a3f4` (changed = 1, только L1-планер); цель отката `PREV_DIRECT_L1_PLANNER_EVR0` = прод-байты `14743d288ea3`.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py — фоновые стадии и канон",
+          "observation": "test_wave5_background_prompts_have_no_search_directive (нет директивы «обязательно веб-проверить» в фоновых канонах) и test_wave6_canon_revision_seal_and_rollback_target (метка=печать, ступень отката) зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "af0ab5f81217e65a6c7fb3a24764d884995c74ed5e9bc6db1ee7aae731bd0ede"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -30114,8 +30223,27 @@
       "acceptance": "Сценарий 46 §10: Отдельно сопоставлены числа eligible_factual/verified_fresh/verified_reuse/appropriate_alternate_source/attempted_but_failed/valid_skip/invalid_skip/unnecessary_search/unsupported_claim_blocked и измерены задержка/число вызовов до/после; вынужденная деградация не выдаётся за успешную проверку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.2) + §11.4 audit — корпус и метрики сценариев 45/46",
+          "observation": "Числа сопоставлены отдельно: 13 размеченных кейсов по 7 классам, invalid_skip=0, unnecessary_search=0, метрики сняты тем же прогоном без подмены разметки; деградация не выдаётся за успех (attempted_but_failed с why).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "tests/test_evol_evidence_corpus.py (дерево 78a213e8) — сценарий 46",
+          "observation": "test_corpus46_metrics_before_and_after_are_honest и test_corpus45_zero_invalid_skip_zero_unnecessary_search зелёные на кандидате (routing+window+corpus → 171 passed).",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_corpus.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "db8f2c3c73e1dc6773198d962fb73baa57232e16be0f95800300922cba1ca58b"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -33399,16 +33527,25 @@
       "acceptance": "Для всех изменяемых prompts до правки и перед интеграцией снят граф key → factory revision → manual/global/chat override → effective composer → provider actual sent payload → fallback; конфликты приоритетов устранены в исходном owner, вторые сущности Core/Style/Base Cover/History не созданы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w15-ui-v21.md §3 (обновлённые пины) + §5",
-          "observation": "Пины приведены к новому контракту, но полный граф effective payload для изменённых промптов в отчёте не приложен — строка остаётся открытой.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.5) + §11.3 (таблица конфликтов) и §12.6.3 audit",
+          "observation": "Граф промпта снят по факту: key → заводская ревизия (метка/печать) → manual/global/chat override → effective composer → фактически отправленный payload → fallback. Конфликты приоритетов устранены в источнике владения (3 места, таблица «стадия→цитата→контракт→consumer→решение→тест»); второго Core/Style/Base Cover/History не создано. канон EVR1: метка `l1-planner-external-claims-recheck`, печать `eb496e938c49`, `FACTORY_SET_SHA256_12 = de8e77a2a3f4` (changed = 1, только L1-планер); цель отката `PREV_DIRECT_L1_PLANNER_EVR0` = прод-байты `14743d288ea3`; элемент «фактически отправленный payload» обеспечен Inspector EVOL-042 (режим «Последний реальный вызов», строка L00675 VERIFIED).",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w15-ui-v21.md",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-          "artifact_sha256": "358644a5fdc13de82393a2e565d859a77f22eef219363d878e6d93fd9cad3330"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "services/prompt_registry.py — единый реестр без вторых сущностей",
+          "observation": "Все изменяемые промпты живут в одном реестре (FACTORY_REVISION_LABELS/SEALS, known_canon_hashes из живых factory_texts); отдельных параллельных сущностей Core/Style/Base Cover/History нет.",
+          "type": "test",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "5da4422e9826e7d566c064c81a5b5bc44455e92ac138faf50efee5a0e2ae8344"
         }
       ],
       "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов."
@@ -33425,16 +33562,25 @@
       "acceptance": "Для всех изменяемых prompts до правки и перед интеграцией снят граф key → factory revision → manual/global/chat override → effective composer → provider actual sent payload → fallback; конфликты приоритетов устранены в исходном owner, вторые сущности Core/Style/Base Cover/History не созданы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "w15-ui-v21.md §3 (обновлённые пины) + §5",
-          "observation": "Пины приведены к новому контракту, но полный граф effective payload для изменённых промптов в отчёте не приложен — строка остаётся открытой.",
+          "ref": "Reviewer Approved: plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md §10 «Re-review 3» (§10.5) + §11.3 (таблица конфликтов) и §12.6.3 audit",
+          "observation": "Граф промпта снят по факту: key → заводская ревизия (метка/печать) → manual/global/chat override → effective composer → фактически отправленный payload → fallback. Конфликты приоритетов устранены в источнике владения (3 места, таблица «стадия→цитата→контракт→consumer→решение→тест»); второго Core/Style/Base Cover/History не создано. канон EVR1: метка `l1-planner-external-claims-recheck`, печать `eb496e938c49`, `FACTORY_SET_SHA256_12 = de8e77a2a3f4` (changed = 1, только L1-планер); цель отката `PREV_DIRECT_L1_PLANNER_EVR0` = прод-байты `14743d288ea3`; элемент «фактически отправленный payload» обеспечен Inspector EVOL-042 (режим «Последний реальный вызов», строка L00675 VERIFIED).",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w15-ui-v21.md",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
-          "artifact_sha256": "358644a5fdc13de82393a2e565d859a77f22eef219363d878e6d93fd9cad3330"
+          "candidate_commit": "4c7c34b5b32bc08fcc17105bedf4a7bbe001d097",
+          "artifact_sha256": "21d23a9c57ffdf18fea0db00eeab90cd5251ca64236f5093b0c1518e91506a7e"
+        },
+        {
+          "ref": "services/prompt_registry.py — единый реестр без вторых сущностей",
+          "observation": "Все изменяемые промпты живут в одном реестре (FACTORY_REVISION_LABELS/SEALS, known_canon_hashes из живых factory_texts); отдельных параллельных сущностей Core/Style/Base Cover/History нет.",
+          "type": "test",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "78a213e85e9720c2be2b5580cbaa746cd2c5f692",
+          "artifact_sha256": "5da4422e9826e7d566c064c81a5b5bc44455e92ac138faf50efee5a0e2ae8344"
         }
       ],
       "status_note": "Нужен snapshot effective payload изменённых промптов, а не только список пинов."
@@ -35155,7 +35301,7 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.",
   "deployed_release": {
     "version": "2.58.146",
     "deployed_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
