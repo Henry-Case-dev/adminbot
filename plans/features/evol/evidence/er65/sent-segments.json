@@ -1635,7 +1635,7 @@
   "identical": true,
   "isolated_processes": true,
   "runs": 2,
-  "snapshot_core_sha256": "57f44181d2c894d05a199b1768579f2b7fa9c49ce465d60f8c4f6f6862464737"
+  "snapshot_core_sha256": "5d72d9f087aec8a9dbb60bb9c49bda6f1e9f1cfcd933c630df69acac27f3a373"
  },
  "environment": {
   "app_version": "2.58.144",
@@ -1834,10 +1834,10 @@
    "sha256": "9274fe14bb7b4736f6030b9e32964a1e25a488576c8802c49cf8f5e3301f35e1"
   },
   "services/direct_chat_service.py": {
-   "bytes": 807977,
-   "bytes_utf8": 807977,
-   "lines": 13339,
-   "sha256": "6d66a07f968f3640de6d1683d452209f3fc0d9d0b8ed917d4714c375eda1f9c3"
+   "bytes": 810677,
+   "bytes_utf8": 810677,
+   "lines": 13381,
+   "sha256": "0eee33a9e3503c997219d4564268762fd088e1203024b14a79f6c594edf6d1d6"
   },
   "services/direct_execution.py": {
    "bytes": 73775,
@@ -1846,10 +1846,10 @@
    "sha256": "5c789feba2f284e96959b000dd834834d1b483fe81eb4dc5d29c036884d82bf2"
   },
   "services/direct_l1.py": {
-   "bytes": 124910,
-   "bytes_utf8": 124910,
-   "lines": 2115,
-   "sha256": "a7d8c1d6bc2ff14d0bebc2d8736120a3b2248d25779b71443b6aa3161ab6d4fa"
+   "bytes": 128002,
+   "bytes_utf8": 128002,
+   "lines": 2178,
+   "sha256": "9d9a81ba74be0e848a1ccd2d2d812dabb741888be6892a6bdb6765dd11beb10b"
   },
   "services/factcheck_prompts.py": {
    "bytes": 60775,
