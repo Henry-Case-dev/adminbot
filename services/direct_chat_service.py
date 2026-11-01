@@ -725,6 +725,14 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
         out["temperature"] = float(temp)
     if meta.get("temperature_unsupported"):
         out["temperature_unsupported"] = True
+    # ER-08 (§8 «контракт замера»): эффективный лимит пакета L1 + источник.
+    l1_budget = meta.get("l1_context_budget")
+    if isinstance(l1_budget, int) and not isinstance(l1_budget, bool) \
+            and l1_budget > 0:
+        out["l1_context_budget"] = int(l1_budget)
+    l1_source = str(meta.get("l1_context_source") or "")
+    if l1_source:
+        out["l1_context_source"] = l1_source[:64]
     if fallback_flag:
         out["fallback"] = str(fallback_flag)
     return out
@@ -5163,9 +5171,9 @@ class DirectChatService:
 
     # ── ASAP 7 (F1, §1.1–§1.6): Direct L1 Planner pipeline ──────────────
 
-    def _l1_reply_block(self, message) -> str:
-        """§1.5: компактный срез reply-цели для L1-контекста (кап 400
-        символов; имя автора + текст). Никогда не бросает.
+    def _l1_reply_block(self, message, budget_tokens: int | None = None) -> str:
+        """§1.5: компактный срез reply-цели для L1-контекста (кап из бюджета
+        пакета — пол 400 символов; имя автора + текст). Никогда не бросает.
 
         P0 corrective 25.10.2026 (F1): автор цитаты — тот же единый каскад
         по Telegram ID, что у окна/карты (`aliases.resolve`: chat → global →
@@ -5206,7 +5214,8 @@ class DirectChatService:
                 author = str(getattr(user, "first_name", "") or "").strip()
             if author:
                 head = f"автор: {author}\n"
-            return (head + text[:_l1.L1_REPLY_BLOCK_CHARS]).strip()
+            return (head + _l1.clip_body(
+                text, _l1.reply_block_chars(budget_tokens))).strip()
         except Exception:      # pragma: no cover - защитная ветка
             return ""
 
@@ -5297,6 +5306,26 @@ class DirectChatService:
         # попытками (тот же resolver, что у обычных вызовов).
         credential_source = await _l1.authorize_l1_call(self.llm, chat_id)
         meta["credential_source"] = credential_source
+        # ── ER-08 (02.11.2026): бюджет пакета L1 выводится из РЕАЛЬНОГО окна
+        # L1-модели (Model Capacity Resolver + Stage Auto Budget, стадия
+        # direct.l1), а не из код-константы 1600. Слот резолвится здесь же:
+        # он нужен и для бюджета, и для ladder ниже.
+        slot = _l1.resolve_l1_model(chat_id)
+        try:
+            _fallback_model = str(hot.get(
+                "models.llm_model_name",
+                getattr(settings, "LLM_MODEL_NAME", "")) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            _fallback_model = ""
+        system_prompt_l1 = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        _l1_budget, _l1_budget_meta = await _l1.resolve_l1_context_budget(
+            base_url=slot.base_url, model=slot.model,
+            fallback_model=_fallback_model,
+            mandatory_tokens=count_tokens(system_prompt_l1))
+        meta["l1_context_budget"] = int(_l1_budget)
+        meta["l1_context_source"] = str(_l1_budget_meta.get("source") or "")
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -5324,9 +5353,6 @@ class DirectChatService:
         except Exception:
             announced = set()
         available_caps = _caps.available_capabilities(announced)
-        system_prompt_l1 = resolve_prompt(
-            "prompts.direct_l1_planner_system_prompt",
-            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
         _l1_gates = await _composer_resolve_gates(chat_id)
@@ -5351,8 +5377,12 @@ class DirectChatService:
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
-                message, extra_markers=extra_media_markers),
-            reply_block=self._l1_reply_block(message),
+                message, extra_markers=extra_media_markers,
+                # ER-08: исходное сообщение — внутри бюджета L1, а не 800
+                # символов Writer-пути.
+                cap_chars=_l1.message_cap_chars(_l1_budget)),
+            reply_block=self._l1_reply_block(message,
+                                             budget_tokens=_l1_budget),
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
             social_frame=_social_line,
@@ -5363,8 +5393,10 @@ class DirectChatService:
             persona_frame=str(character_block or ""),
             bot_replies=tuple(bot_replies or ()),
             history_partial=history_partial,
-            alias_resolver=self.aliases)
+            alias_resolver=self.aliases,
+            budget_tokens=_l1_budget)
         input_chars = len(context_text)
+        meta["l1_context_chars"] = int(input_chars)
         messages = [
             {"role": "system", "content": system_prompt_l1},
             {"role": "user", "content": context_text},
@@ -5377,7 +5409,6 @@ class DirectChatService:
         # dedicated слот = inherit main: попытка одна (повтор того же
         # вызова бессмысленен), далее deterministic fallback.
         attempts: list[tuple[str, bool]] = []
-        slot = _l1.resolve_l1_model(chat_id)
         if slot.dedicated:
             attempts.append(("l1_slot", True))
             attempts.append(("main", True))       # fallback ON-гейт ниже
@@ -8980,11 +9011,17 @@ class DirectChatService:
             logger.debug("direct: context config invariant check failed",
                          exc_info=True)
 
-    def _render_current_question(self, message, extra_markers=()) -> str:
+    def _render_current_question(self, message, extra_markers=(),
+                                 cap_chars: int | None = None) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
         текущего сообщения после среза обращения «бот(@ник):»; cap
         limits.chat_current_question_max_chars (default 800); НЕ режется
         бюджетом (kind вне лимитов). Пустой после среза — без блока.
+
+        ER-08 (02.11.2026): ``cap_chars`` — явный кап вызывающего (L1 берёт
+        его из своего бюджета: исходное сообщение — главный носитель claim'ов
+        и контрдоводов, 800 символов резали его вслепую). ``None`` → прежний
+        путь байт-в-байт (Writer/прочие потребители не меняются).
 
         Раунд 10.24 (F13, ADR-1024-14 D3): к тексту дописываются медиа-маркеры
         нативного медиа самого сообщения и ``reply_to_message`` (``tg:<id>``).
@@ -9020,6 +9057,13 @@ class DirectChatService:
         cap = int(hot.get("limits.chat_current_question_max_chars",
                           settings.CHAT_CURRENT_QUESTION_MAX_CHARS) or 0) \
             or 800
+        if cap_chars is not None:
+            try:
+                override = int(cap_chars)
+            except (TypeError, ValueError):
+                override = 0
+            if override > cap:
+                cap = override
         if markers:
             suffix = " ".join(markers)
             room = max(0, cap - len(suffix) - 1)
@@ -11795,6 +11839,23 @@ class DirectChatService:
             _init_conditions.append(
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
+        # ER-08: тот же бюджет пакета из реального окна L1-модели (инициатива —
+        # не отдельный контур; main-модель, слотовый fallback не применяется).
+        _init_prompt = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        try:
+            _init_model = str(hot.get(
+                "models.llm_model_name",
+                getattr(settings, "LLM_MODEL_NAME", "")) or "")
+            _init_base = str(hot.get(
+                "models.llm_base_url",
+                getattr(settings, "LLM_BASE_URL", "")) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            _init_model, _init_base = "", ""
+        _init_budget, _init_budget_meta = await _l1.resolve_l1_context_budget(
+            base_url=_init_base, model=_init_model,
+            mandatory_tokens=count_tokens(_init_prompt))
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
@@ -11803,12 +11864,11 @@ class DirectChatService:
             persona_frame=persona_block, bot_replies=bot_replies,
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
             # (tests/__new__) не должен падать в L1-пути инициативы.
-            with_ids=True, alias_resolver=getattr(self, "aliases", None))
+            with_ids=True, alias_resolver=getattr(self, "aliases", None),
+            budget_tokens=_init_budget)
         messages = [
             {"role": "system",
-             "content": resolve_prompt(
-                 "prompts.direct_l1_planner_system_prompt",
-                 DIRECT_L1_PLANNER_SYSTEM_PROMPT)},
+             "content": _init_prompt},
             {"role": "user", "content": context_text},
         ]
         # ── SOUL-1 (W2, §4 п.5): Initiative L1 — тот же машинный профиль.

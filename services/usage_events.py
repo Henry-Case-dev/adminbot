@@ -56,10 +56,15 @@ PLAN_META_FIELDS = frozenset({
     # ASAP 2 (наблюдаемость уточнений, 23.10.2026): только флаги — частотa
     # и «ложность» уточнений измеримы на проде без текста цели/пользователя.
     "needs_clar", "clar_target_present",
+    # ER-08 (02.11.2026): фактический лимит пакета L1 и его ИСТОЧНИК
+    # (hot|model_window|floor) — durable-доказательство эффективного значения
+    # вместо догадки по код-дефолту (§8 «контракт замера»).
+    "l1_context_budget", "l1_context_source",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(
-    {"confidence", "latency_ms", "input_chars", "temperature"})
+    {"confidence", "latency_ms", "input_chars", "temperature",
+     "l1_context_budget"})
 _IDENT_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-:.]{0,64}$")
 _MODEL_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-./:]{0,64}$")
 _PLAN_META_MAX_BYTES = 2048   # bounded durable-колонка (одна строка JSON)

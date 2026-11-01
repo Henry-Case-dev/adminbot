@@ -64,6 +64,27 @@ METERED_TOOLS = frozenset({
     "recognize_image", "fact_check",
 })
 
+#: ER-08 (решение владельца 02.11.2026): read-only проверка фактов — счётчик
+#: `metered_calls` есть счётчик ИНСТРУМЕНТОВ, а не долларов. Поиск, чтение
+#: статьи и фактчек обязаны доезжать до ответа; ограничивать их «финансовой
+#: экономией» в счётчике платных операций запрещено. Их по-прежнему держат
+#: анти-петлевые гварды (TOOL_MAX_TOTAL_CALLS/раунды/дедуп/один и тот же
+#: вызов ≤2), реальные квоты и перегрузка провайдера (tool_router/quota).
+METERED_EVIDENCE_READ_ONLY = frozenset({
+    "execute_web_search", "fetch_article", "fact_check",
+})
+
+
+def cost_limited_tool(name: str) -> bool:
+    """Попадает ли вызов под «денежный» счётчик платных операций.
+
+    ``metered`` (поле envelope/MCA-20) остаётся фактом о характере вызова;
+    лимит применяется только к операциям, которые тратят деньги на
+    производство результата (медиа/генерация/длинные media-конвейеры).
+    Read-only проверка фактов НЕ режется этим счётчиком (ER-08)."""
+    key = str(name or "")
+    return key in METERED_TOOLS and key not in METERED_EVIDENCE_READ_ONLY
+
 # §17-причины деградации, аддитивные к существующим ok/round_limit/llm_error
 # (ADR-1020-7 §1 effective AMEND; существующие ветки не меняются).
 CHAIN_TIMEOUT_REASON = "chain_timeout"
@@ -568,6 +589,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 if limits_on else None)
     total_calls = 0
     metered_calls = 0
+    # ER-08: отдельный счётчик «денежных» операций (лимит применяется ТОЛЬКО
+    # к нему). `metered_calls` остаётся наблюдаемой осью (сколько было
+    # метричных вызовов вообще), а не тормозом проверки фактов.
+    cost_calls = 0
     same_calls: dict[str, int] = {}
     last_by_fp: dict[str, str] = {}
     # MCA-11 D3: последний канонический/legacy-результат по отпечатку —
@@ -626,10 +651,11 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         skip_code = CHAIN_CALL_LIMIT_REASON
                         limit_kind = "tool_calls"
                         limit_value = total_calls
-                    elif metered and metered_calls >= _max_metered_calls():
+                    elif cost_limited_tool(name) \
+                            and cost_calls >= _max_metered_calls():
                         skip_code = CHAIN_COST_LIMIT_REASON
                         limit_kind = "tool_metered_calls"
-                        limit_value = metered_calls
+                        limit_value = cost_calls
                     if skip_code:
                         # §19: partial failure не роняет run — шаг в honest
                         # limitation, исполнение плана/цикла продолжается.
@@ -679,6 +705,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 total_calls += 1
                 if metered:
                     metered_calls += 1
+                if cost_limited_tool(name):
+                    cost_calls += 1
                 attempt = same_calls.get(fp, 0) + 1
                 same_calls[fp] = attempt
                 last_by_fp[fp] = output
@@ -954,10 +982,11 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     skip_code = CHAIN_CALL_LIMIT_REASON
                     limit_kind = "tool_calls"
                     limit_value = total_calls
-                elif metered and metered_calls >= _max_metered_calls():
+                elif cost_limited_tool(tc.name) \
+                        and cost_calls >= _max_metered_calls():
                     skip_code = CHAIN_COST_LIMIT_REASON
                     limit_kind = "tool_metered_calls"
-                    limit_value = metered_calls
+                    limit_value = cost_calls
                 if skip_code:
                     # MCA-11 D1/D4: legacy `skipped` → канонический `denied`;
                     # единицы/область/значение/причина — в data (K1 ON).
@@ -1030,6 +1059,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
             total_calls += 1
             if metered:
                 metered_calls += 1
+            if cost_limited_tool(tc.name):
+                cost_calls += 1
             attempt = same_calls.get(fp, 0) + 1
             same_calls[fp] = attempt
             last_by_fp[fp] = output

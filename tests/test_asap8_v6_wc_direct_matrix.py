@@ -348,8 +348,35 @@ class TestMatrixExecutorGuards:
 
     @pytest.mark.asyncio
     async def test_metered_cost_budget_exhaustion(self, monkeypatch):
-        """Матрица 15 (cost): исчерпание metered-бюджета → остальные
-        платные шаги не исполняются (chain_cost_limit)."""
+        """Матрица 15 (cost): исчерпание «денежного» бюджета → остальные
+        ПЛАТНЫЕ шаги не исполняются (chain_cost_limit). Read-only проверка
+        фактов этим счётчиком не режется (ER-08)."""
+        from services import direct_execution as de
+        real_budget = de.ChainBudget
+
+        def _steps(*a, **kw):
+            return ([{"step_id": f"m{i}", "tool": "summarize_video",
+                      "arguments": {"url": f"https://youtu.be/q{i}"},
+                      "depends_on": [],
+                      "failure_policy": "optional"}
+                     for i in range(4)], [])
+
+        monkeypatch.setattr(de, "derive_simple_steps", _steps)
+        monkeypatch.setattr(
+            de, "ChainBudget",
+            lambda **kw: real_budget(timeout_seconds=30, max_total=99,
+                                     max_metered=2))
+        router = _Router()
+        result = await de.run_simple_tools(
+            plan=None, router=router, ctx=None, query="x",
+            chat_id=1, correlation_id="corr", announced={"summarize_video"})
+        assert len(router.dispatched) == 2, "metered-бюджет жёсткий"
+        assert result.chain_meta["metered"] == 2
+
+    @pytest.mark.asyncio
+    async def test_read_only_evidence_not_cost_limited(self, monkeypatch):
+        """ER-08: четыре read-only поиска при max_metered=2 исполняются —
+        упор даёт анти-петлевой общий cap, а не «финансовая экономия»."""
         from services import direct_execution as de
         real_budget = de.ChainBudget
 
@@ -369,8 +396,8 @@ class TestMatrixExecutorGuards:
             plan=None, router=router, ctx=None, query="x",
             chat_id=1, correlation_id="corr",
             announced={"execute_web_search"})
-        assert len(router.dispatched) == 2, "metered-бюджет жёсткий"
-        assert result.chain_meta["metered"] == 2
+        assert len(router.dispatched) == 4
+        assert result.chain_meta["reason"] not in ("", "chain_cost_limit")
 
     @pytest.mark.asyncio
     async def test_stale_reply_chain_result_not_sent_directly(self):

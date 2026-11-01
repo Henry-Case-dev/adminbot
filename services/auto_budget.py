@@ -70,6 +70,13 @@ STAGE_POLICIES: dict[str, StagePolicy] = {
         "direct.fallback", "Прямые ответы (резервная модель)",
         COVERAGE_RELEVANCE_COMPOSED, OVERFLOW_PRIORITY_REDUCE, None,
         "direct"),
+    # ER-08 (02.11.2026): L1-планировщик — своя стадия, чтобы его бюджет
+    # выводился из РЕАЛЬНОГО окна L1-модели, а не копился из код-константы.
+    # Арифметика та же, что у Direct (safety reserve один раз).
+    "direct.l1": StagePolicy(
+        "direct.l1", "Direct: L1-планировщик (компактный контекст)",
+        COVERAGE_RELEVANCE_COMPOSED, OVERFLOW_PRIORITY_REDUCE, None,
+        "direct"),
     "summary.l1": StagePolicy(
         "summary.l1", "Саммари: кластеризатор (L1)", COVERAGE_EXHAUSTIVE,
         OVERFLOW_CHUNK_ALL, "SUMMARY_L1_OUTPUT_RESERVE_TOKENS", "summary"),
