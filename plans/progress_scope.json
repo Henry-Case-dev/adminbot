@@ -301,6 +301,18 @@
       "coverage_complete": true,
       "updated": "2026-10-30",
       "source_note": "EVOL epic: 45 tasks. Base branch evol/impl @ 4aa91baf = production 5346ee76 (2.58.141) + master docs (merge 2e612d5c); worktree registered WorkspaceData/worktrees/c742e4de9e92c489/evol-71536a366a11-c63f6f44. W0 done: map 46 items gate EXIT 0, audits done, prod health 200. NOTE: master code was 304 commits behind production line - all EVOL implementation on evol/impl. W1 next: re-validation of audit findings on production base, then 010/011+013/015/031 fixes; Architect contracts 016+032 in flight. | +ASAP-UI-02 amendment 31.10: matrix-first, delta-only, strict Reviewer (no formal approve). | 2026-11-01: EVOL-025/026/027/028/029/030 PASS (UI sections complete, EVOL-029 modal fixed db890035). | 2026-11-01: RELEASED 2.58.143 @ 273be95c VERIFIED (health 200, NRestarts 0, apply_release 109 blocks, schema 37->40, media 7 files); 301/439 map rows VERIFIED. | 2026-11-01: 2.58.144 VERIFIED @ ebec502b (wave2: 4-ribbon intel card, warning tint, 44px switcher; health 200, NRestarts 0). | FOLDED 01.11.2026 (rows live in this map, one map = one owner): evol-src-cog (PENDING), asap-fc-admission-01 (READY_FOR_LIVE), asap-vision-sync-01 (READY_FOR_LIVE), asap-fc-evidence-style-02 (READY_FOR_LIVE), asap-evidence-routing-01 (BUILDING), asap-summary-cover-integrity-01 (BUILDING)"
+    },
+    {
+      "id": "asap-fc-voice-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
+      "source_sha256": "9CE180AD702588B4552CF97FBEAEE615EC9D3D67654D9369D29670C91B762C29",
+      "maps": [
+        "plans/features/asap-fc-voice-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Единая итоговая редакция владельца 02.11 (заменяет неотправленные черновики о стиле фактчека). P0 — исторический аргументативный голос в действующем Verbalizer + адаптивная подача без принудительных заголовков/списков/обрезок; P1 — общесистемный decision-profile L1 на существующих persona-сигналах, без второй личности и без полного Core в машинных стадиях. Карта требований и классификация 22 сценариев — PM; архитектурный контракт — Architect до Builder. Ближайший безопасный слот: после завершения текущего релиза 2.58.148; активных исполнителей не прерывать. Не дублировать ASAP-FC-EVIDENCE-STYLE-02 (поиск/provenance) и ASAP-EVIDENCE-ROUTING-01.",
+      "updated": "2026-11-02"
     }
   ],
   "owner_inputs": [
@@ -693,6 +705,28 @@
       ],
       "reconciled": true,
       "note": "v2.1 only (replaces v1/v2): P0 prompt history 500+versions, Cover Style prompt_limit(800)/bad_json/refs/timer, L2 Summary diagnostics; P1 Speech 5 tabs, ONE module toggle scoped by top selector (overrides EVOL-027/ASAP-UI-02 conflicting parts), mobile fullscreen instead of .../drawer safe areas, Status unified health block; P2 remove Favorites; 40 scenarios. | reconciled 01.11.2026: obligations decomposed into plans/features/evol/requirements-map.json rows (ER-*/SC-*), verification bound to deployed 2.58.146 (6cf06db4) evidence."
+    },
+    {
+      "id": "OI-2026-11-02-LIMITS-DECISION",
+      "source_path": "plans/owner_inputs/2026-11-02-limits-economics-decision.md",
+      "source_sha256": "52930C48111CB1DBA657156342AD65DD742271D3896F2F593D1DD6796F703458",
+      "kind": "decision",
+      "target_task_ids": [
+        "evol"
+      ],
+      "reconciled": true,
+      "note": "Решение владельца 02.11 по ER-08: денежные caps OFF и не расширять; учёт расхода сохранить с price_known=false (не путать с нулевой стоимостью); L1 — устранять реальные потери данных через существующий Model Capacity Resolver и динамическое распределение контекста, а не механически поднимать числа; metered_calls = счётчик инструментов, не деньги; SLA 360 с не увеличивать, проверить рассогласование дедлайнов Direct Orchestrator и Tool Chain; без нового бюджетного движка; согласовать с ASAP-EVIDENCE-ROUTING-01 v3. | reconciled 02.11.2026: все 7 клауз привязаны к ER-08 (P0-строка L02025), граница reply-middle зарегистрирована как под-слайс ER-08-RC; доказательства в карте EVOL @ 98286b2b, план-гейт блокируется только дельтой нового источника ASAP-FC-VOICE-01, не этой привязкой."
+    },
+    {
+      "id": "OI-2026-11-02-ASAP-FC-VOICE-01",
+      "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
+      "source_sha256": "9CE180AD702588B4552CF97FBEAEE615EC9D3D67654D9369D29670C91B762C29",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap-fc-voice-01"
+      ],
+      "reconciled": true,
+      "note": "ASAP-FC-VOICE-01 (02.11, P0/P1): вернуть аргументативный голос исторического FactCheck (коммит 995cf83a588b) в современный Verbalizer, не откатывая L1/L2 и не добавляя стадий; адаптивная подача без хардкода форматирования (устранить принудительные группировки factcheck_renderer); общесистемный L1 decision-profile: характер как поведенческие данные, без полного Core/инструкций мата/примеров в машинных стадиях; сверить HEAD/deployed/effective revisions; 22 сценария приёмки; не дублировать ASAP-FC-EVIDENCE-STYLE-02 и ASAP-EVIDENCE-ROUTING-01; включить в ближайший безопасный слот, не прерывая текущих исполнителей. | reconciled 02.11.2026: карта plans/features/asap-fc-voice-01 (129 строк, 93 обязательных; классификация PARTIAL 40 / MISSING 21 / DONE_AND_VERIFIED 16 / CONFLICTS 15 / NOT_APPLICABLE 1), план-гейт EXIT 0, коммит 917bb98d; архитектурные контракты закоммичены 9808077b; preflight прода подтвердил активный двухстадийный маршрут и реальные точки правки."
     }
   ]
 }
