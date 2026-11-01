@@ -1968,6 +1968,12 @@
     if (hash.indexOf('#/') !== 0) return null;
     var r = hash.split('?')[0];           // отбросить query после маршрута
     if (Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r)) return r;
+    // EVOL-033 (W13): легаси-адрес, у которого НЕТ собственной записи в
+    // ROUTE_TO_TAB (`#/ai/smart-cache`), раньше отбрасывался здесь — и вместо
+    // объявленного в ROUTE_ALIAS дома «ИИ» попадал на текущий экран/«Статус».
+    // Алиас, объявленный в ROUTE_ALIAS, — валидный адрес (applyRoute сделает
+    // replaceState на канонический).
+    if (Object.prototype.hasOwnProperty.call(ROUTE_ALIAS, r)) return r;
     // F5: динамические workspace/prompt-library маршруты (без статической карты).
     if (isWorkspaceRoute(r)) return r;
     if (parsePromptLibraryRoute(r)) return r;
@@ -3234,6 +3240,9 @@
         paletteOpen: false,
         paletteQuery: '',
         paletteCursorId: '',
+        // EVOL-033 (W13): элемент, на который вернётся фокус после закрытия
+        // палитры (контракт возврата фокуса, как у листа записи).
+        paletteReturnFocus: null,
         // EVOL-038 (W12): поиск в каталоге промптов модуля + полноэкранный
         // редактор (не создаёт вторую форму — тот же item/история).
         promptTreeQuery: '',
@@ -8092,8 +8101,13 @@
       memoryCatalogLabel: function () {
         var shown = this.memoryCatalogFiltered.length;
         var total = this.memoryCatalogItems.length;
-        if (!total) return 'записей пока нет';
-        return 'показано ' + shown + ' из ' + total;
+        // EVOL-033 (W13): сбой загрузки ленты фактов раньше выглядел как
+        // «записей пока нет» — сломанное неотличимо от пустого. Причина
+        // называется прямо в подписи каталога (на «Статусе» она уже есть).
+        var err = this.dossierFeedError
+          ? ('лента не загрузилась: ' + this.dossierFeedError) : '';
+        if (!total) return err || 'записей пока нет';
+        return 'показано ' + shown + ' из ' + total + (err ? ' · ' + err : '');
       },
       memorySearchAvailability: function () {
         var ep = this.embeddingsPanel;
@@ -12539,10 +12553,24 @@
       // Выбор открывает существующий маршрут и фокусирует конкретный элемент
       // через `?focus=<токен>` — общий deep-link контракт для меню/карточек.
       // ═══════════════════════════════════════════════════════════════════
-      openPalette: function (seed) {
+      openPalette: function (seed, invoker) {
         this.paletteOpen = true;
         this.paletteQuery = (typeof seed === 'string') ? seed : '';
         this.paletteCursorId = '';
+        // EVOL-033 (W13): точка возврата фокуса — тот же контракт, что у
+        // листа записи (`statusRecordReturnFocus`): закрытие возвращает
+        // фокус туда, откуда оверлей открыли. Явный `invoker` нужен потому,
+        // что клик мышью в Chrome/Windows НЕ фокусирует `<button>`:
+        // `document.activeElement` остаётся на body и возвращать фокус
+        // «некуда». Клавиатурный путь (Ctrl+K) по-прежнему берёт activeElement.
+        try {
+          var inv = (invoker && invoker.focus) ? invoker : null;
+          if (!inv && typeof document !== 'undefined' && document
+              && document.activeElement && document.activeElement !== document.body) {
+            inv = document.activeElement;
+          }
+          this.paletteReturnFocus = inv || null;
+        } catch (e) { this.paletteReturnFocus = null; }
         var self = this;
         var focusInput = function () {
           try {
@@ -12557,9 +12585,14 @@
         else focusInput();
       },
       closePalette: function () {
+        var back = this.paletteReturnFocus;
         this.paletteOpen = false;
         this.paletteQuery = '';
         this.paletteCursorId = '';
+        this.paletteReturnFocus = null;
+        if (back && typeof back.focus === 'function') {
+          try { back.focus(); } catch (e) { /* элемент уже удалён */ }
+        }
       },
       togglePalette: function () {
         if (this.paletteOpen) this.closePalette();
@@ -12604,6 +12637,36 @@
           if (event.preventDefault) event.preventDefault();
           if (event.stopPropagation) event.stopPropagation();
           this.closePalette();
+        } else if (event.key === 'Tab') {
+          // EVOL-033 (W13): фокус не выходит из диалога (`aria-modal`).
+          // Раньше после закрывающей кнопки Tab уводил фокус в контент ПОД
+          // оверлеем. Семантика — как у листа записи
+          // (`statusRecordKeydown`): цикл по краям + случай фокуса на корне.
+          var root = event.currentTarget;
+          if (!root || typeof root.querySelectorAll !== 'function') return;
+          var nodes = root.querySelectorAll('button, [href], input, select,'
+            + ' textarea, [tabindex]:not([tabindex="-1"])');
+          var list = [];
+          for (var j = 0; j < nodes.length; j++) {
+            if (!nodes[j].disabled) list.push(nodes[j]);
+          }
+          if (!list.length) return;
+          var first = list[0];
+          var last = list[list.length - 1];
+          var act = (typeof document !== 'undefined' && document)
+            ? document.activeElement : null;
+          if (act === root || act === null) {
+            if (event.preventDefault) event.preventDefault();
+            try { (event.shiftKey ? last : first).focus(); } catch (e) { /* no-op */ }
+            return;
+          }
+          if (event.shiftKey && act === first) {
+            if (event.preventDefault) event.preventDefault();
+            try { last.focus(); } catch (e) { /* no-op */ }
+          } else if (!event.shiftKey && act === last) {
+            if (event.preventDefault) event.preventDefault();
+            try { first.focus(); } catch (e) { /* no-op */ }
+          }
         }
       },
       // Ctrl+K / Cmd+K из любого места (не перехватывает обычный ввод:
@@ -12923,6 +12986,10 @@
         if (route === '#/status/graph') return 'Граф связей';
         // SOUL-1 W6 (§6): заголовок special-screen «Речь и характер».
         if (route === '#/ai/speech') return 'Речь и характер';
+        // EVOL-033 (W13): легаси-адрес того же единственного редактора
+        // (`#/ai/persona`, EVOL-028) показывал в шапке СЫРОЙ hash — вкладки
+        // `speech` в TABS нет, и подпись падала в fallback `String(route)`.
+        if (route === '#/ai/persona') return 'Речь и характер';
         var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
         for (var i = 0; i < items.length; i++) {
           if (items[i].route === route) return items[i].label;

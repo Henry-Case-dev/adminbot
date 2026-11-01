@@ -1,0 +1,614 @@
+{
+ "checks": {
+  "palette.focusTrap": {
+   "steps": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "allInside": true,
+   "openedFromTrigger": true,
+   "openFocus": {
+    "tag": "INPUT",
+    "cls": "palette-input",
+    "id": "palette-input",
+    "attr": "",
+    "inOverlay": true,
+    "label": ""
+   },
+   "focusPath": [
+    [
+     "BUTTON",
+     "btn-ghost.text-xs.palette-close",
+     "Esc"
+    ],
+    [
+     "INPUT",
+     "palette-input",
+     ""
+    ],
+    [
+     "BUTTON",
+     "btn-ghost.text-xs.palette-close",
+     "Esc"
+    ],
+    [
+     "INPUT",
+     "palette-input",
+     ""
+    ],
+    [
+     "BUTTON",
+     "btn-ghost.text-xs.palette-close",
+     "Esc"
+    ],
+    [
+     "INPUT",
+     "palette-input",
+     ""
+    ],
+    [
+     "BUTTON",
+     "btn-ghost.text-xs.palette-close",
+     "Esc"
+    ],
+    [
+     "INPUT",
+     "palette-input",
+     ""
+    ]
+   ]
+  },
+  "palette.escClose": {
+   "open": false,
+   "focus": "BUTTON",
+   "isPaletteTrigger": true,
+   "cls": "btn-ghost",
+   "label": "ПоискCtrl K"
+  },
+  "sheet.390": {
+   "sheet": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 0,
+     "y": 68,
+     "w": 390,
+     "h": 776
+    },
+    "focusInside": true,
+    "bottomAnchored": true,
+    "sheetMode": true
+   },
+   "trap": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "before": {
+    "tag": "BODY",
+    "cls": "",
+    "id": "",
+    "attr": "",
+    "inOverlay": false,
+    "label": "ПамятьAAudit ChatЧАТ▾ID#-1001234567890AA"
+   },
+   "afterEsc": {
+    "open": false,
+    "lock": false,
+    "focusTag": "BUTTON",
+    "focusInSheet": false
+   }
+  },
+  "sheet.1280": {
+   "sheet": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 304,
+     "y": 90,
+     "w": 672,
+     "h": 720
+    },
+    "focusInside": true,
+    "bottomAnchored": false,
+    "sheetMode": false
+   },
+   "trap": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "before": {
+    "tag": "BODY",
+    "cls": "",
+    "id": "",
+    "attr": "",
+    "inOverlay": false,
+    "label": "СтатусСправкаМодулиИИПамятьАналит"
+   },
+   "afterEsc": {
+    "open": false,
+    "lock": false,
+    "focusTag": "BUTTON",
+    "focusInSheet": false
+   }
+  },
+  "drawer.390": {
+   "open": {
+    "present": true,
+    "open": true,
+    "ariaHidden": "false",
+    "inert": false,
+    "display": "block",
+    "zIndex": "40",
+    "inBody": false,
+    "rect": {
+     "x": 0,
+     "w": 280
+    },
+    "backdropZ": "35",
+    "focusInside": true,
+    "active": "BUTTON.sidebar-link"
+   },
+   "trap": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "afterEsc": {
+    "drawer": true,
+    "focusOnTrigger": true
+   }
+  },
+  "fullscreen.1280": {
+   "button": true,
+   "open": {
+    "open": true,
+    "z": "80",
+    "portal": true,
+    "position": "fixed",
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 1280,
+     "h": 900
+    },
+    "fillsViewport": true,
+    "cls": "prompt-editor card p-4 prompt-editor--full",
+    "focusInside": true
+   },
+   "afterEsc": {
+    "stillOpen": false,
+    "focusTag": "BUTTON"
+   }
+  },
+  "stack.palette-over-drawer.390": {
+   "open": {
+    "palette": true,
+    "drawer": true,
+    "backStack": null
+   },
+   "afterEsc": {
+    "palette": false,
+    "drawer": true
+   }
+  },
+  "z.vars": {
+   "--z-base": "0",
+   "--z-content": "1",
+   "--z-inline": "5",
+   "--z-sidebar": "30",
+   "--z-scrim": "35",
+   "--z-nav": "40",
+   "--z-local": "45",
+   "--z-menu": "55",
+   "--z-modal-scrim": "75",
+   "--z-modal": "80",
+   "--z-toast": "90",
+   "--z-palette": "100"
+  },
+  "z.palette": {
+   "sel": "[data-command-palette]",
+   "z": "100",
+   "position": "fixed",
+   "portal": true,
+   "visible": true
+  },
+  "z.sheet": {
+   "sel": ".sfeed-modal-backdrop, .modal-backdrop",
+   "z": "75",
+   "position": "fixed",
+   "portal": true,
+   "visible": true
+  },
+  "z.fullscreen": {
+   "sel": ".prompt-editor--full, .status-graph-full",
+   "z": "80",
+   "position": "fixed",
+   "portal": true,
+   "visible": true
+  },
+  "z.drawer": {
+   "sel": "aside.app-drawer",
+   "z": "40",
+   "position": "fixed",
+   "portal": true,
+   "visible": true
+  },
+  "z.header": {
+   "sel": "header.header-sticky",
+   "z": "40",
+   "position": "sticky",
+   "portal": true,
+   "visible": true
+  }
+ },
+ "layers": {
+  "palette": {
+   "vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "stickyHeader": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   },
+   "drawer": null,
+   "drawerScrim": null,
+   "moreMenu": null,
+   "palette": {
+    "sel": "[data-command-palette]",
+    "z": "100",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "sheetModal": null,
+   "fullscreen": null,
+   "toast": null
+  },
+  "sheet-390": {
+   "vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "stickyHeader": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   },
+   "drawer": {
+    "sel": "aside.app-drawer",
+    "z": "40",
+    "position": "fixed",
+    "portal": true,
+    "visible": false
+   },
+   "drawerScrim": null,
+   "moreMenu": null,
+   "palette": null,
+   "sheetModal": {
+    "sel": ".sfeed-modal-backdrop, .modal-backdrop",
+    "z": "75",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "fullscreen": null,
+   "toast": null
+  },
+  "sheet-1280": {
+   "vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "stickyHeader": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   },
+   "drawer": null,
+   "drawerScrim": null,
+   "moreMenu": null,
+   "palette": null,
+   "sheetModal": {
+    "sel": ".sfeed-modal-backdrop, .modal-backdrop",
+    "z": "75",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "fullscreen": null,
+   "toast": null
+  },
+  "drawer-390": {
+   "vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "stickyHeader": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   },
+   "drawer": {
+    "sel": "aside.app-drawer",
+    "z": "40",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "drawerScrim": {
+    "sel": ".drawer-backdrop",
+    "z": "35",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "moreMenu": null,
+   "palette": null,
+   "sheetModal": null,
+   "fullscreen": null,
+   "toast": null
+  },
+  "fullscreen-1280": {
+   "vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "stickyHeader": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   },
+   "drawer": null,
+   "drawerScrim": null,
+   "moreMenu": null,
+   "palette": null,
+   "sheetModal": null,
+   "fullscreen": {
+    "sel": ".prompt-editor--full, .status-graph-full",
+    "z": "80",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "toast": null
+  }
+ },
+ "focus": [
+  {
+   "overlay": "palette",
+   "openFocus": {
+    "tag": "INPUT",
+    "cls": "palette-input",
+    "id": "palette-input",
+    "attr": "",
+    "inOverlay": true,
+    "label": ""
+   },
+   "trapSteps": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "afterEsc": {
+    "open": false,
+    "focus": "BUTTON",
+    "isPaletteTrigger": true,
+    "cls": "btn-ghost",
+    "label": "ПоискCtrl K"
+   }
+  },
+  {
+   "overlay": "record-sheet@390",
+   "sheet": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 0,
+     "y": 68,
+     "w": 390,
+     "h": 776
+    },
+    "focusInside": true,
+    "bottomAnchored": true,
+    "sheetMode": true
+   },
+   "trapSteps": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "afterEsc": {
+    "open": false,
+    "lock": false,
+    "focusTag": "BUTTON",
+    "focusInSheet": false
+   }
+  },
+  {
+   "overlay": "record-sheet@1280",
+   "sheet": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 304,
+     "y": 90,
+     "w": 672,
+     "h": 720
+    },
+    "focusInside": true,
+    "bottomAnchored": false,
+    "sheetMode": false
+   },
+   "trapSteps": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "afterEsc": {
+    "open": false,
+    "lock": false,
+    "focusTag": "BUTTON",
+    "focusInSheet": false
+   }
+  },
+  {
+   "overlay": "drawer@390",
+   "open": {
+    "present": true,
+    "open": true,
+    "ariaHidden": "false",
+    "inert": false,
+    "display": "block",
+    "zIndex": "40",
+    "inBody": false,
+    "rect": {
+     "x": 0,
+     "w": 280
+    },
+    "backdropZ": "35",
+    "focusInside": true,
+    "active": "BUTTON.sidebar-link"
+   },
+   "trapSteps": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "afterEsc": {
+    "drawer": true,
+    "focusOnTrigger": true
+   }
+  },
+  {
+   "overlay": "fullscreen@1280",
+   "open": {
+    "open": true,
+    "z": "80",
+    "portal": true,
+    "position": "fixed",
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 1280,
+     "h": 900
+    },
+    "fillsViewport": true,
+    "cls": "prompt-editor card p-4 prompt-editor--full",
+    "focusInside": true
+   },
+   "afterEsc": {
+    "stillOpen": false,
+    "focusTag": "BUTTON"
+   }
+  },
+  {
+   "overlay": "stack@390",
+   "open": {
+    "palette": true,
+    "drawer": true,
+    "backStack": null
+   },
+   "afterEsc": {
+    "palette": false,
+    "drawer": true
+   }
+  }
+ ]
+}

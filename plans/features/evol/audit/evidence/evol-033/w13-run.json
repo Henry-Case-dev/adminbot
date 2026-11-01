@@ -1,0 +1,369 @@
+{
+ "started": "2026-11-02T01:34:32",
+ "sections": {
+  "sweep": {
+   "routes": 104,
+   "viewports": 10,
+   "cells": 1040,
+   "hScroll": 0,
+   "vScroll": 211,
+   "offscreen": 0,
+   "clipped": 0,
+   "tapSmall": 628,
+   "consoleErrors": 0,
+   "empty": 0,
+   "failures": 2864
+  },
+  "states": {
+   "records": 40,
+   "surfaces": [
+    "modules-catalog",
+    "palette",
+    "progress",
+    "record-sheet",
+    "shell-loading",
+    "status"
+   ],
+   "states": [
+    "completed",
+    "degraded",
+    "disabled",
+    "empty",
+    "error",
+    "failed",
+    "loading",
+    "normal",
+    "partial",
+    "readonly",
+    "unknown"
+   ],
+   "statusObserved": [
+    "degraded",
+    "disabled",
+    "failed",
+    "normal",
+    "unknown"
+   ]
+  },
+  "portal": {
+   "palette.focusTrap": {
+    "steps": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "allInside": true,
+    "openedFromTrigger": true,
+    "openFocus": {
+     "tag": "INPUT",
+     "cls": "palette-input",
+     "id": "palette-input",
+     "attr": "",
+     "inOverlay": true,
+     "label": ""
+    },
+    "focusPath": [
+     [
+      "BUTTON",
+      "btn-ghost.text-xs.palette-close",
+      "Esc"
+     ],
+     [
+      "INPUT",
+      "palette-input",
+      ""
+     ],
+     [
+      "BUTTON",
+      "btn-ghost.text-xs.palette-close",
+      "Esc"
+     ],
+     [
+      "INPUT",
+      "palette-input",
+      ""
+     ],
+     [
+      "BUTTON",
+      "btn-ghost.text-xs.palette-close",
+      "Esc"
+     ],
+     [
+      "INPUT",
+      "palette-input",
+      ""
+     ],
+     [
+      "BUTTON",
+      "btn-ghost.text-xs.palette-close",
+      "Esc"
+     ],
+     [
+      "INPUT",
+      "palette-input",
+      ""
+     ]
+    ]
+   },
+   "palette.escClose": {
+    "open": false,
+    "focus": "BUTTON",
+    "isPaletteTrigger": true,
+    "cls": "btn-ghost",
+    "label": "ПоискCtrl K"
+   },
+   "sheet.390": {
+    "sheet": {
+     "open": true,
+     "zIndex": "auto",
+     "inBody": true,
+     "rect": {
+      "x": 0,
+      "y": 68,
+      "w": 390,
+      "h": 776
+     },
+     "focusInside": true,
+     "bottomAnchored": true,
+     "sheetMode": true
+    },
+    "trap": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "before": {
+     "tag": "BODY",
+     "cls": "",
+     "id": "",
+     "attr": "",
+     "inOverlay": false,
+     "label": "ПамятьAAudit ChatЧАТ▾ID#-1001234567890AA"
+    },
+    "afterEsc": {
+     "open": false,
+     "lock": false,
+     "focusTag": "BUTTON",
+     "focusInSheet": false
+    }
+   },
+   "sheet.1280": {
+    "sheet": {
+     "open": true,
+     "zIndex": "auto",
+     "inBody": true,
+     "rect": {
+      "x": 304,
+      "y": 90,
+      "w": 672,
+      "h": 720
+     },
+     "focusInside": true,
+     "bottomAnchored": false,
+     "sheetMode": false
+    },
+    "trap": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "before": {
+     "tag": "BODY",
+     "cls": "",
+     "id": "",
+     "attr": "",
+     "inOverlay": false,
+     "label": "СтатусСправкаМодулиИИПамятьАналит"
+    },
+    "afterEsc": {
+     "open": false,
+     "lock": false,
+     "focusTag": "BUTTON",
+     "focusInSheet": false
+    }
+   },
+   "drawer.390": {
+    "open": {
+     "present": true,
+     "open": true,
+     "ariaHidden": "false",
+     "inert": false,
+     "display": "block",
+     "zIndex": "40",
+     "inBody": false,
+     "rect": {
+      "x": 0,
+      "w": 280
+     },
+     "backdropZ": "35",
+     "focusInside": true,
+     "active": "BUTTON.sidebar-link"
+    },
+    "trap": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "afterEsc": {
+     "drawer": true,
+     "focusOnTrigger": true
+    }
+   },
+   "fullscreen.1280": {
+    "button": true,
+    "open": {
+     "open": true,
+     "z": "80",
+     "portal": true,
+     "position": "fixed",
+     "rect": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+     },
+     "fillsViewport": true,
+     "cls": "prompt-editor card p-4 prompt-editor--full",
+     "focusInside": true
+    },
+    "afterEsc": {
+     "stillOpen": false,
+     "focusTag": "BUTTON"
+    }
+   },
+   "stack.palette-over-drawer.390": {
+    "open": {
+     "palette": true,
+     "drawer": true,
+     "backStack": null
+    },
+    "afterEsc": {
+     "palette": false,
+     "drawer": true
+    }
+   },
+   "z.vars": {
+    "--z-base": "0",
+    "--z-content": "1",
+    "--z-inline": "5",
+    "--z-sidebar": "30",
+    "--z-scrim": "35",
+    "--z-nav": "40",
+    "--z-local": "45",
+    "--z-menu": "55",
+    "--z-modal-scrim": "75",
+    "--z-modal": "80",
+    "--z-toast": "90",
+    "--z-palette": "100"
+   },
+   "z.palette": {
+    "sel": "[data-command-palette]",
+    "z": "100",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "z.sheet": {
+    "sel": ".sfeed-modal-backdrop, .modal-backdrop",
+    "z": "75",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "z.fullscreen": {
+    "sel": ".prompt-editor--full, .status-graph-full",
+    "z": "80",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "z.drawer": {
+    "sel": "aside.app-drawer",
+    "z": "40",
+    "position": "fixed",
+    "portal": true,
+    "visible": true
+   },
+   "z.header": {
+    "sel": "header.header-sticky",
+    "z": "40",
+    "position": "sticky",
+    "portal": true,
+    "visible": true
+   }
+  },
+  "extras": {
+   "zoom200.390": {
+    "cssViewport": "195x422",
+    "hScroll": false,
+    "sw": 195,
+    "vw": 195,
+    "headerH": 58,
+    "offCount": 6,
+    "off": [
+     "div.header-scope-row@110..266",
+     "div.scope-wrap.shrink-0@110..198",
+     "button.scope-trigger.field.text-xs@110..198"
+    ],
+    "clipped": [],
+    "tapSmall": 0
+   },
+   "zoom200.1280": {
+    "cssViewport": "640x400",
+    "hScroll": false,
+    "sw": 640,
+    "vw": 640,
+    "headerH": 58,
+    "offCount": 0,
+    "off": [],
+    "clipped": [],
+    "tapSmall": 4
+   },
+   "safeArea.on": {
+    "safeTopVar": "44px",
+    "safeBottomVar": "34px",
+    "headerTop": 0,
+    "headerPadTop": "50.4px",
+    "mainTop": 102
+   },
+   "safeArea.off": {
+    "safeTopVar": "0px",
+    "safeBottomVar": "0px",
+    "headerTop": 0,
+    "headerPadTop": "6.4px",
+    "mainTop": 58
+   },
+   "fullscreen.390": {
+    "fs": true,
+    "fsAttr": null,
+    "shell": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+    "hScroll": false
+   },
+   "fullscreen.1280": {
+    "fs": true,
+    "fsAttr": null,
+    "shell": "app-shell fullscreen-mode shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+    "hScroll": false
+   },
+   "videos": {
+    "w13-video-390.webm": 911110,
+    "w13-video-1280.webm": 989277
+   }
+  }
+ },
+ "finished": "2026-11-02T01:43:29"
+}

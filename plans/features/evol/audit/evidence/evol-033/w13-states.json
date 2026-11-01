@@ -1,0 +1,1463 @@
+{
+ "records": [
+  {
+   "surface": "status",
+   "state": "normal",
+   "viewport": 390,
+   "shot": "w13-state-status-normal-390.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норма"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норманагрузка в норме 25%"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "normal",
+     "txt": "Норма"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "normal",
+     "txt": "Норманагрузка в норме 25%"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "normal",
+   "viewport": 1280,
+   "shot": "w13-state-status-normal-1280.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норма"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норманагрузка в норме 25%"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "normal",
+     "txt": "Норма"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "normal",
+     "txt": "Норманагрузка в норме 25%"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "degraded",
+   "viewport": 390,
+   "shot": "w13-state-status-degraded-390.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норма"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норманагрузка в норме 25%"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "degraded",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "normal",
+     "txt": "Норма"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "normal",
+     "txt": "Норманагрузка в норме 25%"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "degraded",
+     "txt": "Проблема2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "degraded",
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "degraded",
+   "viewport": 1280,
+   "shot": "w13-state-status-degraded-1280.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норма"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "normal",
+     "indicator": null,
+     "reason": "Норманагрузка в норме 25%"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "degraded",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "normal",
+     "txt": "Норма"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "normal",
+     "txt": "Норманагрузка в норме 25%"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "degraded",
+     "txt": "Проблема2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "degraded",
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "failed",
+   "viewport": 390,
+   "shot": "w13-state-status-failed-390.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбой"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбойбот не работает"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "failed",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "failed",
+     "txt": "Сбойpolling_error2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "failed",
+     "txt": "Сбой"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "failed",
+     "txt": "Сбойбот не работает"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "failed",
+     "txt": "Сбой2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "failed",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "failed",
+   "viewport": 1280,
+   "shot": "w13-state-status-failed-1280.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбой"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбойбот не работает"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "failed",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "failed",
+     "txt": "Сбойpolling_error2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "failed",
+     "txt": "Сбой"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "failed",
+     "txt": "Сбойбот не работает"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "failed",
+     "txt": "Сбой2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "failed",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "unknown",
+   "viewport": 390,
+   "shot": "w13-state-status-unknown-390.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "unknown",
+     "indicator": null,
+     "reason": "Неизвестно"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "unknown",
+     "indicator": null,
+     "reason": "Неизвестнонет отметки времени"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестнозапуск, вердикта ещё нет"
+    },
+    {
+     "inline": "bot",
+     "indicator": "unknown",
+     "txt": "Неизвестно"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "unknown",
+     "txt": "Неизвестнонет отметки времени"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "unknown",
+   "viewport": 1280,
+   "shot": "w13-state-status-unknown-1280.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "unknown",
+     "indicator": null,
+     "reason": "Неизвестно"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "unknown",
+     "indicator": null,
+     "reason": "Неизвестнонет отметки времени"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестнозапуск, вердикта ещё нет"
+    },
+    {
+     "inline": "bot",
+     "indicator": "unknown",
+     "txt": "Неизвестно"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "unknown",
+     "txt": "Неизвестнонет отметки времени"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "disabled",
+   "viewport": 390,
+   "shot": "w13-state-status-disabled-390.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "disabled",
+     "indicator": null,
+     "reason": "Выключено"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбойбот не работает"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "disabled",
+     "txt": "Выключеновыключено настройкой2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "disabled",
+     "txt": "Выключено"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "failed",
+     "txt": "Сбойбот не работает"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "disabled",
+    "failed",
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "status",
+   "state": "disabled",
+   "viewport": 1280,
+   "shot": "w13-state-status-disabled-1280.jpg",
+   "cards": [
+    {
+     "subsystem": "bot",
+     "state": "disabled",
+     "indicator": null,
+     "reason": "Выключено"
+    },
+    {
+     "subsystem": "heartbeat",
+     "state": "failed",
+     "indicator": null,
+     "reason": "Сбойбот не работает"
+    },
+    {
+     "subsystem": "sleep",
+     "state": "unknown",
+     "indicator": null,
+     "reason": ""
+    },
+    {
+     "subsystem": "experience",
+     "state": "normal",
+     "indicator": null,
+     "reason": ""
+    }
+   ],
+   "inline": [
+    {
+     "inline": "",
+     "indicator": "disabled",
+     "txt": "Выключеновыключено настройкой2026-11-02T09:00:00Z"
+    },
+    {
+     "inline": "bot",
+     "indicator": "disabled",
+     "txt": "Выключено"
+    },
+    {
+     "inline": "heartbeat",
+     "indicator": "failed",
+     "txt": "Сбойбот не работает"
+    },
+    {
+     "inline": "memory",
+     "indicator": "unknown",
+     "txt": "Неизвестносчётчики не являются вердиктом функции"
+    },
+    {
+     "inline": "",
+     "indicator": "unknown",
+     "txt": "Неизвестновключено, прогонов ещё не было"
+    },
+    {
+     "inline": "",
+     "indicator": "normal",
+     "txt": "Норма2026-11-02T09:00:00Z"
+    }
+   ],
+   "observedStates": [
+    "disabled",
+    "failed",
+    "normal",
+    "unknown"
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "normal",
+   "viewport": 390,
+   "shot": "w13-state-progress-normal-390.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 340,
+     "fillW": 143,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 340,
+     "fillW": 85,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 340,
+     "fillW": 34,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "normal",
+   "viewport": 1280,
+   "shot": "w13-state-progress-normal-1280.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 317,
+     "fillW": 133,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 317,
+     "fillW": 79,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 317,
+     "fillW": 32,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "unknown",
+   "viewport": 390,
+   "shot": "w13-state-progress-unknown-390.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 340,
+     "fillW": 143,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": null,
+     "text": "",
+     "width": 340,
+     "fillW": 0,
+     "state": "unknown"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 340,
+     "fillW": 34,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "unknown",
+   "viewport": 1280,
+   "shot": "w13-state-progress-unknown-1280.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 317,
+     "fillW": 133,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": null,
+     "text": "",
+     "width": 317,
+     "fillW": 0,
+     "state": "unknown"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 317,
+     "fillW": 32,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "partial",
+   "viewport": 390,
+   "shot": "w13-state-progress-partial-390.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 340,
+     "fillW": 143,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 340,
+     "fillW": 85,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 340,
+     "fillW": 34,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "partial",
+   "viewport": 1280,
+   "shot": "w13-state-progress-partial-1280.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 317,
+     "fillW": 133,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 317,
+     "fillW": 79,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "10",
+     "text": "",
+     "width": 317,
+     "fillW": 32,
+     "state": "idle"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "completed",
+   "viewport": 390,
+   "shot": "w13-state-progress-completed-390.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 340,
+     "fillW": 143,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 340,
+     "fillW": 85,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "100",
+     "text": "",
+     "width": 340,
+     "fillW": 340,
+     "state": "done"
+    }
+   ]
+  },
+  {
+   "surface": "progress",
+   "state": "completed",
+   "viewport": 1280,
+   "shot": "w13-state-progress-completed-1280.jpg",
+   "bars": [
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "42",
+     "text": "",
+     "width": 317,
+     "fillW": 133,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "25",
+     "text": "",
+     "width": 317,
+     "fillW": 79,
+     "state": "idle"
+    },
+    {
+     "cls": "progress ctl-progress__track",
+     "now": "100",
+     "text": "",
+     "width": 317,
+     "fillW": 317,
+     "state": "done"
+    }
+   ]
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "normal",
+   "viewport": 390,
+   "shot": "w13-state-modules-normal-390.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 0,
+    "off": 6,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": false,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "normal",
+   "viewport": 1280,
+   "shot": "w13-state-modules-normal-1280.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 0,
+    "off": 6,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": false,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "disabled",
+   "viewport": 390,
+   "shot": "w13-state-modules-disabled-390.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 0,
+    "off": 6,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": false,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "disabled",
+   "viewport": 1280,
+   "shot": "w13-state-modules-disabled-1280.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 0,
+    "off": 6,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": false,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "partial",
+   "viewport": 390,
+   "shot": "w13-state-modules-partial-390.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 4,
+    "off": 2,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": true,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": true,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "partial",
+   "viewport": 1280,
+   "shot": "w13-state-modules-partial-1280.jpg",
+   "toggles": {
+    "total": 6,
+    "on": 4,
+    "off": 2,
+    "locked": 0,
+    "sample": [
+     {
+      "name": "Сводки чатовПересказы раз",
+      "checked": true,
+      "disabled": false
+     },
+     {
+      "name": "СонСинтез убежденийНеизве",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "Ностальгия«Кстати…» по ст",
+      "checked": false,
+      "disabled": false
+     },
+     {
+      "name": "БюджетыЛимиты интеллекта ",
+      "checked": true,
+      "disabled": false
+     }
+    ]
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "readonly",
+   "viewport": 390,
+   "shot": "w13-state-modules-readonly-390.jpg",
+   "toggles": {
+    "total": 0,
+    "on": 0,
+    "off": 0,
+    "locked": 0,
+    "sample": []
+   }
+  },
+  {
+   "surface": "modules-catalog",
+   "state": "readonly",
+   "viewport": 1280,
+   "shot": "w13-state-modules-readonly-1280.jpg",
+   "toggles": {
+    "total": 0,
+    "on": 0,
+    "off": 0,
+    "locked": 0,
+    "sample": []
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "normal",
+   "query": "",
+   "viewport": 390,
+   "shot": "w13-state-palette-normal-390.jpg",
+   "probe": {
+    "open": true,
+    "rows": 0,
+    "empty": "Начните вводить: раздел, настройка, промпт или действие.",
+    "count": "",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 390,
+     "h": 844
+    }
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "normal",
+   "query": "",
+   "viewport": 1280,
+   "shot": "w13-state-palette-normal-1280.jpg",
+   "probe": {
+    "open": true,
+    "rows": 0,
+    "empty": "Начните вводить: раздел, настройка, промпт или действие.",
+    "count": "",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 1280,
+     "h": 900
+    }
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "partial",
+   "query": "prompt",
+   "viewport": 390,
+   "shot": "w13-state-palette-partial-390.jpg",
+   "probe": {
+    "open": true,
+    "rows": 16,
+    "empty": "",
+    "count": "16 · ↑↓ выбор · Enter открыть ",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 390,
+     "h": 844
+    }
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "partial",
+   "query": "prompt",
+   "viewport": 1280,
+   "shot": "w13-state-palette-partial-1280.jpg",
+   "probe": {
+    "open": true,
+    "rows": 16,
+    "empty": "",
+    "count": "16 · ↑↓ выбор · Enter открыть ",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 1280,
+     "h": 900
+    }
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "empty",
+   "query": "zzzzqqqq",
+   "viewport": 390,
+   "shot": "w13-state-palette-empty-390.jpg",
+   "probe": {
+    "open": true,
+    "rows": 0,
+    "empty": "Ничего не найдено. Проверьте название, ключ или права доступ",
+    "count": "0 · ↑↓ выбор · Enter открыть ",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 390,
+     "h": 844
+    }
+   }
+  },
+  {
+   "surface": "palette",
+   "state": "empty",
+   "query": "zzzzqqqq",
+   "viewport": 1280,
+   "shot": "w13-state-palette-empty-1280.jpg",
+   "probe": {
+    "open": true,
+    "rows": 0,
+    "empty": "Ничего не найдено. Проверьте название, ключ или права доступ",
+    "count": "0 · ↑↓ выбор · Enter открыть ",
+    "inputFocused": true,
+    "zIndex": "100",
+    "inBody": false,
+    "rect": {
+     "w": 1280,
+     "h": 900
+    }
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "normal",
+   "viewport": 390,
+   "shot": "w13-state-sheet-normal-390.jpg",
+   "cardFound": true,
+   "catalog": {
+    "items": 8,
+    "empty": "",
+    "text": "⟳ Всё 8 Факты 8 Люди 0 Связи 0 Контекст 0 Эпизоды 0 показано 8 из 8 · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Толян любит мемы факт подтве"
+   },
+   "probe": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 0,
+     "y": 68,
+     "w": 390,
+     "h": 776
+    },
+    "focusInside": true,
+    "bottomAnchored": true,
+    "sheetMode": true
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "normal",
+   "viewport": 1280,
+   "shot": "w13-state-sheet-normal-1280.jpg",
+   "cardFound": true,
+   "catalog": {
+    "items": 8,
+    "empty": "",
+    "text": "⟳ Всё 8 Факты 8 Люди 0 Связи 0 Контекст 0 Эпизоды 0 показано 8 из 8 · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Толян любит мемы факт подтве"
+   },
+   "probe": {
+    "open": true,
+    "zIndex": "auto",
+    "inBody": true,
+    "rect": {
+     "x": 304,
+     "y": 90,
+     "w": 672,
+     "h": 720
+    },
+    "focusInside": true,
+    "bottomAnchored": false,
+    "sheetMode": false
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "empty",
+   "viewport": 390,
+   "shot": "w13-state-sheet-empty-390.jpg",
+   "cardFound": false,
+   "catalog": {
+    "items": 0,
+    "empty": "",
+    "text": "⟳ Всё 0 Факты 0 Люди 0 Связи 0 Контекст 0 Эпизоды 0 записей пока нет · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Записей пока нет — память н"
+   },
+   "probe": {
+    "open": false
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "empty",
+   "viewport": 1280,
+   "shot": "w13-state-sheet-empty-1280.jpg",
+   "cardFound": false,
+   "catalog": {
+    "items": 0,
+    "empty": "",
+    "text": "⟳ Всё 0 Факты 0 Люди 0 Связи 0 Контекст 0 Эпизоды 0 записей пока нет · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Записей пока нет — память н"
+   },
+   "probe": {
+    "open": false
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "error",
+   "viewport": 390,
+   "shot": "w13-state-sheet-error-390.jpg",
+   "cardFound": false,
+   "catalog": {
+    "items": 0,
+    "empty": "",
+    "text": "⟳ Всё 0 Факты 0 Люди 0 Связи 0 Контекст 0 Эпизоды 0 лента не загрузилась: HTTP 500 · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Записей пока "
+   },
+   "probe": {
+    "open": false
+   }
+  },
+  {
+   "surface": "record-sheet",
+   "state": "error",
+   "viewport": 1280,
+   "shot": "w13-state-sheet-error-1280.jpg",
+   "cardFound": false,
+   "catalog": {
+    "items": 0,
+    "empty": "",
+    "text": "⟳ Всё 0 Факты 0 Люди 0 Связи 0 Контекст 0 Эпизоды 0 лента не загрузилась: HTTP 500 · поиск по смыслу недоступен: провайдер эмбеддингов не настроен Записей пока "
+   },
+   "probe": {
+    "open": false
+   }
+  },
+  {
+   "surface": "shell-loading",
+   "state": "loading",
+   "viewport": 390,
+   "shot": "w13-state-loading-390.jpg",
+   "probe": {
+    "shell": true,
+    "shellH": 844,
+    "mainText": "Найдите модуль, посмотрите его состояние для выбранной области и включите или выключите его — прямо здесь, без перехода ",
+    "skeletons": 0
+   }
+  },
+  {
+   "surface": "shell-loading",
+   "state": "loading",
+   "viewport": 1280,
+   "shot": "w13-state-loading-1280.jpg",
+   "probe": {
+    "shell": true,
+    "shellH": 1579,
+    "mainText": "Найдите модуль, посмотрите его состояние для выбранной области и включите или выключите его — прямо здесь, без перехода ",
+    "skeletons": 0
+   }
+  }
+ ],
+ "summary": {
+  "records": 40,
+  "surfaces": [
+   "modules-catalog",
+   "palette",
+   "progress",
+   "record-sheet",
+   "shell-loading",
+   "status"
+  ],
+  "states": [
+   "completed",
+   "degraded",
+   "disabled",
+   "empty",
+   "error",
+   "failed",
+   "loading",
+   "normal",
+   "partial",
+   "readonly",
+   "unknown"
+  ],
+  "statusObserved": [
+   "degraded",
+   "disabled",
+   "failed",
+   "normal",
+   "unknown"
+  ]
+ }
+}

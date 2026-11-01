@@ -3210,6 +3210,12 @@
       color: var(--text-1, #F4F7FB);
     }
     .prompt-editor textarea { width: 100%; }
+    /* EVOL-033 (W13): длинный ключ параметра (`prompts.direct_chat_…`, 297 px
+       одним токеном без пробелов) в колонке 260 px расширял ДОКУМЕНТ на
+       1024–1920 (замер: scrollWidth 1478 при окне 1440). Ключ переносится
+       внутри токена — страница остаётся ровно по окну, панель читаема. */
+    .prompt-meta { min-width: 0; }
+    .prompt-meta .font-mono { overflow-wrap: anywhere; }
     @media (max-width: 1023px) {
       .workspace-prompt-lib { grid-template-columns: 200px minmax(0, 1fr); }
       .prompt-meta { display: none; }
@@ -7458,6 +7464,10 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
   font-size: var(--w12-fs-micro); color: var(--text-3);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
+  /* EVOL-033 (W13): на 320 px длинный токен обрезался ПОСЕРЕДИНЕ слова
+     (clientWidth 194 < scrollWidth 202) без всякого признака обрезки —
+     перенос внутри токена возвращает обрезку на границе строки. */
+  overflow-wrap: anywhere;
 }
 .module-master-note {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

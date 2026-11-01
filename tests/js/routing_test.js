@@ -2406,6 +2406,24 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
   assert.strictEqual(scCtx.speechScopeTouched.core, true,
     'P0A-UX §6.3: явный выбор владельца зафиксирован (не перезапишется)');
 
+  // ── EVOL-033 (W13): легаси-адрес без своей записи в ROUTE_TO_TAB ──────
+  // `#/ai/smart-cache` объявлен в ROUTE_ALIAS → '#/ai', но normalizeRoute
+  // отбрасывал его (нет в ROUTE_TO_TAB) и уводил на ТЕКУЩИЙ экран вместо
+  // дома «ИИ». Тест держит фактическое поведение applyRoute, а не строку
+  // в карте: адрес обязан открыть витрину «ИИ» и переписать адресную строку.
+  (function () {
+    const replaced = [];
+    const origReplace = global.history.replaceState;
+    global.history.replaceState = function (a, b, url) { replaced.push(url); };
+    const c = makeCtx(['status', 'llm_providers']);
+    methods.applyRoute.call(c, '#/ai/smart-cache');
+    global.history.replaceState = origReplace;
+    assert.strictEqual(c.route, '#/ai',
+      'EVOL-033: #/ai/smart-cache ведёт в витрину «ИИ», а не на текущий экран');
+    assert.ok(replaced.indexOf('#/ai') >= 0,
+      'EVOL-033: адресная строка переписана на канонический #/ai (' + replaced + ')');
+  })();
+
   console.log('JS-UNIT-OK');
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);
