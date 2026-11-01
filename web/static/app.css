@@ -44,7 +44,11 @@
       --radius-sm:4px;--radius-md:8px;--radius-lg:12px;--radius-full:9999px;
       --shadow-sm:0 1px 2px rgba(0,0,0,.05);--shadow-md:0 4px 6px -1px rgba(0,0,0,.07);
       --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
-      --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
+      /* ASAP-UI-02 §10 (L01950): legacy-имена движения — АЛИАСЫ единого
+         масштаба `--motion-*` (одного источника на весь UI). Второго набора
+         длительностей/кривой в проекте нет. */
+      --dur-fast:var(--motion-fast);--dur-normal:var(--motion-base);
+      --dur-slow:var(--motion-slow);--ease-out:var(--motion-ease);
       --page-padding:2.5rem;--navbar-height:4.5rem;
       /* Liquid Glass v2 → v6.3 U08 (REQ-U08-*; SUPERSEDE ADR-1025-12 D1) — уровни A/B/C.
          B (default, glass-set): blur + светлая кромка + блик + тень.
@@ -210,6 +214,16 @@
       --motion-slow: 320ms;
       --motion-ease: cubic-bezier(.2, .8, .2, 1);
       --motion-pulse: 2400ms;
+      /* Тайминги лент (§7/§10, ASAP-UI-02 L01950): те же имена читает
+         JS-движок лент (`web/app.js` SFeed → resolveMotionTokens), поэтому
+         переходы и движение лент идут из ОДНОГО motion-масштаба, а не из
+         собственных чисел виджета. Значения — данные, а не «вкус»: меняя
+         токен, меняем и скорость, и паузы во всех четырёх лентах сразу. */
+      --motion-feed-speed: 16px;
+      --motion-feed-resume: 2600ms;
+      --motion-feed-end-hold: 1600ms;
+      --motion-feed-rewind: 900ms;
+      --motion-feed-start-hold: 600ms;
       /* Достоверный прогресс (EVOL-045) */
       --ctl-progress-h: 8px;
       --ctl-progress-radius: var(--radius-full);
@@ -234,6 +248,28 @@
                         0 4px 12px rgba(3, 7, 18, 0.32);
       --overlay-radius: var(--radius-lg);
       --overlay-z: 50;
+      /* ASAP-UI-02 §4.2 (L01848) — ОДИН слой overlay. Здесь ранг = роль, а не
+         «вкус»: каждое всплывающее правило читает своё имя, числовые z-index в
+         правилах не повторяются. Инварианты (проверяются тестом и живым
+         замером): скрим ниже своей панели; dropdown/меню выше шапки и стекла;
+         модалка/лист выше dropdown; тост выше модалки; палитра выше модалок;
+         dev-диагностика выше всего (включается только внутренним флагом).
+         Позиции `--overlay-z + 10/+ 20` (W11 `.ctl-pop`/`.ctl-sheet`) остаются
+         производными от того же базового ранга. */
+      --z-base: 0;            /* фоновые канвы (aurora / polygon) */
+      --z-content: 1;         /* #app над фоном */
+      --z-inline: 5;          /* подъём внутри экрана (sticky save, подсказка) */
+      --z-sidebar: 30;        /* постоянная панель ≥1200 */
+      --z-scrim: 35;          /* подложка за навигационной панелью */
+      --z-nav: 40;            /* шапка и drawer */
+      --z-local: 45;          /* локальный подъём: табы с открытым списком */
+      --z-menu: 55;           /* меню-порталы (more / speech) */
+      --z-modal-scrim: 75;    /* подложка модалки/диалога */
+      --z-modal: 80;          /* модалка, лист, полноэкранный редактор, сцена */
+      --z-toast: 90;
+      --z-palette: 100;       /* command palette (EVOL-037) */
+      --z-dev: 110;           /* dev-оверлей границ (только по флагу) */
+      --z-dev-top: 120;       /* dev-панель геометрии (только по флагу) */
       /* Видимый фокус (клавиатура) — единый контур для навигации/контролов. */
       --focus-ring: 2px solid var(--indigo-300);
       --focus-ring-offset: 2px;
@@ -758,7 +794,7 @@
       font-size: 10px; font-weight: 600; flex-shrink: 0; text-transform: uppercase;
     }
     .scope-panel {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--overlay-z);
       min-width: 260px; max-height: 60vh; overflow-y: auto; padding: .4rem;
       border: var(--card-border); border-radius: var(--radius-lg);
       box-shadow: var(--shadow-xl);
@@ -784,7 +820,7 @@
     .scope-tech > summary { cursor: pointer; list-style: none; }
     .scope-tech > summary::-webkit-details-marker { display: none; }
     .scope-tech-body {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--overlay-z);
       padding: .3rem .5rem; border: var(--card-border);
       border-radius: var(--radius-md); background: var(--glass-bg-strong);
       font-size: 10px; color: var(--text-3); white-space: nowrap;
@@ -1045,7 +1081,7 @@
          перекрываем header/навигацию/селектор области. */
       top: calc(1rem + max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)));
       right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
-      z-index: 60;
+      z-index: var(--z-toast);
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
@@ -1096,7 +1132,7 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.55);
       backdrop-filter: blur(4px);
-      z-index: 50;
+      z-index: var(--z-modal-scrim);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1151,7 +1187,7 @@
     header.header-sticky {
       position: sticky;
       top: 0;
-      z-index: 40;
+      z-index: var(--z-nav);
       /* HOTFIX8 (ADR-1025-16 D2): шапка — отдельный серо-графитовый shell-слой
          §4 (--shell-bg, glass), не карточный --glass-bg. Ширину рамки даёт
          `[data-glass="shell"]`; сверху/сбоку рамка снята (full-bleed шапка). */
@@ -1369,7 +1405,7 @@
                  cursor: pointer; }
     .hb-tip {
       position: absolute; left: 0; right: 0; top: calc(100% + 4px);
-      z-index: 5; margin: 0 auto; max-width: 320px;
+      z-index: var(--z-inline); margin: 0 auto; max-width: 320px;
       background: var(--glass-bg-strong); border: var(--glass-border);
       border-radius: var(--radius-md); padding: .5rem .6rem;
       font-size: .72rem; line-height: 1.45; color: var(--text-2);
@@ -1670,7 +1706,7 @@
        (`!important` — единственный способ перебить inline); при закрытии
        правило не действует и клип возвращается сам. Рефракция/Tier/бюджеты
        не тронуты (слой живёт, обрезание только у открытого списка). */
-    .oversight-tabs.oversight-dd-open { position: relative; z-index: 45; }
+    .oversight-tabs.oversight-dd-open { position: relative; z-index: var(--z-local); }
     .oversight-tabs.oversight-dd-open { overflow: visible !important; }
     .status-graph-full .badge {
       min-height: 44px; display: inline-flex; align-items: center;
@@ -1717,7 +1753,7 @@
     .status-budgets .budget-row:last-child { margin-bottom: 0; }
     /* §16/D4: mobile — отдельный экран полного исследования графа
        (fallback-шторка при IA_V2_ENABLED=false/нет hash-навигации). */
-    .status-graph-full { position: fixed; inset: 0; z-index: 60;
+    .status-graph-full { position: fixed; inset: 0; z-index: var(--z-modal);
       display: flex; flex-direction: column; gap: .5rem;
       padding: .75rem; background: var(--glass-bg-strong);
       -webkit-backdrop-filter: var(--glass-blur);
@@ -2096,7 +2132,7 @@
          кнопками. safe-area НЕ складывается с клавиатурой дважды: она
          считается один раз в padding-bottom ниже. */
       bottom: var(--kb-offset, 0px);
-      z-index: 5;
+      z-index: var(--z-inline);
       display: flex;
       align-items: center;
       gap: .5rem;
@@ -2746,7 +2782,7 @@
     .exec-detail-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 59;
+      z-index: var(--z-modal-scrim);
       background: rgba(0, 0, 0, .35);
     }
     .exec-detail {
@@ -2755,7 +2791,7 @@
       right: 0;
       bottom: 0;
       width: min(360px, 92vw);
-      z-index: 60;
+      z-index: var(--z-modal);
       padding: .75rem .9rem;
       overflow-y: auto;
       background: var(--surface-1, rgba(17, 24, 39, .97));
@@ -2864,7 +2900,7 @@
                     inset 0 -1px 0 var(--shell-highlight-soft);
         -webkit-backdrop-filter: var(--shell-blur);
         backdrop-filter: var(--shell-blur);
-        overflow-y: auto; z-index: 30;
+        overflow-y: auto; z-index: var(--z-sidebar);
       }
       /* header ≈64 px (§6) */
       .app-shell.ia-v2 header.main-header { min-height: 64px; }
@@ -2912,13 +2948,13 @@
       -webkit-backdrop-filter: var(--shell-blur);
       backdrop-filter: var(--shell-blur);
       transform: translateX(-105%); transition: transform .2s ease;
-      overflow-y: auto; overscroll-behavior: contain; z-index: 40;
+      overflow-y: auto; overscroll-behavior: contain; z-index: var(--z-nav);
     }
     .app-drawer.open { transform: translateX(0); }
     .app-shell:not(.drawer-open) .app-drawer { visibility: hidden; }
     .app-shell.drawer-open .app-drawer { visibility: visible; }
     .drawer-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 35;
+      position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: var(--z-scrim);
     }
 
     /* ═══ ASAP-UI-02 §2.1: <768 постоянной навигационной панели НЕТ.
@@ -3232,7 +3268,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.7);
-      z-index: 50;
+      z-index: var(--overlay-z);
       display: flex;
       align-items: stretch;
       justify-content: center;
@@ -3283,7 +3319,7 @@
       position: absolute;
       right: 0;
       margin-top: 0.25rem;
-      z-index: 10;
+      z-index: var(--z-local);
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
@@ -3692,9 +3728,10 @@
 /* ── FS-HOTFIX FOLLOW-UP §8 (18.10): временная админ-диагностика геометрии ⛶
    Панель открывается только из меню «Ещё» (admin-гейт), закрыта по
    умолчанию — в обычном UI места не занимает. Нейтральный solid-материал
-   (это dev-инструмент, не продуктовая карточка); z-index 57 — выше меню
-   «Ещё» (55/56), ниже модалок (59). Временная: удалить после приёмки. */
-.fs-geom-diag-root { position: fixed; inset: 0; z-index: 57; }
+   (это dev-инструмент, не продуктовая карточка); слой `--z-dev-top` — выше
+   любого продуктового overlay (палитра/модалки), т.к. открывается только по
+   внутреннему флагу. Временная: удалить после приёмки. */
+.fs-geom-diag-root { position: fixed; inset: 0; z-index: var(--z-dev-top); }
 .fs-geom-diag-backdrop {
   position: absolute; inset: 0;
   background: rgba(0, 0, 0, .45);
@@ -3749,7 +3786,7 @@
 }
 /* Оверлей вычисленных границ safe area: сверка с реальной нативной панелью
    (§8). pointer-events:none — тапы и скролл не перехватываются. */
-.fs-safe-overlay { position: fixed; inset: 0; z-index: 56; pointer-events: none; }
+.fs-safe-overlay { position: fixed; inset: 0; z-index: var(--z-dev); pointer-events: none; }
 .fs-safe-overlay__band {
   position: absolute; left: 0; right: 0; top: 0;
   height: 0;
@@ -3774,9 +3811,9 @@
 }
 
 /* ── U01.4: меню «Ещё» — popover/sheet поверх контента ──────────────────
-   Overlay + панель под шапкой; z-index: header=40, drawer=40, dropdowns=50,
-   модалки=59/60 → меню 55/56 (выше шапки, ниже модалок). */
-.more-menu-root { position: fixed; inset: 0; z-index: 55; }
+   Overlay + панель под шапкой; слои — из единого ранга (ASAP-UI-02 §4.2):
+   `--z-nav` (шапка/drawer) < `--z-menu` (меню) < `--z-modal`. */
+.more-menu-root { position: fixed; inset: 0; z-index: var(--z-menu); }
 .more-menu-backdrop {
   position: absolute; inset: 0;
   background: rgba(0, 0, 0, .45);
@@ -3881,7 +3918,7 @@
 .oversight-mobile-panel {
   position: absolute; left: 0; right: 0;
   top: calc(100% + 4px);
-  z-index: 46;
+  z-index: var(--z-local);
   display: flex; flex-direction: column; gap: 2px;
   padding: .35rem;
   /* SHELL-baseline читаемости; GLASS перетюсит через [data-glass="c"]. */
@@ -4354,7 +4391,7 @@ html.cover-editor-open { overflow: hidden; }
 .cover-guard-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-modal-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4708,7 +4745,7 @@ html.cover-editor-open { overflow: hidden; }
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 40;
+  z-index: var(--overlay-z);
   width: min(320px, 86vw);
   background: var(--surface-2, #1C2537);
   border: 1px solid var(--surface-border);
@@ -5236,7 +5273,7 @@ html.cover-editor-open { overflow: hidden; }
 .speech-fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -5249,8 +5286,8 @@ html.cover-editor-open { overflow: hidden; }
 }
 .speech-fullscreen .speech-editor { flex: 1 1 auto; max-height: none; }
 /* ⋯-меню раздела: локальный popover по паттерну .more-menu-* (§4-C4):
-   z-index 55 (ниже тостов 60), закрытие — backdrop/Esc/пункт. */
-.speech-menu-root { position: fixed; inset: 0; z-index: 55; outline: none; }
+   слой `--z-menu` (ниже тостов `--z-toast`), закрытие — backdrop/Esc/пункт. */
+.speech-menu-root { position: fixed; inset: 0; z-index: var(--z-menu); outline: none; }
 .speech-menu-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); }
 .speech-menu-panel {
   position: absolute;
@@ -5798,7 +5835,7 @@ html.cover-editor-open { overflow: hidden; }
 .sfeed-empty { padding: 2px 2px 4px; }
 
 /* ── EVOL-003/004: окно записи ─────────────────────────────────────────── */
-.sfeed-modal-backdrop { z-index: 80; }
+.sfeed-modal-backdrop { z-index: var(--z-modal-scrim); }
 .sfeed-modal {
   display: flex; flex-direction: column;
   max-height: min(86dvh, 720px);
@@ -6424,6 +6461,14 @@ html.w9-sheet-bottom .modal-card {
     max-height: calc(100dvh - var(--kb-offset, 0px) - 8px);
   }
 }
+/* ASAP-UI-02 §4.2 (L01843): у мобильного листа закрытие — единственный
+   очевидный выход, поэтому hit-area ≥44 px независимо от типа указателя
+   (узкое окно на desktop тоже получает лист). Замер ревью: 42×38 px. */
+html.w9-sheet-bottom .modal-close {
+  min-width: var(--control-h-touch, 44px);
+  min-height: var(--control-h-touch, 44px);
+  display: inline-flex; align-items: center; justify-content: center;
+}
 
 /* ── 8. Клавиатура/увеличенный шрифт: подписи не обрезаются ───────────────
    Крупный системный шрифт (Android) и zoom 200 % увеличивают высоту строки:
@@ -6928,6 +6973,8 @@ html.w9-sheet-bottom .modal-card {
   min-width: 0; max-width: none;
   border-radius: var(--overlay-radius);
 }
+/* ASAP-UI-02 §4.3 (L01854): одна реализация подписи опции области. */
+.scope-option__title { min-width: 0; }
 
 /* ── W11-5. Поля и редактор длинного текста ──────────────────────────────
    `.ctl-input`/`.ctl-textarea` — контрактные МОДИФИКАТОРЫ существующего
@@ -7120,6 +7167,25 @@ html.kb-open .ctl-keyboard-spacer {
   display: block; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* ASAP-UI-02 §4.3 (L01854): на телефоне панель области — ЛИСТ, и подпись там
+   переносится до двух строк вместо ellipsis «Рабо…» (замер ревью на 320:
+   панель 88 px, scrollWidth 102 > clientWidth 73). Специфичность выровнена с
+   правилом усечения выше и стоит ПОСЛЕ него — последнее слово за листом.
+   На desktop правило не применяется: там по-прежнему одна строка + `title`.
+
+   ВАЖНО (ревью B1): высоту строк НЕ задаём в `em` — строка здесь 21 px при
+   шрифте 14 px (ratio 1.5), и `calc(2 * 1.35em)` = 37.8 px обрезал низ второй
+   строки (clientHeight 38 против scrollHeight 42). Ограничение делает
+   `-webkit-line-clamp: 2`: браузер сам считает две реальные строки и ставит
+   многоточие, без «магических» коэффициентов и без вертикального обреза. */
+.scope-panel[data-placement="sheet"] .scope-option > span > .scope-option__title {
+  white-space: normal; text-overflow: clip; overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 
 /* ── W11-10. Reduced motion: смысл остаётся, декоративное движение — нет ──
    Отключаются циклический пульс, бегущая indeterminate-полоса, одноразовая
@@ -7171,7 +7237,7 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
   .header-search-kbd { display: none; }
 }
 
-.palette-root { position: fixed; inset: 0; z-index: 1300; }
+.palette-root { position: fixed; inset: 0; z-index: var(--z-palette); }
 .palette-backdrop {
   position: absolute; inset: 0;
   background: rgba(3, 7, 18, .62);
@@ -7342,7 +7408,7 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
 }
 .prompt-editor-meta code { font-size: var(--w12-fs-micro); }
 .prompt-editor--full {
-  position: fixed; inset: 0; z-index: 1250;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   margin: 0; border-radius: 0; overflow: auto;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px
            calc(env(safe-area-inset-bottom, 0px) + 10px);

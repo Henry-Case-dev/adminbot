@@ -239,5 +239,7 @@ class TestCacheBustAndEsc108:
         # R10.8-1: глобальный Esc → escClose (модуль приоритетнее, затем access).
         assert "escClose: function ()" in JS
         assert "_appVm.escClose()" in JS
-        assert ("if (this.accessOpen != null) { this.closeAccessWindow(); }"
+        # ASAP-UI-02 §4.2/§11 (L01958): route-driven окно «Доступов» — слой
+        # ЕДИНОГО Back-stack (порядок один и для Esc, и для Back).
+        assert ("ids.push('access')"
                 in JS)

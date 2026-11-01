@@ -2021,6 +2021,132 @@
     }
     return base;
   }
+  // ═══ ASAP-UI-02 §9 (L01943): позиция прокрутки своего маршрута ═══════════
+  // Один небольшой словарь на сессию: адрес → последняя позиция контента.
+  // Нужен ровно для контракта «при переходе и возврате сохраняются чат,
+  // фильтры, черновики, позиция»: переход в НОВЫЙ раздел по-прежнему
+  // начинается сверху, а возврат на уже посещённый — с прежнего места.
+  var _routeScroll = {};
+
+  function _currentScrollTop() {
+    try {
+      var sc = document.querySelector('main.scroll-area');
+      // Прокручивается либо внутренняя область shell (TMA/mobile), либо
+      // документ (desktop) — берём тот контейнер, у которого есть переполнение.
+      if (sc && sc.scrollHeight > sc.clientHeight + 1) {
+        return Math.round(sc.scrollTop);
+      }
+      var de = document.scrollingElement || document.documentElement;
+      return de ? Math.round(de.scrollTop) : 0;
+    } catch (e) { return 0; }
+  }
+
+  function _rememberRouteScroll(route, top) {
+    if (!route || typeof top !== 'number' || top < 0) return;
+    _routeScroll[route] = top;
+  }
+
+  function _restoreRouteScroll(route) {
+    var top = _routeScroll[route];
+    if (typeof top !== 'number' || top <= 0) return;
+    var apply = function () {
+      try {
+        var sc = document.querySelector('main.scroll-area');
+        if (sc && sc.scrollHeight > sc.clientHeight + 1) {
+          sc.scrollTop = top;
+          return;
+        }
+        var de = document.scrollingElement || document.documentElement;
+        if (de) de.scrollTop = top;
+      } catch (e) { /* no DOM */ }
+    };
+    // Два кадра: первый — после $nextTick-сброса setTab, второй — после
+    // фактической раскладки нового экрана. Фолбэк-таймер для окружений без rAF.
+    try {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(apply);
+        });
+        return;
+      }
+    } catch (e) { /* нет rAF */ }
+    try { setTimeout(apply, 0); } catch (e2) { /* нет таймеров */ }
+  }
+
+  // ═══ ASAP-UI-02 §4.2/§11 (L01958/L01971): ОДИН Back-stack ═══════════════
+  // Список слоёв, которые закрываются ПЕРВЫМИ, — сверху вниз. Один Back/Esc
+  // закрывает РОВНО верхний вложенный слой (поиск → деталь → лист → меню →
+  // scope → drawer → окно модуля), а не всё приложение и не сам Telegram Mini
+  // App. Порядок совпадает с видимым старшинством слоёв (`--z-*` в app.css),
+  // поэтому клавиатура, BackButton и явные кнопки закрытия не расходятся.
+  // Единственная реализация порядка: другой список в проекте не заводится.
+  var _backStackBusy = false;
+
+  function backStackLayers(vm) {
+    var ids = [];
+    if (!vm) return ids;
+    if (vm.paletteOpen) ids.push('palette');
+    if (vm.promptEditorFull) ids.push('prompt-editor');
+    if (vm.statusRecordOpen) ids.push('record');
+    if (vm.speechEditorFull) ids.push('speech-editor');
+    if (vm.speechMenu) ids.push('speech-menu');
+    if (vm.coverStyles && vm.coverStyles.guardOpen) ids.push('cover-guard');
+    if (vm.fsGeomDevEnabled && vm.fsGeomDiagOpen) ids.push('fs-geom');
+    if (vm.scopeOpen) ids.push('scope');
+    if (vm.drawerOpen) ids.push('drawer');
+    if (vm.oversightMobileOpen) ids.push('oversight-subtabs');
+    if (vm.graphFullVisible) ids.push('graph-full');
+    if (vm.execDetailOpen) ids.push('exec-detail');
+    if (vm.dossierOpen) ids.push('dossier');
+    if (vm.openModuleId != null) ids.push('module');
+    if (vm.accessOpen != null) ids.push('access');
+    return ids;
+  }
+
+  // Закрывает РОВНО один (верхний) слой. true — что-то закрыли; false —
+  // вложенных слоёв нет, дальше решает маршрут (см. goBack).
+  // Защита от повторного входа: закрыватель слоя не должен вызывать общий
+  // Back-путь (иначе goBack → верхний слой → его закрыватель → goBack …).
+  // Первопричина в самом закрывателе, но такой guard не даёт одному
+  // забытому вызову уронить приложение в переполнение стека.
+  function backStackClose(vm) {
+    if (_backStackBusy) return false;
+    var stack = backStackLayers(vm);
+    if (!stack.length) return false;
+    var close = function (name) {
+      return (vm && typeof vm[name] === 'function') ? vm[name]() : undefined;
+    };
+    _backStackBusy = true;
+    try {
+      switch (stack[0]) {
+      case 'palette': close('closePalette'); return true;
+      case 'prompt-editor': vm.promptEditorFull = false; return true;
+      case 'record': close('closeStatusRecord'); return true;
+      case 'speech-editor':
+        if (typeof vm.closeSpeechEditorFull !== 'function') return false;
+        close('closeSpeechEditorFull'); return true;
+      case 'speech-menu':
+        if (typeof vm.closeSpeechMenu !== 'function') return false;
+        close('closeSpeechMenu'); return true;
+      case 'cover-guard':
+        if (vm.coverStyles) vm.coverStyles.guardOpen = false;
+        return true;
+      case 'fs-geom': close('closeFsGeomDiag'); return true;
+      case 'scope': close('closeScope'); return true;
+      case 'drawer': close('closeDrawer'); return true;
+      case 'oversight-subtabs': close('oversightMobileClose'); return true;
+      case 'graph-full': close('closeGraphFull'); return true;
+      case 'exec-detail': close('closeExecDetail'); return true;
+      case 'dossier': close('closeDossier'); return true;
+      case 'module': close('closeModule'); return true;
+      case 'access': close('closeAccessWindow'); return true;
+      }
+      return false;
+    } finally {
+      _backStackBusy = false;
+    }
+  }
+
   // D1: hub-роут доступен, если видна ХОТЯ БЫ ОДНА его карточка. НЕ гейтим
   // hub по одному «представительскому» tab (иначе роль с правами только на
   // prompts/limits получала редирект с #/ai).
@@ -2186,6 +2312,55 @@
     }
     out.alignX = out.alignX || 'left';
     return out;
+  }
+
+  // ASAP-UI-02 §4.3 (L01854): placement ОДНОГО комбобокса-области.
+  // На телефоне (<768, тот же shellMode, что и вся адаптивная раскладка)
+  // панель — ЛИСТ: узкий dropdown с обрезанными названиями там непригоден
+  // (замер ревью: 88 px на 320, «Рабо…»). На планшете/desktop поведение не
+  // меняется — якорный dropdown с flip'ом. Чистая функция: без DOM, поэтому
+  // проверяется юнит-тестом, а живой путь вызывает ровно её.
+  function _ctlScopePlacement(box, view, isPhone) {
+    var out = {
+      placement: (box && box.placement) || 'bottom',
+      maxHeight: (box && box.maxHeight) || null,
+      sheet: !!(box && box.sheet),
+      pad: (box && box.pad) || 8,
+    };
+    if (!isPhone) return out;
+    var vh = Number(view && view.visibleH) || 0;
+    out.sheet = true;
+    out.placement = 'sheet';
+    out.maxHeight = vh > 0 ? Math.max(0, Math.floor(vh - 2 * out.pad)) : null;
+    return out;
+  }
+
+  // ASAP-UI-02 §4.3 (L01854): содержащий блок для `position: fixed` внутри
+  // шапки — сама шапка (у неё backdrop-filter стекла, который создаёт
+  // containing block). Без учёта этого лист «улетал» над вьюпортом
+  // (замер: top −452 при видимой области 504). Функция находит ближайшего
+  // предка, создающего такой блок, чтобы считать координаты в его системе.
+  function _ctlFixedContainingBlock(el) {
+    var node = el && el.parentElement;
+    var guard = 0;
+    while (node && node !== document.body && node !== document.documentElement
+           && guard < 40) {
+      guard += 1;
+      var cs = null;
+      try { cs = window.getComputedStyle(node); } catch (e) { cs = null; }
+      if (cs) {
+        var trapped = (cs.transform && cs.transform !== 'none')
+          || (cs.filter && cs.filter !== 'none')
+          || (cs.backdropFilter && cs.backdropFilter !== 'none')
+          || (cs.webkitBackdropFilter && cs.webkitBackdropFilter !== 'none')
+          || (cs.perspective && cs.perspective !== 'none')
+          || (cs.contain && /paint|layout|strict|content/.test(cs.contain))
+          || (cs.willChange && /transform|filter/.test(cs.willChange));
+        if (trapped) return node;
+      }
+      node = node.parentElement;
+    }
+    return null;
   }
 
   // Достоверность прогресса: сколько единиц ДЕЙСТВИТЕЛЬНО сделано из
@@ -3600,6 +3775,16 @@
       routeDepth: function () {
         return routeDepth(this.route);
       },
+      // ASAP-UI-02 §4.2/§11 (L01958/L01971): видимый Back-stack (сверху вниз)
+      // и его глубина. Источник и для BackButton-видимости, и для тестов —
+      // второго списка слоёв в проекте нет.
+      backStack: function () {
+        return (typeof this.backStackLayers === 'function')
+          ? this.backStackLayers() : [];
+      },
+      backStackDepth: function () {
+        return (this.backStack || []).length;
+      },
       // T-1100: navbar-пункты, отфильтрованные по правам.
       // F1 (ADR-1025-1 D5/D10): kill-switch новой IA. OFF → legacy-набор
       // NAV_ITEMS/HUBS и .navbar-band байт-в-байт; ON → IA v2.
@@ -3747,7 +3932,13 @@
                  aliases: 'модель провайдер подключение ключ ' + (b.title || '') });
         });
         // 6) Данные/диагностика — статический список адресов разделов.
+        // ASAP-UI-02 §9 (L01943/L01979): RBAC — адрес индексируется только если
+        // его вкладка реально доступна роли. Иначе палитра предлагает раздел,
+        // который тут же отказывает («Доступы», «Лор чата» и т.п.).
         SEARCH_STATIC_ENTRIES.forEach(function (e) {
+          var tab = routeToTab(e.route);
+          if (tab && typeof self.canViewTab === 'function'
+              && !self.canViewTab(tab)) return;
           if (e.route === '#/oversight?tab=runs'
               || e.route === '#/oversight?tab=costs'
               || e.route === '#/oversight?tab=models') {
@@ -7570,6 +7761,12 @@
         if (root) root.classList.toggle('cover-editor-open', !!open);
         if (!open) this.coverStyles.guardOpen = false;
       },
+      // ASAP-UI-02 §4.2/§11 (L01958/L01971): появление/закрытие вложенного
+      // слоя меняет доступность BackButton. На корневом маршруте открытая
+      // деталь/поиск делает Back видимым, закрытие — снова прячет.
+      backStackDepth: function () {
+        this.syncBackButton();
+      },
     },
 
     // T-1099/§6.2 п.1-4: initData — ДО hash. created() вычисляет стартовый
@@ -8335,6 +8532,19 @@
           width: opts.width || ((typeof window !== 'undefined') ? window.innerWidth : 0),
         };
         return _ctlPlacePopover(anchorRect, panelRect, view);
+      },
+
+      // ASAP-UI-02 §4.3 (L01854): итоговое размещение панели ОБЛАСТИ.
+      // Телефон (<768) → лист во всю ширину; планшет/desktop → якорный
+      // dropdown с flip. Единственная точка правды о режиме — `shellMode`.
+      ctlScopePlacement: function (box, opts) {
+        opts = opts || {};
+        var view = {
+          visibleH: opts.visibleH || _ctlViewportMetrics().visibleH,
+        };
+        var phone = (typeof opts.isPhone === 'boolean')
+          ? opts.isPhone : (this.shellMode === 'mobile');
+        return _ctlScopePlacement(box, view, phone);
       },
 
 
@@ -12138,6 +12348,14 @@
       applyRoute: function (rawHash) {
         var route = normalizeRoute(rawHash);
         if (!route) route = this.route || '#/';
+        // ASAP-UI-02 §9 (L01943): при уходе со своего маршрута запоминаем
+        // позицию прокрутки контента и восстанавливаем её при ВОЗВРАТЕ на тот
+        // же маршрут (переход в новый раздел по-прежнему начинается сверху —
+        // память есть только у уже посещённого адреса). Позиция — часть
+        // контракта «возврат к прежнему объекту», наряду с чатом/фильтрами.
+        if (this.route && this.route !== route) {
+          _rememberRouteScroll(this.route, _currentScrollTop());
+        }
         // W2-SHELL (U01.4/U02): мобильные навигационные оверлеи не
         // переживают смену маршрута (назад/вперёд и hash-переходы мимо
         // shellNavTo). Без refocus-джагглера — фокус следует за контентом.
@@ -12231,6 +12449,9 @@
         }
         this.route = route;
         _routeApplied = true;
+        // Восстановление позиции — ПОСЛЕ рендера нового экрана и после
+        // штатного сброса `setTab` (он обнуляет скролл в $nextTick).
+        _restoreRouteScroll(route);
         try { sessionStorage.setItem('adminbot.route', route); } catch (e) { /* quota */ }
         // ═══ EVOL-028/EVOL-029 (W10): данные рабочих панелей хабов.
         // «ИИ» — модели/health/каталог промптов; «Память» — каталог знаний.
@@ -12999,38 +13220,22 @@
       closeAccessWindow: function () {
         this.navigateTo('#/access');
       },
-      // 10.8 (R10.8-1): Esc закрывает верхнюю модалку — окно модуля (если
-      // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
-      // keydown ради юнит-тестируемости.
+      // 10.8 (R10.8-1): Esc закрывает верхнюю вложенную область. Единый
+      // источник порядка — `backStackLayers()` (ниже), а не отдельный if-чейн:
+      // раньше порядок Esc расходился с `goBack()`/BackButton (ASAP-UI-02
+      // L01958/L01971, §11 «Back внутри карты/детали/поиска сначала закрывает
+      // текущую вложенную область, не всё Mini App»).
       escClose: function () {
-        // EVOL-037 (W12): открытая палитра — верхний слой; Esc закрывает её
-        // первой и возвращает пользователя туда, откуда он её открыл.
-        if (this.paletteOpen) { this.closePalette(); return; }
-        // EVOL-038 (W12): полноэкранный редактор промпта — тоже верхний слой.
-        if (this.promptEditorFull) { this.promptEditorFull = false; return; }
-        // EVOL-003: окно записи статусного виджета — верхний слой (открывается
-        // из строки поверх страницы), Esc закрывает его первым.
-        if (this.statusRecordOpen) { this.closeStatusRecord(); return; }
-        // W2-SHELL (U01.4): dev-диагностика геометрии (если открыта по
-        // внутреннему флагу) — верхний слой.
-        if (this.fsGeomDevEnabled && this.fsGeomDiagOpen) {
-          this.closeFsGeomDiag(); return;
-        }
-        // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): открытый drawer
-        // навигации закрывается Esc даже когда фокус уже вне панели (Tab
-        // уводил его в шапку/на BODY — локальный @keydown.esc тогда молчит).
-        // Закрытие возвращает фокус в кнопку «Навигация» (closeDrawer).
-        if (this.drawerOpen) { this.closeDrawer(); return; }
-        if (this.oversightMobileOpen) { this.oversightMobileClose(); return; }
-        // F11 (L-F11S-3, §16/D4): полноэкранный граф — верхний слой;
-        // Esc закрывает его первым (fallback-шторка или hash-маршрут).
-        if (this.graphFullVisible) { this.closeGraphFull(); return; }
-        // F6 (§27/L-F6S-4): side-panel/bottom-sheet деталей узла закрывается Esc.
-        if (this.execDetailOpen) { this.closeExecDetail(); return; }
-        // 10.20 (T-1896): модалка досье — верхняя (её и закрываем первой).
-        if (this.dossierOpen) { this.closeDossier(); return; }
-        if (this.openModuleId != null) { this.closeModule(); return; }
-        if (this.accessOpen != null) { this.closeAccessWindow(); }
+        backStackClose(this);
+      },
+      // ASAP-UI-02 §4.2/§11: методы-обёртки над ОДНИМ списком слоёв (сам
+      // список — модульная функция `backStackLayers`, чтобы порядок нельзя
+      // было продублировать в другом месте).
+      backStackLayers: function () {
+        return backStackLayers(this);
+      },
+      backStackClose: function () {
+        return backStackClose(this);
       },
       isAccessOpen: function (id) {
         return this.accessOpen === id;
@@ -19516,6 +19721,12 @@
               visibleH: metrics.visibleH,
               width: vw,
             });
+            // ASAP-UI-02 §4.3 (L01854): на телефоне панель области — лист
+            // (`data-placement="sheet"`), а не узкий dropdown с обрезанными
+            // названиями. Механика листа — уже существующая (тот же
+            // `[data-placement="sheet"]` CSS и общий overlay-ранг), второго
+            // поповера не появляется.
+            box = _ctlScopePlacement(box, metrics, self.shellMode === 'mobile');
             var next = {};
             if (!box.sheet) {
               for (var k in self.scopePanelStyle) {
@@ -19523,8 +19734,31 @@
                   next[k] = self.scopePanelStyle[k];
                 }
               }
+            } else {
+              // Лист: геометрия в координатах содержащего блока (шапка из-за
+              // backdrop-filter). Низ листа = низ ВИДИМОЙ области минус
+              // safe-area и отступ; ширина — вьюпорт минус два отступа.
+              var cb = _ctlFixedContainingBlock(panel);
+              var cbRect = cb ? cb.getBoundingClientRect() : null;
+              var cbBottom = cbRect ? cbRect.bottom : metrics.visibleH;
+              var cbLeft = cbRect ? cbRect.left : 0;
+              var safe = 0;
+              try {
+                safe = parseFloat(window.getComputedStyle(panel)
+                  .getPropertyValue('--ctl-safe-bottom')) || 0;
+              } catch (e2) { safe = 0; }
+              var padSheet = pad;
+              next.position = 'fixed';
+              next.top = 'auto';
+              next.right = 'auto';
+              next.left = Math.round(padSheet - cbLeft) + 'px';
+              next.width = Math.max(0, Math.round(vw - 2 * padSheet)) + 'px';
+              next.bottom = Math.round(cbBottom - (metrics.visibleH - safe
+                - padSheet)) + 'px';
+              next.maxHeight = Math.max(0, Math.round(metrics.visibleH - safe
+                - 2 * padSheet)) + 'px';
             }
-            if (box.maxHeight) next.maxHeight = box.maxHeight + 'px';
+            if (!box.sheet && box.maxHeight) next.maxHeight = box.maxHeight + 'px';
             self.scopePanelStyle = next;
             if (panel.setAttribute) {
               panel.setAttribute('data-placement', box.placement);
@@ -19594,13 +19828,11 @@
       },
       // Определённый родитель (§6.4.4), БЕЗ history.back().
       goBack: function () {
-        // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): Back при открытом
-        // drawer сначала закрывает навигацию (слой выше страницы), иначе
-        // «назад» уводило контент под открытую панель.
-        if (this.drawerOpen) { this.closeDrawer(); return; }
-        // A2/T-1167: при открытом окне модуля back СНАЧАЛА закрывает окно
-        // (роут не меняется — важно для Android).
-        if (this.openModuleId != null) { this.closeModule(); return; }
+        // ASAP-UI-02 §4.2/§11 (L01958/L01971): Back сначала закрывает ВЕРХНЮЮ
+        // вложенную область (палитра/поиск/деталь/лист/меню/drawer/окно
+        // модуля) и не меняет маршрут — важно для Android/Telegram Back.
+        // Только когда вложенных слоёв нет, работаем как «назад по маршруту».
+        if (backStackClose(this)) return;
         var p = routeParent(this.route);
         if (p) this.navigateTo(p);
       },
@@ -19624,9 +19856,16 @@
         if (_backApi) this.syncBackButton();
       },
       // ЕДИНСТВЕННОЕ место смены видимости; show() заменяет нативный ✕ на ←.
+      // ASAP-UI-02 §4.2/§11 (L01958/L01971): Back доступен не только на
+      // вложенном маршруте, но и когда открыт вложенный слой (поиск/деталь/
+      // лист/меню) — иначе на корневом маршруте Telegram Back закрывал бы всё
+      // Mini App вместо текущей области.
       syncBackButton: function () {
         if (!_backApi) return;
-        var want = window.__TMA_BACK__ !== false && routeDepth(this.route) > 0;
+        var stack = (typeof this.backStackLayers === 'function')
+          ? this.backStackLayers().length : 0;
+        var want = window.__TMA_BACK__ !== false
+          && (routeDepth(this.route) > 0 || stack > 0);
         if (want === !!_backApi.isVisible) return;
         try { want ? _backApi.show() : _backApi.hide(); } catch (e) { /* old SDK */ }
       },
@@ -27884,7 +28123,14 @@
       },
       closeGraphFull: function () {
         if (this.graphFullOpen) { this.graphFullOpen = false; return; }
-        if (typeof this.goBack === 'function') this.goBack();
+        // ASAP-UI-02 §4.2/§11 (L01958): fullscreen-граф — СЛОЙ Back-стека,
+        // поэтому закрывать его через `goBack()` нельзя: goBack → верхний
+        // слой = граф → снова сюда (бесконечная рекурсия, найденная живым
+        // прогоном §12 п.6). Уходим на РОДИТЕЛЬСКИЙ маршрут графа напрямую;
+        // маршрут берём из общей карты (`routeParent`), а не литералом.
+        var parent = routeParent(this.route) || '#/';
+        if (typeof this.navigateTo === 'function') this.navigateTo(parent);
+        else this.route = parent;
       },
       // F11 (L-F11S-3, §16/D4): initial focus на полноэкранном диалоге графа —
       // Esc/навигация с клавиатуры работают без мыши (preventScroll ≠ прыжок).
@@ -29969,14 +30215,64 @@
   //   * `prefers-reduced-motion` → авто-движения нет (только ручная прокрутка);
   //   * ровно один экземпляр на контейнер (флаг на DOM-узле): нет
   //     конкурирующих таймеров/слушателей и дублирующего рендера.
+  // ═══ ASAP-UI-02 §10 (L01950) — ОДИН motion-token для переходов и лент ════
+  // Значения движения не дублируются в JS: движок лент читает те же токены,
+  // что и CSS (`--motion-feed-*` из того же `--motion-*` масштаба). Функция
+  // чистая (read — инъекция), поэтому проверяется юнит-тестом без DOM.
+  // Мусор/отсутствие/0 в токене → честный фолбэк, а не «лента стоит».
+  function parseMotionAmount(raw, unit) {
+    var s = (raw == null) ? '' : String(raw).trim().toLowerCase();
+    if (!s) return null;
+    var m = /^(-?\d*\.?\d+)\s*(ms|s|px)?$/.exec(s);
+    if (!m) return null;
+    var num = parseFloat(m[1]);
+    if (!isFinite(num)) return null;
+    var u = m[2] || unit || '';
+    if (u === 's') num = num * 1000;          // 2.6s → 2600
+    return num;
+  }
+
+  function resolveMotionTokens(read, fallback) {
+    var fb = fallback || {};
+    var out = {};
+    var take = function (token, key, unit) {
+      var raw = '';
+      try { raw = read ? read(token) : ''; } catch (e) { raw = ''; }
+      var num = parseMotionAmount(raw, unit);
+      out[key] = (num == null || num <= 0) ? fb[key] : num;
+    };
+    take('--motion-feed-speed', 'speedPxS', 'px');
+    take('--motion-feed-resume', 'resumeMs', 'ms');
+    take('--motion-feed-end-hold', 'endHoldMs', 'ms');
+    take('--motion-feed-rewind', 'rewindMs', 'ms');
+    take('--motion-feed-start-hold', 'startHoldMs', 'ms');
+    return out;
+  }
+
+  function readCssMotionToken(name) {
+    try {
+      if (typeof window === 'undefined' || !window) return '';
+      if (typeof window.getComputedStyle !== 'function') return '';
+      var de = window.document && window.document.documentElement;
+      if (!de) return '';
+      var cs = window.getComputedStyle(de);
+      return cs ? String(cs.getPropertyValue(name) || '') : '';
+    } catch (e) { return ''; }
+  }
+
   var SFeed = (function () {
-    var DEFAULTS = {
+    // ASAP-UI-02 §10 (L01950): фолбэк на случай недоступных токенов (SSR/юнит-
+    // стабы/битый CSS). Значения совпадают с CSS-токенами `--motion-feed-*`,
+    // поэтому «нет токена» не меняет поведение лент.
+    var MOTION_FALLBACK = {
       speedPxS: 16,      // скорость авто-движения, px/сек
       resumeMs: 2600,    // UX-пауза после ручного действия
       endHoldMs: 1600,   // пауза в конце списка перед возвратом
       rewindMs: 900,     // плавный возврат в начало
       startHoldMs: 600,  // пауза в начале перед движением
     };
+    // Один источник значений: живые CSS-токены (или фолбэк выше).
+    var DEFAULTS = resolveMotionTokens(readCssMotionToken, MOTION_FALLBACK);
     var raf = (typeof requestAnimationFrame === 'function')
       ? requestAnimationFrame
       : function (fn) { return setTimeout(function () { fn(Date.now()); }, 16); };
@@ -30351,6 +30647,11 @@
 
     return {
       DEFAULTS: DEFAULTS,
+      FALLBACK: MOTION_FALLBACK,
+      // ASAP-UI-02 L01950: разбор motion-токенов — для юнит-проверки, что
+      // ленты реально следуют CSS-масштабу (а не собственным числам).
+      resolveMotionTokens: resolveMotionTokens,
+      parseMotionAmount: parseMotionAmount,
       step: step,
       attach: attach,
       viewports: viewports,

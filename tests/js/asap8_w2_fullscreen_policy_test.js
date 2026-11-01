@@ -729,7 +729,10 @@ async function main() {
     assert.ok(geomBody.length > 200 && geomBody.indexOf('launchParams') < 0 &&
               geomBody.indexOf('initData') < 0 && geomBody.indexOf('activeChatId') < 0,
       'снимок для UI не выносит launchParams/initData/ID чатов');
-    assert.ok(/\.fs-geom-diag-root \{ position: fixed; inset: 0; z-index: 57; \}/.test(appCss) &&
+    // ASAP-UI-02 §4.2 (L01848): dev-панель живёт на верхнем ранге единого
+    // слоя overlay (`--z-dev-top`), а не на «магическом» числе.
+    assert.ok(/\.fs-geom-diag-root \{ position: fixed; inset: 0; z-index: var\(--z-dev-top\); \}/.test(appCss) &&
+              /--z-dev-top:\s*\d+;/.test(appCss) &&
               /\.fs-safe-overlay \{[^}]*pointer-events: none/.test(appCss),
       'CSS: панель поверх меню, оверлей границ не перехватывает тапы');
     console.log('4.6 admin-диагностика геометрии (§8) OK');

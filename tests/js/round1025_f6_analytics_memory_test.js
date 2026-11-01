@@ -325,8 +325,16 @@ function traceCtx(latest) {
   assert(INDEX.indexOf('exec-detail-backdrop') >= 0, 'подложка деталей');
   assert(/@click\.self="closeExecDetail\(\)"/.test(INDEX),
     'клик по подложке закрывает детали');
-  assert(APP_JS.indexOf('if (this.execDetailOpen) { this.closeExecDetail(); return; }') >= 0,
-    'Esc закрывает детали (escClose)');
+  // ASAP-UI-02 §4.2/§11 (L01958): Esc закрывает ровно верхний вложенный слой
+  // через единый Back-stack — проверяем ПОВЕДЕНИЕ (вызов закрытия), а не
+  // текст метода.
+  const escCalls = [];
+  methods.escClose.call({
+    execDetailOpen: true, execSelected: { id: 'x' },
+    closeExecDetail() { escCalls.push('exec-detail'); },
+  });
+  assert.deepStrictEqual(escCalls, ['exec-detail'],
+    'Esc закрывает детали (единый Back-stack)');
   const ctx = { execDetailOpen: true, execSelected: { id: 'x' } };
   methods.closeExecDetail.call(ctx);
   assert.strictEqual(ctx.execDetailOpen, false);

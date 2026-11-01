@@ -214,8 +214,12 @@ class TestRecordModal:
     def test_close_paths_and_focus(self):
         assert '@click.self="closeStatusRecord()"' in INDEX, "клик вне окна"
         assert 'aria-label="Закрыть окно записи"' in INDEX, "явная кнопка"
-        assert "if (this.statusRecordOpen) { this.closeStatusRecord(); return; }" \
-            in APP_JS, "Esc закрывает верхний слой"
+        # ASAP-UI-02 §4.2/§11 (L01958): Esc закрывает верхний слой через единый
+        # Back-stack; окно записи — один из его слоёв (`record`).
+        layers = _section("function backStackLayers(vm)", "\n  }", APP_JS)
+        assert "ids.push('record')" in layers, "окно записи — слой Back-stack"
+        assert "backStackClose(this)" in _section("escClose: function ()", "\n      },", APP_JS), \
+            "Esc закрывает верхний слой"
         assert "statusRecordReturnFocus" in APP_JS, "возврат фокуса"
         assert "statusRecordKeydown" in APP_JS, "focus trap (Tab)"
         assert "sfeed-modal-open" in INDEX and "sfeed-modal-open" in CSS, \

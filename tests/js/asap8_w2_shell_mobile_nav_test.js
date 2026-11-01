@@ -204,12 +204,23 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     '§6.1: у dev-диагностики геометрии нет входа в prod-разметке');
   assert.ok(/v-if="fsGeomDevEnabled && fsGeomDiagOpen"/.test(INDEX),
     '§6.1: панель диагностики рендерится только по внутреннему dev-флагу');
-  // Esc: верхним слоем закрывается палитра, затем dev-панель, затем drawer.
-  const esc = methods.escClose.toString();
-  assert.ok(esc.indexOf('this.paletteOpen') >= 0
-    && esc.indexOf('this.paletteOpen') < esc.indexOf('fsGeomDiagOpen')
-    && esc.indexOf('fsGeomDiagOpen') < esc.indexOf('this.drawerOpen'),
-    '§6.1: Esc закрывает верхний слой первым (палитра → dev-панель → drawer)');
+  // ASAP-UI-02 §4.2/§11 (L01958): порядок Back/Esc — ОДИН список слоёв
+  // (backStackLayers), а не if-чейн в каждом методе. Проверяем поведение
+  // порядка, а не текст метода: верхний слой закрывается первым.
+  const stack = methods.backStackLayers.call({
+    paletteOpen: true, fsGeomDevEnabled: true, fsGeomDiagOpen: true,
+    drawerOpen: true,
+  });
+  assert.deepStrictEqual(stack, ['palette', 'fs-geom', 'drawer'],
+    '§6.1: порядок Back/Esc — палитра → dev-панель → drawer');
+  const escCalls = [];
+  methods.escClose.call({
+    paletteOpen: true, drawerOpen: true,
+    closePalette() { escCalls.push('palette'); },
+    closeDrawer() { escCalls.push('drawer'); },
+  });
+  assert.deepStrictEqual(escCalls, ['palette'],
+    '§6.1: один Esc закрывает РОВНО верхний слой');
   // Правило scroll-lock удалённого меню осталось в CSS, но стало инертным:
   // класс `more-menu-open` не применяется ни в одном месте разметки.
   assert.strictEqual((INDEX.match(/more-menu-open/g) || []).length, 0,
@@ -388,11 +399,23 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   // Ревью F3: Tab-ловушка drawer подключена к разметке панели.
   assert.ok(INDEX.indexOf('@keydown="drawerOnKeydown($event)"') >= 0,
     'ASAP-UI-02: Tab-ловушка подключена к drawer');
-  const esc = methods.escClose.toString();
-  assert.ok(esc.indexOf('this.drawerOpen') >= 0,
+  // ASAP-UI-02 §4.2/§11: и глобальный Esc, и Back читают ОДИН Back-stack,
+  // поэтому drawer закрывается обоими путями и маршрут не меняется.
+  const drawerEsc = [];
+  methods.escClose.call({
+    drawerOpen: true,
+    closeDrawer() { drawerEsc.push('drawer'); },
+  });
+  assert.deepStrictEqual(drawerEsc, ['drawer'],
     'ASAP-UI-02: глобальный Esc знает про открытый drawer');
-  assert.ok(methods.goBack.toString().indexOf('this.drawerOpen') >= 0,
-    'ASAP-UI-02: Back закрывает открытый drawer');
+  const drawerBack = [];
+  methods.goBack.call({
+    drawerOpen: true, route: '#/modules',
+    closeDrawer() { drawerBack.push('drawer'); },
+    navigateTo(r) { drawerBack.push('nav:' + r); },
+  });
+  assert.deepStrictEqual(drawerBack, ['drawer'],
+    'ASAP-UI-02: Back закрывает открытый drawer, маршрут не меняется');
   // shellNavTo закрывает единственный оверлей навигации — drawer.
   const navTo = methods.shellNavTo.toString();
   assert.ok(navTo.indexOf('closeDrawer()') >= 0,

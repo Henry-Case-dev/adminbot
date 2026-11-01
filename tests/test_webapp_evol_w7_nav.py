@@ -465,14 +465,20 @@ class TestAsapUi02Navigation:
             "ловушка считает реально фокусируемые узлы панели"
         esc = JS[JS.index("escClose: function () {"):]
         esc = esc[:esc.index("\n      },")]
-        assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in esc
+        # ASAP-UI-02 §4.2/§11 (L01958): порядок слоёв живёт в ОДНОМ месте —
+        # `backStackLayers()`; и Esc, и Back делегируют ей (раньше это были
+        # два независимых if-чейна).
+        assert "backStackClose(this)" in esc
         # §6.1 v2.1: меню «…» удалено — Esc обрабатывает оставшиеся слои
         # (dev-диагностика геометрии → drawer → модалки).
         assert "moreMenuOpen" not in esc
         back = JS[JS.index("goBack: function () {"):]
         back = back[:back.index("\n      },")]
-        assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in back, \
+        assert "backStackClose(this)" in back, \
             "Back не закрывает drawer перед переходом"
+        layers = JS[JS.index("function backStackLayers(vm) {"):]
+        layers = layers[:layers.index("\n  }")]
+        assert "ids.push('drawer')" in layers, "drawer — слой единого Back-stack"
         # Возврат фокуса — в кнопку «Навигация» (тот же паттерн closeDrawer).
         assert "document.querySelector('[data-drawer-trigger]')" in JS
 

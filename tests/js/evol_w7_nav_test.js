@@ -209,9 +209,13 @@ assert.strictEqual(data.sidebarCollapsed, false,
   methods.escClose.call(ctx);
   assert.deepStrictEqual(calls, ['drawer'],
     'F3: глобальный Esc закрывает drawer, даже если фокус вне панели');
+  // ASAP-UI-02 §4.2/§11 (L01958): Esc делегирует ЕДИНОМУ Back-stack —
+  // отдельного if-чейна в самом методе больше нет (порядок слоёв один).
   const src = methods.escClose.toString();
-  assert.ok(src.indexOf('drawerOpen') >= 0 && src.indexOf('moreMenuOpen') < 0,
-    '§6.1: Esc знает drawer; меню «…» больше не существует');
+  assert.ok(src.indexOf('backStackClose') >= 0,
+    '§11: Esc закрывает верхний слой через единый Back-stack');
+  assert.deepStrictEqual(methods.backStackLayers.call({ drawerOpen: true }), ['drawer'],
+    '§6.1: единый Back-stack знает drawer');
   // goBack: Back закрывает панель, а не уводит страницу под ней.
   const nav = [];
   methods.goBack.call({
