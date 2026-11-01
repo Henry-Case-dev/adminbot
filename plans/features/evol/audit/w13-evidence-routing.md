@@ -514,7 +514,7 @@ web_search). Проверено поведение по фактическим �
 
 ```text
 pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py
-       tests/test_evol_evidence_corpus.py -q -p no:randomly     → 134 passed
+       tests/test_evol_evidence_corpus.py -q -p no:randomly     → 139 passed
 pytest tests/test_evol_fc_evidence_style.py tests/test_asap8_v6_wc_direct_d04.py
        tests/test_direct_chat.py tests/test_history_segments.py
        -q -p no:randomly                                        → 254 passed
@@ -522,6 +522,10 @@ pytest tests/ -q -p no:randomly -k "direct or initiative or tool or l1 or
        evidence or prompt or smartsearch or search or parity"
                                      → 3785 passed, 13 failed (те же пред-существующие)
 ```
+
+Уточнение (ревью 9.6 п.2): прогон трёх файлов даёт **139** passed, а не 134 —
+разница приходится на 5 параметров `test_wave3_explicit_factcheck_phrases_cancel_reuse`.
+Число 134 в прежней редакции этой записи было неверным.
 
 13 падений — тот же набор, что в §11.5 (5× `test_direct_fallback_recompose_asap32`,
 `test_mca11_money_limits_round1028::test_no_runtime_callers_off_parity`,
@@ -563,14 +567,25 @@ pytest tests/ -q -p no:randomly -k "direct or initiative or tool or l1 or
    инициативный reuse-ход: `get_recent_history` исполнен, Writer получил и
    reuse-выдержку, и историю чата, сеть — 0.
 
-Мутационные контрпримеры (разово, вне репозитория, 5/5 сработали): снятие
-`_EVIDENCE_TOOLS` ломает тест 1 (поиск реально уходит в сеть); `_l1_tool_phase →
-None` (эквивалент `raw = None`) ломает тесты 2 и 8 (история не читается);
-подстрочный матч снова даёт ложный зачёт 4.1/4.10 и «1 октября»/«11 октября»;
-прежний сигнал verify (только `temporal_factcheck`) даёт False на «правда ли…».
+Мутационные контрпримеры (разово, вне репозитория, 5/5 сработали). Уточнение
+(ревью 9.6 п.2) — соответствие «мутация → тест» в прежней редакции было
+перепутано:
+
+| мутация | падающий тест |
+|---|---|
+| M1: снять блокировку `_EVIDENCE_TOOLS` в `_l1_tool_subset` | **тест 2** `test_wave3_reuse_turn_still_runs_nonnetwork_tools` (в его плане есть `web_search`); тест 1 `..._second_is_network_free` остаётся ЗЕЛЁНЫМ — в его плане нет `capabilities_needed`, набор схем пуст и сети нет без всякой блокировки |
+| M2: `_l1_tool_phase → None` (эквивалент `raw = None`) | тесты 2 и 8 (история не читается) |
+| M3: вернуть подстрочный матч доставки | `test_wave3_delivered_chars_no_false_credit_on_version_prefix` (ложный зачёт 4.1/4.10, «1 октября»/«11 октября») |
+| M4: прежний сигнал verify (только `temporal_factcheck`) | `test_wave3_explicit_factcheck_phrases_cancel_reuse` |
+
+Итог: контракт «reuse отменяет сеть» держит тест 2, а не тест 1 (ревью 9.2).
 
 
 ### 12.5. Вопрос PM/Architect (нужно решение, не словарь)
+
+**Статус: ЗАКРЫТ решением Architect «г»** (`plans/features/evol/arch/
+recheck-signal-decision.md`, вариант (г) + §4 про явную ссылку). Реализация и
+доказательство — §12.6. Ниже сохранена исходная постановка вопроса.
 
 Формулировки перепроверки, которых НЕТ ни в одном существующем детекторе
 (`detect_action_intent` — `_FACTCHECK_MARKERS`/`_SEARCH_MARKERS`,
@@ -608,6 +623,156 @@ reuse-ходе не исполнялось НИЧЕГО, так что теку�
 tool-фазу; но «явная ссылка сильнее reuse» контрактом не зафиксирована. Это
 вопрос той же природы, что и список фраз: решать §1.2 п.2/§3.3 на уровне
 политики, а не в `_l1_tool_subset`.
+
+**Статус этого смежного вопроса: тоже ЗАКРЫТ** (§4 решения Architect «г»:
+явная ссылка форсирует чтение ИМЕННО этого адреса; исключение — запись reuse
+указывает на тот же URL, свежая и доставленная).
+
+
+## 12.6. Review-fix 6 (01.11.2026): форма явной проверки + поле плана `recheck`
+
+Основание: блокер ре-ревью 2 (§9.5 отчёта `w13-evidence-routing-review-waves3-5.md`)
+и решение Architect «г» (`plans/features/evol/arch/recheck-signal-decision.md`).
+
+### 12.6.1. Блокер 9.5: «явная проверка» ловила обычную речь
+
+Корень: `verify` брался из `INTENT_FACT_CHECK`, чьи маркеры матчились
+ПОДСТРОКОЙ в любом месте текста (`direct_capabilities._has_stem`,
+фразовая ветка `stem in text`), плюс `is_referential_claim` без границы слова.
+Наблюдалось (ревью 9.3 п.1-2): «вот это правда круто», «спасибо, всё правда,
+как ты и сказал», «неправда ли, …», шутка с цитатой давали `required=True`,
+снимали reuse и вызывали РЕАЛЬНЫЙ сетевой поиск с репликой как запросом.
+
+Стало: маркеры ТЕ ЖЕ (новых словарей нет, §1.3), но требуется ФОРМА запроса
+(`direct_capabilities.is_explicit_factcheck_request`):
+
+| форма | правило | пример |
+|---|---|---|
+| просьба по форме (повелительное наклонение / название действия) | маркер в начале клаузы | «проверь факт: …», «фактчек: …», «проверь это», «fact check …» |
+| «правда ли» (частица «ли») | маркер в начале клаузы | «правда ли, что …», «скажи, правда ли, …» |
+| «это правда» (утверждение) | только вопросительная клауза | «это правда?» |
+| референтная форма | «проверь его/её слова…» в начале клаузы либо любая референтная форма в вопросительной клаузе | «проверь его слова», «бот, не врёт?» |
+
+Клауза режется по `.!?;:…,` (запятая режет: «проверь, правда ли это» = просьба
++ вопрос; «бот, …» — обращение уходит в отдельную клаузу). Фразовый маркер
+требует ГРАНИЦЫ слова, поэтому «неправда ли» не содержит «правда ли».
+`detect_action_intent` НЕ менялся: он общий смысловой детектор, а форма
+запроса нужна продуктовому сигналу.
+
+Разбиение маркеров по форме — грамматическая классификация тех же восьми
+строк (`_FACTCHECK_REQUEST_MARKERS` + `_FACTCHECK_QUESTION_START_MARKERS` +
+`_FACTCHECK_STATEMENT_MARKERS`), сторожевой тест проверяет, что разбиение
+полное и без пересечений.
+
+### 12.6.2. Решение Architect «г»: optional-поле плана `recheck`
+
+- `direct_l1.L1Plan.recheck: bool = False`; `normalize_l1_plan` —
+  `data.get("recheck") is True` (строгий boolean по прецеденту
+  `needs_clarification`: `"true"`, `1`, `null`, отсутствие → `False`).
+- `evidence_policy.ExplicitRequest.recheck` входит в `any`; в правиле 2 note
+  `plan_recheck` (приоритет `read_source` → `verify` → `search` → `recheck`);
+  `_required_caps_for` ведёт `recheck` веткой поиска (`("fetch_url",
+  "web_search")` при присланных ссылках, иначе `("web_search",)`); `recheck`
+  не создаёт/не снимает `skip_reason` и не понижает `required`.
+- Инициативный ход: `recheck` сбрасывается и в политике
+  (`replace(explicit, recheck=False)`), и в интеграционном слое (bypass reuse),
+  иначе запись удалялась бы ДО политики (найдено тестом
+  `test_wave6_initiative_ignores_recheck`).
+- `_evidence_explicit_request(query, reply_text="", plan=None)` — `recheck`
+  берётся из плана; `_evidence_preflight` передаёт `plan` и `urls`.
+- Явная ссылка (§4 решения): `_evidence_reuse_claims(..., supplied_urls=urls)`
+  игнорирует запись, чей `record.url` не совпадает с присланной ссылкой
+  (пустой `url` при присланных ссылках — тоже игнор). Фильтр в
+  интеграционном слое: политика остаётся чистой (без I/O).
+- Новых `reason_code`, событий, полей БД, модулей и kill-switch нет. Политика
+  OFF → `recheck` не действует (честный паритет, тест
+  `test_policy_gate_off_returns_previous_behaviour` остался зелёным).
+
+### 12.6.3. Канон промпта (та же невыпущенная ревизия EVR1)
+
+В `_DIRECT_L1_EXTERNAL_CLAIMS_EVR1` добавлены строка схемы `"recheck": false`
+и абзац «ПОВТОРНАЯ ПРОВЕРКА» (когда ставить; что `recheck` не отменяет
+обязательную проверку и не заменяет `external_claims`; шутка/цитата/пересказ/
+обычный вопрос о факте → false). Без перечисления фраз и без квот символов.
+
+- метка `direct.base.l1_planner`: `l1-planner-external-claims-recheck`;
+- печать (seal): `eb496e938c49` (sha12 заводских байт L1-планера, 13965 симв.);
+- `FACTORY_SET_SHA256_12`: `de8e77a2a3f4` (changed = 1, только L1-планер);
+- цель отката НЕ изменилась: `PREV_DIRECT_L1_PLANNER_EVR0` = прод 2.58.146,
+  `sha12 = 14743d288ea3` (12605 симв.); ступень лестницы
+  `(PREV_DIRECT_L1_PLANNER_EVR0 → DIRECT_L1_PLANNER_SYSTEM_PROMPT)` и обратная
+  ступень отката ссылаются на ЖИВОЙ канон, поэтому `prompt_migrations` не
+  правился; новая ступень не нужна — EVR1 в проде не выпущен.
+- ручные редакции владельца не перетираются: активация идёт по МЕТКЕ
+  (EVOL-016), прежние байты остаются неизменяемой ревизией; та же метка →
+  no-op. Тест `test_wave6_canon_step_applies_only_to_prev_bytes_and_keeps_owner_edits`.
+
+### 12.6.4. Тестовое доказательство
+
+```text
+pytest tests/test_evol_evidence_routing.py -q -p no:randomly            → 114 passed
+pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py
+       tests/test_evol_evidence_corpus.py -q -p no:randomly             → 171 passed
+pytest <11 файлов: routing, window, corpus, prompt_migrations, p0_prompts_core,
+       direct_l1_l1d_contract, direct_l1_corrective_r1, asap_speech_r3b_canon,
+       post_asap5_w1_writer_core, post_asap5_w2_tech_reasoning,
+       speech_p0_corrective_l1_route>  -q -p no:randomly                → 304 passed
+pytest tests/ -q -p no:randomly -k "direct or initiative or tool or l1 or
+       evidence or prompt or smartsearch or search or parity"
+                                     → 3819 passed, 13 failed (те же пред-существующие)
+```
+
+13 падений — тот же набор, что в §12.4 (5× `test_direct_fallback_recompose_asap32`,
+`mca11 off_parity`, `mca20 evidence_injection`, 6× `summary_*`). В одном из
+двух полных прогонов добавились `test_mca09_…::test_handle_initiative_cancelled_by_recheck`
+и `test_soul1_w5_initiative_vitality::test_check_dry_run_reaches_mock_send_without_publishing`
+(15 failed): оба ЗЕЛЁНЫЕ в изоляции и в повторном полном прогоне — флейки
+окружения, не регрессия (их субъекты этой полосой не менялись).
+
+Новые тесты (`tests/test_evol_evidence_routing.py`, +32 случая) и что каждый
+ловит:
+
+| тест | что ломается, если снять правку |
+|---|---|
+| `test_wave6_conversational_phrase_does_not_force_network` (5 фраз) | подстрочный матч → `required=True`, `execute_web_search` анонсирован, сеть вызвана (проверено мутацией M1: 4 из 5 случаев падают) |
+| `test_wave6_conversational_phrase_keeps_reuse` (3 фразы) | reuse снят и запись удалена — ломается ER-29/ER-S30 «повторная реплика без нового сетевого вызова» |
+| `test_wave6_factcheck_request_forms_still_cancel_reuse` (5 форм) | обратная сторона: адресная/референтная форма перестала быть сигналом (анти-ослабление) |
+| `test_wave6_marker_sets_are_unchanged_and_partitioned` | расширение/сужение словаря маркеров или потеря маркера при разбиении по форме (§1.3) |
+| `test_wave6_plan_recheck_cancels_reuse` | `recheck` выпал из `ExplicitRequest.any` → reuse вернулся (M2) |
+| `test_wave6_recheck_field_covers_phrases_without_detector` (6 фраз) | те же 6 формулировок без поля плана → reuse (негатив в том же тесте) |
+| `test_wave6_recheck_keeps_evidence_tools_announced` | `recheck` объявлен, но исполнителя нет (tool-шов) |
+| `test_wave6_recheck_not_downgraded_by_confidence_or_mode` | уверенность/режим снова понижают проверку (M2 ловит и это) |
+| `test_wave6_plain_question_still_reuses` | шторм: обычный вопрос начал перечитывать источник |
+| `test_wave6_joke_mentioning_check_does_not_refetch` | шутка со словом проверки заставляет перечитывать |
+| `test_wave6_recheck_parse_is_strict_boolean` | типобезопасность поля (`"true"`/`1`/`null`) |
+| `test_wave6_initiative_ignores_recheck` | `recheck` действует в инициативе (M3 — сброс в политике, M5 — bypass в preflight; обе ловятся) |
+| `test_wave6_pasted_url_forces_read_of_that_url` | явная ссылка снова не читается, а подменяется другой записью (M4) |
+| `test_wave6_pasted_url_same_as_record_reuses` | тот же адрес перестал переиспользоваться (лишний fetch) |
+| `test_wave6_prompt_canon_has_recheck_field` | канон молчит о поле (тогда `recheck` почти не ставится — как было с `external_claims`) |
+| `test_wave6_canon_revision_seal_and_rollback_target` | метка/печать/ступень/цель отката разъехались |
+| `test_wave6_canon_step_applies_only_to_prev_bytes_and_keeps_owner_edits` | релиз перетирает ручную редакцию владельца или не применяется на прод-байтах |
+
+Мутации (по одной, с обратным откатом; каждая ловится):
+
+| мутация | падающие тесты |
+|---|---|
+| M1: вернуть подстрочный матч (`_has_stem` по маркерам) | 8 случаев: 4× `..._does_not_force_network`, 2× `..._keeps_reuse`, 2× `..._request_forms_still_cancel_reuse` (адресные/референтные формы) |
+| M2: убрать `recheck` из `ExplicitRequest.any` | 8 случаев: `plan_recheck_cancels_reuse`, 6× `..._covers_phrases_without_detector`, `..._not_downgraded_by_confidence_or_mode` |
+| M3: убрать сброс `recheck` в инициативе (политика) | `test_wave6_initiative_ignores_recheck` |
+| M4: отключить фильтр `supplied_urls` | `test_wave6_pasted_url_forces_read_of_that_url` |
+| M5: убрать `not initiative` из bypass reuse (интеграция) | `test_wave6_initiative_ignores_recheck` |
+
+### 12.6.5. Что эта полоса НЕ меняет
+
+- `detect_action_intent` (общий смысловой детектор) и `is_referential_claim`
+  (общий референтный детектор, 5 потребителей) — без изменений.
+- Деградированный план (`source="fallback"`) по-прежнему не несёт `recheck`.
+- Локальное чтение кода («проверь в исходниках») — `CAPABILITY_NOT_READY`
+  (`EVOL-SRC-READER`), не этой полосой.
+- Формулировки, которых не знает ни один детектор и на которые L1 не поставит
+  `recheck`, ведут себя как раньше (reuse): «любая русская формулировка» без
+  словарей недостижима и контрактом не обещана.
+
 
 
 
