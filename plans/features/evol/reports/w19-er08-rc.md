@@ -165,6 +165,34 @@ provenance), **`4d4a9c69` (правки по ревью B1/B2 + `96013a4a`-эк�
 `get_l1_diagnostics`. Плюс AST-тест `test_live_path_emits_reply_cap_axes` на проводку
 обоих сайтов.
 
+#### B1-фикс после Re-review 2 (R2.2): `truncated` больше не врёт
+
+Дефект: производственный путь подавал в `reply_delivery_stats` УЖЕ срезанный блок
+(`_l1_reply_text`), поэтому `total` совпадал с `delivered` и флаг всегда был `False`
+(цитата 3000 при капе 640 → «не срезано», хотя срезано 79 %). Предыдущий тест этого не
+ловил, потому что подавал исходную цитату напрямую — мимо реальной сборки.
+
+Что теперь: `total_chars` считается от ИСХОДНОЙ цитаты
+(`message.reply_to_message.text` + шапка автора) модульной функцией
+`direct_chat_service._reply_total_chars`, а `reply_delivery_stats(context_text, budget,
+*, total_chars=…)` принимает его явно. Модульная функция, не метод — частичные
+DI-объекты в тестах других полос (`Stub` в `test_soul1_*`) не обязаны реализовывать новые
+методы (это уже конвенция проекта для L1-пути инициативы).
+
+Замер через реальную сборку (`_l1_reply_block` → `build_l1_context` →
+`reply_delivery_stats`, как мерил ревьюер):
+
+| Случай | Бюджет | Кап | total | delivered | truncated |
+| --- | --- | --- | --- | --- | --- |
+| короткая цитата | 1600 | 640 | 34 | 34 | False (честно) |
+| цитата 3000 (край A, arch §6.2) | 1600 | 640 | 3011 | 626 | **True** |
+| цитата 2000 | 1600 | 640 | 2011 | 635 | **True** |
+| цитата 3000 | live 113085 | 4096 | 3011 | 3011 | False (среза нет) |
+
+Новый тест `test_reply_truncated_is_truthful_on_the_real_path` идёт именно этим путём,
+поэтому ложь вернуться не может.
+
+
 ### B2 — плотное окно больше не теряет реплики
 
 Причина регрессии: claim-first не был ограничен долей середины и раздувал строку окна
@@ -187,6 +215,33 @@ provenance), **`4d4a9c69` (правки по ревью B1/B2 + `96013a4a`-эк�
 1600/2000/2600: пакет в бюджете, доехали все 20 реплик, самая длинная строка ≤ кап+5.
 На базе тест проходит (база и есть эталон поведения), на кандидате до фикса — падает.
 
+### B3-фикс после Re-review 2 (R2.3): claim в центре больше не съедает середину
+
+Дефект: `_clip_middle` добавлял окно добора только если НИ ОДИН claim не накрывал
+центральную точку (`if not any(s <= centre <= e for s, e in chosen)`). Claim в центре
+занимал 38–42 символа, а 25 % доли середины не использовались: на живом бюджете
+доезжало ~3100 вместо ~4080, на hot-1600 — ~506 вместо ~630, при этом `kept_mid`
+оставался `True` и ось не сигнализировала потерю.
+
+Что теперь: окно добора всегда покрывает ВСЮ долю середины, claim'ы из него вычитаются
+(пересечение, без дублей текста), потеря от выравнивания по словам компенсируется
+расширением, избыток снимает `_trim_to_share`. Claim занимает место В доле, а не вместо
+неё — как и требует arch §3 «claim-first: добавляется в середину».
+
+Замер через реальную сборку (цитата 4090 симв. текста + шапка 11 = 4101):
+
+| Бюджет | Без claim: delivered / кап | Claim в центре: delivered / кап |
+| --- | --- | --- |
+| live 113085 | 4082 / 4096 (99.7 %) | **4082** / 4096 |
+| hot 1600 | 639 / 640 (99.8 %) | **639** / 640 |
+
+До фикса в тех же условиях: 3100 (live) и 506 (hot). Цитата 2000: live 2011 = 2011
+(среза нет), hot 634 = 634.
+
+Тест `test_centre_claim_does_not_eat_the_middle_share` требует равенства (±8 симв.)
+доставки с claim'ом в центре и без него, и ≥95 % капа на обоих бюджетах.
+
+
 ### Дискриминирующий кейс вместо «зелёного на базе» (ревью §6.1)
 
 `test_plain_counterargument_at_1500_of_quote_is_delivered_5400`: цитата 3000, ОБЫЧНАЯ
@@ -202,12 +257,12 @@ middle_window` помечена в докстринге как НЕ дискри
 `py -3 -m pytest ... -q -p no:randomly`:
 
 ```text
-tests/test_er08_limits_context.py                     => 33 passed (база: 27; +6 новых)
+tests/test_er08_limits_context.py                     => 35 passed (база: 27; +8 новых)
 поток ER-08 (er08 + evidence_window + asap7_direct_l1 + direct_l1_corrective_r1 +
   direct_l1_l1d_contract + tool_chains + tool_loop + mca11_chain_stages +
   asap8_v6_wc_direct_matrix + asap8_v6_wc_direct_d04 + mca13_event_contract +
   evol_evidence_routing + soul1_machine_profile + soul1_composer_parity_off)
-                                                      => 431 passed (база: 425)
+                                                      => 433 passed (база: 425)
 широкий прогон tests/ -k "direct or initiative or tool or l1 or evidence or prompt or
   smartsearch or search or parity or cost or metered" (без моего тест-файла)
                                                       => 13 failed, 3856 passed, 2 skipped
@@ -227,12 +282,17 @@ tests/test_er08_limits_context.py                     => 33 passed (база: 27
 
 ### Новые тесты (все падают на базе, кроме регрессионного B2)
 
+* `test_reply_truncated_is_truthful_on_the_real_path` — B1 через реальную сборку
+  (`_l1_reply_block` → `build_l1_context` → `reply_delivery_stats`), край A arch §6.2.
+* `test_centre_claim_does_not_eat_the_middle_share` — B3: доставка с claim'ом в центре
+  равна доставке без него (live и hot-1600).
 * `test_reply_delivery_axes_are_present_and_truthful` — наблюдаемость B1 (на базе
   `reply_delivery_stats` нет → падает).
 * `test_live_path_emits_reply_cap_axes` — проводка шести осей на обоих L1-сайтах (на базе
   полей нет → падает).
 * `test_plain_counterargument_at_1500_of_quote_is_delivered_5400` — дискриминирующий
-  кейс (на базе падает).
+  кейс; детектор берётся из `services.evidence_policy`, поэтому на базе тест падает
+  утверждением «фраза не доехала», а не `AttributeError` (ревью R2.4).
 * `test_dense_high_risk_window_keeps_all_replies` — регрессия B2 (на базе ПРОХОДИТ: это
   эталон поведения; падает на кандидате до фикса).
 * `test_quote_3000_keeps_counterargument_at_1500`,
@@ -268,14 +328,12 @@ tests/test_er08_limits_context.py                     => 33 passed (база: 27
 
 ## 7. Снимок ER-65 (sent-segments)
 
-Первая регенерация — `d24d4932` после первого коммита кода (`services/direct_l1.py`
-109282 → 120994 байт, sha `0c711ac2…` → `fe94ca4f…`, ядро `908b614c…` → `564c5430…`).
-Вторая — `bda2f480` после правок B1/B2: изменились только provenance-записи двух
-источников (`services/direct_l1.py` 120994 → 124910 байт / sha `fe94ca4f…` → новее;
-`services/direct_chat_service.py` 804609 → 807977 байт / sha `b574de5e…` → `6d66a07f…`),
-ядро `564c5430…` → `57f44181…`. Ни один из 58 сегментов сообщений, ролей, стадий и длин
-payload не изменился (`determinism identical=True`), `--check` проходит байт-в-байт.
-Проверено скриптом сравнения: `segments/stages payload identical: True`,
+Три регенерации: `d24d4932` (первый коммит кода), `bda2f480` (B1/B2 первого круга),
+`bcb7e82c` (B1/B3 второго круга). Каждый раз менялись ТОЛЬКО provenance-записи
+источников (`services/direct_l1.py`, `services/direct_chat_service.py`: sha/bytes/lines)
+и `snapshot_core_sha256`. Ни один из 58 сегментов сообщений, ролей, стадий и длин payload
+не изменился (`determinism identical=True`), `--check` проходит байт-в-байт. Проверено
+скриптом сравнения: `segments/stages payload identical: True`,
 `changed sources: ['services/direct_chat_service.py', 'services/direct_l1.py']`.
 
 ## 8. Что осталось / риск
@@ -289,6 +347,11 @@ payload не изменился (`determinism identical=True`), `--check` про
   см. §5.1 B2).
 * `l1_reply_delivered_chars`/`l1_kept_mid` описывают СЕКЦИЮ цитаты в собранном пакете;
   дальнейшее сжатие hint-секций их не касается (цитата protected).
+* `total_chars` включает шапку автора («автор: Имя [user:id]»), поэтому `truncated`
+  сравнивает полную поданную цитату с доставленным телом; разница в 11–30 символов на
+  границе капа — ожидаема и честно видна в обоих числах.
+* Claim длиннее доли середины (атомарная часть ≤ min(320, доля)) по-прежнему
+  пропускается целиком; его спасает только окно середины.
 * Сетевого/живого прогона нет: правка чисто вычислительная (детерминированный композер
   L1-контекста), Telegram/прод не затронуты, деплой не выполнялся.
 
