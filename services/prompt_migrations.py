@@ -53,6 +53,8 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_W1,
     PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_VERBALIZER_CLAR,
+    PREV_CHAT_VERBALIZER_EVR0,
+    PREV_CHAT_EVR0_SYSTEM_PROMPT,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
@@ -68,7 +70,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
     PREV_DIRECT_L1_PLANNER_PA5W1,
     PREV_DIRECT_L1_PLANNER_PA5W2,
-    PREV_CHAT_VERBALIZER_PA5W2,
+    PREV_DIRECT_L1_PLANNER_EVR0,    PREV_CHAT_VERBALIZER_PA5W2,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -193,7 +195,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ» (своевременный execute_web_search,
         # без обязательного поиска для формул/расчётов/болтовни, честная
         # граница при недоступном поиске). Кастомы владельца не трогаются.
-        (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-канон tool phase после
+        # W2 ведёт на канон с одной фразой «обязательность проверки решает
+        # runtime, а не доступность инструмента». Секция W2 не переписана;
+        # кастомы владельца (не точное совпадение байт) не трогаются.
+        (PREV_CHAT_EVR0_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct —
     # прод-значения 10.23 (база без типографики и полный канон) ведут на
     # новый канон без unconditional cap-правила.
@@ -223,7 +230,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # гипотезы допустимы при пометке, незнакомый продукт ≠ выдуманная
         # архитектура, достоверность а не нерешительность). Кастомы владельца
         # не перетираются.
-        (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-канон Writer'а после
+        # W2 ведёт на канон с секцией «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»
+        # (опираться на доставленное, не заявлять проверку без проверки,
+        # пустой результат ≠ не существует, шутка ≠ отчёт со ссылками).
+        (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -241,6 +253,10 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-байты 2.58.146 (канон
+        # PA5W2) ведут на канон с optional-полем external_claims и машинной
+        # фразой «обязательность read-only проверки исполняет runtime».
+        (PREV_DIRECT_L1_PLANNER_EVR0, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_BASE, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_1021, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_1022, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -293,6 +309,10 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # активных байтов ред.5 (PREV_..._PA5W2). Кастомы владельца
         # не перетираются.
         (PREV_DIRECT_L1_PLANNER_PA5W2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-канон L1 после PA5W2
+        # ведёт на канон с optional-полем external_claims и машинной фразой
+        # «обязательность проверки исполняет runtime». Правила/база/контракты
+        # владельца байт-в-байт.
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -465,7 +485,8 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # POST-ASAP5 W2 (27.10.2026, §5): откат снимает ТОЛЬКО секцию поиска —
     # на активные байты W1 (PREV_CHAT_W2_SYSTEM_PROMPT); стек ступеней цел.
     "prompts.direct_chat_system_prompt":
-        [(CHAT_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
+        [(CHAT_SYSTEM_PROMPT, PREV_CHAT_EVR0_SYSTEM_PROMPT),
+         (PREV_CHAT_EVR0_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
          (PREV_CHAT_W2_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
@@ -478,7 +499,8 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # технических расчётов — на активные байты R3b (PREV_CHAT_VERBALIZER_
     # PA5W2 = §3.1 + абзацы §4.2 + граница истории); стек ступеней цел.
     "prompts.direct_chat_verbalizer_system_prompt":
-        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_PA5W2),
+        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_EVR0),
+         (PREV_CHAT_VERBALIZER_EVR0, PREV_CHAT_VERBALIZER_PA5W2),
          (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)],
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
@@ -505,8 +527,11 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
+        # ступень 0 (волна 5): активный канон EVR1 → прод-байты 2.58.146
+        # (PREV_..._EVR0 = канон PA5W2 без секции внешних утверждений)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR0),
         # ступень 0: активный канон ред.6 (PA5W2) → активные байты ред.5
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_PA5W2),
+        (PREV_DIRECT_L1_PLANNER_EVR0, PREV_DIRECT_L1_PLANNER_PA5W2),
         # ступень 1: PA5W2 → PA5W1 (снятие секции поиска; байты W1)
         (PREV_DIRECT_L1_PLANNER_PA5W2, PREV_DIRECT_L1_PLANNER_PA5W1),
         # ступень 2: PA5W1 → P0CINTR2 (активные байты ред.4)

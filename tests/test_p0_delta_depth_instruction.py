@@ -235,10 +235,13 @@ def test_no_conflict_with_no_meta():
 def test_direct_chat_call_sites_pass_delta_flag():
     src = (ROOT / "services" / "direct_chat_service.py").read_text(
         encoding="utf-8")
-    # основной путь ответа и инициатива: include_delta из того же предиката
-    assert src.count("include_delta=_l1.delta_instruction_needed(") == 2
+    # основной путь ответа и инициатива: include_delta из того же предиката.
+    # Волна 4 (ASAP-EVIDENCE-ROUTING-01 v3 §4.3): третий call-site —
+    # `_evidence_call_budget_chars` строит тот же план-блок для per-call
+    # бюджета инструментов (один измеритель, C4); предикат тот же.
+    assert src.count("include_delta=_l1.delta_instruction_needed(") == 3
     assert src.count(
-        "include_delta=_l1.delta_instruction_needed(l1_plan)") == 1
+        "include_delta=_l1.delta_instruction_needed(l1_plan)") == 2
     assert src.count(
         "include_delta=_l1.delta_instruction_needed(plan)") == 1
     # ни одного нового LLM-вызова/слоя полоса не добавила

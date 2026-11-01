@@ -853,3 +853,43 @@ class TestSingleClaimKeyCanon:
         assert source_reuse.lookup(theirs) is not None
         mine = source_reuse.claim_key("deepseek v4.1 flash", "version", "1017")
         assert source_reuse.lookup(mine) is not None
+
+
+class TestL1WindowLineBudget:
+    """Волна 4: кап строки L1-окна выводится из реального бюджета (§1.5).
+
+    Корневая причина дефекта «L1 не видит claim»: фиксированные 200 символов
+    резали длинное сообщение, и версия/цена/дата не доезжали до планера,
+    поэтому optional-поле external_claims почти не заполнялось."""
+
+    def test_short_window_gets_longer_lines(self):
+        from services import direct_l1 as l1
+
+        one = [{"author_name": "A", "text": "x" * 900, "id": 1}]
+        assert l1.window_line_chars(one) > l1.L1_WINDOW_LINE_CHARS
+        # Потолок класса C соблюдается даже для одного огромного сообщения.
+        assert l1.window_line_chars(one) <= l1.L1_WINDOW_LINE_CHARS_MAX
+
+    def test_full_window_keeps_legacy_floor(self):
+        from services import direct_l1 as l1
+
+        rows = [{"author_name": "A", "text": "y" * 400} for _ in range(20)]
+        assert l1.window_line_chars(rows) == l1.L1_WINDOW_LINE_CHARS
+
+    def test_claim_after_old_200_chars_reaches_planner(self):
+        from services import direct_l1 as l1
+
+        body = "k" * 260 + " версия 1017 вышла"
+        ctx = l1.build_l1_context(
+            query="q", window=[{"author_name": "A", "text": body, "id": 1}],
+            speaker="A")
+        assert "версия 1017 вышла" in ctx
+
+    def test_total_l1_budget_still_enforced(self):
+        from services import direct_l1 as l1
+
+        rows = [{"author_name": f"A{i}", "text": "z" * 5000} for i in range(20)]
+        ctx = l1.build_l1_context(query="вопрос", window=rows, speaker="A",
+                                  budget_tokens=400)
+        # Потолок одной строки не отменяет общий бюджет пакета.
+        assert len(ctx) < 200 * 400 // 4 + 2000

@@ -37,6 +37,8 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_VERBALIZER_CLAR,
     PREV_CHAT_VERBALIZER_PA5W2,
+    PREV_CHAT_VERBALIZER_EVR0,
+    PREV_CHAT_EVR0_SYSTEM_PROMPT,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
@@ -52,7 +54,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
     PREV_DIRECT_L1_PLANNER_PA5W1,
     PREV_DIRECT_L1_PLANNER_PA5W2,
-    PREV_DIRECT_L1_PLANNER_W1,
+    PREV_DIRECT_L1_PLANNER_EVR0,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -282,7 +284,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # POST-ASAP5 W2 (27.10.2026): первый откат снимает секцию «ПОИСК И
     # НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ» → байты W1 (PREV_CHAT_W2_SYSTEM_
     # PROMPT); стек ступеней цел.
-    "prompts.direct_chat_system_prompt": PREV_CHAT_W2_SYSTEM_PROMPT,
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): первый откат снимает фразу о
+    # том, что обязанность проверки решает runtime → байты W2/EVR0.
+    "prompts.direct_chat_system_prompt": PREV_CHAT_EVR0_SYSTEM_PROMPT,
     # MCA-23 (§11): откат Вербализатора direct → прод-канон 10.23 (с cap).
     # ASAP W1 (22.10.2026): откат → прод-канон 2.58.110 (d0ef0d376fc3).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
@@ -291,8 +295,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # канон 2.58.113 (§3.1 + абзацы §4.2).
     # POST-ASAP5 W2 (27.10.2026): первый откат снимает секцию расчётов →
     # байты R3b (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): первый откат снимает секцию
+    # «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты 2.58.146 (PREV_CHAT_VERBALIZER_EVR0).
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_PA5W2,
+        PREV_CHAT_VERBALIZER_EVR0,
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
@@ -308,7 +314,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # 422e9d73d316).
     # POST-ASAP5 W2 (27.10.2026): первый откат снимает семантику поиска в
     # правиле 4 → байты ред.5 (PREV_DIRECT_L1_PLANNER_PA5W2, 902dd00edf52).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_PA5W2,
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): первый откат снимает секцию
+    # внешних утверждений → байты 2.58.146 (PREV_DIRECT_L1_PLANNER_EVR0).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR0,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -434,7 +442,11 @@ class TestPromptMigrationsCatalog:
                          # POST-ASAP5 W2 (§5.2/§5.3/§10.5): прод-канон после
                          # W1 → канон с секцией «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ
                          # ХАРАКТЕРИСТИКИ».
-                         (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-канон
+                         # после W2 → канон с фразой «обязательность проверки
+                         # решает runtime».
+                         (PREV_CHAT_EVR0_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
 
     def test_w1_steps_present(self):
         """ASAP W1 (22.10.2026, §3.1-3.7): ступени прод-канонов 2.58.110
@@ -739,9 +751,11 @@ class TestRound1023Migration:
         прод-канон 2.58.100. ASAP W1: откат — на прод-канон 2.58.110
         (PREV_CHAT_W1; снимается только ступень W1, стек ступеней цел).
         POST-ASAP5 W2: первый откат снимает секцию поиска → байты W1
-        (PREV_CHAT_W2), второй — до 2.58.110."""
+        (PREV_CHAT_W2), второй — до 2.58.110. ASAP-EVIDENCE-ROUTING-01 v3:
+        первый откат снимает фразу о runtime → байты EVR0 (W2-канон)."""
         assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == [
-            (CHAT_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
+            (CHAT_SYSTEM_PROMPT, PREV_CHAT_EVR0_SYSTEM_PROMPT),
+            (PREV_CHAT_EVR0_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
             (PREV_CHAT_W2_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)]
 
     @pytest.mark.asyncio
@@ -817,7 +831,10 @@ class TestMca23Migration:
             (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             # POST-ASAP5 W2 (§4/§6): канон R3b → канон с секцией
             # «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ».
-            (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): канон PA5W2 → канон с
+            # секцией «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА».
+            (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -843,7 +860,8 @@ class TestMca23Migration:
         assert ROLLBACK_MIGRATIONS[
             "prompts.direct_chat_verbalizer_system_prompt"] == [
                 (DIRECT_VERBALIZER_SYSTEM_PROMPT,
-                 PREV_CHAT_VERBALIZER_PA5W2),
+                 PREV_CHAT_VERBALIZER_EVR0),
+                (PREV_CHAT_VERBALIZER_EVR0, PREV_CHAT_VERBALIZER_PA5W2),
                 (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)]
 
     @pytest.mark.asyncio
@@ -865,11 +883,14 @@ class TestMca23Migration:
         def sha12(text: str) -> str:
             return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
-        # «копия текущих значений» после boot-проводки
+        # «копия текущих значений» после boot-проводки.
+        # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): активные каноны сменились на
+        # EVR1 (ff502bb6b60e / 68f0233d7050); целевые байты отката 2.58.113
+        # (c987c03e3ee0 / d1b210c156c8) не изменились.
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("14743d288ea3", "f5c4807d088e")
+            ("ff502bb6b60e", "68f0233d7050")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

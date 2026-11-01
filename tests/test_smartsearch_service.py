@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from config.settings import settings
+from services import auto_budget
 from services.llm_client import LLMBadResponseError, LLMError
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.search_service import SearchService
@@ -25,15 +26,33 @@ class TestResearch:
     async def test_pipeline_and_xml_content(self):
         service, aggregator, llm = self._service()
         result = await service.research("найди пруфы")
-        aggregator.search.assert_awaited_once_with(
-            "найди пруфы", settings.SEARCH_MAX_SYMBOLS
-        )
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3, волна 4): агрегатор больше НЕ
+        # получает «слепой» лимит качества 4000 (он терял релевантные URL до
+        # нашей упаковки) — ему отдаётся технический ceiling реального окна,
+        # а инструкция выжимки получает динамический лимит того же окна.
+        call_cap = aggregator.search.await_args.args[1]
+        assert call_cap >= settings.SEARCH_MAX_SYMBOLS
         messages = llm.generate.await_args.args[0]
         system, user = messages[0]["content"], messages[1]["content"]
-        assert str(settings.SEARCH_MAX_SYMBOLS) in system
         assert "{max_symbols}" not in system
+        # `{max_symbols}` в каноне — потолок ОТВЕТА: подставлен операторский
+        # лимит (не технический ceiling выборки).
         assert "Максимальный жесткий потолок" in system  # R36-2 (D120)
+        assert str(settings.SEARCH_MAX_SYMBOLS) in system
         assert user == "<query>найди пруфы</query>\n\n<search_results>хиты</search_results>"
+
+    @pytest.mark.asyncio
+    async def test_dynamic_off_keeps_legacy_third_cap(self, monkeypatch):
+        """OFF → прежние 4000 и в агрегаторе, и в инструкции (байт-паритет)."""
+        monkeypatch.setattr(
+            type(settings), "EVIDENCE_WINDOW_DYNAMIC_ENABLED", False,
+            raising=False)
+        service, aggregator, llm = self._service()
+        await service.research("q")
+        legacy = auto_budget.LEGACY_SEARCH_MAX_SYMBOLS
+        aggregator.search.assert_awaited_once_with("q", legacy)
+        system = llm.generate.await_args.args[0][0]["content"]
+        assert str(legacy) in system
 
     @pytest.mark.asyncio
     async def test_cleanup_applied_to_llm_output(self):

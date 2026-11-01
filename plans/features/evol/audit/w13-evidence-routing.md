@@ -328,3 +328,116 @@ pytest tests/test_evol_evidence_routing.py
 
 **Review-fix 4 (01.11.2026, w13):** правило 6 сужено до НЕфактических актов (`runtime_state.initiative and not claims and act not in FACTUAL_ACTS`): инициатива `response_act=answer` без claim'ов больше НЕ получает тихое «проверять нечего» — решение `required=True` (`factual_plan_act`), а preflight с пустым `claims_query` честно помечает проверку `required_unmet` (`NO_RELEVANT_RESULTS`), Writer получает «внешняя проверка НЕ выполнена»; ни один сетевой вызов при этом не уходит (§5.2/сценарий 29: инициатива подчиняется тем же правилам, что Direct).
 **RED→GREEN:** эмуляция прежней ветки даёт `required=False / initiative_without_claim_query`, после фикса — `required=True / factual_plan_act`; `test_scenario29_initiative_answer_without_claims_makes_no_search` переписан на честную пометку `[EVIDENCE] … НЕ выполнена`, добавлен `test_review_fix4_initiative_factual_act_without_claims_requires_check`; `pytest tests/test_evol_evidence_routing.py + tests/test_evol_evidence_window.py` → 111 passed, direct/initiative подмножество → 212 passed (exit 0).
+
+---
+
+## 11. Волны 3–5 (01.11.2026): подключение reuse, канон промптов, корпус
+
+Кандидат: worktree `WorkspaceData/worktrees/c742e4de9e92c489/evol-71536a366a11-c63f6f44`, ветка `evol/impl`, HEAD `7e427fc8` + незакоммиченные правки этой полосы (по правилу задания коммитов не делалось; `git reset/checkout/stash/clean/restore` не выполнялись).
+
+### 11.1. Волна 3 — reuse на РЕАЛЬНОМ пути Direct (§1.6/§3.2/§3.4/§4.3)
+
+Волны 1–2 объявляли `verified_reuse` в политике, но живые швы не были подключены: `ToolContext.claim_keys` никто не заполнял, `evidence_budget_chars` получала только инициатива (и то legacy-константой), а факт доставки выдержки нигде не фиксировался. Сценарий 30 существовал только как тест политики. Что сделано:
+
+| Точка | Правка |
+| --- | --- |
+| `direct_chat_service._evidence_supplied(..., verified_reuse=)` | чистый параметр (без I/O): claim-key, покрытые свежим источником |
+| `_evidence_reuse_claims(plan, chat_id, bypass)` | `source_reuse.lookup` по каждому claim плана; зачёт ТОЛЬКО при `delivered_chars > 0`; явное «проверь заново» (`explicit.verify`) → `bypass` |
+| `_evidence_preflight` | передаёт reuse-ключи в `SuppliedSources` → правило 9 политики даёт `QUALIFIED_VERIFIED_REUSE` |
+| `_handle_direct` (после preflight, ДО tools) | `tool_ctx.claim_keys = decision.claims`; `tool_ctx.evidence_budget_chars = self._evidence_call_budget_chars(...)`; `_ev_reuse_pack = self._evidence_reuse_pack(...)` |
+| reuse-ход | tool-фаза не запускается вовсе (`raw=None`): 0 сетевых вызовов, Writer получает пакет из уже прочитанного источника |
+| `_record_evidence_delivery(decision, pack, chat_id)` | `source_reuse.record_delivery` по каждому РЕАЛЬНО доставленному claim (`delivered_chars_by_claim`) — `source_fetched ≠ verified_reuse` |
+| `generate_initiative_reply` | те же `claim_keys` + reuse-пакет (инициатива не отдельный контур); отсутствующий у тестовых двойников метод → прежний путь без reuse |
+| `direct_execution.build_reuse_evidence_pack` | тот же пакакер (`build_evidence_pack`) над записями кеша: одна упаковка, одна семантика truncation/limitations, строка `reuse: <claim_key> \| <source_id> \| age=…` |
+| `direct_execution.delivered_chars_by_claim` | привязка доставки к claim'у: сущность И версия/дата/метрика обязаны быть в тексте источника (выдержка про 4.1 не подтверждает claim про 4.2) |
+
+Smart Cache не тронут (в правке не участвует; `source_reuse` — существующий модуль волны 2).
+
+### 11.2. Волна 4 — окно L1 и третий кап поиска
+
+**`L1_WINDOW_LINE_CHARS = 200` — корневая причина, а не симптом.** Строка L1-окна резалась фиксированно, поэтому версия/цена/дата в длинном сообщении до планера не доезжали, и optional-поле `external_claims` почти не заполнялось. Введён `direct_l1.window_line_chars(window, budget_tokens=)` → кап выводится из реального бюджета (`limits.direct_l1_context_tokens`) и ФАКТИЧЕСКОГО числа строк окна:
+
+```text
+share = budget_tokens * 4 * L1_WINDOW_SHARE(0.6) / rows
+cap   = clamp(share, floor=200, ceiling=1200)
+```
+
+Короткое окно получает длинные строки (до 1200), полное окно 20 строк остаётся на прежнем полу 200; общий бюджет пакета по-прежнему держит `_cap_context` (это потолок ОДНОЙ строки, а не новый бюджет). Факты: `window_line_chars([1 строка]) = 1200`, `window_line_chars([20 строк]) = 200`, claim на 260-м символе сообщения теперь виден планеру, при `budget_tokens=400` пакет укладывается в бюджет.
+
+**Третий кап `search_service.research` (P2).** Раньше агрегатору отдавался `limits.search_max_symbols` (4000) как «слепой лимит качества» — тот же класс дефекта, что снят в tool-пути (§4.3): срез терял URL до нашей упаковки. Теперь агрегатор получает технический ceiling реального окна (`auto_budget.resolve_evidence_tool_window("search").hard_ceiling`), а `{max_symbols}` в каноне остаётся ПОТОЛКОМ ОТВЕТА и равно операторскому лимиту как есть (в каноне это «жёсткий потолок ответа», не объём выборки). При `EVIDENCE_WINDOW_DYNAMIC_ENABLED=OFF` — ровно прежние 4000 в обоих местах (паритет доказан тестом).
+
+### 11.3. Волна 5 — канон промптов (§5 контракта)
+
+| `prompt_id` (block_id) | Правка | Прежние байты (откат/ступень) | Метка ревизии |
+| --- | --- | --- | --- |
+| `prompts.direct_l1_planner_system_prompt` (`direct.base.l1_planner`) | в схему JSON добавлено optional `"external_claims": []`; новая секция «ВНЕШНИЕ УТВЕРЖДЕНИЯ» с форматом `entity/relation/version/date/metric` и фразами: «Обязательность read-only проверки исполняет runtime независимо от твоего мнения: уверенность, tool_policy и пустой capabilities_needed её не отменяют» + «external_claims не является разрешением не проверять» | `PREV_DIRECT_L1_PLANNER_EVR0` (`14743d288ea3`), ступень `prompt_migrations` + первый шаг `ROLLBACK_MIGRATIONS` | `l1-planner-external-claims` (`ff502bb6b60e`) |
+| `prompts.direct_chat_verbalizer_system_prompt` (`direct.base.l2_writer`) | секция «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»: опираться на доставленное; не добавлять проверяемых фактов вне его; не заявлять «проверил/нашёл», если проверки не было; «отсутствие результата ≠ не существует»; короткая реплика/шутка не превращается в отчёт со ссылками | `PREV_CHAT_VERBALIZER_EVR0` (`f5c4807d088e`… фактически байты PA5W2) | `l2-writer-evidence-discipline` (`68f0233d7050`) |
+| `prompts.direct_chat_system_prompt` (`direct.base.tool_phase`) | ОДНА фраза после секции W2: «Обязательность внешней проверки решает runtime, а не доступность инструмента… задача этапа — передать Writer границу знания» | `PREV_CHAT_EVR0_SYSTEM_PROMPT` (байты W2) | `toolphase-runtime-evidence` (`7a5aea1b73a4`) |
+
+Реестр/ступени: `FACTORY_REVISION_LABELS` + `FACTORY_REVISION_SEALS` обновлены; `FACTORY_SET_SHA256_12` `519663a57eb6 → 724a5d420896` (переутверждено осознанно, SOUL-AMD.3.2); `prompt_migrations.PROMPT_MIGRATIONS` получили по новой ступени на канон, `ROLLBACK_MIGRATIONS` — по новому первому шагу (активные байты → `PREV_*_EVR0`). Кастомы владельца не перетираются (ступень срабатывает только на точное совпадение байт). `prompt_factory.py` правки не потребовал: ревизии и слепки считаются из `factory_text`.
+
+**Не менялись (по контракту §5):** `prompts.search_system_prompt`, `summary_*`, `dream/dossier/memory`, `factcheck_*`, `verbilizer_mode_*`. Регресс-тест `test_wave5_background_prompts_have_no_search_directive` проверяет отсутствие поисковой директивы в эффективных фоновых канонах.
+
+**Карта конфликтов (обязательная таблица §5/§7 ТЗ).**
+
+| Стадия / prompt_id / ревизия | Цитируемая конфликтующая инструкция | С чем конфликтует | Consumer / effective path | Решение | Тест |
+| --- | --- | --- | --- | --- | --- |
+| L1 planner / `l1-planner-external-claims` | «уверенность» и `tool_policy` как поля плана; прежнее правило 4 «когда достоверность существенно зависит…» | §1.2 п.8 и C1/C2: L1 не должен отменять обязательную проверку | `_plan_direct_l1` → `prompts.direct_l1_planner_system_prompt` (машинная стадия, без Core) | формулировка «решает runtime, а не твоё мнение»; L1 по-прежнему не теряет права просить поиск | `test_wave5_l1_planner_informs_model_about_external_claims`, `test_rule4*` |
+| L1 planner | JSON-дисциплина «все поля обязательны» | optional-поле не должно заставлять выдумывать claim'ы | тот же | поле помечено НЕобязательным + «пустой список допустим» | тот же тест (`"external_claims": []`) |
+| L2 Writer / `l2-writer-evidence-discipline` | «ТОЧНОСТЬ: не выдумывай» без правила «не заявлять проверку» | `public_speech_guard.claims_total_verification` ловит это только на выходе | `_l2_write_answer` → `prompts.direct_chat_verbalizer_system_prompt` | в канон добавлена фактовая дисциплина доставленных доказательств (промпт поддерживает guard, а не дублирует его) | `test_wave5_writer_has_factual_discipline` |
+| L2 Writer | «Оформление и речевая манера определяются отдельными слоями» (Style/Core) | нельзя задавать стиль в секции про факты | тот же | секция говорит только о фактической стороне и о неуместности списка ссылок в шутке | тот же + `soul1_composer_parity_off` |
+| tool phase / `toolphase-runtime-evidence` | «проверяй через execute_web_search, когда он доступен» (W2) | C3/`allowed()`: доступность инструмента ≠ основание обойти policy | `_compose_speech_system(writer="tool_phase")` | одна фраза: обязанность решает runtime; секция W2 не переписана | `test_wave5_tool_phase_says_runtime_decides_not_tool_availability`, `test_direct_chat_prompts` |
+| фон (Summary/Dream/Dossier/Memory/FactCheck) | — | §2.5: ноль изменений и ноль поисковых директив | фоновые сервисы | не менялись | `test_wave5_background_prompts_have_no_search_directive`, `test_scenario19_background_services_have_no_web_imports` |
+
+**Снимок effective payload (§5.5 контракта).** `tests/fixtures/soul1/direct-runtime-assembly-asap2.txt` — исторический снимок сборки. Перезаписывать его «на глаз» нельзя (он снят внешним скриптом в конкретном окружении и его USER-байты зависят от флагов тестовой сессии — проверено: два прогона в разных окружениях дают разные USER). Поэтому сверка переведена на детерминированную проекцию: `_canon_patch` заменяет в ЭТАЛОНЕ ровно изменившийся канонический блок активными байтами (и падает, если блок не найден ровно один раз). Всё остальное — исторические байты сборки — сравнивается байт-в-байт.
+
+### 11.4. Волна 5 — корпус и метрики (сценарии 45/46)
+
+`tests/test_evol_evidence_corpus.py` (новый, `CONTRACT`): 13 размеченных кейсов по 7 классам (`externally_factual`, `attributed`, `background`, `social`, `transformation`, `runtime`, `historical` + reuse-кейс) через РЕАЛЬНЫЕ швы (`evaluate_evidence_need` + `allowed`, `source_reuse`, `_evidence_reuse_pack`, `guard_egress`, `_run_evidence_egress_guard`). Сеть не вызывается ни разу: «вызов» — решение политики + мок-роутер.
+
+Метрики прогона (числа сняты этим же прогоном, без подмены разметки):
+
+```text
+eligible_factual=4  verified_fresh=4  verified_reuse=1  alternate_source=7
+attempted_failed=0  valid_skip=8      invalid_skip=0     unnecessary_search=0
+unsupported_blocked=2
+latency (CPU политика+упаковка+guard, без сети/LLM): 0.0055 s и 0.0043 s
+```
+
+Утверждения теста: `invalid_skip == 0`, `unnecessary_search == 0` на исключённых классах, `unsupported_blocked >= 2` (ложь в шутке и добавка в атрибутированном пересказе реально блокируются), состав метрик между двумя прогонами на одном корпусе совпадает (подмена разметки не «улучшает» числа).
+
+Честное ограничение: `historical`-класс достижим только через `SuppliedSources.history_answer` — детерминированного детектора «ответ уже есть в истории» в проде нет (волна 1 его не заводила), поэтому кейс помечен как класс-контракт, а не как «наблюдённый на живом пути».
+
+### 11.5. Тестовое доказательство (волны 3–5)
+
+```text
+pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py
+       tests/test_evol_evidence_corpus.py -q                       → 129 passed
+pytest tests/test_evol_evidence_{routing,window,corpus}.py
+       test_direct_chat_prompts.py test_direct_l1_l1d_contract.py
+       test_prompt_migrations.py test_evol018_prompt_audit.py
+       test_soul1_registry_completeness.py test_soul1_composer_parity_off.py
+       test_smartsearch_service.py test_tool_schemas.py -q          → 284 passed
+pytest tests/test_asap_speech_r3b_canon.py test_cfg07_backstage_contract.py
+       test_p0_delta_depth_instruction.py test_p0_prompts_core.py
+       test_post_asap5_w1_writer_core.py test_post_asap5_w2_tech_reasoning.py
+       test_speech_p0_corrective_l1_route.py test_direct_l1_corrective_r1.py
+       test_hot_config.py test_soul1_w5_observer_gates.py -q        → все зелёные
+pytest tests/ -q -k "direct or initiative or tool or l1 or evidence or prompt
+       or smartsearch or search or parity" -p no:randomly
+                                        → 3777 passed, 13 failed (все пред-существующие)
+```
+
+13 падений (не мои, проверены `git status` — соответствующие файлы не менялись этой полосой): 5× `test_direct_fallback_recompose_asap32` (дрейф сигнатуры `_fallback_with_retries(sent=…)`), `test_mca11_money_limits_round1028::test_no_runtime_callers_off_parity` (упоминание `mca_money_limits` в `services/evidence_policy.py` волны 1 — файл закоммичен), `test_mca20_rework1_f1_f2::test_evidence_injection_stays_data_not_instructions` (FC-рендер экранирования `<evidence>`), 6× `summary_*` (включая известный по контракту §6.3 красный).
+
+Новые/переписанные тесты этой полосы (по одному на обязательство):
+`test_wave3_direct_reuse_two_turns_second_is_network_free`, `test_wave3_changed_version_still_does_new_fetch`, `test_wave3_reuse_requires_delivered_excerpt`, `test_wave3_explicit_recheck_bypasses_reuse`, `test_wave3_direct_sets_claim_keys_and_budget_before_tools` (AST), `test_wave3_call_budget_matches_pack_formula`, `test_wave3_delivered_chars_by_claim_are_per_claim`, `TestL1WindowLineBudget` (4), `test_corpus45_zero_invalid_skip_zero_unnecessary_search`, `test_corpus46_metrics_before_and_after_are_honest`, `test_repeat_dialog_reuses_and_background_summary_makes_no_call`, `test_wave5_*` (4).
+
+### 11.6. Осознанные границы волн 3–5
+
+1. **`fetch_article` schema** расширена аддитивно: `terms`, `section`, `offset`, `claim` (все опциональные). Роутер их уже понимал (`_article_terms`, `select_excerpt(section/offset)`, `_claim_keys`), поэтому схема теперь просто сообщает модели то, чем инструмент уже умел пользоваться; существующие тесты схем/роутера зелёные, `additionalProperties: false` сохранён.
+2. **Инициатива**: `claim_keys` подключены, но `evidence_budget_chars` у неё остаётся `_l1.evidence_max_chars()` — в инициативном ходе нет композера L2 с `l2_input_budget`, считать per-call бюджет не из чего; это честная legacy-константа, а не «забыли».
+3. **Reuse после рестарта** процесса пуст (in-memory LRU волны 2) — первый такой ход читает источник заново, как и записано в §3.3 контракта.
+4. **`delivered_chars_by_claim`** привязывает доставку по сущности+версии/дате/метрике (текстовый матч канона `claim_key`), а не по source_id: источник, где нет названной версии, не подтверждает claim о версии.
+5. **Поисковый выжимка-лимит** (`{max_symbols}`) не переведён на динамическое окно: в каноне это «жёсткий потолок ответа», а не объём выборки; менять семантику канона без ТЗ — придумывать требование.
+

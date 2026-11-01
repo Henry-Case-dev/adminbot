@@ -545,7 +545,11 @@ TOOL_FETCH_ARTICLE = {
             "message with a link) and wants its content, a summary, or facts "
             "from it. Source is the url field OR a link already available in "
             "the context (omit url then). Returns Markdown text, not a raw "
-            "HTML page."),
+            "HTML page. For a long document the payload reports "
+            "remainder_chars/remainder_retrievable_chars and section list: "
+            "call the SAME tool again with offset (or section) to read the "
+            "next part instead of guessing; pass terms to select the part "
+            "relevant to the claim."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -553,6 +557,39 @@ TOOL_FETCH_ARTICLE = {
                         "description": ("Article link (http/https). Omit when "
                                         "the link is already available in the "
                                         "context (current message/reply).")},
+                # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3): догрузка нужной части
+                # существующим инструментом — без нового инструмента и без
+                # «дочитаю по памяти».
+                "terms": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": ("Terms of the claim being checked "
+                                    "(entity/version/metric). Used to select "
+                                    "the relevant section of a long document.")},
+                "section": {
+                    "type": "string",
+                    "description": ("Heading/index of a section from the "
+                                    "previous payload's `sections`. Use to "
+                                    "read that part of the document.")},
+                "offset": {
+                    "type": "integer", "minimum": 0,
+                    "description": ("Character offset to continue reading "
+                                    "from (the previous payload's "
+                                    "full_source_pointer.offset).")},
+                "claim": {
+                    "type": "object",
+                    "description": ("The claim this document must support: "
+                                    "entity, relation (version/price/spec/"
+                                    "event/documentation/existence/metric), "
+                                    "version, date, metric. Enables qualified "
+                                    "source reuse for the same claim."),
+                    "properties": {
+                        "entity": {"type": "string"},
+                        "relation": {"type": "string"},
+                        "version": {"type": "string"},
+                        "date": {"type": "string"},
+                        "metric": {"type": "string"}},
+                    "required": ["entity"],
+                    "additionalProperties": False},
             },
             "required": [],
             "additionalProperties": False,

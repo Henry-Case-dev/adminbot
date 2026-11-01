@@ -991,6 +991,83 @@ def measure_nonevidence_chars(*, system_base: str = "", plan_block: str = "",
         return 0
 
 
+@dataclass
+class _ReuseRaw:
+    """Мини-носитель для пакакера: только ``evidence_sources`` (§3.4)."""
+
+    evidence_sources: list
+
+
+def build_reuse_evidence_pack(records, plan=None, *,
+                              capacity_chars: int | None = None
+                              ) -> EvidencePack:
+    """Пакет из УЖЕ прочитанных источников (§3.4): 0 сетевых вызовов.
+
+    Reuse не «пустая проверка»: Writer получает ту же выдержку и машинную
+    строку ``reuse: <claim_key> | <source_id> | age=…``. Упаковка — тем же
+    пакакером (fair allocation/truncation/limitations), чтобы
+    ``source_fetched ≠ delivered`` соблюдался одинаково. Никогда не бросает."""
+    try:
+        sources: list[EvidenceSource] = []
+        for record in (records or ()):
+            snippet = str(getattr(record, "snippet", "") or "")
+            if not snippet:
+                continue
+            claim = getattr(record, "claim", None)
+            entity = str(getattr(claim, "entity", "") or "")
+            header = ""
+            try:
+                from services import source_reuse as _sr
+                header = _sr.reuse_line(record)
+            except Exception:      # pragma: no cover - защитная ветка
+                header = ""
+            content = (f"{header}\n{entity}: {snippet}".strip()
+                       if header else snippet)
+            sources.append(EvidenceSource(
+                tool="fetch_article", status="ok", content=content,
+                total_chars=len(snippet)))
+        if not sources:
+            return EvidencePack()
+        return build_evidence_pack(_ReuseRaw(sources), plan,
+                                  capacity_chars=capacity_chars)
+    except Exception:      # pragma: no cover - защитная ветка
+        return EvidencePack()
+
+
+def delivered_chars_by_claim(pack, claims) -> dict:
+    """claim_key → сколько символов источника реально доставлено Writer'у.
+
+    ``source_fetched ≠ delivered`` (§3.4): reuse засчитывается только за
+    выдержку, которая физически доехала в пакет. Привязка — по claim'у, а не
+    «пакет целиком»: сущность И названные версия/дата/метрика обязаны быть в
+    тексте источника, иначе выдержка про 4.1 не подтверждает claim про 4.2."""
+    out: dict = {}
+    try:
+        sources = list(getattr(pack, "sources", None) or ())
+        for claim in (claims or ()):
+            entity = str(getattr(claim, "entity", "") or "").strip().lower()
+            key = claim.key() if callable(getattr(claim, "key", None)) else ""
+            if not entity or not key:
+                continue
+            tokens = [entity]
+            for name in ("version", "date", "metric"):
+                token = str(getattr(claim, name, "") or "").strip().lower()
+                if token:
+                    tokens.append(token)
+            chars = 0
+            for src in sources:
+                if not getattr(src, "delivered_chars", 0):
+                    continue
+                body = str(getattr(src, "content", "") or "").lower()
+                if all(token in body for token in tokens):
+                    chars += int(getattr(src, "delivered_chars", 0))
+            if chars > 0:
+                out[key] = chars
+    except Exception:      # pragma: no cover - защитная ветка
+        return {}
+    return out
+
+
 def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
                         min_per_source: int = EVIDENCE_FLOOR_CHARS
                         ) -> EvidencePack:
@@ -1232,6 +1309,7 @@ __all__ = [
     "orchestrator_max_total_tokens", "orchestrator_max_metered_calls",
     "resolve_execution_mode", "derive_simple_steps", "run_simple_tools",
     "run_adaptive_chain", "build_evidence_pack", "l2_evidence_budget_chars",
+    "build_reuse_evidence_pack", "delivered_chars_by_claim",
     "build_l2_fallback_adapter", "DEFAULT_EVIDENCE_CAP_CHARS",
     "EVIDENCE_FLOOR_CHARS",
 ]

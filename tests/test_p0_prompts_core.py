@@ -109,7 +109,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # EVOL §5 W5 (31.10.2026, d036707a): +1 заводской промпт «Критический
     # разнос» (factcheck.critique.directive, дословный текст владельца) →
     # 519663a57eb6. Пин переутверждён осознанно (L-F11S-1), не ослаблен.
-    assert pr.FACTORY_SET_SHA256_12 == "519663a57eb6"
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5, 01.11.2026): +3 фабрики Direct
+    # (L1 planner external_claims, Writer «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»,
+    # tool phase «решает runtime») → 724a5d420896.
+    assert pr.FACTORY_SET_SHA256_12 == "724a5d420896"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

@@ -14,6 +14,7 @@ import logging
 import time
 
 from config.settings import settings
+from services import auto_budget
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
@@ -77,11 +78,30 @@ class SearchService:
         # T-619: лимит/флаг реранка/промпт — горячие точки (фолбек settings)
         max_symbols = hot.get("limits.search_max_symbols",
                               settings.SEARCH_MAX_SYMBOLS)
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3, волна 4): третий кап того же
+        # класса. Раньше агрегатор получал 4000 «слепым» лимитом качества и
+        # терял релевантные URL до нашей упаковки. Теперь берётся РЕАЛЬНОЕ
+        # окно (`resolve_evidence_tool_window`): технический ceiling — в
+        # агрегатор, динамический лимит — в инструкцию выжимки. При
+        # `EVIDENCE_WINDOW_DYNAMIC_ENABLED=OFF` лимит остаётся прежним 4000.
+        try:
+            window = auto_budget.resolve_evidence_tool_window("search")
+            # OFF (legacy) → ровно прежние 4000 и в агрегаторе, и в выжимке.
+            search_cap = int(window.effective_limit
+                             if window.source == "legacy"
+                             else (window.hard_ceiling
+                                   or window.effective_limit))
+            # `{max_symbols}` в каноне означает ПОТОЛОК ОТВЕТА (не объём
+            # выборки), поэтому в инструкцию идёт операторский лимит как есть;
+            # технический ceiling влияет только на то, что отдаёт агрегатор.
+            digest_cap = int(max_symbols)
+        except Exception:      # pragma: no cover - защитная ветка
+            search_cap, digest_cap = int(max_symbols), int(max_symbols)
         # SOUL-1 (W1 fix-pass, BLOCKER-2): persisted-значение канона — через
         # единый резолвер реестра (провенанс + вычистка legacy-речи).
         system_prompt = resolve_prompt("prompts.search_system_prompt",
                                        SEARCH_SYSTEM_PROMPT)
-        results = await self.aggregator.search(query, max_symbols)
+        results = await self.aggregator.search(query, search_cap)
         if hot.get("flags.search_rerank_enabled", settings.SEARCH_RERANK_ENABLED) \
                 and results.strip():
             results = await self._rerank_results(query, results)
@@ -93,7 +113,7 @@ class SearchService:
                 chat_id, query, sort_by_timestamp=True)   # 55.6, никогда не бросает
         else:
             rag = ""
-        system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        system = system_prompt.replace("{max_symbols}", str(digest_cap))
         # UNIFIED-CORE (P0, 20.10.2026): выжимка поиска — пользовательская
         # речь → Core + Expression владельца (без конфиг-слоя — байт-паритет).
         owner_block = await speech_owner_block(chat_id)

@@ -102,6 +102,8 @@ def recorded(section: str) -> dict:
                    system.group(3)),
         "user": ((int(user.group(1)), int(user.group(2)), user.group(3))
                  if user else None),
+        "system_text": sys_text,
+        "user_text": user_text,
     }
 
 
@@ -244,16 +246,52 @@ def _pg_down():
         os.environ["UNIFIED_COMPOSER_ENABLED"] = prev
 
 
+def _canon_patch(section: str, text: str | None) -> str | None:
+    """Привести ЭТАЛОННЫЕ байты к текущему канону (ADR-1013-3).
+
+    Снимок — durable evidence конкретной сборки. При осознанной правке канона
+    (волна 5: секции evidence-discipline/external_claims/runtime) эталон не
+    переписывается «на глаз»: из него детерминированно заменяется ровно
+    изменившийся канонический блок активными байтами. Всё остальное —
+    исторические байты сборки — сравнивается как было. Если заменяемый блок
+    в эталоне не найден ровно один раз, тест падает: значит эталон и канон
+    разошлись не по этой правке.
+    """
+    if text is None:
+        return None
+    from services.chat_prompts import (DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+                                       DIRECT_VERBALIZER_SYSTEM_PROMPT,
+                                       PREV_CHAT_VERBALIZER_EVR0,
+                                       PREV_DIRECT_L1_PLANNER_EVR0)
+    swaps = []
+    if section in ("P1", "P2", "P5b"):
+        swaps.append((PREV_CHAT_VERBALIZER_EVR0,
+                      DIRECT_VERBALIZER_SYSTEM_PROMPT))
+    if section == "P4":
+        swaps.append((PREV_DIRECT_L1_PLANNER_EVR0,
+                      DIRECT_L1_PLANNER_SYSTEM_PROMPT))
+    for old, new in swaps:
+        assert text.count(old) == 1, (
+            f"{section}: канонический блок не найден в эталоне ровно один раз")
+        text = text.replace(old, new)
+    return text
+
+
 def _assert_matches(section: str, system: str, user: str | None = None):
     expect = recorded(section)
-    chars, tokens, want = expect["system"]
-    assert sha12(system) == want, (
-        f"{section}: sha256_12 системы {sha12(system)} != дампа {want}")
-    assert len(system) == chars, f"{section}: chars {len(system)} != {chars}"
-    if user is not None and expect["user"] is not None:
-        uchars, _utokens, uwant = expect["user"]
-        assert sha12(user) == uwant, f"{section}: USER sha != дампа {uwant}"
-        assert len(user) == uchars
+    # ADR-1013-3: байтовая сверка идёт против эталона с ТЕКУЩИМ каноническим
+    # блоком (замена детерминированная, см. `_canon_patch`), а не против
+    # устаревших байтов канона. Всё остальное — исторические байты сборки.
+    want_system = _canon_patch(section, expect["system_text"])
+    assert want_system is not None
+    want_user = expect.get("user_text")
+    assert system == want_system, (
+        f"{section}: SYSTEM payload != эталон (chars {len(system)} vs "
+        f"{len(want_system)})")
+    if user is not None and want_user is not None:
+        assert user == want_user, (
+            f"{section}: USER payload != эталон (chars {len(user)} vs "
+            f"{len(want_user)})")
 
 
 # ── ON-контур: in-memory оси (PG недоступен) ────────────────────────────────
@@ -368,7 +406,8 @@ async def test_p4_l1_planner_system_matches_recorded_dump():
     cap = [c for c in llm.captured if c["step"] == "l1_planner"]
     assert cap, "L1 planner не вызвался"
     system = cap[0]["messages"][0]["content"]
-    _assert_matches("P4", system)
+    user = cap[0]["messages"][1]["content"]
+    _assert_matches("P4", system, user)
     assert system == psb.resolve_prompt(
         "prompts.direct_l1_planner_system_prompt",
         DIRECT_L1_PLANNER_SYSTEM_PROMPT)

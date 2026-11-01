@@ -841,7 +841,34 @@ async def record_l1_usage(llm, *, usage, messages, content, model: str,
 L1_WINDOW_MESSAGES = 20       # §1.5: окно последних N (дефолт 20)
 L1_PERSONA_FRAME_CHARS = 400  # голова character_block
 L1_REPLY_BLOCK_CHARS = 400
+#: Пол строки окна (канон прежнего поведения: 200 символов).
 L1_WINDOW_LINE_CHARS = 200
+#: Потолок строки окна (класс C): одно гигантское сообщение не должно съесть
+#: весь пакет L1, даже если строк в окне мало.
+L1_WINDOW_LINE_CHARS_MAX = 1200
+#: Доля L1-бюджета, которую вправе занять блок «ПОСЛЕДНИЕ СООБЩЕНИЯ».
+L1_WINDOW_SHARE = 0.6
+
+
+def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
+    """Кап одной строки L1-окна из РЕАЛЬНОГО бюджета пакета (§1.5).
+
+    Корневая причина дефекта «L1 не видит claim»: строка резалась фиксированно
+    на 200 символах, поэтому версия/цена/дата в длинном сообщении до планера
+    не доезжали, и ``external_claims`` заполнялся редко. Теперь кап выводится
+    из фактического бюджета (`limits.direct_l1_context_tokens`) и ФАКТИЧЕСКОГО
+    числа строк окна: короткое окно получает длинные строки (200 → до 1200), а
+    длинное остаётся на прежнем полу 200. Общий бюджет пакета по-прежнему
+    защищён `_cap_context` — это потолок ОДНОЙ строки, а не новый бюджет."""
+    try:
+        rows = len(tuple(window or ())) or L1_WINDOW_MESSAGES
+        budget = int(budget_tokens) if budget_tokens is not None \
+            else l1_context_tokens()
+        share = int(max(0, budget) * 4 * L1_WINDOW_SHARE) // max(1, rows)
+        return max(L1_WINDOW_LINE_CHARS,
+                   min(L1_WINDOW_LINE_CHARS_MAX, share))
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return L1_WINDOW_LINE_CHARS
 
 # ASAP2 T10-BOUNDARY / CLAR-CTX-HONEST (§6.1 #10, §3.4, §3.5 source):
 # единственная честная пометка о том, что видна не вся история. Факт берётся
@@ -895,7 +922,12 @@ def build_l1_context(*, query, current_question: str = "",
             sections.append((BOT_REPLIES_SECTION, "\n".join(bot_lines)))
         window_lines = render_window_lines(window, L1_WINDOW_MESSAGES,
                                            with_ids=with_ids,
-                                           alias_resolver=alias_resolver)
+                                           alias_resolver=alias_resolver,
+                                           line_chars=window_line_chars(
+                                               window,
+                                               budget_tokens=int(budget_tokens)
+                                               if budget_tokens is not None
+                                               else None))
         if window_lines:
             sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
         # ASAP2 T10-BOUNDARY: пометка ставится ровно по факту усечения —
@@ -1033,10 +1065,15 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
 
 
 def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
-                        with_ids: bool = False, alias_resolver=None) -> list[str]:
+                        with_ids: bool = False, alias_resolver=None,
+                        line_chars: int | None = None) -> list[str]:
     """§1.5: последние N сообщений окна → компактные строки
     ``имя: текст`` (кап на строку). Никогда не бросает.
 
+    ``line_chars`` — кап строки; ``None`` → прежний пол
+    :data:`L1_WINDOW_LINE_CHARS`. Вызывающий (`build_l1_context`) передаёт
+    динамический кап из реального бюджета (:func:`window_line_chars`), иначе
+    claim в длинном сообщении до планера не доезжает.
     L1D (22.10.2026, директива §2): ``with_ids=True`` — разметка окна
     идентификаторами и reply-связями (``[msg:ID] [user:UID] имя: текст
     (ответ на msg:N)``) — L1 выбирает цель reply/реакции ИЗ КОНТЕКСТА сама
@@ -1049,6 +1086,7 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
     формат (обратная совместимость тестов/вызовов)."""
     lines: list[str] = []
     try:
+        cap = int(line_chars) if line_chars else L1_WINDOW_LINE_CHARS
         rows = [r for r in (window or []) if isinstance(r, dict)]
         for row in rows[-max(0, int(limit)):]:
             raw_author = str(row.get("author_name") or "").strip()
@@ -1087,7 +1125,7 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
                         reply_mark = f" (ответ на msg:{int(reply_to)})"
                     except (TypeError, ValueError):
                         reply_mark = ""
-            lines.append(f"{prefix}{author}: {body[:L1_WINDOW_LINE_CHARS]}"
+            lines.append(f"{prefix}{author}: {body[:cap]}"
                          f"{reply_mark}")
     except Exception:          # pragma: no cover - защитная ветка
         return []

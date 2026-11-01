@@ -28,6 +28,7 @@ from services import direct_l1 as l1
 from services import evidence_policy as ep
 from services import hot_config as hot
 from services import mca_events
+from services import source_reuse
 from services.tool_router import ToolContext
 from tests.test_asap8_v6_wc_direct_d04 import _Router
 
@@ -39,10 +40,12 @@ def _clean_state():
     hot.set_config_cache(None)
     ep.POLICY_ENABLED_OVERRIDE = None
     ep.EGRESS_ENABLED_OVERRIDE = None
+    source_reuse.clear()
     yield
     hot.set_config_cache(None)
     ep.POLICY_ENABLED_OVERRIDE = None
     ep.EGRESS_ENABLED_OVERRIDE = None
+    source_reuse.clear()
 
 
 def _plan(**over) -> l1.L1Plan:
@@ -1281,3 +1284,218 @@ async def test_egress_gate_off_keeps_answer_byte_identical():
         evidence_text="")
     assert answer == "Модели X не существует."
     assert stats["guard_action"] == ep.GUARD_NONE
+
+
+# ── Волна 3: reuse подключён к реальному пути Direct (§1.6/§3.2/§3.4/§4.3) ──
+
+
+async def _reuse_turn(svc, plan, *, run_id: str = "run-w3"):
+    """Один ход preflight'а на реальном шве сервиса (без сети/LLM)."""
+    return await svc._evidence_preflight(
+        CHAT, run_id, query="что нового в deepseek v4.1 flash",
+        reply_text="", l1_plan=plan, response_plan=None)
+
+
+def _seed_reuse(claim, *, snippet="deepseek v4.1 flash: релиз 1 октября",
+                delivered: int = 120):
+    source_reuse.store(claim, url="https://a.example/v41", source_id="s41",
+                       snippet=snippet, read_level="selected")
+    assert source_reuse.record_delivery(claim, delivered) is True
+
+
+@pytest.mark.asyncio
+async def test_wave3_direct_reuse_two_turns_second_is_network_free(monkeypatch):
+    """Сценарий 30 на живом шве: 2-й ход того же claim — reuse, 0 вызовов.
+
+    Волна 1 объявляла `verified_reuse` в политике, но никто не заполнял
+    `SuppliedSources.verified_reuse` и не отдавал выученную выдержку Writer'у.
+    Здесь проверяется весь путь: preflight → решение reuse → пакет из уже
+    прочитанного источника → запись факта доставки. Сети нет ни на одном шаге.
+    """
+    router = _Router(outputs={"execute_web_search": "что-то из сети"})
+    svc = _service(router)
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+
+    first = await _reuse_turn(svc, plan, run_id="run-w3a")
+    assert first.required, "первый ход обязан проверить claim"
+
+    _seed_reuse(claim)
+    second = await _reuse_turn(svc, plan, run_id="run-w3b")
+    assert not second.required
+    assert second.skip_reason is ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE
+
+    pack = svc._evidence_reuse_pack(second, l1_plan=plan,
+                                     response_plan=None, chat_id=CHAT,
+                                     capacity_chars=4000)
+    assert pack is not None
+    assert "deepseek v4.1 flash" in pack.text
+    assert "reuse: " in pack.text
+    assert any(src.delivered_chars > 0 for src in pack.sources)
+    # Пакет собран из кеша: сетевых вызовов на этом ходе нет.
+    assert router.dispatched == []
+
+    before = source_reuse.stats()["delivered"]
+    svc._record_evidence_delivery(second, pack, chat_id=CHAT)
+    assert source_reuse.stats()["delivered"] > before
+
+
+@pytest.mark.asyncio
+async def test_wave3_changed_version_still_does_new_fetch(monkeypatch):
+    """Сценарий 31 на живом шве: 4.2 не переиспользует источник про 4.1."""
+    svc = _service(_Router())
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    old_plan = _reuse_plan("4.1")
+    _seed_reuse(ep.classify_claims(old_plan)[0])
+    decision = await _reuse_turn(svc, _reuse_plan("4.2"), run_id="run-w3c")
+    assert decision.required
+    assert decision.skip_reason is None
+    assert svc._evidence_reuse_pack(decision, l1_plan=_reuse_plan("4.2"),
+                                    response_plan=None, chat_id=CHAT) is None
+
+
+def test_wave3_reuse_requires_delivered_excerpt():
+    """§3.4: `source_fetched ≠ verified_reuse` — без доставки reuse не зачёт."""
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    source_reuse.store(claim, url="https://a.example/v41", source_id="s41",
+                       snippet="deepseek v4.1 flash", read_level="selected")
+    assert dcs._evidence_reuse_claims(plan, chat_id=CHAT) == frozenset()
+    source_reuse.record_delivery(claim, 200)
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+
+def test_wave3_explicit_recheck_bypasses_reuse():
+    """§3.3: «проверь заново» → bypass, даже при свежей записи."""
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+    assert dcs._evidence_reuse_claims(plan, chat_id=CHAT, bypass=True) \
+        == frozenset()
+
+
+def test_wave3_direct_sets_claim_keys_and_budget_before_tools():
+    """§1.6/§4.3: claim-key и per-call бюджет уезжают в ToolContext ДО tools.
+
+    Структурный инвариант (AST): присваивания `claim_keys` /
+    `evidence_budget_chars` стоят в `_handle_direct` раньше вызова
+    `_l1_tool_phase` — иначе reuse и окно инструментов на живом пути мертвы."""
+    tree = ast.parse(pathlib.Path(
+        dcs.__file__).read_text(encoding="utf-8"))
+    target = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "_handle_turn":
+            target = node
+            break
+    assert target is not None
+    lines: dict[str, int] = {}
+    tool_phase_line = None
+    for node in ast.walk(target):
+        if isinstance(node, ast.Assign):
+            for sub in node.targets:
+                if isinstance(sub, ast.Attribute) and sub.attr in (
+                        "claim_keys", "evidence_budget_chars"):
+                    lines[sub.attr] = node.lineno
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                and node.func.attr == "_l1_tool_phase":
+            tool_phase_line = node.lineno if tool_phase_line is None \
+                else min(tool_phase_line, node.lineno)
+    assert tool_phase_line is not None
+    assert lines.get("claim_keys", 10 ** 9) < tool_phase_line
+    assert lines.get("evidence_budget_chars", 10 ** 9) < tool_phase_line
+
+
+def test_wave3_call_budget_matches_pack_formula(monkeypatch):
+    """§4.3/§4.2: бюджет инструмента считается тем же измерителем (C4)."""
+    svc = _service()
+    plan = _reuse_plan("4.1")
+    budget = svc._evidence_call_budget_chars(
+        l1_plan=plan, l1_meta={}, fallback_meta={"l2_input_budget": 6000},
+        system_base="system", time_line="12:00", user_blocks=["q"],
+        lessons="", speech="", character="")
+    assert budget > 0
+    # Без бюджета композера (None) — 0 → инструмент берёт реальное окно.
+    assert svc._evidence_call_budget_chars(
+        l1_plan=plan, l1_meta={}, fallback_meta={}) == 0
+
+
+def test_wave3_delivered_chars_by_claim_are_per_claim():
+    """§3.4: доставка считается по claim'у, а не «пакет целиком»."""
+    pack = dx.EvidencePack(sources=[
+        dx.EvidenceSource(tool="fetch_article", status="ok",
+                          content="deepseek v4.1 flash: релиз 1 октября",
+                          delivered_chars=40)])
+    claims = ep.classify_claims(_reuse_plan("4.1"))
+    other = ep.classify_claims(_reuse_plan("4.2"))
+    assert dx.delivered_chars_by_claim(pack, claims) == {claims[0].key(): 40}
+    assert dx.delivered_chars_by_claim(pack, other) == {}
+
+
+# ── Волна 5: канон промптов (§5 контракта) ──────────────────────────────────
+
+
+def _prompt_text(prompt_id: str) -> str:
+    from services import chat_prompts as cp
+    return {"prompts.direct_l1_planner_system_prompt":
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            "prompts.direct_chat_verbalizer_system_prompt":
+            cp.DIRECT_VERBALIZER_SYSTEM_PROMPT,
+            "prompts.direct_chat_system_prompt": cp.CHAT_SYSTEM_PROMPT,
+            }[prompt_id]
+
+
+def test_wave5_l1_planner_informs_model_about_external_claims():
+    """§5: планер узнаёт optional-поле и что проверку решает runtime.
+
+    Без этого optional-поле парсилось, но почти не заполнялось, и claim-key
+    оставался пустым (reuse/адресный запрос не работали)."""
+    text = _prompt_text("prompts.direct_l1_planner_system_prompt")
+    assert '"external_claims": []' in text
+    assert "ВНЕШНИЕ УТВЕРЖДЕНИЯ" in text
+    assert "исполняет runtime независимо от твоего мнения" in text
+    assert "не отменяют" in text
+    # Правила/контракты владельца не переписаны.
+    assert "capabilities_needed перечисляй только из доступных" in text
+    section = text.split("ВНЕШНИЕ УТВЕРЖДЕНИЯ", 1)[1]
+    assert "«" not in section and "»" not in section
+    assert "—" not in section
+
+
+def test_wave5_writer_has_factual_discipline():
+    """§5: Writer — единственный источник неподтверждённых добавок."""
+    text = _prompt_text("prompts.direct_chat_verbalizer_system_prompt")
+    assert "ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА" in text
+    for anchor in ("не добавляй проверяемых фактов",
+                   "если проверки не было",
+                   "Отсутствие результата не означает",
+                   "Не превращай короткую реплику"):
+        assert anchor in text, anchor
+    assert "Ты превращаешь подготовленный контекст" in text
+
+
+def test_wave5_tool_phase_says_runtime_decides_not_tool_availability():
+    """§5: одна фраза — иначе «когда он доступен» читается как обход policy."""
+    text = _prompt_text("prompts.direct_chat_system_prompt")
+    assert "Обязательность внешней проверки решает runtime" in text
+    assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" in text
+    assert text.count("Обязательность внешней проверки решает runtime") == 1
+
+
+def test_wave5_background_prompts_have_no_search_directive():
+    """§5: фоновая стадия не получает обязательный поиск (не менялась)."""
+    from services import dream_prompts, dossier_prompts, summary_prompts
+    for module in (summary_prompts, dream_prompts, dossier_prompts):
+        for name in dir(module):
+            if not name.isupper():
+                continue
+            value = getattr(module, name)
+            if not isinstance(value, str) or len(value) < 40:
+                continue
+            low = value.lower()
+            for needle in ("execute_web_search", "web_search", "погугли",
+                           "гугли в интернете"):
+                assert needle not in low, (module.__name__, name, needle)
+
+

@@ -101,11 +101,16 @@ def test_l2_owner_paragraphs_byte_intact():
         cp._VERBALIZER_CLAR_PARAGRAPHS,
         cp._VERBALIZER_CLAR_PARAGRAPHS + "\n\n"
         + cp._VERBALIZER_HISTORY_BOUNDARY_R3B, 1)
-    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == \
+    # Волна 5: активный канон = байты ред. PA5W2 + секция «ДОСТАВЛЕННЫЕ
+    # ДОКАЗАТЕЛЬСТВА» (прежние байты — PREV_CHAT_VERBALIZER_EVR0).
+    assert cp.PREV_CHAT_VERBALIZER_EVR0 == \
         cp.PREV_CHAT_VERBALIZER_PA5W2.replace(
             cp._VERBALIZER_HISTORY_BOUNDARY_R3B,
             cp._VERBALIZER_HISTORY_BOUNDARY_R3B + "\n\n"
             + cp._VERBALIZER_TECH_REASONING_PA5W2, 1)
+    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == \
+        cp.PREV_CHAT_VERBALIZER_EVR0 + "\n\n" \
+        + cp._VERBALIZER_EVIDENCE_DISCIPLINE_EVR1
     assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT != prev
     assert hashlib.sha256(
         cp.PREV_CHAT_VERBALIZER_CLAR.encode("utf-8")).hexdigest()[:12] == \
@@ -155,11 +160,22 @@ def test_l1_owner_contract_byte_intact():
         cp._DIRECT_L1_PLANNER_BASE_R3 + contract
         + cp._DIRECT_L1_CONTINUATION_R3B
         + cp._DIRECT_L1_INTENT_UPDATE_PA5 + cp._DIRECT_L1_PLANNER_RULES)
-    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
+    # Волна 5: активные байты = ред.6 + секция «ВНЕШНИЕ УТВЕРЖДЕНИЯ»
+    # (+ optional-поле external_claims в схеме); слепок EVR0 — байты ред.6.
+    w2_canon = (cp._DIRECT_L1_PLANNER_BASE_R3 + contract
+                + cp._DIRECT_L1_CONTINUATION_R3B
+                + cp._DIRECT_L1_INTENT_UPDATE_PA5
+                + cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
+        ' "confidence": 0.0,\n "future_intent": null}',
+        ' "confidence": 0.0,\n "future_intent": null,\n'
+        ' "external_claims": []}', 1)
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         cp._DIRECT_L1_PLANNER_BASE_R3 + contract
         + cp._DIRECT_L1_CONTINUATION_R3B
         + cp._DIRECT_L1_INTENT_UPDATE_PA5
         + cp._DIRECT_L1_PLANNER_RULES_PA5W2)
+    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
+        w2_canon + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1)
     assert hashlib.sha256(
         cp.PREV_DIRECT_L1_PLANNER_R3.encode("utf-8")).hexdigest()[:12] == \
         "ab6817a18657"
@@ -187,11 +203,14 @@ def test_ladder_and_rollback_chain():
     # прежние ступени стека целы
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    # цепочка отката: L1 — tech-reasoning (PA5W2) → intent-update (PA5W1) →
-    # material-priority (P0CINTR2) → P0CINT → P0CS2 → P0CS → R3b → R3 →
-    # 2.58.113 (9 шагов), L2 — tech-reasoning (PA5W2) → R3b (2 шага)
+    # цепочка отката: L1 — external-claims (EVR1) → tech-reasoning (EVR0 =
+    # PA5W2) → intent-update (PA5W1) → material-priority (P0CINTR2) → P0CINT →
+    # P0CS2 → P0CS → R3b → R3 → 2.58.113, L2 — evidence-discipline (EVR1) →
+    # tech-reasoning (EVR0) → R3b
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
         (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+         cp.PREV_DIRECT_L1_PLANNER_EVR0),
+        (cp.PREV_DIRECT_L1_PLANNER_EVR0,
          cp.PREV_DIRECT_L1_PLANNER_PA5W2),
         (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
          cp.PREV_DIRECT_L1_PLANNER_PA5W1),
@@ -207,7 +226,8 @@ def test_ladder_and_rollback_chain():
         (cp.PREV_DIRECT_L1_PLANNER_R3, cp.PREV_DIRECT_L1_PLANNER_CLAR)]
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY] == [
         (cp.DIRECT_VERBALIZER_SYSTEM_PROMPT,
-         cp.PREV_CHAT_VERBALIZER_PA5W2),
+         cp.PREV_CHAT_VERBALIZER_EVR0),
+        (cp.PREV_CHAT_VERBALIZER_EVR0, cp.PREV_CHAT_VERBALIZER_PA5W2),
         (cp.PREV_CHAT_VERBALIZER_PA5W2, cp.PREV_CHAT_VERBALIZER_CLAR)]
     # новые слепки — известные каноны, не «кастом»; активные байты отличны
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_R3)
@@ -225,12 +245,12 @@ def test_labels_and_fingerprint_consistent():
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pr.factory_text("direct.base.l2_writer") == \
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
-    # POST-ASAP5 W2: метки каналов бампнуты; прежние метки W1 — история
-    assert "l1-planner-tech-reasoning" in pr.factory_revision(
+    # Волна 5: метки трёх каналов Direct бампнуты (прежние метки — история).
+    assert "l1-planner-external-claims" in pr.factory_revision(
         "direct.base.l1_planner")
-    assert "l2-writer-tech-reasoning" in pr.factory_revision(
+    assert "l2-writer-evidence-discipline" in pr.factory_revision(
         "direct.base.l2_writer")
-    assert "toolphase-search-decision" in pr.factory_revision(
+    assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
 

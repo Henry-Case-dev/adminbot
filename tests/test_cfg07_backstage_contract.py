@@ -64,6 +64,9 @@ ACTIVE_CANONS: dict[str, str] = {
 # POST-ASAP5 W2 (27.10.2026): непосредственный прежний для direct —
 # активные байты после W1 (PREV_CHAT_W2_SYSTEM_PROMPT; снимается только
 # секция «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ»).
+# Волна 5 (01.11.2026): непосредственный прежний — PREV_CHAT_EVR0_SYSTEM_PROMPT
+# (байты W2-канона; снимается только фраза «обязательность проверки решает
+# runtime»). CFG-07A-слепок остаётся следующей ступенью лестницы.
 PREV_CANONS: dict[str, str] = {
     "search": sp.PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     "youtube": yt.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
@@ -71,7 +74,7 @@ PREV_CANONS: dict[str, str] = {
     "web": wp.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     "checkup": cp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     "summary": sm.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
-    "direct": ch.PREV_CHAT_W2_SYSTEM_PROMPT,
+    "direct": ch.PREV_CHAT_EVR0_SYSTEM_PROMPT,
 }
 
 MIGRATION_KEYS: dict[str, str] = {
@@ -199,7 +202,9 @@ def test_ladder_step_and_rollback_target(name):
     key = MIGRATION_KEYS[name]
     prev, new = _latest_step(name)
     assert (prev, new) in pm.PROMPT_MIGRATIONS[key], name
-    assert pm.ROLLBACK_MIGRATIONS[key][0] == (new, prev), name
+    # Волна 5 (ASAP-EVIDENCE-ROUTING-01 v3) добавила более новую ступень над
+    # CFG-07A: целевая ступень остаётся в стеке откката, но не первой.
+    assert (new, prev) in pm.ROLLBACK_MIGRATIONS[key], name
     assert pr.is_known_canon(prev), name
     assert pr.is_known_canon(new), name
 
@@ -217,12 +222,15 @@ def test_prev_canon_is_byte_identical_to_deployed_family(name):
     ступени PREV_CHAT_W1_SYSTEM_PROMPT."""
     prev = PREV_CANONS[name]
     if name == "direct":
-        # W2-слепок — чистые байты W1: маркеров нет, состав точен
+        # Волна 5: непосредственный прежний — EVR0 (байты W2-канона): маркеров
+        # личности нет, секция поиска ЕСТЬ (её добавил W2), фразы о runtime нет.
         assert "бот-абьюзер" not in prev, name
         assert "Саркастично-токсичной" not in prev and \
             "саркастично-токсичной" not in prev, name
-        assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" not in prev, name
-        assert prev == ch.PREV_CHAT_W2_SYSTEM_PROMPT, name
+        assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" in prev, name
+        assert "Обязательность внешней проверки решает runtime" not in prev, \
+            name
+        assert prev == ch.PREV_CHAT_EVR0_SYSTEM_PROMPT, name
         # прежний прод-канон 2.58.110 (более старая ступень) хранит свой
         # identity-маркер — обязанность узнавать прод-значения целa
         assert "бот-абьюзер" in ch.PREV_CHAT_W1_SYSTEM_PROMPT, name

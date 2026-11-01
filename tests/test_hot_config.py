@@ -206,14 +206,24 @@ class TestServiceHotPoints:
                 return "выдача без реранка"
 
         class _Llm:
+            def __init__(self):
+                self.calls = []
+
             async def generate(self, messages, temperature=None, **kwargs):
+                self.calls.append(messages)
                 return "ответ"
 
         service = SearchService(_Agg(), _Llm())
         await service.research("запрос")
         # rerank выключен → _rerank_results НЕ вызывался (проверяем косвенно:
-        # без исключений и с правильным max_symbols)
-        assert service.aggregator.last_max == 999
+        # без исключений и корректным лимитом).
+        # ASAP-EVIDENCE-ROUTING-01 v3 (§4.3, волна 4): «лимит качества» больше
+        # не уходит в агрегатор как слепой срез — туда едет технический
+        # ceiling реального окна, а операторский лимит остаётся границей
+        # выжимки (в системной инструкции).
+        assert service.aggregator.last_max >= 999
+        system = service.llm.calls[0][0]["content"]
+        assert "999" in system
 
     def test_info_service_reads_cache_first(self, tmp_path):
         from services.info_service import INFO_KEY, InfoService

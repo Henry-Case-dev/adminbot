@@ -206,9 +206,13 @@ def test_writer_prev_snapshot_and_step():
     assert "ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ" not in prev
     steps = dict(pm.PROMPT_MIGRATIONS[L2_KEY])
     assert steps[prev] == cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): верхняя ступень отката снимает
+    # секцию «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты EVR0 (канон PA5W2).
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY][0] == (
-        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, prev)
+        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, cp.PREV_CHAT_VERBALIZER_EVR0)
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY][1] == (
+        cp.PREV_CHAT_VERBALIZER_EVR0, prev)
+    assert pm.ROLLBACK_MIGRATIONS[L2_KEY][2] == (
         prev, cp.PREV_CHAT_VERBALIZER_CLAR)
     assert pr.is_known_canon(prev)
 
@@ -257,16 +261,25 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     prev5 = cp.PREV_DIRECT_L1_PLANNER_PA5W2
     assert canon.count(cp._DIRECT_L1_INTENT_UPDATE_PA5) == 1
     head, _tail = prev5.rsplit(cp._DIRECT_L1_PLANNER_RULES, 1)
-    assert canon == head + cp._DIRECT_L1_PLANNER_RULES_PA5W2
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): к байтам ред.5+правило PA5W2
+    # добавлена секция «ВНЕШНИЕ УТВЕРЖДЕНИЯ» + optional-поле в схеме.
+    evr0 = (head + cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
+        ' "confidence": 0.0,\n "future_intent": null}',
+        ' "confidence": 0.0,\n "future_intent": null,\n'
+        ' "external_claims": []}', 1)
+    assert canon == evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
-    assert _sha12(canon) == "14743d288ea3"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
+    assert _sha12(canon) == "ff502bb6b60e"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
+    assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert rollback[0] == (canon, prev5)
-    assert rollback[1] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR0)
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[2] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -320,7 +333,11 @@ def test_toolphase_search_section_once_and_semantics():
     canon = cp.CHAT_SYSTEM_PROMPT
     section = cp._DIRECT_SEARCH_DECISION_PA5W2
     assert canon.count(section) == 1
-    assert canon.endswith(section)
+    # Волна 5: секция W2 не переписана и остаётся последней СЕКЦИЕЙ; после неё
+    # стоит ровно одна фраза «обязательность проверки решает runtime».
+    assert cp.PREV_CHAT_EVR0_SYSTEM_PROMPT.endswith(section)
+    assert canon == (cp.PREV_CHAT_EVR0_SYSTEM_PROMPT
+                     + cp._DIRECT_SEARCH_DECISION_EVR1_SUFFIX)
     for anchor in ("характеристики современных устройств",
                    "новые аппаратные архитектуры",
                    "спецификации производителей",
@@ -338,7 +355,12 @@ def test_toolphase_search_section_once_and_semantics():
 def test_toolphase_prev_snapshot_and_existing_contracts_intact():
     canon = cp.CHAT_SYSTEM_PROMPT
     prev = cp.PREV_CHAT_W2_SYSTEM_PROMPT
-    assert canon == prev + "\n\n" + cp._DIRECT_SEARCH_DECISION_PA5W2
+    # Волна 5: EVR0 = прежние байты W2 (секция поиска есть), активный канон =
+    # EVR0 + одна фраза о runtime.
+    assert cp.PREV_CHAT_EVR0_SYSTEM_PROMPT == \
+        prev + "\n\n" + cp._DIRECT_SEARCH_DECISION_PA5W2
+    assert canon == cp.PREV_CHAT_EVR0_SYSTEM_PROMPT + \
+        cp._DIRECT_SEARCH_DECISION_EVR1_SUFFIX
     assert _sha12(prev) == "f30c6d73da82"
     assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" not in prev
     # существующие контракты tool phase не регрессировали
@@ -351,8 +373,12 @@ def test_toolphase_prev_snapshot_and_existing_contracts_intact():
     assert "Признай косяк в саркастичной манере" in canon
     steps = dict(pm.PROMPT_MIGRATIONS[TOOL_KEY])
     assert steps[prev] == canon
-    assert pm.ROLLBACK_MIGRATIONS[TOOL_KEY][0] == (canon, prev)
+    assert steps[cp.PREV_CHAT_EVR0_SYSTEM_PROMPT] == canon
+    assert pm.ROLLBACK_MIGRATIONS[TOOL_KEY][0] == (
+        canon, cp.PREV_CHAT_EVR0_SYSTEM_PROMPT)
     assert pm.ROLLBACK_MIGRATIONS[TOOL_KEY][1] == (
+        cp.PREV_CHAT_EVR0_SYSTEM_PROMPT, prev)
+    assert pm.ROLLBACK_MIGRATIONS[TOOL_KEY][2] == (
         prev, cp.PREV_CHAT_W1_SYSTEM_PROMPT)
     assert pr.is_known_canon(prev)
 
@@ -409,10 +435,12 @@ def test_no_new_layers_routers_or_classifiers():
 # ═══ Лестница/реестр: метки и fingerprint ═══════════════════════════════════
 
 def test_labels_and_fingerprint_after_bump():
-    assert "l1-planner-tech-reasoning" in pr.factory_revision(
+    # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
+    # (прежние метки — в слепках PREV_*_EVR0).
+    assert "l1-planner-external-claims" in pr.factory_revision(
         "direct.base.l1_planner")
-    assert "toolphase-search-decision" in pr.factory_revision(
+    assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")
-    assert "l2-writer-tech-reasoning" in pr.factory_revision(
+    assert "l2-writer-evidence-discipline" in pr.factory_revision(
         "direct.base.l2_writer")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12

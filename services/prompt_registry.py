@@ -127,7 +127,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # (своевременный execute_web_search; формулы/расчёты/болтовня без поиска;
     # недоступный поиск - не выдавать догадку за результат). Прежние байты —
     # PREV_CHAT_W2_SYSTEM_PROMPT (ступень + откат).
-    "direct.base.tool_phase": "toolphase-search-decision",
+    "direct.base.tool_phase": "toolphase-runtime-evidence",
     # ASAP 2 (23.10.2026, §4.1/§4.2 asap2 source): канон уточнений вставлен
     # (L1 контракт + правило 5-отсылка; L2 абзацы «КАК ПИСАТЬ»); прежние
     # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
@@ -137,7 +137,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # невозможность принципа, гипотезы допустимы при пометке, незнакомый
     # продукт ≠ выдуманная архитектура, достоверность а не нерешительность).
     # Прежние байты — PREV_CHAT_VERBALIZER_PA5W2 (ступень + откат).
-    "direct.base.l2_writer": "l2-writer-tech-reasoning",
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5, 01.11.2026): канон Writer'а —
+    # секция «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» (опираться на доставленное, не
+    # заявлять проверку без проверки, пустой результат ≠ не существует, не
+    # превращать шутку в отчёт со ссылками). Прежние байты —
+    # PREV_CHAT_VERBALIZER_EVR0 (ступень + откат).
+    "direct.base.l2_writer": "l2-writer-evidence-discipline",
     "direct.base.synthesizer": "synthesizer-r1023",
     # P0-CORRECTIVE (25.10.2026, §1.1 corrective): маршрутизация L1 по
     # материалу просьбы, а не по объекту оценки: разбор уже сказанного →
@@ -156,7 +161,13 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # заданными параметрами/болтовня - без поиска; поиск недоступен - не
     # выдавать неподтверждённое за факт). Прежние байты ред.5 —
     # PREV_DIRECT_L1_PLANNER_PA5W2 (ступень + откат).
-    "direct.base.l1_planner": "l1-planner-tech-reasoning",
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5, 01.11.2026): канон планера —
+    # optional-поле external_claims в схеме + одна машинная фраза
+    # «обязательность read-only проверки исполняет runtime независимо от
+    # твоего мнения» + запрет отменять проверку уверенностью/tool_policy/
+    # пустым capabilities_needed. Прежние байты — PREV_DIRECT_L1_PLANNER_EVR0
+    # (ступень + откат).
+    "direct.base.l1_planner": "l1-planner-external-claims",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -321,10 +332,10 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
 #: Первичное заполнение сгенерировано из кода этого worktree (EVOL-016 W2A),
 #: хеши не выдумывались. Источник проверки — ``seal_integrity()``.
 FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
-    "direct.base.tool_phase": ("toolphase-search-decision", "747fa3a2e292"),
-    "direct.base.l2_writer": ("l2-writer-tech-reasoning", "f5c4807d088e"),
+    "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
+    "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-tech-reasoning", "14743d288ea3"),
+    "direct.base.l1_planner": ("l1-planner-external-claims", "ff502bb6b60e"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2660,7 +2671,23 @@ def factory_set_fingerprint() -> str:
 #: «Критический разнос» публичного фактчека
 #: (``factcheck.critique.directive``, дословный текст владельца, метка
 #: ``factcheck-critique-w5``). Было ``1ce70bfedd8c``, стало ``519663a57eb6``.
-FACTORY_SET_SHA256_12 = "519663a57eb6"
+#: Бамп ASAP-EVIDENCE-ROUTING-01 v3 (волна 5, 01.11.2026): changed = 3 в
+#: наборе фабрики. (1) ``direct.base.l1_planner`` — optional-поле
+#: ``external_claims`` в схеме + машинная фраза «обязательность read-only
+#: проверки исполняет runtime независимо от твоего мнения» + явный запрет
+#: отменять проверку уверенностью/tool_policy/пустым набором (метка
+#: ``l1-planner-external-claims``, прежние байты PREV_DIRECT_L1_PLANNER_EVR0).
+#: (2) ``direct.base.l2_writer`` — секция «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»
+#: (опираться на доставленное, не заявлять проверку без проверки, пустой
+#: результат ≠ не существует, шутка не превращается в отчёт со ссылками;
+#: метка ``l2-writer-evidence-discipline``, прежние байты
+#: PREV_CHAT_VERBALIZER_EVR0). (3) ``direct.base.tool_phase`` — одна фраза о
+#: том, что обязательность проверки решает runtime, а не доступность
+#: инструмента (метка ``toolphase-runtime-evidence``, прежние байты
+#: PREV_CHAT_EVR0_SYSTEM_PROMPT). Секция W2, правила L1, тексты владельца и
+#: фоновые каноны не менялись. Было ``519663a57eb6``, стало ``724a5d420896``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "724a5d420896"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

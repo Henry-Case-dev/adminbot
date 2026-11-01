@@ -23,6 +23,7 @@ import re
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_EVR0_SYSTEM_PROMPT,
     PREV_CHAT_MCA23_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
@@ -311,6 +312,15 @@ _PREV_CHAT_W1_SYSTEM_PROMPT_REFERENCE = (
 _DIRECT_SEARCH_DECISION_PA5W2 = """ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ
 Конкретные характеристики современных устройств, новые аппаратные архитектуры, спецификации производителей, сравнения продуктов, изменяющиеся стандарты и точные числа проверяй через execute_web_search, когда он доступен, - особенно если собеседник называет данные, которых нет в контексте или в результатах инструментов. Общеизвестные формулы, расчёты с заданными параметрами и обычная болтовня в поиске не нуждаются. Если поиск недоступен или не дал ответа, не выдумывай характеристику и не выдавай догадку за результат поиска: передай Writer проверенное и честную границу знания."""
 
+# ASAP-EVIDENCE-ROUTING-01 v3 (§5 контракта, волна 5): ровно одна фраза после
+# секции W2 — обязанность проверки решает runtime, а не доступность
+# инструмента; секция W2 выше не переписана.
+_DIRECT_SEARCH_DECISION_EVR1_SUFFIX = (
+    " Обязательность внешней проверки решает runtime, а не доступность "
+    "инструмента: если проверка обязательна, но инструмент недоступен, "
+    "задача этапа - передать Writer границу знания, а не выдавать "
+    "неподтверждённое за проверенное.")
+
 _EXPECTED_CHAT_SYSTEM_PROMPT = (
     _CHAT_R1021_BASE_CORRECTIVE
     .replace(_CHAT_ROLE_BLOCK_R1021, _CHAT_TOOL_PHASE_ROLE_W1 + "\n\n")
@@ -318,7 +328,8 @@ _EXPECTED_CHAT_SYSTEM_PROMPT = (
     .replace(_CHAT_STYLE_RULES_BLOCK_R1021, "")
     .replace(_MCA23_CAP_BLOCK_OLD, _MCA23_LIMIT_BLOCK_NEW)
     + "\n\n" + TARGET_INSTRUCTION_BLOCK
-    + "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2)
+    + "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2
+    + _DIRECT_SEARCH_DECISION_EVR1_SUFFIX)
 
 # Слепок активных байтов tool phase до секции поиска (W2-ступень) —
 # та же композиция без новой секции.
@@ -366,7 +377,10 @@ class TestChatSystemPromptCanon:
         §10.5; без хардкодов слов инцидента; одна на канон."""
         section = _DIRECT_SEARCH_DECISION_PA5W2
         assert CHAT_SYSTEM_PROMPT.count(section) == 1
-        assert CHAT_SYSTEM_PROMPT.endswith(section)
+        # Волна 5: после секции стоит ровно одна фраза о runtime; сама
+        # секция W2 сохранена байт-в-байт и остаётся последней СЕКЦИЕЙ.
+        assert PREV_CHAT_EVR0_SYSTEM_PROMPT.endswith(section)
+        assert CHAT_SYSTEM_PROMPT.endswith(_DIRECT_SEARCH_DECISION_EVR1_SUFFIX)
         for anchor in ("характеристики современных устройств",
                        "аппаратные архитектуры",
                        "спецификации производителей",
@@ -389,8 +403,14 @@ class TestChatSystemPromptCanon:
         assert PREV_CHAT_W2_SYSTEM_PROMPT == \
             _PREV_CHAT_W2_SYSTEM_PROMPT_REFERENCE
         assert PREV_CHAT_W2_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
-        assert CHAT_SYSTEM_PROMPT == PREV_CHAT_W2_SYSTEM_PROMPT + \
-            "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2
+        # Волна 5: слепок EVR0 — ровно байты W2-канона (секция поиска есть,
+        # фразы о runtime ещё нет); активный канон = EVR0 + одна фраза.
+        assert PREV_CHAT_EVR0_SYSTEM_PROMPT == \
+            PREV_CHAT_W2_SYSTEM_PROMPT + "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2
+        assert CHAT_SYSTEM_PROMPT == PREV_CHAT_EVR0_SYSTEM_PROMPT + \
+            _DIRECT_SEARCH_DECISION_EVR1_SUFFIX
+        assert _DIRECT_SEARCH_DECISION_EVR1_SUFFIX not in \
+            PREV_CHAT_EVR0_SYSTEM_PROMPT
         assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" \
             not in PREV_CHAT_W2_SYSTEM_PROMPT
 

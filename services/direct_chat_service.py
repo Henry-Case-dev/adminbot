@@ -2435,8 +2435,13 @@ def _evidence_explicit_request(query: str,
 
 
 def _evidence_supplied(query: str, reply_text: str, plan,
-                       urls=()) -> "_evp.SuppliedSources":
-    """Уже поданные источники и детерминированные свойства реплики (§1.2)."""
+                       urls=(), verified_reuse=()) -> "_evp.SuppliedSources":
+    """Уже поданные источники и детерминированные свойства реплики (§1.2).
+
+    ASAP-EVIDENCE-ROUTING-01 v3 (§3.4, волна 3): ``verified_reuse`` — claim-key,
+    для которых в ``source_reuse`` есть СВЕЖИЙ ПРОЧИТАННЫЙ источник с реально
+    доставленной выдержкой. Заполняется вызывающим (`_evidence_reuse_claims`),
+    а не здесь: функция остаётся чистой и без I/O."""
     act = str(getattr(plan, "response_act", "") or "")
     structure = str(getattr(plan, "structure", "") or "")
     has_text = bool(str(reply_text or "").strip())
@@ -2451,7 +2456,36 @@ def _evidence_supplied(query: str, reply_text: str, plan,
         attributed = False
     return _evp.SuppliedSources(
         text=str(reply_text or ""), urls=tuple(urls or ()),
-        transformed_only=transformed, attributed_only=bool(attributed))
+        transformed_only=transformed, attributed_only=bool(attributed),
+        verified_reuse=frozenset(verified_reuse or ()))
+
+
+def _evidence_reuse_claims(plan, *, chat_id=None, bypass: bool = False
+                           ) -> frozenset:
+    """claim-key плана, покрытые свежим прочитанным источником (§3.3/§3.4).
+
+    Reuse — не Smart Cache: берётся только источник, привязанный к claim и
+    реально доставленный Writer'у (`delivered_chars > 0`), и только в пределах
+    TTL класса claim. Явная просьба «проверь/обнови заново» → ``bypass``
+    (запись не используется). Сбой/выключенный рубильник → пустое множество
+    (обычный fetch). Никогда не бросает."""
+    try:
+        claims = _evp.classify_claims(plan)
+        if not claims:
+            return frozenset()
+        from services import source_reuse as _reuse
+        keys: list[str] = []
+        for claim in claims:
+            record = _reuse.lookup(claim, scope="public", chat_id=chat_id,
+                                   bypass=bool(bypass))
+            if record is None:
+                continue
+            if int(getattr(record, "delivered_chars", 0) or 0) <= 0:
+                continue
+            keys.append(claim.key())
+        return frozenset(keys)
+    except Exception:      # pragma: no cover - защитная ветка
+        return frozenset()
 
 
 def _capability_block_code(status: str) -> tuple[bool, str]:
@@ -4115,6 +4149,8 @@ class DirectChatService:
             # (None вне L1-пути) — нужно ниже упаковке evidence/Writer/egress.
             _evidence_decision = None
             _evidence_delivered = ""
+            # §3.4: пакет из уже прочитанного источника (None → обычный путь).
+            _ev_reuse_pack = None
             try:
                 async with typing_active(bot, chat_id):
                     # ── ASAP 7 (F1, §1.4): capability resolve (allowlist).
@@ -4132,6 +4168,28 @@ class DirectChatService:
                             reply_text=str(getattr(
                                 tool_ctx, "reply_source_text", "") or ""),
                             l1_plan=l1_plan, response_plan=response_plan)
+                        # ASAP-EVIDENCE-ROUTING-01 v3 (§1.6/§3.2/§4.3, волна 3):
+                        # claim-key хода и per-call бюджет evidence уезжают в
+                        # ToolContext ДО tool-фазы. Иначе exact-match reuse и
+                        # окно инструментов по реальному бюджету не работают
+                        # на живом пути (политика их только ОБЪЯВЛЯЛА).
+                        tool_ctx.claim_keys = list(getattr(
+                            _evidence_decision, "claims", ()) or ())
+                        tool_ctx.evidence_budget_chars = (
+                            self._evidence_call_budget_chars(
+                                l1_plan=l1_plan, l1_meta=l1_meta,
+                                fallback_meta=_fallback_meta,
+                                system_base=_system_prompt_base,
+                                time_line=time_line, user_blocks=user_blocks,
+                                lessons=_lessons_block, speech=_speech_block,
+                                character=character_block))
+                        # §3.4 (сценарий 30): тот же claim + свежий доставленный
+                        # источник → reuse вместо сети. Writer получает ту же
+                        # выдержку; второй путь evidence не создаётся.
+                        _ev_reuse_pack = self._evidence_reuse_pack(
+                            _evidence_decision, l1_plan=l1_plan,
+                            response_plan=response_plan, chat_id=chat_id,
+                            capacity_chars=tool_ctx.evidence_budget_chars)
                     if direct_l1_on:
                         _l1_tool_schemas, _l1_rejected = \
                             await self._l1_tool_subset(
@@ -4139,7 +4197,11 @@ class DirectChatService:
                                 bool(lore_enabled), bool(image_enabled),
                                 l1_plan, denied=_cap_denied,
                                 decision=_evidence_decision)
-                    if direct_l1_on:
+                    if direct_l1_on and _ev_reuse_pack is not None:
+                        # §3.4: свежий claim-bound источник уже прочитан и
+                        # доставлен ранее → 0 сетевых вызовов на этом ходе.
+                        raw = None
+                    elif direct_l1_on:
                         raw = await self._l1_tool_phase(
                             payload, tool_ctx, query=query,
                             lore_enabled=bool(lore_enabled),
@@ -4513,7 +4575,19 @@ class DirectChatService:
                     modes_on=bool(getattr(
                         settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
                     social_hint=str(l1_meta.get("social_hint") or ""))
-                if isinstance(raw, ToolLoopResult):
+                if _ev_reuse_pack is not None:
+                    # §3.4 (сценарий 30): exact-match reuse — сеть не
+                    # запускалась, пакет собран из уже прочитанного источника.
+                    _ev_cap = int(getattr(_ev_reuse_pack, "capacity_chars", 0)
+                                  or 0)
+                    _evidence = _ev_reuse_pack.text
+                    _evidence_delivered = _evidence
+                    self._emit_evidence_delivery_event(
+                        chat_id, correlation_id, _evidence_decision,
+                        _ev_reuse_pack, capacity=_ev_cap)
+                    self._record_evidence_delivery(
+                        _evidence_decision, _ev_reuse_pack, chat_id=chat_id)
+                elif isinstance(raw, ToolLoopResult):
                     _ev_others = _dx.measure_nonevidence_chars(
                         system_base=_system_prompt_base,
                         plan_block=_plan_block,
@@ -4553,6 +4627,10 @@ class DirectChatService:
                     self._emit_evidence_delivery_event(
                         chat_id, correlation_id, _evidence_decision,
                         _ev_pack, capacity=_ev_cap)
+                    # §3.4: reuse засчитывается только за доставленную
+                    # выдержку — фиксируем фактическую доставку по claim.
+                    self._record_evidence_delivery(
+                        _evidence_decision, _ev_pack, chat_id=chat_id)
                 else:
                     _evidence = ""
                     _evidence_delivered = ""
@@ -5426,7 +5504,13 @@ class DirectChatService:
             plan = l1_plan if l1_plan is not None else _l1.L1Plan()
             urls = _evidence_urls(query, reply_text)
             explicit = _evidence_explicit_request(query, reply_text)
-            supplied = _evidence_supplied(query, reply_text, plan, urls)
+            # §3.3/§3.4 (волна 3): reuse засчитывается только для свежего
+            # ПРОЧИТАННОГО и уже доставленного источника; явное «проверь
+            # заново» (verify) выключает переиспользование.
+            reuse_keys = _evidence_reuse_claims(
+                plan, chat_id=chat_id, bypass=bool(explicit.verify))
+            supplied = _evidence_supplied(query, reply_text, plan, urls,
+                                          verified_reuse=reuse_keys)
             forbids = _evp.is_external_forbidden(query)
             runtime_state = _evp.RuntimeState(
                 effective_route=str(getattr(
@@ -5477,6 +5561,96 @@ class DirectChatService:
             return _evp.EvidenceDecision(required=False,
                                          evidence_class="background",
                                          note="preflight_error")
+
+    def _evidence_call_budget_chars(self, *, l1_plan, l1_meta,
+                                    fallback_meta, system_base: str = "",
+                                    time_line: str = "", user_blocks=(),
+                                    lessons: str = "", speech: str = "",
+                                    character: str = ""):
+        """Per-call бюджет evidence ДО tool-фазы (§4.3, волна 3).
+
+        Считается ТЕМ ЖЕ измерителем и той же формулой, что пакет ниже
+        (`measure_nonevidence_chars` + `l2_evidence_budget_chars`, один
+        output reserve — C4). План-блок строится тем же вызовом, что и для
+        Writer'а: иначе окно инструментов было бы больше пакета. ``0`` —
+        бюджет неизвестен (нет `l2_input_budget`) → инструмент берёт лимит из
+        реального окна модели (`_evidence_window`)."""
+        try:
+            plan_block = _l1.build_l2_plan_block(
+                l1_plan,
+                clarification=bool(getattr(l1_plan, "needs_clarification",
+                                           False)),
+                low_confidence=(getattr(l1_plan, "confidence_bucket", "high")
+                                == "low"),
+                include_analysis=_l1.analysis_directive_needed(
+                    l1_plan,
+                    modes_on=bool(getattr(
+                        settings, "SMART_VERBALIZER_MODES_ENABLED", True))),
+                include_delta=_l1.delta_instruction_needed(l1_plan),
+                modes_on=bool(getattr(
+                    settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
+                social_hint=str((l1_meta or {}).get("social_hint") or ""))
+            others = _dx.measure_nonevidence_chars(
+                system_base=system_base, plan_block=plan_block,
+                time_line=time_line, user_blocks=user_blocks,
+                lessons=lessons, speech=speech, character=character)
+            budget = _dx.l2_evidence_budget_chars(
+                (fallback_meta or {}).get("l2_input_budget"),
+                other_chars=others)
+            return int(budget or 0)
+        except Exception:      # pragma: no cover - защитная ветка
+            return 0
+
+    def _evidence_reuse_pack(self, decision, *, l1_plan, response_plan,
+                             chat_id, capacity_chars: int = 0):
+        """Пакет из уже прочитанного источника при qualified reuse (§3.4).
+
+        Возвращает ``EvidencePack`` только когда политика засчитала
+        ``QUALIFIED_VERIFIED_REUSE`` И есть реальные записи под все claim'ы;
+        иначе ``None`` (обычный путь, ничего не подменяется)."""
+        try:
+            if decision is None or getattr(decision, "skip_reason", None) is not \
+                    _evp.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE:
+                return None
+            from services import source_reuse as _reuse
+            records = []
+            for claim in (getattr(decision, "claims", ()) or ()):
+                record = _reuse.lookup(claim, scope="public", chat_id=chat_id)
+                if record is None:
+                    return None
+                records.append(record)
+            if not records:
+                return None
+            pack = _dx.build_reuse_evidence_pack(
+                records, response_plan,
+                capacity_chars=int(capacity_chars or 0)
+                or _l1.evidence_max_chars())
+            return pack if str(getattr(pack, "text", "") or "") else None
+        except Exception:      # pragma: no cover - защитная ветка
+            logger.debug("[direct] reuse pack failed", exc_info=True)
+            return None
+
+    def _record_evidence_delivery(self, decision, pack, *, chat_id=None
+                                  ) -> None:
+        """Зафиксировать фактическую доставку выдержки (§3.4).
+
+        Reuse засчитывается только после того, как выдержка реально доехала
+        Writer'у в пакете: `source_fetched ≠ delivered`. Только claim-key +
+        числа; тексты/URL не пишутся (R17). Fail-open."""
+        try:
+            from services import source_reuse as _reuse
+            claims = tuple(getattr(decision, "claims", ()) or ())
+            if not claims:
+                return
+            for key, chars in _dx.delivered_chars_by_claim(
+                    pack, claims).items():
+                claim = next((c for c in claims if c.key() == key), None)
+                if claim is None:
+                    continue
+                _reuse.record_delivery(claim, chars, scope="public",
+                                       chat_id=chat_id)
+        except Exception:      # pragma: no cover - защитная ветка
+            pass
 
     def _emit_evidence_policy_event(self, chat_id: int, correlation_id,
                                     decision) -> None:
@@ -11684,7 +11858,29 @@ class DirectChatService:
             _init_tool_ctx = ToolContext(
                 chat_id, _goal_query, correlation_id=correlation_id)
             _init_tool_ctx.evidence_budget_chars = _l1.evidence_max_chars()
-            if getattr(_initiative_decision, "required", False) \
+            # §1.6/§3.4 (волна 3): тот же claim-key и тот же reuse, что в
+            # Direct — инициатива не отдельный контур.
+            _init_tool_ctx.claim_keys = list(getattr(
+                _initiative_decision, "claims", ()) or ())
+            # `_evidence_reuse_pack` есть у сервиса; минимальные тестовые
+            # двойники (без метода) сохраняют прежний путь — без reuse.
+            _reuse_fn = getattr(self, "_evidence_reuse_pack", None)
+            _init_reuse = (_reuse_fn(
+                _initiative_decision, l1_plan=plan,
+                response_plan=response_plan, chat_id=chat_id,
+                capacity_chars=_l1.evidence_max_chars())
+                if _reuse_fn is not None else None)
+            if _init_reuse is not None:
+                _initiative_pack = _init_reuse
+                _initiative_evidence = _init_reuse.text
+                self._emit_evidence_delivery_event(
+                    chat_id, correlation_id, _initiative_decision,
+                    _init_reuse,
+                    capacity=int(getattr(_init_reuse, "capacity_chars", 0)
+                                 or 0))
+                self._record_evidence_delivery(
+                    _initiative_decision, _init_reuse, chat_id=chat_id)
+            elif getattr(_initiative_decision, "required", False) \
                     and _initiative_caps and _init_search_query \
                     and _init_router is not None:
                 try:

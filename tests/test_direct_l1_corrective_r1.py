@@ -89,7 +89,16 @@ def test_l1_rules_positive_criteria_present():
                  + _DIRECT_L1_CONTINUATION_R3B
                  + _DIRECT_L1_INTENT_UPDATE_PA5
                  + _DIRECT_L1_PLANNER_RULES_PA5W2)
-    assert new_canon == DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): активный канон = эти байты
+    # (с optional-полем external_claims в схеме) + секция «ВНЕШНИЕ
+    # УТВЕРЖДЕНИЯ»; правила и тексты владельца не переписаны.
+    w2_canon = new_canon.replace(
+        ' "confidence": 0.0,\n "future_intent": null}',
+        ' "confidence": 0.0,\n "future_intent": null,\n'
+        ' "external_claims": []}', 1)
+    from services.chat_prompts import _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == \
+        w2_canon + _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     assert '"action": "reply|react|silent"' in new_canon
 
 
