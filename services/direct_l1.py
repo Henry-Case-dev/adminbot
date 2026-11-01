@@ -33,6 +33,9 @@ import time
 from dataclasses import dataclass
 
 from config.settings import settings
+# ER-08-RC (P2): границы предложений и детектор высокорисковых claim'ов —
+# СУЩЕСТВУЮЩИЕ примитивы evidence-слоя; своего парсера/справочника не заводим.
+from services.evidence_policy import _SENTENCE_SPLIT_RE, _high_risk
 
 logger = logging.getLogger(__name__)
 
@@ -857,17 +860,32 @@ L1_PERSONA_FRAME_CHARS = 400  # голова character_block
 L1_REPLY_SECTION = "ОТВЕТ НА (reply/цитата)"
 #: Пол блока цитаты (прежний фиксированный кап 400 символов).
 L1_REPLY_BLOCK_CHARS = 400
-#: Потолок блока цитаты (класс C): цитата — данные, а не второй пакет L1.
-L1_REPLY_BLOCK_CHARS_MAX = 1200
 #: Доля L1-бюджета на цитату (фрагмент, на который отвечают).
 L1_REPLY_SHARE = 0.10
 #: Пол строки окна (канон прежнего поведения: 200 символов).
 L1_WINDOW_LINE_CHARS = 200
-#: Потолок строки окна (класс C): одно гигантское сообщение не должно съесть
-#: весь пакет L1, даже если строк в окне мало.
-L1_WINDOW_LINE_CHARS_MAX = 1200
 #: Доля L1-бюджета, которую вправе занять блок «ПОСЛЕДНИЕ СООБЩЕНИЯ».
 L1_WINDOW_SHARE = 0.6
+#: ФИЗИЧЕСКИЙ потолок одного среза: платформенный предел сообщения Telegram —
+#: 4096 символов. Это НЕ абсолютный класс-C кап: потолки строки окна и цитаты
+#: выводятся из бюджета (`L1_WINDOW_SHARE`/`L1_REPLY_SHARE`), а 4096 только не
+#: даёт выйти за платформу (ER-08-RC, P1: прежние фиксированные 1200 обрезали
+#: цитату 3000 символов, в которой на позиции 1500 стоит контрдовод).
+L1_CLIP_CHARS_MAX = 4096
+#: Доли среза по границам ПРЕДЛОЖЕНИЙ (ER-08-RC, P2): голова ≤45 %, хвост ≤30 %,
+#: середина ≤25 %. Середина — ГАРАНТИЯ: контрдовод/claim из середины длинной
+#: реплики или цитаты больше не теряется (голый head+tail терял ровно её).
+L1_CLIP_HEAD_SHARE = 0.45
+L1_CLIP_TAIL_SHARE = 0.30
+#: Бюджет атомарной части середины (высокорисковые claim'ы по существующему
+#: детектору `evidence_policy._high_risk` + ссылки как атомарные источники),
+#: символов. Справочника «контрдоводов» нет: правило одно для любого текста.
+L1_CLIP_ATOMIC_CHARS_MAX = 320
+#: Шаг пропорционального укорочения строк окна в `_cap_context` (шаг 0).
+L1_CAP_SHRINK_STEP = 0.6
+#: Максимальный перебор при выравнивании границы середины по слову: больше —
+#: значит «слово» размером в текст, и тогда длина среза важнее красоты.
+L1_CLIP_WORD_SLACK = 24
 #: Доля L1-бюджета на исходное сообщение (главный носитель claim'ов и
 #: контрдоводов). `_cap_context` защищает блок; доля ограничивает только
 #: ВХОДНОЙ срез текста, а не бюджет пакета.
@@ -892,15 +910,17 @@ def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
     из фактического бюджета (`limits.direct_l1_context_tokens`, а на живом пути
     — бюджет из Model Capacity Resolver, :func:`resolve_l1_context_budget`) и
     ФАКТИЧЕСКОГО числа строк окна: короткое окно получает длинные строки
-    (200 → до 1200). Общий бюджет пакета по-прежнему защищён `_cap_context` —
-    это потолок ОДНОЙ строки, а не новый бюджет."""
+    (200 → до 4096). Общий бюджет пакета по-прежнему защищён `_cap_context` —
+    это потолок ОДНОЙ строки, а не новый бюджет; абсолютного «класс-C капа»
+    здесь больше нет (ER-08-RC, P1): потолок = производная бюджета, а
+    :data:`L1_CLIP_CHARS_MAX` — только платформенный предел Telegram."""
     try:
         rows = len(tuple(window or ())) or L1_WINDOW_MESSAGES
         budget = int(budget_tokens) if budget_tokens is not None \
             else l1_context_tokens()
         share = int(max(0, budget) * 4 * L1_WINDOW_SHARE) // max(1, rows)
         return max(L1_WINDOW_LINE_CHARS,
-                   min(L1_WINDOW_LINE_CHARS_MAX, share))
+                   min(L1_CLIP_CHARS_MAX, share))
     except (TypeError, ValueError):      # pragma: no cover - защитная ветка
         return L1_WINDOW_LINE_CHARS
 
@@ -928,15 +948,166 @@ def _url_safe_cut(text: str, pos: int, *, keep_head: bool) -> int:
     return pos
 
 
-def clip_body(body: str, cap: int) -> str:
-    """Срез с сохранением ХВОСТА (head+tail) — данные, а не бюджет.
+def _sentence_spans(text: str) -> list[tuple[int, int]]:
+    """Границы предложений текста существующим регекспом evidence_policy.
 
-    Голова одна теряет то, что несут контрдоводы и уточнения в конце
-    сообщения/цитаты («… но на самом деле X не работает», версия в последней
-    фразе). Поэтому срез сохраняет начало И конец с явным маркером
-    :data:`CLIP_MARK`; сама длина среза не меняется. Границы среза не режут
-    URL (см. :func:`_url_safe_cut`) — источник остаётся целым; длина среза
-    может увеличиться на длину самого URL (bounded, единицы процентов пакета)."""
+    Своего парсера предложений не вводим (ER-08-RC §1.3): берём ровно тот же
+    `_SENTENCE_SPLIT_RE`, которым уже пользуется evidence-слой, поэтому
+    «граница предложения» здесь — та же граница, что у политики/guard'а.
+    Возвращает покрывающие текст пары ``(start, end)``; никогда не бросает."""
+    try:
+        spans: list[tuple[int, int]] = []
+        start = 0
+        for match in _SENTENCE_SPLIT_RE.finditer(text):
+            end = match.start()
+            if end > start:
+                spans.append((start, end))
+            start = match.end()
+        if start < len(text):
+            spans.append((start, len(text)))
+        return spans or [(0, len(text))]
+    except Exception:      # pragma: no cover - защитная ветка
+        return [(0, max(0, len(text)))]
+
+
+def _sentence_cut(text: str, spans, anchor: int, *, from_start: bool) -> int:
+    """Ближайшая граница предложения к якорю, не заходящая за него.
+
+    ``from_start=True`` — конец головы: последняя граница ≤ якоря;
+    ``from_start=False`` — начало хвоста: первая граница ≥ якоря. Если границ
+    нет (одно длинное предложение без точек) — символьный срез, безопасный по
+    URL (:func:`_url_safe_cut`)."""
+    try:
+        if from_start:
+            inside = [end for _start, end in spans if end <= anchor]
+            if inside:
+                return max(inside)
+            return _url_safe_cut(text, anchor, keep_head=True)
+        inside = [start for start, _end in spans
+                  if start > 0 and start >= anchor]
+        if inside:
+            return min(inside)
+        return _url_safe_cut(text, anchor, keep_head=False)
+    except Exception:      # pragma: no cover - защитная ветка
+        return anchor
+
+
+def _span_len(chosen, body: str) -> int:
+    """Длина склейки выбранных фрагментов середины (с маркерами)."""
+    if not chosen:
+        return 0
+    total = sum(len(body[start:end]) for start, end in chosen)
+    return total + len(CLIP_MARK) * (len(chosen) - 1)
+
+
+def _word_cut(text: str, pos: int, bound: int, *, forward: bool) -> int:
+    """Сдвинуть границу среза к ближайшему пробелу в пределах слака.
+
+    ``forward`` — граница расширяется вправо (конец середины), иначе влево
+    (начало). Пробела нет → позиция не меняется: длина среза важнее."""
+    try:
+        span = range(pos, min(bound, pos + L1_CLIP_WORD_SLACK)) if forward \
+            else range(pos, max(bound, pos - L1_CLIP_WORD_SLACK), -1)
+        for index in span:
+            if text[index].isspace():
+                return index if forward else index + 1
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+    return pos
+
+
+def _clip_middle(body: str, start: int, end: int, target: int,
+                 spans) -> str:
+    """Середина среза: claim-first + добор от центра наружу (ER-08-RC, P2).
+
+    Порядок (правило одно для любого текста, без справочников):
+    1) высокорисковые предложения — существующий детектор
+       :func:`evidence_policy._high_risk` (версия/цена/дата/число/
+       существование), атомарная часть ограничена
+       :data:`L1_CLIP_ATOMIC_CHARS_MAX`;
+    2) ссылки — атомарные источники (тот же бюджет: полу-URL хуже, чем
+       перебор на длину URL);
+    3) остаток доли середины добирается фрагментом вокруг центральной точки.
+
+    Никогда не бросает; пустой результат — честное «середину не добавили»."""
+    try:
+        if target <= 0 or end <= start:
+            return ""
+        # Центр — центр ТЕКСТА (не центр выжившей области): середина
+        # набирается «от центра наружу», как в решении (§1.3), иначе небольшой
+        # сдвиг head/tail уводил окно от настоящей середины.
+        centre = min(max(len(body) / 2.0, float(start)), float(end))
+        inner = [(s, e) for s, e in spans
+                 if s >= start and e <= end and e > s]
+
+        def _dist(span):
+            return abs((span[0] + span[1]) / 2.0 - centre)
+
+        chosen: list[tuple[int, int]] = []
+        atomic_used = 0
+        for s, e in sorted(inner, key=_dist):
+            piece = body[s:e]
+            if atomic_used + len(piece) > L1_CLIP_ATOMIC_CHARS_MAX:
+                continue
+            if not _high_risk(piece):
+                continue
+            chosen.append((s, e))
+            atomic_used += len(piece)
+        for match in _URL_RE.finditer(body, start, end):
+            url_start, url_end = match.span()
+            if any(s <= url_start and url_end <= e for s, e in chosen):
+                continue
+            if atomic_used + (url_end - url_start) > L1_CLIP_ATOMIC_CHARS_MAX:
+                continue
+            chosen.append((url_start, url_end))
+            atomic_used += url_end - url_start
+        if not any(s <= centre <= e for s, e in chosen):
+            room = target - _span_len(chosen, body)
+            if chosen:
+                room -= len(CLIP_MARK)
+            if room >= 32:
+                room = min(room, end - start)
+                slice_start = int(max(start, centre - room // 2))
+                slice_end = int(min(end, slice_start + room))
+                slice_start = _url_safe_cut(body, slice_start, keep_head=False)
+                slice_end = _url_safe_cut(body, slice_end, keep_head=True)
+                # Границы середины не рвут слово: тянем к ближайшему пробелу,
+                # но только в пределах слака. Пробела нет (одно «слово» длиной
+                # в текст) — оставляем точную длину среза.
+                slice_start = _word_cut(body, slice_start, start,
+                                        forward=False)
+                slice_end = _word_cut(body, slice_end, end, forward=True)
+                if slice_end > slice_start and not any(
+                        slice_start < e and s < slice_end
+                        for s, e in chosen):
+                    chosen.append((slice_start, slice_end))
+        if not chosen:
+            return ""
+        chosen.sort()
+        return CLIP_MARK.join(body[s:e].strip() for s, e in chosen)
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
+def clip_body(body: str, cap: int) -> str:
+    """Срез по границам ПРЕДЛОЖЕНИЙ: голова + ГАРАНТИРОВАННАЯ середина + хвост.
+
+    Прежний head+tail (60/40) сохранял начало и конец, но терял СЕРЕДИНУ —
+    ровно там, где в длинной реплике/цитате стоит смысловой контрдовод
+    («… но на самом деле X не работает»). Теперь (ER-08-RC, P2):
+
+    * голова ≤45 %, хвост ≤30 %, середина ≤25 % — доли бюджета среза;
+    * границы двигаются к ближайшей границе предложения (существующий
+      регексп `evidence_policy._SENTENCE_SPLIT_RE`; своего парсера нет);
+    * середина собирается claim-first: высокорисковые предложения
+      (существующий детектор `evidence_policy._high_risk`) берутся первыми,
+      атомарная часть ограничена :data:`L1_CLIP_ATOMIC_CHARS_MAX`; остальное
+      добирается от центральной точки наружу. Справочника контрдоводов НЕТ;
+    * ссылки — атомарный источник: границы не режут URL (см.
+      :func:`_url_safe_cut`), поэтому перебор ограничен длиной самого URL.
+
+    Длина результата ≤ ``cap``, кроме атомарного URL (bounded). Никогда не
+    бросает."""
     try:
         text = str(body or "")
         limit = int(cap or 0)
@@ -946,27 +1117,38 @@ def clip_body(body: str, cap: int) -> str:
         return text
     if limit <= len(CLIP_MARK) + 24:
         return text[:limit]
-    head = int(limit * 0.6)
-    tail = max(1, limit - head - len(CLIP_MARK))
-    head_cut = _url_safe_cut(text, head, keep_head=True)
-    tail_start = _url_safe_cut(text, len(text) - tail, keep_head=False)
-    if head_cut >= tail_start:            # защита от наложения (совсем мало места)
-        return text[:head]
-    return text[:head_cut] + CLIP_MARK + text[tail_start:]
+    content = max(0, limit - 2 * len(CLIP_MARK))
+    head_target = int(content * L1_CLIP_HEAD_SHARE)
+    tail_target = int(content * L1_CLIP_TAIL_SHARE)
+    mid_target = max(0, content - head_target - tail_target)
+    spans = _sentence_spans(text)
+    head_end = _sentence_cut(text, spans, head_target, from_start=True)
+    tail_start = _sentence_cut(text, spans, len(text) - tail_target,
+                               from_start=False)
+    if head_end >= tail_start:            # защита от наложения (совсем мало места)
+        return text[:limit]
+    middle = _clip_middle(text, head_end, tail_start, mid_target, spans)
+    out = text[:head_end]
+    if middle:
+        out += CLIP_MARK + middle
+    return out + CLIP_MARK + text[tail_start:]
 
 
 def reply_block_chars(budget_tokens: int | None = None) -> int:
     """Кап цитируемого фрагмента (reply) из бюджета пакета L1.
 
     Прежние 400 символов резали цитату вслепую: claim в её середине/хвосте не
-    доезжал до планера. Пол 400 сохраняется (прежний канон), потолок 1200 —
-    класс C (цитата не превращается во второй пакет)."""
+    доезжал до планера. Пол 400 сохраняется (прежний канон), потолок теперь
+    ПРОИЗВОДНЫЙ от бюджета (`L1_REPLY_SHARE`), а :data:`L1_CLIP_CHARS_MAX`
+    (4096 = предел сообщения Telegram) — только физическая граница
+    (ER-08-RC, P1: фиксированные 1200 теряли контрдовод на позиции 1500 в
+    цитате 3000 символов)."""
     try:
         budget = int(budget_tokens) if budget_tokens is not None \
             else l1_context_tokens()
         char_budget = max(0, budget) * 4
         return max(L1_REPLY_BLOCK_CHARS,
-                   min(L1_REPLY_BLOCK_CHARS_MAX,
+                   min(L1_CLIP_CHARS_MAX,
                        int(char_budget * L1_REPLY_SHARE)))
     except (TypeError, ValueError):      # pragma: no cover - защитная ветка
         return L1_REPLY_BLOCK_CHARS
@@ -1220,10 +1402,12 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
 
         pairs: list[tuple[str, str]] = list(sections_budget)
         # Шаг 0 (ER-08): прежде чем ВЫБРАСЫВАТЬ старые реплики, укорачиваем
-        # КАЖДУЮ строку окна (head+tail через `clip_body`): все 20 сообщений
-        # остаются в пакете, теряется длина, а не факты/контрдоводы. Прежний
-        # первый шаг сразу резал 20 → 10 строк даже при переполнении на единицы
-        # токенов.
+        # КАЖДУЮ строку окна (через `clip_body`: голова+середина+хвост): все
+        # 20 сообщений остаются в пакете, теряется длина, а не факты.
+        # ER-08-RC (P3): шаг ПРОПОРЦИОНАЛЬНЫЙ от фактического капа строки, а
+        # не фиксированная лестница 160/120/90 — иначе при потолке из бюджета
+        # (до 4096) первый же шаг срезал строку до головы в 72 символа, то
+        # есть делал ХУЖЕ, чем прежние 200.
         def _rescale_window(pairs_in, line_cap: int):
             out = []
             for name, body in pairs_in:
@@ -1234,7 +1418,17 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
                     clip_body(line, line_cap) for line in body.splitlines())))
             return out
 
-        for line_cap in (160, 120, 90):
+        def _window_line_cap(pairs_in) -> int:
+            for name, body in pairs_in:
+                if name == "ПОСЛЕДНИЕ СООБЩЕНИЯ":
+                    return max((len(line) for line in body.splitlines()),
+                               default=0)
+            return 0
+
+        line_cap = _window_line_cap(pairs)
+        while line_cap > L1_WINDOW_LINE_CHARS:
+            line_cap = max(L1_WINDOW_LINE_CHARS,
+                           int(line_cap * L1_CAP_SHRINK_STEP))
             pairs = _rescale_window(pairs, line_cap)
             if count_tokens(_render(pairs)) <= budget:
                 return _render(pairs)
@@ -1279,17 +1473,15 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
             pairs = _shrink_hints(pairs, factor)
             if count_tokens(_render(pairs)) <= budget:
                 return _render(pairs)
-        # Шаг 3: СООБЩЕНИЕ/ОТВЕТ НА переполняют сами → head+tail (хвост
-        # вопроса и claim в конце цитаты сохраняются; §18C.5 «никогда не
-        # резать семантический хвост»).
+        # Шаг 3: СООБЩЕНИЕ/ОТВЕТ НА переполняют сами → тот же `clip_body`
+        # (голова+СЕРЕДИНА+хвост по границам предложений). Прежний ручной
+        # головной срез терял середину вопроса/цитаты (§18C.5 «никогда не
+        # резать семантический хвост» в равной мере относится к середине).
         rebuilt = []
         for name, body in pairs:
             if name in ("СООБЩЕНИЕ", L1_REPLY_SECTION) and count_tokens(body) \
                     > max(200, budget // 3):
-                chars = max(400, budget // 2)
-                body = (body[:int(chars * 0.6)]
-                        + "\n[…сообщение обрезано под бюджет]\n"
-                        + body[-int(chars * 0.4):])
+                body = clip_body(body, max(400, budget // 2))
             rebuilt.append((name, body))
         pairs = rebuilt
         # Шаг 4: остаточное переполнение — режем КРУПНЕЙШИЙ незащищённый

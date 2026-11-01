@@ -867,8 +867,13 @@ class TestL1WindowLineBudget:
 
         one = [{"author_name": "A", "text": "x" * 900, "id": 1}]
         assert l1.window_line_chars(one) > l1.L1_WINDOW_LINE_CHARS
-        # Потолок класса C соблюдается даже для одного огромного сообщения.
-        assert l1.window_line_chars(one) <= l1.L1_WINDOW_LINE_CHARS_MAX
+        # ER-08-RC: абсолютного капа 1200 больше нет — потолок ПРОИЗВОДНЫЙ от
+        # бюджета (`L1_WINDOW_SHARE`), а 4096 — физический предел сообщения
+        # Telegram. Одно огромное сообщение не может съесть больше этой доли.
+        budget_chars = int(l1.l1_context_tokens() * 4 * l1.L1_WINDOW_SHARE)
+        assert l1.window_line_chars(one) == min(l1.L1_CLIP_CHARS_MAX,
+                                               budget_chars)
+        assert l1.window_line_chars(one) <= l1.L1_CLIP_CHARS_MAX
 
     def test_full_window_keeps_legacy_floor(self):
         from services import direct_l1 as l1

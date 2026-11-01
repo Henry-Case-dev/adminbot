@@ -28,6 +28,16 @@ MSG_TAIL = "TAILMARK_QUEST"
 #: Смысловой контрдовод в СЕРЕДИНЕ длинной реплики (не маркер в хвосте):
 #: именно такие фразы раньше не доезжали до планера.
 COUNTER_MID = "но на самом деле в 1017 нет функции X, это переименование"
+#: Высокорисковый claim (существующий детектор `evidence_policy._high_risk`:
+#: версия в трёх компонентах). Такой claim середина обязана достать ПЕРВЫМ.
+RISK_CLAIM = "версия 1.2.3 не поддерживает функцию X."
+
+
+def _quote_3000():
+    """Цитата 3000 символов с высокорисковым claim'ом на позиции ~1500."""
+    head = ("начало цитаты о версии " * 200)[:1490]
+    tail = ("дальше идут подробности " * 200)[:3000 - 1490 - len(RISK_CLAIM) - 2]
+    return head + " " + RISK_CLAIM + " " + tail
 
 
 def _mid_counter_row(total=755, pos=325):
@@ -115,6 +125,66 @@ class TestL1PackageLosses:
         body = ctx.split(f"[{l1.L1_REPLY_SECTION}]\n", 1)[1]
         assert len(body) > l1.L1_REPLY_BLOCK_CHARS
 
+    @pytest.mark.asyncio
+    async def test_quote_3000_keeps_counterargument_at_1500(self):
+        """ФИКСТУРА РЕВЬЮЕРА (a), ER-08-RC P1: цитата 3000 символов с
+        контрдоводом на позиции 1500. Прежний фиксированный кап 1200 доставлял
+        голову 720 + хвост 480 — позиция 1500 попадала в выброшенную середину,
+        и контрдовод не доезжал даже на бюджете из окна модели. Теперь потолок
+        цитаты — производная бюджета (до 4096 = предел сообщения Telegram)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+        budget, meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
+        assert meta["source"] == "model_window"
+        quote = ("начало цитаты о версии " * 200)[:1490] + " " + RISK_CLAIM \
+            + " " + ("дальше идут подробности " * 200)
+        quote = quote[:3000]
+        assert quote.index(RISK_CLAIM) == 1491
+        assert l1.reply_block_chars(budget) > l1.L1_REPLY_BLOCK_CHARS
+
+        ctx = l1.build_l1_context(query="q", reply_block=quote, speaker="Аня",
+                                  budget_tokens=budget)
+        assert RISK_CLAIM in ctx, "контрдовод из середины цитаты не доехал"
+        assert count_tokens(ctx) <= budget
+
+    @pytest.mark.asyncio
+    async def test_twenty_4096_replies_stay_in_budget_and_keep_quote(self):
+        """ФИКСТУРА РЕВЬЮЕРА (b), ER-08-RC P1/P3: 20 реплик по 4096 символов.
+        Пакет остаётся в бюджете на всех трёх краях, цитата не выпадает, и
+        первая/последняя реплики доезжают (окно не схлопывается)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+        rows = []
+        for i in range(1, 21):
+            suffix = f" ХВОСТ{i}"
+            body = ((f"реплика {i}: " + "рассуждение " * 500).ljust(4096)
+                    )[:4096 - len(suffix)] + suffix
+            assert len(body) == 4096
+            rows.append(_row(i, body))
+        quote = _quote_3000()
+        assert len(quote) == 3000 and quote.index(RISK_CLAIM) == 1491
+
+        for budget in (1600, 5400, 112737):
+            ctx = l1.build_l1_context(query="q", current_question="вопрос",
+                                      reply_block=quote, window=rows,
+                                      speaker="Аня", budget_tokens=budget)
+            tokens = count_tokens(ctx)
+            assert tokens <= budget, f"бюджет {budget}: пакет {tokens}"
+            assert RISK_CLAIM in ctx, f"бюджет {budget}: цитата потеряна"
+            assert "ХВОСТ20" in ctx, f"бюджет {budget}: последняя реплика потеряна"
+            assert "реплика 20" in ctx
+            # Класс-C константы не тронуты (не «расширение», а доставка).
+            assert l1.L1_WINDOW_MESSAGES == 20
+            assert l1.L1_MESSAGE_CHARS_MAX == 8192
+            assert l1.L1_CLIP_CHARS_MAX == 4096
+            # Стоимость пакета ограничена физически: 20 сообщений Telegram по
+            # 4096 символов, для русского текста ≥2 символа на токен.
+            assert tokens <= 20 * l1.L1_CLIP_CHARS_MAX // 2
+
     def test_memory_hint_tail_survives_pressure(self):
         """Релевантные факты (срез bundle «КОНТЕКСТ ДИАЛОГА (не терять)»):
         ограничения/уроки стоят в КОНЦЕ блока — при сжатии хвост не теряется."""
@@ -140,15 +210,17 @@ class TestL1PackageLosses:
         assert MSG_TAIL in ctx
 
     @pytest.mark.asyncio
-    async def test_mid_message_counterargument_at_static_1600_is_lost(
+    async def test_mid_message_counterargument_reaches_middle_window(
             self, monkeypatch):
-        """ЧЕСТНАЯ ГРАНИЦА (F-5 ревью): static-кап 1600 (явный hot-ключ
-        оператора) НЕ доставляет смысловой контрдовод из СЕРЕДИНЫ длинной
-        реплики — окно 20 строк даёт кап строки 200 (голова 120 + хвост 77), а
-        контрдовод стоит на ~325-м символе. Это цена ручного капа, а не
-        регрессия: на бюджете из окна модели тот же контрдовод доезжает
-        (следующая проверка). Замер фикстуры: реплика 755 симв., контрдовод
-        325-385, окно 20 строк."""
+        """ПОЗИТИВНАЯ ГАРАНТИЯ СЕРЕДИНЫ (ER-08-RC P2): контрдовод из СЕРЕДИНЫ
+        длинной реплики доезжает до планера, когда кап строки даёт середине
+        место (окно 20 строк, cap = 0.12×бюджета; середина = 25 % среза вокруг
+        центра текста). Замер фикстуры: реплика 755 симв., контрдовод
+        325-364.
+        Честная граница ОСТАВЛЕНА: на полу капа 200 (static-1600) середина
+        занимает 48 символов и не дотягивается до позиции 325 — это цена
+        ручного капа. См. следующий тест: высокорисковый claim на той же
+        позиции доезжает и на полу (claim-first), обычная фраза — нет."""
         from services import direct_l1 as l1
 
         rows = _full_window_with_mid_counter()
@@ -164,9 +236,14 @@ class TestL1PackageLosses:
         ctx_static = l1.build_l1_context(query="q", window=rows,
                                         speaker="Аня",
                                         budget_tokens=static_budget)
-        assert COUNTER_MID not in ctx_static     # граница зафиксирована явно
+        assert COUNTER_MID not in ctx_static     # честная граница пола капа
 
-        _set_hot(monkeypatch, None)              # прежний путь: динамика
+        # Тот же путь, но кап строки даёт середине место (бюджет 5400).
+        ctx_wide = l1.build_l1_context(query="q", window=rows, speaker="Аня",
+                                      budget_tokens=5400)
+        assert COUNTER_MID in ctx_wide, "середина среза не доехала"
+
+        _set_hot(monkeypatch, None)              # живой путь: динамика
         live_budget, live_meta = await l1.resolve_l1_context_budget(
             base_url="https://api.deepseek.com/v1",
             model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
@@ -177,33 +254,39 @@ class TestL1PackageLosses:
         assert COUNTER_MID in ctx_live           # на живом бюджете — доезжает
 
     @pytest.mark.asyncio
-    async def test_mid_message_counterargument_needs_budget_above_line_cap(
+    async def test_high_risk_claim_outside_centre_is_pulled_claim_first(
             self, monkeypatch):
-        """Граница в числах: контрдовод из середины реплики доезжает, когда
-        кап строки покрывает его позицию (окно 20 строк → кап = 0.12×бюджета
-        символов, голова среза = 0.6×кап). Для этой фикстуры (контрдовод
-        325-382 симв.) измеренный порог: бюджет ≈5400 (кап 648) и выше.
-        Проверяем оба края, чтобы граница не была «зелёной случайно»."""
+        """CLAIM-FIRST (ER-08-RC P2): высокорисковый claim (существующий
+        детектор `evidence_policy._high_risk`) доезжает даже тогда, когда он
+        стоит ДАЛЕКО от центра длинной реплики и за пределами головы среза:
+        середина добирает его атомарно (бюджет середины ≤ 320 симв.).
+
+        Честная граница: та же позиция с ОБЫЧНОЙ (не высокорисковой) фразой не
+        доставляется — иначе «середина гарантирована» превратилась бы в ложь."""
         from services import direct_l1 as l1
 
-        rows = _full_window_with_mid_counter()
-        counter_end = rows[-2]["text"].index(COUNTER_MID) + len(COUNTER_MID)
+        filler = [_row(i, (f"реплика {i}: " + "разговор " * 200)[:400])
+                  for i in range(1, 20)]
 
-        def delivered(budget):
-            cap = l1.window_line_chars(rows, budget_tokens=budget)
-            head_chars = int(cap * 0.6)
-            return head_chars >= counter_end
+        def rows_with(text):
+            return filler + [_row(20, text)]
 
-        assert delivered(1600) is False
-        assert delivered(5000) is False     # кап 600 → голова 360 < 382
-        assert delivered(5600) is True      # кап 672 → голова 403 ≥ 382
-        # Производный бюджет живого пути покрывает с запасом.
-        _set_hot(monkeypatch, None)
-        live_budget, _meta = await l1.resolve_l1_context_budget(
-            base_url="https://api.deepseek.com/v1",
-            model="deepseek-v4-flash")
-        assert live_budget >= 20000
-        assert delivered(live_budget) is True
+        long_row_claim = ("фраза первая. " * 40)[:300] + RISK_CLAIM + " " \
+            + ("дальше общий текст. " * 200)
+        long_row_plain = ("фраза первая. " * 40)[:300] + " " + COUNTER_MID \
+            + " " + ("дальше общий текст. " * 200)
+        assert l1.window_line_chars(rows_with(long_row_claim),
+                                    budget_tokens=1600) == 200
+
+        ctx_claim = l1.build_l1_context(query="q",
+                                        window=rows_with(long_row_claim),
+                                        speaker="Аня", budget_tokens=1600)
+        assert RISK_CLAIM in ctx_claim, "claim-first не дотянулся до claim'а"
+
+        ctx_plain = l1.build_l1_context(query="q",
+                                        window=rows_with(long_row_plain),
+                                        speaker="Аня", budget_tokens=1600)
+        assert COUNTER_MID not in ctx_plain       # честная граница: не claim
 
     def test_reply_section_protected_under_hint_pressure(self):
         """Переполнение: сжимается ОКНО, а не цитата; claim в цитате выживает,
