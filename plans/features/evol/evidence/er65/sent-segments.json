@@ -1635,7 +1635,7 @@
   "identical": true,
   "isolated_processes": true,
   "runs": 2,
-  "snapshot_core_sha256": "1586144bcec0b40b3eb31912eb9a5b472cb1391dbf009ca94669c3b9dd8ec2a7"
+  "snapshot_core_sha256": "908b614c33ec5f613a970b3315770d0a66f47ad80a78b51c8241752933bb510f"
  },
  "environment": {
   "app_version": "2.58.144",
@@ -1834,22 +1834,22 @@
    "sha256": "9274fe14bb7b4736f6030b9e32964a1e25a488576c8802c49cf8f5e3301f35e1"
   },
   "services/direct_chat_service.py": {
-   "bytes": 800942,
-   "bytes_utf8": 800942,
-   "lines": 13228,
-   "sha256": "ebbd6d8a893b8068e4138ba665d80e4a24fb71e13c0719e55d987b0dd4bcbc59"
+   "bytes": 804609,
+   "bytes_utf8": 804609,
+   "lines": 13288,
+   "sha256": "b574de5e682c0480d544cdeded3f642d3765ab927a28195be318a8afc00b1b9d"
   },
   "services/direct_execution.py": {
-   "bytes": 69970,
-   "bytes_utf8": 69970,
-   "lines": 1368,
-   "sha256": "90a16202ea960d4e1acb9877667a2ce46e8b0b322ea19b49b2b0941fedf14b2d"
+   "bytes": 73775,
+   "bytes_utf8": 73775,
+   "lines": 1429,
+   "sha256": "5c789feba2f284e96959b000dd834834d1b483fe81eb4dc5d29c036884d82bf2"
   },
   "services/direct_l1.py": {
-   "bytes": 94113,
-   "bytes_utf8": 94113,
-   "lines": 1616,
-   "sha256": "351c5f3549de8d3cf720d4550abc1a580ab08c2230c7be487268581645485752"
+   "bytes": 109282,
+   "bytes_utf8": 109282,
+   "lines": 1864,
+   "sha256": "0c711ac283427e935ad54430bdf8f9b6d7ca37a9092fa9050988086274c32e2c"
   },
   "services/factcheck_prompts.py": {
    "bytes": 60775,
@@ -1918,10 +1918,10 @@
    "sha256": "97f2a8c06819122893cbf3aa941b11afbd381a7ade7a48e4438e26d84403c2cf"
   },
   "services/tool_loop.py": {
-   "bytes": 62746,
-   "bytes_utf8": 62746,
-   "lines": 1092,
-   "sha256": "87cbfa92e6499529f53cbb610088916880cc92ab59edf1ff96b72d8224cd7c50"
+   "bytes": 64909,
+   "bytes_utf8": 64909,
+   "lines": 1123,
+   "sha256": "ce297a0aa8f39bc8def7a5e7958fc857d14b150b9d946ea506c9aff9c1d237c9"
   }
  },
  "stages": [
