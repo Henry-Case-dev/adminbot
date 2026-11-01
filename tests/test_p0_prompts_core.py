@@ -112,7 +112,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5, 01.11.2026): +3 фабрики Direct
     # (L1 planner external_claims, Writer «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»,
     # tool phase «решает runtime») → 724a5d420896.
-    assert pr.FACTORY_SET_SHA256_12 == "724a5d420896"
+    # Бампа решения Architect «г»: та же невыпущенная ревизия EVR1 расширена
+    # optional-полем recheck (метка l1-planner-external-claims-recheck) →
+    # de8e77a2a3f4.
+    assert pr.FACTORY_SET_SHA256_12 == "de8e77a2a3f4"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

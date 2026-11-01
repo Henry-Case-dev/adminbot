@@ -70,7 +70,8 @@ def test_canon_schema_has_delivery_fields():
                      + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1).replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
-        ' "external_claims": []}', 1)
+        ' "external_claims": [],\n'
+        ' "recheck": false}', 1)
     assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         _DIRECT_L1_PLANNER_BASE_R3
         + _DIRECT_L1_CLARIFICATION_CONTRACT

@@ -382,6 +382,123 @@ def _normalize(text: str) -> str:
     return str(text or "").strip().lower().replace("ё", "е")
 
 
+# ── явная ФОРМА просьбы о проверке факта (review §9.5) ───────────────────────
+# Словарь НЕ расширяется (§1.3): те же восемь маркеров, но подстрочный матч в
+# любом месте текста сигналом больше не является — «вот это правда круто»,
+# «спасибо, всё правда, как ты и сказал», «это правда было смешно» и шутка с
+# цитатой («он сказал "правда ли это", и мы посмеялись») — обычная речь.
+# Маркеры делятся по ГРАММАТИЧЕСКОЙ форме (это не новая лексика):
+#   * просьба по форме («проверь факт…», «фактчек:…») — засчитывается в начале
+#     клаузы;
+#   * «правда ли» несёт вопросительную частицу «ли» — тоже в начале клаузы;
+#   * «это правда» — утверждение, засчитывается только в вопросительной клаузе.
+_FACTCHECK_QUESTION_START_MARKERS = ("правда ли",)
+_FACTCHECK_STATEMENT_MARKERS = ("это правда",)
+_FACTCHECK_REQUEST_MARKERS = tuple(
+    marker for marker in _FACTCHECK_MARKERS
+    if marker not in _FACTCHECK_QUESTION_START_MARKERS
+    and marker not in _FACTCHECK_STATEMENT_MARKERS)
+_WORD_CHARS = "а-яёa-z0-9"
+#: Границы клаузы: точка/!/?/;/:/многоточие/запятая/перевод строки. Запятая
+#: режет клаузу: «проверь, правда ли это» = просьба + вопрос, «спасибо, всё
+#: правда, как ты и сказал» = три утверждения (обращение «бот,» тоже уходит).
+_CLAUSE_BOUNDARY_RE = re.compile(r"[.!?;:…,\n]+")
+
+
+def _phrase_regex(phrases) -> "re.Pattern":
+    """Фразовый маркер как отдельное СЛОВО (граница с обеих сторон).
+
+    «неправда ли» не содержит маркера «правда ли» (слева буква), «вот это
+    правда круто» содержит, но не в форме запроса."""
+    alternatives = "|".join(re.escape(str(p)) for p in phrases)
+    return re.compile(
+        rf"(?<![{_WORD_CHARS}])(?:{alternatives})(?![{_WORD_CHARS}])")
+
+
+_FACTCHECK_PHRASE_RE = _phrase_regex(_FACTCHECK_MARKERS)
+_FACTCHECK_REQUEST_RE = _phrase_regex(_FACTCHECK_REQUEST_MARKERS)
+_FACTCHECK_QUESTION_START_RE = _phrase_regex(_FACTCHECK_QUESTION_START_MARKERS)
+
+
+def _clauses(text: str):
+    """Клаузы реплики: пары ``(текст, терминатор)``."""
+    out: list[tuple[str, str]] = []
+    start = 0
+    for match in _CLAUSE_BOUNDARY_RE.finditer(text):
+        out.append((text[start:match.start()], match.group(0)[:1]))
+        start = match.end()
+    out.append((text[start:], ""))
+    return out
+
+
+def _referential_hits(text: str) -> list:
+    """Границы существующего референтного регекса (``неправда`` не считается).
+
+    Лексика берётся из ``temporal_factcheck._REFERENTIAL_CLAIM_RE`` («проверь
+    его слова», «не врёт?», «это правда?»); здесь добавляется только граница
+    слова, чтобы «неправда» не читалось как «правда»."""
+    try:
+        from services import temporal_factcheck as _tf
+        regex = _tf._REFERENTIAL_CLAIM_RE
+    except Exception:      # pragma: no cover - защитная ветка
+        return []
+    hits = []
+    for match in regex.finditer(text):
+        if match.start() and text[match.start() - 1].isalnum():
+            continue
+        hits.append(match)
+    return hits
+
+
+def _referential_imperative_at_start(text: str) -> bool:
+    """«проверь его слова / пост / сообщение» — просьба по форме в начале.
+
+    Утверждения о правдивости («это правда…») в начале клаузы просьбой НЕ
+    являются: «это правда было смешно» — обычная речь."""
+    for match in _referential_hits(text):
+        if match.start() == 0 and str(match.group(0)).startswith("проверь"):
+            return True
+    return False
+
+
+def _referential_question(text: str) -> bool:
+    """Референтная форма внутри вопросительной клаузы («не врёт?», «фейк?»)."""
+    return bool(_referential_hits(text))
+
+
+def is_explicit_factcheck_request(text) -> bool:
+    """Явная просьба проверить факт: маркер + ФОРМА запроса (§1.3).
+
+    Сигнал засчитывается, только если маркер (тот же набор) стоит в форме
+    запроса: в начале клаузы («проверь факт: …», «фактчек: …», «правда ли,
+    что …») либо в вопросительной клаузе («это правда?», «не врёт?»).
+    Подстрока внутри утверждения сигналом не является, поэтому разговорная
+    реплика не отменяет переиспользование прочитанного источника и не
+    вызывает сетевой запрос. Никогда не бросает."""
+    try:
+        body = _without_code(_normalize(text))
+        if not body:
+            return False
+        for clause, terminator in _clauses(body):
+            core = clause.strip()
+            if not core:
+                continue
+            if _FACTCHECK_REQUEST_RE.match(core):
+                return True
+            if _FACTCHECK_QUESTION_START_RE.match(core):
+                return True
+            if _referential_imperative_at_start(core):
+                return True
+            if terminator == "?":
+                if _FACTCHECK_PHRASE_RE.search(core):
+                    return True
+                if _referential_question(core):
+                    return True
+        return False
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 @dataclasses.dataclass(frozen=True)
 class ActionIntent:
     """§5.1: смысловое намерение действия (дет., без LLM).
@@ -587,6 +704,7 @@ __all__ = [
     "emit_capability_rejected",
     # §5.1 (SOUL-AMD.5.2/5.9/5.10): semantic intent → capability
     "ActionIntent", "detect_action_intent", "intent_blockers",
+    "is_explicit_factcheck_request",
     "INTENT_CREATE_IMAGE", "INTENT_EDIT_IMAGE", "INTENT_WEB_SEARCH",
     "INTENT_FACT_CHECK", "INTENT_CHAT_MEMORY", "INTENT_NONE",
     "INTENT_CAPABILITY",

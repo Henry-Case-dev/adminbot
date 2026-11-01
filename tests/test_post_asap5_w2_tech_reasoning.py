@@ -266,13 +266,14 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     evr0 = (head + cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
-        ' "external_claims": []}', 1)
+        ' "external_claims": [],\n'
+        ' "recheck": false}', 1)
     assert canon == evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
-    assert _sha12(canon) == "ff502bb6b60e"
+    assert _sha12(canon) == "eb496e938c49"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon

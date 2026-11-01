@@ -314,16 +314,26 @@ class ExplicitRequest:
     Значения заполняет вызывающий ИЗ СУЩЕСТВУЮЩИХ детекторов:
     ``search`` — ``direct_capabilities.detect_action_intent``
     (``INTENT_WEB_SEARCH``) / ``direct_execution._SEARCH_RE``; ``verify`` —
+    явная ФОРМА просьбы проверить факт (``direct_capabilities.
+    is_explicit_factcheck_request`` поверх маркеров ``INTENT_FACT_CHECK``) и
     ``temporal_factcheck.is_referential_claim`` («проверь это» на reply);
-    ``read_source`` — поручение прочитать код/файл (EVOL-SRC)."""
+    ``recheck`` — optional-поле плана L1 (решение Architect «г»): человек
+    просит проверить заново/освежить, формулировку которых нет ни в одном
+    детерминированном детекторе; ``read_source`` — поручение прочитать
+    код/файл (EVOL-SRC)."""
 
     search: bool = False
     verify: bool = False
     read_source: bool = False
+    #: план L1 просит перепроверить раньше прочитанное (только ДОБАВЛЯЕТ
+    #: проверку: снимает reuse, не понижает ``required``, не создаёт
+    #: ``skip_reason``). Инициативный ход значение игнорирует.
+    recheck: bool = False
 
     @property
     def any(self) -> bool:
-        return bool(self.search or self.verify or self.read_source)
+        return bool(self.search or self.verify or self.read_source
+                    or self.recheck)
 
 
 @dataclass(frozen=True)
@@ -588,7 +598,7 @@ def _required_caps_for(explicit: ExplicitRequest, *, claims, supplied,
         # запрашивается ТОЛЬКО самим L1-планом (второго preflight/verdict
         # здесь не появляется, §2.4).
         return ("web_search",)
-    if explicit.search:
+    if explicit.search or explicit.recheck:
         urls = tuple(supplied.urls or ())
         return ("fetch_url", "web_search") if urls else ("web_search",)
     if evidence_class == "externally_factual":
@@ -644,6 +654,11 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
     structure = str(_plan_attr(plan, "structure", "chat") or "chat")
     # 2. Явное поручение — независимо от confidence/tool_policy/mode
     #    (снимает C1/C2 на уровне решения).
+    #    Инициативный ход (нет входящей реплики) не несёт просьбы человека:
+    #    `recheck` плана там игнорируется (решение Architect «г», §5.2) —
+    #    остальные сигналы не меняются.
+    if runtime_state.initiative:
+        explicit = replace(explicit, recheck=False)
     if explicit.any:
         kind = ("source_code" if explicit.read_source
                 else ("web" if explicit.search or explicit.verify else "web"))
@@ -654,10 +669,12 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
             EvidenceDecision(required=True, evidence_class="externally_factual",
                              claims=claims, source_kind=kind,
                              explicit_request=True, required_caps=caps,
-                             note=("explicit_search" if explicit.search
-                                   else ("explicit_verify"
-                                         if explicit.verify
-                                         else "explicit_read_source"))),
+                             note=("explicit_read_source"
+                                   if explicit.read_source
+                                   else ("explicit_verify" if explicit.verify
+                                         else ("explicit_search"
+                                               if explicit.search
+                                               else "plan_recheck")))),
             context=context, runtime_state=runtime_state)
     # 3. Только трансформация поданного текста — внешнего claim нет.
     if supplied.transformed_only and not claims:

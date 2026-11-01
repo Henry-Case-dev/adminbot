@@ -168,7 +168,8 @@ def test_l1_owner_contract_byte_intact():
                 + cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
-        ' "external_claims": []}', 1)
+        ' "external_claims": [],\n'
+        ' "recheck": false}', 1)
     assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         cp._DIRECT_L1_PLANNER_BASE_R3 + contract
         + cp._DIRECT_L1_CONTINUATION_R3B

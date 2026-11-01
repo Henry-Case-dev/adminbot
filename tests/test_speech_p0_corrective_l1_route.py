@@ -180,7 +180,7 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): активные байты = канон W2 +
     # секция «ВНЕШНИЕ УТВЕРЖДЕНИЯ» (стабильный слепок EVR0 = 14743d288ea3).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ff502bb6b60e"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "eb496e938c49"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок

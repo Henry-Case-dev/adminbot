@@ -2413,15 +2413,21 @@ def _evidence_urls(*texts) -> tuple[str, ...]:
 
 
 def _evidence_explicit_request(query: str,
-                               reply_text: str = "") -> "_evp.ExplicitRequest":
+                               reply_text: str = "",
+                               plan=None) -> "_evp.ExplicitRequest":
     """Детерминированные сигналы поручения (§1.3) — только существующие.
 
     * ``search`` — ``direct_capabilities.detect_action_intent``
       (``INTENT_WEB_SEARCH``; тот же класс запроса, что ``_SEARCH_RE``);
-    * ``verify`` — ``detect_action_intent`` ``INTENT_FACT_CHECK`` («правда
-      ли…», «проверь факт…», «это правда», «проверь это», «фактчек») плюс
-      ``temporal_factcheck.is_referential_claim`` («проверь это» на
-      replied-сообщение);
+    * ``verify`` — явная ФОРМА просьбы проверить факт: существующий набор
+      маркеров ``INTENT_FACT_CHECK`` («правда ли…», «проверь факт…», «это
+      правда?», «проверь это», «фактчек…») в форме запроса
+      (``direct_capabilities.is_explicit_factcheck_request``: начало клаузы
+      либо вопросительная клауза) плюс ``temporal_factcheck.
+      is_referential_claim`` («проверь это» на replied-сообщение);
+    * ``recheck`` — optional-поле плана L1 (решение Architect «г»): просьба
+      проверить заново/освежить, для которой детерминированного детектора нет;
+      только ДОБАВЛЯЕТ проверку;
     * ``read_source`` — поручение читать код/файл; инструмента нет до
       EVOL-SRC, поэтому политика честно вернёт ``capability_not_ready``
       только когда такое поручение реально распознано (сейчас — никогда,
@@ -2431,9 +2437,14 @@ def _evidence_explicit_request(query: str,
     перепроверить обязана снимать reuse. Сигнал берётся из СУЩЕСТВУЮЩЕГО
     смыслового детектора ``INTENT_FACT_CHECK`` — новый словарь фраз не
     заводится (§1.3), второго FC-пайплайна не появляется (§2.4: исполнитель
-    остаётся web_search). Формулировки, которых нет ни в одном существующем
-    детекторе, поведением не подменяются — они вынесены в отчёт как вопрос
-    PM/Architect."""
+    остаётся web_search).
+
+    Re-review 2 (§9.5, BLOCKER): подстрочный матч маркера в любом месте
+    текста ловил обычную речь («вот это правда круто», «спасибо, всё правда,
+    как ты и сказал», шутка с цитатой) и вызывал РЕАЛЬНЫЙ сетевой поиск с
+    репликой в качестве запроса. Теперь маркер засчитывается только в форме
+    запроса; для формулировок без существующего детектора («проверь заново…»,
+    «обнови данные про…») есть поле плана ``recheck``."""
     kind = ""
     try:
         intent = _caps.detect_action_intent(str(query or ""),
@@ -2442,15 +2453,34 @@ def _evidence_explicit_request(query: str,
     except Exception:      # pragma: no cover - защитная ветка
         kind = ""
     search = kind == _caps.INTENT_WEB_SEARCH
-    verify = kind == _caps.INTENT_FACT_CHECK
-    if not verify:
-        try:
-            from services import temporal_factcheck as _tf
-            verify = bool(_tf.is_referential_claim(str(query or "")))
-        except Exception:      # pragma: no cover - защитная ветка
-            verify = False
+    # Форма запроса проверяется один раз и применяется к ОБОИМ источникам
+    # сигнала: маркеры `INTENT_FACT_CHECK` и референтная форма отвечают на
+    # вопрос «о чём», а форму («проверь/правда ли/вопрос») решает
+    # `is_explicit_factcheck_request` — иначе обычная речь отменяла reuse.
+    explicit_form = False
+    referential = False
+    try:
+        explicit_form = bool(
+            _caps.is_explicit_factcheck_request(str(query or "")))
+    except Exception:      # pragma: no cover - защитная ветка
+        explicit_form = False
+    if not explicit_form:
+        verify = False
+    else:
+        if kind != _caps.INTENT_FACT_CHECK:
+            try:
+                from services import temporal_factcheck as _tf
+                referential = bool(_tf.is_referential_claim(str(query or "")))
+            except Exception:      # pragma: no cover - защитная ветка
+                referential = False
+        verify = bool(kind == _caps.INTENT_FACT_CHECK or referential)
+    recheck = False
+    try:
+        recheck = getattr(plan, "recheck", False) is True
+    except Exception:      # pragma: no cover - защитная ветка
+        recheck = False
     return _evp.ExplicitRequest(search=bool(search), verify=bool(verify),
-                                read_source=False)
+                                read_source=False, recheck=bool(recheck))
 
 
 def _evidence_supplied(query: str, reply_text: str, plan,
@@ -2479,19 +2509,28 @@ def _evidence_supplied(query: str, reply_text: str, plan,
         verified_reuse=frozenset(verified_reuse or ()))
 
 
-def _evidence_reuse_claims(plan, *, chat_id=None, bypass: bool = False
-                           ) -> frozenset:
+def _evidence_reuse_claims(plan, *, chat_id=None, bypass: bool = False,
+                           supplied_urls=()) -> frozenset:
     """claim-key плана, покрытые свежим прочитанным источником (§3.3/§3.4).
 
     Reuse — не Smart Cache: берётся только источник, привязанный к claim и
     реально доставленный Writer'у (`delivered_chars > 0`), и только в пределах
     TTL класса claim. Явная просьба «проверь/обнови заново» → ``bypass``
     (запись не используется). Сбой/выключенный рубильник → пустое множество
-    (обычный fetch). Никогда не бросает."""
+    (обычный fetch). Никогда не бросает.
+
+    Решение Architect «г» (§4): явная ссылка в реплике форсирует чтение ИМЕННО
+    этого адреса. Запись переиспользуется, только если её источник — тот же
+    URL (``supplied_urls``); запись с другим (или пустым) адресом игнорируется:
+    ответ по другому адресу, чем названный человеком, был бы подменой
+    доказательства. Фильтр остаётся здесь, в интеграционном слое, — политика
+    (`evidence_policy`) не делает I/O и не знает про URL-источники."""
     try:
         claims = _evp.classify_claims(plan)
         if not claims:
             return frozenset()
+        requested = tuple(str(url or "").strip() for url in (supplied_urls or ())
+                          if str(url or "").strip())
         from services import source_reuse as _reuse
         keys: list[str] = []
         for claim in claims:
@@ -2501,6 +2540,10 @@ def _evidence_reuse_claims(plan, *, chat_id=None, bypass: bool = False
                 continue
             if int(getattr(record, "delivered_chars", 0) or 0) <= 0:
                 continue
+            if requested:
+                record_url = str(getattr(record, "url", "") or "").strip()
+                if not record_url or record_url not in requested:
+                    continue
             keys.append(claim.key())
         return frozenset(keys)
     except Exception:      # pragma: no cover - защитная ветка
@@ -5533,12 +5576,18 @@ class DirectChatService:
         try:
             plan = l1_plan if l1_plan is not None else _l1.L1Plan()
             urls = _evidence_urls(query, reply_text)
-            explicit = _evidence_explicit_request(query, reply_text)
+            explicit = _evidence_explicit_request(query, reply_text, plan)
             # §3.3/§3.4 (волна 3): reuse засчитывается только для свежего
             # ПРОЧИТАННОГО и уже доставленного источника; явное «проверь
-            # заново» (verify) выключает переиспользование.
+            # заново» (verify/recheck плана) выключает переиспользование, а
+            # явная ссылка (решение Architect «г», §4) требует тот же адрес.
+            # Инициативный ход не несёт просьбы человека: `recheck` там
+            # игнорируется и здесь, иначе запись удалялась бы до политики.
+            bypass_reuse = bool(explicit.verify or (
+                explicit.recheck and not initiative))
             reuse_keys = _evidence_reuse_claims(
-                plan, chat_id=chat_id, bypass=bool(explicit.verify))
+                plan, chat_id=chat_id, bypass=bypass_reuse,
+                supplied_urls=urls)
             supplied = _evidence_supplied(query, reply_text, plan, urls,
                                           verified_reuse=reuse_keys)
             forbids = _evp.is_external_forbidden(query)

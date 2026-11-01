@@ -1836,3 +1836,416 @@ def test_wave5_background_prompts_have_no_search_directive():
                 assert needle not in low, (module.__name__, name, needle)
 
 
+# ── Волна 6: ФОРМА явной проверки + поле плана recheck (решение Architect «г») ─
+
+
+async def _query_turn(svc, plan, query, *, run_id="run-w6",
+                      reply_text="", initiative=False):
+    """Один ход preflight'а с произвольной репликой (сеть/LLM не нужны)."""
+    return await svc._evidence_preflight(
+        CHAT, run_id, query=query, reply_text=reply_text, l1_plan=plan,
+        response_plan=None, initiative=initiative)
+
+
+def _recheck_plan(version="4.1", **over) -> l1.L1Plan:
+    """Тот же claim, что `_reuse_plan`, + optional-поле плана `recheck`."""
+    data = {"external_claims": [{"entity": "deepseek v4.1 flash",
+                                "relation": "version", "version": version}],
+            "recheck": True}
+    data.update(over)
+    return _plan(**data)
+
+
+def _net_router():
+    """Реальные границы сети: агрегатор поиска и extractor статьи."""
+    search = _NetSearchSpy()
+    extractor = _NetExtractorSpy()
+    router = ToolRouter(ToolDeps(search=search, memory=_HistoryMemory([]),
+                                 extractor=extractor))
+    return router, search, extractor
+
+
+@pytest.mark.parametrize("query", [
+    "вот это правда круто",
+    "спасибо, всё правда, как ты и сказал",
+    "неправда ли, сегодня отличная погода?",
+    'он сказал "правда ли это", и мы посмеялись',
+    "это правда было смешно, кстати",
+])
+@pytest.mark.asyncio
+async def test_wave6_conversational_phrase_does_not_force_network(monkeypatch,
+                                                                 query):
+    """Review §9.5 (BLOCKER): обычная речь не запускает сетевую проверку.
+
+    Тот же набор маркеров, но без ФОРМЫ запроса: `explicit.any` ложно,
+    решение политики — «проверка не требуется», и на РЕАЛЬНЫХ границах сети
+    (агрегатор + extractor) ноль вызовов. Тест ловит возврат подстрочного
+    матча: тогда ход объявил бы `execute_web_search` и пошёл в сеть.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    router, search, extractor = _net_router()
+    svc = _service(router)
+    plan = _plan(response_act="banter")       # разговор: внешнего claim нет
+    assert dcs._evidence_explicit_request(query).any is False
+
+    decision = await _query_turn(svc, plan, query, run_id="run-w6n")
+    assert decision.required is False
+    assert decision.note != "explicit_verify"
+
+    schemas, _rejected = await svc._l1_tool_subset(
+        CHAT, "run-w6n", False, False, plan, decision=decision)
+    names = {t["function"]["name"] for t in schemas}
+    assert "execute_web_search" not in names
+    assert "fetch_article" not in names
+    await svc._l1_tool_phase(
+        None, _ctx(query), query=query, lore_enabled=False, image_enabled=False,
+        temperature=0.5, chat_id=CHAT, correlation_id="run-w6n", l1_plan=plan,
+        response_plan=None, fallback_meta={}, time_line="",
+        tool_schemas=schemas, required_caps=())
+    assert search.calls == []
+    assert extractor.calls == []
+
+
+@pytest.mark.parametrize("query", [
+    "спасибо, всё правда, как ты и сказал",
+    "вот это правда круто",
+    "неправда ли, сегодня отличная погода?",
+])
+@pytest.mark.asyncio
+async def test_wave6_conversational_phrase_keeps_reuse(monkeypatch, query):
+    """Сценарий 30: повторная разговорная реплика — reuse, а не сеть.
+
+    «Повторная реплика о том же проверенном claim ... без нового сетевого
+    вызова» (ER-29/ER-S30) ломалась именно на таких фразах: сигнал считался
+    явной проверкой, запись удалялась (bypass) и шёл поиск.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    router, search, extractor = _net_router()
+    svc = _service(router)
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+
+    decision = await _query_turn(svc, plan, query, run_id="run-w6c")
+    assert decision.required is False
+    assert decision.skip_reason is ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE
+    assert decision.note == "verified_reuse"
+    pack = svc._evidence_reuse_pack(decision, l1_plan=plan,
+                                    response_plan=None, chat_id=CHAT,
+                                    capacity_chars=4000)
+    assert pack is not None and "deepseek v4.1 flash" in pack.text
+    # Запись НЕ удалена: переиспользование осталось возможным.
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+    schemas, _rejected = await svc._l1_tool_subset(
+        CHAT, "run-w6c", False, False, plan, decision=decision)
+    ctx = ToolContext(CHAT, query)
+    ctx.claim_keys = list(decision.claims)
+    ctx.evidence_budget_chars = 4000
+    await svc._l1_tool_phase(
+        None, ctx, query=query, lore_enabled=False, image_enabled=False,
+        temperature=0.5, chat_id=CHAT, correlation_id="run-w6c", l1_plan=plan,
+        response_plan=None, fallback_meta={}, time_line="",
+        tool_schemas=schemas, required_caps=())
+    assert search.calls == []
+    assert extractor.calls == []
+
+
+@pytest.mark.parametrize("query", [
+    "бот, проверь факт: deepseek v4.1 flash вышел",
+    "бот, это правда?",
+    "бот, не врёт?",
+    "проверь его слова",
+    "скажи, правда ли, что deepseek v4.1 flash вышел",
+])
+@pytest.mark.asyncio
+async def test_wave6_factcheck_request_forms_still_cancel_reuse(monkeypatch,
+                                                                query):
+    """Форма запроса сохранена: просьба по форме по-прежнему снимает reuse.
+
+    Противоположная сторона анти-шторма: адресная/референтная форма
+    («бот, …», «проверь его слова», «не врёт?») обязана остаться сигналом.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+
+    decision = await _query_turn(svc, plan, query, run_id="run-w6f")
+    assert decision.required is True, query
+    assert decision.note == "explicit_verify", query
+    assert "web_search" in decision.required_caps, query
+    assert svc._evidence_reuse_pack(
+        decision, l1_plan=plan, response_plan=None, chat_id=CHAT) is None
+    assert claim.key() not in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+
+def test_wave6_marker_sets_are_unchanged_and_partitioned():
+    """§1.3: новых словарей нет — те же восемь маркеров, только по форме.
+
+    Побайтовое равенство сторожевой константы + разбиение по форме без
+    потерь: ни один маркер не выпал и не продублирован.
+    """
+    assert dc._FACTCHECK_MARKERS == (
+        "фактчек", "факт-чек", "проверь факт", "проверить факт",
+        "правда ли", "это правда", "проверь это", "fact check")
+    assert dc._SEARCH_MARKERS == (
+        "поищи", "поиск", "найди", "найти", "загугли", "погугли",
+        "в интернете", "в сети", "search")
+    request = set(dc._FACTCHECK_REQUEST_MARKERS)
+    question = set(dc._FACTCHECK_QUESTION_START_MARKERS)
+    statement = set(dc._FACTCHECK_STATEMENT_MARKERS)
+    assert request | question | statement == set(dc._FACTCHECK_MARKERS)
+    assert not (request & question) and not (request & statement)
+    assert not (question & statement)
+
+
+@pytest.mark.asyncio
+async def test_wave6_plan_recheck_cancels_reuse(monkeypatch):
+    """Решение Architect «г»: `recheck` плана — reuse снят, проверка есть."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _recheck_plan("4.1")
+    assert plan.recheck is True
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+    decision = await _reuse_turn(svc, plan, run_id="run-w6r")
+    assert decision.required is True
+    assert decision.skip_reason is None
+    assert decision.note == "plan_recheck"
+    assert "web_search" in decision.required_caps
+    assert svc._evidence_reuse_pack(
+        decision, l1_plan=plan, response_plan=None, chat_id=CHAT) is None
+    assert claim.key() not in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+
+@pytest.mark.parametrize("query", [
+    "проверь заново, что нового в deepseek v4.1 flash",
+    "обнови данные про deepseek v4.1 flash",
+    "перепроверь: deepseek v4.1 flash вышел",
+    "проверь ещё раз про deepseek v4.1 flash",
+    "актуальна ли инфа про deepseek v4.1 flash",
+    "свежие данные про deepseek v4.1 flash",
+])
+@pytest.mark.asyncio
+async def test_wave6_recheck_field_covers_phrases_without_detector(monkeypatch,
+                                                                  query):
+    """Формулировки без существующего детектора закрыты ПОЛЕМ плана, не словарём.
+
+    Тот же ход без `recheck` остаётся reuse (негатив в конце теста), с
+    `recheck` — required=True и `plan_recheck`. Ни одна фраза не добавлена в
+    маркеры: сигнал приходит из единственного L1-вызова.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _recheck_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    assert dcs._evidence_explicit_request(query).verify is False, query
+
+    decision = await _query_turn(svc, plan, query, run_id="run-w6p")
+    assert decision.required is True, query
+    assert decision.note == "plan_recheck", query
+
+    # Без поля плана та же фраза — reuse (запись снова свежая: ход с `recheck`
+    # снял её по контракту, поэтому состояние восстанавливаем явно).
+    _seed_reuse(claim)
+    plain = await _query_turn(svc, _reuse_plan("4.1"), query, run_id="run-w6q")
+    assert plain.required is False, query
+    assert plain.skip_reason is \
+        ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE, query
+
+
+@pytest.mark.asyncio
+async def test_wave6_recheck_keeps_evidence_tools_announced(monkeypatch):
+    """`recheck` не отменяет проверку: инструменты обязаны быть анонсированы.
+
+    Доказательство на tool-шве: `_l1_tool_subset` с решением политики реально
+    отдаёт сетевые evidence-схемы (иначе «проверка требуется» без исполнителя).
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _recheck_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    decision = await _reuse_turn(svc, plan, run_id="run-w6t")
+    schemas, rejected = await svc._l1_tool_subset(
+        CHAT, "run-w6t", False, False, plan, decision=decision)
+    names = {t["function"]["name"] for t in schemas}
+    assert "execute_web_search" in names
+    assert ("web_search", dc.REASON_LOW_CONFIDENCE) not in rejected
+
+
+@pytest.mark.asyncio
+async def test_wave6_recheck_not_downgraded_by_confidence_or_mode(monkeypatch):
+    """§1.2 п.2: уверенность/режим/пустые capabilities не снимают проверку."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _recheck_plan("4.1", confidence=0.0, execution_mode="none",
+                         capabilities_needed=[], tool_policy="none")
+    assert plan.confidence_bucket == "low"
+    _seed_reuse(ep.classify_claims(plan)[0])
+    decision = await _reuse_turn(svc, plan, run_id="run-w6d")
+    assert decision.required is True
+    assert decision.explicit_request is True
+    assert decision.note == "plan_recheck"
+
+
+@pytest.mark.asyncio
+async def test_wave6_plain_question_still_reuses(monkeypatch):
+    """Негатив анти-шторм: тот же ход БЕЗ `recheck` — обычный reuse."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    decision = await _reuse_turn(svc, plan, run_id="run-w6u")
+    assert decision.required is False
+    assert decision.note == "verified_reuse"
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+
+@pytest.mark.asyncio
+async def test_wave6_joke_mentioning_check_does_not_refetch(monkeypatch):
+    """Шутка со словом проверки не заставляет перечитывать источник."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    query = "проверь, как я тебя дразню, это было смешно"
+    assert dcs._evidence_explicit_request(query).any is False
+    decision = await _query_turn(svc, plan, query, run_id="run-w6j")
+    assert decision.required is False
+    assert decision.note != "plan_recheck"
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+
+def test_wave6_recheck_parse_is_strict_boolean():
+    """Прецедент `needs_clarification`: только реальный `true` → True."""
+    assert _plan(recheck=True).recheck is True
+    for value in ("true", 1, None, [], {}, 0, False):
+        assert _plan(recheck=value).recheck is False, value
+    assert l1.L1Plan().recheck is False
+
+
+@pytest.mark.asyncio
+async def test_wave6_initiative_ignores_recheck(monkeypatch):
+    """Инициативный ход (нет входящей реплики) не несёт просьбы человека."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _recheck_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    decision = await _query_turn(svc, plan, "что нового в deepseek v4.1 flash",
+                                 run_id="run-w6i", initiative=True)
+    assert decision.required is False
+    assert decision.skip_reason is ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE
+
+
+@pytest.mark.asyncio
+async def test_wave6_pasted_url_forces_read_of_that_url(monkeypatch):
+    """Решение Architect «г» §4: явная ссылка читается, а не подменяется.
+
+    Запись под `https://a.example/v41` при присланной `https://b.example/other`
+    не переиспользуется: ответ по другому адресу был бы подменой
+    доказательства. `fetch_url` попадает в обязательные capabilities.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    _seed_reuse(ep.classify_claims(plan)[0])
+    query = "что нового в deepseek v4.1 flash https://b.example/other"
+    decision = await _query_turn(svc, plan, query, run_id="run-w6v")
+    assert decision.required is True
+    assert "fetch_url" in decision.required_caps
+    assert svc._evidence_reuse_pack(
+        decision, l1_plan=plan, response_plan=None, chat_id=CHAT) is None
+
+
+@pytest.mark.asyncio
+async def test_wave6_pasted_url_same_as_record_reuses(monkeypatch):
+    """Тот же адрес + свежо + доставлено → это буквально тот же документ."""
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)          # url записи: https://a.example/v41
+    query = "что нового в deepseek v4.1 flash https://a.example/v41"
+    decision = await _query_turn(svc, plan, query, run_id="run-w6s")
+    assert decision.required is False
+    assert decision.skip_reason is ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE
+    pack = svc._evidence_reuse_pack(decision, l1_plan=plan,
+                                    response_plan=None, chat_id=CHAT,
+                                    capacity_chars=4000)
+    assert pack is not None and "deepseek v4.1 flash" in pack.text
+
+
+def test_wave6_prompt_canon_has_recheck_field():
+    """§5: планер узнаёт поле `recheck` и его границу (не отменяет проверку)."""
+    text = _prompt_text("prompts.direct_l1_planner_system_prompt")
+    assert '"recheck": false' in text
+    assert "ПОВТОРНАЯ ПРОВЕРКА" in text
+    assert "не отменяет обязательную проверку" in text
+    assert "не заменяет external_claims" in text
+    # Правила/контракты владельца не переписаны.
+    assert "ВНЕШНИЕ УТВЕРЖДЕНИЯ" in text
+    section = text.split("ВНЕШНИЕ УТВЕРЖДЕНИЯ", 1)[1]
+    assert "«" not in section and "»" not in section
+    assert "—" not in section
+
+
+def test_wave6_canon_revision_seal_and_rollback_target():
+    """Та же невыпущенная ревизия EVR1: метка/печать/откат сходятся.
+
+    Цель отката неизменна — прод 2.58.146 (`PREV_DIRECT_L1_PLANNER_EVR0`,
+    sha12 14743d288ea3): новая ступень лестницы не нужна, канон не выпущен.
+    """
+    from services import chat_prompts as cp
+    from services import prompt_migrations as pm
+    from services import prompt_registry as pr
+
+    block = "direct.base.l1_planner"
+    label, seal = pr.FACTORY_REVISION_SEALS[block]
+    assert pr.FACTORY_REVISION_LABELS[block] == label
+    assert "l1-planner-external-claims" in label
+    assert pr.sha12(pr.factory_text(block)) == seal
+    assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
+    steps = pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR0,
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
+    assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            cp.PREV_DIRECT_L1_PLANNER_EVR0) in pm.ROLLBACK_MIGRATIONS[
+                "prompts.direct_l1_planner_system_prompt"]
+
+
+def test_wave6_canon_step_applies_only_to_prev_bytes_and_keeps_owner_edits():
+    """Правка канона не перетирает ручную редакцию владельца.
+
+    Механика EVOL-016: решение по МЕТКЕ. Новая метка → активация заводских
+    байт (прежние байты остаются неизменяемой ревизией); та же метка → no-op,
+    ручная правка владельца остаётся активной.
+    """
+    from services import prompt_registry as pr
+
+    block = "direct.base.l1_planner"
+    label, seal = pr.FACTORY_REVISION_SEALS[block]
+    code_revision = pr.FACTORY_PREFIX + pr.sha12(label)
+    factory_sha = pr.sha12(pr.factory_text(block))
+
+    fresh = pr.activation_plan(
+        code_label=label, sealed_sha=seal, text_sha12=factory_sha,
+        applied_factory_revision="fac:000000000000", has_import=True)
+    assert fresh.action == pr.PLAN_ACTIVATE
+
+    owner_edited = pr.activation_plan(
+        code_label=label, sealed_sha=seal, text_sha12=factory_sha,
+        applied_factory_revision=code_revision, has_import=True)
+    assert owner_edited.action == pr.PLAN_NOOP
+
+
+

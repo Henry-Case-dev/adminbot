@@ -253,7 +253,8 @@ def test_l1_canon_persona_and_rules_bytes_preserved():
     w2_canon = (head + cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
-        ' "external_claims": []}', 1)
+        ' "external_claims": [],\n'
+        ' "recheck": false}', 1)
     assert canon == w2_canon + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     assert canon.count(cp._DIRECT_L1_INTENT_UPDATE_PA5) == 1
     assert canon.count(cp._DIRECT_L1_CLARIFICATION_CONTRACT) == 1
@@ -301,7 +302,7 @@ def test_pa5w1_snapshot_is_exact_previous_active_bytes():
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W2) == "902dd00edf52"
     # Волна 5: слепок EVR0 = ровно байты ред.6; активные байты — EVR1.
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ff502bb6b60e"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "eb496e938c49"
     assert "ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ" not in prev
 
 

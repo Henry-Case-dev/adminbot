@@ -885,12 +885,14 @@ class TestMca23Migration:
 
         # «копия текущих значений» после boot-проводки.
         # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): активные каноны сменились на
-        # EVR1 (ff502bb6b60e / 68f0233d7050); целевые байты отката 2.58.113
-        # (c987c03e3ee0 / d1b210c156c8) не изменились.
+        # EVR1 (eb496e938c49 / 68f0233d7050); целевые байты отката 2.58.113
+        # (c987c03e3ee0 / d1b210c156c8) не изменились. Решение Architect «г»:
+        # та же невыпущенная ревизия EVR1 расширена полем recheck — меняются
+        # только байты L1-планера, откат по-прежнему на 2.58.146/2.58.113.
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("ff502bb6b60e", "68f0233d7050")
+            ("eb496e938c49", "68f0233d7050")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

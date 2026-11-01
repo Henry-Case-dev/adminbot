@@ -104,12 +104,17 @@ def test_p0a_verbalizer_is_owner_text_with_documented_adaptation():
     assert expected.count("Если вход передан JSON-пакетом") == 1
     # активный канон = W1-канон + вставка §4.2 (и R3b-граница) в «КАК ПИСАТЬ»
     # POST-ASAP5 W2: + секция «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ» (§4/§6)
-    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == expected.replace(
-        "обычная болтовня не требует длинного текста.",
-        "обычная болтовня не требует длинного текста.\n\n"
-        + cp._VERBALIZER_CLAR_PARAGRAPHS + "\n\n"
-        + cp._VERBALIZER_HISTORY_BOUNDARY_R3B + "\n\n"
-        + cp._VERBALIZER_TECH_REASONING_PA5W2, 1)
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): + секция «ДОСТАВЛЕННЫЕ
+    # ДОКАЗАТЕЛЬСТВА» Writer'а. Реконструкция в этом файле отставала от
+    # фактической композиции — приведена к ней.
+    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == (
+        expected.replace(
+            "обычная болтовня не требует длинного текста.",
+            "обычная болтовня не требует длинного текста.\n\n"
+            + cp._VERBALIZER_CLAR_PARAGRAPHS + "\n\n"
+            + cp._VERBALIZER_HISTORY_BOUNDARY_R3B + "\n\n"
+            + cp._VERBALIZER_TECH_REASONING_PA5W2, 1)
+        + "\n\n" + cp._VERBALIZER_EVIDENCE_DISCIPLINE_EVR1)
     canon = cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # вставка ровно одна, в разделе «КАК ПИСАТЬ», до «ВЫХОД»
     assert canon.count("Если намерение пользователя понятно") == 1
@@ -143,8 +148,11 @@ def test_p0a_verbalizer_registered_editable_resettable_and_used_in_l2():
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # ASAP 2: метка ревизии бампнута (l2-writer-clar); R3b: граница истории
     # POST-ASAP5 W2: секция технических расчётов (l2-writer-tech-reasoning)
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): метка сменилась на
+    # l2-writer-evidence-discipline (секция «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»);
+    # ожидание в этом файле отставало от фактической метки.
     assert pr.factory_revision(block_id).startswith("fac:") and \
-        "l2-writer-tech-reasoning" in pr.factory_revision(block_id)
+        "l2-writer-evidence-discipline" in pr.factory_revision(block_id)
     # L2-сборка (каналы композера) сохраняет канон головой payload
     composed = psb.compose_verbalizer_system(
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain",
@@ -431,7 +439,10 @@ def test_p0g_parser_contract_unchanged_and_validator_never_assigns():
 
 def test_91_factory_and_active_revisions_distinguishable():
     rev = pr.factory_revision("direct.base.l2_writer")
-    assert rev.startswith("fac:") and "l2-writer-tech-reasoning" in rev
+    # Метка l2_writer сменилась в волне 5 (было l2-writer-tech-reasoning,
+    # стало l2-writer-evidence-discipline: секция «ДОСТАВЛЕННЫЕ
+    # ДОКАЗАТЕЛЬСТВА»). Пин в этом файле отставал от фактической метки.
+    assert rev.startswith("fac:") and "l2-writer-evidence-discipline" in rev
     eff = pr.effective_prompt("direct.base.l2_writer")
     assert eff.factory_revision.startswith("fac:")
     assert eff.revision.startswith("act:") or eff.revision == ""

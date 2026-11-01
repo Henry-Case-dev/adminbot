@@ -179,4 +179,8 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # EVOL §5 W5 (31.10.2026, d036707a): +1 заводской промпт «Критический
     # разнос» (factcheck.critique.directive) → 519663a57eb6 (осознанный
     # re-pin L-F11S-1).
-    assert pr.FACTORY_SET_SHA256_12 == "519663a57eb6"
+    # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5 + review-fix 6, 01.11.2026): 3
+    # фабрики Direct (L1 planner external_claims/recheck, Writer, tool phase)
+    # → 724a5d420896, затем (recheck в той же невыпущенной EVR1) → de8e77a2a3f4.
+    # Пин в этом файле отстал от волны 5 — приведён к фактическому значению.
+    assert pr.FACTORY_SET_SHA256_12 == "de8e77a2a3f4"

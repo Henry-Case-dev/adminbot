@@ -232,6 +232,13 @@ class L1Plan:
     # проверку, если её требует runtime-политика. Невалидный элемент
     # отбрасывается; отсутствие поля → пустой кортеж (план валиден).
     external_claims: tuple = ()
+    # ── ASAP-EVIDENCE-ROUTING-01 v3, решение Architect «г» (recheck-сигнал):
+    # ещё одно optional-поле ТОГО ЖЕ единственного L1-вызова. Строгий boolean
+    # (прецедент ``needs_clarification``): «true»-строка/1/null → False.
+    # ``recheck`` только ДОБАВЛЯЕТ проверку (запрещает переиспользовать ранее
+    # прочитанный источник) и никогда не отменяет обязательную; на
+    # инициативном пути игнорируется (там нет просьбы человека).
+    recheck: bool = False
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -553,6 +560,11 @@ def normalize_l1_plan(data) -> L1Plan | None:
     # отсутствие → (); решение об обязательности проверки принимает runtime
     # (`services/evidence_policy`), не модель.
     plan.external_claims = _parse_external_claims(data.get("external_claims"))
+    # ── ASAP-EVIDENCE-ROUTING-01 v3 (решение Architect «г»): строгий boolean
+    # по прецеденту `needs_clarification`: только реальный true → True;
+    # «true»-строка, 1, null, отсутствие → False (план не инвалидируется).
+    # Поле только ДОБАВЛЯЕТ проверку; обязательность исполняет runtime.
+    plan.recheck = data.get("recheck") is True
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")

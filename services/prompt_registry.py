@@ -166,8 +166,10 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # «обязательность read-only проверки исполняет runtime независимо от
     # твоего мнения» + запрет отменять проверку уверенностью/tool_policy/
     # пустым capabilities_needed. Прежние байты — PREV_DIRECT_L1_PLANNER_EVR0
-    # (ступень + откат).
-    "direct.base.l1_planner": "l1-planner-external-claims",
+    # (ступень + откат). Решение Architect «г» (recheck-сигнал, 01.11.2026):
+    # в ТОЙ ЖЕ невыпущенной ревизии EVR1 добавлено optional-поле `recheck`
+    # (схема + абзац «ПОВТОРНАЯ ПРОВЕРКА»); новые байты — метка ниже.
+    "direct.base.l1_planner": "l1-planner-external-claims-recheck",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -335,7 +337,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
     "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-external-claims", "ff502bb6b60e"),
+    "direct.base.l1_planner": ("l1-planner-external-claims-recheck", "eb496e938c49"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2686,8 +2688,14 @@ def factory_set_fingerprint() -> str:
 #: инструмента (метка ``toolphase-runtime-evidence``, прежние байты
 #: PREV_CHAT_EVR0_SYSTEM_PROMPT). Секция W2, правила L1, тексты владельца и
 #: фоновые каноны не менялись. Было ``519663a57eb6``, стало ``724a5d420896``.
+#: Бампа правки решения Architect «г» (01.11.2026): та же невыпущенная
+#: ревизия EVR1 расширена — optional-поле ``recheck`` в схеме L1-планера и
+#: абзац «ПОВТОРНАЯ ПРОВЕРКА» (метка ``l1-planner-external-claims-recheck``,
+#: прежние байты PREV_DIRECT_L1_PLANNER_EVR0 = прод 2.58.146 без изменений).
+#: Changed = 1 (только ``direct.base.l1_planner``). Было ``724a5d420896``,
+#: стало ``de8e77a2a3f4``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "724a5d420896"
+FACTORY_SET_SHA256_12 = "de8e77a2a3f4"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -95,7 +95,8 @@ def test_l1_rules_positive_criteria_present():
     w2_canon = new_canon.replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
-        ' "external_claims": []}', 1)
+        ' "external_claims": [],\n'
+        ' "recheck": false}', 1)
     from services.chat_prompts import _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == \
         w2_canon + _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
