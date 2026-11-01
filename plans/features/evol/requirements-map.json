@@ -6310,8 +6310,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00638 (VERIFIED @26905a89), §2.2 и §9.4 W12 - единственный источник управления",
+          "observation": "Реестр setting -> хранилище -> override -> consumer -> UI: readonly_master у generic-редактора (web/app.js:17453) и guard в saveConfigItem (:21397), master-флаг модуля доступен только в каталоге, конкурирующих тумблеров нет (truth table W12 §3). Строка повторяет клаузу канона L00638.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00043",
@@ -9046,8 +9065,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00588 (VERIFIED @26905a89), §3 W12 - анатомия внутренних экранов модулей",
+          "observation": "Заголовок модуля: название/назначение, scope, стадия и здоровье; master-toggle не дублируется (data-module-scope-readonly, web/index.html:5629), effective status с переходом в каталог. Строка повторяет клаузу канона L00588, отдельной реализации не требует.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00595",
@@ -9061,8 +9099,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00588 (VERIFIED @26905a89), §3 W12 - обзор модуля",
+          "observation": "Обзор: 2-4 состояния, последнее успешное действие, причина деградации, одно основное действие и переход в события (data-module-overview-actions, web/index.html:968); второй панели агрегированных чисел нет.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00596",
@@ -9076,8 +9133,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00588 (VERIFIED @26905a89), §3 W12 - функции/секции модуля",
+          "observation": "Функции сгруппированы по пользовательской цели, настройка и диагностический ключ не смешаны; desktop master-detail, mobile - вертикальные секции (tests/test_webapp_evol_w12_internals.py, 19 passed).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00597",
@@ -9091,8 +9167,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00588 (VERIFIED @26905a89), §3 W12 - редакторы",
+          "observation": "Для промпта одна каноническая версионируемая редакция, для модели одна конфигурация подключения; deep-link ведёт к нужной сущности (?focus=), значения и черновик сохраняются при возврате (48830edf).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00598",
@@ -9106,8 +9201,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00588 (VERIFIED @26905a89), §3 W12 - диагностика",
+          "observation": "Диагностика (причины отказов, source key, эффективные значения, события, корреляционные ID) вынесена в доступную администратору секцию и доступна в полном объёме; данные не теряются.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00604",
@@ -9282,7 +9396,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Не привязывается к W12: форма «шести областей с интерактивной схемой пайплайна» заменена более поздним решением владельца (ASAP-SUMMARY-COVER-INTEGRITY-01 §4.2, plans/current_task.md L2558+: пять вкладок «Личность / Речь и стиль / Мат / Примеры / Правила и источники», коммит 26905a89). Строка требует пере-скоупинга на актуальный контракт (отдельным bounded-проходом), иначе VERIFIED был бы выдан за структуру, которой в проде нет."
+      "status_note": "Не привязывается к W12: форма «шести областей с интерактивной схемой пайплайна» заменена более поздним решением владельца (ASAP-SUMMARY-COVER-INTEGRITY-01 §4.2, plans/current_task.md L2558+: пять вкладок «Личность / Речь и стиль / Мат / Примеры / Правила и источники», коммит 26905a89). Строка требует пере-скоупинга на актуальный контракт (отдельным bounded-проходом), иначе VERIFIED был бы выдан за структуру, которой в проде нет.",
+      "note": "Открыто: acceptance требует шесть областей, включая «Обзор» с интерактивной схемой реального формирования реплики, где каждый узел ведёт в каноническую настройку/диагностику. В проде - пять вкладок (26905a89: Личность/Речь и стиль/Мат/Примеры/Правила), области доступны через alsoSections, но интерактивной схемы формирования ответа нет. Более позднее решение владельца (5 вкладок) требует явного вердикта, а не молчаливого закрытия."
     },
     {
       "source_id": "L00662",
@@ -9422,8 +9537,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00675 (VERIFIED @26905a89), §6 W12 - режим «Последний реальный вызов»",
+          "observation": "Режим real показывает только подтверждённый снимок реально отправленного payload из существующей инструментированной цепочки (speechInspectorMode='real', web/app.js:3068; разметка web/index.html:11349-11362); при отсутствии снимка - честное «нет данных».",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00682",
@@ -9437,8 +9571,27 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "канон L00675 (VERIFIED @26905a89), §6 W12 - режим «Предпросмотр»",
+          "observation": "Режим preview - локальная сборка текущей конфигурации без LLM-вызова с явной меткой «не отправлено» (speechInspectorMode='preview'), отделён от подтверждённого снимка; отличие показывается как отдельный режим, а не выдаётся за реальный payload.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w12-internals.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0a584c95dd5dc5abdb03c419c0a310aaa4c8ca5956e2009f4835ff6fff2f1517"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ]
     },
     {
       "source_id": "L00690",
@@ -9453,7 +9606,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Открыто: acceptance прямо требует «dropdown/combobox с порталом выше glass-слоёв, flip/placement, mobile sheet». Компонент .ctl-pop объявлен в CSS, но не применён ни в разметке, ни в JS (0 вхождений) - клауза не выполнена. Остальные роли (кнопки/toggle/check/seg/field/progress/меню) сведены в W11."
     },
     {
       "source_id": "L00714",
@@ -9468,7 +9622,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Открыто: acceptance требует матрицу portrait 320/360/390/430, landscape, tablet split-screen, desktop zoom 200%, Mini App + мобильный браузер и «overlay/combobox/search не открываются под клавиатурой». Живой прогон W11 покрывает 390/768/1280; 320/360/430 и overlay/combobox под клавиатурой не измерены, combobox в разметке отсутствует."
     },
     {
       "source_id": "L00720",
@@ -9558,7 +9713,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Открыто: acceptance требует «контроль FPS/GPU/CPU на мобильном» и проверку различимости состояний в движении; в w11-controls.md измерений FPS/GPU нет, отдельного замера в движении не приложено. Модель прогресса (_ctlProgressModel, 11 полос, data-state, штриховка stale, done>total) реализована."
     },
     {
       "source_id": "L00732",
@@ -21872,7 +22028,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: базовые роли сведены (EVOL-022/023/026-030 используют .btn/.btn-ghost/.field/.card/[data-glass]/health-glass-surface), но остаются локальные плотности/отступы (web/static/app.css:1403, 1469-1470, 4194, 4549-4553) — нормализуются точечно при касании этих экранов, без глобального рестайла (asap-ui-02-matrix.md §5, PARTIAL)."
+      "status_note": "PENDING: базовые роли сведены (EVOL-022/023/026-030 используют .btn/.btn-ghost/.field/.card/[data-glass]/health-glass-surface), но остаются локальные плотности/отступы (web/static/app.css:1403, 1469-1470, 4194, 4549-4553) — нормализуются точечно при касании этих экранов, без глобального рестайла (asap-ui-02-matrix.md §5, PARTIAL).",
+      "note": "Открыто: acceptance требует, чтобы отличия были только утверждёнными вариантами/токенами. Роли сведены (26 --ctl-*, 46 .ctl-*, 15 тумблеров; d1a706d2/c89b08ef), но в app.css остаются локальные плотности (1403, 1469-1470, 4194, 4549-4553), не объявленные вариантами. Зависимость: UI-дельта ASAP-UI-02."
     },
     {
       "source_id": "L01827",
@@ -22298,7 +22455,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
+      "note": "Открыто: acceptance строки - весь контракт §4.2, включая «одна система z-index/portal/focus trap/backdrop». Модалка записи приведена (db890035: один instance на #app, Esc/крестик/внешний клик, focus trap, scroll-lock, max-height 86dvh, один record_id) и guard несохранённого текста есть (web/app.js:8530, 8595), но z-index остаётся россыпью (30/35/40/45/46/50/55/56/57/59/60/70/80 против --overlay-z:50). Зависимость: overlay-дельта (L01848)."
     },
     {
       "source_id": "L01845",
@@ -22355,7 +22513,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
+      "note": "Открыто: desktop-поверхность есть (короткая запись - modal; длинные редакторы - fullscreen), но в том же acceptance требуется единая система z-index/portal/backdrop, которая не сведена (--overlay-z:50 против фактических 30..80). Зависимость: L01848."
     },
     {
       "source_id": "L01847",
@@ -22371,7 +22530,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
+      "note": "Открыто: на мобильном используется адаптивная модалка (max-height min(86dvh,720px), @media 479px), а не bottom-sheet, и общий z-index-слой не сведён - обе части одного acceptance. Зависимость: overlay-дельта (L01848)."
     },
     {
       "source_id": "L01848",
@@ -22387,7 +22547,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
+      "note": "Открыто целиком: единая система z-index/portal/backdrop/focus не сведена - в app.css живут 30/35/40/45/46/50/55/56/57/59/60/70/80, токен --overlay-z:50 применяется в одном месте (строка 6079). Зависимость: UI-дельта overlay."
     },
     {
       "source_id": "L01849",
@@ -22403,7 +22564,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL."
+      "status_note": "PENDING: модалка записи приведена к одному id/ref и открывается из каталога Памяти (db890035), но стандарт modal/sheet и слой overlay остаются частичными: z-index drawer 40 / backdrop 35 против `--overlay-z: 50`, модалки живут вне main.scroll-area (web/static/app.css:2758, 2762, 1034, 1094) — asap-ui-02-matrix.md §6, PARTIAL.",
+      "note": "Открыто: Esc/крестик/внешний клик, focus trap, scroll-lock и guard несохранённого ввода (web/app.js:8530, 8595) есть; единый overlay-слой (z-index/portal/backdrop) из того же acceptance - нет. Зависимость: L01848."
     },
     {
       "source_id": "L01851",
@@ -22501,7 +22663,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: селектор области — кастомный a11y-listbox с flip и поиском (scopePanelStyle), но остальные экраны ещё используют .field select; сводить к одному компоненту нужно при касании соответствующего экрана (asap-ui-02-matrix.md §6, PARTIAL)."
+      "status_note": "PENDING: селектор области — кастомный a11y-listbox с flip и поиском (scopePanelStyle), но остальные экраны ещё используют .field select; сводить к одному компоненту нужно при касании соответствующего экрана (asap-ui-02-matrix.md §6, PARTIAL).",
+      "note": "Открыто: select/combobox не сведён к общему компоненту - .ctl-pop/.ctl-pop__search определены в app.css (6811, 6901-6919), но в web/index.html и web/app.js нет ни одного применения (0 вхождений); scope-панель остаётся собственным listbox. Зависимость: UI-дельта controls."
     },
     {
       "source_id": "L01855",
@@ -24292,7 +24455,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
+      "note": "Открыто: acceptance - весь контракт §9. Desktop-вход и Ctrl+K работают (data-palette-open, web/app.js:3055+), фокус-переходы исправлены (48830edf), но мобильная точка входа отсутствует: кнопка v-if=\"!hasDrawer\", а app-level «...» удалён в 26905a89. Зависимость: UI-дельта palette (L01940)."
     },
     {
       "source_id": "L01940",
@@ -24308,7 +24472,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
+      "note": "Открыто: мобильная точка входа в палитру отсутствует - триггер только для desktop (v-if=\"!hasDrawer\", web/index.html:327-337), меню «...» как вторичная панель удалено в 26905a89, поискового sheet на телефоне нет. Зависимость: UI-дельта palette."
     },
     {
       "source_id": "L01941",
@@ -24324,7 +24489,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
+      "note": "Открыто: локальные фильтры не конкурируют с глобальным поиском (true), но acceptance строки включает весь контракт §9, в том числе мобильную точку входа, которой нет. Зависимость: L01940."
     },
     {
       "source_id": "L01942",
@@ -24340,7 +24506,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
+      "note": "Открыто: адресный переход с focus/scroll реализован (48830edf: _settingRenderMap + retries 20x200ms + честное сообщение), но acceptance включает мобильную точку входа в палитру, которой нет. Зависимость: L01940."
     },
     {
       "source_id": "L01943",
@@ -24356,7 +24523,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11)."
+      "status_note": "PENDING (MISSING): палитры, обработчика Ctrl+K и разметки глобального поиска в сборке нет; EVOL-037 в очереди, место ввода в топбаре зарезервировано (asap-ui-02-matrix.md §11).",
+      "note": "Открыто: RBAC/секреты и сохранение перехода описаны в W12 §4 и 48830edf, но acceptance включает весь контракт §9 (мобильный вход, слой overlay палитры) - целиком не закрыт. Зависимость: L01940."
     },
     {
       "source_id": "L01945",
@@ -24536,7 +24704,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: CSS-токены --dur-*/--ease-out и один JS DEFAULTS у лент есть, но единого сквозного токена, общего для CSS и JS, нет (asap-ui-02-matrix.md §12, PARTIAL)."
+      "status_note": "PENDING: CSS-токены --dur-*/--ease-out и один JS DEFAULTS у лент есть, но единого сквозного токена, общего для CSS и JS, нет (asap-ui-02-matrix.md §12, PARTIAL).",
+      "note": "Открыто: сквозного motion-токена нет - CSS-токены --motion-* есть (16 вхождений), но JS-движок лент использует собственный DEFAULTS (web/app.js:28360), CSS и JS не делят один токен. Зависимость: UI-дельта motion."
     },
     {
       "source_id": "L01952",
@@ -24757,7 +24926,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: нативная политика BackButton и закрытие drawer/scope работают, но per-layer Back для поиска/sheet в большинстве поверхностей опирается на Esc и кнопки закрытия (asap-ui-02-matrix.md §12, PARTIAL)."
+      "status_note": "PENDING: нативная политика BackButton и закрытие drawer/scope работают, но per-layer Back для поиска/sheet в большинстве поверхностей опирается на Esc и кнопки закрытия (asap-ui-02-matrix.md §12, PARTIAL).",
+      "note": "Открыто: единого Back-stack нет (grep backStack/overlayStack = 0); закрытие слоёв точечное (Esc/кнопки, goBack закрывает drawer первым - 30f9920f). Зависимость: UI-дельта Back-stack."
     },
     {
       "source_id": "L01960",
@@ -24803,7 +24973,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01967",
@@ -24819,7 +24990,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01968",
@@ -24835,7 +25007,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01969",
@@ -24851,7 +25024,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01970",
@@ -24867,7 +25041,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01971",
@@ -24883,7 +25058,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: сценарий №6 «правильный порядок Back» - drawer и Telegram Back закрываются корректно, но поиск/деталь/sheet не имеют единого стека закрытия (grep backStack/overlayStack = 0). Зависимость: UI-дельта Back-stack (L01958)."
     },
     {
       "source_id": "L01972",
@@ -24899,7 +25075,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01973",
@@ -24915,7 +25092,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01974",
@@ -24931,7 +25109,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01975",
@@ -24947,7 +25126,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01976",
@@ -24963,7 +25143,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: сценарий №11 «встроенная карта со свайпом страницы и режимом Исследовать» - на «Статусе» по-прежнему legacy «Граф связей»; реализация - слайс EVOL-COG-MAP (очередь владельца, W7). Остальные сценарии §12 подтверждены (114+152 ячейки, w10-sec-probe.json)."
     },
     {
       "source_id": "L01977",
@@ -24979,7 +25160,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: сценарий №12 «fullscreen карта с LOD и восстановлением камеры» - fullscreen-механика есть, но карта легаси; реализация - EVOL-COG-MAP (очередь владельца, W7). Остальные сценарии §12 подтверждены (114+152 ячейки, w10-sec-probe.json)."
     },
     {
       "source_id": "L01978",
@@ -24995,7 +25177,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01979",
@@ -25011,7 +25194,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01980",
@@ -25027,7 +25211,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01981",
@@ -25043,7 +25228,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01982",
@@ -25059,7 +25245,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен."
+      "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
+      "note": "Открыто: acceptance строки - весь 17-сценарный контракт §12, а не только её номер. Не закрыты сценарии №6 (единый Back-stack), №11/№12 (когнитивная карта, слайс EVOL-COG-MAP, очередь владельца), №14 (мобильная точка входа в глобальный поиск). Остальные сценарии подтверждены: 114+152 ячейки без дефектов, w10-sec-probe.json, title_once=1, единый 4-секционный виджет, warning-тон."
     },
     {
       "source_id": "L01986",
@@ -27255,8 +27442,36 @@
       "acceptance": "Запросы во внешние поисковики строятся из минимальной неперсональной сущности/версии/даты/темы: текст Telegram-реплики, участник, ID/алиасы, история двух чатов, OCR приватного скрина и секреты не передаются без разрешённой необходимости, для внутренней истории используется локальный инструмент.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13 §1/§2 (claim-key запросы) + services/evidence_policy.py:965-982 claims_query",
+          "observation": "Запрос во внешний поиск собирается ТОЛЬКО из полей claim (entity/version/metric/date, лимит 160 симв.), без текста Telegram-реплики, участника, ID/алиасов, истории чатов и OCR; для внутренней истории используется локальный инструмент (сценарий 32).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py - минимальность запроса и отсутствие служебного текста",
+          "observation": "Тест утверждает, что в запрос попадают сущность и версия claim, а слово из служебной формулировки («напомнить») - нет; пустой claim-набор даёт пустой запрос, и поиск не выполняется вовсе.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "9bf599fda282ea84ecdc5a800271d1680b3814e7d6f816dbbe3028fa07e6a033"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ],
       "status_note": "Реализация проверяема (web/tool_router), но отдельного доказательства минимизации запроса в w13 нет — строка остаётся PENDING до теста/наблюдения."
     },
     {
@@ -27744,7 +27959,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Полоса ASAP-VISION-SYNC-01: готовность медиа до анализа не подтверждена отдельным доказательством в этом проходе."
+      "status_note": "Полоса ASAP-VISION-SYNC-01: готовность медиа до анализа не подтверждена отдельным доказательством в этом проходе.",
+      "note": "Открыто частично: readiness/ожидание относящегося OCR (sc6/sc7/sc9/sc11), отсутствие повторного OCR (sc10) и honest pending (sc12) доказаны, но клауза «исходный скриншот - объект проверки, а не независимый источник истины» не имеет ни правила в source_kind, ни теста. Нужен отдельный фикс/фикстура Vision+FactCheck."
     },
     {
       "source_id": "L02232",
@@ -28776,8 +28992,36 @@
       "acceptance": "Сценарий 13 §10: «На каком железе ты это запускал?» — вопрос без внешнего утверждения, web не обязателен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13 §2 (сценарий 13) + services/evidence_policy.py: SUFFICIENT_RUNTIME_SOURCE / is_runtime_self_question",
+          "observation": "Вопрос «на каком железе запускал» классифицируется как self/runtime без внешнего claim: test_review_scenario13_hardware_question_is_runtime_source и test_runtime_self_question_detector_is_narrow зелёные в задеплоенном наборе; веб не обязателен, проверка не запускается.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py (дерево 6cf06db4) - сценарий 13",
+          "observation": "test_review_scenario13_hardware_question_is_runtime_source фиксирует skip_reason=SUFFICIENT_RUNTIME_SOURCE и отсутствие сетевых вызовов для вопроса о собственном железе.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "9bf599fda282ea84ecdc5a800271d1680b3814e7d6f816dbbe3028fa07e6a033"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -28928,8 +29172,45 @@
       "acceptance": "Сценарий 18 §10: Просьба «одно слово/коротко» с внешним техническим фактом — проверка всё равно выполняется, публичный ответ остаётся требуемой краткости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13 §2 (сценарий 18) + сигнатура evaluate_evidence_need (services/evidence_policy.py:600-605)",
+          "observation": "Политика обязательности не принимает response extent: краткость запроса не участвует в решении, поэтому внешний факт при «одно слово» всё равно требует read-only проверки (required=True по правилам §1.2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+        },
+        {
+          "ref": "tests/test_evol_evidence_routing.py - обязательность проверки независимо от формы ответа",
+          "observation": "В задеплоенном наборе политика даёт required=True для внешнего claim (сценарии 1/4/15) без участия extent; краткость ответа доказывается отдельным тестом L1/L2.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "9bf599fda282ea84ecdc5a800271d1680b3814e7d6f816dbbe3028fa07e6a033"
+        },
+        {
+          "ref": "tests/test_asap7_direct_l1.py::test_d2_one_word (дерево 6cf06db4)",
+          "observation": "one_word-ответ остаётся кратким при наличии обязательной проверки; публичный текст не превращается в отчёт со ссылками.",
+          "type": "test",
+          "artifact_path": "tests/test_asap7_direct_l1.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "32fdcbca13642f2fc72d271452d4a28180c290d01937a546c41742b0e330b91f"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -29421,8 +29702,54 @@
       "acceptance": "Сценарий 34 §10: Скриншот — фактический источник запроса: ожидается только относящийся OCR, одна связанная проверка, без повторного Vision-вызова и вечного ожидания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w8-vision-sync-wave2.md - сценарии 7/9 (только относящийся OCR, альбом)",
+          "observation": "Для вопроса о текстовой истории посторонняя картинка не заставляет ждать все медиа (sc7), альбом собирает изображения группы в одно ожидание (sc9), ожидание ограничено единым barrier с таймаутом и честным pending вместо вечного ожидания.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w8-vision-sync-wave2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "01ce683b71278158ca95db3bff16b9a72ac7e9f013d6b7c07feef2bf65ec2d28"
+        },
+        {
+          "ref": "tests/test_evol_vision_sync_wave2.py (дерево 6cf06db4)",
+          "observation": "test_sc7_plain_text_near_foreign_photo_does_not_wait и test_sc9_album_collects_all_media_group_images зелёные; отдельного повторного Vision-вызова нет.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_vision_sync_wave2.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "61a8108925dddc0eeda7401a24652702f4381b4c842d16d152f32b6711502fdc"
+        },
+        {
+          "ref": "tests/test_evol_vision_sync_core.py - single-flight и честный таймаут",
+          "observation": "test_sc10_single_flight_enqueues_one_analysis (нет повторного OCR того же asset) и test_sc12_interactive_timeout_is_honest_pending_not_missing (нет вечного ожидания) закрывают остальные клаузы сценария 34.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_vision_sync_core.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "0d60f04cc935ef77c06300f519cf7cf6a637449557cbb0016ccfa6a4fe6c3586"
+        },
+        {
+          "ref": "w13 §1/§2 - «одна связанная проверка» из runtime evidence policy",
+          "observation": "Ограничение «один адресный lookup» задаётся политикой (allowed() + бюджет одного вызова), поэтому скриншот как источник запроса даёт ровно одну связанную проверку.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evidence-routing.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
+          "artifact_sha256": "7259678e933a06e5ed0d3c9cec9dfea44adee7f683064613b34e8a24ad7832ce"
+        },
+        {
+          "ref": "plans/features/evol/audit/deploy-2.58.146.md (release/2.58.146 @ 774a1c42) - состав задеплоенного релиза",
+          "observation": "Прод 2.58.146 @ 6cf06db4 (содержимое c26d798b), 01.11.2026: /healthz 200 version=2.58.146, NRestarts=0, SQLite user_version=40 quick_check=ok, ассеты байт-в-байт с кандидатом. В релиз входят W12/EVOL-034..042 (00ab8d4c, 48830edf) и ASAP-EVIDENCE-ROUTING-01 P0/waves1-2 (00536250, 68162eda, 0da9463d, d61a8088, 211eba6d); волны 3-5 (49caaf6c) в релиз НЕ входят.",
+          "type": "production",
+          "artifact_path": "plans/features/evol/audit/deploy-2.58.146.md",
+          "artifact_branch": "release/2.58.146",
+          "artifact_sha256": "0fa31d40719abbcdfc8e277dabc342aeb9e53215a3c2b2131741b21e0ab6224a",
+          "candidate_commit": "774a1c4295a8a90a8979d783f5e981e8b71c63cd"
+        }
+      ],
       "status_note": "Сценарий не подтверждён задеплоенным кандидатом 2.58.146 — PENDING."
     },
     {
@@ -29965,7 +30292,8 @@
           "artifact_sha256": "5e9ed594becb70fb0d21d91c9e4abab3b66b93abb18906c6a5430dadeaa33498"
         }
       ],
-      "status_note": "Класс A сохранён на всех этапах (проверяемо); открыт именно остаток P1/P2."
+      "status_note": "Класс A сохранён на всех этапах (проверяемо); открыт именно остаток P1/P2.",
+      "note": "Оставлено PENDING по правилу: предмет ER-71 (порядок P0->P1->P2 соблюдён) пересекается с незавершённым ER-08 (P1 №13-16, 17-18, 24, 27-31 и P2 фактически не доведены). Закрывать только вместе с ER-08."
     },
     {
       "source_id": "L02434",
@@ -34827,7 +35155,7 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).",
   "deployed_release": {
     "version": "2.58.146",
     "deployed_commit": "6cf06db4bfd78372b6f60f51eb5dfedfa6e043b8",
