@@ -686,13 +686,20 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
             skip_reason=EvidenceSkipReason.SUFFICIENT_RUNTIME_SOURCE,
             note="runtime_route_source")
     # 6. Планируемое содержание несёт внешний факт.
-    #    Инициативный ход БЕЗ входящей реплики — отдельная ветка: адресного
-    #    запроса у него нет вовсе, единственный его источник — claim-key плана
-    #    (§2.1 `claims_query`). План без claim'ов → проверять нечего; служебная
-    #    формулировка цели («напомнить про релиз 1017») в сеть не уходит.
-    #    Для Direct ветка НЕ действует: там есть текст пользователя, поэтому
-    #    §1.2 п.8 («неизвестно → проверка требуется») работает в полную силу.
-    if runtime_state.initiative and not claims:
+    #    Инициативный ход БЕЗ входящей реплики — отдельная ветка ТОЛЬКО для
+    #    нефактических актов: адресного запроса у него нет вовсе, единственный
+    #    его источник — claim-key плана (§2.1 `claims_query`). План без
+    #    claim'ов → проверять нечего; служебная формулировка цели («напомнить
+    #    про релиз 1017») в сеть не уходит.
+    #    Для ФАКТИЧЕСКИХ актов (`answer`/`explanation`/…) ветка НЕ действует:
+    #    инициатива отвечает по тем же правилам, что Direct (§5.2, сценарий
+    #    29), — проверка требуется, а отсутствие адресного запроса честно
+    #    помечается `mark_required_unmet` в preflight (в сеть при этом не
+    #    уходит ни один запрос: `claims_query` пуст).
+    #    Для Direct ветка не действует никогда: там есть текст пользователя,
+    #    поэтому §1.2 п.8 («неизвестно → проверка требуется») работает в
+    #    полную силу.
+    if runtime_state.initiative and not claims and act not in FACTUAL_ACTS:
         return EvidenceDecision(
             required=False, evidence_class="social", claims=claims,
             skip_reason=EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM,

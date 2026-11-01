@@ -553,11 +553,15 @@ async def test_scenario29_initiative_uses_same_evidence_contour(monkeypatch):
 @pytest.mark.asyncio
 async def test_scenario29_initiative_answer_without_claims_makes_no_search(
         monkeypatch):
-    """Инициатива `response_act=answer` без claim'ов — НОЛЬ сетевых вызовов.
+    """Инициатива `response_act=answer` без claim'ов — 0 сети, но честный unmet.
 
     Внутренняя цель («напомнить про релиз 1017») — служебный текст, а не
     пользовательский вопрос: адресовать запрос нечем, поэтому tool-фаза не
-    запускается, а Writer не получает ни пакета, ни утверждения о проверке."""
+    запускается и Writer не получает пакета. Но акт `answer` сам по себе несёт
+    внешний факт (§1.2 п.6), и по §5.2/сценарию 29 инициатива подчиняется тем
+    же правилам, что Direct: проверка ОБЯЗАТЕЛЬНА, её отсутствие помечается
+    `required_unmet`, и Writer получает «внешняя проверка НЕ выполнена» вместо
+    молчаливого «проверять нечего»."""
     router = _Router(outputs={"execute_web_search": "что-то из сети"})
     svc, writer_calls = _init_service(router, monkeypatch,
                                       answer="Кстати, в чате тихо.")
@@ -568,8 +572,9 @@ async def test_scenario29_initiative_answer_without_claims_makes_no_search(
     assert router.dispatched == []
     assert text == "Кстати, в чате тихо."
     assert writer_calls and writer_calls[0]["evidence"] == ""
-    assert not any(block.startswith("[EVIDENCE]")
-                   for block in writer_calls[0]["user_blocks"])
+    note = " ".join(writer_calls[0]["user_blocks"])
+    assert "[EVIDENCE]" in note
+    assert "внешняя проверка НЕ выполнена" in note
 
 
 
@@ -819,6 +824,29 @@ def test_review_fix2_casual_initiative_plan_without_claims_needs_no_search():
     query = ep.claims_query(factual)
     assert "geforce rtx 9090" in query.lower() and "1.0" in query
     assert "напомнить" not in query
+
+
+def test_review_fix4_initiative_factual_act_without_claims_requires_check():
+    """§5.2/сценарий 29: инициатива с ФАКТИЧЕСКИМ актом подчиняется Direct.
+
+    Послабление правила 6 («адресовать запрос нечем») относится только к
+    нефактическим актам (`other`, social). `response_act=answer` сам по себе
+    несёт внешний факт (§1.2 п.6) → проверка ОБЯЗАТЕЛЬНА и для инициативы;
+    отсутствие адресного запроса даёт не «проверка не требуется», а честный
+    `required_unmet` из preflight (см. сценарий-тест выше)."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="answer"), task_kind="social_chat",
+        supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(initiative=True), context=_ok_ctx())
+    assert decision.required is True
+    assert decision.required_caps == ("web_search",)
+    assert decision.skip_reason is None
+    assert decision.note == "factual_plan_act"
+    assert ep.claims_query(decision) == ""
+    unmet = ep.mark_required_unmet(decision)
+    assert unmet.required is True and unmet.required_unmet is True
+    assert unmet.required_caps == ()
+    assert "no_addressable_query" in unmet.note
 
 
 @pytest.mark.asyncio
