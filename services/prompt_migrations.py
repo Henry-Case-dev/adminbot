@@ -72,6 +72,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_PA5W2,
     PREV_DIRECT_L1_PLANNER_EVR0,    PREV_CHAT_VERBALIZER_PA5W2,
     PREV_DIRECT_L1_PLANNER_EVR1,
+    PREV_DIRECT_L1_PLANNER_EVR2,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -256,6 +257,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # ASAP-FC-VOICE-01 / B (02.11.2026, §5 owner_inputs): байты прода
+        # 2.58.148 (ревизия EVR2) ведут на ревизию EVR3 — правило статуса
+        # секции `[ПРОФИЛЬ РЕШЕНИЙ]` (характер как данные решения: не меняет
+        # факты/адресацию, не делает молчание неправомерным). Только точное
+        # совпадение байт; кастом владельца ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_EVR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # EVOL W17 (02.11.2026, §10 сценарий 25): байты прода 2.58.147
         # (ревизия EVR1: external_claims + recheck) ведут на ревизию EVR2 с
         # контрактом двух различимых фаз «саммари» и «проверь, кто прав».
@@ -544,9 +551,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
+        # ступень 0 (ASAP-FC-VOICE-01 / B): активный канон EVR3 → прод-байты
+        # 2.58.148 (PREV_..._EVR2 = EVR2 без правила профиля решений)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR2),
         # ступень 0 (EVOL W17): активный канон EVR2 → прод-байты 2.58.147
         # (PREV_..._EVR1 = EVR1 с external_claims + recheck)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR1),
+        (PREV_DIRECT_L1_PLANNER_EVR2, PREV_DIRECT_L1_PLANNER_EVR1),
         # ступень 0 (волна 5): активный канон EVR1 → прод-байты 2.58.146
         # (PREV_..._EVR0 = канон PA5W2 без секции внешних утверждений)
         (PREV_DIRECT_L1_PLANNER_EVR1, PREV_DIRECT_L1_PLANNER_EVR0),

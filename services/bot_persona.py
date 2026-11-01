@@ -323,6 +323,172 @@ def build_character_rules_block() -> str:
     return _CHARACTER_RULES_BLOCK
 
 
+# ── ASAP-FC-VOICE-01 / B: характер как ДАННЫЕ для decision-планеров ─────────
+# Причина правки по коду (plans/owner_inputs/2026-11-02-asap-fc-voice-01.md §5):
+# L1 получал головной срез ПРОЗЫ `<Persona>` (`L1_PERSONA_FRAME_CHARS = 400`)
+# и не получал ни одного поведенческого факта: 400 символов обычно обрывались
+# на биографии, а секция «ХАРАКТЕР (кадр)» стояла последней, не была защищена
+# от сжатия и могла исчезнуть целиком. Здесь — единственная точка сборки
+# профиля: закрытые измерения существующего BehaviorFrame (mca-18) как данные
+# для решения (сколько инициативы/краткости/спора/сарказма), без прозы, без
+# инструкций во 2-м лице, без уровней мата, без примеров речи и без квоты
+# «N символов»: размер структурный (закрытый набор измерений + 3 фиксированные
+# строки). Второго источника личности нет: профиль только читает уже
+# резолвнутый кадр (GLOBAL/chat precedence, версии и scope — из него же).
+
+#: Имя секции планера в payload (Direct L1 и Initiative L1 — один и тот же
+#: текст; отдельного «профиля для инициативы» нет).
+DECISION_PROFILE_SECTION = "ПРОФИЛЬ РЕШЕНИЙ"
+
+#: Фиксированные строки профиля (детерминированные байты для кеша промпта).
+_PROFILE_ROLE_LINE = "роль: участник чата, не сервис"
+_PROFILE_SCOPE_CHAT = "в этом чате"
+_PROFILE_SCOPE_GLOBAL = "глобально"
+_PROFILE_NO_VALUE = "без числа"
+_PROFILE_SOURCE_FRAME = "источник: кадр поведения"
+_PROFILE_SOURCE_LEGACY = "источник: кадр поведения недоступен"
+_PROFILE_HABITS_PREFIX = "привычки (без значений): "
+#: Единственная смысловая страховка внутри данных: профиль не является
+#: разрешением отвечать и не правит факты/адресацию (полный канон — правило
+#: «ПРОФИЛЬ РЕШЕНИЙ» в `chat_prompts.DIRECT_L1_PLANNER_SYSTEM_PROMPT`).
+_PROFILE_TAIL = (
+    "эти данные описывают характер; они не меняют факты, адресацию, инструменты\n"
+    "и не делают ответ обязательным. Молчание - полноценный исход.")
+
+
+def _profile_dimension_order() -> tuple[str, ...]:
+    """Закрытый набор измерений — из существующего владельца (mca-18).
+    Свой словарь здесь не заводится; недоступен → пустой порядок (честно
+    «измерений нет», а не выдуманный список)."""
+    try:
+        from services import mca_self_model as _msm
+        return tuple(_msm.INITIAL_DIMENSIONS)
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("[bot_persona] dimension order unavailable", exc_info=True)
+        return ()
+
+
+def _profile_rule_value(rule) -> str:
+    """Значение измерения из правила; нет числа → честная пометка (не 0.0)."""
+    raw = getattr(rule, "target_value", None)
+    if raw is None:
+        return _PROFILE_NO_VALUE
+    try:
+        return f"{float(raw):.2f}"
+    except (TypeError, ValueError):
+        return _PROFILE_NO_VALUE
+
+
+def _profile_dimensions(rules) -> list[tuple[str, str]]:
+    """Строки измерений из применимых правил кадра, в ФИКСИРОВАННОМ порядке.
+
+    Печатается только измерение, по которому есть правило; при нескольких
+    правилах одного измерения берётся правило с наибольшей версией (затем
+    меньший rule_id) — без усреднений и без выдуманных значений."""
+    order = _profile_dimension_order()
+    if not order:
+        return []
+    best: dict[str, tuple[tuple[int, int, int], object]] = {}
+    for rule in tuple(rules or ()):
+        dimension = str(getattr(rule, "dimension", "") or "").strip()
+        if dimension not in order:
+            continue
+        try:
+            version = int(getattr(rule, "version", 0) or 0)
+            rule_id = int(getattr(rule, "rule_id", 0) or 0)
+        except (TypeError, ValueError):
+            version, rule_id = 0, 0
+        key = (order.index(dimension), -version, rule_id)
+        current = best.get(dimension)
+        if current is None or key < current[0]:
+            best[dimension] = (key, rule)
+    out: list[tuple[str, str]] = []
+    for dimension in order:
+        item = best.get(dimension)
+        if item is None:
+            continue
+        out.append((dimension, _profile_rule_value(item[1])))
+    return out
+
+
+def _profile_legacy_habits(ctx) -> list[str]:
+    """Legacy-фолбэк (K1/self-model OFF): только ИМЕНА измерений по
+    существующему стем-матчеру `infer_dimension` — значений не выдумываем."""
+    order = _profile_dimension_order()
+    if not order:
+        return []
+    try:
+        from services import mca_self_model as _msm
+    except Exception:      # pragma: no cover - защитная ветка
+        return []
+    found: set[str] = set()
+    for text in tuple(getattr(ctx, "traits", ()) or ()):
+        try:
+            dimension = _msm.infer_dimension(str(text))
+        except Exception:      # pragma: no cover - защитная ветка
+            dimension = None
+        if dimension in order:
+            found.add(dimension)
+    return [dimension for dimension in order if dimension in found]
+
+
+def build_decision_profile_block(ctx=None, *, frame=None) -> str:
+    """ASAP-FC-VOICE-01 / B: поведенческий профиль для decision-планеров.
+
+    ОДНА сборка на весь продукт: тот же текст получают Direct L1 и Initiative
+    L1 (`[ПРОФИЛЬ РЕШЕНИЙ]`), поэтому для одного chat/хода байты совпадают.
+
+    Источник — уже резолвнутый `BehaviorFrame` (`mca_self_model`): закрытый
+    набор 8 измерений + значения ТОЛЬКО при наличии правила. `mood` и
+    `positions` в профиль не входят: настроение обратимо (сделало бы блок
+    недетерминированным между ходами), мнения — слой Writer/память, а не
+    решение об участии. Без кадра (K1/self-model OFF) — только имена
+    измерений по существующему стем-матчеру `infer_dimension`; совсем без
+    данных — честная строка «кадр поведения недоступен».
+
+    Детерминированность: фиксированный порядок строк, никаких множеств в
+    выводе, времени, сети, LLM и второго снапшота. Никогда не бросает."""
+    lines = [_PROFILE_ROLE_LINE]
+    try:
+        active = frame
+        if active is None:
+            try:
+                from services import mca_self_model as _msm
+                active = _msm.current_run_frame()
+            except Exception:      # pragma: no cover - защитная ветка
+                active = None
+        if active is not None:
+            scope = (_PROFILE_SCOPE_CHAT
+                     if getattr(active, "scope_chat_id", None) is not None
+                     else _PROFILE_SCOPE_GLOBAL)
+            version = str(getattr(active, "version", "") or "").strip()
+            lines.append(f"{_PROFILE_SOURCE_FRAME} {version or 'без версии'}")
+            for dimension, value in _profile_dimensions(
+                    getattr(active, "applied_rules", ())):
+                lines.append(f"{dimension}: {value} ({scope})")
+        else:
+            lines.append(_PROFILE_SOURCE_LEGACY)
+            habits = _profile_legacy_habits(ctx)
+            if habits:
+                lines.append(_PROFILE_HABITS_PREFIX + ", ".join(habits))
+    except Exception:      # pragma: no cover - fail-open
+        logger.warning("[bot_persona] decision profile failed — minimal",
+                       exc_info=True)
+        lines = [_PROFILE_ROLE_LINE, _PROFILE_SOURCE_LEGACY]
+    lines.append(_PROFILE_TAIL)
+    return "\n".join(lines)
+
+
+def decision_profile_source(block) -> str:
+    """Код источника УЖЕ собранного профиля (трасса/Inspector): ``frame`` |
+    ``legacy``. Резолва не делает и решения об источнике не принимает — читает
+    строку ``источник:`` из блока, чтобы не заводить вторую точку сборки."""
+    text = str(block or "")
+    if _PROFILE_SOURCE_FRAME in text:
+        return "frame"
+    return "legacy"
+
+
 # ── Чтение ──────────────────────────────────────────────────────────────────
 
 def _epoch(value) -> int | None:

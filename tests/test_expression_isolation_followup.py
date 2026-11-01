@@ -185,4 +185,6 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # Пин в этом файле отстал от волны 5 — приведён к фактическому значению.
     # EVOL W17 (02.11.2026): L1-планер → EVR2 (две фазы «саммари/проверка»),
     # канон Аналитика фактчека → правило фаз prefill/decode → f84baaf69559.
-    assert pr.FACTORY_SET_SHA256_12 == "f84baaf69559"
+    # ASAP-FC-VOICE-01 / B (02.11.2026): L1-планер → EVR3 (правило статуса
+    # секции «ПРОФИЛЬ РЕШЕНИЙ») → b1c1ab5b3b68.
+    assert pr.FACTORY_SET_SHA256_12 == "b1c1ab5b3b68"

@@ -2199,11 +2199,13 @@ def test_wave6_prompt_canon_has_recheck_field():
 
 
 def test_wave6_canon_revision_seal_and_rollback_target():
-    """Ревизия EVR2: метка/печать/откат сходятся.
+    """Ревизия EVR2/EVR3: метка/печать/откат сходятся.
 
-    Цель отката EVR2 — прод 2.58.147 (`PREV_DIRECT_L1_PLANNER_EVR1`,
-    sha12 eb496e938c49); следующая ступень по-прежнему ведёт на 2.58.146
-    (`PREV_DIRECT_L1_PLANNER_EVR0`, 14743d288ea3).
+    Цель отката активного канона — непосредственный прежний прод-канон:
+    ASAP-FC-VOICE-01 / B откатывает EVR3 → EVR2 (прод 2.58.148,
+    ``09f3d533d173``), прежняя ступень EVR2 → EVR1 (прод 2.58.147,
+    sha12 eb496e938c49) остаётся в стеке; следующая — 2.58.146
+    (``PREV_DIRECT_L1_PLANNER_EVR0``, 14743d288ea3).
     """
     from services import chat_prompts as cp
     from services import prompt_migrations as pm
@@ -2212,17 +2214,23 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    assert "l1-planner-two-phase-precedence" in label
+    assert "l1-planner-decision-profile" in label
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
     steps = pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR1,
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
+    rollback = pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"]
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-            cp.PREV_DIRECT_L1_PLANNER_EVR1) in pm.ROLLBACK_MIGRATIONS[
-                "prompts.direct_l1_planner_system_prompt"]
+            cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+            cp.PREV_DIRECT_L1_PLANNER_EVR1) in rollback
 
 
 def test_wave6_canon_step_applies_only_to_prev_bytes_and_keeps_owner_edits():

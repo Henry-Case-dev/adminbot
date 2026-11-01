@@ -3700,16 +3700,26 @@ class DirectChatService:
                 chat_id, "flags.persona_enabled",
                 hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
             character_block = ""
+            # ASAP-FC-VOICE-01 / B: тот же read-контекст характера, из которого
+            # L1 берёт профиль решений (K1 ON — кадр; K1 OFF — имена измерений
+            # по существующему стем-матчеру). Writer по-прежнему получает
+            # прозу `character_block`; планер — только данные профиля.
+            _decision_ctx = None
             if persona_enabled:
                 if mca_gates.character_layers_enabled():
                     _char_ctx = await bot_persona.resolve_character_context(
                         chat_id)
                     persona = _char_ctx.persona
                     traits = [{"text": t} for t in _char_ctx.traits]
+                    _decision_ctx = _char_ctx
                 else:
                     persona = await bot_persona.resolve_bot_persona(chat_id)
                     traits = await bot_persona.get_traits(
                         int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+                    _decision_ctx = bot_persona.CharacterReadContext(
+                        persona=persona,
+                        traits=tuple(str(t.get("text") or "")
+                                     for t in (traits or ())))
                 persona_block = bot_persona.build_persona_prompt_block(
                     persona, [t.get("text") for t in traits], enabled=True)
                 if persona_block:
@@ -3828,6 +3838,7 @@ class DirectChatService:
                             chat_id, message, query, correlation_id,
                             bundle=evidence_bundle, target_name=target_name,
                             user_id=user_id, character_block=character_block,
+                            character_ctx=_decision_ctx,
                             lore_enabled=bool(lore_enabled),
                             image_enabled=bool(image_enabled),
                             force_required=bool(_force_required),
@@ -5298,6 +5309,7 @@ class DirectChatService:
                               character_block: str, lore_enabled: bool,
                               image_enabled: bool, force_required: bool,
                               reply_bot: bool,
+                              character_ctx=None,
                               extra_media_markers: tuple = (),
                               bot_replies: tuple[str, ...] = (),
                               bot_replied_recently: bool = False,
@@ -5433,6 +5445,14 @@ class DirectChatService:
             _l1_condition_parts.append(
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
+        # ASAP-FC-VOICE-01 / B: характер как данные для решения. Единственная
+        # точка сборки — `bot_persona.build_decision_profile_block`; тот же
+        # вызов (и тот же кадр хода) даёт байт-идентичный блок в Initiative L1.
+        _decision_profile = bot_persona.build_decision_profile_block(
+            character_ctx)
+        meta["l1_profile_source"] = bot_persona.decision_profile_source(
+            _decision_profile)
+        meta["l1_profile_chars"] = int(len(_decision_profile))
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
@@ -5448,7 +5468,7 @@ class DirectChatService:
             speech_hints=self._l1_speech_hints(message, query, bundle),
             capabilities=available_caps,
             force_line="; ".join(p for p in _l1_condition_parts if p),
-            persona_frame=str(character_block or ""),
+            decision_profile=_decision_profile,
             bot_replies=tuple(bot_replies or ()),
             history_partial=history_partial,
             alias_resolver=self.aliases,
@@ -5598,7 +5618,11 @@ class DirectChatService:
             l1_reply_total_chars=meta.get("l1_reply_total_chars"),
             l1_reply_delivered_chars=meta.get("l1_reply_delivered_chars"),
             l1_reply_truncated=meta.get("l1_reply_truncated"),
-            l1_kept_mid=meta.get("l1_kept_mid"))
+            l1_kept_mid=meta.get("l1_kept_mid"),
+            # ASAP-FC-VOICE-01 / B: источник и размер профиля решений —
+            # frame | legacy (без текста профиля, R17).
+            l1_profile_source=meta.get("l1_profile_source"),
+            l1_profile_chars=meta.get("l1_profile_chars"))
         # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
         # (reply/silent/react) идут через этот единственный вызов, строка
         # step="l1_planner" уже записана (llm.generate / manual record).
@@ -11809,13 +11833,25 @@ class DirectChatService:
         """Кадр личности/self-model для инициативного контекста — тот же
         владелец основы, что у direct-промпта (persona gate per-chat; K1
         слои уважаются). Fail-open → ''."""
+        block, _ctx = await self._initiative_character(chat_id)
+        return block
+
+    async def _initiative_character(self, chat_id: int) -> tuple:
+        """Один резолв характера на инициативный ход: (проза Writer'а, ctx).
+
+        ASAP-FC-VOICE-01 / B: второй элемент — тот же `CharacterReadContext`,
+        что у Direct-хода, чтобы профиль решений (`[ПРОФИЛЬ РЕШЕНИЙ]`)
+        собирался одной точкой `bot_persona.build_decision_profile_block` и
+        совпадал байт-в-байт с профилем Direct для того же чата. Повторного
+        снапшота/кеша нет: `resolve_character_context` уже ставит кадр хода.
+        Fail-open → ('', None) (планер получает честный «кадр недоступен»)."""
         try:
             from services.chat_params import get_chat_param as _cpg
             persona_enabled = await _cpg(
                 chat_id, "flags.persona_enabled",
                 hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
             if not persona_enabled:
-                return ""
+                return "", None
             if mca_gates.character_layers_enabled():
                 ctx = await bot_persona.resolve_character_context(chat_id)
                 block = bot_persona.build_persona_prompt_block(
@@ -11824,15 +11860,17 @@ class DirectChatService:
                 rules = bot_persona.build_character_rules_block()
                 if block and rules:
                     block = block + "\n\n" + rules
-                return block or ""
+                return block or "", ctx
             persona = await bot_persona.resolve_bot_persona(chat_id)
             traits = await bot_persona.get_traits(
                 int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
             texts = [str(t.get("text") or "") for t in (traits or ())]
-            return bot_persona.build_persona_prompt_block(
-                persona, texts, enabled=True) or ""
+            ctx = bot_persona.CharacterReadContext(
+                persona=persona, traits=tuple(texts))
+            return (bot_persona.build_persona_prompt_block(
+                persona, texts, enabled=True) or ""), ctx
         except Exception:
-            return ""
+            return "", None
 
     async def plan_initiative_decision(self, chat_id: int,
                                        intent_row: dict, *,
@@ -11856,7 +11894,10 @@ class DirectChatService:
             window = [dict(r) for r in (window or ())]
         except Exception:
             pass
-        persona_block = await self._initiative_persona_block(chat_id)
+        # Проза личности нужна Writer'у (`_initiative_persona_block`), планеру
+        # идёт только профиль решений; ctx берётся из того же резолва.
+        _persona_block, _initiative_ctx = await self._initiative_character(
+            chat_id)
         # SPEECH-INIT-FIX R3: инициатива видит ответы бота в окне СВОЕГО
         # контекста (limits.summary_window_hours), а не в 600-секундном окне
         # анти-спама Direct (I-07). Direct-путь не изменён.
@@ -11932,12 +11973,18 @@ class DirectChatService:
         _init_budget, _init_budget_meta = await _l1.resolve_l1_context_budget(
             base_url=_init_base, model=_init_model,
             mandatory_tokens=count_tokens(_init_prompt))
+        # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
+        # точка сборки, тот же кадр хода) — данные для оценки уместности
+        # инициативы, НЕ разрешение отвечать: молчание остаётся полноценным
+        # исходом (канон `ПРОФИЛЬ РЕШЕНИЙ` + существующие критерии silent).
+        _init_profile = bot_persona.build_decision_profile_block(
+            _initiative_ctx)
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
             capabilities=(),
             force_line="; ".join(_init_conditions),
-            persona_frame=persona_block, bot_replies=bot_replies,
+            decision_profile=_init_profile, bot_replies=bot_replies,
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
             # (tests/__new__) не должен падать в L1-пути инициативы.
             with_ids=True, alias_resolver=getattr(self, "aliases", None),
@@ -11958,7 +12005,11 @@ class DirectChatService:
             l1_reply_delivered_chars=int(
                 _init_reply_stats["delivered_chars"]),
             l1_reply_truncated=bool(_init_reply_stats["truncated"]),
-            l1_kept_mid=bool(_init_reply_stats["kept_mid"]))
+            l1_kept_mid=bool(_init_reply_stats["kept_mid"]),
+            # ASAP-FC-VOICE-01 / B: источник/размер профиля решений (frame|legacy).
+            l1_profile_source=bot_persona.decision_profile_source(
+                _init_profile),
+            l1_profile_chars=int(len(_init_profile)))
         messages = [
             {"role": "system",
              "content": _init_prompt},

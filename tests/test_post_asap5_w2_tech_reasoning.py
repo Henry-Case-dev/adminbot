@@ -268,8 +268,10 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
         ' "confidence": 0.0,\n "future_intent": null,\n'
         ' "external_claims": [],\n'
         ' "recheck": false}', 1)
+    # ASAP-FC-VOICE-01 / B: + одно правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ].
     assert canon == (evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
-                     + cp._DIRECT_L1_TWO_PHASE_EVR2)
+                     + cp._DIRECT_L1_TWO_PHASE_EVR2
+                     + cp._DIRECT_L1_DECISION_PROFILE_EVR3)
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
@@ -277,17 +279,24 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # EVOL W17: слепок EVR1 = прод 2.58.147 (eb496e938c49); активные байты —
     # ревизия EVR2 (контракт двух фаз).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
-    assert _sha12(canon) == "09f3d533d173"
+    # ASAP-FC-VOICE-01 / B: активные байты — EVR3 (правило профиля решений);
+    # слепок EVR2 = ровно байты прода 2.58.148 (09f3d533d173).
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
+    assert _sha12(canon) == "ef61a9dd6798"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    # EVOL W17: верхняя ступень снимает контракт двух фаз → байты 2.58.147.
-    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR1)
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+    # ASAP-FC-VOICE-01 / B: верхняя ступень снимает ТОЛЬКО правило профиля
+    # решений → байты прода 2.58.148 (EVR2).
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR2)
+    # EVOL W17: затем снимается контракт двух фаз → байты 2.58.147.
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR1)
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
                            cp.PREV_DIRECT_L1_PLANNER_EVR0)
-    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
-    assert rollback[3] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[4] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -445,7 +454,7 @@ def test_no_new_layers_routers_or_classifiers():
 def test_labels_and_fingerprint_after_bump():
     # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
     # (прежние метки — в слепках PREV_*_EVR0). EVOL W17: метка L1 — EVR2.
-    assert "l1-planner-two-phase-precedence" in pr.factory_revision(
+    assert "l1-planner-decision-profile" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")

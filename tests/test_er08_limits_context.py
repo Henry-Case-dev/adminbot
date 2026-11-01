@@ -263,7 +263,10 @@ class TestL1PackageLosses:
         ctx = l1.build_l1_context(
             query="q", current_question=_message(), reply_block=_reply(),
             window=rows, speaker="Аня", memory_hints=hints,
-            persona_frame="характер " * 45, budget_tokens=1200)
+            # ASAP-FC-VOICE-01 / B: прежний необязательный характер-филлер
+            # стал защищённой секцией [ПРОФИЛЬ РЕШЕНИЙ]; давление на
+            # бюджет создаёт обычная hint-секция (её и сжимает шаг 2).
+            speech_hints="характер " * 45, budget_tokens=1200)
         assert "УРОК_ХВОСТ" in ctx
         assert "Адресат: Борис" in ctx
 
@@ -433,7 +436,7 @@ class TestL1PackageLosses:
             query="q", current_question=_message(), reply_block=_reply(),
             window=rows, speaker="Аня",
             memory_hints=("память: " + "факт " * 400)[:2000],
-            persona_frame="характер " * 45, budget_tokens=1600)
+            speech_hints="характер " * 45, budget_tokens=1600)
         assert REPLY_TAIL in ctx
         window_part = ctx.split("[ПОСЛЕДНИЕ СООБЩЕНИЯ]\n", 1)
         delivered = (len(window_part[1].split("\n\n[", 1)[0].splitlines())

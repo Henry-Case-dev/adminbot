@@ -344,11 +344,13 @@ async def test_i07_bot_reply_older_than_600s_reaches_initiative_l1(
     svc.llm = _Llm()
     svc.db = db
 
-    async def _persona(_chat_id):
-        return ""
+    async def _character(_chat_id):
+        # ASAP-FC-VOICE-01 / B: инициативный планер берёт (проза Writer'а,
+        # ctx характера) из одного резолва; прозы/кадра в стенде нет.
+        return "", None
 
-    monkeypatch.setattr(dcs.DirectChatService, "_initiative_persona_block",
-                        lambda self, chat_id: _persona(chat_id))
+    monkeypatch.setattr(dcs.DirectChatService, "_initiative_character",
+                        lambda self, chat_id: _character(chat_id))
     monkeypatch.setattr(dcs, "reaction_mechanics_enabled",
                         lambda: False)
 

@@ -178,7 +178,13 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # research), иначе противоречие двух текстов в одном payload оставляло
     # достижимым возврат response_act=research и потерю маркера сводки.
     # Правило 7 не менялось. Новые байты — метка ниже.
-    "direct.base.l1_planner": "l1-planner-two-phase-precedence",
+    # ASAP-FC-VOICE-01 / B (02.11.2026, §5 owner_inputs): ревизия EVR3 — одно
+    # правило статуса секции `[ПРОФИЛЬ РЕШЕНИЙ]`: характер приходит в планер
+    # данными кадра (инициативность/краткость/спор/сарказм и т.д.), но не
+    # меняет факты, адресацию, safety и не делает ответ обязательным (молчание
+    # остаётся полноценным исходом). Прежние байты — PREV_DIRECT_L1_PLANNER_EVR2
+    # (= прод 2.58.148). Правила/схема/тексты владельца не менялись.
+    "direct.base.l1_planner": "l1-planner-decision-profile",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -356,8 +362,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
     "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-two-phase-precedence",
-                               "09f3d533d173"),
+    "direct.base.l1_planner": ("l1-planner-decision-profile",
+                               "ef61a9dd6798"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -2746,8 +2752,18 @@ def factory_set_fingerprint() -> str:
 #: owner-тексты не менялись; метка ``l1-planner-two-phase-precedence``, прежние
 #: байты по-прежнему PREV_DIRECT_L1_PLANNER_EVR1 = прод 2.58.147.
 #: Было ``748641ded024``, стало ``f84baaf69559``.
+#: Бамп ASAP-FC-VOICE-01 / B (02.11.2026, §5 owner_inputs): changed = 1 —
+#: ``direct.base.l1_planner``: ревизия EVR3 добавляет ОДНО правило статуса
+#: секции «ПРОФИЛЬ РЕШЕНИЙ» (характер как ДАННЫЕ решения: профиль не меняет
+#: факты/проверенные данные/адресацию/safety и не делает ответ обязательным —
+#: молчание остаётся полноценным исходом; высокая резкость или сарказм не
+#: превращают нейтральный вопрос в повод для грубости). Правила 1-9, схема
+#: JSON, секции участия/уточнений/задачи и тексты владельца не менялись.
+#: Метка ``l1-planner-decision-profile``, прежние байты
+#: PREV_DIRECT_L1_PLANNER_EVR2 = прод 2.58.148 (``09f3d533d173``).
+#: Было ``f84baaf69559``, стало ``b1c1ab5b3b68``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "f84baaf69559"
+FACTORY_SET_SHA256_12 = "b1c1ab5b3b68"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

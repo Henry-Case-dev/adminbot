@@ -40,6 +40,7 @@ from services import prompt_composer as pc
 from services import prompt_style_blocks as psb
 from services import response_extent as _extent
 from services import direct_l1 as _l1
+from services import bot_persona
 
 EVIDENCE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "soul1",
@@ -279,6 +280,22 @@ def _canon_patch(section: str, text: str | None) -> str | None:
     return text
 
 
+def _profile_patch(text: str | None) -> str | None:
+    """P4: прежняя секция «ХАРАКТЕР (кадр)» (головной срез прозы `<Persona>`)
+    заменена секцией «ПРОФИЛЬ РЕШЕНИЙ» — характер как ДАННЫЕ решения
+    (ASAP-FC-VOICE-01 / B). Замена детерминированная: блок берётся из
+    единственной точки сборки, остальные байты эталона сравниваются как были.
+    Стенд без кадра хода → честный «кадр поведения недоступен»."""
+    if text is None:
+        return None
+    legacy = "\n\n[ХАРАКТЕР (кадр)]\n"
+    if legacy not in text:
+        return text
+    head, _recorded_section = text.split(legacy, 1)
+    block = bot_persona.build_decision_profile_block(None)
+    return head + f"\n\n[{_l1.L1_PROFILE_SECTION}]\n" + block
+
+
 def _assert_matches(section: str, system: str, user: str | None = None):
     expect = recorded(section)
     # ADR-1013-3: байтовая сверка идёт против эталона с ТЕКУЩИМ каноническим
@@ -286,7 +303,7 @@ def _assert_matches(section: str, system: str, user: str | None = None):
     # устаревших байтов канона. Всё остальное — исторические байты сборки.
     want_system = _canon_patch(section, expect["system_text"])
     assert want_system is not None
-    want_user = expect.get("user_text")
+    want_user = _profile_patch(expect.get("user_text"))
     assert system == want_system, (
         f"{section}: SYSTEM payload != эталон (chars {len(system)} vs "
         f"{len(want_system)})")

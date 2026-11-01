@@ -177,7 +177,8 @@ def test_l1_owner_contract_byte_intact():
         + cp._DIRECT_L1_PLANNER_RULES_PA5W2)
     assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
         w2_canon + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
-        + cp._DIRECT_L1_TWO_PHASE_EVR2)
+        + cp._DIRECT_L1_TWO_PHASE_EVR2
+        + cp._DIRECT_L1_DECISION_PROFILE_EVR3)
     # EVOL W17: слепок EVR1 — ровно прод-байты 2.58.147 (две фазы добавлены
     # поверх них, ничего не переписано).
     assert cp.PREV_DIRECT_L1_PLANNER_EVR1 == (
@@ -209,12 +210,15 @@ def test_ladder_and_rollback_chain():
     # прежние ступени стека целы
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    # цепочка отката: L1 — две фазы (EVR2) → external-claims (EVR1) →
+    # цепочка отката: L1 — профиль решений (EVR3) → две фазы (EVR2) →
+    # external-claims (EVR1) →
     # tech-reasoning (EVR0 = PA5W2) → intent-update (PA5W1) →
     # material-priority (P0CINTR2) → P0CINT → P0CS2 → P0CS → R3b → R3 →
     # 2.58.113, L2 — evidence-discipline (EVR1) → tech-reasoning (EVR0) → R3b
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
         (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+         cp.PREV_DIRECT_L1_PLANNER_EVR2),
+        (cp.PREV_DIRECT_L1_PLANNER_EVR2,
          cp.PREV_DIRECT_L1_PLANNER_EVR1),
         (cp.PREV_DIRECT_L1_PLANNER_EVR1,
          cp.PREV_DIRECT_L1_PLANNER_EVR0),
@@ -255,7 +259,7 @@ def test_labels_and_fingerprint_consistent():
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # Волна 5: метки трёх каналов Direct бампнуты (прежние метки — история).
     # EVOL W17: метка L1 — ревизия EVR2 (две фазы «саммари/проверка»).
-    assert "l1-planner-two-phase-precedence" in pr.factory_revision(
+    assert "l1-planner-decision-profile" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "l2-writer-evidence-discipline" in pr.factory_revision(
         "direct.base.l2_writer")
