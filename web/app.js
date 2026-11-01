@@ -2154,6 +2154,23 @@
   // Единственная реализация порядка: другой список в проекте не заводится.
   var _backStackBusy = false;
 
+  // ── W14 (E.3 §4): состояние загрузки приложения ──────────────────────────
+  // Единственный источник: `#app[aria-busy]` + класс `app-ready` на <body>,
+  // который снимает статический индикатор первичной загрузки. Отдельного
+  // «второго» признака загрузки в проекте не заводится.
+  function _setAppBusy(busy) {
+    try {
+      var root = document.getElementById('app');
+      if (root) root.setAttribute('aria-busy', busy ? 'true' : 'false');
+    } catch (e) { /* не критично */ }
+  }
+
+  function _markAppReady() {
+    try {
+      if (document.body) document.body.classList.add('app-ready');
+    } catch (e) { /* не критично */ }
+  }
+
   function backStackLayers(vm) {
     var ids = [];
     if (!vm) return ids;
@@ -4794,6 +4811,16 @@
       // F5 (10.24, ADR-1024-9 D6): карточка «Генерация изображений» видна
       // только при uiFlag('IMAGE_MODULE_CARD_ENABLED') (default ON). OFF →
       // витрина без карточки; вкладка также недоступна (см. _flagTabHidden).
+      // E.3 §4 (W14): честное состояние загрузки для каталога модулей и
+      // палитры. Индикатор живёт ровно пока данных ещё нет; при ошибке
+      // (`configError`) показывается баннер причины, а не скелетон —
+      // «вечная загрузка» скрыла бы отказ сервера.
+      catalogLoading: function () {
+        return !!this.configLoading && !this.configItems.length;
+      },
+      paletteLoading: function () {
+        return !!this.configLoading && !this.configItems.length;
+      },
       visibleModules: function () {
         var self = this;
         return this.modules.filter(function (m) {
@@ -20978,6 +21005,9 @@
       loadConfig: async function () {
         var epoch = this.scopeEpoch;   // D2: снимок scope
         this.configLoading = true;
+        // E.3 §4 (W14): aria-busy приложения отражает РЕАЛЬНУЮ загрузку
+        // конфига — до этой волны его не было вообще (0 в прогоне ревью).
+        _setAppBusy(true);
         try {
           var data = await this.api('/api/config');
           if (!this._scopeGuard(epoch)) return;   // scope сменился — ответ старый
@@ -21045,6 +21075,12 @@
           }
         } finally {
           if (this._scopeGuard(epoch)) this.configLoading = false;   // R3
+          // Индикатор первичной загрузки снимается по ЗАВЕРШЕНИИ первой
+          // загрузки — с данными или с ошибкой (причина в баннере). Пустой
+          // ответ без ошибки тоже снимает индикатор: «вечная загрузка»
+          // скрыла бы реальное состояние экрана.
+          if (!this.configLoading) _markAppReady();
+          _setAppBusy(false);
         }
       },
 

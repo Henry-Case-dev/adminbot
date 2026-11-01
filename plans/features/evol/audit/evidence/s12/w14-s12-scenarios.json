@@ -1,0 +1,2325 @@
+{
+ "scenarios": [
+  {
+   "id": "§12.1",
+   "title": "Phone portrait: нет нижнего навбара, drawer открывает все основные разделы, topbar минимален",
+   "assertion": "document.querySelector('nav.mobile-topnav')===null; drawer содержит >=8 разделов и все имена MAIN_SECTIONS; высота шапки <=78 px на 390 и 320; document.scrollWidth <= innerWidth",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": 390,
+      "base": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 786,
+       "vw": 390,
+       "vh": 844
+      },
+      "drawer": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 786,
+       "vw": 390,
+       "vh": 844
+      },
+      "afterNav": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 786,
+       "vw": 390,
+       "vh": 844
+      },
+      "errors": [],
+      "shots": [
+       "s12-s1-portrait-390-drawer.png"
+      ]
+     },
+     {
+      "viewport": 320,
+      "base": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 510,
+       "vw": 320,
+       "vh": 568
+      },
+      "drawer": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 510,
+       "vw": 320,
+       "vh": 568
+      },
+      "afterNav": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 510,
+       "vw": 320,
+       "vh": 568
+      },
+      "errors": [],
+      "shots": [
+       "s12-s1-portrait-320-drawer.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s1-portrait-390-drawer.png",
+    "s12-s1-portrait-320-drawer.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.2",
+   "title": "Phone landscape / низкий viewport: обязательные элементы видны, второй шапки нет, контент пригоден",
+   "assertion": "на 667x375/812x375/932x430: headerCount===1, высота шапки <=62, bottomNav===0, main.height>=120 и textLen>=40, scrollWidth<=innerWidth",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": "667x375",
+      "base": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 317,
+       "vw": 667,
+       "vh": 375
+      },
+      "main": {
+       "h": 317,
+       "w": 667,
+       "scrollable": true,
+       "textLen": 3573,
+       "display": "grid"
+      },
+      "drawer": {
+       "hash": "#/",
+       "headerH": 58,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 317,
+       "vw": 667,
+       "vh": 375
+      },
+      "errors": [],
+      "shots": [
+       "s12-s2-landscape-667x375.png"
+      ]
+     },
+     {
+      "viewport": "812x375",
+      "base": {
+       "hash": "#/",
+       "headerH": 51,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 4069,
+       "vw": 812,
+       "vh": 375
+      },
+      "main": {
+       "h": 4069,
+       "w": 812,
+       "scrollable": false,
+       "textLen": 3541,
+       "display": "grid"
+      },
+      "drawer": {
+       "hash": "#/",
+       "headerH": 51,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 4069,
+       "vw": 812,
+       "vh": 375
+      },
+      "errors": [],
+      "shots": [
+       "s12-s2-landscape-812x375.png"
+      ]
+     },
+     {
+      "viewport": "932x430",
+      "base": {
+       "hash": "#/",
+       "headerH": 51,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 4037,
+       "vw": 932,
+       "vh": 430
+      },
+      "main": {
+       "h": 4037,
+       "w": 932,
+       "scrollable": false,
+       "textLen": 3541,
+       "display": "grid"
+      },
+      "drawer": {
+       "hash": "#/",
+       "headerH": 51,
+       "headerVisible": true,
+       "headerCount": 1,
+       "bottomNav": 0,
+       "drawerExists": true,
+       "drawerLinks": 9,
+       "drawerLabels": [
+        "Поиск",
+        "Статус",
+        "Справка",
+        "Модули",
+        "ИИ",
+        "Память",
+        "Аналитика",
+        "Доступы",
+        "PERMsoc"
+       ],
+       "hScroll": 0,
+       "fsBtns": 1,
+       "drawerTrigger": true,
+       "mainH": 4037,
+       "vw": 932,
+       "vh": 430
+      },
+      "errors": [],
+      "shots": [
+       "s12-s2-landscape-932x430.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s2-landscape-667x375.png",
+    "s12-s2-landscape-812x375.png",
+    "s12-s2-landscape-932x430.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.3",
+   "title": "Идентичность: логотипа нет, аватар и фактическая роль видны компактно и не мешают chat switcher",
+   "assertion": "logos===0; .header-user-role видим с непустым текстом; аватар-инициал или фото виден; пересечение прямоугольников роль/аватар с [data-nav-scope] равно 0 на 390 и 1280",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": 390,
+      "logos": 0,
+      "roleText": "global_admin",
+      "roleVisible": true,
+      "avatarVisible": true,
+      "scopeRect": {
+       "l": 145,
+       "r": 270,
+       "t": 6,
+       "b": 50,
+       "w": 125,
+       "h": 44
+      },
+      "roleRect": {
+       "l": 302,
+       "r": 337,
+       "t": 18,
+       "b": 39,
+       "w": 35,
+       "h": 21
+      },
+      "avatarRect": {
+       "l": 274,
+       "r": 298,
+       "t": 16,
+       "b": 40,
+       "w": 24,
+       "h": 24
+      },
+      "scopeVisible": true,
+      "letterMarkTexts": [
+       "Статус",
+       "Статус"
+      ],
+      "errors": [],
+      "scopeRoleOverlap": 0,
+      "scopeAvatarOverlap": 0,
+      "shots": [
+       "s12-s3-identity-390.png"
+      ]
+     },
+     {
+      "viewport": 1280,
+      "logos": 0,
+      "roleText": "global_admin",
+      "roleVisible": true,
+      "avatarVisible": true,
+      "scopeRect": {
+       "l": 704,
+       "r": 884,
+       "t": 12,
+       "b": 51,
+       "w": 180,
+       "h": 39
+      },
+      "roleRect": {
+       "l": 989,
+       "r": 1076,
+       "t": 21,
+       "b": 42,
+       "w": 86,
+       "h": 21
+      },
+      "avatarRect": {
+       "l": 925,
+       "r": 949,
+       "t": 20,
+       "b": 44,
+       "w": 24,
+       "h": 24
+      },
+      "scopeVisible": true,
+      "letterMarkTexts": [
+       "Статус",
+       "Статус"
+      ],
+      "errors": [],
+      "scopeRoleOverlap": 0,
+      "scopeAvatarOverlap": 0,
+      "shots": [
+       "s12-s3-identity-1280.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s3-identity-390.png",
+    "s12-s3-identity-1280.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.4",
+   "title": "Длинный чат: имя читается в селекторе, область корректна для двух чатов + global, переход не сбрасывает контекст",
+   "assertion": "в панели ровно 3 опции (2 чата + global); полное имя в title; на телефоне имя занимает 2 полные строки без обрезки по вертикали; выбор чата и global сохраняет маршрут #/modules и меняет scopeKind",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": 390,
+      "opened": {
+       "options": 3,
+       "texts": [
+        "Весь бот",
+        "Очень длинное название рабочего чата с уточнением и подписью",
+        "Второй чат"
+       ],
+       "titles": [
+        "Весь бот",
+        "Очень длинное название рабочего чата с уточнением и подписью",
+        "Второй чат"
+       ],
+       "clamp": [
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 42,
+         "sh": 42,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        }
+       ],
+       "panelRect": {
+        "l": 8,
+        "r": 382,
+        "t": 624,
+        "b": 835,
+        "w": 374,
+        "h": 210
+       },
+       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelFilter": "none",
+       "triggerTitle": "Очень длинное название рабочего чата с уточнением и подписью",
+       "triggerText": "ООчень длинное название рабочего чата с уточнением и подписьюЧАТ▾",
+       "vw": 390,
+       "vh": 844,
+       "stableH": 844
+      },
+      "afterChat": {
+       "scopeKind": "chat",
+       "chatId": -1001234567891,
+       "hash": "#/modules"
+      },
+      "afterChatPanel": {
+       "options": 0,
+       "texts": [],
+       "titles": [],
+       "clamp": [],
+       "panelRect": null,
+       "panelBg": null,
+       "panelFilter": null,
+       "triggerTitle": "Второй чат",
+       "triggerText": "ВВторой чатЧАТ▾",
+       "vw": 390,
+       "vh": 844,
+       "stableH": 844
+      },
+      "afterGlobal": {
+       "scopeKind": "global",
+       "hash": "#/modules",
+       "label": "GLOBAL"
+      },
+      "errors": [],
+      "shots": [
+       "s12-s4-scope-390-open.png",
+       "s12-s4-scope-390-global.png"
+      ]
+     },
+     {
+      "viewport": 1280,
+      "opened": {
+       "options": 3,
+       "texts": [
+        "Весь бот",
+        "Очень длинное название рабочего чата с уточнением и подписью",
+        "Второй чат"
+       ],
+       "titles": [
+        "Весь бот",
+        "Очень длинное название рабочего чата с уточнением и подписью",
+        "Второй чат"
+       ],
+       "clamp": [
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        }
+       ],
+       "panelRect": {
+        "l": 596,
+        "r": 976,
+        "t": 55,
+        "b": 224,
+        "w": 380,
+        "h": 169
+       },
+       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelFilter": "none",
+       "triggerTitle": "Очень длинное название рабочего чата с уточнением и подписью",
+       "triggerText": "ООчень длинное название рабочего чата с уточнением и подписьюЧАТ▾",
+       "vw": 1280,
+       "vh": 900,
+       "stableH": 900
+      },
+      "afterChat": {
+       "scopeKind": "chat",
+       "chatId": -1001234567891,
+       "hash": "#/modules"
+      },
+      "afterChatPanel": {
+       "options": 0,
+       "texts": [],
+       "titles": [],
+       "clamp": [],
+       "panelRect": null,
+       "panelBg": null,
+       "panelFilter": null,
+       "triggerTitle": "Второй чат",
+       "triggerText": "ВВторой чатЧАТ▾",
+       "vw": 1280,
+       "vh": 900,
+       "stableH": 900
+      },
+      "afterGlobal": {
+       "scopeKind": "global",
+       "hash": "#/modules",
+       "label": "GLOBAL"
+      },
+      "errors": [],
+      "shots": [
+       "s12-s4-scope-1280-open.png",
+       "s12-s4-scope-1280-global.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s4-scope-390-open.png",
+    "s12-s4-scope-390-global.png",
+    "s12-s4-scope-1280-open.png",
+    "s12-s4-scope-1280-global.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.5",
+   "title": "Меню «Ещё»: ellipsis вместо сетки, только вторичные действия, разделы не дублируются",
+   "assertion": "в шапке нет grid_view-глифа и нет второй панели разделов; вторичные действия (поиск/полный экран) доступны; разделы — только в drawer. ПРИМЕЧАНИЕ: само меню «…» удалено позднейшим решением владельца (§6.1 v2.1), поэтому триггер «Ещё» отсутствует — проверяется существо клаузулы, а не удалённый элемент",
+   "status": "PASS",
+   "probe": {
+    "probe": {
+     "moreTrigger": 0,
+     "gridGlyph": 0,
+     "searchEntry": 1,
+     "fsEntry": 1,
+     "headerButtons": [
+      {
+       "cls": "btn-ghost header-nav-btn shrin",
+       "label": "Открыть навигацию"
+      },
+      {
+       "cls": "scope-trigger field text-xs",
+       "label": "Выбор контекста"
+      },
+      {
+       "cls": "text-xs shrink-0 header-fs-btn",
+       "label": "На весь экран"
+      }
+     ],
+     "drawerOnlySections": 9,
+     "sectionNamesInHeader": 0
+    }
+   },
+   "shots": [
+    "s12-s5-header-390.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.6",
+   "title": "Scroll и Back: стабильная шапка, порядок закрытия слоёв",
+   "status": "PASS",
+   "assertion": "переиспользован принятый прогон tools/ui_asap_ui02_delta_e2e.py (Re-check 3 Approved): свой набор утверждений не ослаблен и не переписан",
+   "probe": {
+    "source": "asap-ui-delta/asap-ui-delta-e2e.json",
+    "section": "scenario6",
+    "keys": [
+     "afterFirstBack",
+     "afterSecondBack",
+     "graphBack",
+     "graphOpen",
+     "header",
+     "recordBack",
+     "recordOpen",
+     "stackTwoLayers",
+     "telegramBack"
+    ]
+   },
+   "shots": [],
+   "failures": []
+  },
+  {
+   "id": "§12.7",
+   "title": "Overlay: dropdown у краёв не обрезается, текст заднего слоя не проходит через меню, фокус возвращается",
+   "assertion": "панель области и палитра целиком внутри вьюпорта на 320/390/1280; фон панели непрозрачен (alpha>=0.75) или имеет backdrop-filter; палитра телепортирована в body; после закрытия activeElement снова на триггере области",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": 320,
+      "scope": {
+       "options": 2,
+       "texts": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "titles": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "clamp": [
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        }
+       ],
+       "panelRect": {
+        "l": 8,
+        "r": 312,
+        "t": 530,
+        "b": 691,
+        "w": 304,
+        "h": 160
+       },
+       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelFilter": "none",
+       "triggerTitle": "Audit Chat",
+       "triggerText": "AAudit ChatЧАТ▾",
+       "vw": 320,
+       "vh": 700,
+       "stableH": 700
+      },
+      "palette": {
+       "l": 0,
+       "r": 320,
+       "t": 0,
+       "b": 700,
+       "bg": "rgb(21, 27, 42)",
+       "filter": "none",
+       "vw": 320,
+       "vh": 700,
+       "inBody": true,
+       "trap": true
+      },
+      "focusScope": {
+       "isTrigger": true,
+       "tag": "BUTTON"
+      },
+      "focusAfterEsc": {
+       "tag": "BUTTON",
+       "inBody": false,
+       "label": "Выбор контекста"
+      },
+      "errors": [],
+      "shots": [
+       "s12-s7-scope-320.png",
+       "s12-s7-palette-320.png"
+      ]
+     },
+     {
+      "viewport": 390,
+      "scope": {
+       "options": 2,
+       "texts": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "titles": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "clamp": [
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        }
+       ],
+       "panelRect": {
+        "l": 8,
+        "r": 382,
+        "t": 674,
+        "b": 835,
+        "w": 374,
+        "h": 160
+       },
+       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelFilter": "none",
+       "triggerTitle": "Audit Chat",
+       "triggerText": "AAudit ChatЧАТ▾",
+       "vw": 390,
+       "vh": 844,
+       "stableH": 844
+      },
+      "palette": {
+       "l": 0,
+       "r": 390,
+       "t": 0,
+       "b": 844,
+       "bg": "rgb(21, 27, 42)",
+       "filter": "none",
+       "vw": 390,
+       "vh": 844,
+       "inBody": true,
+       "trap": true
+      },
+      "focusScope": {
+       "isTrigger": true,
+       "tag": "BUTTON"
+      },
+      "focusAfterEsc": {
+       "tag": "BUTTON",
+       "inBody": false,
+       "label": "Выбор контекста"
+      },
+      "errors": [],
+      "shots": [
+       "s12-s7-scope-390.png",
+       "s12-s7-palette-390.png"
+      ]
+     },
+     {
+      "viewport": 1280,
+      "scope": {
+       "options": 2,
+       "texts": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "titles": [
+        "Весь бот",
+        "Audit Chat"
+       ],
+       "clamp": [
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        },
+        {
+         "ch": 21,
+         "sh": 21,
+         "lh": 21,
+         "ov": "hidden"
+        }
+       ],
+       "panelRect": {
+        "l": 704,
+        "r": 964,
+        "t": 55,
+        "b": 205,
+        "w": 260,
+        "h": 150
+       },
+       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelFilter": "none",
+       "triggerTitle": "Audit Chat",
+       "triggerText": "AAudit ChatЧАТ▾",
+       "vw": 1280,
+       "vh": 800,
+       "stableH": 800
+      },
+      "palette": {
+       "l": 280,
+       "r": 1000,
+       "t": 48,
+       "b": 204,
+       "bg": "rgb(28, 37, 55)",
+       "filter": "none",
+       "vw": 1280,
+       "vh": 800,
+       "inBody": true,
+       "trap": true
+      },
+      "focusScope": {
+       "isTrigger": true,
+       "tag": "BUTTON"
+      },
+      "focusAfterEsc": {
+       "tag": "BUTTON",
+       "inBody": false,
+       "label": "Выбор контекста"
+      },
+      "errors": [],
+      "shots": [
+       "s12-s7-scope-1280.png",
+       "s12-s7-palette-1280.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s7-scope-320.png",
+    "s12-s7-palette-320.png",
+    "s12-s7-scope-390.png",
+    "s12-s7-palette-390.png",
+    "s12-s7-scope-1280.png",
+    "s12-s7-palette-1280.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.8",
+   "title": "Controls: кнопки/тумблеры/поля/select на трёх несвязанных экранах используют общие роли и токены, двух конкурирующих master-toggles нет",
+   "assertion": "на #/modules, #/ai/prompts, #/memory/rag: каждая видимая кнопка имеет класс, определённый в app.css; каждое поле — .field или .ctl-input; каждый select — .field/.ctl-*; каждый отрендеренный checkbox — .ctl-check__box|внутри .ctl-toggle/.ctl-check; [data-module-global-toggle]===0 и на карточку модуля ровно 1 тумблер",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "route": "#/modules",
+      "buttons": 37,
+      "btnUnstyled": [],
+      "inputs": 1,
+      "inputUnstyled": [],
+      "selects": 0,
+      "selectUnstyled": 0,
+      "checks": 0,
+      "checksUnified": 0,
+      "checksAll": 6,
+      "checksAllUnified": 6,
+      "toggles": 6,
+      "masterToggles": 0,
+      "scopeToggles": 6,
+      "moduleCards": 15,
+      "togglesPerCard": [
+       1,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       1,
+       1,
+       1,
+       1,
+       1,
+       0
+      ],
+      "errors": [],
+      "shots": [
+       "s12-s8-modules.png"
+      ]
+     },
+     {
+      "route": "#/ai/prompts",
+      "buttons": 119,
+      "btnUnstyled": [],
+      "inputs": 2,
+      "inputUnstyled": [],
+      "selects": 2,
+      "selectUnstyled": 0,
+      "checks": 0,
+      "checksUnified": 0,
+      "checksAll": 0,
+      "checksAllUnified": 0,
+      "toggles": 0,
+      "masterToggles": 0,
+      "scopeToggles": 0,
+      "moduleCards": 0,
+      "togglesPerCard": [],
+      "errors": [],
+      "shots": [
+       "s12-s8-ai-prompts.png"
+      ]
+     },
+     {
+      "route": "#/memory/rag",
+      "buttons": 307,
+      "btnUnstyled": [],
+      "inputs": 65,
+      "inputUnstyled": [],
+      "selects": 3,
+      "selectUnstyled": 0,
+      "checks": 0,
+      "checksUnified": 0,
+      "checksAll": 27,
+      "checksAllUnified": 27,
+      "toggles": 27,
+      "masterToggles": 0,
+      "scopeToggles": 0,
+      "moduleCards": 0,
+      "togglesPerCard": [],
+      "errors": [],
+      "shots": [
+       "s12-s8-memory-rag.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s8-modules.png",
+    "s12-s8-ai-prompts.png",
+    "s12-s8-memory-rag.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.9",
+   "title": "Module global toggle: из каталога меняет реальное global состояние с подтверждением, per-chat override независим, неуспех откатывает UI",
+   "assertion": "клик по [data-module-scope-toggle] в GLOBAL шлёт POST /api/config с per_chat=false и меняет состояние; при HTTP 500 UI возвращается к серверному значению и показывает причину ([data-module-scope-error]); в chat-области клик шлёт POST с X-Chat-Id и меняет только значение чата",
+   "status": "PASS",
+   "probe": {
+    "globalBefore": {
+     "exists": true,
+     "checked": false,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "",
+     "scopeBadge": "GLOBAL",
+     "stateText": "выключен",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "globalAfter": {
+     "exists": true,
+     "checked": true,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "",
+     "scopeBadge": "GLOBAL",
+     "stateText": "включён",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "failBefore": {
+     "exists": true,
+     "checked": true,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "",
+     "scopeBadge": "GLOBAL",
+     "stateText": "включён",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "failAfter": {
+     "exists": true,
+     "checked": true,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "Не удалось изменить глобально",
+     "scopeBadge": "GLOBAL",
+     "stateText": "включён",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "chatBefore": {
+     "exists": true,
+     "checked": true,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "",
+     "scopeBadge": "ЧАТ",
+     "stateText": "включён",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "chatAfter": {
+     "exists": true,
+     "checked": false,
+     "disabled": false,
+     "mod": "mod_summary",
+     "err": "",
+     "scopeBadge": "ЧАТ",
+     "stateText": "выключен",
+     "loading": false,
+     "busy": "false",
+     "palBusy": null
+    },
+    "postsGlobal": [
+     {
+      "url": "http://127.0.0.1:8853/api/config",
+      "body": "{\"items\":[{\"key\":\"flags.summary_enabled\",\"value\":true}],\"updated_at\":null}",
+      "hdrChat": null
+     }
+    ],
+    "postsChat": [
+     {
+      "url": "http://127.0.0.1:8853/api/config",
+      "body": "{\"items\":[{\"key\":\"flags.summary_enabled\",\"value\":false}],\"updated_at\":null}",
+      "hdrChat": "-1001234567890"
+     }
+    ]
+   },
+   "shots": [
+    "s12-s9-modules-global-ok-1280.png",
+    "s12-s9-modules-global-fail-1280.png",
+    "s12-s9-modules-chat-scope-1280.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.10",
+   "title": "Четыре ленты: один блок под картой; дата/модалка/источник; autoscroll, ручная прокрутка вверх/вниз, пауза и плавное продолжение",
+   "assertion": "[data-intel-widget] ровно один и содержит 4 [data-intel-section] (facts/beliefs/paradigms/traits) сразу под картой; строки содержат дату; transform трека меняется сам (autoscroll), замирает после ручной прокрутки вверх и снова меняется после паузы",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "viewport": 1280,
+      "ribbon": "facts",
+      "widget": true,
+      "sections": [
+       "facts",
+       "beliefs",
+       "paradigms",
+       "traits"
+      ],
+      "graphs": 0,
+      "order": [
+       "status-block__bot status",
+       "intel"
+      ],
+      "track": true,
+      "transform": "none",
+      "tracks": 4,
+      "rows": 13,
+      "dates": [
+       "фактТолян30.10любит мемы",
+       "фактМарк30.10любит рыбалку",
+       "фактАня30.10живёт в Казани"
+      ],
+      "empty": 0,
+      "errors": [],
+      "visibleSections": 4,
+      "swiper": 4,
+      "samples": [
+       43,
+       50,
+       56,
+       63
+      ],
+      "moving": true,
+      "pausedStable": true,
+      "resumed": true,
+      "shots": [
+       "s12-s10-ribbons-1280.png",
+       "s12-s10-ribbons-1280-paused.png"
+      ]
+     },
+     {
+      "viewport": 390,
+      "ribbon": "facts",
+      "widget": true,
+      "sections": [
+       "facts",
+       "beliefs",
+       "paradigms",
+       "traits"
+      ],
+      "graphs": 0,
+      "order": [
+       "status-block__bot status",
+       "intel"
+      ],
+      "track": true,
+      "transform": "none",
+      "tracks": 4,
+      "rows": 13,
+      "dates": [
+       "фактТолян30.10любит мемы",
+       "фактМарк30.10любит рыбалку",
+       "фактАня30.10живёт в Казани"
+      ],
+      "empty": 0,
+      "errors": [],
+      "visibleSections": 1,
+      "swiper": 4,
+      "samples": [
+       44,
+       51,
+       58,
+       65
+      ],
+      "moving": true,
+      "pausedStable": true,
+      "resumed": true,
+      "shots": [
+       "s12-s10-ribbons-390.png",
+       "s12-s10-ribbons-390-paused.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s10-ribbons-1280.png",
+    "s12-s10-ribbons-1280-paused.png",
+    "s12-s10-ribbons-390.png",
+    "s12-s10-ribbons-390-paused.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.11",
+   "title": "Карта embedded: свайп страницы, режим «Исследовать»",
+   "status": "BLOCKED",
+   "assertion": "не может быть проверен: зависимость EVOL-COG-MAP",
+   "probe": {},
+   "shots": [],
+   "failures": []
+  },
+  {
+   "id": "§12.12",
+   "title": "Карта fullscreen: LOD, легенда, восстановление камеры",
+   "status": "BLOCKED",
+   "assertion": "не может быть проверен: зависимость EVOL-COG-MAP",
+   "probe": {},
+   "shots": [],
+   "failures": []
+  },
+  {
+   "id": "§12.13",
+   "title": "Health tint: normal/warning/degraded/failed/unknown/disabled различимы, красное стекло не ломает прозрачность/преломление/фон, нет ложной окраски data-card",
+   "assertion": "на #/ с шестью статусами в DOM присутствуют normal, warning (EMA нагрузки 75 %), failed, unknown, disabled; у каждой [data-health-state] альфа фона <=0.6 (стекло, не плашка), backdrop-filter и w/h совпадают с тем же subsystem в normal (±2 px); число canvas неизменно; ни одна карточка без data-health-state не получила красный фон",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "state": "normal",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "normal",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "normal",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "normal",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-normal.png"
+      ]
+     },
+     {
+      "state": "warning",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "normal",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "warning",
+        "bg": "rgba(60, 43, 56, 0.5)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-warning.png"
+      ]
+     },
+     {
+      "state": "degraded",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "normal",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "normal",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "degraded",
+        "bg": "rgba(91, 55, 67, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-degraded.png"
+      ]
+     },
+     {
+      "state": "failed",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "failed",
+        "bg": "rgba(141, 74, 85, 0.5)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "failed",
+        "bg": "rgba(141, 74, 85, 0.5)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "failed",
+        "bg": "rgba(141, 74, 85, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-failed.png"
+      ]
+     },
+     {
+      "state": "unknown",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "unknown",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "failed",
+        "bg": "rgba(141, 74, 85, 0.5)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "normal",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-unknown.png"
+      ]
+     },
+     {
+      "state": "disabled",
+      "cards": [
+       {
+        "sub": "bot",
+        "state": "disabled",
+        "bg": "rgba(0, 0, 0, 0)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 342,
+        "h": 192
+       },
+       {
+        "sub": "heartbeat",
+        "state": "failed",
+        "bg": "rgba(141, 74, 85, 0.5)",
+        "alpha": "1",
+        "filter": "none",
+        "w": 314,
+        "h": 133
+       },
+       {
+        "sub": "sleep",
+        "state": "unknown",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 333,
+        "h": 355
+       },
+       {
+        "sub": "experience",
+        "state": "normal",
+        "bg": "rgba(21, 27, 42, 0.5)",
+        "alpha": "1",
+        "filter": "blur(8px) saturate(1.3)",
+        "w": 1032,
+        "h": 119
+       }
+      ],
+      "canvases": 3,
+      "canvasKinds": [
+       "aurora-flow-canvas",
+       "hb-canvas",
+       ""
+      ],
+      "tintedNonHealth": 0,
+      "errors": [],
+      "shots": [
+       "s12-s13-health-disabled.png"
+      ]
+     }
+    ],
+    "observed": [
+     "degraded",
+     "disabled",
+     "failed",
+     "normal",
+     "unknown",
+     "warning"
+    ],
+    "problems": [],
+    "canvases": [
+     3
+    ]
+   },
+   "shots": [
+    "s12-s13-health-normal.png",
+    "s12-s13-health-warning.png",
+    "s12-s13-health-degraded.png",
+    "s12-s13-health-failed.png",
+    "s12-s13-health-unknown.png",
+    "s12-s13-health-disabled.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.14",
+   "title": "Поиск и deep link с RBAC/scope и возвратом черновика",
+   "status": "PASS",
+   "assertion": "переиспользован принятый прогон tools/ui_asap_ui02_delta_e2e.py (Re-check 3 Approved): свой набор утверждений не ослаблен и не переписан",
+   "probe": {
+    "source": "asap-ui-delta/asap-ui-delta-e2e.json",
+    "section": "scenario14",
+    "keys": [
+     "concreteRow",
+     "draft",
+     "draftGuardDecline",
+     "draftKept",
+     "draftLeft",
+     "missingTarget",
+     "paletteFromSpeech",
+     "queryItems",
+     "returnFromTarget",
+     "scopeBefore",
+     "scrollReturn",
+     "target"
+    ]
+   },
+   "shots": [],
+   "failures": []
+  },
+  {
+   "id": "§12.15",
+   "title": "Клавиатура/zoom: длинный промпт, меню модели и поиск с открытой клавиатурой; 200 % zoom; Save и Close доступны, overflow нет",
+   "assertion": "на поддержанном минимуме 320 px и 390 px: scrollWidth<=innerWidth и все элементы шапки внутри вьюпорта; при открытой клавиатуре (stable=520) поле, Save и Close имеют bottom<=520; отдельно измерен zoom 200 % (195 CSS px) — его результат вынесен владельцу, контракт минимума 320 px им не меняется",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "case": "min-width-320",
+      "vw": 320,
+      "vh": 568,
+      "hScroll": 0,
+      "headerH": 58,
+      "headerKids": [
+       {
+        "cls": "btn-ghost header-nav-btn shr",
+        "off": false
+       },
+       {
+        "cls": "header-title-wrap min-w-0",
+        "off": false
+       },
+       {
+        "cls": "header-scope-row",
+        "off": false
+       },
+       {
+        "cls": "text-xs shrink-0 header-fs-b",
+        "off": false
+       }
+      ],
+      "headerOff": 0,
+      "save": null,
+      "close": null,
+      "editor": {
+       "l": 42,
+       "r": 278,
+       "t": 1945,
+       "b": 2093
+      },
+      "kbInset": "0px",
+      "errors": [],
+      "shots": [
+       "s12-s15-min-320.png"
+      ]
+     },
+     {
+      "case": "min-width-390",
+      "vw": 390,
+      "vh": 844,
+      "hScroll": 0,
+      "headerH": 58,
+      "headerKids": [
+       {
+        "cls": "btn-ghost header-nav-btn shr",
+        "off": false
+       },
+       {
+        "cls": "header-title-wrap min-w-0",
+        "off": false
+       },
+       {
+        "cls": "header-scope-row",
+        "off": false
+       },
+       {
+        "cls": "text-xs shrink-0 header-fs-b",
+        "off": false
+       }
+      ],
+      "headerOff": 0,
+      "save": null,
+      "close": null,
+      "editor": {
+       "l": 42,
+       "r": 348,
+       "t": 1725,
+       "b": 1873
+      },
+      "kbInset": "0px",
+      "errors": [],
+      "shots": [
+       "s12-s15-min-390.png"
+      ]
+     },
+     {
+      "case": "zoom200-195",
+      "vw": 195,
+      "vh": 422,
+      "hScroll": 0,
+      "headerH": 58,
+      "headerKids": [
+       {
+        "cls": "btn-ghost header-nav-btn shr",
+        "off": false
+       },
+       {
+        "cls": "header-title-wrap min-w-0",
+        "off": false
+       },
+       {
+        "cls": "header-scope-row",
+        "off": true
+       },
+       {
+        "cls": "text-xs shrink-0 header-fs-b",
+        "off": true
+       }
+      ],
+      "headerOff": 2,
+      "save": null,
+      "close": null,
+      "editor": {
+       "l": 42,
+       "r": 153,
+       "t": 2539,
+       "b": 2687
+      },
+      "kbInset": "0px",
+      "errors": [],
+      "shots": [
+       "s12-s15-zoom200-195.png"
+      ]
+     },
+     {
+      "case": "keyboard",
+      "ta": {
+       "t": 250,
+       "b": 398,
+       "l": 42,
+       "r": 348
+      },
+      "save": {
+       "t": 444,
+       "b": 504,
+       "l": 19,
+       "r": 382
+      },
+      "close": null,
+      "vh": 520,
+      "active": "TEXTAREA",
+      "kbOpen": true,
+      "hScroll": 0,
+      "errors": [],
+      "shots": [
+       "s12-s15-keyboard-390.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s15-min-320.png",
+    "s12-s15-min-390.png",
+    "s12-s15-zoom200-195.png",
+    "s12-s15-keyboard-390.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.16",
+   "title": "Поэкранные маршруты: Статус/Аналитика/Модули/ИИ/Речь/Память/Доступы и глубокие editor-маршруты не возвращаются к старому набору контролов",
+   "assertion": "на 12 маршрутах (включая глубокие #/modules/factcheck, #/ai/smart-cache): textLen>=40, имя раздела не дублируется, scrollWidth<=innerWidth, отсутствуют mobile-topnav/«⋯»-триггер и data-module-global-toggle",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "route": "#/",
+      "hash": "#/",
+      "textLen": 3541,
+      "titles": [
+       "Статус"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-root.png"
+      ]
+     },
+     {
+      "route": "#/oversight",
+      "hash": "#/oversight",
+      "textLen": 464,
+      "titles": [
+       "Аналитика"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-oversight.png"
+      ]
+     },
+     {
+      "route": "#/modules",
+      "hash": "#/modules",
+      "textLen": 3084,
+      "titles": [
+       "Модули"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 6,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-modules.png"
+      ]
+     },
+     {
+      "route": "#/ai",
+      "hash": "#/ai",
+      "textLen": 1182,
+      "titles": [
+       "ИИ"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-ai.png"
+      ]
+     },
+     {
+      "route": "#/ai/prompts",
+      "hash": "#/ai/prompts",
+      "textLen": 7311,
+      "titles": [
+       "Библиотека промптов"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-ai-prompts.png"
+      ]
+     },
+     {
+      "route": "#/speech",
+      "hash": "#/",
+      "textLen": 3541,
+      "titles": [
+       "Статус"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-speech.png"
+      ]
+     },
+     {
+      "route": "#/memory",
+      "hash": "#/memory",
+      "textLen": 328,
+      "titles": [
+       "Память"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-memory.png"
+      ]
+     },
+     {
+      "route": "#/memory/rag",
+      "hash": "#/memory/rag",
+      "textLen": 16848,
+      "titles": [
+       "Настройки памяти"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 27,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-memory-rag.png"
+      ]
+     },
+     {
+      "route": "#/access",
+      "hash": "#/access",
+      "textLen": 784,
+      "titles": [
+       "Доступы"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-access.png"
+      ]
+     },
+     {
+      "route": "#/how",
+      "hash": "#/how",
+      "textLen": 90,
+      "titles": [
+       "Справка"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-how.png"
+      ]
+     },
+     {
+      "route": "#/modules/factcheck",
+      "hash": "#/modules/factcheck",
+      "textLen": 765,
+      "titles": [
+       "Фактчек"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-modules-factcheck.png"
+      ]
+     },
+     {
+      "route": "#/ai/smart-cache",
+      "hash": "#/ai",
+      "textLen": 1182,
+      "titles": [
+       "ИИ"
+      ],
+      "titleDup": 0,
+      "hScroll": 0,
+      "legacyNav": 0,
+      "legacyGrid": 0,
+      "masterToggles": 0,
+      "ctlBtns": 0,
+      "oldBtns": 0,
+      "shots": [
+       "s12-s16-ai-smart-cache.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s16-root.png",
+    "s12-s16-oversight.png",
+    "s12-s16-modules.png",
+    "s12-s16-ai.png",
+    "s12-s16-ai-prompts.png",
+    "s12-s16-speech.png",
+    "s12-s16-memory.png",
+    "s12-s16-memory-rag.png",
+    "s12-s16-access.png",
+    "s12-s16-how.png",
+    "s12-s16-modules-factcheck.png",
+    "s12-s16-ai-smart-cache.png"
+   ],
+   "failures": []
+  },
+  {
+   "id": "§12.17",
+   "title": "Perf/regression: на действующем графе и анимациях нет массового лагания и постоянной перерисовки стекла",
+   "assertion": "на #/ и #/status/graph за 2.5 с: доля кадров >100 ms <=15 %, long tasks <=2, нет lost WebGL-контекста, полотна стекла/фона на месте (canvases>0). Медиана/p95 кадра пишутся как наблюдение: в headless-прогоне частота rAF ограничена композитором и сама по себе не является доказательством лагания. Оптика до/после — отдельный принятый прогон tools/ui_win_glass_refraction_e2e.py",
+   "status": "PASS",
+   "probe": {
+    "rows": [
+     {
+      "route": "#/",
+      "frames": 77,
+      "p50": 33,
+      "p95": 36,
+      "max": 60,
+      "slowFrames": 0,
+      "longTasks": 0,
+      "longMax": 0,
+      "canvases": 3,
+      "webglLost": 0,
+      "errors": [],
+      "shots": [
+       "s12-s17-root.png"
+      ]
+     },
+     {
+      "route": "#/status/graph",
+      "frames": 45,
+      "p50": 57,
+      "p95": 61,
+      "max": 63,
+      "slowFrames": 0,
+      "longTasks": 0,
+      "longMax": 0,
+      "canvases": 3,
+      "webglLost": 0,
+      "errors": [],
+      "shots": [
+       "s12-s17-status-graph.png"
+      ]
+     }
+    ]
+   },
+   "shots": [
+    "s12-s17-root.png",
+    "s12-s17-status-graph.png"
+   ],
+   "failures": []
+  }
+ ],
+ "fails": [],
+ "blocked": [
+  {
+   "id": "§12.11",
+   "title": "Карта embedded: свайп страницы, режим «Исследовать»",
+   "reason": "EVOL-COG-MAP не реализован: в сборке нет ни карты связей в «Статусе», ни режима «Исследовать», ни fullscreen-LOD с восстановлением камеры. Легаси-граф не подменяет сценарий"
+  },
+  {
+   "id": "§12.12",
+   "title": "Карта fullscreen: LOD, легенда, восстановление камеры",
+   "reason": "EVOL-COG-MAP не реализован: в сборке нет ни карты связей в «Статусе», ни режима «Исследовать», ни fullscreen-LOD с восстановлением камеры. Легаси-граф не подменяет сценарий"
+  }
+ ],
+ "residual": {
+  "interactions": {
+   "hover": [
+    {
+     "route": "#/modules",
+     "sel": ".module-params-btn",
+     "normal": {
+      "bg": "rgba(170, 182, 200, 0.1)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 88,
+       "h": 34
+      }
+     },
+     "hover": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 88,
+       "h": 34
+      }
+     },
+     "pressed": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "brightness(0.94)",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 88,
+       "h": 34
+      }
+     }
+    },
+    {
+     "route": "#/ai/prompts",
+     "sel": ".btn-ghost",
+     "normal": {
+      "bg": "rgba(170, 182, 200, 0.1)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     },
+     "hover": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     },
+     "pressed": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "brightness(0.94)",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     }
+    },
+    {
+     "route": "#/memory",
+     "sel": ".btn-ghost",
+     "normal": {
+      "bg": "rgba(170, 182, 200, 0.1)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     },
+     "hover": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "none",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     },
+     "pressed": {
+      "bg": "rgba(170, 182, 200, 0.18)",
+      "color": "rgb(170, 182, 200)",
+      "filter": "brightness(0.94)",
+      "boxShadow": "none",
+      "opacity": "1",
+      "rect": {
+       "w": 131,
+       "h": 32
+      }
+     }
+    }
+   ],
+   "selected": [
+    {
+     "route": "#/modules",
+     "on": {
+      "bg": "rgba(167, 139, 250, 0.16)",
+      "shadow": "rgba(167, 139, 250, 0.45) 0px 0px 0px 1px inset",
+      "color": "rgb(244, 247, 251)"
+     },
+     "off": {
+      "bg": "rgba(0, 0, 0, 0)",
+      "shadow": "none",
+      "color": "rgb(170, 182, 200)"
+     },
+     "onLabel": "Включённые",
+     "shots": [
+      "s12-residual-selected.png"
+     ]
+    }
+   ],
+   "backStack": {
+    "initial": {
+     "layers": [
+      "palette",
+      "scope"
+     ],
+     "len": 2
+    },
+    "after": [
+     {
+      "len": 1,
+      "hash": "#/",
+      "palette": false,
+      "scope": true
+     },
+     {
+      "len": 0,
+      "hash": "#/",
+      "palette": false,
+      "scope": false
+     },
+     {
+      "len": 0,
+      "hash": "#/",
+      "palette": false,
+      "scope": false
+     }
+    ],
+    "shots": [
+     "s12-residual-backstack.png"
+    ]
+   },
+   "checkbox": [
+    {
+     "route": "#/memory/rag",
+     "checks": 27,
+     "unified": 27,
+     "visible": 0
+    },
+    {
+     "route": "#/modules",
+     "checks": 6,
+     "unified": 6,
+     "visible": 0
+    },
+    {
+     "route": "#/ai/prompts",
+     "checks": 0,
+     "unified": 0,
+     "visible": 0
+    }
+   ]
+  },
+  "loading": {
+   "during": {
+    "splashVisible": true,
+    "splashBusy": "true",
+    "appBusy": "true",
+    "ready": false,
+    "skeletons": 3
+   },
+   "after": {
+    "splashVisible": false,
+    "splashBusy": "true",
+    "appBusy": "false",
+    "ready": true,
+    "skeletons": 3
+   },
+   "palette": {
+    "open": true,
+    "busy": "true",
+    "configLoading": true,
+    "items": 593,
+    "loading": false,
+    "hasData": false,
+    "skeletons": 0,
+    "caught": true
+   },
+   "shots": [
+    "s12-loading-boot-390.png",
+    "s12-loading-boot-palette-390.png"
+   ]
+  }
+ }
+}

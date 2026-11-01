@@ -6938,7 +6938,102 @@ html.w9-sheet-bottom .modal-close {
   width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto;
   accent-color: var(--purple-400);
 }
+/* W14 (E.2): тот же чекбокс дизайн-системы для разметки, где контейнер — не
+   `.ctl-check` (плотные матрицы прав и списки выбора: 200 строк по 44 px
+   разъехались бы). Меняется ТОЛЬКО сам контрол — размер, скругление,
+   акцент и кольцо фокуса; геометрия строки остаётся как была. */
+input[type="checkbox"].ctl-check__box,
+input[type="radio"].ctl-check__box {
+  width: 18px; height: 18px; margin: 0; flex: 0 0 auto;
+  accent-color: var(--purple-400); border-radius: var(--ctl-radius-sm);
+  cursor: pointer;
+}
+input[type="checkbox"].ctl-check__box:focus-visible,
+input[type="radio"].ctl-check__box:focus-visible {
+  outline: 2px solid var(--focus-ring); outline-offset: 2px;
+}
+input[type="checkbox"].ctl-check__box:disabled { opacity: .55; cursor: not-allowed; }
 .ctl-check__hint { display: block; font-size: var(--ctl-font-sm); color: var(--text-3); }
+
+/* ── W14. Единые интерактивные состояния контролов (E.3 §4) ───────────────
+   hover/pressed/selected — ОДИН набор правил для семейства `.btn*`/`.ctl-*`
+   и существующих строк-кнопок, а не по экрану. Нажатие (pressed) до этой
+   волны было только у двух кнопок шапки, поэтому «нажато» нигде больше не
+   читалось. Селекторы добавляют ТОЛЬКО состояния: заливка, геометрия и
+   токены не переписаны. */
+.btn:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-accent:active:not(:disabled),
+.ctl-btn:active:not(:disabled) { filter: brightness(.94); }
+.palette-row:active { background: rgba(170, 182, 200, .16); }
+.ctl-menu__item:active:not([aria-disabled="true"]) { background: rgba(170, 182, 200, .18); }
+.module-filter-btn:active { background: rgba(170, 182, 200, .16); }
+/* Выбранное состояние обязано отличаться не только оттенком текста:
+   мягкая заливка + hairline (видимо и на стекле, и в обычном режиме). */
+.btn[aria-pressed="true"],
+.btn-ghost[aria-pressed="true"],
+.module-filter-btn[aria-pressed="true"],
+.palette-row[aria-selected="true"],
+[role="option"][aria-selected="true"] {
+  background: rgba(167, 139, 250, .16);
+  box-shadow: inset 0 0 0 var(--ctl-hairline) rgba(167, 139, 250, .45);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Нажатие остаётся видимым, но без «прыжка» яркости на каждом тапе. */
+  .btn:active:not(:disabled), .btn-ghost:active:not(:disabled),
+  .btn-accent:active:not(:disabled), .ctl-btn:active:not(:disabled) {
+    filter: brightness(.97);
+  }
+}
+
+/* ── W14. Первичная загрузка: честный индикатор до готовности оболочки ────
+   Пока Vue не смонтировал shell, показывается статический скелетон; класс
+   `app-ready` на <body> (ставит app.js после первой загрузки конфига) его
+   снимает. При ошибке загрузки индикатор тоже уходит — причина объясняется
+   баннером configError, а не «вечной загрузкой». */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 1;
+  display: grid; place-items: center;
+  padding: var(--space-4);
+  background: transparent;
+}
+.boot-splash__card {
+  width: min(420px, 86vw);
+  display: grid; gap: 10px;
+  padding: 16px;
+  border: var(--border-hairline) solid var(--glass-border-color);
+  border-radius: var(--radius-xl, 18px);
+  background: rgba(21, 27, 42, .55);
+  backdrop-filter: blur(8px);
+}
+body.app-ready .boot-splash { display: none; }
+
+   Скелетон — не «ложный контент»: он показывается ТОЛЬКО пока данных нет
+   (`configLoading && !items`), и исчезает, как только пришли реальные данные
+   или ошибка (ошибка важнее — её баннер объясняет причину). */
+.ctl-loading {
+  display: grid; gap: 8px; padding: 12px 0;
+  color: var(--text-3); font-size: var(--ctl-font-sm);
+}
+.ctl-loading__text { display: flex; align-items: center; gap: 8px; }
+.ctl-skeleton {
+  height: 12px; border-radius: var(--ctl-radius-pill);
+  background: rgba(170, 182, 200, .18); overflow: hidden; position: relative;
+}
+.ctl-skeleton--wide { width: 100%; }
+.ctl-skeleton--mid { width: 68%; }
+.ctl-skeleton--narrow { width: 41%; }
+@media (prefers-reduced-motion: no-preference) {
+  /* Мягкий проход блика — единственное движение; при reduced-motion его нет. */
+  .ctl-skeleton::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent,
+      rgba(255, 255, 255, .10), transparent);
+    transform: translateX(-100%);
+    animation: ctlSkeletonSweep var(--motion-slow, 320ms) linear infinite;
+  }
+}
+@keyframes ctlSkeletonSweep { to { transform: translateX(100%); } }
 
 /* Radio / segmented: ровно один активный; клавиатура и touch одинаковы. */
 .ctl-seg {

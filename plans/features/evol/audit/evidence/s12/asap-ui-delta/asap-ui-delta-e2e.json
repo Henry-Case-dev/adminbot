@@ -1,0 +1,705 @@
+{
+ "tokens": {
+  "z": {
+   "base": 0,
+   "content": 1,
+   "inline": 5,
+   "sidebar": 30,
+   "scrim": 35,
+   "nav": 40,
+   "local": 45,
+   "menu": 55,
+   "overlay": 50,
+   "modalScrim": 75,
+   "modal": 80,
+   "toast": 105,
+   "palette": 100,
+   "dev": 110,
+   "devTop": 120
+  },
+  "motion": {
+   "durFast": "120ms",
+   "motionFast": "120ms",
+   "durNormal": "180ms",
+   "motionBase": "180ms",
+   "durSlow": "320ms",
+   "motionSlow": "320ms",
+   "easeOut": "cubic-bezier(.2, .8, .2, 1)",
+   "motionEase": "cubic-bezier(.2, .8, .2, 1)",
+   "feedSpeed": "16px",
+   "feedResume": "2600ms",
+   "feedEndHold": "1600ms",
+   "feedRewind": "900ms",
+   "feedStartHold": "600ms"
+  },
+  "engine": {
+   "speedPxS": 16,
+   "resumeMs": 2600,
+   "endHoldMs": 1600,
+   "rewindMs": 900,
+   "startHoldMs": 600
+  },
+  "vw": 1280,
+  "vh": 800,
+  "hScroll": false
+ },
+ "scope1280": {
+  "rect": {
+   "l": 596,
+   "t": 55,
+   "r": 976,
+   "b": 461,
+   "w": 380,
+   "h": 406
+  },
+  "placement": "bottom",
+  "bgAlpha": 0.94,
+  "position": "absolute",
+  "insideViewport": true,
+  "hitInside": true,
+  "vw": 1280,
+  "vh": 800
+ },
+ "palette1280": {
+  "panel": {
+   "rect": {
+    "l": 280,
+    "t": 48,
+    "r": 1000,
+    "b": 204,
+    "w": 720,
+    "h": 156
+   },
+   "placement": null,
+   "bgAlpha": 1,
+   "position": "absolute",
+   "insideViewport": true,
+   "hitInside": true,
+   "vw": 1280,
+   "vh": 800
+  },
+  "backCalls": [
+   "show"
+  ],
+  "focused": "palette-input",
+  "route": "#/ai"
+ },
+ "paletteEsc": {
+  "open": false,
+  "route": "#/ai"
+ },
+ "record1280": {
+  "inViewport": true,
+  "fields": [
+   "text",
+   "type",
+   "scope",
+   "subject",
+   "user_id",
+   "created_at",
+   "event_at",
+   "confirmed_at",
+   "updated_at",
+   "origin",
+   "status",
+   "sources",
+   "changes",
+   "raw_id",
+   "raw_chat_id",
+   "raw_user_id",
+   "raw_tg_message_id",
+   "raw_key"
+  ],
+  "text": "Owner prefers concise Russian answers without ceremony",
+  "created": "21.10.2025, 10:40:00graph_facts.created_at",
+  "event": "20.10.2025, 06:53:20graph_facts.message_timestamp",
+  "confirmed": "22.10.2025, 14:26:40graph_facts.last_confirmed_at",
+  "origin": "manualorigin=manual",
+  "sources": "TG-сообщение #777 · чат -1001234567890graph_facts.tg_message_id",
+  "heading": "факт Owner",
+  "allText": "факт OwnerНовые факты · запись #4242✕Полный текстOwner prefers concise Russian answers without ceremonyТип записиНовый фактЧат / областьОчень длинное название рабочего чата с уточнением и подписьюchat_id -1001234567890СубъектOwnerСвязанный Telegram user id5885953495Записано (извлечение)21.10.2025, 10:40:00graph_facts.created_atДата события (сообщение)20.10.2025, 06:53:20graph_facts.message_timesta",
+  "sheetMode": false,
+  "activeIsRow": false
+ },
+ "recordEsc": {
+  "open": false,
+  "row": true,
+  "route": "#/"
+ },
+ "layers": {
+  "scope": 50,
+  "header": 32,
+  "toast": 105,
+  "palette": 100,
+  "recordScrim": 75,
+  "drawer": 40,
+  "drawerBackdrop": 35
+ },
+ "320": {
+  "open": true,
+  "placement": "sheet",
+  "position": "fixed",
+  "rect": {
+   "l": 8,
+   "t": 162,
+   "r": 312,
+   "b": 691,
+   "w": 304,
+   "h": 529
+  },
+  "vw": 320,
+  "vh": 700,
+  "inside": true,
+  "bottomGap": 9,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 245,
+    "scrollW": 245,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 126,
+    "clientW": 245,
+    "scrollW": 245,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 0,
+   "h": 42,
+   "full": true,
+   "lines": 2
+  },
+  "scrolls": false,
+  "hScrollPage": false
+ },
+ "320_select": {
+  "activeChatId": -1001234567890,
+  "scopeKind": "chat",
+  "panelOpen": false
+ },
+ "360": {
+  "open": true,
+  "placement": "sheet",
+  "position": "fixed",
+  "rect": {
+   "l": 8,
+   "t": 242,
+   "r": 352,
+   "b": 771,
+   "w": 344,
+   "h": 529
+  },
+  "vw": 360,
+  "vh": 780,
+  "inside": true,
+  "bottomGap": 9,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 285,
+    "scrollW": 285,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 105,
+    "clientW": 285,
+    "scrollW": 285,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 0,
+   "h": 42,
+   "full": true,
+   "lines": 2
+  },
+  "scrolls": false,
+  "hScrollPage": false
+ },
+ "360_select": {
+  "activeChatId": -1001234567890,
+  "scopeKind": "chat",
+  "panelOpen": false
+ },
+ "drawer390": {
+  "z": 40,
+  "scrim": 35
+ },
+ "390": {
+  "open": true,
+  "placement": "sheet",
+  "position": "fixed",
+  "rect": {
+   "l": 8,
+   "t": 306,
+   "r": 382,
+   "b": 835,
+   "w": 374,
+   "h": 529
+  },
+  "vw": 390,
+  "vh": 844,
+  "inside": true,
+  "bottomGap": 9,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 315,
+    "scrollW": 315,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 105,
+    "clientW": 315,
+    "scrollW": 315,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 0,
+   "h": 42,
+   "full": true,
+   "lines": 2
+  },
+  "scrolls": false,
+  "hScrollPage": false
+ },
+ "390_select": {
+  "activeChatId": -1001234567890,
+  "scopeKind": "chat",
+  "panelOpen": false
+ },
+ "667x375": {
+  "open": true,
+  "placement": "sheet",
+  "position": "fixed",
+  "rect": {
+   "l": 8,
+   "t": 7,
+   "r": 659,
+   "b": 366,
+   "w": 651,
+   "h": 359
+  },
+  "vw": 667,
+  "vh": 375,
+  "inside": true,
+  "bottomGap": 9,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 592,
+    "scrollW": 592,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 63,
+    "clientW": 592,
+    "scrollW": 592,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 0,
+   "h": 42,
+   "full": true,
+   "lines": 2
+  },
+  "scrolls": true,
+  "hScrollPage": false
+ },
+ "667x375_select": {
+  "activeChatId": -1001234567890,
+  "scopeKind": "chat",
+  "panelOpen": false
+ },
+ "768": {
+  "open": true,
+  "placement": "bottom",
+  "position": "absolute",
+  "rect": {
+   "l": 16,
+   "t": 103,
+   "r": 396,
+   "b": 508,
+   "w": 380,
+   "h": 406
+  },
+  "vw": 768,
+  "vh": 1024,
+  "inside": true,
+  "bottomGap": 516,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 431,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 1264,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 943,
+   "h": 21,
+   "full": false,
+   "lines": 1
+  },
+  "scrolls": false,
+  "hScrollPage": false
+ },
+ "1280": {
+  "open": true,
+  "placement": "bottom",
+  "position": "absolute",
+  "rect": {
+   "l": 596,
+   "t": 55,
+   "r": 976,
+   "b": 461,
+   "w": 380,
+   "h": 406
+  },
+  "vw": 1280,
+  "vh": 800,
+  "inside": true,
+  "bottomGap": 339,
+  "options": 10,
+  "optionH": 49,
+  "titleText": "Весь бот",
+  "titleClip": 0,
+  "titleLines": 1,
+  "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 431,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 1264,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   }
+  ],
+  "titleWorst": {
+   "text": "Очень длинное название рабочего чата с уточнение",
+   "len": 177,
+   "clip": 943,
+   "h": 21,
+   "full": false,
+   "lines": 1
+  },
+  "scrolls": false,
+  "hScrollPage": false
+ },
+ "scenario6": {
+  "header": {
+   "before": 0,
+   "afterScroll": 0,
+   "heightBefore": 58,
+   "heightAfter": 58
+  },
+  "stackTwoLayers": [
+   "palette",
+   "scope"
+  ],
+  "afterFirstBack": {
+   "stack": [
+    "scope"
+   ],
+   "route": "#/"
+  },
+  "afterSecondBack": {
+   "stack": [],
+   "route": "#/"
+  },
+  "recordOpen": {
+   "stack": [
+    "record"
+   ],
+   "route": "#/"
+  },
+  "recordBack": {
+   "stack": [],
+   "route": "#/",
+   "modal": false
+  },
+  "graphOpen": {
+   "stack": [
+    "graph-full"
+   ],
+   "route": "#/status/graph"
+  },
+  "graphBack": {
+   "stack": [],
+   "route": "#/"
+  },
+  "telegramBack": {
+   "showRequested": true,
+   "stack": [
+    "palette"
+   ]
+  }
+ },
+ "scenario14": {
+  "scopeBefore": {
+   "kind": "chat",
+   "chat": -1001234567890
+  },
+  "paletteFromSpeech": {
+   "open": true,
+   "scope": "ЧАТ"
+  },
+  "queryItems": [
+   "#/modules/initiative",
+   "#/modules/initiative/limits",
+   "#/modules/initiative/settings",
+   "#/modules/initiative/settings",
+   "#/modules/initiative/limits",
+   "#/modules"
+  ],
+  "concreteRow": {
+   "id": "module:mod_initiative",
+   "dest": "#/modules/initiative",
+   "focus": "module-card:mod_initiative",
+   "title": "Инициатива"
+  },
+  "target": {
+   "route": "#/modules/initiative?focus=module-card%3Amod_initiative",
+   "focusPulse": true,
+   "scope": {
+    "kind": "chat",
+    "chat": -1001234567890
+   }
+  },
+  "missingTarget": {
+   "route": "#/ai?focus=nope-%D0%BD%D0%B5%D1%82-%D1%82%D0%B0%D0%BA%D0%BE%D0%B3%D0%BE",
+   "toast": "Не удалось перейти к параметру: он не отображается на открытом экране",
+   "focusPulse": false
+  },
+  "scrollReturn": {
+   "before": 420,
+   "after": 420,
+   "route": "#/modules",
+   "target": "#/modules/summary"
+  },
+  "draft": {
+   "dirty": true,
+   "route": "#/ai/prompts/summary/prompts.summary_cover_style"
+  },
+  "draftGuardDecline": {
+   "dialogShown": true,
+   "route": "#/ai/prompts/summary/prompts.summary_cover_style",
+   "dirty": true
+  },
+  "draftKept": "черновик-14 не сохранять",
+  "draftLeft": {
+   "route": "#/modules?focus=module-card%3Amod_initiative",
+   "dirty": true
+  },
+  "returnFromTarget": {
+   "route": "#/ai/prompts/summary/prompts.summary_cover_style",
+   "dirty": true,
+   "scope": {
+    "kind": "chat",
+    "chat": -1001234567890
+   },
+   "text": "черновик-14 не сохранять",
+   "scrollTop": 0
+  }
+ },
+ "rbac": {
+  "admin": {
+   "count": 627
+  },
+  "restricted": {
+   "count": 536,
+   "kinds": {
+    "section": 3,
+    "module": 6,
+    "setting": 490,
+    "prompt": 25,
+    "model": 9,
+    "data": 3
+   },
+   "sections": [
+    "#/memory/rag",
+    "#/",
+    "#/how"
+   ],
+   "modules": 6,
+   "hasRuns": false,
+   "hasCosts": false,
+   "hasModels": false,
+   "hasAccess": false,
+   "hasMemory": true,
+   "blockedTabs": [
+    "llm_providers",
+    "prompts",
+    "mod_summary",
+    "mod_direct",
+    "mod_factcheck",
+    "mod_search",
+    "mod_transcribe",
+    "mod_video_summary",
+    "mod_media_download",
+    "mod_web",
+    "mod_checkup",
+    "mod_budgets",
+    "mod_images",
+    "mod_vision",
+    "mod_initiative",
+    "modules",
+    "people_names",
+    "relations",
+    "permsoc",
+    "access",
+    "chat_lore",
+    "oversight"
+   ],
+   "blockedModuleLeaks": [],
+   "secretCount": 43,
+   "secretLeaks": 0,
+   "isGlobalAdmin": false,
+   "perms": {
+    "sections": [
+     "memory"
+    ],
+    "params": [],
+    "keys": []
+   }
+  },
+  "deepLinkDenied": {
+   "route": "#/",
+   "toast": "Нет доступа к разделу"
+  },
+  "focusDenied": {
+   "route": "#/memory?focus=module-card:mod_x",
+   "toast": "Не удалось перейти к параметру: он не отображается на открытом экране"
+  },
+  "scopeReturn": {
+   "before": {
+    "kind": "chat",
+    "chat": -1001234567891
+   },
+   "after": {
+    "kind": "chat",
+    "chat": -1001234567891
+   },
+   "returned": {
+    "kind": "chat",
+    "chat": -1001234567891
+   }
+  }
+ },
+ "fails": []
+}
