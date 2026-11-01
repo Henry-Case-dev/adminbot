@@ -2,7 +2,7 @@
 
 **Ветка:** `feat/er08-limits-context`, база `a9fcf7f9` (= 2.58.147 + EVR2 канон +
 ER-65 снимок). Коммиты: `7c3185ed` (L1/metered/дедлайны), `58342e6e` (№31 +
-отчёт), правки по ревью `w18-er08-review.md` — см. §1.5.
+отчёт), `d2488cea` (правки по ревью `w18-er08-review.md`, см. §1.5).
 **Решение владельца:** `plans/owner_inputs/2026-11-02-limits-economics-decision.md`.
 **План-карта:** `plans/features/evol/arch/limits-residual-plan.md` (№13/14/17/24/27/29/30/31).
 **Совместимость:** ASAP-EVIDENCE-ROUTING-01 v3 (контракт
