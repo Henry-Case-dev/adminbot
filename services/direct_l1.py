@@ -1016,6 +1016,54 @@ def _word_cut(text: str, pos: int, bound: int, *, forward: bool) -> int:
     return pos
 
 
+def _merge_intervals(spans) -> list[tuple[int, int]]:
+    """Склеить пересекающиеся интервалы (без дублей текста в середине)."""
+    out: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if out and start <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], end))
+        else:
+            out.append((start, end))
+    return out
+
+
+def _subtract_span(window, covered) -> list[tuple[int, int]]:
+    """Куски ``window``, не покрытые интервалами ``covered``."""
+    start, end = window
+    out: list[tuple[int, int]] = []
+    for cov_start, cov_end in covered:
+        if cov_end <= start or cov_start >= end:
+            continue
+        if cov_start > start:
+            out.append((start, cov_start))
+        start = max(start, cov_end)
+    if start < end:
+        out.append((start, end))
+    return out
+
+
+def _trim_to_share(pieces, trimmable, body: str, target: int):
+    """Усечь ДОБОР середины, чтобы её суммарная длина не превысила долю.
+
+    Куски-claim'ы (``trimmable[i] is False``) не режутся: они атомарны и уже
+    учтены в бюджете. Если доля переполнена, подрезается (или выбрасывается)
+    последний кусок добора."""
+    while pieces and _span_len(pieces, body) > target:
+        index = next((i for i in range(len(pieces) - 1, -1, -1)
+                      if trimmable[i]), None)
+        if index is None:
+            break
+        start, end = pieces[index]
+        excess = _span_len(pieces, body) - target
+        new_end = end - excess
+        if new_end - start >= 32:
+            pieces[index] = (start, new_end)
+        else:
+            pieces.pop(index)
+            trimmable.pop(index)
+    return pieces
+
+
 def _clip_middle(body: str, start: int, end: int, target: int,
                  spans) -> str:
     """Середина среза: claim-first + добор от центра наружу (ER-08-RC, P2).
@@ -1027,7 +1075,9 @@ def _clip_middle(body: str, start: int, end: int, target: int,
        :data:`L1_CLIP_ATOMIC_CHARS_MAX`;
     2) ссылки — атомарные источники (тот же бюджет: полу-URL хуже, чем
        перебор на длину URL);
-    3) остаток доли середины добирается фрагментом вокруг центральной точки.
+    3) остаток доли середины ДОБИРАЕТСЯ фрагментом вокруг центральной точки —
+       всегда, в том числе когда claim уже накрыл центр (ревью B3: claim
+       занимает место В доле, а не вместо неё).
 
     Никогда не бросает; пустой результат — честное «середину не добавили»."""
     try:
@@ -1043,7 +1093,7 @@ def _clip_middle(body: str, start: int, end: int, target: int,
         def _dist(span):
             return abs((span[0] + span[1]) / 2.0 - centre)
 
-        chosen: list[tuple[int, int]] = []
+        claims: list[tuple[int, int]] = []
         atomic_used = 0
         # ER-08-RC (P2, ревью B2): claim-first обязан уложиться в долю середины.
         # Иначе плотный высокорисковый текст раздувает строку окна выше капа,
@@ -1058,44 +1108,53 @@ def _clip_middle(body: str, start: int, end: int, target: int,
                 continue
             if not _high_risk(piece):
                 continue
-            chosen.append((s, e))
+            claims.append((s, e))
             atomic_used += len(piece)
         for match in _URL_RE.finditer(body, start, end):
             url_start, url_end = match.span()
-            if any(s <= url_start and url_end <= e for s, e in chosen):
+            if any(s <= url_start and url_end <= e for s, e in claims):
                 continue
             # Ссылка — атомарный источник: полу-URL хуже, чем перебор на
             # длину самого URL (тот же инвариант, что был у головы/хвоста).
             if atomic_used + (url_end - url_start) > L1_CLIP_ATOMIC_CHARS_MAX:
                 continue
-            chosen.append((url_start, url_end))
+            claims.append((url_start, url_end))
             atomic_used += url_end - url_start
-        if not any(s <= centre <= e for s, e in chosen):
-            room = target - _span_len(chosen, body)
-            if chosen:
-                room -= len(CLIP_MARK)
-            if room >= 32:
-                room = min(room, end - start)
-                slice_start = int(max(start, centre - room // 2))
-                slice_end = int(min(end, slice_start + room))
-                slice_start = _url_safe_cut(body, slice_start, keep_head=False)
-                slice_end = _url_safe_cut(body, slice_end, keep_head=True)
-                # Границы середины не рвут слово: тянем к ближайшему пробелу,
-                # но только в пределах слака И только если середина остаётся в
-                # своей доле (иначе срез вылезает за кап и ломает бюджет окна).
-                snapped_start = _word_cut(body, slice_start, start,
+        claims = _merge_intervals(claims)
+
+        pieces: list[tuple[int, int]] = list(claims)
+        trimmable: list[bool] = [False] * len(pieces)
+        # Добор середины (ревью B3): окно покрывает ВСЮ долю середины, включая
+        # места, уже занятые claim'ами; после вычитания claim'ов и маркеров
+        # сумма ≈ target, избыток снимает `_trim_to_share`. Так claim занимает
+        # место В доле, а не вместо неё (было: `if not any(centre inside)`).
+        room = min(target, end - start)
+        if room >= 32:
+            slice_start = int(max(start, centre - room // 2))
+            slice_end = int(min(end, slice_start + room))
+            slice_start = _url_safe_cut(body, slice_start, keep_head=False)
+            slice_end = _url_safe_cut(body, slice_end, keep_head=True)
+            for piece_start, piece_end in _subtract_span(
+                    (slice_start, slice_end), claims):
+                # Границы не рвут слово: тянем к ближайшему пробелу в пределах
+                # слака. Возврат внутрь компенсируем расширением вправо, иначе
+                # claim «съедал» бы долю середины только из-за выравнивания
+                # (ревью B3). Итог всё равно подрезается `_trim_to_share`.
+                snapped_start = _word_cut(body, piece_start, start,
                                           forward=False)
-                snapped_end = _word_cut(body, slice_end, end, forward=True)
-                if snapped_end - snapped_start <= room:
-                    slice_start, slice_end = snapped_start, snapped_end
-                if slice_end > slice_start and not any(
-                        slice_start < e and s < slice_end
-                        for s, e in chosen):
-                    chosen.append((slice_start, slice_end))
-        if not chosen:
+                snapped_end = _word_cut(body, piece_end, end, forward=True)
+                lost = (snapped_start - piece_start) \
+                    + (piece_end - snapped_end)
+                if lost > 0:
+                    snapped_end = min(end, snapped_end + lost)
+                if snapped_end - snapped_start >= 32:
+                    pieces.append((snapped_start, snapped_end))
+                    trimmable.append(True)
+        pieces = _trim_to_share(pieces, trimmable, body, target)
+        if not pieces:
             return ""
-        chosen.sort()
-        return CLIP_MARK.join(body[s:e].strip() for s, e in chosen)
+        pieces.sort()
+        return CLIP_MARK.join(body[s:e].strip() for s, e in pieces)
     except Exception:      # pragma: no cover - защитная ветка
         return ""
 
@@ -1197,22 +1256,26 @@ def _reply_section_body(context_text: str) -> str:
         return ""
 
 
-def reply_delivery_stats(context_text: str, reply_input: str = "",
-                         budget_tokens: int | None = None) -> dict:
+def reply_delivery_stats(context_text: str, budget_tokens: int | None = None,
+                         *, total_chars: int = 0) -> dict:
     """Факт доставки цитаты в СОБРАННОМ пакете — R17-safe числа/флаг (§3).
 
     Отвечает на единственный вопрос, который важно видеть в проде: сколько
     цитаты реально доехало до планера и уцелела ли её середина. Считается по
     фактическому тексту пакета (после `_cap_context`), а не по намерению:
-    ``delivered_chars`` — длина тела секции «ОТВЕТ НА», ``total_chars`` — длина
-    поданного блока цитаты. Текста, URL и промптов в полях нет.
-    Никогда не бросает; пустая цитата → честные нули."""
+    ``delivered_chars`` — длина тела секции «ОТВЕТ НА».
+
+    ``total_chars`` — длина ИСХОДНОЙ цитаты (автор + весь текст, до среза).
+    Передавать сюда уже срезанный блок нельзя: тогда ``total`` совпадёт с
+    ``delivered`` и ``truncated`` будет врать (ревью B1 — так и было на живом
+    пути). Текста, URL и промптов в полях нет. Никогда не бросает; пустая
+    цитата → честные нули."""
     try:
         cap = int(reply_block_chars(budget_tokens))
     except Exception:      # pragma: no cover - защитная ветка
         cap = L1_REPLY_BLOCK_CHARS
     try:
-        total = len(str(reply_input or "").strip())
+        total = max(0, int(total_chars or 0))
         body = _reply_section_body(context_text)
         delivered = len(body)
         return {

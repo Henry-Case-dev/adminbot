@@ -55,6 +55,57 @@ def _dense_rows(n=20, total=4096, gap=200):
     return rows
 
 
+class _FakeUser:
+    """Минимальный Telegram-user для пути `_l1_reply_block`."""
+
+    def __init__(self, uid=705, first_name="Аня"):
+        self.id = uid
+        self.first_name = first_name
+        self.username = None
+
+
+class _FakeReply:
+    def __init__(self, text):
+        self.text = text
+        self.caption = None
+        self.from_user = _FakeUser()
+
+
+class _FakeMessage:
+    """Сообщение с цитатой — тот же контракт, что читает боевой код."""
+
+    def __init__(self, reply_text):
+        self.reply_to_message = _FakeReply(reply_text) if reply_text else None
+
+
+def _real_reply_stats(quote: str, budget: int) -> dict:
+    """Оси доставки цитаты ЧЕРЕЗ РЕАЛЬНУЮ сборку (ревью B1).
+
+    ``DirectChatService._l1_reply_block`` → ``build_l1_context`` →
+    ``reply_delivery_stats``. Именно этот путь раньше врал: в ``total``
+    попадал уже срезанный блок, поэтому ``truncated`` всегда был ``False``."""
+    from services import direct_l1 as l1
+    from services.direct_chat_service import DirectChatService
+
+    service = DirectChatService.__new__(DirectChatService)
+    service.aliases = None
+    message = _FakeMessage(quote)
+    block = service._l1_reply_block(message, budget_tokens=budget)
+    total = service._l1_reply_total_chars(message)
+    ctx = l1.build_l1_context(query="q", reply_block=block, speaker="Аня",
+                              budget_tokens=budget)
+    return l1.reply_delivery_stats(ctx, budget, total_chars=total)
+
+
+def _quote_with_centre(sentence: str, total: int = 5000) -> str:
+    """Цитата, где ``sentence`` стоит РОВНО в центре (границы — по точкам)."""
+    pos = total // 2 - len(sentence) // 2
+    head = ("фраза первая. " * 900)[:pos]
+    tail = ("дальше общий текст. " * 900)[: max(0, total - pos
+                                               - len(sentence) - 1)]
+    return head + sentence + " " + tail
+
+
 def _mid_counter_row(total=755, pos=325):
     """Реплика с контрдоводом в СЕРЕДИНЕ (позиция ``pos`` из ``total``)."""
     head = ("контекст " * (pos // 9))[:pos]
@@ -234,8 +285,12 @@ class TestL1PackageLosses:
         именно благодаря середине среза (кап 2160, середина 25 % вокруг центра),
         то есть тест различает базу и кандидата."""
         from services import direct_l1 as l1
+        from services.evidence_policy import _high_risk
 
-        assert l1._high_risk(COUNTER_MID) is False, "фраза должна быть НЕ риск"
+        # Детектор берём из evidence_policy, а не из direct_l1: на базе
+        # 613fae5d `l1._high_risk` не существует, и тест падал бы
+        # AttributeError вместо честного «база теряет фразу» (ревью R2.4).
+        assert _high_risk(COUNTER_MID) is False, "фраза должна быть НЕ риск"
         head = ("начало цитаты о версии " * 200)[:1490]
         tail = ("дальше идут подробности " * 200)[:3000 - 1490
                                                   - len(COUNTER_MID) - 2]
@@ -541,6 +596,62 @@ class TestL1PackageLosses:
         assert "await _l1.resolve_l1_context_budget(" in init
         assert "budget_tokens=_init_budget" in init
 
+    def test_reply_truncated_is_truthful_on_the_real_path(self):
+        """B1 (ревью R2.2): `l1_reply_truncated` не врёт на ЖИВОМ пути.
+
+        Производственный код подаёт в `reply_delivery_stats` уже срезанный
+        блок, поэтому `total` обязан считаться от ИСХОДНОЙ цитаты
+        (`message.reply_to_message.text`). Проверяем через реальную сборку:
+        короткая цитата → `truncated=False` и `delivered == total`; цитата
+        3000 при капе 640 (hot 1600) → `truncated=True` по краю A
+        arch §6.2; та же цитата на живом бюджете → `truncated=False` (среза
+        нет)."""
+        short = "короткая цитата целиком"
+        stats_short = _real_reply_stats(short, 1600)
+        assert stats_short["truncated"] is False
+        assert stats_short["delivered_chars"] == stats_short["total_chars"]
+        # total — длина исходной цитаты с шапкой автора, а не среза.
+        assert stats_short["total_chars"] >= len(short)
+
+        edge_a = ("фраза первая. " * 900)[:3000]
+        stats_edge = _real_reply_stats(edge_a, 1600)
+        assert stats_edge["chars_cap"] == 640
+        assert stats_edge["total_chars"] == len(edge_a) + len("автор: Аня\n")
+        assert stats_edge["truncated"] is True, "край A: срез не отмечен"
+        assert stats_edge["delivered_chars"] < stats_edge["total_chars"]
+        assert stats_edge["kept_mid"] is True
+
+        stats_live = _real_reply_stats(edge_a, 113085)
+        assert stats_live["chars_cap"] == 4096
+        assert stats_live["truncated"] is False, "на живом бюджете среза нет"
+        assert stats_live["delivered_chars"] == stats_live["total_chars"]
+
+    def test_centre_claim_does_not_eat_the_middle_share(self):
+        """B3 (ревью R2.3): claim в ЦЕНТРЕ занимает место В доле середины, а
+        не вместо неё.
+
+        Прежняя ветка `if not any(centre inside)` не добавляла окно добора,
+        когда claim накрывал центр: на живом бюджете доезжало 3064 вместо
+        ~4090 (середина 39 вместо ~1020), на hot-1600 — 531 вместо ~630.
+        Теперь доставка с claim'ом в центре равна доставке без него."""
+        plain = "просто общий текст про текущую ситуацию."
+        with_claim = _real_reply_stats(_quote_with_centre(RISK_CLAIM), 113085)
+        without = _real_reply_stats(_quote_with_centre(plain), 113085)
+        assert with_claim["chars_cap"] == without["chars_cap"] == 4096
+        assert with_claim["kept_mid"] is True
+        assert abs(with_claim["delivered_chars"]
+                   - without["delivered_chars"]) <= 8
+        # Доля середины используется целиком: ≥95 % капа, а не 75 %.
+        assert without["delivered_chars"] >= int(0.95 * 4096)
+        assert with_claim["delivered_chars"] >= int(0.95 * 4096)
+
+        hot_claim = _real_reply_stats(_quote_with_centre(RISK_CLAIM), 1600)
+        hot_plain = _real_reply_stats(_quote_with_centre(plain), 1600)
+        assert hot_claim["chars_cap"] == hot_plain["chars_cap"] == 640
+        assert abs(hot_claim["delivered_chars"]
+                   - hot_plain["delivered_chars"]) <= 8
+        assert hot_claim["delivered_chars"] >= int(0.95 * 640)
+
     def test_live_path_emits_reply_cap_axes(self):
         """ER-08-RC §3: шесть осей доставки цитаты проводятся на ОБОИХ L1-сайтах
         (Direct — через meta/plan_meta, инициатива — через существующий канал
@@ -601,7 +712,8 @@ class TestL1PackageLosses:
         short = "короткая цитата целиком"
         ctx_short = l1.build_l1_context(query="q", reply_block=short,
                                         speaker="Аня", budget_tokens=1600)
-        stats_short = l1.reply_delivery_stats(ctx_short, short, 1600)
+        stats_short = l1.reply_delivery_stats(ctx_short, 1600,
+                                              total_chars=len(short))
         assert stats_short["chars_cap"] == l1.reply_block_chars(1600) == 640
         assert stats_short["total_chars"] == len(short)
         assert stats_short["delivered_chars"] == stats_short["total_chars"]
@@ -611,7 +723,8 @@ class TestL1PackageLosses:
         quote = _quote_3000()
         ctx_long = l1.build_l1_context(query="q", reply_block=quote,
                                        speaker="Аня", budget_tokens=1600)
-        stats_long = l1.reply_delivery_stats(ctx_long, quote, 1600)
+        stats_long = l1.reply_delivery_stats(ctx_long, 1600,
+                                             total_chars=len(quote))
         assert stats_long["truncated"] is True
         assert stats_long["delivered_chars"] < stats_long["total_chars"]
         assert stats_long["kept_mid"] is True
