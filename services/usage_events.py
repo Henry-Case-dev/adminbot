@@ -60,6 +60,11 @@ PLAN_META_FIELDS = frozenset({
     # (hot|model_window|floor) — durable-доказательство эффективного значения
     # вместо догадки по код-дефолту (§8 «контракт замера»).
     "l1_context_budget", "l1_context_source",
+    # ER-08-RC (§3 arch/reply-cap-decision.md): что реально доехало из цитаты
+    # и какой кап строки действовал — числа и bool, без текста/URL.
+    "l1_reply_chars_cap", "l1_line_chars_cap",
+    "l1_reply_total_chars", "l1_reply_delivered_chars",
+    "l1_reply_truncated", "l1_kept_mid",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(

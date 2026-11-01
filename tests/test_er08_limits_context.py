@@ -28,6 +28,82 @@ MSG_TAIL = "TAILMARK_QUEST"
 #: Смысловой контрдовод в СЕРЕДИНЕ длинной реплики (не маркер в хвосте):
 #: именно такие фразы раньше не доезжали до планера.
 COUNTER_MID = "но на самом деле в 1017 нет функции X, это переименование"
+#: Высокорисковый claim (существующий детектор `evidence_policy._high_risk`:
+#: версия в трёх компонентах). Такой claim середина обязана достать ПЕРВЫМ.
+RISK_CLAIM = "версия 1.2.3 не поддерживает функцию X."
+
+
+def _quote_3000():
+    """Цитата 3000 символов с высокорисковым claim'ом на позиции ~1500."""
+    head = ("начало цитаты о версии " * 200)[:1490]
+    tail = ("дальше идут подробности " * 200)[:3000 - 1490 - len(RISK_CLAIM) - 2]
+    return head + " " + RISK_CLAIM + " " + tail
+
+
+def _dense_rows(n=20, total=4096, gap=200):
+    """Плотное высокорисковое окно (фикстура ревьюера B2): claim каждые ~gap."""
+    rows = []
+    for i in range(1, n + 1):
+        parts: list[str] = []
+        size = 0
+        while size < total - 40:
+            parts.append(("рассуждение " * (gap // 12))[:gap])
+            parts.append(RISK_CLAIM)
+            size = sum(len(p) for p in parts)
+        body = " ".join(parts)[:total - 20] + f" ХВОСТ{i}"
+        rows.append(_row(i, body))
+    return rows
+
+
+class _FakeUser:
+    """Минимальный Telegram-user для пути `_l1_reply_block`."""
+
+    def __init__(self, uid=705, first_name="Аня"):
+        self.id = uid
+        self.first_name = first_name
+        self.username = None
+
+
+class _FakeReply:
+    def __init__(self, text):
+        self.text = text
+        self.caption = None
+        self.from_user = _FakeUser()
+
+
+class _FakeMessage:
+    """Сообщение с цитатой — тот же контракт, что читает боевой код."""
+
+    def __init__(self, reply_text):
+        self.reply_to_message = _FakeReply(reply_text) if reply_text else None
+
+
+def _real_reply_stats(quote: str, budget: int) -> dict:
+    """Оси доставки цитаты ЧЕРЕЗ РЕАЛЬНУЮ сборку (ревью B1).
+
+    ``DirectChatService._l1_reply_block`` → ``build_l1_context`` →
+    ``reply_delivery_stats``. Именно этот путь раньше врал: в ``total``
+    попадал уже срезанный блок, поэтому ``truncated`` всегда был ``False``."""
+    from services import direct_l1 as l1
+    from services.direct_chat_service import DirectChatService
+
+    service = DirectChatService.__new__(DirectChatService)
+    service.aliases = None
+    message = _FakeMessage(quote)
+    block = service._l1_reply_block(message, budget_tokens=budget)
+    total = service._l1_reply_total_chars(message)
+    ctx = l1.build_l1_context(query="q", reply_block=block, speaker="Аня",
+                              budget_tokens=budget)
+    return l1.reply_delivery_stats(ctx, budget, total_chars=total)
+
+
+def _quote_with_centre(sentence: str, total: int = 5000) -> str:
+    """Цитата, где ``sentence`` стоит РОВНО в центре (границы — по точкам)."""
+    pos = total // 2 - len(sentence) // 2
+    head = ("фраза первая. " * 900)[:pos]
+    tail = ("дальше общий текст. " * 900)[: max(0, total - pos
+                                               - len(sentence) - 1)]
+    return head + sentence + " " + tail
 
 
 def _mid_counter_row(total=755, pos=325):
@@ -115,6 +191,66 @@ class TestL1PackageLosses:
         body = ctx.split(f"[{l1.L1_REPLY_SECTION}]\n", 1)[1]
         assert len(body) > l1.L1_REPLY_BLOCK_CHARS
 
+    @pytest.mark.asyncio
+    async def test_quote_3000_keeps_counterargument_at_1500(self):
+        """ФИКСТУРА РЕВЬЮЕРА (a), ER-08-RC P1: цитата 3000 символов с
+        контрдоводом на позиции 1500. Прежний фиксированный кап 1200 доставлял
+        голову 720 + хвост 480 — позиция 1500 попадала в выброшенную середину,
+        и контрдовод не доезжал даже на бюджете из окна модели. Теперь потолок
+        цитаты — производная бюджета (до 4096 = предел сообщения Telegram)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+        budget, meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
+        assert meta["source"] == "model_window"
+        quote = ("начало цитаты о версии " * 200)[:1490] + " " + RISK_CLAIM \
+            + " " + ("дальше идут подробности " * 200)
+        quote = quote[:3000]
+        assert quote.index(RISK_CLAIM) == 1491
+        assert l1.reply_block_chars(budget) > l1.L1_REPLY_BLOCK_CHARS
+
+        ctx = l1.build_l1_context(query="q", reply_block=quote, speaker="Аня",
+                                  budget_tokens=budget)
+        assert RISK_CLAIM in ctx, "контрдовод из середины цитаты не доехал"
+        assert count_tokens(ctx) <= budget
+
+    @pytest.mark.asyncio
+    async def test_twenty_4096_replies_stay_in_budget_and_keep_quote(self):
+        """ФИКСТУРА РЕВЬЮЕРА (b), ER-08-RC P1/P3: 20 реплик по 4096 символов.
+        Пакет остаётся в бюджете на всех трёх краях, цитата не выпадает, и
+        первая/последняя реплики доезжают (окно не схлопывается)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+        rows = []
+        for i in range(1, 21):
+            suffix = f" ХВОСТ{i}"
+            body = ((f"реплика {i}: " + "рассуждение " * 500).ljust(4096)
+                    )[:4096 - len(suffix)] + suffix
+            assert len(body) == 4096
+            rows.append(_row(i, body))
+        quote = _quote_3000()
+        assert len(quote) == 3000 and quote.index(RISK_CLAIM) == 1491
+
+        for budget in (1600, 5400, 112737):
+            ctx = l1.build_l1_context(query="q", current_question="вопрос",
+                                      reply_block=quote, window=rows,
+                                      speaker="Аня", budget_tokens=budget)
+            tokens = count_tokens(ctx)
+            assert tokens <= budget, f"бюджет {budget}: пакет {tokens}"
+            assert RISK_CLAIM in ctx, f"бюджет {budget}: цитата потеряна"
+            assert "ХВОСТ20" in ctx, f"бюджет {budget}: последняя реплика потеряна"
+            assert "реплика 20" in ctx
+            # Класс-C константы не тронуты (не «расширение», а доставка).
+            assert l1.L1_WINDOW_MESSAGES == 20
+            assert l1.L1_MESSAGE_CHARS_MAX == 8192
+            assert l1.L1_CLIP_CHARS_MAX == 4096
+            # Стоимость пакета ограничена физически: 20 сообщений Telegram по
+            # 4096 символов, для русского текста ≥2 символа на токен.
+            assert tokens <= 20 * l1.L1_CLIP_CHARS_MAX // 2
+
     def test_memory_hint_tail_survives_pressure(self):
         """Релевантные факты (срез bundle «КОНТЕКСТ ДИАЛОГА (не терять)»):
         ограничения/уроки стоят в КОНЦЕ блока — при сжатии хвост не теряется."""
@@ -140,15 +276,53 @@ class TestL1PackageLosses:
         assert MSG_TAIL in ctx
 
     @pytest.mark.asyncio
-    async def test_mid_message_counterargument_at_static_1600_is_lost(
+    async def test_plain_counterargument_at_1500_of_quote_is_delivered_5400(
+            self):
+        """ДИСКРИМИНИРУЮЩИЙ КЕЙС (ревью §6.1): цитата 3000, ОБЫЧНАЯ фраза
+        (не высокорисковая — `_high_risk` её не ловит) на позиции 1500, бюджет
+        5400. На базе кап цитаты был 1200 (голова 720 + хвост 480): позиция 1500
+        попадала в выброшенную середину и фраза НЕ доезжала. Здесь доезжает
+        именно благодаря середине среза (кап 2160, середина 25 % вокруг центра),
+        то есть тест различает базу и кандидата."""
+        from services import direct_l1 as l1
+        from services.evidence_policy import _high_risk
+
+        # Детектор берём из evidence_policy, а не из direct_l1: на базе
+        # 613fae5d `l1._high_risk` не существует, и тест падал бы
+        # AttributeError вместо честного «база теряет фразу» (ревью R2.4).
+        assert _high_risk(COUNTER_MID) is False, "фраза должна быть НЕ риск"
+        head = ("начало цитаты о версии " * 200)[:1490]
+        tail = ("дальше идут подробности " * 200)[:3000 - 1490
+                                                  - len(COUNTER_MID) - 2]
+        quote = head + " " + COUNTER_MID + " " + tail
+        assert len(quote) == 3000
+        assert 1490 <= quote.index(COUNTER_MID) <= 1495
+
+        assert l1.reply_block_chars(5400) == 2160
+        ctx = l1.build_l1_context(query="q", reply_block=quote, speaker="Аня",
+                                  budget_tokens=5400)
+        assert COUNTER_MID in ctx, "обычный контрдовод из середины не доехал"
+
+    @pytest.mark.asyncio
+    async def test_mid_message_counterargument_reaches_middle_window(
             self, monkeypatch):
-        """ЧЕСТНАЯ ГРАНИЦА (F-5 ревью): static-кап 1600 (явный hot-ключ
-        оператора) НЕ доставляет смысловой контрдовод из СЕРЕДИНЫ длинной
-        реплики — окно 20 строк даёт кап строки 200 (голова 120 + хвост 77), а
-        контрдовод стоит на ~325-м символе. Это цена ручного капа, а не
-        регрессия: на бюджете из окна модели тот же контрдовод доезжает
-        (следующая проверка). Замер фикстуры: реплика 755 симв., контрдовод
-        325-385, окно 20 строк."""
+        """ПОЗИТИВНАЯ ГАРАНТИЯ СЕРЕДИНЫ (ER-08-RC P2): контрдовод из СЕРЕДИНЫ
+        длинной реплики доезжает до планера, когда кап строки даёт середине
+        место (окно 20 строк, cap = 0.12×бюджета; середина = 25 % среза вокруг
+        центра текста). Замер фикстуры: реплика 755 симв., контрдовод
+        325-364.
+
+        ЧЕСТНАЯ ОГОВОРКА (ревью §6.1): на бюджете 5400 эта же фраза доезжала и
+        на базе — головой (кап 1200 → голова 720 > 325). Поэтому кейс НЕ
+        доказывает исправление, он лишь страхует от удаления середины
+        (мутация «вырезать середину» его валит). Доказательство — соседний
+        `test_plain_counterargument_at_1500_of_quote_is_delivered_5400`, который
+        на базе падает.
+
+        Честная граница ОСТАВЛЕНА: на полу капа 200 (static-1600) середина
+        занимает 48 символов и не дотягивается до позиции 325 — это цена
+        ручного капа. См. следующий тест: высокорисковый claim на той же
+        позиции доезжает и на полу (claim-first), обычная фраза — нет."""
         from services import direct_l1 as l1
 
         rows = _full_window_with_mid_counter()
@@ -164,9 +338,14 @@ class TestL1PackageLosses:
         ctx_static = l1.build_l1_context(query="q", window=rows,
                                         speaker="Аня",
                                         budget_tokens=static_budget)
-        assert COUNTER_MID not in ctx_static     # граница зафиксирована явно
+        assert COUNTER_MID not in ctx_static     # честная граница пола капа
 
-        _set_hot(monkeypatch, None)              # прежний путь: динамика
+        # Тот же путь, но кап строки даёт середине место (бюджет 5400).
+        ctx_wide = l1.build_l1_context(query="q", window=rows, speaker="Аня",
+                                      budget_tokens=5400)
+        assert COUNTER_MID in ctx_wide, "середина среза не доехала"
+
+        _set_hot(monkeypatch, None)              # живой путь: динамика
         live_budget, live_meta = await l1.resolve_l1_context_budget(
             base_url="https://api.deepseek.com/v1",
             model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
@@ -177,33 +356,71 @@ class TestL1PackageLosses:
         assert COUNTER_MID in ctx_live           # на живом бюджете — доезжает
 
     @pytest.mark.asyncio
-    async def test_mid_message_counterargument_needs_budget_above_line_cap(
+    async def test_high_risk_claim_outside_centre_is_pulled_claim_first(
             self, monkeypatch):
-        """Граница в числах: контрдовод из середины реплики доезжает, когда
-        кап строки покрывает его позицию (окно 20 строк → кап = 0.12×бюджета
-        символов, голова среза = 0.6×кап). Для этой фикстуры (контрдовод
-        325-382 симв.) измеренный порог: бюджет ≈5400 (кап 648) и выше.
-        Проверяем оба края, чтобы граница не была «зелёной случайно»."""
+        """CLAIM-FIRST (ER-08-RC P2): высокорисковый claim (существующий
+        детектор `evidence_policy._high_risk`) доезжает даже тогда, когда он
+        стоит ДАЛЕКО от центра длинной реплики и за пределами головы среза:
+        середина добирает его атомарно (бюджет середины ≤ 320 симв.).
+
+        Честная граница: та же позиция с ОБЫЧНОЙ (не высокорисковой) фразой не
+        доставляется — иначе «середина гарантирована» превратилась бы в ложь."""
         from services import direct_l1 as l1
 
-        rows = _full_window_with_mid_counter()
-        counter_end = rows[-2]["text"].index(COUNTER_MID) + len(COUNTER_MID)
+        filler = [_row(i, (f"реплика {i}: " + "разговор " * 200)[:400])
+                  for i in range(1, 20)]
 
-        def delivered(budget):
-            cap = l1.window_line_chars(rows, budget_tokens=budget)
-            head_chars = int(cap * 0.6)
-            return head_chars >= counter_end
+        def rows_with(text):
+            return filler + [_row(20, text)]
 
-        assert delivered(1600) is False
-        assert delivered(5000) is False     # кап 600 → голова 360 < 382
-        assert delivered(5600) is True      # кап 672 → голова 403 ≥ 382
-        # Производный бюджет живого пути покрывает с запасом.
-        _set_hot(monkeypatch, None)
-        live_budget, _meta = await l1.resolve_l1_context_budget(
-            base_url="https://api.deepseek.com/v1",
-            model="deepseek-v4-flash")
-        assert live_budget >= 20000
-        assert delivered(live_budget) is True
+        long_row_claim = ("фраза первая. " * 40)[:300] + RISK_CLAIM + " " \
+            + ("дальше общий текст. " * 200)
+        long_row_plain = ("фраза первая. " * 40)[:300] + " " + COUNTER_MID \
+            + " " + ("дальше общий текст. " * 200)
+        assert l1.window_line_chars(rows_with(long_row_claim),
+                                    budget_tokens=1600) == 200
+
+        ctx_claim = l1.build_l1_context(query="q",
+                                        window=rows_with(long_row_claim),
+                                        speaker="Аня", budget_tokens=1600)
+        assert RISK_CLAIM in ctx_claim, "claim-first не дотянулся до claim'а"
+
+        ctx_plain = l1.build_l1_context(query="q",
+                                        window=rows_with(long_row_plain),
+                                        speaker="Аня", budget_tokens=1600)
+        assert COUNTER_MID not in ctx_plain       # честная граница: не claim
+
+    def test_dense_high_risk_window_keeps_all_replies(self):
+        """РЕГРЕССИЯ B2 (ревью): плотное высокорисковое окно не теряет РЕПЛИКИ.
+
+        Фикстура ревьюера: 20 реплик по 4096 символов, высокорисковое
+        предложение каждые ~200 символов. На базе 613fae5d при 1600/2000/2600
+        доезжали все 20 реплик (2000/240/312 симв. на строку). Кандидат с
+        безлимитным claim-first раздувал строку до 294 симв., шаг 0 упирался в
+        пол 200, и шаг 1 выбрасывал старые реплики (10 и 5 из 20).
+
+        Инвариант: claim-first не выходит за кап строки, поэтому число
+        доставленных реплик не ниже базы, а строка не длиннее капа (+префикс
+        автора)."""
+        from services import direct_l1 as l1
+        from services.token_counter import count_tokens
+
+
+        rows = _dense_rows()
+        for budget in (1600, 2000, 2600):
+            line_cap = l1.window_line_chars(rows, budget_tokens=budget)
+            ctx = l1.build_l1_context(query="q", window=rows, speaker="Аня",
+                                      budget_tokens=budget)
+            assert count_tokens(ctx) <= budget
+            delivered = set(re.findall(r"ХВОСТ(\d+)", ctx))
+            assert len(delivered) == 20, (
+                f"бюджет {budget}: доехало {len(delivered)} из 20 реплик")
+            block = ctx.split("[ПОСЛЕДНИЕ СООБЩЕНИЯ]\n", 1)[1].split(
+                "\n\n[", 1)[0]
+            longest = max(len(line) for line in block.splitlines())
+            # +5 — префикс «Аня: », который добавляется к срезу строки.
+            assert longest <= line_cap + 5, (
+                f"бюджет {budget}: строка {longest} длиннее капа {line_cap}")
 
     def test_reply_section_protected_under_hint_pressure(self):
         """Переполнение: сжимается ОКНО, а не цитата; claim в цитате выживает,
@@ -379,6 +596,127 @@ class TestL1PackageLosses:
         assert "await _l1.resolve_l1_context_budget(" in init
         assert "budget_tokens=_init_budget" in init
 
+    def test_reply_truncated_is_truthful_on_the_real_path(self):
+        """B1 (ревью R2.2): `l1_reply_truncated` не врёт на ЖИВОМ пути.
+
+        Производственный код подаёт в `reply_delivery_stats` уже срезанный
+        блок, поэтому `total` обязан считаться от ИСХОДНОЙ цитаты
+        (`message.reply_to_message.text`). Проверяем через реальную сборку:
+        короткая цитата → `truncated=False` и `delivered == total`; цитата
+        3000 при капе 640 (hot 1600) → `truncated=True` по краю A
+        arch §6.2; та же цитата на живом бюджете → `truncated=False` (среза
+        нет)."""
+        short = "короткая цитата целиком"
+        stats_short = _real_reply_stats(short, 1600)
+        assert stats_short["truncated"] is False
+        assert stats_short["delivered_chars"] == stats_short["total_chars"]
+        # total — длина исходной цитаты с шапкой автора, а не среза.
+        assert stats_short["total_chars"] >= len(short)
+
+        edge_a = ("фраза первая. " * 900)[:3000]
+        stats_edge = _real_reply_stats(edge_a, 1600)
+        assert stats_edge["chars_cap"] == 640
+        assert stats_edge["total_chars"] == len(edge_a) + len("автор: Аня\n")
+        assert stats_edge["truncated"] is True, "край A: срез не отмечен"
+        assert stats_edge["delivered_chars"] < stats_edge["total_chars"]
+        assert stats_edge["kept_mid"] is True
+
+        stats_live = _real_reply_stats(edge_a, 113085)
+        assert stats_live["chars_cap"] == 4096
+        assert stats_live["truncated"] is False, "на живом бюджете среза нет"
+        assert stats_live["delivered_chars"] == stats_live["total_chars"]
+
+    def test_centre_claim_does_not_eat_the_middle_share(self):
+        """B3 (ревью R2.3): claim в ЦЕНТРЕ занимает место В доле середины, а
+        не вместо неё.
+
+        Прежняя ветка `if not any(centre inside)` не добавляла окно добора,
+        когда claim накрывал центр: на живом бюджете доезжало 3064 вместо
+        ~4090 (середина 39 вместо ~1020), на hot-1600 — 531 вместо ~630.
+        Теперь доставка с claim'ом в центре равна доставке без него."""
+        plain = "просто общий текст про текущую ситуацию."
+        with_claim = _real_reply_stats(_quote_with_centre(RISK_CLAIM), 113085)
+        without = _real_reply_stats(_quote_with_centre(plain), 113085)
+        assert with_claim["chars_cap"] == without["chars_cap"] == 4096
+        assert with_claim["kept_mid"] is True
+        assert abs(with_claim["delivered_chars"]
+                   - without["delivered_chars"]) <= 8
+        # Доля середины используется целиком: ≥95 % капа, а не 75 %.
+        assert without["delivered_chars"] >= int(0.95 * 4096)
+        assert with_claim["delivered_chars"] >= int(0.95 * 4096)
+
+        hot_claim = _real_reply_stats(_quote_with_centre(RISK_CLAIM), 1600)
+        hot_plain = _real_reply_stats(_quote_with_centre(plain), 1600)
+        assert hot_claim["chars_cap"] == hot_plain["chars_cap"] == 640
+        assert abs(hot_claim["delivered_chars"]
+                   - hot_plain["delivered_chars"]) <= 8
+        assert hot_claim["delivered_chars"] >= int(0.95 * 640)
+
+    def test_live_path_emits_reply_cap_axes(self):
+        """ER-08-RC §3: шесть осей доставки цитаты проводятся на ОБОИХ L1-сайтах
+        (Direct — через meta/plan_meta, инициатива — через существующий канал
+        record_l1_diagnostics), и обе идут в `_l1_usage_plan_meta`.
+
+        Плюс B1-мутация ревью: наличие осей само по себе ничего не доказывает —
+        живой вызов обязан передавать в ``total_chars`` длину ИСХОДНОЙ цитаты, а
+        не срезанного блока. Мутация ``total_chars=len(_l1_reply_text)`` оставляла
+        набор зелёным, поэтому связка проверяется по AST."""
+        import ast
+
+        text = (ROOT / "services/direct_chat_service.py").read_text(
+            encoding="utf-8")
+        keys = ("l1_reply_chars_cap", "l1_line_chars_cap",
+                "l1_reply_total_chars", "l1_reply_delivered_chars",
+                "l1_reply_truncated", "l1_kept_mid")
+        plan = text[text.index("async def _plan_direct_l1"):]
+        plan = plan[:plan.index("async def _attach_l1_plan_meta")]
+        for key in keys:
+            assert f'meta["{key}"]' in plan, f"{key} не доезжает до plan_meta"
+        init = text[text.index("async def plan_initiative_decision"):]
+        init = init[:init.index("async def generate_initiative_reply")]
+        for key in keys:
+            assert f"{key}=" in init, f"{key} нет в инициативном L1-сайте"
+        helper = text[text.index("def _l1_usage_plan_meta"):]
+        helper = helper[:helper.index("def _l1_usage_diag")] \
+            if "def _l1_usage_diag" in helper else helper[:4000]
+        for key in keys:
+            assert key in helper, f"{key} не проходит через _l1_usage_plan_meta"
+
+        # ── B1-мутация: `total_chars` живого вызова ────────────────────────
+        tree = ast.parse(text)
+        plan_fn = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "_plan_direct_l1")
+        stats_call = next(
+            node for node in ast.walk(plan_fn)
+            if isinstance(node, ast.Call)
+            and getattr(node.func, "attr", "") == "reply_delivery_stats")
+        total_kw = next(kw for kw in stats_call.keywords
+                        if kw.arg == "total_chars")
+        value = total_kw.value
+        assert isinstance(value, ast.Name), (
+            "total_chars должен быть привязан к имени исходной длины, а не "
+            "считаться на месте (например len(срезанный блок))")
+        bound = {}
+        for node in ast.walk(plan_fn):
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                    and isinstance(node.targets[0], ast.Name):
+                bound[node.targets[0].id] = node.value
+        source = bound.get(value.id)
+        assert isinstance(source, ast.Call), (
+            f"total_chars={value.id} не привязан к вызову в _plan_direct_l1")
+        func_name = getattr(source.func, "id", "") \
+            or getattr(source.func, "attr", "")
+        assert func_name in ("_reply_total_chars", "_l1_reply_total_chars"), (
+            "total_chars должен считаться от ИСХОДНОЙ цитаты "
+            "(_reply_total_chars), а не от срезанного блока")
+        first_arg = source.args[0] if source.args else None
+        assert isinstance(first_arg, ast.Name) and first_arg.id == "message", (
+            "источник total_chars — само сообщение (reply_to_message)")
+        # Срезанный блок в этой привязке участвовать не может.
+        assert "_l1_reply_text" not in ast.dump(source)
+
     def test_plan_meta_exposes_effective_budget_and_source(self):
         """Durable-наблюдаемость (§8 «контракт замера»): эффективный лимит и
         его источник доезжают до usage-plan_meta."""
@@ -395,6 +733,73 @@ class TestL1PackageLosses:
         assert safe["l1_context_source"] == "model_window"
         assert {"l1_context_budget", "l1_context_source"} <= set(
             ue.PLAN_META_FIELDS)
+
+    def test_reply_delivery_axes_are_present_and_truthful(self):
+        """ER-08-RC §3 (ревью B1): шесть осей есть, они ПРАВДИВЫ и не несут
+        текста.
+
+        Короткая цитата → ``truncated=False`` и ``delivered == total``;
+        длинная → ``truncated=True``, ``delivered < total``, ``kept_mid``
+        отражает сохранённую середину среза. Те же числа принимает
+        ``record_l1_diagnostics`` (Inspector), и весь набор проходит
+        R17-whitelist `sanitize_plan_meta`."""
+        from services import direct_l1 as l1
+        from services import usage_events as ue
+        from services.direct_chat_service import _l1_usage_plan_meta
+
+        keys = ("l1_reply_chars_cap", "l1_line_chars_cap",
+                "l1_reply_total_chars", "l1_reply_delivered_chars",
+                "l1_reply_truncated", "l1_kept_mid")
+
+        short = "короткая цитата целиком"
+        ctx_short = l1.build_l1_context(query="q", reply_block=short,
+                                        speaker="Аня", budget_tokens=1600)
+        stats_short = l1.reply_delivery_stats(ctx_short, 1600,
+                                              total_chars=len(short))
+        assert stats_short["chars_cap"] == l1.reply_block_chars(1600) == 640
+        assert stats_short["total_chars"] == len(short)
+        assert stats_short["delivered_chars"] == stats_short["total_chars"]
+        assert stats_short["truncated"] is False
+        assert stats_short["kept_mid"] is False
+
+        quote = _quote_3000()
+        ctx_long = l1.build_l1_context(query="q", reply_block=quote,
+                                       speaker="Аня", budget_tokens=1600)
+        stats_long = l1.reply_delivery_stats(ctx_long, 1600,
+                                             total_chars=len(quote))
+        assert stats_long["truncated"] is True
+        assert stats_long["delivered_chars"] < stats_long["total_chars"]
+        assert stats_long["kept_mid"] is True
+        assert stats_long["delivered_chars"] <= stats_long["chars_cap"]
+
+        meta = {"l1_line_chars_cap": 200,
+                "l1_reply_chars_cap": stats_long["chars_cap"],
+                "l1_reply_total_chars": stats_long["total_chars"],
+                "l1_reply_delivered_chars": stats_long["delivered_chars"],
+                "l1_reply_truncated": stats_long["truncated"],
+                "l1_kept_mid": stats_long["kept_mid"]}
+        out = _l1_usage_plan_meta(l1.L1Plan(), meta, fallback_flag="",
+                                  latency_ms=5, input_chars=100)
+        safe = ue.sanitize_plan_meta(out)
+        assert set(keys) <= set(safe)
+        assert safe["l1_reply_truncated"] is True
+        assert safe["l1_kept_mid"] is True
+        assert safe["l1_reply_total_chars"] == stats_long["total_chars"]
+        assert safe["l1_reply_delivered_chars"] == \
+            stats_long["delivered_chars"]
+        assert safe["l1_reply_chars_cap"] == stats_long["chars_cap"]
+        assert safe["l1_line_chars_cap"] == 200
+        # R17: в полях нет текста — только числа и bool.
+        for key in keys:
+            assert not isinstance(safe[key], str), f"{key} содержит текст"
+
+        # Same axes in the existing Inspector channel (record_l1_diagnostics).
+        from services import direct_l1 as _l1
+        _l1.record_l1_diagnostics(987654, **{k: safe[k] for k in keys})
+        stored = _l1.get_l1_diagnostics(987654) or {}
+        for key in keys:
+            assert stored.get(key) == safe[key]
+        _l1._l1_diagnostics.pop(987654, None)
 
 
 # ── 2. metered / деньги ────────────────────────────────────────────────────
