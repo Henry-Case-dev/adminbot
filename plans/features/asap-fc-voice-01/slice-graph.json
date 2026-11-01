@@ -1,0 +1,133 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "asap-fc-voice-01",
+  "note": "Один deliverable владельца (восстановление голоса FactCheck + decision-profile L1). Владение файлами и решения согласованы с Architect-контрактами plans/features/asap-fc-voice-01/arch/verbalizer-contract.md (A) и arch/l1-decision-profile-contract.md (B). P0-волна сериализована по общим файлам промптов/реестра/сборки; L1 идёт после A по общим prompt_registry/prompt_migrations (A → B) и после освобождения direct_l1/direct_chat_service полосой ER-08-RC.",
+  "contracts": [
+    "arch/verbalizer-contract.md",
+    "arch/l1-decision-profile-contract.md"
+  ],
+  "join_barriers": [
+    {
+      "id": "FC-WAVE-P0",
+      "members": ["FC-VOICE-CONTRACT", "FC-WRITER-PATH", "FC-RENDERER"],
+      "rule": "Публичный голос FactCheck и renderer деплоятся только вместе: контракт (промпт), сборка (эффективные слои) и доставка (формат) — одна атомарная волна (§8.2). Промежуточный деплой одного слайса запрещён."
+    },
+    {
+      "id": "FC-WAVE-ACCEPT",
+      "members": ["FC-ACCEPT-22"],
+      "rule": "22 сценария и фикстуры A/B/C закрываются после P0/P1; остановка приёмки — стоп-критерий §7."
+    }
+  ],
+  "slices": [
+    {
+      "id": "FC-PREFLIGHT",
+      "title": "Фактическая сверка до работы: HEAD/deployed SHA/PG-ревизии/overrides/открытые полосы",
+      "depends_on": [],
+      "mode": "read-only + отчёт",
+      "write_scope": ["plans/features/asap-fc-voice-01/preflight.md"],
+      "acceptance": "preflight.md фиксирует HEAD, deployed SHA, действующие PG-редакции prompts.factcheck_analyst_system_prompt/verbalizer/system_prompt/critique_directive и direct_l1_planner, per-chat overrides и flags.factcheck_pipeline_v2, плюс список уже выполненных пунктов с file:line; непроверяемое на машине агента явно помечено как production-only.",
+      "risk": "R1",
+      "next_role": "Builder (read-only) → PM"
+    },
+    {
+      "id": "FC-VOICE-CONTRACT",
+      "title": "Заводской контракт голоса (док A): verbalizer v2, ANTI_BOT_NO_LISTS, уход секции «Критический разнос», лестница миграций",
+      "depends_on": ["FC-PREFLIGHT"],
+      "mode": "writer",
+      "write_scope": [
+        "services/factcheck_prompts.py",
+        "services/factcheck_service.py",
+        "services/prompt_style_blocks.py",
+        "services/prompt_migrations.py",
+        "services/prompt_registry.py",
+        "services/param_catalog.py",
+        "plans/docs/canon/architecture.md",
+        "tests/test_factcheck_voice_contract.py",
+        "tests/test_factcheck_prompts.py",
+        "tests/test_evol_factcheck_critical.py",
+        "tests/test_asap_w1_semantics.py"
+      ],
+      "acceptance": "Снапшот effective payload вербализатора содержит ROLE/GROUNDING/HOW TO ARGUE/OWNER-CONTROLLED VOICE/ADAPTIVE PRESENTATION/CASE INPUT/OUTPUT владельца; в нём нет запрета списков/заголовков (используется аддитивный ANTI_BOT_BLOCK_NO_LISTS), нет собственной нормы мата, нет требуемой секции «Критический разнос» (директива перенесена в канон, гейт решает включение абзаца в промпт); одиночный канон не содержит «своя логика важнее» и «торопливое письмо»; новая редакция заведена в prompt_migrations, custom-редакции не перезаписаны.",
+      "risk": "R2",
+      "next_role": "Builder"
+    },
+    {
+      "id": "FC-WRITER-PATH",
+      "title": "Единая точка сборки речи (док A §3): compose_speech_system в композере для three-call/temporal/single, манифест слоёв, каталог UI",
+      "depends_on": ["FC-VOICE-CONTRACT"],
+      "mode": "writer",
+      "write_scope": [
+        "services/factcheck_service.py",
+        "services/prompt_composer.py",
+        "services/direct_chat_service.py",
+        "web/app.js",
+        "tests/test_factcheck_writer_path.py"
+      ],
+      "acceptance": "Тело DirectChatService._compose_speech_system вынесено в compose_speech_system (промптер — тонкий делегат, байт-паритет); все три фактчек-маршрута вызывают её с profile=speech_plain, writer=factcheck_verbalizer, channel=plain, include_mode_block=False; склейка system+owner_block в factcheck_service удалена (Core/Expression ровно один раз); манифест даёт rendered/skip_reason/revision по каждому слою; сравнение сегментов трёх маршрутов на одном входе совпадает; редактор вербализатора открывается в UI.",
+      "risk": "R2",
+      "next_role": "Builder"
+    },
+    {
+      "id": "FC-RENDERER",
+      "title": "Граница Writer/renderer (док A §5): убрать 110-срез, «По утверждениям» → fallback, без секции разноса",
+      "depends_on": ["FC-VOICE-CONTRACT", "FC-WRITER-PATH"],
+      "mode": "writer",
+      "write_scope": [
+        "services/factcheck_renderer.py",
+        "tests/test_factcheck_renderer_voice.py",
+        "tests/test_factcheck_renderer_cfg06.py"
+      ],
+      "acceptance": "Полный текст Writer доходит без среза 110 символов (срез остаётся только для gap_note); блок «По утверждениям» с лимитом частей и «…и ещё N» появляется только как fallback при пустом/вырожденном теле; секции «Критический разнос» нет; вердикт-заголовок, whitelist ссылок, чанкинг и plain-деградация не регрессировали; авторские абзацы и строки-подписи сохраняются.",
+      "risk": "R2",
+      "next_role": "Builder"
+    },
+    {
+      "id": "FC-EVIDENCE-DEPTH",
+      "title": "Глубина записи случая (док A §4): inference_gap + counterpoint в JSON Аналитика, без третьей стадии",
+      "depends_on": ["FC-VOICE-CONTRACT", "FC-WRITER-PATH"],
+      "mode": "writer",
+      "write_scope": [
+        "services/system2_handoff.py",
+        "services/factcheck_service.py",
+        "services/factcheck_prompts.py",
+        "tests/test_factcheck_evidence_depth.py"
+      ],
+      "acceptance": "Аналитик получает два необязательных поля (inference_gap — что не следует из подтверждённых данных; counterpoint — сильнейшее честное контрпрочтение); отсутствующее поле не появляется в payload; мёртвый tone_hint удалён из payload; persisted-каноны без новых полей валидны; на фикстуре A inference_gap виден в аргументе Writer; число поисковых запросов и provenance не менялись.",
+      "risk": "R2",
+      "next_role": "Builder"
+    },
+    {
+      "id": "FC-L1-PROFILE",
+      "title": "L1 decision-profile (док B): BehaviorFrame как единственный источник, [ПРОФИЛЬ РЕШЕНИЙ] вместо среза 400",
+      "depends_on": ["FC-PREFLIGHT", "FC-VOICE-CONTRACT", "FC-WRITER-PATH"],
+      "mode": "writer",
+      "blocked_by": "ER-08-RC/2.58.148 lane освобождает direct_l1.py и direct_chat_service.py (SERIALIZE); общие prompt_registry/prompt_migrations правятся после док A (A → B); direct_chat_service.py общий с FC-WRITER-PATH (делегат compose_speech_system), поэтому L1 стартует после P0-волны",
+      "write_scope": [
+        "services/direct_l1.py",
+        "services/direct_chat_service.py",
+        "services/bot_persona.py",
+        "services/chat_prompts.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py",
+        "tests/test_l1_decision_profile.py"
+      ],
+      "acceptance": "Direct L1 и Initiative L1 получают байт-идентичный [ПРОФИЛЬ РЕШЕНИЙ], построенный детерминированно из BehaviorFrame (8 измерений) без LLM; секция защищена от сжатия; L1_PERSONA_FRAME_CHARS и срез [:400] удалены; в payload нет <Persona>/<Speech_Base>/<Expression_Settings>; канон L1 получает одно правило про данные о характере; SILENT-решения не меняются от profanity; фон Summary/Sleep/Memory не затронут; смена GLOBAL/chat измерения меняет следующий payload без рестарта.",
+      "risk": "R3",
+      "next_role": "Builder"
+    },
+    {
+      "id": "FC-ACCEPT-22",
+      "title": "Приёмка: фикстуры A/B/C, 22 сценария, снапшоты assembled prompts и skip-provenance",
+      "depends_on": ["FC-VOICE-CONTRACT", "FC-WRITER-PATH", "FC-RENDERER", "FC-EVIDENCE-DEPTH", "FC-L1-PROFILE"],
+      "mode": "writer (tests/fixtures only)",
+      "write_scope": [
+        "tests/fixtures/fc_voice/",
+        "tests/test_fc_voice_acceptance.py",
+        "plans/features/asap-fc-voice-01/acceptance/"
+      ],
+      "acceptance": "Каждый из 22 сценариев имеет исполняемую проверку на фикстурах A/B/C либо явную пометку «требует live-прогона» с приложенным снапшотом assembled prompt; доказательства снимаются tools/er65_prompt_segment_snapshot.py --check и prompt_composer.record_provider_call; отчёт приёмки перечисляет подтверждённые и неподтверждённые сценарии; стоп-критерий §7 применён как условие PASS.",
+      "risk": "R2",
+      "next_role": "Builder → Reviewer"
+    }
+  ]
+}
