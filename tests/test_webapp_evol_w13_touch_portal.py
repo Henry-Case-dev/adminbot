@@ -137,8 +137,17 @@ class TestSinglePortalMechanism:
     def test_overlays_teleport_to_body(self):
         assert INDEX.count('<teleport to="body"') >= 3, \
             "палитра, лист записи и полноэкранный редактор — один механизм"
-        assert INDEX.count("<teleport to=\"body\" :disabled=") == 1, \
-            "редактор телепортируется ТОЛЬКО в полноэкранном режиме"
+        # W14-fix (ревью W14 Re-check 2): условный портал теперь у ДВУХ узлов
+        # одного и того же диалога — самого редактора промпта и его полосы
+        # сохранения (без этого панель оставалась под оверлеем и Save/«Отмена»
+        # были недостижимы). Оба условия — один и тот же флаг, второй системы
+        # порталов не появляется.
+        cond = INDEX.count("<teleport to=\"body\" :disabled=")
+        assert cond == 2, \
+            "условный телепорт только у полноэкранного редактора и его панели"
+        assert INDEX.count(
+            '<teleport to="body" :disabled="!promptEditorFull">') == 2, \
+            "оба условных портала управляются одним флагом promptEditorFull"
 
     def test_palette_and_sheet_are_inside_teleports(self):
         for anchor, name in (("data-command-palette", "палитра"),

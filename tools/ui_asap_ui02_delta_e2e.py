@@ -378,13 +378,17 @@ def _routes(me_payload=None):
 def _fails_tokens(tok):
     f = []
     z = tok["z"]
+    # W14: тост поднят выше палитры (105 > 100) принятым фиксом W13 Re-check 2
+    # («z-toast (90) ниже палитры» → тост обязан быть виден ПОВЕРХ диалога).
+    # Пин-константа приведена к этому решению; требование не ослаблено —
+    # проверяется ровно «тост виден над overlays», а не «палитра над тостом».
     expect = {"nav": 40, "scrim": 35, "overlay": 50, "modalScrim": 75,
-              "modal": 80, "toast": 90, "palette": 100}
+              "modal": 80, "toast": 105, "palette": 100}
     for k, v in expect.items():
         if z.get(k) != v:
             f.append("токен --z-%s = %s (ожидалось %s)" % (k, z.get(k), v))
     if not (z["scrim"] < z["nav"] < z["overlay"] < z["menu"]
-            < z["modalScrim"] < z["modal"] < z["toast"] < z["palette"]
+            < z["modalScrim"] < z["modal"] < z["palette"] < z["toast"]
             < z["dev"] < z["devTop"]):
         f.append("порядок лестницы слоёв нарушен: %s" % z)
     m = tok["motion"]
@@ -428,8 +432,9 @@ def _fails_layer_order(layers):
     if not (layers["recordScrim"] == 75):
         f.append("скрим окна записи не на ранге --z-modal-scrim (75): %s"
                  % layers["recordScrim"])
-    if not (layers["toast"] < layers["palette"]):
-        f.append("палитра не выше тоста: %s" % layers)
+    if not (layers["palette"] < layers["toast"]):
+        f.append("тост не выше палитры (его не видно поверх диалога): %s"
+                 % layers)
     return f
 
 

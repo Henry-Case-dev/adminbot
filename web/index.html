@@ -93,7 +93,24 @@
     <span class="aurora-blob b5"></span>
     <span class="aurora-grain"></span>
   </div>
-  <div id="app" v-cloak>
+  <!-- W14 (E.3 §4): состояние загрузки первого конфига. Раньше при медленном
+       `/api/config` экран был ПУСТ (Vue монтирует оболочку после данных) —
+       пользователь не знал, грузится ли админка вообще. Индикатор статический
+       (не зависит от Vue), снимается классом `app-ready` на <body>.
+       aria-busy живёт на корне приложения (`#app`), его ставит app.js. -->
+  <div class="boot-splash" data-boot-loading role="status" aria-live="polite"
+       aria-busy="true">
+    <div class="boot-splash__card">
+      <div class="ctl-loading__text">
+        <span class="spinner" aria-hidden="true"></span>
+        Загружаем настройки…
+      </div>
+      <div class="ctl-skeleton ctl-skeleton--wide" aria-hidden="true"></div>
+      <div class="ctl-skeleton ctl-skeleton--mid" aria-hidden="true"></div>
+      <div class="ctl-skeleton ctl-skeleton--narrow" aria-hidden="true"></div>
+    </div>
+  </div>
+  <div id="app" v-cloak aria-busy="true">
     <div class="app-shell"
          :class="[{ 'fullscreen-mode': isFullscreen }, 'shell-' + shellMode,
                   iaV2 ? 'ia-v2' : 'ia-legacy',
@@ -216,15 +233,6 @@
               сохранения — панель <sticky-save> внизу формы; второй физический
               доступ к тому же действию не показывается. role=status —
               скринридер читает состояние без действия. -->
-          <div v-if="headerSaveChip.visible" class="header-save-chip text-xs shrink-0"
-               role="status" aria-live="polite"
-               data-save-indicator
-               :data-save-state="headerSaveChip.state"
-               :title="headerSaveChip.title">
-            <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
-            <span aria-hidden="true">·</span>
-            <span>{{ headerSaveChip.label }}</span>
-          </div>
           <!-- W2-FULLSCREEN (REQ-U07-2/U07.2) + FS-HOTFIX 18.10: -->
           <!-- ЕДИНСТВЕННЫЙ узел ⛶ — теперь на месте бывшего «…» (см. ниже). -->
           <!-- D2/T-2608: обёртка строки 2 — селектор/бейдж/аватар/роль.
@@ -303,6 +311,21 @@
               {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
             </div>
           </details>
+          <!-- W14-fix (ревью W14): счётчик черновика живёт в СТРОКЕ ОБЛАСТИ.
+               В одной строке с ⛶ его не хватало: на 320 px сумма min-content
+               (навигация + заголовок + ⛶ + счётчик + область) = 380 px, и
+               строка области с ⛶ уезжали за вьюпорт (замер: scope right 336
+               при vw 320). Здесь он переносится вместе со строкой области,
+               а не отнимает место у ⛶. -->
+          <div v-if="headerSaveChip.visible" class="header-save-chip text-xs shrink-0"
+               role="status" aria-live="polite"
+               data-save-indicator
+               :data-save-state="headerSaveChip.state"
+               :title="headerSaveChip.title">
+            <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ headerSaveChip.label }}</span>
+          </div>
           <div class="header-user ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — same-origin blob
                  через прокси avatarUrl('user', …) (S10.16-8: внешний CDN
@@ -402,6 +425,7 @@
                @click="closePalette()"></div>
           <div class="palette-panel" role="dialog" aria-modal="true"
                aria-label="Поиск по приложению"
+               :aria-busy="configLoading ? 'true' : 'false'"
                tabindex="-1" @keydown="paletteKeydown($event)">
             <div class="palette-head">
               <svg class="ui-ic palette-head-ic" viewBox="0 0 24 24" width="18"
@@ -449,7 +473,16 @@
                   <span class="msr palette-row-go" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
                 </button>
               </template>
-              <div v-if="!paletteGroups.length" class="palette-empty"
+              <div v-if="paletteLoading" class="ctl-loading" role="status"
+                   aria-live="polite" data-palette-loading>
+                <div class="ctl-loading__text">
+                  <span class="spinner" aria-hidden="true"></span>
+                  Индекс настроек ещё загружается…
+                </div>
+                <div class="ctl-skeleton ctl-skeleton--wide" aria-hidden="true"></div>
+                <div class="ctl-skeleton ctl-skeleton--mid" aria-hidden="true"></div>
+              </div>
+              <div v-if="!paletteGroups.length && !paletteLoading" class="palette-empty"
                    data-palette-empty>
                 <template v-if="paletteQuery.trim()">
                   Ничего не найдено. Проверьте название, ключ или права доступа —
@@ -1611,7 +1644,7 @@
                   </div>
                   <div class="meme-grid">
                     <label class="meme-row">
-                      <input type="checkbox" v-model="memeDraft.enabled"
+                      <input type="checkbox" class="ctl-check__box" v-model="memeDraft.enabled"
                              data-meme-toggle>
                       <span>Мемы включены в этом чате</span>
                       <span class="text-gray-500">
@@ -2004,7 +2037,7 @@
             </div>
           </div>
           <label class="inline-flex items-center gap-2 mt-2">
-            <input type="checkbox" v-model="coverStyles.current.enabled"
+            <input type="checkbox" class="ctl-check__box" v-model="coverStyles.current.enabled"
                    @change="coverStyles.editorDirty = true">
             <span class="text-xs">Стиль активен</span>
           </label>
@@ -2013,7 +2046,7 @@
             <span class="text-gray-400">Нумерация выпуска</span>
             <div class="flex items-center gap-3 flex-wrap">
               <label class="inline-flex items-center gap-2">
-                <input type="checkbox" v-model="coverStyles.current.counter_enabled"
+                <input type="checkbox" class="ctl-check__box" v-model="coverStyles.current.counter_enabled"
                        @change="coverStyles.editorDirty = true">
                 <span>Включить нумерацию выпусков</span>
               </label>
@@ -2813,7 +2846,7 @@
                         <div class="flex-1 min-w-0">
                           <template v-if="f.checkbox">
                             <label class="ctl-check flex items-center gap-2 text-sm pt-2 cursor-pointer">
-                              <input type="checkbox" class="w-4 h-4"
+                              <input type="checkbox" class="ctl-check__box"
                                      :checked="blockFieldBool(f)"
                                      :disabled="!canEditConfig(f.key)"
                                      @change="setBlockBool(c.block, f, $event.target.checked)">
@@ -3391,7 +3424,7 @@
                              очищает зависимый секрет при включении. -->
                         <template v-if="f.checkbox">
                           <label class="ctl-check flex items-center gap-2 text-sm pt-2 cursor-pointer">
-                            <input type="checkbox" class="w-4 h-4"
+                            <input type="checkbox" class="ctl-check__box"
                                    :checked="blockFieldBool(f)"
                                    :disabled="!canEditConfig(f.key)"
                                    @change="setBlockBool(b, f, $event.target.checked)">
@@ -4742,7 +4775,7 @@
                         <div v-for="ep in storiesManageCard.episodes" :key="'sp' + ep.episode_id"
                              class="ml-2 text-gray-300">
                           <label>
-                            <input type="checkbox" :value="ep.episode_id"
+                            <input type="checkbox" class="ctl-check__box" :value="ep.episode_id"
                                    v-model="storiesSplitSelection[ep.episode_id]">
                             {{ ep.title || 'без названия' }} · {{ fmtStoryDate(ep.event_start_ts || ep.discovered_at) }}
                           </label>
@@ -5564,7 +5597,16 @@
                    промпты и key-drafts на конфиг-вкладках; рендерится ТОЛЬКО
                    при dirty/saving/failed (clean → absent, v-if в компоненте).
                    Reserved spacer удалён. Финальный блок ветки currentTabIsConfig. -->
+              <!-- W14-fix (ревью W14 Re-check 2, блокер §12.15): в
+                   полноэкранном редакторе промпта полоса сохранения оставалась
+                   в форме ПОД оверлеем (position:fixed, z 80) — «Сохранить» и
+                   «Отмена» были физически недоступны при открытой клавиатуре
+                   (elementFromPoint возвращал TEXTAREA). Тот же приём, что у
+                   самого редактора: <teleport> в <body> только в полноэкранном
+                   режиме, вторая копия панели не создаётся. -->
+              <teleport to="body" :disabled="!promptEditorFull">
               <sticky-save class="col-span-full"></sticky-save>
+              </teleport>
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">
@@ -5602,7 +5644,21 @@
             </div>
 
             <!-- F4 §32/D7: каталог ≤3/2/1 изолированными правилами .module-list -->
-            <div class="module-catalog col-span-full">
+            <div class="module-catalog col-span-full"
+                 :aria-busy="catalogLoading ? 'true' : 'false'">
+              <!-- E.3 §4 (W14): пока каталог грузится, честный индикатор, а не
+                   пустой экран. Ошибка важнее загрузки — тогда показывается
+                   баннер configError, а скелетон не рисуется вовсе. -->
+              <div v-if="catalogLoading" class="ctl-loading" role="status"
+                   aria-live="polite" data-module-loading>
+                <div class="ctl-loading__text">
+                  <span class="spinner" aria-hidden="true"></span>
+                  Загружаем каталог модулей…
+                </div>
+                <div class="ctl-skeleton ctl-skeleton--wide" aria-hidden="true"></div>
+                <div class="ctl-skeleton ctl-skeleton--mid" aria-hidden="true"></div>
+                <div class="ctl-skeleton ctl-skeleton--narrow" aria-hidden="true"></div>
+              </div>
               <div class="module-list" role="list" v-if="filteredModules.length">
                 <article class="module-card card p-4" v-for="m in filteredModules" :key="m.id"
                          role="listitem" :data-mod="m.id"
@@ -5696,7 +5752,7 @@
                   </div>
                 </article>
               </div>
-              <div v-if="!filteredModules.length" class="module-empty">
+              <div v-if="!filteredModules.length && !catalogLoading" class="module-empty">
                 Ничего не найдено. Измените запрос или фильтр.
               </div>
             </div>
@@ -8544,7 +8600,7 @@
                               <label v-for="r in ['user','moderator','local_admin']"
                                      :key="fld + r"
                                      class="inline-flex items-center gap-1 mr-2 text-[10px]">
-                                <input type="checkbox"
+                                <input type="checkbox" class="ctl-check__box"
                                        :disabled="!!matrixSaving[row.key]"
                                        :checked="matrixChecked(row.item, fld, r)"
                                        @change="matrixRoleToggle(row.key, fld, r)">
@@ -9379,7 +9435,7 @@
                             @input="personaSetField('system_prompt_overrides', $event.target.value)"></textarea>
                 </label>
                 <label class="ctl-check flex items-center gap-2 mb-4">
-                  <input type="checkbox"
+                  <input type="checkbox" class="ctl-check__box"
                          :checked="personaDraft ? personaDraft.is_aware_ai : false"
                          :disabled="personaDisabled"
                          @change="personaSetField('is_aware_ai', $event.target.checked)">
@@ -9763,7 +9819,7 @@
                           </select>
                         </label>
                         <label class="flex items-center gap-2">
-                          <input type="checkbox" :checked="speechCore.document.enabled"
+                          <input type="checkbox" class="ctl-check__box" :checked="speechCore.document.enabled"
                                  @change="saveSpeechCoreEnabled($event.target.checked)">
                           <span class="text-sm">Core включён в речь</span>
                         </label>
@@ -9867,7 +9923,7 @@
                         Код, JSON, ссылки, литералы и дословные цитаты не меняются.
                       </div>
                       <label class="speech-limit-row">
-                        <input type="checkbox" data-speech-quotes-mode="normalize"
+                        <input type="checkbox" class="ctl-check__box" data-speech-quotes-mode="normalize"
                                :checked="speechQuotesMode() === 'normalize'"
                                aria-label="Заменять ёлочки на обычные кавычки"
                                @change="setStyleQuotesMode('normalize', $event.target.checked)">
@@ -9878,7 +9934,7 @@
                         Включено по умолчанию.
                       </div>
                       <label class="speech-limit-row">
-                        <input type="checkbox" data-speech-quotes-mode="strip"
+                        <input type="checkbox" class="ctl-check__box" data-speech-quotes-mode="strip"
                                :checked="speechQuotesMode() === 'strip'"
                                aria-label="Удалять кавычки полностью"
                                @change="setStyleQuotesMode('strip', $event.target.checked)">
@@ -9907,7 +9963,7 @@
                           </span>
                           <span class="badge badge-muted">{{ speechSourceLabel(r.source) }}</span>
                           <label class="flex items-center gap-2">
-                            <input type="checkbox" :checked="r.enabled"
+                            <input type="checkbox" class="ctl-check__box" :checked="r.enabled"
                                    :aria-label="'Правило ' + r.id"
                                    @change="toggleStyleRule(idx, $event.target.checked)">
                             <span class="text-xs">включено</span>
@@ -9987,7 +10043,7 @@
                         меняет инструкции других чатов.
                       </div>
                       <label class="speech-limit-row">
-                        <input type="checkbox" data-speech-hint-limit-toggle="max_chars"
+                        <input type="checkbox" class="ctl-check__box" data-speech-hint-limit-toggle="max_chars"
                                :checked="speechStyleLimitOn('max_chars')"
                                :aria-label="'Ограничивать размер инструкций Style Policy'"
                                @change="toggleStyleLimit('max_chars', $event.target.checked)">
@@ -10016,7 +10072,7 @@
                         </template>
                       </div>
                       <label class="speech-limit-row">
-                        <input type="checkbox" data-speech-hint-limit-toggle="max_items"
+                        <input type="checkbox" class="ctl-check__box" data-speech-hint-limit-toggle="max_items"
                                :checked="speechStyleLimitOn('max_items')"
                                :aria-label="'Ограничивать количество инструкций'"
                                @change="toggleStyleLimit('max_items', $event.target.checked)">
@@ -10941,11 +10997,11 @@
                         <summary class="text-xs">Дополнительно: отбор и A/B</summary>
                         <div class="speech-actions mb-2">
                           <label class="flex items-center gap-2">
-                            <input type="checkbox" v-model="speechExamples.policy.enabled">
+                            <input type="checkbox" class="ctl-check__box" v-model="speechExamples.policy.enabled">
                             <span class="text-xs">отбор включён</span>
                           </label>
                           <label class="flex items-center gap-2">
-                            <input type="checkbox" v-model="speechExamples.policy.ab_enabled">
+                            <input type="checkbox" class="ctl-check__box" v-model="speechExamples.policy.ab_enabled">
                             <span class="text-xs">A/B версий</span>
                           </label>
                         </div>
@@ -11016,11 +11072,11 @@
                           </select>
                         </label>
                         <label class="flex items-center gap-2 mb-1">
-                          <input type="checkbox" v-model="speechTryDraft.useDrafts">
+                          <input type="checkbox" class="ctl-check__box" v-model="speechTryDraft.useDrafts">
                           <span class="text-xs">Взять кандидатом мои черновики (характер/стиль/выражение)</span>
                         </label>
                         <label class="flex items-center gap-2 mb-2">
-                          <input type="checkbox" v-model="speechTryDraft.generate">
+                          <input type="checkbox" class="ctl-check__box" v-model="speechTryDraft.generate">
                           <span class="text-xs">Сгенерировать ответы моделью (реальный вызов провайдера, платно)</span>
                         </label>
                         <div class="speech-actions">
@@ -14065,7 +14121,7 @@
           <div v-if="roleEditor.wildcard" class="badge badge-warn mb-2">Роль имеет полный доступ (wildcard)</div>
           <div v-for="section in roleEditor.sections" :key="section.id" class="tree-root">
             <label>
-              <input type="checkbox" :checked="section.checked"
+              <input type="checkbox" class="ctl-check__box" :checked="section.checked"
                      :class="{ 'is-indeterminate': section.indeterminate }"
                      :ref="el => setIndeterminate(el, section.indeterminate)"
                      @change="toggleSection(section)">
@@ -14074,7 +14130,7 @@
             <div class="tree-child">
               <div v-for="param in section.params" :key="param.key">
                 <label>
-                  <input type="checkbox" :checked="param.checked" @change="toggleNode(param)">
+                  <input type="checkbox" class="ctl-check__box" :checked="param.checked" @change="toggleNode(param)">
                   <span>{{ param.title }}</span>
                   <span class="text-gray-500 text-xs font-mono">{{ param.key }}</span>
                   <span v-if="param.secret" class="badge badge-muted">секрет</span>
@@ -14082,7 +14138,7 @@
               </div>
               <div v-for="keyNode in section.keys" :key="keyNode.key">
                 <label>
-                  <input type="checkbox" :checked="keyNode.checked" @change="toggleNode(keyNode)">
+                  <input type="checkbox" class="ctl-check__box" :checked="keyNode.checked" @change="toggleNode(keyNode)">
                   <span>{{ keyNode.title }}</span>
                   <span class="text-gray-500 text-xs font-mono">{{ keyNode.key }}</span>
                 </label>
@@ -14093,7 +14149,7 @@
             <div class="text-sm font-bold mb-1">Действия</div>
             <div v-for="action in roleEditor.actions" :key="action.id">
               <label>
-                <input type="checkbox" :checked="action.checked" @change="toggleNode(action)">
+                <input type="checkbox" class="ctl-check__box" :checked="action.checked" @change="toggleNode(action)">
                 <span>{{ action.title }}</span>
                 <span class="text-gray-500 text-xs font-mono">{{ action.id }}</span>
               </label>
@@ -14356,7 +14412,7 @@
               <label v-for="role in ['user','moderator','local_admin']"
                      :key="'v'+role"
                      class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" class="accent-violet-600"
+                <input type="checkbox" class="ctl-check__box"
                        v-model="permPicker.viewRoles[role]">
                 <span>{{ role === 'user' ? 'Юзер'
                     : (role === 'moderator' ? 'Модератор' : 'Локальный админ') }}</span>
@@ -14369,7 +14425,7 @@
               <label v-for="role in ['user','moderator','local_admin']"
                      :key="'e'+role"
                      class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" class="accent-violet-600"
+                <input type="checkbox" class="ctl-check__box"
                        v-model="permPicker.editRoles[role]">
                 <span>{{ role === 'user' ? 'Юзер'
                     : (role === 'moderator' ? 'Модератор' : 'Локальный админ') }}</span>

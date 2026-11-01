@@ -3610,6 +3610,11 @@
      ellipsis, а не исчезают. */
   --header-title-min: 3.5rem;
   row-gap: 0;
+  /* W14-fix (ревью W14): `wrap` на САМОЙ шапке разрешал гибкому заголовку
+     расти и выталкивать ⛶ на вторую строку даже там, где всё помещалось
+     (замер 320/390 без черновика: высота 58 → 102). Здесь снова `nowrap`:
+     перенос делает СТРОКА ОБЛАСТИ (её собственный `flex-wrap`), а счётчик
+     черновика теперь живёт внутри этой строки, а не отнимает место у ⛶. */
   flex-wrap: nowrap;
   gap: .2rem;
   padding-left: .35rem; padding-right: .35rem;
@@ -3639,7 +3644,13 @@
      выезжать за правый край и наезжать на «⋯» (замер 320 #/ai/llm: user
      right = 328 при vw 320, когда ряд был `min-width: 0`). */
   flex: 0 1 auto;
-  flex-wrap: nowrap;
+  /* W14-fix (ревью W14): `nowrap` запрещал строке области переносить
+     собственные элементы. С появлением счётчика черновика (непустой
+     черновик) ряд физически не вмещался в 320/390 и выезжал за вьюпорт
+     (замер 320: 7 элементов за краем, hh=58). `wrap` переносит лишний
+     элемент ВНУТРИ строки области; без счётчика ничего не меняется
+     (замер 320/390: 58 px, один ряд). */
+  flex-wrap: wrap;
   min-width: min-content;
   gap: .25rem;
 }
@@ -6180,6 +6191,50 @@ html.cover-editor-open { overflow: hidden; }
   box-shadow: var(--overlay-shadow);
   border-radius: var(--overlay-radius);
 }
+
+/* W14-fix (§12.15/§C, ревью W14): при 200 % zoom телефонного вьюпорта CSS-ширина
+   падает до 195 px, и одной строки физически не хватает: min-content шапки
+   ≈300 px, поэтому ряд области и ⛶ уезжали за край (замер 195 px:
+   header-scope-row right 266, header-fs-btn right 312 при vw 195 — 71 и 117 px
+   за вьюпорт). Ниже 320 px возвращается ЗАДУМАННАЯ двухстрочная compact-шапка
+   (строка 1 — навигация/заголовок/⛶, строка 2 — область и идентификация);
+   от 320 px и выше правило не действует: там один ряд укладывается, что
+   подтверждено замером (h-scroll 0, за край ничего не выходит). */
+@media (max-width: 319px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+    flex-wrap: wrap;
+    row-gap: .2rem;
+  }
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2
+    .header-scope-row {
+    order: 10; flex: 1 1 100%; flex-wrap: wrap;
+  }
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2
+    .header-fs-btn {
+    order: 5; margin-left: auto;
+  }
+}
+
+/* ── W14-fix (§12.7, W14-ревью 3.1): подложка плавающего overlay ──────────
+   Контракт: текст заднего слоя НЕ читается через открытое меню
+   (`plans/current_task.md` §12 п.7; EVOL-033 §A запрещает полупрозрачную
+   поверхность над текстом). `--overlay-bg` (alpha 0.94) давал утечку ~6 %:
+   в `s12-s7-scope-320.png` строки страницы читались сквозь панель.
+   Решение — тот же материал, что уже принят у палитры поиска: непрозрачная
+   рабочая поверхность `--surface-2` (палитра, `.palette-panel`, использует её
+   с ровно этим обоснованием). Оптика жидкого стекла остаётся на карточках и
+   стеклянных поверхностях; popover поверх движущегося контента — рабочая
+   поверхность, а не линза. Новых токенов не вводится. */
+.scope-panel,
+.scope-tech-body,
+.more-menu-panel,
+[data-glass-nested="1"].scope-panel,
+[data-glass-nested="1"].scope-tech-body,
+[data-glass-nested="1"].more-menu-panel {
+  background-color: var(--surface-2, #1C2537);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 /* Подпись управляющего элемента «Аналитики»: мелкая, но постоянная —
    контроль перестаёт выглядеть как второй селектор области. Строка
    управления переносится по доступной ширине, поэтому селектор больше не
@@ -6938,7 +6993,102 @@ html.w9-sheet-bottom .modal-close {
   width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto;
   accent-color: var(--purple-400);
 }
+/* W14 (E.2): тот же чекбокс дизайн-системы для разметки, где контейнер — не
+   `.ctl-check` (плотные матрицы прав и списки выбора: 200 строк по 44 px
+   разъехались бы). Меняется ТОЛЬКО сам контрол — размер, скругление,
+   акцент и кольцо фокуса; геометрия строки остаётся как была. */
+input[type="checkbox"].ctl-check__box,
+input[type="radio"].ctl-check__box {
+  width: 18px; height: 18px; margin: 0; flex: 0 0 auto;
+  accent-color: var(--purple-400); border-radius: var(--ctl-radius-sm);
+  cursor: pointer;
+}
+input[type="checkbox"].ctl-check__box:focus-visible,
+input[type="radio"].ctl-check__box:focus-visible {
+  outline: 2px solid var(--focus-ring); outline-offset: 2px;
+}
+input[type="checkbox"].ctl-check__box:disabled { opacity: .55; cursor: not-allowed; }
 .ctl-check__hint { display: block; font-size: var(--ctl-font-sm); color: var(--text-3); }
+
+/* ── W14. Единые интерактивные состояния контролов (E.3 §4) ───────────────
+   hover/pressed/selected — ОДИН набор правил для семейства `.btn*`/`.ctl-*`
+   и существующих строк-кнопок, а не по экрану. Нажатие (pressed) до этой
+   волны было только у двух кнопок шапки, поэтому «нажато» нигде больше не
+   читалось. Селекторы добавляют ТОЛЬКО состояния: заливка, геометрия и
+   токены не переписаны. */
+.btn:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-accent:active:not(:disabled),
+.ctl-btn:active:not(:disabled) { filter: brightness(.94); }
+.palette-row:active { background: rgba(170, 182, 200, .16); }
+.ctl-menu__item:active:not([aria-disabled="true"]) { background: rgba(170, 182, 200, .18); }
+.module-filter-btn:active { background: rgba(170, 182, 200, .16); }
+/* Выбранное состояние обязано отличаться не только оттенком текста:
+   мягкая заливка + hairline (видимо и на стекле, и в обычном режиме). */
+.btn[aria-pressed="true"],
+.btn-ghost[aria-pressed="true"],
+.module-filter-btn[aria-pressed="true"],
+.palette-row[aria-selected="true"],
+[role="option"][aria-selected="true"] {
+  background: rgba(167, 139, 250, .16);
+  box-shadow: inset 0 0 0 var(--ctl-hairline) rgba(167, 139, 250, .45);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Нажатие остаётся видимым, но без «прыжка» яркости на каждом тапе. */
+  .btn:active:not(:disabled), .btn-ghost:active:not(:disabled),
+  .btn-accent:active:not(:disabled), .ctl-btn:active:not(:disabled) {
+    filter: brightness(.97);
+  }
+}
+
+/* ── W14. Первичная загрузка: честный индикатор до готовности оболочки ────
+   Пока Vue не смонтировал shell, показывается статический скелетон; класс
+   `app-ready` на <body> (ставит app.js после первой загрузки конфига) его
+   снимает. При ошибке загрузки индикатор тоже уходит — причина объясняется
+   баннером configError, а не «вечной загрузкой». */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 1;
+  display: grid; place-items: center;
+  padding: var(--space-4);
+  background: transparent;
+}
+.boot-splash__card {
+  width: min(420px, 86vw);
+  display: grid; gap: 10px;
+  padding: 16px;
+  border: var(--border-hairline) solid var(--glass-border-color);
+  border-radius: var(--radius-xl, 18px);
+  background: rgba(21, 27, 42, .55);
+  backdrop-filter: blur(8px);
+}
+body.app-ready .boot-splash { display: none; }
+
+   Скелетон — не «ложный контент»: он показывается ТОЛЬКО пока данных нет
+   (`configLoading && !items`), и исчезает, как только пришли реальные данные
+   или ошибка (ошибка важнее — её баннер объясняет причину). */
+.ctl-loading {
+  display: grid; gap: 8px; padding: 12px 0;
+  color: var(--text-3); font-size: var(--ctl-font-sm);
+}
+.ctl-loading__text { display: flex; align-items: center; gap: 8px; }
+.ctl-skeleton {
+  height: 12px; border-radius: var(--ctl-radius-pill);
+  background: rgba(170, 182, 200, .18); overflow: hidden; position: relative;
+}
+.ctl-skeleton--wide { width: 100%; }
+.ctl-skeleton--mid { width: 68%; }
+.ctl-skeleton--narrow { width: 41%; }
+@media (prefers-reduced-motion: no-preference) {
+  /* Мягкий проход блика — единственное движение; при reduced-motion его нет. */
+  .ctl-skeleton::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent,
+      rgba(255, 255, 255, .10), transparent);
+    transform: translateX(-100%);
+    animation: ctlSkeletonSweep var(--motion-slow, 320ms) linear infinite;
+  }
+}
+@keyframes ctlSkeletonSweep { to { transform: translateX(100%); } }
 
 /* Radio / segmented: ровно один активный; клавиатура и touch одинаковы. */
 .ctl-seg {
@@ -7440,6 +7590,26 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
 @media (max-width: 767px) {
   .prompt-editor--full { padding-left: 8px; padding-right: 8px; }
 }
+/* W14-fix (ревью W14 Re-check 2, блокер §12.15): полоса сохранения,
+   телепортированная в <body> на время полноэкранного редактора промпта.
+   До этой правки она оставалась в `main.scroll-area` ПОД оверлеем
+   (`position: fixed; z-index: var(--z-modal)`): elementFromPoint в центрах
+   «Отмена»/«Сохранить изменения» возвращал TEXTAREA, реальный клик не давал
+   ни POST, ни отмены (видимая высота 520: поле 210–510, панель 444–504).
+   Решение в рамках принятой модели — та же панель `<sticky-save>`
+   (без второй копии и без новой системы слоёв) встаёт в слой диалога над
+   экранной клавиатурой по существующим токенам `--kb-inset`/`--z-modal`. */
+body > .sticky-save[data-save-panel] {
+  position: fixed;
+  left: 12px; right: 12px;
+  margin-left: 0;
+  width: auto; max-width: none;
+  bottom: calc(var(--kb-inset, 0px) + 8px);
+  z-index: calc(var(--z-modal) + 1);
+}
+/* Текст под панелью не теряется: у полноэкранного редактора появляется запас
+   прокрутки, поэтому последняя строка читается, а не уходит под панель. */
+.prompt-editor--full { scroll-padding-bottom: 92px; }
 
 /* ══ W12-06. EVOL-039: результат проверки соединения в карточке ══════════ */
 .conn-check-meta {
