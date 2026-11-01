@@ -88,6 +88,10 @@ MODE_OFF = "factory_off"
 SOURCE_FILES = (
     "services/direct_chat_service.py",
     "services/direct_l1.py",
+    # ASAP-FC-VOICE-01 / B: `bot_persona.build_decision_profile_block` —
+    # единственная точка сборки секции [ПРОФИЛЬ РЕШЕНИЙ] в user-payload L1,
+    # поэтому его байты тоже определяют снимок.
+    "services/bot_persona.py",
     "services/direct_execution.py",
     "services/payload_builder.py",
     "services/chat_prompts.py",
@@ -1347,7 +1351,8 @@ async def _scenario_turn_l1_direct(mode: str) -> list:
                     mode=mode, path="l1", flag_state=flags,
                     notes=["system = resolve_prompt(prompts.direct_l1_planner_"
                            "system_prompt); user = direct_l1.build_l1_context(...)"],
-                    extra_candidates=[("l1_context_persona_frame", "", "layer")]),
+                    extra_candidates=[("l1_context_decision_profile", "",
+                                       "layer")]),
         _turn_stage(llm, "l2_writer", stage_id="direct.l2_writer.direct",
                     title="L2 Writer — прямой ответ без инструментов",
                     call_site=("services/direct_chat_service.py::"
