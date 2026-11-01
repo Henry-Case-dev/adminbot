@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
   "source_sha256": "9ce180ad702588b4552cf97fbeaee615ec9d3d67654d9369d29670c91b762c29",
-  "candidate_commit": "",
+  "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -499,8 +499,46 @@
       "acceptance": "Проверены ВСЕ существующие L1/planner/Observer-решения, выбирающие действие, тон, необходимость ответа/молчания или стратегию; корректировка не ограничена фактчеком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-01 — доказано до деплоя",
+          "observation": "Аудит всех существующих L1/planner/Observer-решений: в проде профиль собирается ровно в двух точках (Direct и Initiative), других вызовов build_decision_profile_block нет (§2 Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -515,8 +553,46 @@
       "acceptance": "direct_l1.persona_frame и L1_PERSONA_FRAME_CHARS=400 проверены, затем Initiative и другие публичные планировщики; новый профиль собирается в одной существующей точке резолва, без копирования сборки по модулям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-08 — доказано до деплоя",
+          "observation": "Логика 400-символьного persona_frame заменена одним профилем в существующей точке резолва: Direct и Initiative покрыты, копирования сборки по модулям нет.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "MISSING"
     },
     {
@@ -1397,8 +1473,46 @@
       "acceptance": "Планер не получает как исполняемую инструкцию «мат Frequent», стиль орфографии, готовые фразы, речевые примеры и полный пользовательский Core. Частично: system-промпт L1 чистый (machine_json), но character_rules (форма/орфография) попадают в блок «ХАРАКТЕР (кадр)» контекста Direct L1 (services/direct_chat_service.py:3636-3660 → services/direct_l1.py:1190).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-02 — доказано до деплоя",
+          "observation": "Планер не получает исполняемых речевых инструкций: machine_json без прозы Writer и без тега Persona — проверено на реальном _plan_direct_l1 (R6).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -1413,8 +1527,46 @@
       "acceptance": "Планер получает поведенчески релевантные факты характера как данные (инициативность, склонность к краткости/спору, отношение к подколам, уместность сарказма, социальные дистанции, уважение к роли, умение промолчать), и они не подменяют факты/evidence/адресацию/решение SILENT.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-03 — доказано до деплоя",
+          "observation": "Профиль передаёт поведенческие оси как данные (инициативность, краткость, склонность к спору, сарказм, дистанции, роль, молчание): R5 показывает version и «краткость: 0.30 (в этом чате)».",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "MISSING"
     },
     {
@@ -1429,8 +1581,46 @@
       "acceptance": "Decision-profile детерминирован и достаточен по функции планера, а не по механическому размеру: сейчас берётся голова prose-блока, обрезанная до 400 символов (services/direct_l1.py:854,1190-1192) — это и есть «случайные первые N символов художественного описания». Пересборка профиля новой LLM-цепочкой на каждый запрос запрещена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-04 — доказано до деплоя",
+          "observation": "400-символьный prose-срез удалён; профиль детерминирован и функционален по назначению планера (F1/F2 закрыты, контрактный набор 17 passed).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "CONFLICTS_WITH_NEW_CONTRACT"
     },
     {
@@ -1446,7 +1636,45 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-05 — доказано до деплоя",
+          "observation": "Единственный источник истины сохранён (resolve_core_ref / resolve_expression_settings / chat_params), precedence GLOBAL/chat и версии — те же байты, второго «характера для L1» нет.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "DONE_AND_VERIFIED"
     },
     {
@@ -1463,7 +1691,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "PARTIAL"
+      "classification": "PARTIAL",
+      "note": "P1: остаётся PENDING до post-deploy. Оси «токсичность / склонность к ответу» не изолированы детерминированно: требуется живой ход после деплоя (высокая инициативность/спор, тон при сарказме) и проверка отсутствия роста болтливости/токсичности."
     },
     {
       "source_id": "L00118",
@@ -1478,7 +1707,45 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-L1-07 — доказано до деплоя",
+          "observation": "Фоновые Summary/Sleep/Memory и машинные модули не получают Core/Expression и не начинают веб-проверку (профили machine_json/internal_silent не тронуты).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "DONE_AND_VERIFIED"
     },
     {
@@ -1639,7 +1906,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "PARTIAL"
+      "classification": "PARTIAL",
+      "note": "P0: NOT PROVEN. Истинность зависит от текста модели: нужен живой прогон на фикстуре A (Roblox-пост «статистика → ошибочное обобщение»), которой в репозитории нет. Механизм (канон запрещает превращать недоверие в отрицание) присутствует, но качество ответа не доказано детерминированно."
     },
     {
       "source_id": "L00140",
@@ -1655,7 +1923,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "PARTIAL"
+      "classification": "PARTIAL",
+      "note": "P0: NOT PROVEN (качество). Доставка поля inference_gap в Writer доказана (payload v2 и System2), но конкретный разбор логического скачка зависит от текста модели — нужен живой прогон на реальном кейсе."
     },
     {
       "source_id": "L00141",
@@ -1669,8 +1938,46 @@
       "acceptance": "Когда первоисточник не найден, публичный текст говорит «не удалось подтвердить», а не «ложь»; технический сбой поиска не выдаётся за отсутствие фактов.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №3 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Канон требует «не удалось подтвердить» вместо утверждения лжи; конкретные причины пробела выводятся в fallback (24 теста).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -1685,8 +1992,46 @@
       "acceptance": "EvidenceMap конкретных тезисов действительно поступает к Writer и переживает renderer. Сейчас это невозможно на двухвызовном пути: Writer получает только JSON аналитика (services/factcheck_service.py:1602-1608), а EvidenceMap использует лишь renderer (services/factcheck_renderer.py:250-266).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №4 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): parts/evidence_refs доходят до Writer'а, валидированные ссылки (≤ EvidenceMap) переживают renderer; построчная привязка в теле снята осознанно по §4 владельца, покрытие остаётся в аналитике (_emit_claim_coverage).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "CONFLICTS_WITH_NEW_CONTRACT"
     },
     {
@@ -1701,8 +2046,46 @@
       "acceptance": "Одно- и двухстадийный маршруты не дают несовместимых эффективных речевых настроек: сравнение assembled payload двух путей на одном входе показывает один и тот же владельческий контракт (сейчас наборы слоёв различаются — services/factcheck_service.py:1516-1526 vs 1595-1601 vs 2299-2311).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №5 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Все четыре точки сборки дают один owner-контракт (Core/Expression/Style/примеры) ровно один раз.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "CONFLICTS_WITH_NEW_CONTRACT"
     },
     {
@@ -1717,8 +2100,46 @@
       "acceptance": "При сбое Writer используются честные fallback и явная причина, без притворства «разнос успешен»: fallback_used/reason_code доходят до пользовательского текста и событий, а не только до логов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №6 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Fallback Writer'а и технические заголовки не менялись; fallback-публикация идёт с явной причиной.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -1734,7 +2155,45 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №7 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Ссылки только из EvidenceMap прогона; невалидная ссылка отбрасывается.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "DONE_AND_VERIFIED"
     },
     {
@@ -1749,8 +2208,46 @@
       "acceptance": "prompt_registry показывает обе стадии, активные редакции и историю; данные не меняются неожиданно (фактические PG-значения не перезаписываются при деплое).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №8 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Метки и печати обеих стадий, лестница ревизий и набор фабрики подняты корректно; история — из кода реестра.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -1765,9 +2262,48 @@
       "acceptance": "Короткий очевидный факт даёт короткий ответ без принудительного деления на четыре пункта: тело проходит как есть, компактная доказательная секция необязательна (принудительная композиция снята, но остаётся срез частей до 110 символов).",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "PARTIAL"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №9 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Короткое тело с частями не даёт ни списка, ни заголовков (живой тон — post-deploy).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
+      "classification": "PARTIAL",
+      "note": "Детерминированная часть доказана и принята; живая половина (тон, выбор формы/регистра моделью) остаётся post-deploy проверкой и не выдаётся за доказанную."
     },
     {
       "source_id": "L00150",
@@ -1781,9 +2317,48 @@
       "acceptance": "Комплексная спорная тема даёт длинный при необходимости аргументированный ответ с самостоятельными тезисами, уместными подзаголовками и списками — если они помогают; длина не задаётся фиксированным режимом.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "MISSING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №10 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Сложное тело с подзаголовками и «- » проходит байт-в-байт (выбор формы моделью — живой прогон).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
+      "classification": "MISSING",
+      "note": "Детерминированная часть доказана и принята; живая половина (тон, выбор формы/регистра моделью) остаётся post-deploy проверкой и не выдаётся за доказанную."
     },
     {
       "source_id": "L00151",
@@ -1797,9 +2372,48 @@
       "acceptance": "Резкий исторический эталон (фикстура B): прямая полемика и реальный интеллектуальный разбор без шаблонной секции «Критический разнос». Сейчас секция обязательна по дизайну (services/factcheck_prompts.py:484-493, factcheck_renderer.py:184-230).",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "CONFLICTS_WITH_NEW_CONTRACT"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №11 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Канон: прямая полемика, разбор разрыва, без шаблонного раздела; директивы и гейт целы (живой эталон — после деплоя).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
+      "classification": "CONFLICTS_WITH_NEW_CONTRACT",
+      "note": "Детерминированная часть доказана и принята; живая половина (тон, выбор формы/регистра моделью) остаётся post-deploy проверкой и не выдаётся за доказанную."
     },
     {
       "source_id": "L00152",
@@ -1813,9 +2427,48 @@
       "acceptance": "Один и тот же вход при profanity off/occasional/frequent даёт подтверждённый эффективный владельческий контракт: off без мата, остальные режимы не срываются в стерильный заводской голос; наличие одного матерного слова доказательством интеграции не считается.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "PARTIAL"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №12 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Реальный builder: off/occasional/frequent дают ровно один слой своего режима, финальный контракт последним (живой регистр — live).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
+      "classification": "PARTIAL",
+      "note": "Детерминированная часть доказана и принята; живая половина (тон, выбор формы/регистра моделью) остаётся post-deploy проверкой и не выдаётся за доказанную."
     },
     {
       "source_id": "L00153",
@@ -1829,8 +2482,46 @@
       "acceptance": "Style Policy и речевые примеры действительно применяются либо законный пропуск явно объяснён (skip_reason/манифест), а не молча отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №13 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Style Policy рендерится, примеры и законные пропуски названы в манифесте.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "PARTIAL"
     },
     {
@@ -1845,8 +2536,46 @@
       "acceptance": "Одна и та же мысль не повторяется трижды в заголовке, теле и «По утверждениям»: сейчас блок привязок повторяет содержание тела (services/factcheck_renderer.py:421-469).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №14 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Список тезисов появляется только в fallback — тройного повтора нет.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "CONFLICTS_WITH_NEW_CONTRACT"
     },
     {
@@ -1861,8 +2590,46 @@
       "acceptance": "Произвольные авторские абзацы сохраняются, а отправка при динамических заголовках/списках безопасна (корректные чанки, валидный HTML, plain-деградация только сломанного чанка).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №15 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Авторские абзацы сохраняются; escaping <b>/& корректен; чанкинг 59 пунктов; plain-канал работает.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
       "classification": "MISSING"
     },
     {
@@ -1877,9 +2644,48 @@
       "acceptance": "Сложный частичный вердикт не смешивает подтверждение, ошибку и неопределённость ради красивого финала: каждая часть сохраняет свой статус и пробел.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "PARTIAL"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 Re-review (w1-p0-verbalizer-review.md §3), сценарий владельца №16 — PROVEN",
+          "observation": "PROVEN на кандидате P0 (мердж c464dde3): Mixed-заголовок и разные статусы частей сохраняются; inference_gap/counterpoint доступны (синтез моделью — live).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "c56925bb97e545835230dd167003c3e3530290616ce275be3a02ca22a3b61057",
+          "artifact_commit": "408f086a"
+        },
+        {
+          "ref": "w1-p0-verbalizer.md — отчёт Builder полосы P0",
+          "observation": "Реализация и замеры полосы: эффективный канон вербализатора, единая точка сборки речи, адаптивная подача, семантические поля Аналитика.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w1-p0-verbalizer.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e8f70515e36425e0ee2d8ed0008c4303d5d169d2268dd750a5dc9ffe9f0b0881"
+        },
+        {
+          "ref": "services/factcheck_prompts.py @ c464dde3 — канон/директивы полосы P0",
+          "observation": "Кодовая база сценария в дереве мерджа P0 (эффективный вербализатор и одиночный канон не содержат отменённых форм).",
+          "type": "test",
+          "artifact_path": "services/factcheck_prompts.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice01_verbalizer.py @ c464dde3",
+          "observation": "Постоянные тесты полосы (38 проходящих утверждений; дубль имени отмечен ревьюером как F2, на приёмку не влияет).",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice01_verbalizer.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "c464dde3",
+          "artifact_sha256": "8a477f8f51bb0f6f650ed222b1cb5bb9f3061972d5919a2a1bf8052f66fead07"
+        }
+      ],
+      "classification": "PARTIAL",
+      "note": "Детерминированная часть доказана и принята; живая половина (тон, выбор формы/регистра моделью) остаётся post-deploy проверкой и не выдаётся за доказанную."
     },
     {
       "source_id": "L00159",
@@ -1893,9 +2699,48 @@
       "acceptance": "Direct: decision-profile доступен планеру, но в машинном JSON/контексте нет речевого мусора (стиль орфографии, готовые фразы, полный Core как инструкция).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "classification": "PARTIAL"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-ACC-17 — доказано до деплоя",
+          "observation": "Direct: профиль доступен (meta.l1_profile_source=frame, значения в payload), речевого мусора нет — ни прозы Writer, ни тега Persona.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
+      "classification": "PARTIAL",
+      "note": "Детерминированная часть доказана; сам вывод модели остаётся live-проверкой после деплоя."
     },
     {
       "source_id": "L00160",
@@ -1911,7 +2756,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "MISSING"
+      "classification": "MISSING",
+      "note": "P1: НЕ ДОКАЗАНО до деплоя. Доставка данных и канон подтверждены, но решение SILENT принимает модель — нужен живой прогон (инициатива при высокой инициативности/споре) после выката."
     },
     {
       "source_id": "L00161",
@@ -1925,8 +2771,46 @@
       "acceptance": "Во всех публичных decision-L1 действует тот же принцип и один источник характера; неизвестные модули не переписываются вслепую (список затронутых модулей зафиксирован в отчёте).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-ACC-19 — доказано до деплоя",
+          "observation": "Один источник и те же байты во всех публичных decision-L1: R1-R6 плюс мутации (возврат ambient-чтения → 4 failed, подстрочный провенанс → 3 failed).",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "MISSING"
     },
     {
@@ -1942,7 +2826,45 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "P1 Re-review 2 (w2-p1-l1-profile-review.md), FCV-ACC-20 — доказано до деплоя",
+          "observation": "Фон без Core/Expression/профиля — без изменений этой полосой.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "e53c8e73a64dd6ffa9a8214adf54edc2c2fff83cd1878a803c7d03f51a5f1070",
+          "artifact_commit": "565f870d"
+        },
+        {
+          "ref": "w2-p1-l1-profile.md — отчёт Builder полосы P1",
+          "observation": "Механика профиля, провенанс и прогоны полосы.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-fc-voice-01/reports/w2-p1-l1-profile.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+          "artifact_sha256": "6696603c3668fbcc59f9fbeea3cf8483f37eb9fe29015a2af14a783613a1111c"
+        },
+        {
+          "ref": "services/bot_persona.py @ 0eec0996 — пин кадра, провенанс и один профиль",
+          "observation": "`_pinned_frame_for_turn` (четыре условия), `reset_turn_frame`, структурный `decision_profile_source`, один `build_decision_profile_block` на ход.",
+          "type": "test",
+          "artifact_path": "services/bot_persona.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
+        },
+        {
+          "ref": "tests/test_asap_fc_voice_l1_decision_profile.py @ 0eec0996",
+          "observation": "17 контрактных тестов, включая «чужой/устаревший кадр не переиспользуется» и «initiative чата B не получает значения чата A».",
+          "type": "test",
+          "artifact_path": "tests/test_asap_fc_voice_l1_decision_profile.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "0eec0996",
+          "artifact_sha256": "93c51b56d7db81914eb69806c9ceb95933e231669a4941ed7716299ba7c72e89"
+        }
+      ],
       "classification": "DONE_AND_VERIFIED"
     },
     {
@@ -1959,7 +2881,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "PARTIAL"
+      "classification": "PARTIAL",
+      "note": "P1: доказан механизм свежести (пин на ход, проверка владельца и версии, отказ от чужого/устаревшего кадра), но отражение реальных PG/Core-значений со следующего запроса — только live после деплоя."
     },
     {
       "source_id": "L00164",
@@ -1975,7 +2898,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "classification": "PARTIAL"
+      "classification": "PARTIAL",
+      "note": "P0/P1: сборки и provenance доказаны (ER-65 --check, манифест rendered/skip, 17 тестов), но живой снимок record_provider_call / provider_calls — post-deploy проверка; строка остаётся PENDING."
     },
     {
       "source_id": "L00170",
@@ -2073,5 +2997,6 @@
       "evidence": [],
       "classification": "PARTIAL"
     }
-  ]
+  ],
+  "source_note": "\n2026-11-02 (PM, привязка P0/P1): candidate_commit = `5fc2ded5` (релиз-кандидат: из него собирается 2.58.149; прод на момент привязки — 2.58.148 @ `6645ae8d`, выката ещё не было — `deployed_commit` не заполняется). P0: привязано 14 строк сценариев (FCV-ACC-03…16, PROVEN по P0 Re-review); FCV-ACC-01/02 остаются PENDING как NOT PROVEN (живой прогон на фикстурах A/B). P1: привязано 10 строк (FCV-L1-01,02,03,04,05,07,08 и FCV-ACC-17,19,20) по Re-review 2 на `0eec0996`; FCV-L1-06, FCV-ACC-18, FCV-ACC-21, FCV-ACC-22 остаются PENDING до post-deploy. Итого required: 37 VERIFIED / 56 PENDING."
 }
