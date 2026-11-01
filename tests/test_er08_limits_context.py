@@ -655,7 +655,14 @@ class TestL1PackageLosses:
     def test_live_path_emits_reply_cap_axes(self):
         """ER-08-RC §3: шесть осей доставки цитаты проводятся на ОБОИХ L1-сайтах
         (Direct — через meta/plan_meta, инициатива — через существующий канал
-        record_l1_diagnostics), и обе идут в `_l1_usage_plan_meta`."""
+        record_l1_diagnostics), и обе идут в `_l1_usage_plan_meta`.
+
+        Плюс B1-мутация ревью: наличие осей само по себе ничего не доказывает —
+        живой вызов обязан передавать в ``total_chars`` длину ИСХОДНОЙ цитаты, а
+        не срезанного блока. Мутация ``total_chars=len(_l1_reply_text)`` оставляла
+        набор зелёным, поэтому связка проверяется по AST."""
+        import ast
+
         text = (ROOT / "services/direct_chat_service.py").read_text(
             encoding="utf-8")
         keys = ("l1_reply_chars_cap", "l1_line_chars_cap",
@@ -674,6 +681,41 @@ class TestL1PackageLosses:
             if "def _l1_usage_diag" in helper else helper[:4000]
         for key in keys:
             assert key in helper, f"{key} не проходит через _l1_usage_plan_meta"
+
+        # ── B1-мутация: `total_chars` живого вызова ────────────────────────
+        tree = ast.parse(text)
+        plan_fn = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "_plan_direct_l1")
+        stats_call = next(
+            node for node in ast.walk(plan_fn)
+            if isinstance(node, ast.Call)
+            and getattr(node.func, "attr", "") == "reply_delivery_stats")
+        total_kw = next(kw for kw in stats_call.keywords
+                        if kw.arg == "total_chars")
+        value = total_kw.value
+        assert isinstance(value, ast.Name), (
+            "total_chars должен быть привязан к имени исходной длины, а не "
+            "считаться на месте (например len(срезанный блок))")
+        bound = {}
+        for node in ast.walk(plan_fn):
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                    and isinstance(node.targets[0], ast.Name):
+                bound[node.targets[0].id] = node.value
+        source = bound.get(value.id)
+        assert isinstance(source, ast.Call), (
+            f"total_chars={value.id} не привязан к вызову в _plan_direct_l1")
+        func_name = getattr(source.func, "id", "") \
+            or getattr(source.func, "attr", "")
+        assert func_name in ("_reply_total_chars", "_l1_reply_total_chars"), (
+            "total_chars должен считаться от ИСХОДНОЙ цитаты "
+            "(_reply_total_chars), а не от срезанного блока")
+        first_arg = source.args[0] if source.args else None
+        assert isinstance(first_arg, ast.Name) and first_arg.id == "message", (
+            "источник total_chars — само сообщение (reply_to_message)")
+        # Срезанный блок в этой привязке участвовать не может.
+        assert "_l1_reply_text" not in ast.dump(source)
 
     def test_plan_meta_exposes_effective_budget_and_source(self):
         """Durable-наблюдаемость (§8 «контракт замера»): эффективный лимит и
