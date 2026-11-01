@@ -14,7 +14,7 @@
 * Канон: Registry `soul1-w3-1`, заводской набор `f84baaf69559`, нарушения печатей: нет
 * Сеть: blocked (socket.connect/connect_ex бросают); PG: PG-стенд (ConfigLayer): присутствует слой с флагами гейтов; документы владельца character.core/expression/persona отсутствуют намеренно (PG недоступен)
 * Стадий: **27** (боевых 18 + вторичных OFF 9), сегментов сообщений: **58** (system 27 / user 27 / assistant 2 / tool 2)
-* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `564c5430cb73b35c…`
+* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `57f44181d2c894d0…`
 
 ## Боевая карта гейтов
 
@@ -487,9 +487,9 @@ _(один неразмеченный блок)_
 | Файл | Строк | sha256 |
 | --- | --- | --- |
 | `services/chat_prompts.py` | 1613 | `9274fe14bb7b4736…` |
-| `services/direct_chat_service.py` | 13288 | `b574de5e682c0480…` |
+| `services/direct_chat_service.py` | 13339 | `6d66a07f968f3640…` |
 | `services/direct_execution.py` | 1429 | `5c789feba2f284e9…` |
-| `services/direct_l1.py` | 2056 | `fe94ca4f63feb52b…` |
+| `services/direct_l1.py` | 2115 | `a7d8c1d6bc2ff14d…` |
 | `services/factcheck_prompts.py` | 631 | `cc33b7046a08d730…` |
 | `services/factcheck_service.py` | 2414 | `e4dbe97d5c2a12e3…` |
 | `services/llm_client.py` | 2015 | `b79ef1680ad7a0be…` |
