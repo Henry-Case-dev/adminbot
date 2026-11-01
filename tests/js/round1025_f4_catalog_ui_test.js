@@ -52,12 +52,25 @@ const MOD = INDEX.slice(branchStart, branchEnd);
     'a: Quick Access панель должна быть удалена');
   assert.strictEqual(MOD.indexOf('Быстрое управление'), -1,
     'a: «Быстрое управление» отсутствует');
-  // EVOL-027 v0.7 (жёсткое требование владельца): глобальный тумблер —
-  // прямо в карточке каталога, отдельный от чатового override.
-  assert.ok(MOD.indexOf('data-module-global-toggle') >= 0,
-    'a: нет глобального тумблера в карточке');
-  assert.ok(MOD.indexOf('setModuleGlobalState(m') >= 0,
-    'a: глобальный тумблер не вызывает серверную операцию сразу');
+  // §5 v2.1 (решение владельца 26905a89): РОВНО ОДИН переключатель в
+  // карточке; его область берётся из верхнего селектора GLOBAL/чат
+  // (`data-module-scope`), второго (global+chat) тумблера нет.
+  const scopeToggles = (MOD.match(/data-module-scope-toggle/g) || []).length;
+  assert.strictEqual(scopeToggles, 1,
+    'a: в карточке РОВНО один тумблер модуля (data-module-scope-toggle)');
+  assert.strictEqual(MOD.indexOf('data-module-global-toggle'), -1,
+    'a: отдельного «глобального» тумблера в карточке нет');
+  assert.ok(/:data-module-scope="moduleScopeIsGlobal\(\) \? 'global' : 'chat'"/.test(MOD),
+    'a: область тумблера — из верхнего селектора (global/chat)');
+  assert.ok(MOD.indexOf('setModuleScopeState(m, $event.target.checked)') >= 0,
+    'a: тумблер вызывает серверную операцию сразу (в своей области)');
+  // Наследование — компактное ДЕЙСТВИЕ, не второй тумблер.
+  assert.strictEqual((MOD.match(/data-module-override-reset/g) || []).length, 1,
+    'a: возврат к наследованию — одно действие (data-module-override-reset)');
+  assert.ok(MOD.indexOf('Наследовать глобальное') >= 0,
+    'a: подпись действия наследования');
+  assert.ok(MOD.indexOf('data-module-scope-readonly') >= 0,
+    'a: честный read-only статус вместо фиктивного второго тумблера');
 }
 
 // ── (b) Поиск и фильтры §44/§32 ─────────────────────────────────────────
@@ -67,10 +80,16 @@ const MOD = INDEX.slice(branchStart, branchEnd);
   assert.ok(MOD.indexOf('moduleFilterOptions') >= 0, 'b: нет фильтров');
   assert.ok(MOD.indexOf('moduleFilter === f.id') >= 0, 'b: фильтр не активен');
   for (const label of ['Все', 'Включённые', 'Выключенные',
-    'Есть проблемы', 'Избранные']) {
+    'Есть проблемы']) {
     assert.ok(APP_JS.indexOf("label: '" + label + "'") >= 0,
       'b: нет фильтра «' + label + '»');
   }
+  // §7 (v2.1): концепция избранного/закрепления удалена полностью — фильтра
+  // «Избранные» в списке опций нет (и «Закреплено» его не заменяет).
+  assert.strictEqual(APP_JS.indexOf("label: 'Избранные'"), -1,
+    'b: фильтра «Избранные» нет (избранное удалено)');
+  assert.strictEqual(APP_JS.indexOf("label: 'Закреплено'"), -1,
+    'b: «Закреплено» не подменяет избранное');
   assert.ok(MOD.indexOf('v-for="m in filteredModules"') >= 0,
     'b: каталог не использует filteredModules');
   assert.ok(MOD.indexOf('Ничего не найдено') >= 0, 'b: нет empty-state');
@@ -116,12 +135,16 @@ const MOD = INDEX.slice(branchStart, branchEnd);
   assert.ok(cardTag, 'e: нет карточки модуля');
   assert.ok(cardTag[0].indexOf('@click') < 0, 'e: карточка работает как тумблер');
   assert.ok(MOD.indexOf('role="listitem"') >= 0, 'e: нет роли listitem');
-  // aria-label на тумблерах сохранён (глобальный — подписан явно, чатовый —
-  // своим смыслом; L-F11S-1: текст чатового тумблера уточнён в EVOL-027).
-  assert.ok(MOD.indexOf(':aria-label="moduleGlobalToggleLabel(m)"') >= 0,
-    'e: нет aria-label глобального тумблера');
-  assert.ok(MOD.indexOf("'Включить модуль для этого чата: ' + m.title") >= 0,
-    'e: нет aria-label чатового тумблера');
+  // aria-label на ЕДИНСТВЕННОМ тумблере: область (Глобально/В этом чате) +
+  // значение + название модуля — один подписанный контрол (§5 v2.1).
+  assert.strictEqual((MOD.match(/:aria-label="moduleScopeToggleAria\(m\)"/g)
+    || []).length, 1,
+    'e: у единственного тумблера один aria-label (moduleScopeToggleAria)');
+  assert.ok(/moduleScopeToggleAria: function[\s\S]{0,600}'Глобально'[\s\S]{0,300}'В этом чате'/.test(
+    APP_JS.replace(/\n/g, ' ')),
+    'e: aria-label различает область (Глобально / В этом чате)');
+  assert.strictEqual(MOD.indexOf('moduleGlobalToggleLabel'), -1,
+    'e: подписи отдельного «глобального» тумблера больше нет');
   assert.ok(MOD.indexOf('module-card-head') >= 0, 'e: нет верхней строки карточки');
   assert.ok(MOD.indexOf('module-state') >= 0, 'e: нет фактического состояния');
 }
@@ -147,22 +170,25 @@ const MOD = INDEX.slice(branchStart, branchEnd);
 {
   const listCount = (INDEX.match(/class="module-list\b/g) || []).length;
   assert.strictEqual(listCount, 1, 'g: должен быть ровно один .module-list');
-  // панель/карточка/модалка используют одни moduleEnabled/toggleModule
-  // L-F11S-1 (EVOL-027 v0.7, W10): у карточки теперь ДВА разных действия —
-  // глобальное (`setModuleGlobalState`, тот же канонический write-path
-  // persistItems с per_chat:false) и чатовый override (`toggleModule`).
-  const en = (MOD.match(/moduleEnabled\(/g) || []).length;
-  const tg = (MOD.match(/toggleModule\(/g) || []).length;
-  const gtg = (MOD.match(/setModuleGlobalState\(/g) || []).length;
-  assert.ok(en >= 1, 'g: тумблеры не через единый store (' + en + ')');
-  assert.ok(tg >= 1, 'g: чатовое переключение не через единый store (' + tg + ')');
-  assert.ok(gtg >= 1, 'g: глобальное переключение не через store (' + gtg + ')');
-  assert.ok(/setModuleGlobalState: async function/.test(APP_JS),
-    'g: глобальная операция не реализована методом store');
-  const gblock = APP_JS.slice(APP_JS.indexOf('setModuleGlobalState: async function'),
-                              APP_JS.indexOf('moduleHealthView: function'));
-  assert.ok(gblock.indexOf('per_chat: false') >= 0,
-    'g: глобальная запись не идёт своим путём (per_chat:false)');
+  // §5 v2.1: единственный тумблер карточки идёт через ОДИН store —
+  // setModuleScopeState (область фиксирует верхний селектор), который
+  // делегирует в канонические write-path (global / этого чата).
+  const scopeCalls = (MOD.match(/setModuleScopeState\(/g) || []).length;
+  assert.strictEqual(scopeCalls, 1, 'g: в карточке ровно один write-вызов тумблера');
+  assert.strictEqual(MOD.indexOf('setModuleGlobalState('), -1,
+    'g: шаблон не вызывает глобальную операцию напрямую (только через scope)');
+  assert.strictEqual(MOD.indexOf('toggleModule('), -1,
+    'g: шаблон не вызывает чатовую операцию напрямую (только через scope)');
+  assert.ok(/setModuleScopeState: async function/.test(APP_JS),
+    'g: операция области не реализована методом store');
+  const sblock = APP_JS.slice(APP_JS.indexOf('setModuleScopeState: async function'),
+                              APP_JS.indexOf('moduleOverrideResetAvailable: function'));
+  assert.ok(sblock.indexOf('this.moduleScopeIsGlobal()') >= 0 &&
+            sblock.indexOf('setModuleGlobalState(m, enabled)') >= 0 &&
+            sblock.indexOf('setModuleState(this.storeScope(), m.id, enabled)') >= 0,
+    'g: область решает, какой канонический write-path вызвать');
+  assert.strictEqual(APP_JS.indexOf('data-module-scope-toggle'), -1,
+    'g: атрибут тумблера живёт только в index.html');
 }
 
 console.log('MODULE-CATALOG-OK');

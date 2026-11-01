@@ -13,7 +13,9 @@
  * Запуск: node tests/js/evol_w7_nav_test.js   (ожидается маркер JS-UNIT-OK)
  */
 const path = require('path');
+const fs = require('fs');
 const assert = require('assert');
+const ROOT = path.join(__dirname, '..', '..');
 
 let captured = null;
 global.Vue = {
@@ -247,9 +249,33 @@ assert.strictEqual(data.sidebarCollapsed, false,
     api() { return Promise.resolve({}); },
     controlLocked: false,
   });
-  assert.ok(Array.isArray(calls), 'toggleFullscreen существует и вызывается из шапки');
+  assert.deepStrictEqual(calls, [],
+    'toggleFullscreen без политики и SDK — честный no-op (состояние не угадывает)');
   assert.strictEqual(typeof methods.moreMenuFullscreen, 'undefined',
     'меню «…» удалено — отдельного входа ⛶ в меню нет');
+  // Единственный вход ⛶ в разметке и его State-контракт: maximize/minimize
+  // выбирается по факту режима (не «всегда request», не «всегда exit»).
+  const idx = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
+  assert.strictEqual((idx.match(/data-fs-toggle/g) || []).length, 1,
+    '§6.1: в разметке ровно одна кнопка ⛶ (data-fs-toggle)');
+  assert.ok(/:title="isFullscreen \? 'Выйти из полноэкранного режима' : 'На весь экран'"/.test(
+    idx), '⛶ подписан по фактическому режиму (выйти / на весь экран)');
+  const fsCalls = [];
+  global.window.__FullscreenPolicy = {
+    request() { fsCalls.push('request'); },
+    exit() { fsCalls.push('exit'); },
+  };
+  try {
+    methods.toggleFullscreen.call({ isFullscreen: false });
+    assert.deepStrictEqual(fsCalls, ['request'],
+      '⛶ в обычном режиме — maximize (request)');
+    fsCalls.length = 0;
+    methods.toggleFullscreen.call({ isFullscreen: true });
+    assert.deepStrictEqual(fsCalls, ['exit'],
+      '⛶ в полноэкранном режиме — minimize (exit)');
+  } finally {
+    delete global.window.__FullscreenPolicy;
+  }
 }
 
 // ── 6. _focusOpenedDialog: мягкий no-op без диалога ───────────────────────

@@ -70,9 +70,21 @@ const APP_JS = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     'точка входа «Случайность» (карточка сна) на месте');
   assert(INDEX.includes('id="secret-field-tpl"'),
     'шаблон secret-field на месте');
-  // app.js: category-keys гейтов секрет-логики больше нет.
-  assert(!APP_JS.includes("it.category === 'keys'"),
-    "в app.js не должно остаться гейтов `it.category === 'keys'`");
+  // app.js: category-keys гейтов СЕКРЕТ-ЛОГИКИ больше нет. Единственное
+  // законное вхождение литерала — исключение ключей из индекса глобального
+  // поиска (EVOL-037: значение секрета не индексируется); оно проверяется
+  // отдельно ниже и не имеет отношения к рендеру секрет-поля.
+  const keyGates = APP_JS.match(/it\.category === 'keys'/g) || [];
+  assert.strictEqual(keyGates.length, 1,
+    "в app.js допустим ровно один гейт `it.category === 'keys'` (индекс поиска)");
+  const gateIdx = APP_JS.indexOf("it.category === 'keys'");
+  assert.ok(APP_JS.slice(Math.max(0, gateIdx - 700), gateIdx + 120)
+    .indexOf('Секреты/ключи исключены') >= 0,
+    'единственный гейт — исключение ключей из индекса поиска (не рендер секрета)');
+  // Логика «секрет или ключ» в рендере/сохранении секрет-поля отсутствует.
+  assert(!APP_JS.includes("category === 'keys' || ") &&
+         !APP_JS.includes('isSecretItem'),
+    'secret-логика не определяет секрет по категории keys');
 })();
 
 // ── Общий стаб контекста конфиг-модалки ──────────────────────────────────────

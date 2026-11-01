@@ -211,7 +211,10 @@ class TestModulesRework106:
         assert "openModuleWorkspace(m)" in html
         assert "openModuleWindow: function" in js
         assert "activeModule" in html
-        assert "toggleModule(m, $event.target.checked)" in html
+        # §5 v2.1 (26905a89): у карточки ОДИН тумблер, его область берётся
+        # из верхнего селектора GLOBAL/чат (единый write-шов store).
+        assert "setModuleScopeState(m, $event.target.checked)" in html
+        assert (html.count('data-module-scope-toggle')) == 1
         # L-F4-4: точная кнопка-шов (раньше «Параметры» ловилось вакуумно
         # подстрокой «Параметры модуля ещё не загружены»).
         assert ">Настроить</button>" in html

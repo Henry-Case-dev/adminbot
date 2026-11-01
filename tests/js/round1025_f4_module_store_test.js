@@ -10,9 +10,13 @@
  *   (g) overlay не мутирует configItems;
  *   (h) счётчики §45 (неизвестное ≠ выключено, noToggle, uiFlag OFF);
  *   (i) поиск/синонимы §44 («Саммари»/«сводка» → «Сводки чатов»);
- *   (j) избранное в localStorage (save/restore/fail-open, §34–§36);
+ *   (j) избранное/закрепление удалено (§7 v2.1, 26905a89): API, хранилища
+ *       и панели нет; единственный тумблер + scoped-store остаются (l2);
  *   (k) moduleRuntimeNotice по таблице §43;
  *   (l) §72 единый переключатель (три представления = одно состояние);
+ *   (l2) §5 v2.1 (26905a89): ОДИН тумблер, область — из верхнего селектора
+ *       (GLOBAL → только глобальный ключ, чат → только ключ этого чата),
+ *       «Наследовать глобальное» — действие, а не второй тумблер;
  *   (m) openModuleWorkspace → openModuleWindow (§D6);
  *   (o) v6.3 B06.1/B06.2: Summary per_chat (chat-ON при global OFF работает,
  *       notice честного резолва; blocked-семантика осталась у global-only —
@@ -21,7 +25,10 @@
  * Запуск: node tests/js/round1025_f4_module_store_test.js
  */
 const path = require('path');
+const fs = require('fs');
 const assert = require('assert');
+const APP_JS = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8');
+const INDEX = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
 
 let captured = null;
 global.Vue = {
@@ -84,8 +91,6 @@ function mkCtx(overrides) {
     moduleOptimistic: {},
     modulePending: {},
     moduleSaveError: {},
-    moduleQuickpicks: null,
-    moduleQuickpicksOpen: false,
     moduleSearch: '',
     moduleFilter: 'all',
     stickyFailedKeys: [],
@@ -125,7 +130,6 @@ function mkCtx(overrides) {
   });
   Object.assign(ctx, overrides || {});
   ctx.visibleModules = computed.visibleModules.call(ctx);
-  ctx.quickpickCandidates = computed.quickpickCandidates.call(ctx);
   return ctx;
 }
 
@@ -316,26 +320,25 @@ function summaryItem(extra) {
       noToggle: true }]);
     const ctx2 = mkCtx({ configItems: items, modules: synth });
     ctx2.visibleModules = computed.visibleModules.call(ctx2);
-    ctx2.quickpickCandidates = computed.quickpickCandidates.call(ctx2);
     const c2 = computed.moduleCounters.call(ctx2);
     assert.strictEqual(c2.total, 16, 'h: noToggle входит только в «Всего»');
     assert.strictEqual(c2.on, 1, 'h: noToggle не в «Включено»');
     assert.strictEqual(c2.off, 13, 'h: noToggle не в «Выключено»');
     assert.strictEqual(c2.issues, 1, 'h: noToggle не в «Есть проблемы»');
 
-    // uiFlag OFF → mod_images вне витрины, поиска, панели и ВСЕХ счётчиков
+    // uiFlag OFF → mod_images вне витрины, поиска и ВСЕХ счётчиков
     const ctx3 = mkCtx({ configItems: items,
       uiFlag: function (n) { return n !== 'IMAGE_MODULE_CARD_ENABLED'; } });
     ctx3.visibleModules = computed.visibleModules.call(ctx3);
-    ctx3.quickpickCandidates = computed.quickpickCandidates.call(ctx3);
     const c3 = computed.moduleCounters.call(ctx3);
     assert.strictEqual(c3.total, 14, 'h: uiFlag OFF убирает карточку из «Всего» (ASAP 7 F3: база 15 − mod_images)');
     const visIds = ctx3.visibleModules.map(function (m) { return m.id; });
     assert.strictEqual(visIds.indexOf('mod_images'), -1,
       'h: uiFlag OFF — вне витрины');
-    const candIds = ctx3.quickpickCandidates.map(function (m) { return m.id; });
-    assert.strictEqual(candIds.indexOf('mod_images'), -1,
-      'h: uiFlag OFF — вне панели избранного');
+    // §7 (v2.1): панели/списка избранного больше нет — прятать в ней нечего,
+    // поэтому проверяем именно отсутствие API избранного (см. блок j).
+    assert.strictEqual(computed.quickpickCandidates, undefined,
+      'h: computed quickpickCandidates удалён вместе с панелью избранного');
   }
 
   // ── (i) Поиск/синонимы §44 ───────────────────────────────────────────
@@ -369,42 +372,25 @@ function summaryItem(extra) {
     assert.deepStrictEqual(found('нет-такого-модуля-zzz'), [], 'i: пустой результат');
   }
 
-  // ── (j) Избранное в localStorage (§34–§36) ───────────────────────────
+  // ── (j) §7 v2.1 (26905a89): избранное/закрепление удалено полностью ───
+  // Раньше здесь жил localStorage-набор quickpicks. Концепция снята
+  // решением владельца, поэтому проверяем её ОТСУТСТВИЕ (не пустоту):
+  // ни API, ни хранилища, ни панели — при этом единственный тумблер и его
+  // scoped-store остаются (проверяется ниже, блок l2).
   {
-    _storage._s = {};
-    const ctx = mkCtx();
-    methods.initQuickpicks.call(ctx);
-    assert.deepStrictEqual(ctx.moduleQuickpicks,
-      ['mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search'],
-      'j: стартовый набор §34 (fail-open)');
-    assert.ok(methods.isQuickpick.call(ctx, moduleById('mod_summary')),
-      'j: isQuickpick');
-    // Закрепление/открепление НЕ включает модуль (ноль мутаций).
-    methods.toggleQuickpick.call(ctx, moduleById('mod_search'));
-    assert.strictEqual(methods.isQuickpick.call(ctx, moduleById('mod_search')),
-      false, 'j: открепление');
-    assert.strictEqual(writes(ctx).length, 0, 'j: избранное — ноль мутаций');
-    // Сохранение/восстановление
-    const raw = _storage.getItem('adminbot.modules_quickpicks.v1');
-    assert.ok(raw && raw.indexOf('mod_search') < 0, 'j: запись в localStorage');
-    const ctx2 = mkCtx();
-    methods.initQuickpicks.call(ctx2);
-    assert.strictEqual(ctx2.moduleQuickpicks.indexOf('mod_search'), -1,
-      'j: восстановлено из localStorage');
-    // Битый JSON → стартовый набор (fail-open)
-    _storage.setItem('adminbot.modules_quickpicks.v1', '{not json');
-    const ctx3 = mkCtx();
-    methods.initQuickpicks.call(ctx3);
-    assert.ok(ctx3.moduleQuickpicks.length >= 1,
-      'j: битый JSON → fail-open стартовый набор');
-    // Неизвестные id игнорируются
-    _storage.setItem('adminbot.modules_quickpicks.v1',
-      JSON.stringify(['mod_summary', 'ghost', 'mod_summary']));
-    const ctx4 = mkCtx();
-    methods.initQuickpicks.call(ctx4);
-    assert.deepStrictEqual(ctx4.moduleQuickpicks, ['mod_summary'],
-      'j: неизвестные id отброшены, дубли удалены');
-    _storage._s = {};
+    for (const gone of ['initQuickpicks', 'isQuickpick', 'toggleQuickpick',
+      'moduleQuickpicks', 'moduleQuickpicksOpen']) {
+      assert.strictEqual(methods[gone], undefined,
+        'j: метода избранного больше нет: ' + gone);
+      assert.ok(methods[gone] === undefined
+        && computed[gone] === undefined, 'j: и в computed его нет: ' + gone);
+    }
+    assert.strictEqual(APP_JS.indexOf('modules_quickpicks'), -1,
+      'j: localStorage-ключ избранного не читается и не пишется');
+    assert.strictEqual(INDEX.indexOf('module-quick'), -1,
+      'j: панели/пунктов избранного нет в разметке');
+    assert.strictEqual(INDEX.indexOf('Избранн'), -1,
+      'j: подписи «Избранное» нет в разметке каталога');
   }
 
   // ── (k) moduleRuntimeNotice §43 ──────────────────────────────────────
@@ -503,6 +489,56 @@ function summaryItem(extra) {
       configItems: [summaryItem({ value: false, chat_source: 'chat' })] });
     assert.strictEqual(methods.moduleEnabled.call(after, m), false,
       'l: после перезагрузки сохранено');
+  }
+
+  // ── (l2) §5 v2.1 (26905a89): ОДИН тумблер, область — верхний селектор ─
+  // Раньше у карточки было ДВА контрола (global + chat). Теперь одно
+  // действие: setModuleScopeState решает по scopeKind, какой канонический
+  // write-path вызвать; второй контрол и «всегда глобальный» тумблер при
+  // выбранном чате отсутствуют.
+  {
+    const m2 = moduleById('mod_summary');
+    // GLOBAL: одна мутация, только глобальный ключ (per_chat:false).
+    const gctx = mkCtx({ scopeKind: 'global', activeChatId: null,
+      isGlobalAdmin: true, configItems: [summaryItem()] });
+    const gRes = await methods.setModuleScopeState.call(gctx, m2, false);
+    assert.strictEqual(gRes.ok, true, 'l2: глобальная область — ok');
+    assert.strictEqual(writes(gctx).length, 1, 'l2: ровно одна мутация (global)');
+    assert.strictEqual(writes(gctx)[0].items[0].per_chat, false,
+      'l2: в GLOBAL пишется только глобальный ключ');
+    assert.strictEqual(
+      methods.moduleScopeState.call(gctx, m2).hasOverride, false,
+      'l2: в GLOBAL нет понятия чатового override');
+
+    // ЧАТ: одна мутация, только ключ этого чата (per_chat:true).
+    const cctx = mkCtx({ scopeKind: 'chat', activeChatId: -100,
+      configItems: [summaryItem({ chat_source: 'chat' })] });
+    const cRes = await methods.setModuleScopeState.call(cctx, m2, false);
+    assert.strictEqual(cRes.ok, true, 'l2: область чата — ok');
+    assert.strictEqual(writes(cctx).length, 1, 'l2: ровно одна мутация (chat)');
+    assert.strictEqual(writes(cctx)[0].items[0].per_chat, true,
+      'l2: в чате пишется только ключ этого чата');
+    assert.strictEqual(writes(cctx)[0].opts.operationId !== undefined, true,
+      'l2: мутация идёт с operationId (единый write-path)');
+
+    // Подпись области и aria-label берутся из одного источника.
+    assert.strictEqual(methods.moduleScopeLabel.call(
+      Object.assign({}, methods, { scopeKind: 'global' })),
+      'Глобально', 'l2: подпись глобальной области');
+    assert.strictEqual(methods.moduleScopeLabel.call(
+      Object.assign({}, methods, { scopeKind: 'chat' })),
+      'В этом чате', 'l2: подпись области чата');
+    // Второго контрола нет: у карточки один вход, у модуля global-gate —
+    // честный read-only (не «всегда глобальный» тумблер).
+    const gOnly = MODULES.filter(function (x) {
+      return x.runtimeGate === 'global' && !x.noToggle;
+    })[0];
+    assert.ok(gOnly, 'l2: в витрине есть модуль с gate=global');
+    const gctx2 = mkCtx({ scopeKind: 'chat', activeChatId: -100 });
+    assert.strictEqual(methods.moduleScopeToggleAvailable.call(gctx2, gOnly),
+      false, 'l2: у global-only модуля в чате тумблера нет (read-only строка)');
+    assert.strictEqual((INDEX.match(/data-module-scope-toggle/g) || []).length, 1,
+      'l2: тумблер ровно один на шаблон карточки');
   }
 
   // ── (m) refresh/subscribe/openModuleWorkspace ────────────────────────

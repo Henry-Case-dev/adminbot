@@ -48,10 +48,17 @@ class TestCatalogInvariant:
     def test_persona_not_config_tab(self):
         # «Личность» — special-screen, НЕ запись TABS (иначе ломается
         # зеркало «TABS — TAB_RULES»). В TAB_SECTION_ORDER persona нет.
-        assert "id: 'persona'" not in JS
+        # §4.2 v2.1 (26905a89): persona существует как РАЗДЕЛ «Речи и
+        # характера» (SPEECH_AREAS), поэтому пин проверяет именно TABS,
+        # а не любое вхождение идентификатора в файле.
+        assert "id: 'persona'" not in _block(JS, "var TABS = [",
+                                             "var TAB_SECTION_ORDER = [")
         assert "'persona'," not in _block(JS, "var TAB_SECTION_ORDER = [",
                                           "];")
         assert "var TABS = [" in JS
+        speech = _block(JS, "var SPEECH_AREAS = [", "];")
+        assert "id: 'persona'" in speech, \
+            '«Личность» — раздел «Речи и характера» (SPEECH_AREAS)'
 
 
 class TestRoutes:
@@ -316,12 +323,13 @@ class TestStatusLayoutOrderF7:
     ORDER = (
         # F1 (10.25, Human Gate §8.1): «Сводка» → «Аналитика» (route цел).
         ("Аналитика", "hub-card-title block\">Аналитика</span>"),
+        # §6.4 v2.1 (26905a89, решение владельца): один объединённый блок
+        # здоровья — строка ошибок сверху, ниже сегменты Бот → Сердцебиение →
+        # Сервер в ОДНОЙ поверхности (`data-status-block-grid`). Маркер
+        # «Бот» — id сегмента: заголовок берётся из данных (botDisplayName),
+        # литерал «Бот» в разметке больше не стоит.
+        ("Бот", 'id="status-bot"'),
         ("Сердцебиение", "monitoring') }}</span> Сердцебиение</div>"),
-        # Бот: заголовок карточки несёт inline-индикатор здоровья
-        # (`.health-status-line` data-health-inline="bot"), поэтому `</div>`
-        # сразу за словом «Бот» не стоит — маркер без закрывающего тега,
-        # чтобы пин не ломался от добавления индикаторов в тот же заголовок.
-        ("Бот", "smart_toy') }}</span> Бот"),
         ("Сервер", "dns') }}</span> Сервер</div>"),
         ("Мониторинг Интеллекта",
          "psychology') }}</span> Мониторинг Интеллекта</div>"),
@@ -389,11 +397,17 @@ class TestStatusLayoutOrderF7:
         assert '<div class="card p-4 status-logs' not in overs_seg
 
     def test_heartbeat_between_summary_and_bot(self):
+        # §6.4 v2.1 (26905a89): внутри общего блока здоровья сегменты идут
+        # Бот → Сердцебиение → Сервер, а строка ошибок — над ними. Инвариант
+        # «сердцебиение не оторвано от блока здоровья» сохранён, порядок —
+        # санкционированный (Bot|Heartbeat|Server).
         block = _status_block()
         summary = block.index(self.ORDER[0][1])
-        heartbeat = block.index(self.ORDER[1][1])
-        bot = block.index(self.ORDER[2][1])
-        assert summary < heartbeat < bot
+        bot = block.index(self.ORDER[1][1])
+        heartbeat = block.index(self.ORDER[2][1])
+        server = block.index(self.ORDER[3][1])
+        counts = block.index('data-status-counts')
+        assert summary < counts < bot < heartbeat < server
 
     def test_cognition_between_server_and_keys(self):
         block = _status_block()
@@ -424,8 +438,10 @@ class TestStatusLayoutOrderF7:
 
     def test_heartbeat_block_intact(self):
         block = _status_block()
-        heartbeat = block[block.index(self.ORDER[1][1]):
-                          block.index(self.ORDER[2][1])]
+        # §6.4 v2.1: сегменты — Бот (ORDER[1]) → Сердцебиение (ORDER[2]) →
+        # Сервер (ORDER[3]); срез сегмента сердцебиения ограничен соседями.
+        heartbeat = block[block.index(self.ORDER[2][1]):
+                          block.index(self.ORDER[3][1])]
         # hotfix6/C2 (ADR-1025-12 D4): SVG-EKG заменён на Canvas 2D + rAF;
         # legacy-SVG сохранён под v-if/v-else (откат UI_HEARTBEAT_CANVAS_ENABLED).
         for marker in ("hb-wrap", "hb-canvas", "ekg-base", "ekg-trace",

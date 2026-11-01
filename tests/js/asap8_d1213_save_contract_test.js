@@ -288,9 +288,14 @@ const components = (global.__components) || {};
   assert.ok(INDEX.indexOf('data-drawer-trigger') >= 0
     && INDEX.indexOf('v-if="iaV2 && hasDrawer"') >= 0,
     'ASAP-UI-02: навигация на телефоне/планшете — кнопка drawer в шапке');
-  assert.ok(INDEX.indexOf('data-more-trigger') >= 0
-    && INDEX.indexOf('more-menu-root') >= 0,
-    'ASAP-UI-02: кнопка «⋯» + popover-меню второстепенных действий');
+  // §6.1 v2.1 (26905a89): app-level «…» удалён; на его месте РОВНО одна
+  // кнопка ⛶ в шапке (одна точка входа, тот же toggleFullscreen).
+  assert.strictEqual(INDEX.indexOf('data-more-trigger'), -1,
+    '§6.1: кнопки «⋯» (data-more-trigger) больше нет');
+  assert.strictEqual(INDEX.indexOf('more-menu-root'), -1,
+    '§6.1: popover-меню второстепенных действий удалено из разметки');
+  assert.strictEqual((INDEX.match(/data-fs-toggle/g) || []).length, 1,
+    '§6.1: ровно один вход ⛶ (data-fs-toggle) — в шапке');
   assert.strictEqual(computed.mobileTopnavItems, undefined,
     'ASAP-UI-02: mobileTopnavItems удалён');
   assert.strictEqual(computed.bottomNavItems, undefined,

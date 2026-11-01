@@ -17,12 +17,13 @@
  *      второго списка разделов в меню «⋯» нет;
  *   2) постоянной нижней панели НЕТ: ни разметки, ни CSS, ни метрики
  *      `--bottom-nav-h`, ни её компьютедов;
- *   3) меню второстепенных действий («⋯») — popover поверх контента:
- *      role="menu", aria-expanded, Esc/outside-click/focus-return,
- *      body-scroll-lock, z-index выше шапки, профиль/ID области;
+ *   3) §6.1 v2.1 (решение владельца 26905a89): app-level «…» удалён —
+ *      единственная точка входа ⛶ — кнопка в шапке (одна, 44×44, по
+ *      реальному режиму); второго входа (пункт меню) и dev-входа
+ *      диагностики геометрии в prod-разметке нет;
  *   4) мобильная шапка: ОДНА строка, кнопка навигации (menu-глиф, 44×44),
  *      название раздела один раз, аватар+бейдж реальной роли видимы,
- *      ghost-⛶ и троеточие (не сетка из четырёх квадратов);
+ *      ghost-⛶ остаётся в шапке на любой ширине (display:none не возвращён);
  *   5) U02: mobile dropdown «Раздел: [текущая ▾]» — ПОЛНЫЙ список без
  *      «Логи», выбор через существующий oversightSetTab (hash/deep-link не
  *      тронуты), ARIA selected, desktop ≥768 dropdown скрыт.
@@ -160,56 +161,59 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   assert.ok(!/58px/.test(CSS), 'ASAP-UI-02: резерв 58px под рейл удалён');
 }
 
-// ── 3. ASAP-UI-02 §2.3: меню второстепенных действий — popover ────────────
+// ── 3. §6.1 v2.1 (решение владельца): app-level «…» удалён, ⛶ один ───────
+// 26905a89: меню второстепенных действий, дубль идентичности и отдельный
+// пункт fullscreen удалены. Единственная точка входа ⛶ — кнопка в шапке
+// (44×44, иконка по реальному режиму); вход в dev-диагностику геометрии в
+// prod-разметке отсутствует.
 {
-  assert.ok(INDEX.indexOf('class="more-menu-root"') >= 0
-    && INDEX.indexOf('more-menu-backdrop') >= 0
-    && INDEX.indexOf('more-menu-panel') >= 0,
-    'ASAP-UI-02: overlay + панель меню второстепенных действий в разметке');
-  assert.ok(INDEX.indexOf('role="menu"') >= 0,
-    'ASAP-UI-02: ARIA menu');
-  assert.ok(INDEX.indexOf('aria-label="Дополнительные действия"') >= 0,
-    'ASAP-UI-02: доступное имя меню');
-  assert.ok(/aria-haspopup="menu"/.test(INDEX)
-    && INDEX.indexOf(':aria-expanded="moreMenuOpen') >= 0,
-    'ASAP-UI-02: триггер — aria-haspopup + aria-expanded');
-  // Esc: и локально на панели, и глобальный escClose (guard первым).
-  assert.ok(INDEX.indexOf('@keydown="moreMenuOnKeydown($event)"') >= 0,
-    'ASAP-UI-02: Esc/Tab-ловушка на панели');
-  const esc = methods.escClose.toString();
-  assert.ok(esc.indexOf('moreMenuOpen') < esc.indexOf('graphFullVisible'),
-    'ASAP-UI-02: Esc закрывает «⋯» первым (верхний оверлей)');
-  // Outside click: закрытие по клику в backdrop.
-  assert.ok(/more-menu-backdrop[^>]+@click="closeMoreMenu\(\)"/.test(
+  // РОВНО одна кнопка ⛶ и ровно один вход в переключение режима.
+  const fsBtn = (INDEX.match(/class="[^"]*header-fs-btn[^"]*"/g) || []).length;
+  assert.strictEqual(fsBtn, 1,
+    '§6.1: в шапке РОВНО одна кнопка header-fs-btn (второго входа ⛶ нет)');
+  assert.strictEqual((INDEX.match(/data-fs-toggle/g) || []).length, 1,
+    '§6.1: ровно один вход ⛶ (data-fs-toggle)');
+  assert.ok(/v-if="me && fsSlot !== 'hidden'"[^>]*\sdata-fs-toggle/.test(
     INDEX.replace(/\n\s+/g, ' ')),
-    'ASAP-UI-02: outside click (backdrop) закрывает меню');
-  // Focus management: refs триггера/панели + возврат фокуса.
-  assert.ok(INDEX.indexOf('ref="moreMenuTrigger"') >= 0
-    && INDEX.indexOf('ref="moreMenuPanel"') >= 0
-    && methods.closeMoreMenu.toString().indexOf('moreMenuTrigger') >= 0,
-    'ASAP-UI-02: возврат фокуса в кнопку при закрытии');
-  assert.ok(methods.moreMenuOnKeydown.toString().indexOf("'Tab'") >= 0,
-    'ASAP-UI-02: Tab-ловушка внутри панели');
-  // Body-scroll-lock без прыжков — класс на shell, блок main.scroll-area.
-  assert.ok(INDEX.indexOf("moreMenuOpen ? 'more-menu-open' : ''") >= 0,
-    'ASAP-UI-02: класс more-menu-open на .app-shell');
-  assert.ok(/\.app-shell\.more-menu-open\.shell-mobile main\.scroll-area \{ overflow: hidden; \}/.test(CSS),
-    'ASAP-UI-02: body-scroll-lock единственного скроллера');
-  // z-index: выше шапки (40) и drawer (40), ниже модалок (59+).
-  assert.ok(/\.more-menu-root \{ position: fixed; inset: 0; z-index: 55; \}/.test(CSS),
-    'ASAP-UI-02: popover z-index 55 (выше шапки, ниже модалок)');
-  // Панель под шапкой с safe-area и без обрезки (max-height + scroll).
-  assert.ok(/\.more-menu-panel \{[^}]*--header-h/.test(CSS.replace(/\n/g, ' ')),
-    'ASAP-UI-02: панель позиционируется от измеренной высоты шапки');
-  assert.ok(/\.more-menu-panel \{[^}]*max-height:/.test(CSS.replace(/\n/g, ' ')),
-    'ASAP-UI-02: панель не выше viewport (внутренний скролл)');
-  // Профиль/ID области — в меню (ID не в постоянной шапке).
-  assert.ok(INDEX.indexOf('more-menu-profile') >= 0
-    && methods.moreMenuProfileId.toString().indexOf('activeChatId') >= 0,
-    'ASAP-UI-02: ID области доступен в меню второстепенных (профиль)');
-  // Служебное действие (админ-диагностика) остаётся единственным пунктом.
-  assert.ok(INDEX.indexOf('data-fs-geom-diag-entry') >= 0,
-    'ASAP-UI-02: служебные действия доступны из «⋯»');
+    '§6.1: видимость ⛶ решает политика (fsSlot), а не второй пункт меню');
+  assert.ok(/data-fs-toggle[\s\S]{0,300}@click="toggleFullscreen\(\)"/.test(INDEX),
+    '§6.1: ⛶ вызывает тот же toggleFullscreen (один механизм)');
+  assert.strictEqual((INDEX.match(/:aria-pressed="fsAriaPressed"/g) || []).length, 1,
+    '§6.1: состояние ⛶ пробрасывается в aria-pressed');
+  // App-level «…»: ни разметки, ни состояния, ни методов, ни CSS-замка скролла.
+  for (const gone of ['class="more-menu-root"', 'more-menu-backdrop',
+    'more-menu-panel', 'more-menu-profile', 'data-fs-menu-item',
+    'more-menu-open', 'aria-label="Дополнительные действия"']) {
+    assert.strictEqual(INDEX.indexOf(gone), -1,
+      '§6.1: app-level «…» удалён из разметки: ' + gone);
+  }
+  for (const gone of ['moreMenuRoot', 'moreMenuBackdrop', 'moreMenuPanel',
+    'moreMenuProfile', 'moreMenuOpen', 'toggleMoreMenu', 'openMoreMenu',
+    'closeMoreMenu', 'moreMenuProfileId', 'moreMenuFullscreen']) {
+    assert.strictEqual(JS_SRC.indexOf(gone), -1,
+      '§6.1: механика «…» удалена из app.js: ' + gone);
+  }
+  assert.strictEqual(methods.toggleMoreMenu, undefined,
+    '§6.1: метода toggleMoreMenu больше нет');
+  assert.strictEqual(methods.moreMenuFullscreen, undefined,
+    '§6.1: дублирующего входа ⛶ (moreMenuFullscreen) больше нет');
+  assert.strictEqual(data.moreMenuOpen, undefined,
+    '§6.1: состояния moreMenuOpen больше нет');
+  // dev-диагностика геометрии: входа в prod-UI нет, панель — за флагом.
+  assert.strictEqual(INDEX.indexOf('data-fs-geom-diag-entry'), -1,
+    '§6.1: у dev-диагностики геометрии нет входа в prod-разметке');
+  assert.ok(/v-if="fsGeomDevEnabled && fsGeomDiagOpen"/.test(INDEX),
+    '§6.1: панель диагностики рендерится только по внутреннему dev-флагу');
+  // Esc: верхним слоем закрывается палитра, затем dev-панель, затем drawer.
+  const esc = methods.escClose.toString();
+  assert.ok(esc.indexOf('this.paletteOpen') >= 0
+    && esc.indexOf('this.paletteOpen') < esc.indexOf('fsGeomDiagOpen')
+    && esc.indexOf('fsGeomDiagOpen') < esc.indexOf('this.drawerOpen'),
+    '§6.1: Esc закрывает верхний слой первым (палитра → dev-панель → drawer)');
+  // Правило scroll-lock удалённого меню осталось в CSS, но стало инертным:
+  // класс `more-menu-open` не применяется ни в одном месте разметки.
+  assert.strictEqual((INDEX.match(/more-menu-open/g) || []).length, 0,
+    '§6.1: scroll-lock-класс удалённого меню не применяется (правило инертно)');
 }
 
 // ── 4. ASAP-UI-02 §2.2: мобильная шапка — одна строка, всё обязательное ────
@@ -233,16 +237,16 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     'ASAP-UI-02: на desktop постоянный sidebar, drawer не нужен');
   assert.ok(INDEX.indexOf('aria-label="Открыть навигацию"') >= 0,
     'ASAP-UI-02: доступное имя кнопки навигации');
-  // Иконки: menu у навигации, троеточие у «второстепенных» (не grid_view).
+  // Иконки: menu у навигации; «второстепенных действий» в шапке больше нет
+  // (единственная иконочная кнопка-действие — ⛶, см. блок 3).
   assert.ok(/data-drawer-trigger[\s\S]{0,400}class="ui-ic"/.test(INDEX),
     'ASAP-UI-02: кнопка навигации использует единый icon-контракт (ui-ic)');
-  assert.ok(INDEX.indexOf('data-more-trigger') >= 0
-    && /data-more-trigger[\s\S]{0,400}class="ui-ic"/.test(INDEX),
-    'ASAP-UI-02: «второстепенные действия» — троеточие (ui-ic)');
-  const moreTag = INDEX.slice(INDEX.indexOf('data-more-trigger') - 400,
-    INDEX.indexOf('data-more-trigger') + 900);
-  assert.ok(moreTag.indexOf('grid_view') < 0,
-    'ASAP-UI-02: «⋯» больше не подменяется сеткой из четырёх квадратов');
+  assert.strictEqual(INDEX.indexOf('data-more-trigger'), -1,
+    '§6.1: кнопки «⋯» (data-more-trigger) в шапке больше нет');
+  // Знак единственной иконочной кнопки-действия — SVG-⛶ (не PUA-троеточие
+  // и не сетка из четырёх квадратов): два состояния, оба через class="fs-ic".
+  assert.strictEqual((INDEX.match(/class="fs-ic"/g) || []).length, 2,
+    '§6.1: у ⛶ ровно две иконки-состояния (войти/выйти, обе class="fs-ic")');
   assert.ok(/\.header-nav-btn,\s*\n?\.header-more-btn \{[^}]*min-width: 44px/.test(
     CSS.replace(/\r/g, '')), 'ASAP-UI-02: hit-цель иконочных кнопок ≥44×44');
   assert.ok(/\.ui-ic \{[^}]*width: 20px;[\s\S]{0,120}height: 20px;/.test(CSS),
@@ -263,14 +267,22 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
   assert.ok(CSS.indexOf(
     '.app-shell.shell-mobile .scope-trigger .scope-name { display: none; }') < 0,
     'ASAP-UI-02: имя выбранного чата не скрывается на 320–419');
-  // Микро-фикс F1 (31.10.2026): ⛶ уезжает в «⋯» не только на ≤419, а до
-  // 519 px включительно — на 420 кнопка возвращалась в шапку (+44 px) и
-  // выдавливала имя раздела в 0 px.
-  assert.ok(/@media \(max-width: 519px\) \{[\s\S]{0,900}\.app-shell\.shell-mobile header\.header-sticky\.header-compact-v2 \.header-fs-btn \{\s*\n\s*display: none;/.test(CSS),
-    'ASAP-UI-02: на ≤519 ghost-⛶ не занимает место в шапке');
-  assert.ok(INDEX.indexOf('data-fs-menu-item') >= 0
-    && methods.moreMenuFullscreen.toString().indexOf('toggleFullscreen') >= 0,
-    'ASAP-UI-02: «на весь экран» доступно из «⋯» тем же механизмом');
+  // Микро-фикс F1 (31.10.2026) отменён решением владельца (§6.1 v2.1):
+  // ⛶ больше НЕ уезжает в «…» — меню нет, и кнопка остаётся в шапке на
+  // любой ширине. Правило display:none для неё не возвращено ни в одной
+  // точке CSS (проверяем не только ≤519: любое правило с display:none).
+  assert.ok(!/\.header-fs-btn[^{}]*\{[^}]*display:\s*none/.test(
+    CSS.replace(/\n/g, ' ')),
+    '§6.1: у ⛶ нет правила display:none (кнопка видима в шапке на любом ширине)');
+  assert.strictEqual((CSS.match(
+    /\.app-shell\.shell-mobile \.header-fs-btn \{ display: inline-flex; \}/g)
+    || []).length, 1,
+    '§6.1: на мобильном shell ⛶ явно остаётся видимым (inline-flex)');
+  assert.ok(/\.header-fs-btn \{[^}]*min-width: 44px[^}]*min-height: 44px/.test(
+    CSS.replace(/\n/g, ' ')),
+    '§6.1: tap-цель ⛶ ≥44×44 (единственная иконочная кнопка шапки)');
+  assert.strictEqual(INDEX.indexOf('data-fs-menu-item'), -1,
+    '§6.1: пункта «на весь экран» в меню больше нет (data-fs-menu-item)');
   // Идентификация: имя скрыто, БЕЙДЖ РОЛИ виден (прежнее правило прятало оба).
   assert.ok(/\.app-shell\.shell-mobile \.header-user-name \{ display: none; \}/.test(CSS),
     'ASAP-UI-02: имя пользователя скрыто (полное — в title/«⋯»)');
@@ -360,14 +372,18 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
 
 // ── 6. Состояния оверлеев — в data(), методов достаточно ──────────────────
 {
-  assert.strictEqual(data.moreMenuOpen, false, 'U01.4: moreMenuOpen в data');
+  assert.strictEqual(data.moreMenuOpen, undefined,
+    '§6.1: состояния moreMenuOpen в data больше нет (меню удалено)');
   assert.strictEqual(data.oversightMobileOpen, false,
     'U02: oversightMobileOpen в data');
-  for (const m of ['toggleMoreMenu', 'openMoreMenu', 'closeMoreMenu',
-    'moreMenuOnKeydown', 'moreMenuProfileId', 'moreMenuFullscreen',
-    'drawerOnKeydown',
+  for (const m of ['drawerOnKeydown',
     'oversightMobileToggle', 'oversightMobileClose', 'oversightMobilePick']) {
     assert.strictEqual(typeof methods[m], 'function', 'метод: ' + m);
+  }
+  // Удалённая механика «…» не должна вернуться под теми же именами.
+  for (const gone of ['toggleMoreMenu', 'openMoreMenu', 'closeMoreMenu',
+    'moreMenuProfileId', 'moreMenuFullscreen']) {
+    assert.strictEqual(methods[gone], undefined, 'метод удалён: ' + gone);
   }
   // Ревью F3: Tab-ловушка drawer подключена к разметке панели.
   assert.ok(INDEX.indexOf('@keydown="drawerOnKeydown($event)"') >= 0,
@@ -377,9 +393,12 @@ const JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
     'ASAP-UI-02: глобальный Esc знает про открытый drawer');
   assert.ok(methods.goBack.toString().indexOf('this.drawerOpen') >= 0,
     'ASAP-UI-02: Back закрывает открытый drawer');
-  // shellNavTo закрывает «Ещё» (навигация из любого пункта).
-  assert.ok(methods.shellNavTo.toString().indexOf('closeMoreMenu') >= 0,
-    'U01.4: shell-переход закрывает меню «Ещё»');
+  // shellNavTo закрывает единственный оверлей навигации — drawer.
+  const navTo = methods.shellNavTo.toString();
+  assert.ok(navTo.indexOf('closeDrawer()') >= 0,
+    'shellNavTo: shell-переход закрывает drawer');
+  assert.strictEqual(navTo.indexOf('MoreMenu'), -1,
+    '§6.1: shell-переход больше не закрывает удалённое меню «…»');
 }
 
 console.log('W2-SHELL-UNIT-OK');

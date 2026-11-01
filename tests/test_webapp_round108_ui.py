@@ -115,7 +115,13 @@ class TestEmojiToIcons108:
 
 class TestGlobalBadge108:
     def test_single_scope_label(self):
-        assert HTML.count("{{ scopeLabel }}") == 1
+        # Инвариант round108 — ОДИН ярлык области в ШАПКЕ (без внешнего дубля).
+        # §6.4 v2.1 (26905a89): ярлык встречается ещё в палитре поиска и в
+        # шапке карточки модуля — это read-only подписи, а не второй селектор.
+        header = HTML[:HTML.index("</header>")]
+        assert header.count("{{ scopeLabel }}") == 1
+        assert header.count('class="scope-trigger') == 1
+        assert HTML.count('class="scope-trigger') == 1
 
     def test_outer_badge_removed(self):
         assert 'class="badge badge-muted shrink-0">{{ scopeLabel }}' not in HTML

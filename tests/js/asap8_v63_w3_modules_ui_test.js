@@ -67,6 +67,8 @@ global.Chart = function () {};
 global.fetch = async function () { throw new Error('no fetch in test'); };
 
 require(path.join(__dirname, '..', '..', 'web', 'app.js'));
+const fs = require('fs');
+const INDEX = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'index.html'), 'utf8');
 assert(captured, 'Vue.createApp должен быть вызван');
 const data = captured.data();
 const methods = captured.methods;
@@ -416,10 +418,28 @@ function writes(ctx) {
     const settingsGroups = methods._workspaceGroupsFor.call(
       wsCtx, ini, 'settings');
     const limitsGroups = methods._workspaceGroupsFor.call(wsCtx, ini, 'limits');
-    assert.ok(settingsGroups.some(function (g) {
-      return g.id === 'flags_intent'
-        && g.items.some(function (i) { return i.key === 'initiative.enabled'; });
-    }), 'B01.4: per-chat гейт «Инициатива в этом чате» на «Основных настройках»');
+    // §5 v2.1 (26905a89): per-chat гейт «Инициатива в этом чате» рендерится
+    // ОДНОЙ собственной строкой карточки (data-initiative-per-chat) с
+    // подписью области; в generic-сетке настроек того же ключа НЕТ —
+    // иначе на один ключ было бы два пишущих контрола.
+    const settingsKeys = [].concat.apply([], settingsGroups.map(function (g) {
+      return (g.items || []).map(function (i) { return i.key; });
+    }));
+    assert.strictEqual(settingsKeys.indexOf('initiative.enabled'), -1,
+      'B01.4: ключ гейта не дублируется в generic-сетке «Основных настроек»');
+    assert.ok(settingsGroups.some(function (g) { return g.id === 'flags_intent'; }),
+      'B01.4: группа flags_intent остаётся на «Основных настройках»');
+    assert.strictEqual((INDEX.match(/data-initiative-per-chat/g) || []).length, 1,
+      'B01.4: per-chat гейт — ровно одна собственная строка в карточке');
+    assert.ok(INDEX.indexOf('Инициатива в этом чате') >= 0,
+      'B01.4: подпись гейта «Инициатива в этом чате» на месте');
+    assert.ok(/data-initiative-per-chat[\s\S]{0,1200}:data-cfg-key="initiativePerChatItem\.key"/.test(
+      INDEX), 'B01.4: строка гейта пишет тот же ключ (единый writer)');
+    // Подпись области: в GLOBAL — приглашение выбрать чат, в чате — «только
+    // для выбранного чата, глобальные чаты не меняются» (наследование явно).
+    assert.ok(/data-initiative-per-chat[\s\S]{0,900}scopeKind === 'global'[\s\S]{0,400}выберите чат[\s\S]{0,400}глобальные чаты не меняются/.test(
+      INDEX),
+      'B01.4: подпись гейта различает область и явно говорит про наследование');
     assert.ok(limitsGroups.some(function (g) {
       return g.id === 'limits_intent' && g.items.some(function (i) {
         return i.key === 'initiative.frequency_profile';
@@ -431,9 +451,11 @@ function writes(ctx) {
       });
     }), 'B01.4: тонкие лимиты рядом с профилем');
     // Витрина: мастер initiative_enabled — global (пер-чат гейт — отдельный
-    // ключ внутри настроек, B01), поэтому read-only на чате честен.
+    // ключ initiative.enabled своей строкой), поэтому read-only на чате честен.
     assert.strictEqual(ini.runtimeGate, 'global',
       'B01.4: мастер Инициативы global; per-chat — initiative.enabled');
+    assert.ok(INDEX.indexOf('data-initiative-master-link') >= 0,
+      'B01.4: мастер-тумблер живёт в каталоге (ссылка «К каталогу»)');
   }
 
   console.log('W3-MODULES-UI-OK');

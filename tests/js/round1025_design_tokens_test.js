@@ -268,7 +268,22 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     'SVG: PNG-карта линзы inline (data:, CSP img-src; feImage по внешнему URL в Chromium не резолвится — зафиксировано измерением сдвига)');
   assert.ok(INDEX.indexOf('glass-probe.js') >= 0,
     'W2-GLASS: render-probe загружается до app.js');
-  assert.ok(INDEX.indexOf('data-glass="a"') >= 0, 'allow-list: data-glass="a"');
+  // §6.4 v2.1 (26905a89): hero-карточки с data-glass="a" в разметке больше
+  // нет — её заменил ОДИН объединённый блок здоровья (`status-health`,
+  // три сегмента bot|heartbeat|server в одной поверхности). Tier-A CSS
+  // остаётся рабочим правилом (проверяется ниже), просто без потребителя
+  // в prod-разметке.
+  assert.strictEqual((INDEX.match(/data-glass="a"/g) || []).length, 0,
+    'allow-list: hero data-glass="a" удалён из prod-разметки (§6.4 v2.1)');
+  assert.strictEqual((INDEX.match(/data-status-health(?![\w-])/g) || []).length, 1,
+    'allow-list: ровно один объединённый блок здоровья (data-status-health)');
+  assert.strictEqual(
+    (INDEX.match(/data-status-seg="(bot|heartbeat|server)"/g) || []).length, 3,
+    'allow-list: блок здоровья — три сегмента bot|heartbeat|server');
+  assert.ok(INDEX.indexOf('class="card p-4 status-block status-health sg-12"') >= 0,
+    'allow-list: поверхность status-health — та же glass-карточка канона');
+  assert.ok(/\[data-glass="a"\]\[data-glass-tier="a"\]\s*\{/.test(CSS),
+    'allow-list: правило Tier-A сохранено в CSS (opt-in, без потребителя)');
   assert.ok(INDEX.indexOf('data-glass="c"') >= 0, 'deny-list: data-glass="c"');
 }
 

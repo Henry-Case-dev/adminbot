@@ -699,19 +699,28 @@ async function main() {
       'dev-API диагностики сохранён в объекте политики (F1 починен там же)');
     console.log('4.5 UI-заглушек нет, dev-API сохранён OK');
 
-    // 4.6 FS-HOTFIX FOLLOW-UP §8: admin-диагностика геометрии — off by
-    // default, admin-гейт, копирование одним действием, без секретов.
-    const diagIdx = indexHtml.indexOf('data-fs-geom-diag-entry');
-    assert.ok(diagIdx >= 0 && indexHtml.includes('data-fs-geom-diag') &&
+    // 4.6 FS-HOTFIX FOLLOW-UP §8 + §6.1 v2.1 (26905a89): админ-диагностика
+    // геометрии — dev-only. В prod-UI точки входа НЕТ (меню «…» удалено):
+    // панель рендерится только при внутреннем флаге (?fs_geom_dev=1 /
+    // localStorage adminbot.fs_geom_dev=1), копирование — одним действием,
+    // секретов в снимке нет.
+    assert.strictEqual(indexHtml.indexOf('data-fs-geom-diag-entry'), -1,
+      'index.html: входа в админ-диагностику в prod-разметке нет (§6.1 v2.1)');
+    assert.ok(indexHtml.includes('data-fs-geom-diag') &&
               indexHtml.includes('data-fs-geom-diag-copy') &&
               indexHtml.includes('data-fs-safe-overlay'),
-      'index.html: админ-диагностика (вход/панель/копирование/оверлей) есть');
-    assert.ok(indexHtml.slice(Math.max(0, diagIdx - 400), diagIdx + 200)
-                .includes('isGlobalAdminEffective'),
-      'вход диагностики — admin-гейт (isGlobalAdminEffective)');
-    assert.ok(indexHtml.includes('v-if="fsGeomDiagOpen"') &&
-              indexHtml.includes('v-if="fsGeomOverlay"'),
-      'панель/оверлей закрыты по умолчанию (v-if на состоянии)');
+      'index.html: панель/копирование/оверлей диагностики сохранены (dev-путь)');
+    const diagIdx = indexHtml.indexOf('data-fs-geom-diag>');
+    assert.ok(diagIdx >= 0 &&
+              indexHtml.slice(Math.max(0, diagIdx - 260), diagIdx)
+                .includes('v-if="fsGeomDevEnabled && fsGeomDiagOpen"'),
+      'панель диагностики открывается только по внутреннему dev-флагу');
+    assert.ok(/fsGeomDevEnabled: function[\s\S]{0,400}fs_geom_dev=1/.test(appJs) &&
+              /fs_geom_dev'\) === '1'/.test(appJs),
+      'app.js: dev-флаг диагностики читается только из URL/localStorage');
+    assert.ok(indexHtml.includes('v-if="fsGeomDevEnabled && fsGeomDiagOpen"') &&
+              indexHtml.includes('v-if="fsGeomDevEnabled && fsGeomOverlay"'),
+      'панель/оверлей закрыты по умолчанию (v-if на dev-флаге + состоянии)');
     assert.ok(/buildFsGeomText: function/.test(appJs) &&
               /copyFsGeomDiag: function/.test(appJs),
       'app.js: снимок собирается точечно и копируется одним действием');

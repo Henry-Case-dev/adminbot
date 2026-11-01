@@ -154,7 +154,26 @@ assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
   for (const gone of ['#/ai/memory', '#/ai/lore', '#/ai/relations']) {
     assert.ok(aiRoutes.indexOf(gone) < 0, '«ИИ» больше не содержит ' + gone);
   }
-  assert.ok(aiRoutes.indexOf('#/ai/persona') >= 0, '«Личность» осталась в «ИИ»');
+  // §4.2 v2.1 / EVOL-028 v0.8: «Личность» — НЕ карточка хаба «ИИ». Она
+  // живёт вкладкой «Личность» внутри «Речи и характера» (#/ai/speech), а
+  // старый адрес #/ai/persona — deep-link в её секцию #speech-persona.
+  assert.ok(aiRoutes.indexOf('#/ai/persona') < 0,
+    '«Личность» больше не карточка «ИИ» (один редактор — «Речь и характер»)');
+  assert.strictEqual(computed.hubSpeechEntry.call(
+    { route: '#/ai', hubCards: { cards: [] }, canViewTab() { return true; } }),
+    true, 'на хабе «ИИ» есть явная дверь «Речь и характер»');
+  // Deep-link: открывает именно вкладку личности, а не второй экран.
+  const personaCtx = {
+    route: '#/', iaV2: true, me: { role_name: 'admin' },
+    canViewTab() { return true; }, activeTab: 'status', accessOpen: null,
+    tabs: captured.data().tabs,
+    syncBackButton() {}, setTab(id) { this.activeTab = id; },
+  };
+  methods.applyRoute.call(personaCtx, '#/ai/persona');
+  assert.strictEqual(personaCtx.activeTab, 'speech',
+    'deep-link #/ai/persona открывает вкладку «Речь и характер»');
+  assert.strictEqual(personaCtx.speechSection, 'persona',
+    'deep-link выбирает секцию «Личность» (#speech-persona)');
 }
 
 // ── breadcrumb (UPD §8.4): текущий раздел + путь назад ───────────────────
@@ -173,15 +192,23 @@ assert.strictEqual(applyOnce(''), '#/', 'пустой hash → #/');
 
 // ── M-1 (Scanner): подпись special-screen/подстраниц (не сырой hash) ──────
 {
-  assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/ai/persona'),
-    'Личность и стиль', 'M-1: #/ai/persona → человекочитаемая подпись');
+  // §4.2 v2.1 / EVOL-028 v0.8: единственный редактор личности — «Речь и
+  // характер» (#/ai/speech). Именно у него человекочитаемая подпись.
+  assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/ai/speech'),
+    'Речь и характер', 'M-1: #/ai/speech → человекочитаемая подпись');
   assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/memory/rag'),
     'Настройки памяти', 'M-1: подстраница Памяти — из карточки хаба');
   const bc = computed.breadcrumb.call(
-    { route: '#/ai/persona', iaV2: true, _routeLabel: methods._routeLabel });
-  assert.strictEqual(bc.current, 'Личность и стиль',
-    'M-1: breadcrumb «Личность» без сырого #/ai/persona');
+    { route: '#/ai/speech', iaV2: true, _routeLabel: methods._routeLabel });
+  assert.strictEqual(bc.current, 'Речь и характер',
+    'M-1: breadcrumb «Речи и характера» без сырого hash');
   assert.strictEqual(bc.mid.label, 'ИИ', 'M-1: родитель — «ИИ»');
+  // Старый адрес #/ai/persona — рабочий алиас той же вкладки (второго
+  // редактора нет). Свой подписи-карточки у него нет: подпись падает на
+  // маршрут — это известный текстовый зазор, навигацию он не ломает
+  // (проверено выше через applyRoute: activeTab=speech, speechSection=persona).
+  assert.strictEqual(methods._routeLabel.call({ iaV2: true }, '#/ai/persona'),
+    '#/ai/persona', 'M-1: алиас #/ai/persona не имеет отдельной подписи');
 }
 
 // ── shell-режимы по ширине: sidebar строго ≥1200 ─────────────────────────

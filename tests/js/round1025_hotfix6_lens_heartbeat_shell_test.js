@@ -121,8 +121,18 @@ function firstPartyWeb() {
     'A2/D13: нижняя навигация и шторка удалены');
   assert.ok(/header class="main-header header-sticky[^>]*\n[^>]*data-glass="shell"/.test(INDEX),
     'A2: шапка в shell-слое');
-  assert.ok(INDEX.indexOf('data-glass="a"') >= 0,
-    'A: контентный allow-list A сохранён');
+  // §6.4 v2.1 (26905a89): hero-карточка с data-glass="a" удалена из
+  // разметки; контентным «стеклянным» блоком стала ОДНА объединённая
+  // поверхность здоровья (status-health) с тремя сегментами. Правило
+  // Tier-A остаётся в CSS как opt-in (проверяется выше, стр. tierA).
+  assert.strictEqual((INDEX.match(/data-glass="a"/g) || []).length, 0,
+    'A: hero data-glass="a" удалён из prod-разметки (§6.4 v2.1)');
+  assert.strictEqual((INDEX.match(/data-status-health(?![\w-])/g) || []).length, 1,
+    'A: контентная поверхность здоровья — ровно одна (status-health)');
+  assert.strictEqual(
+    (INDEX.match(/data-status-seg="(bot|heartbeat|server)"/g) || []).length, 3,
+    'A: сегменты bot|heartbeat|server в одной поверхности');
+  assert.ok(tierA, 'A: правило Tier-A (backdrop url(#lg-lens)) сохранено в CSS');
   // Перф-кап + override. W2-GLASS U08.3d: дефолт 3 (максимум 1–3 hero).
   assert.strictEqual(methods._lensMaxNodes.call({ me: null }), 3,
     'A: дефолт UI_LENS_MAX_NODES=3 (W2-GLASS U08.3d)');
@@ -350,9 +360,17 @@ function firstPartyWeb() {
   // Legacy: обёртка display:contents → однорядный вид без дублирования.
   assert.ok(/\.header-scope-row \{ display: contents; \}/.test(CSS),
     'D: legacy display:contents (сохранение раскладки)');
-  // Селектор области — ровно один экземпляр (F3-инвариант).
-  assert.strictEqual((INDEX.match(/\{\{ scopeLabel \}\}/g) || []).length, 1,
-    'F3: один селектор области (без дублирования)');
+  // Селектор области — ровно один интерактивный триггер (F3-инвариант):
+  // в шапке не должно появиться второго места выбора области. Прочие
+  // `{{ scopeLabel }}` в разметке — read-only подписи (палитра, карточка
+  // модуля), а не селекторы.
+  const headerHtml = INDEX.slice(0, INDEX.indexOf('</header>'));
+  assert.strictEqual((headerHtml.match(/class="scope-trigger/g) || []).length, 1,
+    'F3: один селектор области в шапке (без дублирования)');
+  assert.strictEqual((headerHtml.match(/\{\{ scopeLabel \}\}/g) || []).length, 1,
+    'F3: подпись области в шапке ровно одна');
+  assert.strictEqual((INDEX.match(/class="scope-trigger/g) || []).length, 1,
+    'F3: интерактивный селектор области ровно один на приложение');
   // Резерв высоты: токен + scroll-padding.
   assert.ok(APP_JS.indexOf('_initHeaderHeight') >= 0, 'D: _initHeaderHeight');
   assert.ok(/setProperty\('--header-h'/.test(APP_JS), 'D: --header-h из замера');
