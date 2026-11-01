@@ -165,9 +165,11 @@ def build_service():
     class Stub:
         _render_current_question = D._render_current_question
 
-        def _l1_reply_block(self, message):
+        def _l1_reply_block(self, message, budget_tokens=None):
             # P0 corrective 25.10.2026 (F1): метод инстанса (alias по uid).
-            return D._l1_reply_block(self, message)
+            # ER-08: та же сигнатура, что у продакшн-метода (кап цитаты из
+            # бюджета пакета L1).
+            return D._l1_reply_block(self, message, budget_tokens=budget_tokens)
 
         _l1_speech_hints = D._l1_speech_hints
         _build_speech_understanding = D._build_speech_understanding

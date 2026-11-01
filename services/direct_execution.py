@@ -57,6 +57,7 @@ from services.tool_loop import (
     _guard_on,
     _record,
     _topo_order,
+    cost_limited_tool,
     normalize_tool_plan,
 )
 
@@ -85,11 +86,12 @@ REASON_ADAPTIVE_NO_TOOLS = "adaptive_no_tools"
 #: требует read-only проверку — mode переопределён (не молчаливо).
 REASON_EVIDENCE_REQUIRED = "evidence_required_overrides_plan"
 
-# ── Границы adaptive-цепочки (§18C.7: max steps/time/tokens/cost) ───────────
+# ── Границы adaptive-цепочки (§18C.7: max steps/tokens/cost) ───────────────
 # Числа — код-дефолты; env-overrides читаются per-call (см. ниже). При
 # добавлении ClassVar в config.Settings getattr-приоритет у Settings.
+# ER-08: отдельной оси «время» у оркестратора больше нет — используется общий
+# дедлайн tool-цепочки (см. `orchestrator_max_time_seconds`).
 ORCHESTRATOR_MAX_STEPS = 4
-ORCHESTRATOR_MAX_TIME_SECONDS = 90.0
 ORCHESTRATOR_MAX_TOTAL_TOKENS = 6000
 ORCHESTRATOR_MAX_METERED_CALLS = 4
 ORCHESTRATOR_QUERY_CHARS = 800
@@ -133,8 +135,40 @@ def orchestrator_max_steps() -> int:
 
 
 def orchestrator_max_time_seconds() -> float:
-    return float(_limit("DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS",
-                        int(ORCHESTRATOR_MAX_TIME_SECONDS)))
+    """Дедлайн adaptive-цепочки.
+
+    ER-08 (02.11.2026): аудит дедлайнов показал рассогласование — прежние 90 с
+    обрывали adaptive-цепочку РАНЬШЕ, чем tool-цепочку (360 с) и собственные
+    per-tool таймауты (search 25 + article 45 = 70 с на один шаг evidence):
+    легитимный план из 3–4 read-only шагов не успевал. Теперь дефолт — тот же
+    резолв, что у tool-цепочки (`MCA_TOOL_CHAIN_TIMEOUT_SECONDS`, иначе
+    `TOOL_CHAIN_TIMEOUT_SECONDS`); SLA хода не увеличен. Явный операторский
+    override `DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS` (settings/env) сохранён."""
+    try:
+        declared = getattr(settings, "DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS", None)
+        if declared is not None:
+            value = float(declared)
+            if value > 0:
+                return value
+    except (TypeError, ValueError):
+        pass
+    try:
+        env_raw = os.getenv("DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS")
+        if env_raw:
+            value = float(env_raw)
+            if value > 0:
+                return value
+    except (TypeError, ValueError):
+        pass
+    try:
+        resolved = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0)
+                         or 0)
+        if resolved > 0:
+            return resolved
+    except (TypeError, ValueError):
+        pass
+    from services.tool_loop import TOOL_CHAIN_TIMEOUT_SECONDS
+    return float(TOOL_CHAIN_TIMEOUT_SECONDS)
 
 
 def orchestrator_max_total_tokens() -> int:
@@ -445,23 +479,33 @@ class ChainBudget:
                  max_total: int | None = None,
                  max_metered: int | None = None):
         from services.tool_loop import (
-            TOOL_CHAIN_TIMEOUT_SECONDS, TOOL_CHAIN_MAX_METERED_CALLS,
-            TOOL_MAX_TOTAL_CALLS, _chain_limits_enabled,
+            _chain_timeout_seconds, _max_metered_calls, _max_total_calls,
+            _chain_limits_enabled,
         )
         self.limits_on = _chain_limits_enabled()
+        # ER-08: тот же резолв, что у tool-цепочки (`MCA_TOOL_CHAIN_TIMEOUT_
+        # SECONDS` → 360 с), иначе смена настройки действовала только на одном
+        # из двух путей исполнения. Значение SLA не меняется.
         self.deadline = (time.monotonic() + float(
-            timeout_seconds or TOOL_CHAIN_TIMEOUT_SECONDS)
+            timeout_seconds if timeout_seconds and timeout_seconds > 0
+            else _chain_timeout_seconds())
             if self.limits_on else None)
-        self.max_total = int(max_total or TOOL_MAX_TOTAL_CALLS)
-        self.max_metered = int(max_metered or TOOL_CHAIN_MAX_METERED_CALLS)
+        self.max_total = int(max_total or _max_total_calls())
+        self.max_metered = int(max_metered or _max_metered_calls())
         self.total_calls = 0
         self.metered_calls = 0
+        # ER-08: «денежный» счётчик (лимит применяется только к нему;
+        # read-only проверка фактов им не режется).
+        self.cost_calls = 0
         self.same_calls: dict[str, int] = {}
         self.last_by_fp: dict[str, str] = {}
         self.last_info_by_fp: dict[str, dict] = {}
 
     def limit_skip(self, *, metered: bool) -> str:
-        """§17-причина мягкого пропуска ("" — лимитов нет)."""
+        """§17-причина мягкого пропуска ("" — лимитов нет).
+
+        ``metered`` — «денежный» класс вызова (:func:`tool_loop.
+        cost_limited_tool`), а не факт метричности инструмента."""
         if not self.limits_on:
             return ""
         now = time.monotonic()
@@ -469,7 +513,7 @@ class ChainBudget:
             return CHAIN_TIMEOUT_REASON
         if self.total_calls >= self.max_total:
             return CHAIN_CALL_LIMIT_REASON
-        if metered and self.metered_calls >= self.max_metered:
+        if metered and self.cost_calls >= self.max_metered:
             return CHAIN_COST_LIMIT_REASON
         return ""
 
@@ -498,10 +542,13 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
     name = str(step.get("tool") or "")
     arguments = dict(step.get("arguments") or {})
     metered = name in METERED_TOOLS
+    # ER-08: «денежный» лимит применяется только к платным операциям
+    # производства; read-only проверка фактов держится anti-loop гвардами.
+    cost_limited = cost_limited_tool(name)
     fp = _args_fingerprint(name, arguments)
     cached_reason = budget.dedup_skip(name, fp)
     if not cached_reason:
-        skip_code = budget.limit_skip(metered=metered)
+        skip_code = budget.limit_skip(metered=cost_limited)
         if skip_code:
             info = {"status": ("denied" if _contract_on() else "skipped"),
                     "error_code": skip_code, "error_type": "", "data": None,
@@ -541,6 +588,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
         budget.total_calls += 1
         if metered:
             budget.metered_calls += 1
+        if cost_limited:
+            budget.cost_calls += 1
         attempt = budget.same_calls.get(fp, 0) + 1
         budget.same_calls[fp] = attempt
         budget.last_by_fp[fp] = output

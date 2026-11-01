@@ -852,7 +852,15 @@ async def record_l1_usage(llm, *, usage, messages, content, model: str,
 
 L1_WINDOW_MESSAGES = 20       # §1.5: окно последних N (дефолт 20)
 L1_PERSONA_FRAME_CHARS = 400  # голова character_block
+#: Имя секции «reply/цитата» — она защищена в `_cap_context` (фрагмент, на
+#: который отвечают, обязан дойти до планера).
+L1_REPLY_SECTION = "ОТВЕТ НА (reply/цитата)"
+#: Пол блока цитаты (прежний фиксированный кап 400 символов).
 L1_REPLY_BLOCK_CHARS = 400
+#: Потолок блока цитаты (класс C): цитата — данные, а не второй пакет L1.
+L1_REPLY_BLOCK_CHARS_MAX = 1200
+#: Доля L1-бюджета на цитату (фрагмент, на который отвечают).
+L1_REPLY_SHARE = 0.10
 #: Пол строки окна (канон прежнего поведения: 200 символов).
 L1_WINDOW_LINE_CHARS = 200
 #: Потолок строки окна (класс C): одно гигантское сообщение не должно съесть
@@ -860,6 +868,19 @@ L1_WINDOW_LINE_CHARS = 200
 L1_WINDOW_LINE_CHARS_MAX = 1200
 #: Доля L1-бюджета, которую вправе занять блок «ПОСЛЕДНИЕ СООБЩЕНИЯ».
 L1_WINDOW_SHARE = 0.6
+#: Доля L1-бюджета на исходное сообщение (главный носитель claim'ов и
+#: контрдоводов). `_cap_context` защищает блок; доля ограничивает только
+#: ВХОДНОЙ срез текста, а не бюджет пакета.
+L1_MESSAGE_SHARE = 0.5
+#: Технический потолок входного среза сообщения: платформенный предел одного
+#: сообщения Telegram — 4096 символов, берём 2× запас (префиксы/маркеры). Это
+#: не «экономия контекста»: сообщение длиннее в Telegram не приходит.
+L1_MESSAGE_CHARS_MAX = 8192
+#: Прежний код-дефолт пакета L1: нижняя гарантия. Меньше него динамический
+#: бюджет не опускается (иначе правка ухудшила бы чистую установку).
+L1_CONTEXT_FLOOR_TOKENS = 1600
+#: Маркер склейки head+tail при срезе строки/цитаты (claim в хвосте выживает).
+CLIP_MARK = " … "
 
 
 def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
@@ -868,10 +889,11 @@ def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
     Корневая причина дефекта «L1 не видит claim»: строка резалась фиксированно
     на 200 символах, поэтому версия/цена/дата в длинном сообщении до планера
     не доезжали, и ``external_claims`` заполнялся редко. Теперь кап выводится
-    из фактического бюджета (`limits.direct_l1_context_tokens`) и ФАКТИЧЕСКОГО
-    числа строк окна: короткое окно получает длинные строки (200 → до 1200), а
-    длинное остаётся на прежнем полу 200. Общий бюджет пакета по-прежнему
-    защищён `_cap_context` — это потолок ОДНОЙ строки, а не новый бюджет."""
+    из фактического бюджета (`limits.direct_l1_context_tokens`, а на живом пути
+    — бюджет из Model Capacity Resolver, :func:`resolve_l1_context_budget`) и
+    ФАКТИЧЕСКОГО числа строк окна: короткое окно получает длинные строки
+    (200 → до 1200). Общий бюджет пакета по-прежнему защищён `_cap_context` —
+    это потолок ОДНОЙ строки, а не новый бюджет."""
     try:
         rows = len(tuple(window or ())) or L1_WINDOW_MESSAGES
         budget = int(budget_tokens) if budget_tokens is not None \
@@ -881,6 +903,145 @@ def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
                    min(L1_WINDOW_LINE_CHARS_MAX, share))
     except (TypeError, ValueError):      # pragma: no cover - защитная ветка
         return L1_WINDOW_LINE_CHARS
+
+
+def clip_body(body: str, cap: int) -> str:
+    """Срез с сохранением ХВОСТА (head+tail) — данные, а не бюджет.
+
+    Голова одна теряет то, что несут контрдоводы и уточнения в конце
+    сообщения/цитаты («… но на самом деле X не работает», версия в последней
+    фразе). Поэтому срез сохраняет начало И конец с явным маркером
+    :data:`CLIP_MARK`; сама длина среза не меняется."""
+    try:
+        text = str(body or "")
+        limit = int(cap or 0)
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return str(body or "")
+    if limit <= 0 or len(text) <= limit:
+        return text
+    if limit <= len(CLIP_MARK) + 24:
+        return text[:limit]
+    head = int(limit * 0.6)
+    tail = max(1, limit - head - len(CLIP_MARK))
+    return text[:head] + CLIP_MARK + text[-tail:]
+
+
+def reply_block_chars(budget_tokens: int | None = None) -> int:
+    """Кап цитируемого фрагмента (reply) из бюджета пакета L1.
+
+    Прежние 400 символов резали цитату вслепую: claim в её середине/хвосте не
+    доезжал до планера. Пол 400 сохраняется (прежний канон), потолок 1200 —
+    класс C (цитата не превращается во второй пакет)."""
+    try:
+        budget = int(budget_tokens) if budget_tokens is not None \
+            else l1_context_tokens()
+        char_budget = max(0, budget) * 4
+        return max(L1_REPLY_BLOCK_CHARS,
+                   min(L1_REPLY_BLOCK_CHARS_MAX,
+                       int(char_budget * L1_REPLY_SHARE)))
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return L1_REPLY_BLOCK_CHARS
+
+
+def message_cap_chars(budget_tokens: int | None = None) -> int:
+    """Входной срез ИСХОДНОГО сообщения для L1 (payload, не бюджет пакета).
+
+    Сообщение — главный носитель claim'ов и контрдоводов, поэтому его кап
+    выводится из бюджета (`L1_MESSAGE_SHARE`), а не из фиксированных 800
+    символов Writer-пути. Бюджет пакета по-прежнему держит `_cap_context`."""
+    try:
+        budget = int(budget_tokens) if budget_tokens is not None \
+            else l1_context_tokens()
+        return min(L1_MESSAGE_CHARS_MAX,
+                   max(800, int(max(0, budget) * 4 * L1_MESSAGE_SHARE)))
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return 800
+
+
+def _explicit_l1_context_cap() -> int | None:
+    """Явный операторский cap пакета L1 (hot `limits.direct_l1_context_tokens`).
+
+    ``None`` (ключ не задан) → бюджет выводится из реального окна модели.
+    Заданный ключ остаётся ВЫСШИМ приоритетом (ручное решение оператора)."""
+    try:
+        from services import hot_config as hot
+        raw = hot.get("limits.direct_l1_context_tokens", None)
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
+                                    fallback_model: str = "",
+                                    mandatory_tokens: int = 0
+                                    ) -> tuple[int, dict]:
+    """Бюджет пакета L1 из РЕАЛЬНОГО окна L1-модели (§9/§124 ТЗ, ER-08).
+
+    Единый существующий путь: Model Capacity Resolver
+    (`services.model_capacity`) + Stage Auto Budget
+    (`services.auto_budget.resolve_stage_budget`, стадия ``direct.l1``).
+    Арифметика safety/output-reserve — та же, что у Direct-стадии (не второй
+    бюджетный движок).
+
+    Приоритет: явный hot-cap оператора → бюджет стадии из окна модели (с учётом
+    `mandatory_tokens` систем-промпта и reserve вывода) → пол
+    :data:`L1_CONTEXT_FLOOR_TOKENS`. Если L1-слот умеет откатиться на main-
+    модель, берётся МИНИМУМ двух бюджетов (композер не знает, кто ответит).
+
+    Возврат ``(budget_tokens, meta)``; ``meta`` — R17-safe числа/enum
+    (`effective_limit`/`source`/`capacity_source`/`context_window`/`model`).
+    Никогда не бросает."""
+    floor = max(L1_CONTEXT_FLOOR_TOKENS, l1_context_tokens())
+    meta: dict = {"effective_limit": floor, "source": "floor",
+                  "capacity_source": "", "context_window": 0,
+                  "model": str(model or "")}
+    try:
+        from services import auto_budget as _ab
+        manual_cap = _explicit_l1_context_cap()
+        stage = await _ab.resolve_stage_budget(
+            "direct.l1", base_url=str(base_url or ""),
+            model=str(model or ""),
+            mandatory_tokens=int(mandatory_tokens or 0),
+            max_output_tokens=l1_max_output_tokens(),
+            manual_cap=manual_cap)
+        budget = int(stage.effective_input_budget or 0)
+        meta.update({
+            "capacity_source": str(stage.source or ""),
+            "context_window": int(stage.context_window or 0),
+            "model": str(stage.model or model or ""),
+        })
+        # L1-слот умеет откатиться на main-модель: композер не знает, кто
+        # ответит, поэтому берём МИНИМУМ. Для fallback'а — существующий
+        # sync-резолв БЕЗ сети (`fallback_window_for_model`, §14): второй
+        # discovery-вызов в платный путь не добавляется.
+        other = str(fallback_model or "").strip()
+        if other and other != str(model or "").strip():
+            from services import model_capacity as _capacity
+            from services.token_counter import safe_budget as _safe
+            window, _src = _capacity.fallback_window_for_model(other)
+            reserve = max(_capacity.OUTPUT_RESERVE_FLOOR,
+                          l1_max_output_tokens())
+            available = max(1, _safe(max(1, int(window) - int(
+                mandatory_tokens or 0) - reserve)))
+            if available < budget:
+                budget = available
+                meta["fallback_model"] = other
+        if manual_cap is not None:
+            meta["source"] = "hot"
+            budget = min(budget, manual_cap)
+        else:
+            meta["source"] = "model_window"
+        budget = max(floor, int(budget or 0))
+        meta["effective_limit"] = budget
+        return budget, meta
+    except Exception:      # pragma: no cover - защитная ветка (fail-open)
+        return floor, meta
 
 # ASAP2 T10-BOUNDARY / CLAR-CTX-HONEST (§6.1 #10, §3.4, §3.5 source):
 # единственная честная пометка о том, что видна не вся история. Факт берётся
@@ -921,12 +1082,15 @@ def build_l1_context(*, query, current_question: str = "",
     либо срез ``_cap_context``) и переживает сжатие бюджета."""
     try:
         sections: list[tuple[str, str]] = []
+        budget = int(budget_tokens) if budget_tokens is not None \
+            else l1_context_tokens()
         current = str(current_question or query or "").strip()
         if current:
             sections.append(("СООБЩЕНИЕ", current))
         if str(reply_block or "").strip():
-            sections.append(("ОТВЕТ НА (reply/цитата)",
-                             str(reply_block).strip()[:L1_REPLY_BLOCK_CHARS]))
+            sections.append((L1_REPLY_SECTION,
+                             clip_body(str(reply_block).strip(),
+                                        reply_block_chars(budget))))
         bot_lines = [str(line or "").strip()[:L1_REPLY_BLOCK_CHARS]
                      for line in (bot_replies or ())]
         bot_lines = [line for line in bot_lines if line][:3]
@@ -937,9 +1101,7 @@ def build_l1_context(*, query, current_question: str = "",
                                            alias_resolver=alias_resolver,
                                            line_chars=window_line_chars(
                                                window,
-                                               budget_tokens=int(budget_tokens)
-                                               if budget_tokens is not None
-                                               else None))
+                                               budget_tokens=budget))
         if window_lines:
             sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
         # ASAP2 T10-BOUNDARY: пометка ставится ровно по факту усечения —
@@ -972,8 +1134,6 @@ def build_l1_context(*, query, current_question: str = "",
             sections.append(("ХАРАКТЕР (кадр)",
                              str(persona_frame).strip()[:L1_PERSONA_FRAME_CHARS]))
         text = "\n\n".join(f"[{name}]\n{body}" for name, body in sections)
-        budget = int(budget_tokens) if budget_tokens is not None \
-            else l1_context_tokens()
         return _cap_context(text, sections_budget=sections, budget=budget)
     except Exception:          # pragma: no cover - защитная ветка
         return str(query or "")
@@ -981,23 +1141,46 @@ def build_l1_context(*, query, current_question: str = "",
 
 def _cap_context(text: str, *, sections_budget, budget: int) -> str:
     """Структурный кап §1.5 + §18C.5: защита СТРУКТУРНЫХ блоков
-    (СООБЩЕНИЕ/УЧАСТНИКИ/ДОСТУПНЫЕ ВОЗМОЖНОСТИ/УСЛОВИЯ — вопрос, machine
-    contract, direct-address metadata), окно/hints сжимаются первыми
-    (10 → 5 → 0), СООБЩЕНИЕ при переполнении сохраняет head+tail (хвост
-    вопроса НЕ теряется), финальная сборка верифицируется tokenizer'ом.
-    Остаточное переполнение режет КРУПНЕЙШИЙ незащищённый блок, не хвост
-    пакета. Никогда не бросает."""
+    (СООБЩЕНИЕ/ОТВЕТ НА/УЧАСТНИКИ/ДОСТУПНЫЕ ВОЗМОЖНОСТИ/УСЛОВИЯ — вопрос,
+    фрагмент, на который отвечают, machine contract, direct-address metadata),
+    окно/hints сжимаются первыми (10 → 5 → 0), СООБЩЕНИЕ и ОТВЕТ НА при
+    переполнении сохраняют head+tail (хвост вопроса и claim в конце цитаты
+    НЕ теряются), финальная сборка верифицируется tokenizer'ом. Остаточное
+    переполнение режет КРУПНЕЙШИЙ незащищённый блок, не хвост пакета.
+    Никогда не бросает."""
     try:
         from services.token_counter import count_tokens
         if count_tokens(text) <= budget:
             return text
-        protected = {"СООБЩЕНИЕ", "УЧАСТНИКИ", "ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
-                     "УСЛОВИЯ", HISTORY_SCOPE_SECTION}
+        # ER-08: цитата — фрагмент, на который отвечают; сжимается вместе с
+        # окном, а не вытесняется первым (прежний factor-срез был головной и
+        # молча терял claim в середине/хвосте цитаты).
+        protected = {"СООБЩЕНИЕ", L1_REPLY_SECTION, "УЧАСТНИКИ",
+                     "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION}
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
 
         pairs: list[tuple[str, str]] = list(sections_budget)
+        # Шаг 0 (ER-08): прежде чем ВЫБРАСЫВАТЬ старые реплики, укорачиваем
+        # КАЖДУЮ строку окна (head+tail через `clip_body`): все 20 сообщений
+        # остаются в пакете, теряется длина, а не факты/контрдоводы. Прежний
+        # первый шаг сразу резал 20 → 10 строк даже при переполнении на единицы
+        # токенов.
+        def _rescale_window(pairs_in, line_cap: int):
+            out = []
+            for name, body in pairs_in:
+                if name != "ПОСЛЕДНИЕ СООБЩЕНИЯ":
+                    out.append((name, body))
+                    continue
+                out.append((name, "\n".join(
+                    clip_body(line, line_cap) for line in body.splitlines())))
+            return out
+
+        for line_cap in (160, 120, 90):
+            pairs = _rescale_window(pairs, line_cap)
+            if count_tokens(_render(pairs)) <= budget:
+                return _render(pairs)
         # Шаг 1: окно сокращается первым (10 → 5 → 0 строк).
         for window_cap in (10, 5, 0):
             rebuilt = []
@@ -1029,19 +1212,23 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
                     out.append((name, body))
                     continue
                 keep = max(80, int(len(body) * factor))
-                out.append((name, body[:keep]))
+                # ER-08: хвост подсказки (ограничения/уроки идут в конце
+                # блока «КОНТЕКСТ ДИАЛОГА (не терять)») сохраняется — срез
+                # head+tail, а не головной.
+                out.append((name, clip_body(body, keep)))
             return out
 
         for factor in (0.6, 0.3, 0.1):
             pairs = _shrink_hints(pairs, factor)
             if count_tokens(_render(pairs)) <= budget:
                 return _render(pairs)
-        # Шаг 3: СООБЩЕНИЕ переполняет само → head+tail (хвост вопроса
-        # сохраняется; §18C.5 «никогда не резать семантический хвост»).
+        # Шаг 3: СООБЩЕНИЕ/ОТВЕТ НА переполняют сами → head+tail (хвост
+        # вопроса и claim в конце цитаты сохраняются; §18C.5 «никогда не
+        # резать семантический хвост»).
         rebuilt = []
         for name, body in pairs:
-            if name == "СООБЩЕНИЕ" and count_tokens(body) > max(
-                    200, budget // 3):
+            if name in ("СООБЩЕНИЕ", L1_REPLY_SECTION) and count_tokens(body) \
+                    > max(200, budget // 3):
                 chars = max(400, budget // 2)
                 body = (body[:int(chars * 0.6)]
                         + "\n[…сообщение обрезано под бюджет]\n"
@@ -1067,8 +1254,10 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
                     # Прогресс обязателен: блок ≤80 симв. уже не режется
                     # (пол = 80 в шаге 2), поэтому при нехватке бюджета он
                     # убирается целиком — иначе цикл не завершается.
+                    # ER-08: срез head+tail — хвост блока (уроки/ограничения)
+                    # не исчезает при остаточном переполнении.
                     half = len(body) // 2
-                    body = body[:half] if half >= 80 else ""
+                    body = clip_body(body, half) if half >= 80 else ""
                 rebuilt.append((name, body))
             pairs = rebuilt
         return _render(pairs)
@@ -1137,7 +1326,7 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
                         reply_mark = f" (ответ на msg:{int(reply_to)})"
                     except (TypeError, ValueError):
                         reply_mark = ""
-            lines.append(f"{prefix}{author}: {body[:cap]}"
+            lines.append(f"{prefix}{author}: {clip_body(body, cap)}"
                          f"{reply_mark}")
     except Exception:          # pragma: no cover - защитная ветка
         return []
@@ -1608,6 +1797,8 @@ __all__ = [
     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",
     "dedicated_generate", "authorize_l1_call", "record_l1_usage",
     "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
+    "window_line_chars", "reply_block_chars", "message_cap_chars",
+    "resolve_l1_context_budget", "clip_body", "L1_REPLY_SECTION",
     "build_evidence_packet", "fallback_plan", "plan_response_mode",
     "emit_l1_plan_event", "build_l2_plan_block",
     "analysis_directive_needed", "rejected_note",

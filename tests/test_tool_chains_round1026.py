@@ -334,11 +334,12 @@ class TestLimits:
         assert all(set(e) == legacy_keys for e in out.tool_results)
 
     @pytest.mark.asyncio
-    async def test_metered_call_limit_four(self):
-        # 4 платных (search) исполняются, 5-й — structural skip + cost degrade.
+    async def test_metered_call_limit_four_paid_tools(self):
+        """ER-08: «денежный» счётчик держит ПЛАТНЫЕ операции производства.
+        4 таких вызова исполняются, 5-й — structural skip + cost degrade."""
         answers = [
-            _tc2(f"r{r}", [("execute_web_search", {"query": f"q{r}0"}),
-                           ("execute_web_search", {"query": f"q{r}1"})])
+            _tc2(f"r{r}", [("summarize_video", {"url": f"https://youtu.be/q{r}0"}),
+                           ("summarize_video", {"url": f"https://youtu.be/q{r}1"})])
             for r in range(3)]
         llm = FakeLLM(answers)
         router = FakeRouter()
@@ -348,6 +349,45 @@ class TestLimits:
         assert out.reason == CHAIN_COST_LIMIT_REASON
         assert [e["metered"] for e in out.tool_results
                 if e["status"] == "ok"] == [True] * 4
+
+    @pytest.mark.asyncio
+    async def test_read_only_evidence_not_cost_limited(self):
+        """ER-08 (решение владельца 02.11.2026): read-only проверка фактов НЕ
+        режется «денежным» счётчиком — 6 поисков исполняются, а упор даёт
+        анти-петлевой cap общего числа вызовов (не финансовая экономия)."""
+        answers = [
+            _tc2(f"r{r}", [("execute_web_search", {"query": f"q{r}0"}),
+                           ("execute_web_search", {"query": f"q{r}1"})])
+            for r in range(3)] + [
+            _tc2("r3", [("execute_web_search", {"query": "q30"})]),
+            _text("финал")]
+        llm = FakeLLM(answers)
+        router = FakeRouter()
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
+                                    ctx=ToolContext(-100, "q"))
+        assert len(router.calls) == TOOL_MAX_TOTAL_CALLS == 6
+        assert out.reason == CHAIN_CALL_LIMIT_REASON
+        denied = [e for e in out.tool_results if e["status"] == "denied"]
+        assert denied and denied[-1]["error_code"] == CHAIN_CALL_LIMIT_REASON
+        # Метричность вызова остаётся фактом (MCA-20), но она не тормоз.
+        assert all(e["metered"] is True for e in out.tool_results
+                   if e["status"] == "ok")
+
+    @pytest.mark.asyncio
+    async def test_read_only_evidence_same_call_still_deduped(self):
+        """Анти-петлевая защита сохранена: один и тот же вызов (имя+аргументы)
+        третий раз НЕ исполняется — дедуп, а не «деньги»."""
+        answers = [
+            _tc2("r0", [("execute_web_search", {"query": "same"}),
+                        ("execute_web_search", {"query": "same"})]),
+            _tc2("r1", [("execute_web_search", {"query": "same"})]),
+            _text("финал")]
+        llm = FakeLLM(answers)
+        router = FakeRouter()
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
+                                    ctx=ToolContext(-100, "q"))
+        assert len(router.calls) == 2
+        assert any(e["duplicate"] for e in out.tool_results)
 
     @pytest.mark.asyncio
     async def test_free_calls_not_cost_limited(self):

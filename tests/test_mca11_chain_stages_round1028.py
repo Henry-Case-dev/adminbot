@@ -223,10 +223,13 @@ class TestStageEvents:
 
     @pytest.mark.asyncio
     async def test_chain_cost_limit_maps_financial(self, events, monkeypatch):
+        """ER-08: «денежный» счётчик → financial_limit_reached применяется к
+        ПЛАТНОЙ операции производства (read-only проверка фактов им не режется,
+        см. `test_tool_chains_round1026::test_read_only_evidence_not_cost_limited`)."""
         monkeypatch.setattr(Settings, "MCA_TOOL_MAX_METERED_CALLS", 1)
         await _run(FakeLLM([_tc2("r0", [
-            ("execute_web_search", {"query": "a"}),
-            ("execute_web_search", {"query": "b"})]), _text("финал")]),
+            ("summarize_video", {"url": "https://youtu.be/a"}),
+            ("summarize_video", {"url": "https://youtu.be/b"})]), _text("финал")]),
             FakeRouter())
         ev = [e for e in events if e["event_name"] == "tool_call"][0]
         assert ev["reason_code"] == "financial_limit_reached"

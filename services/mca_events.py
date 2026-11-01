@@ -1173,11 +1173,17 @@ async def metrics(db, *, runtime: dict | None = None) -> dict:
                                for r in delivery_rows})
 
         # cost — только реально переданный `usage_json` (bounded-скан).
+        # ER-08 (решение владельца 02.11.2026): отсутствие тарифа НЕ является
+        # нулевым расходом — строки без цены (`price_known=false`/нет
+        # `cost_usd`) считаются отдельно (`unknown_rows`), чтобы сумма по
+        # `by_category` не выглядела полной.
         usage_rows = await _rows(
             db, "SELECT component, usage_json FROM mca_events "
                 "WHERE usage_json IS NOT NULL LIMIT ?", (_USAGE_SCAN_LIMIT,))
         by_category: dict = {}
         have_cost = False
+        known_rows = 0
+        unknown_rows = 0
         for item in usage_rows or []:
             try:
                 data = json.loads(item["usage_json"])
@@ -1186,14 +1192,21 @@ async def metrics(db, *, runtime: dict | None = None) -> dict:
             if not isinstance(data, dict):
                 continue
             cost = data.get("cost_usd", data.get("cost"))
-            if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+            priced = data.get("price_known")
+            if isinstance(cost, bool) or not isinstance(cost, (int, float)) \
+                    or priced is False:
+                unknown_rows += 1
                 continue
             category = str(item["component"] or "unknown")
             by_category[category] = round(
                 by_category.get(category, 0.0) + float(cost), 6)
+            known_rows += 1
             have_cost = True
-        if have_cost:
-            groups["cost"] = _metric_group(True, by_category=by_category)
+        if have_cost or unknown_rows:
+            groups["cost"] = _metric_group(
+                True, by_category=by_category, known_rows=known_rows,
+                unknown_rows=unknown_rows,
+                price_known=unknown_rows == 0)
 
         groups["degradations"] = _metric_group(
             True, interrupted=int(interrupted), dropped=int(dropped),
