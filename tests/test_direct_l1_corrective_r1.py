@@ -98,8 +98,9 @@ def test_l1_rules_positive_criteria_present():
         ' "external_claims": [],\n'
         ' "recheck": false}', 1)
     from services.chat_prompts import _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+    from services.chat_prompts import _DIRECT_L1_TWO_PHASE_EVR2
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == \
-        w2_canon + _DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+        w2_canon + _DIRECT_L1_EXTERNAL_CLAIMS_EVR1 + _DIRECT_L1_TWO_PHASE_EVR2
     assert '"action": "reply|react|silent"' in new_canon
 
 

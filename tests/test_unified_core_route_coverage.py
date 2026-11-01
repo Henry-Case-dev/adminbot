@@ -554,8 +554,13 @@ def test_unified_core_migration_ladder_and_rollback():
             FACTCHECK_SYSTEM_PROMPT) in steps
     # Прежний канон (с обходом safety) — известный канон: миграция узнаёт
     # прод-значения, откат ведёт на непосредственный прежний канон.
+    # EVOL W17b (02.11.2026): первая обратная ступень снимает ТОЛЬКО правило
+    # фаз работы модели → байты прода 2.58.147; ступень C14 остаётся ниже.
+    from services.factcheck_prompts import PREV_FACTCHECK_SINGLE_PHASE_SCOPE
     assert pm.ROLLBACK_MIGRATIONS[key] == [(
-        FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)]
+        FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_SINGLE_PHASE_SCOPE), (
+        PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
+        PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)]
     assert pr.is_known_canon(PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)
     assert BYPASS in PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT
     assert BYPASS in PREV_FACTCHECK_SYSTEM_PROMPT

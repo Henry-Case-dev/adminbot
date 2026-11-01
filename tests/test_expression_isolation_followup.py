@@ -183,4 +183,6 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # фабрики Direct (L1 planner external_claims/recheck, Writer, tool phase)
     # → 724a5d420896, затем (recheck в той же невыпущенной EVR1) → de8e77a2a3f4.
     # Пин в этом файле отстал от волны 5 — приведён к фактическому значению.
-    assert pr.FACTORY_SET_SHA256_12 == "de8e77a2a3f4"
+    # EVOL W17 (02.11.2026): L1-планер → EVR2 (две фазы «саммари/проверка»),
+    # канон Аналитика фактчека → правило фаз prefill/decode → f84baaf69559.
+    assert pr.FACTORY_SET_SHA256_12 == "f84baaf69559"

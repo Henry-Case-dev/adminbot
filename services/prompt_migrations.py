@@ -71,6 +71,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_PA5W1,
     PREV_DIRECT_L1_PLANNER_PA5W2,
     PREV_DIRECT_L1_PLANNER_EVR0,    PREV_CHAT_VERBALIZER_PA5W2,
+    PREV_DIRECT_L1_PLANNER_EVR1,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -95,6 +96,8 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
+    PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+    PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_R2020_SYSTEM_PROMPT,
@@ -253,6 +256,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # EVOL W17 (02.11.2026, §10 сценарий 25): байты прода 2.58.147
+        # (ревизия EVR1: external_claims + recheck) ведут на ревизию EVR2 с
+        # контрактом двух различимых фаз «саммари» и «проверь, кто прав».
+        # Только точное совпадение байт; кастом владельца ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_EVR1, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): прод-байты 2.58.146 (канон
         # PA5W2) ведут на канон с optional-полем external_claims и машинной
         # фразой «обязательность read-only проверки исполняет runtime».
@@ -344,6 +352,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # перезаписывается; старые PREV_* не переписаны.
         (PREV_CHECKUP_P0_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt": [
+        # EVOL W17b (02.11.2026): байты прода 2.58.147 одиночного канона
+        # фактчека ведут на ту же редакцию с правилом фаз работы модели
+        # (fallback-путь больше не расходится с Аналитиком). Только точное
+        # совпадение байт; кастом владельца ступень не узнаёт.
+        (PREV_FACTCHECK_SINGLE_PHASE_SCOPE, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R2020_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R1021_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
@@ -395,6 +408,10 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # веб-поиска. Старые прод-значения (pre-F1 и F1) ведут на новый канон.
     # 10.23 (F3, ADR-1023-3): ступень F3 — поле response_mode в том же JSON.
     "prompts.factcheck_analyst_system_prompt": [
+        # EVOL W17 (02.11.2026, §6 владельца): байты прода 2.58.147 (канон
+        # Аналитика без правила фаз) ведут на канон с правилом prefill/decode.
+        # Только точное совпадение байт; кастом владельца не перетирается.
+        (PREV_FACTCHECK_ANALYST_PHASE_SCOPE, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023_F2, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023_F3, FACTCHECK_ANALYST_SYSTEM_PROMPT),
@@ -527,9 +544,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
+        # ступень 0 (EVOL W17): активный канон EVR2 → прод-байты 2.58.147
+        # (PREV_..._EVR1 = EVR1 с external_claims + recheck)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR1),
         # ступень 0 (волна 5): активный канон EVR1 → прод-байты 2.58.146
         # (PREV_..._EVR0 = канон PA5W2 без секции внешних утверждений)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR0),
+        (PREV_DIRECT_L1_PLANNER_EVR1, PREV_DIRECT_L1_PLANNER_EVR0),
         # ступень 0: активный канон ред.6 (PA5W2) → активные байты ред.5
         (PREV_DIRECT_L1_PLANNER_EVR0, PREV_DIRECT_L1_PLANNER_PA5W2),
         # ступень 1: PA5W2 → PA5W1 (снятие секции поиска; байты W1)
@@ -566,10 +586,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
          (PREV_CHECKUP_P0_SYSTEM_PROMPT,
           PREV_CHECKUP_CFG07A_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt":
-        # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
-        # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
-        # ступень C14; стек ступеней цел (ADR-1013-3).
-        [(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)],
+        # EVOL W17b (02.11.2026): первая обратная ступень снимает ТОЛЬКО
+        # правило фаз работы модели → байты прода 2.58.147.
+        [(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_SINGLE_PHASE_SCOPE),
+         # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
+         # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
+         # ступень C14; стек ступеней цел (ADR-1013-3).
+         (PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
+          PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)],
     "prompts.search_system_prompt":
         # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100
         # (снимается только ступень CFG-07A; ADR-1013-3).
@@ -594,10 +618,15 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.summary_editor_system_prompt":
         [(SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)],
     "prompts.factcheck_analyst_system_prompt":
-        # UNIFIED-CORE (C13): откат снимает только ступень C13 (мёртвый
-        # tone_hint) — на непосредственный прежний прод-канон с полем.
+        # EVOL W17 (02.11.2026): откат снимает ТОЛЬКО правило фаз работы
+        # модели — на непосредственный прежний прод-канон 2.58.147
+        # (PREV_FACTCHECK_ANALYST_PHASE_SCOPE); стек ступеней цел.
         [(FACTCHECK_ANALYST_SYSTEM_PROMPT,
-         PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)],
+          PREV_FACTCHECK_ANALYST_PHASE_SCOPE),
+         # UNIFIED-CORE (C13): откат снимает только ступень C13 (мёртвый
+         # tone_hint) — на непосредственный прежний прод-канон с полем.
+         (PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+          PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)],
     # 10.27 (ASAP-2): откат ступени R1027 ведёт на НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1027 (полный канон R1026 с блоком маркировки) — снимается
     # только шаг many-to-many/смысла, стек ступеней сохраняется (ADR-1013-3).

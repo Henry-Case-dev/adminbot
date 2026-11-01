@@ -169,7 +169,16 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # (ступень + откат). Решение Architect «г» (recheck-сигнал, 01.11.2026):
     # в ТОЙ ЖЕ невыпущенной ревизии EVR1 добавлено optional-поле `recheck`
     # (схема + абзац «ПОВТОРНАЯ ПРОВЕРКА»); новые байты — метка ниже.
-    "direct.base.l1_planner": "l1-planner-external-claims-recheck",
+    # EVOL W17 (02.11.2026, §10 сценарий 25): ревизия EVR2 — контракт двух
+    # различимых фаз «саммари» и «проверь, кто прав» (сводка без вердиктов,
+    # проверка в external_claims, пересказ не переписывается). Прежние байты —
+    # PREV_DIRECT_L1_PLANNER_EVR1 (= прод 2.58.147).
+    # W17c (02.11.2026, блокер ревью): в тот же невыпущенный блок добавлено
+    # ОДНО предложение приоритета над правилом 7 («обобщить материал» →
+    # research), иначе противоречие двух текстов в одном payload оставляло
+    # достижимым возврат response_act=research и потерю маркера сводки.
+    # Правило 7 не менялось. Новые байты — метка ниже.
+    "direct.base.l1_planner": "l1-planner-two-phase-precedence",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -185,8 +194,18 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "verbilizer.mode.deep_research": "mode-no-meta-lexical",
     "verbilizer.mode.default": "mode-r1024",
     # Factcheck / Summary / поиск
-    "factcheck.base.single": "factcheck-r1022",
-    "factcheck.base.analyst": "factcheck-analyst-r1023-f3",
+    # EVOL W17b (02.11.2026): одиночный канон фактчека (путь fallback при сбое
+    # стадии-1) получил то же правило фаз работы модели, что и Аналитик —
+    # нормативное ядро общее (`FACTCHECK_PHASE_SCOPE_CORE`), заголовок секции
+    # общий. Блок эталона `plans/docs/canon/architecture.md` (Section 72)
+    # обновлён теми же байтами (пин сохранён). Прежние байты —
+    # PREV_FACTCHECK_SINGLE_PHASE_SCOPE (= прод 2.58.147).
+    "factcheck.base.single": "factcheck-phases-w17",
+    # EVOL W17 (02.11.2026, §6 владельца): канон Аналитика получил правило
+    # фаз работы модели (prefill и decode — разные этапы, противоречия между
+    # ними нет; сравнение только внутри одной фазы). Прежние байты —
+    # PREV_FACTCHECK_ANALYST_PHASE_SCOPE (ступень + откат).
+    "factcheck.base.analyst": "factcheck-analyst-phases-w17",
     # EVOL §5 (W5, 31.10.2026): речевая директива раздела «Критический
     # разнос» — дословный текст владельца, редактируемый заводской промпт
     # (PG-ключ prompts.factcheck_critique_directive).
@@ -337,13 +356,18 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
     "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-external-claims-recheck", "eb496e938c49"),
+    "direct.base.l1_planner": ("l1-planner-two-phase-precedence",
+                               "09f3d533d173"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
     "verbilizer.mode.default": ("mode-r1024", "c633eb52f63c"),
-    "factcheck.base.single": ("factcheck-r1022", "aa6a2ed38b4c"),
-    "factcheck.base.analyst": ("factcheck-analyst-r1023-f3", "9573b3d86161"),
+    # EVOL W17b (02.11.2026): одиночный канон фактчека — то же правило фаз,
+    # что у Аналитика (нормативное ядро общее).
+    "factcheck.base.single": ("factcheck-phases-w17", "d02776dec166"),
+    # EVOL W17 (02.11.2026): правило фаз работы модели в каноне Аналитика.
+    "factcheck.base.analyst": ("factcheck-analyst-phases-w17",
+                               "806d6cc6af77"),
     # EVOL §5 (W5): печать дословной директивы раздела «Критический разнос».
     "factcheck.critique.directive": ("factcheck-critique-w5", "cfcd9009df17"),
     "factcheck.base.verbalizer": ("factcheck-verbalizer-w1", "42442333d77d"),
@@ -2694,8 +2718,36 @@ def factory_set_fingerprint() -> str:
 #: прежние байты PREV_DIRECT_L1_PLANNER_EVR0 = прод 2.58.146 без изменений).
 #: Changed = 1 (только ``direct.base.l1_planner``). Было ``724a5d420896``,
 #: стало ``de8e77a2a3f4``.
+#: Бамп EVOL W17 (02.11.2026, две малые требования владельца): changed = 2.
+#: (1) ``direct.base.l1_planner`` — ревизия EVR2: контракт двух различимых
+#: фаз «саммари» и «проверь, кто прав» (§10 сценарий 25: сводка без
+#: вердиктов, проверка в ``external_claims``, пересказ не переписывается;
+#: метка ``l1-planner-two-phase-scenario25``, прежние байты
+#: PREV_DIRECT_L1_PLANNER_EVR1 = прод 2.58.147). (2)
+#: ``factcheck.base.analyst`` — правило фаз работы модели (§6: prefill и
+#: decode — разные этапы, противоречия между ними нет, сравнение только
+#: внутри одной фазы; метка ``factcheck-analyst-phases-w17``, прежние байты
+#: PREV_FACTCHECK_ANALYST_PHASE_SCOPE = прод 2.58.147). Схема JSON, правила
+#: L1, тексты владельца, Writer, tool phase и фоновые каноны не менялись.
+#: Было ``de8e77a2a3f4``, стало ``63c0ae3546d1``.
+#: Бамп EVOL W17b (02.11.2026, закрытие расхождения путей фактчека): changed =
+#: 1 — ``factcheck.base.single`` (legacy-канон одиночной стадии 10.21, реальный
+#: путь при сбое/невалидном JSON стадии-1) получил то же правило фаз работы
+#: модели, что и Аналитик; нормативное ядро общее
+#: (``FACTCHECK_PHASE_SCOPE_CORE``). Метка ``factcheck-phases-w17``, прежние
+#: байты PREV_FACTCHECK_SINGLE_PHASE_SCOPE = прод 2.58.147. Эталон
+#: ``plans/docs/canon/architecture.md`` (Section 72) обновлён теми же байтами.
+#: Было ``63c0ae3546d1``, стало ``748641ded024``.
+#: Бампа EVOL W17c (02.11.2026, блокер независимого ревью): changed = 1 —
+#: ``direct.base.l1_planner``: в тот же невыпущенный блок двух фаз добавлено
+#: ОДНО предложение приоритета (плановая просьба «свод/пересказ + разбор
+#: правоты» даёт ``summarization``+``summary`` с ``external_claims``, и это
+#: правило старше правила 7 «обобщить материал → research»). Правило 7 и
+#: owner-тексты не менялись; метка ``l1-planner-two-phase-precedence``, прежние
+#: байты по-прежнему PREV_DIRECT_L1_PLANNER_EVR1 = прод 2.58.147.
+#: Было ``748641ded024``, стало ``f84baaf69559``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "de8e77a2a3f4"
+FACTORY_SET_SHA256_12 = "f84baaf69559"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

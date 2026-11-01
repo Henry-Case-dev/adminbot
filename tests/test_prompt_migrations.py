@@ -55,6 +55,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_PA5W1,
     PREV_DIRECT_L1_PLANNER_PA5W2,
     PREV_DIRECT_L1_PLANNER_EVR0,
+    PREV_DIRECT_L1_PLANNER_EVR1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -74,6 +75,8 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
+    PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+    PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
@@ -316,7 +319,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # правиле 4 → байты ред.5 (PREV_DIRECT_L1_PLANNER_PA5W2, 902dd00edf52).
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): первый откат снимает секцию
     # внешних утверждений → байты 2.58.146 (PREV_DIRECT_L1_PLANNER_EVR0).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR0,
+    # EVOL W17 (02.11.2026): первый откат снимает ТОЛЬКО контракт двух фаз
+    # «саммари/проверка» → байты прода 2.58.147 (PREV_DIRECT_L1_PLANNER_EVR1);
+    # стек ступеней цел.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR1,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -331,8 +337,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     # UNIFIED-CORE (C14, 20.10.2026): откат фактчека — НЕПОСРЕДСТВЕННО прежний
     # прод-канон (с обходом safety, релиз 2.58.97); стек ступеней цел.
+    # EVOL W17b (02.11.2026): первый откат снимает ТОЛЬКО правило фаз работы
+    # модели → байты прода 2.58.147 (PREV_FACTCHECK_SINGLE_PHASE_SCOPE).
     "prompts.factcheck_system_prompt":
-        PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+        PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     # CFG-07A-2 (20.10.2026, ADR-1013-3): откаты 6 канонов НЕ-фактчек
     # маршрутов — НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
     # (PREV_*_CFG07A; снимается только ступень CFG-07A).
@@ -346,8 +354,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     "prompts.webpage_system_prompt": PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     # UNIFIED-CORE (C13): откат Аналитика снимает только ступень C13 (мёртвый
     # tone_hint) → непосредственный прежний прод-канон с полем.
+    # EVOL W17 (02.11.2026): первый откат снимает ТОЛЬКО правило фаз работы
+    # модели → байты прода 2.58.147 (PREV_FACTCHECK_ANALYST_PHASE_SCOPE).
     "prompts.factcheck_analyst_system_prompt":
-        PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
+        PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
     # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
     # ASAP-2 (round1027, контракт l): откат снимает ступень R1027 →
     # непосредственный прежний канон R1026 (PREV_*_R1027 = база+блок).
@@ -741,8 +751,12 @@ class TestRound1023Migration:
             SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)]
         # UNIFIED-CORE (C13, 20.10.2026): откат Аналитика снимает ступень C13
         # (мёртвый tone_hint) — на непосредственный прежний прод-канон.
+        # EVOL W17 (02.11.2026): первая обратная ступень снимает ТОЛЬКО правило
+        # фаз работы модели (prefill/decode) → байты прода 2.58.147.
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == [(
             FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            PREV_FACTCHECK_ANALYST_PHASE_SCOPE), (
+            PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
             PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]
 
     def test_rollback_chat_targets_pre_mca23(self):
@@ -889,10 +903,13 @@ class TestMca23Migration:
         # (c987c03e3ee0 / d1b210c156c8) не изменились. Решение Architect «г»:
         # та же невыпущенная ревизия EVR1 расширена полем recheck — меняются
         # только байты L1-планера, откат по-прежнему на 2.58.146/2.58.113.
+        # EVOL W17 (02.11.2026): L1-планер — ревизия EVR2 (09f3d533d173,
+        # контракт двух фаз «саммари/проверка»); целевые байты отката
+        # по-прежнему 2.58.146 (EVR1) / 2.58.113 (CLAR).
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("eb496e938c49", "68f0233d7050")
+            ("09f3d533d173", "68f0233d7050")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}
