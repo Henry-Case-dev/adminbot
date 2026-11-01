@@ -1185,7 +1185,7 @@
     "count": "",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 390,
      "h": 844
@@ -1205,7 +1205,7 @@
     "count": "",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 1280,
      "h": 900
@@ -1225,7 +1225,7 @@
     "count": "16 · ↑↓ выбор · Enter открыть ",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 390,
      "h": 844
@@ -1245,7 +1245,7 @@
     "count": "16 · ↑↓ выбор · Enter открыть ",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 1280,
      "h": 900
@@ -1265,7 +1265,7 @@
     "count": "0 · ↑↓ выбор · Enter открыть ",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 390,
      "h": 844
@@ -1285,7 +1285,7 @@
     "count": "0 · ↑↓ выбор · Enter открыть ",
     "inputFocused": true,
     "zIndex": "100",
-    "inBody": false,
+    "inBody": true,
     "rect": {
      "w": 1280,
      "h": 900
@@ -1306,7 +1306,8 @@
    "probe": {
     "open": true,
     "zIndex": "auto",
-    "inBody": true,
+    "parentIsBody": true,
+    "insideMain": false,
     "rect": {
      "x": 0,
      "y": 68,
@@ -1332,7 +1333,8 @@
    "probe": {
     "open": true,
     "zIndex": "auto",
-    "inBody": true,
+    "parentIsBody": true,
+    "insideMain": false,
     "rect": {
      "x": 304,
      "y": 90,

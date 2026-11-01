@@ -1289,6 +1289,15 @@ def run_portal(browser, out_dir):
         }
     """)
     pf.wait_for_timeout(1200)
+    # Обычный режим: teleport выключен, форма остаётся в сетке контента.
+    normal_mount = pf.evaluate(r"""() => {
+      const ed = document.querySelector('[data-prompt-editor]');
+      return {found: !!ed,
+              insideMain: ed ? !!ed.closest('main') : null,
+              parentIsBody: ed ? ed.parentElement === document.body : null,
+              fullscreen: ed ? ed.classList.contains('prompt-editor--full')
+                : null};
+    }""")
     has_btn = pf.evaluate("() => !!document.querySelector('[data-prompt-fullscreen]')")
     if has_btn:
         pf.click("[data-prompt-fullscreen]")
@@ -1313,13 +1322,42 @@ def run_portal(browser, out_dir):
     _shot(pf, out_dir, "w13-portal-fullscreen-1280.jpg")
     layers["fullscreen-1280"] = pf.evaluate(ZINDEX_PROBE)
     pf.keyboard.press("Escape")
-    pf.wait_for_timeout(400)
-    fs_after = pf.evaluate(r"""() => ({
-      stillOpen: !!document.querySelector('.prompt-editor--full'),
-      focusTag: (document.activeElement || {}).tagName || ''})""")
-    note("fullscreen.1280", {"button": has_btn, "open": fs, "afterEsc": fs_after})
-    res["focus"].append({"overlay": "fullscreen@1280", "open": fs,
-                         "afterEsc": fs_after})
+    pf.wait_for_timeout(450)
+    # EVOL-033 (re-check 2, B2): выход по Esc обязан вернуть фокус на
+    # переключатель (раньше ветка стека ставила флаг напрямую, и фокус уходил
+    # на BODY после телепорта формы в <body>).
+    fs_after = pf.evaluate(r"""() => {
+      const a = document.activeElement;
+      const isTrig = !!(a && a.hasAttribute
+                        && a.hasAttribute('data-prompt-fullscreen'));
+      const ed = document.querySelector('[data-prompt-editor]');
+      return {stillOpen: !!document.querySelector('.prompt-editor--full'),
+              focusTag: a ? a.tagName : '',
+              focusClass: a ? (a.className || '').toString().split(/\s+/)[0] : '',
+              isTrigger: isTrig,
+              editorInsideMain: ed ? !!ed.closest('main') : null};
+    }""")
+    # Путь кнопкой — контроль: открыть и закрыть тем же переключателем.
+    by_button = {"opened": None, "focusAfterButton": None}
+    if has_btn:
+        pf.click("[data-prompt-fullscreen]")
+        pf.wait_for_timeout(500)
+        by_button["opened"] = pf.evaluate(
+            "() => !!document.querySelector('.prompt-editor--full')")
+        pf.click("[data-prompt-fullscreen]")
+        pf.wait_for_timeout(450)
+        by_button["focusAfterButton"] = pf.evaluate(r"""() => {
+          const a = document.activeElement;
+          return {tag: a ? a.tagName : '',
+                  isTrigger: !!(a && a.hasAttribute
+                                && a.hasAttribute('data-prompt-fullscreen'))};
+        }""")
+    note("fullscreen.1280", {"button": has_btn, "normalMount": normal_mount,
+                             "open": fs, "afterEsc": fs_after,
+                             "byButton": by_button})
+    res["focus"].append({"overlay": "fullscreen@1280", "normalMount": normal_mount,
+                         "open": fs, "afterEsc": fs_after,
+                         "byButton": by_button})
     ctxf.close()
 
     # ── 8.5 стек слоёв: два оверлея, Esc закрывает РОВНО верхний ───────────

@@ -26,7 +26,6 @@
 """
 import re
 from pathlib import Path
-
 ROOT = Path(".")
 INDEX = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 CSS = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")
@@ -180,6 +179,25 @@ class TestZLadderRefinements:
         dev = int(re.search(r"--z-dev:\s*(\d+);", CSS).group(1))
         assert palette < toast < dev, \
             "уведомление должно быть выше палитры и ниже dev-слоя"
+
+
+class TestFullscreenEscFocus:
+    """Re-check 2 (B2): выход по Esc/Back возвращает фокус, как кнопка."""
+
+    def test_stack_branch_uses_toggle_method(self):
+        body = APP_JS[APP_JS.index("function backStackClose(vm)"):]
+        body = body[:body.index("\n  }\n")]
+        assert "vm.promptEditorFull = false" not in body, \
+            "ветка стека не ставит флаг напрямую (иначе фокус теряется)"
+        assert "vm.togglePromptFullscreen(false)" in body, \
+            "Esc/Back идёт тем же путём, что кнопка"
+
+    def test_toggle_restores_focus_on_close(self):
+        body = _handler_body("togglePromptFullscreen")
+        assert "_restoreOverlayFocus(" in body, \
+            "закрытие возвращает фокус общим хелпером"
+        assert "'[data-prompt-fullscreen]'" in body, \
+            "точка возврата — кнопка-переключатель"
 
 
 class TestDuplicateTextClosed:

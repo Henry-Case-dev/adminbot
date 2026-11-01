@@ -6,7 +6,7 @@
    "tab": "status",
    "canonicalHash": "#/",
    "title": "Статус",
-   "textLen": 3561,
+   "textLen": 3541,
    "sections": 6,
    "rendered": true,
    "redirected": false
@@ -17,7 +17,7 @@
    "tab": "status",
    "canonicalHash": "#/status/graph",
    "title": "Граф связей",
-   "textLen": 3556,
+   "textLen": 3536,
    "sections": 6,
    "rendered": true,
    "redirected": false
@@ -226,7 +226,7 @@
    "tab": "access",
    "canonicalHash": "#/access/roles",
    "title": "Матрица ролей",
-   "textLen": 725,
+   "textLen": 724,
    "sections": 2,
    "rendered": true,
    "redirected": false

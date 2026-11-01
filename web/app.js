@@ -2192,7 +2192,12 @@
     try {
       switch (stack[0]) {
       case 'palette': close('closePalette'); return true;
-      case 'prompt-editor': vm.promptEditorFull = false; return true;
+      case 'prompt-editor':
+        // EVOL-033 (W13, re-check 2 B2): выход по Esc/Back идёт через тот же
+        // метод, что и кнопка, — иначе после телепорта формы в `<body>` фокус
+        // оставался на BODY (кнопка возвращала его на переключатель).
+        if (typeof vm.togglePromptFullscreen !== 'function') return false;
+        vm.togglePromptFullscreen(false); return true;
       case 'record': close('closeStatusRecord'); return true;
       case 'speech-editor':
         if (typeof vm.closeSpeechEditorFull !== 'function') return false;

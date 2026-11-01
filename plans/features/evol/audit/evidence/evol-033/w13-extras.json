@@ -30,7 +30,7 @@
     "headerRows": 1,
     "shellMode": "mobile",
     "title": "Статус",
-    "mainTextLen": 3593,
+    "mainTextLen": 3573,
     "mainTop": 58,
     "overlap": 0,
     "cards": 18,
@@ -105,7 +105,7 @@
     "headerRows": 1,
     "shellMode": "mobile",
     "title": "Статус",
-    "mainTextLen": 2780,
+    "mainTextLen": 2760,
     "mainTop": 58,
     "overlap": 0,
     "cards": 18,
@@ -172,7 +172,7 @@
     "headerRows": 1,
     "shellMode": "mobile",
     "title": "Статус",
-    "mainTextLen": 2748,
+    "mainTextLen": 2728,
     "mainTop": 58,
     "overlap": 0,
     "cards": 18,
@@ -276,8 +276,8 @@
    "hScroll": false
   },
   "videos": {
-   "w13-video-390.webm": 911110,
-   "w13-video-1280.webm": 989277
+   "w13-video-390.webm": 894212,
+   "w13-video-1280.webm": 997446
   }
  }
 }
