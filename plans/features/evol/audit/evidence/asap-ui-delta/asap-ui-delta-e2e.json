@@ -48,9 +48,9 @@
    "l": 596,
    "t": 55,
    "r": 976,
-   "b": 427,
+   "b": 461,
    "w": 380,
-   "h": 372
+   "h": 406
   },
   "placement": "bottom",
   "bgAlpha": 0.94,
@@ -141,27 +141,51 @@
   "position": "fixed",
   "rect": {
    "l": 8,
-   "t": 221,
+   "t": 162,
    "r": 312,
    "b": 691,
    "w": 304,
-   "h": 470
+   "h": 529
   },
   "vw": 320,
   "vh": 700,
   "inside": true,
   "bottomGap": 9,
-  "options": 9,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 245,
+    "scrollW": 245,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 126,
+    "clientW": 245,
+    "scrollW": 245,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
+   "len": 177,
    "clip": 0,
-   "h": 38,
+   "h": 42,
    "full": true,
    "lines": 2
   },
@@ -179,27 +203,51 @@
   "position": "fixed",
   "rect": {
    "l": 8,
-   "t": 301,
+   "t": 242,
    "r": 352,
    "b": 771,
    "w": 344,
-   "h": 470
+   "h": 529
   },
   "vw": 360,
   "vh": 780,
   "inside": true,
   "bottomGap": 9,
-  "options": 9,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 285,
+    "scrollW": 285,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 105,
+    "clientW": 285,
+    "scrollW": 285,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
+   "len": 177,
    "clip": 0,
-   "h": 38,
+   "h": 42,
    "full": true,
    "lines": 2
   },
@@ -221,27 +269,51 @@
   "position": "fixed",
   "rect": {
    "l": 8,
-   "t": 365,
+   "t": 306,
    "r": 382,
    "b": 835,
    "w": 374,
-   "h": 470
+   "h": 529
   },
   "vw": 390,
   "vh": 844,
   "inside": true,
   "bottomGap": 9,
-  "options": 9,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 42,
+    "scrollH": 42,
+    "clientW": 315,
+    "scrollW": 315,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 105,
+    "clientW": 315,
+    "scrollW": 315,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
+   "len": 177,
    "clip": 0,
-   "h": 38,
+   "h": 42,
    "full": true,
    "lines": 2
   },
@@ -269,19 +341,43 @@
   "vh": 375,
   "inside": true,
   "bottomGap": 9,
-  "options": 9,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 592,
+    "scrollW": 592,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 42,
+    "scrollH": 63,
+    "clientW": 592,
+    "scrollW": 592,
+    "lh": 21,
+    "clamp": "2",
+    "maxH": "none",
+    "lines": 2
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
+   "len": 177,
    "clip": 0,
-   "h": 21,
+   "h": 42,
    "full": true,
-   "lines": 1
+   "lines": 2
   },
   "scrolls": true,
   "hScrollPage": false
@@ -299,24 +395,48 @@
    "l": 16,
    "t": 103,
    "r": 396,
-   "b": 475,
+   "b": 508,
    "w": 380,
-   "h": 372
+   "h": 406
   },
   "vw": 768,
   "vh": 1024,
   "inside": true,
-  "bottomGap": 549,
-  "options": 9,
+  "bottomGap": 516,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 431,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 1264,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
-   "clip": 110,
+   "len": 177,
+   "clip": 943,
    "h": 21,
    "full": false,
    "lines": 1
@@ -332,24 +452,48 @@
    "l": 596,
    "t": 55,
    "r": 976,
-   "b": 427,
+   "b": 461,
    "w": 380,
-   "h": 372
+   "h": 406
   },
   "vw": 1280,
   "vh": 800,
   "inside": true,
-  "bottomGap": 373,
-  "options": 9,
+  "bottomGap": 339,
+  "options": 10,
   "optionH": 49,
   "titleText": "Весь бот",
   "titleClip": 0,
   "titleLines": 1,
   "titleAttr": "Весь бот",
+  "titleRows": [
+   {
+    "len": 60,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 431,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   },
+   {
+    "len": 177,
+    "clientH": 21,
+    "scrollH": 21,
+    "clientW": 321,
+    "scrollW": 1264,
+    "lh": 21,
+    "clamp": "none",
+    "maxH": "none",
+    "lines": 1
+   }
+  ],
   "titleWorst": {
    "text": "Очень длинное название рабочего чата с уточнение",
-   "len": 60,
-   "clip": 110,
+   "len": 177,
+   "clip": 943,
    "h": 21,
    "full": false,
    "lines": 1
@@ -545,15 +689,15 @@
   "scopeReturn": {
    "before": {
     "kind": "chat",
-    "chat": 424242
+    "chat": -1001234567891
    },
    "after": {
     "kind": "chat",
-    "chat": 424242
+    "chat": -1001234567891
    },
    "returned": {
     "kind": "chat",
-    "chat": 424242
+    "chat": -1001234567891
    }
   }
  },

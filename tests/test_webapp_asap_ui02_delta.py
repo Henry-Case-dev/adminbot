@@ -161,7 +161,12 @@ def test_scope_sheet_title_wraps_instead_of_ellipsis():
     assert ":title=\"o.title\"" in HTML, "полное имя остаётся в title"
     rule = _rule(r"\.scope-panel\[data-placement=\"sheet\"\] \.scope-option > span > \.scope-option__title")
     assert "white-space: normal" in rule and "overflow-wrap: anywhere" in rule
-    assert "max-height: calc(2 * 1.35em)" in rule, "не больше двух строк"
+    # Ровно две строки: ограничение даёт line-clamp, а не «магическая» высота.
+    # Ревью B1: `max-height: calc(2 * 1.35em)` (37.8 px при строке 21 px)
+    # срезал низ второй строки (clientHeight 38 против scrollHeight 42).
+    assert "-webkit-line-clamp: 2" in rule and "line-clamp: 2" in rule
+    assert "max-height" not in rule, \
+        "высота строк не задаётся в em: line-clamp сам считает две строки"
     # Усечение на desktop остаётся (одна строка + многоточие).
     base = _rule(r"\.scope-option > span:not\(\.scope-initial\):not\(\.badge\) > span")
     assert "white-space: nowrap" in base and "text-overflow: ellipsis" in base

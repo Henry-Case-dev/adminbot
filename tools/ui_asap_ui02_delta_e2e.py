@@ -64,8 +64,15 @@ DOSSIER_ITEMS = [
 # Один чат намеренно с длинным названием: на телефоне лист обязан показать его
 # читаемо (перенос на две строки), а не «Очень дли…».
 LONG_TITLE = "Очень длинное название рабочего чата с уточнением и подписью"
+# 120 символов: проверяем, что лист ставит многоточие ровно на второй строке и
+# НЕ обрезает её по вертикали (ревью B1: clientHeight 38 против scrollHeight 42).
+HUGE_TITLE = ("Очень длинное название рабочего чата с уточнением, подписью и "
+              "дополнительным продолжением имени, которое заведомо не влезает "
+              "в две строки листа и должно быть аккуратно сокращено")
 CHATS = [
     {"chat_id": -1001234567890, "title": LONG_TITLE, "type": "supergroup",
+     "is_dm": False, "photo_file_id": None},
+    {"chat_id": -1001234567891, "title": HUGE_TITLE, "type": "supergroup",
      "is_dm": False, "photo_file_id": None},
     {"chat_id": 424242, "title": "Второй чат", "type": "group",
      "is_dm": False, "photo_file_id": None},
@@ -226,6 +233,20 @@ PROBE_SCOPE = r"""
     titleClip: title ? (title.scrollWidth - title.clientWidth) : null,
     titleLines: (tr && lh) ? Math.round(tr.height / lh) : null,
     titleAttr: title ? title.getAttribute('title') : null,
+    // Вертикаль (ревью B1): линии не должны обрезаться по высоте. Для каждой
+    // длинной подписи — реальные clientHeight/scrollHeight и число строк.
+    titleRows: Array.from(p.querySelectorAll('.scope-option__title'))
+      .map((n) => {
+        const cs2 = getComputedStyle(n);
+        const lh2 = parseFloat(cs2.lineHeight) || 0;
+        const text = n.textContent.trim();
+        return {len: text.length,
+                clientH: n.clientHeight, scrollH: n.scrollHeight,
+                clientW: n.clientWidth, scrollW: n.scrollWidth,
+                lh: lh2, clamp: cs2.webkitLineClamp, maxH: cs2.maxHeight,
+                lines: lh2 ? Math.round(n.getBoundingClientRect().height / lh2) : null};
+      })
+      .filter((r) => r.len > 30),
     titleWorst: (() => {
       let worst = null;
       Array.from(p.querySelectorAll('.scope-option__title')).forEach((n) => {
@@ -580,6 +601,38 @@ def _check_sheet(probe, label, fails):
     if worst.get("lines") and worst["lines"] > 2:
         fails.append("%s: название занимает больше двух строк (%s)"
                      % (label, worst["lines"]))
+    # Вертикаль: низ второй строки не должен срезаться (ревью B1: было
+    # clientHeight 38 при scrollHeight 42 из-за max-height в 1.35em).
+    # У `-webkit-line-clamp` scrollHeight содержит и скрытый остаток, поэтому:
+    #   * уместившееся имя — scrollHeight == clientHeight (ничего не спрятано);
+    #   * сокращённое — clientHeight ровно 2 реальные строки (кратно line-height),
+    #     а не 38 px при строке 21 px.
+    rows = probe.get("titleRows") or []
+    if not rows:
+        fails.append("%s: нет длинных подписей — вертикаль листа не проверена"
+                     % label)
+    for r in rows:
+        lh = r.get("lh") or 0
+        if r["lines"] and r["lines"] > 2:
+            fails.append("%s: подпись длиной %s занимает %s строк (нужно <= 2)"
+                         % (label, r["len"], r["lines"]))
+        if r["scrollH"] <= r["clientH"] + 1:
+            continue                       # уместилось целиком
+        if not lh or r["clientH"] % lh != 0 or round(r["clientH"] / lh) != 2:
+            fails.append("%s: подпись обрезана по высоте (len=%s, clientHeight=%s "
+                         "при строке %s, clamp=%s) — должно быть ровно 2 строки"
+                         % (label, r["len"], r["clientH"], lh, r["clamp"]))
+    # 60-символьное имя обязано уместиться целиком (именно это ломал
+    # max-height 37.8 px): scrollHeight == clientHeight, 1–2 полные строки.
+    fits = [r for r in rows if 40 <= r["len"] <= 80]
+    if not fits:
+        fails.append("%s: нет подписи средней длины — полноту двух строк "
+                     "не проверить" % label)
+    for r in fits:
+        if r["scrollH"] != r["clientH"] or r["lines"] not in (1, 2):
+            fails.append("%s: имя из %s символов не уместилось полностью "
+                         "(lines=%s, clientH=%s, scrollH=%s)"
+                         % (label, r["len"], r["lines"], r["clientH"], r["scrollH"]))
     if probe["titleClip"] is None or probe["titleClip"] > 1:
         fails.append("%s: название в листе обрезано по ширине (clip=%s)"
                      % (label, probe["titleClip"]))

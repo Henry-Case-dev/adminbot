@@ -251,3 +251,32 @@ is_global_admin: false, is_custom: false   (никакого wildcard)
    дельте живьём не открывался — риск из ревью сохраняется.
 4. Остальные сценарии §12 (карта EVOL-COG, fullscreen-карта, health tint в движении и
    т.д.) не входили в эту итерацию.
+
+## 6. Ревью B1: вертикальная обрезка подписи в листе — исправлено
+
+Регрессия от моего же фикса листа: `max-height: calc(2 * 1.35em)` = **37.8 px**, а
+реальная строка — **21 px** (шрифт 14 px, ratio 1.5), поэтому две строки требуют 42 px и
+низ второй строки срезался. A/B-замер на одном и том же билде (старое правило
+подставлено `add_style_tag`):
+
+| экран | до (max-height 37.8 px) | после (line-clamp: 2) |
+|---|---|---|
+| 320×700, имя 60 симв. | `clientHeight 38` / `scrollHeight 42` — низ второй строки срезан на 4 px | `clientHeight 42` / `scrollHeight 42` — две полные строки |
+| 390×844, имя 60 симв. | `clientHeight 38` / `scrollHeight 42` — то же | `clientHeight 42` / `scrollHeight 42` — две полные строки |
+| 320/360/390, имя 177 симв. | 2 строки, но высота 38 px (обрезано) | `clientHeight 42` (ровно 2 × 21 px) + многоточие на второй строке |
+| 667×375, имя 60 симв. | 1 строка (места хватает) | 1 строка, `21/21` |
+| 768×1024 и 1280×800 | dropdown: 1 строка + многоточие | **без изменений** (`21/21`, ellipsis) |
+
+**Значение CSS сейчас:**
+`.scope-panel[data-placement="sheet"] .scope-option > span > .scope-option__title {
+white-space: normal; text-overflow: clip; overflow-wrap: anywhere; display: -webkit-box;
+-webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }` —
+`max-height` убран совсем: ограничение делает `-webkit-line-clamp: 2`, поэтому «магических»
+коэффициентов нет и высота строки не может разойтись с реальным line-height.
+
+Тесты: `test_scope_sheet_title_wraps_instead_of_ellipsis` больше не пинит 1.35em — проверяет
+`-webkit-line-clamp: 2` + отсутствие `max-height`; в `_check_sheet` добавлена **вертикальная**
+проверка (`scrollHeight <= clientHeight + 1` для уместившихся имён; для сокращённых —
+`clientHeight` строго кратен line-height и равен двум строкам), плюс в фикстуру добавлено
+имя из 177 символов, чтобы сокращение реально проверялось. Скрины пересняты:
+`asap-ui-delta-320-scope-sheet.png`, `asap-ui-delta-390-scope-sheet.png`.

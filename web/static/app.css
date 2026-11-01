@@ -7171,11 +7171,20 @@ html.kb-open .ctl-keyboard-spacer {
    переносится до двух строк вместо ellipsis «Рабо…» (замер ревью на 320:
    панель 88 px, scrollWidth 102 > clientWidth 73). Специфичность выровнена с
    правилом усечения выше и стоит ПОСЛЕ него — последнее слово за листом.
-   На desktop правило не применяется: там по-прежнему одна строка + `title`. */
+   На desktop правило не применяется: там по-прежнему одна строка + `title`.
+
+   ВАЖНО (ревью B1): высоту строк НЕ задаём в `em` — строка здесь 21 px при
+   шрифте 14 px (ratio 1.5), и `calc(2 * 1.35em)` = 37.8 px обрезал низ второй
+   строки (clientHeight 38 против scrollHeight 42). Ограничение делает
+   `-webkit-line-clamp: 2`: браузер сам считает две реальные строки и ставит
+   многоточие, без «магических» коэффициентов и без вертикального обреза. */
 .scope-panel[data-placement="sheet"] .scope-option > span > .scope-option__title {
   white-space: normal; text-overflow: clip; overflow-wrap: anywhere;
-  display: block; overflow: hidden;
-  max-height: calc(2 * 1.35em);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 /* ── W11-10. Reduced motion: смысл остаётся, декоративное движение — нет ──
