@@ -25,6 +25,40 @@ W20_TAIL = "CLAIMINSHORTMSG"
 REPLY_TAIL = "CLAIMINQUOTE"
 MSG_TAIL = "TAILMARK_QUEST"
 
+#: Смысловой контрдовод в СЕРЕДИНЕ длинной реплики (не маркер в хвосте):
+#: именно такие фразы раньше не доезжали до планера.
+COUNTER_MID = "но на самом деле в 1017 нет функции X, это переименование"
+
+
+def _mid_counter_row(total=755, pos=325):
+    """Реплика с контрдоводом в СЕРЕДИНЕ (позиция ``pos`` из ``total``)."""
+    head = ("контекст " * (pos // 9))[:pos]
+    tail = ("подробности " * 80)[: max(0, total - pos - len(COUNTER_MID) - 1)]
+    return _row(19, head + " " + COUNTER_MID + " " + tail)
+
+
+def _full_window_with_mid_counter():
+    """20-строчное окно: все реплики обычные, у 19-й контрдовод в середине."""
+    rows = [_row(i, (f"реплика {i}: " + "разговор " * 200)[:500])
+            for i in range(1, 19)]
+    rows.append(_mid_counter_row())
+    rows.append(_row(20, ("обсуждаем " * 50)[:420]))
+    return rows
+
+
+def _set_hot(monkeypatch, value):
+    """Подменить hot-ключ пакета L1 (``None`` → ключ не задан, динамика)."""
+    from services import hot_config as hot
+
+    real_get = hot.get
+
+    def _get(key, default=None):
+        if key == "limits.direct_l1_context_tokens":
+            return value
+        return real_get(key, default)
+
+    monkeypatch.setattr(hot, "get", _get)
+
 
 def _row(i, text, author="Аня"):
     return {"id": i, "author_name": author, "text": text, "user_id": 100 + i}
@@ -105,6 +139,72 @@ class TestL1PackageLosses:
                                   speaker="Аня", budget_tokens=1600)
         assert MSG_TAIL in ctx
 
+    @pytest.mark.asyncio
+    async def test_mid_message_counterargument_at_static_1600_is_lost(
+            self, monkeypatch):
+        """ЧЕСТНАЯ ГРАНИЦА (F-5 ревью): static-кап 1600 (явный hot-ключ
+        оператора) НЕ доставляет смысловой контрдовод из СЕРЕДИНЫ длинной
+        реплики — окно 20 строк даёт кап строки 200 (голова 120 + хвост 77), а
+        контрдовод стоит на ~325-м символе. Это цена ручного капа, а не
+        регрессия: на бюджете из окна модели тот же контрдовод доезжает
+        (следующая проверка). Замер фикстуры: реплика 755 симв., контрдовод
+        325-385, окно 20 строк."""
+        from services import direct_l1 as l1
+
+        rows = _full_window_with_mid_counter()
+        assert len(rows) == 20
+        assert COUNTER_MID in rows[-2]["text"]
+
+        _set_hot(monkeypatch, 1600)
+        static_budget, static_meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
+        assert static_budget == 1600 and static_meta["source"] == "hot"
+        assert l1.window_line_chars(rows, budget_tokens=static_budget) == 200
+        ctx_static = l1.build_l1_context(query="q", window=rows,
+                                        speaker="Аня",
+                                        budget_tokens=static_budget)
+        assert COUNTER_MID not in ctx_static     # граница зафиксирована явно
+
+        _set_hot(monkeypatch, None)              # прежний путь: динамика
+        live_budget, live_meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="deepseek-v4-flash")
+        assert live_meta["source"] == "model_window"
+        assert live_budget > 20000
+        ctx_live = l1.build_l1_context(query="q", window=rows, speaker="Аня",
+                                       budget_tokens=live_budget)
+        assert COUNTER_MID in ctx_live           # на живом бюджете — доезжает
+
+    @pytest.mark.asyncio
+    async def test_mid_message_counterargument_needs_budget_above_line_cap(
+            self, monkeypatch):
+        """Граница в числах: контрдовод из середины реплики доезжает, когда
+        кап строки покрывает его позицию (окно 20 строк → кап = 0.12×бюджета
+        символов, голова среза = 0.6×кап). Для этой фикстуры (контрдовод
+        325-382 симв.) измеренный порог: бюджет ≈5400 (кап 648) и выше.
+        Проверяем оба края, чтобы граница не была «зелёной случайно»."""
+        from services import direct_l1 as l1
+
+        rows = _full_window_with_mid_counter()
+        counter_end = rows[-2]["text"].index(COUNTER_MID) + len(COUNTER_MID)
+
+        def delivered(budget):
+            cap = l1.window_line_chars(rows, budget_tokens=budget)
+            head_chars = int(cap * 0.6)
+            return head_chars >= counter_end
+
+        assert delivered(1600) is False
+        assert delivered(5000) is False     # кап 600 → голова 360 < 382
+        assert delivered(5600) is True      # кап 672 → голова 403 ≥ 382
+        # Производный бюджет живого пути покрывает с запасом.
+        _set_hot(monkeypatch, None)
+        live_budget, _meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash")
+        assert live_budget >= 20000
+        assert delivered(live_budget) is True
+
     def test_reply_section_protected_under_hint_pressure(self):
         """Переполнение: сжимается ОКНО, а не цитата; claim в цитате выживает,
         окно при этом честно теряет строки (счётчик «ГРАНИЦА ИСТОРИИ»)."""
@@ -176,22 +276,81 @@ class TestL1PackageLosses:
     @pytest.mark.asyncio
     async def test_explicit_operator_cap_is_highest_priority(self, monkeypatch):
         """Явный hot-ключ оператора остаётся высшим приоритетом (ручное
-        решение не перебивается динамикой)."""
+        решение не перебивается динамикой) — пока он НИЖЕ окна модели."""
         from services import direct_l1 as l1
-        from services import hot_config as hot
 
-        real_get = hot.get
-
-        def _get(key, default=None):
-            if key == "limits.direct_l1_context_tokens":
-                return 2400
-            return real_get(key, default)
-
-        monkeypatch.setattr(hot, "get", _get)
+        _set_hot(monkeypatch, 2400)
         budget, meta = await l1.resolve_l1_context_budget(
             base_url="https://api.deepseek.com/v1",
             model="deepseek-v4-flash")
         assert budget == 2400 and meta["source"] == "hot"
+        assert budget < meta["available_input_budget"]
+        assert "clamped_by_window" not in meta
+
+    @pytest.mark.asyncio
+    async def test_hot_above_model_window_is_clamped_by_window(self, monkeypatch):
+        """F-4 ревью: hot-значение выше окна модели НЕ пробивает окно.
+
+        Было: floor = max(1600, hot) → при hot=200000 и окне 131072 итоговый
+        бюджет = 200000 (запрос больше окна модели). Стало: бюджет = доступный
+        вход модели, hot авторитетен только ниже окна; факт клампа виден в
+        `clamped_by_window`."""
+        from services import direct_l1 as l1
+
+        _set_hot(monkeypatch, 200000)
+        budget, meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="deepseek-v4-flash",
+            mandatory_tokens=400)
+        available = meta["available_input_budget"]
+        assert 0 < available <= 131072
+        assert budget == available, "итог не может превышать вход модели"
+        assert budget < 200000
+        assert meta["source"] == "hot"
+        assert meta.get("clamped_by_window") is True
+
+    @pytest.mark.asyncio
+    async def test_budget_never_exceeds_window_for_unknown_model(
+            self, monkeypatch):
+        """Тот же кламп на консервативном fallback-окне неизвестной модели:
+        бюджет остаётся внутри 16384, даже если hot просит больше."""
+        from services import direct_l1 as l1
+
+        _set_hot(monkeypatch, 50000)
+        budget, meta = await l1.resolve_l1_context_budget(
+            base_url="https://example.invalid/v1",
+            model="model-that-does-not-exist-xyz")
+        assert meta["context_window"] <= 16384
+        assert budget <= meta["available_input_budget"] <= 16384
+        assert budget < 50000
+
+    @pytest.mark.asyncio
+    async def test_fallback_window_source_is_reported_honestly(self):
+        """`source` не врёт: когда бюджет сужен fallback-моделью (композер не
+        знает, кто ответит), пишется `model_window_fallback`, а не
+        `model_window`."""
+        from services import direct_l1 as l1
+
+        budget, meta = await l1.resolve_l1_context_budget(
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-v4-flash", fallback_model="gpt-4-mini",
+            mandatory_tokens=400)
+        assert meta["source"] == "model_window_fallback"
+        assert meta["fallback_model"] == "gpt-4-mini"
+        assert budget == meta["available_input_budget"] < 20000
+
+    def test_clip_body_does_not_cut_inside_url(self):
+        """Срез не рвёт URL пополам (источник остаётся целым и в голове, и в
+        хвосте); длина может вырасти на длину URL — это bounded."""
+        from services import direct_l1 as l1
+
+        url = "https://example.com/" + "a" * 120
+        head_case = ("x" * 100) + " " + url + " " + ("y" * 400)
+        assert url in l1.clip_body(head_case, 200)
+        tail_case = ("y" * 400) + " " + url + " " + ("z" * 20)
+        assert url in l1.clip_body(tail_case, 200)
+        # Обычный текст по-прежнему укладывается в кап.
+        assert len(l1.clip_body("a" * 1000, 200)) == 200
 
     def test_message_cap_from_budget_not_writer_800(self):
         """Исходное сообщение: кап L1 выводится из бюджета, а не берётся
@@ -260,6 +419,39 @@ class TestMeteredIsToolCounterNotMoney:
         assert tool_loop._TOOL_MAX_SAME_CALL == 2
         assert tool_loop.TOOL_MAX_ROUNDS == 4
         assert tool_loop._TOOL_CALLS_PER_ROUND_MAX == 2
+
+    @pytest.mark.asyncio
+    async def test_chain_meta_reports_cost_calls_separately(self, monkeypatch):
+        """`chain_meta` объясняет отказ числами: `metered` (факт метричности)
+        и `cost_calls` («денежный» счётчик) — разные оси."""
+        from services import direct_execution as de
+
+        class _Router:
+            def __init__(self):
+                self.dispatched = []
+
+            async def dispatch(self, name, arguments, ctx):
+                self.dispatched.append(name)
+                return f"данные:{name}"
+
+        def _steps(*a, **kw):
+            return ([{"step_id": f"s{i}", "tool": tool,
+                      "arguments": {"q": f"v{i}"}, "depends_on": [],
+                      "failure_policy": "optional"}
+                     for i, tool in enumerate((
+                         "execute_web_search", "fetch_article",
+                         "generate_image", "summarize_video"))], [])
+
+        monkeypatch.setattr(de, "derive_simple_steps", _steps)
+        router = _Router()
+        result = await de.run_simple_tools(
+            plan=None, router=router, ctx=None, query="x", chat_id=1,
+            correlation_id="corr",
+            announced={"execute_web_search", "fetch_article",
+                       "generate_image", "summarize_video"})
+        assert len(router.dispatched) == 4
+        assert result.chain_meta["metered"] == 4     # все 4 метричные
+        assert result.chain_meta["cost_calls"] == 2  # только generate/summarize
 
     def test_money_limits_on_cannot_silently_block_evidence(self):
         """ГРАНИЦА: механизм денежных caps инертен (нет runtime-вызывающих) и

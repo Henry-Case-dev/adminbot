@@ -1,7 +1,8 @@
 # ER-08 (W18): реальные потери контекста L1, семантика лимитов и дедлайнов
 
 **Ветка:** `feat/er08-limits-context`, база `a9fcf7f9` (= 2.58.147 + EVR2 канон +
-ER-65 снимок). Коммит: `7c3185ed` (+ отчёт).
+ER-65 снимок). Коммиты: `7c3185ed` (L1/metered/дедлайны), `58342e6e` (№31 +
+отчёт), правки по ревью `w18-er08-review.md` — см. §1.5.
 **Решение владельца:** `plans/owner_inputs/2026-11-02-limits-economics-decision.md`.
 **План-карта:** `plans/features/evol/arch/limits-residual-plan.md` (№13/14/17/24/27/29/30/31).
 **Совместимость:** ASAP-EVIDENCE-ROUTING-01 v3 (контракт
@@ -107,9 +108,10 @@ protected `_cap_context` и в шаг head+tail — при переполнен�
 текста инструмента. `EvidenceSource` уже несёт структурные
 `status/total_chars/delivered_chars/truncated/delivered`
 (`services/direct_execution.py:186-199`). **Изменение минимальное и аддитивное:**
-в блок «EVIDENCE SO FAR» добавлена структурная шапка `| total=… | delivered=… |
-truncated=…`, сам сниппет остаётся добавкой. Расход токенов планировщика не
-растёт (шапка — числа), поведение плана не меняется.
+в блок «EVIDENCE SO FAR» добавлена структурная шапка
+`[tool | status=… | delivered=N/M | truncated=yes|no]`, сам сниппет остаётся
+добавкой. Расход планировщика растёт на ~40 символов НА ИСТОЧНИК (числа шапки),
+порядок величины не меняется; поведение плана не меняется.
 
 ### 1.4. №17 — `_CHAT_CONTEXT_MAX_CHARS = 2000` (chat_context)
 
@@ -120,6 +122,65 @@ truncated=…`, сам сниппет остаётся добавкой. Рас�
 keep-end цепочки там уже корректны (см. план §1, №17/№18). Риск отложенной
 правки ограничен: узкий factcheck-fallback и поиск получают 2000 символов,
 широкий фактчек-путь идёт мимо этого лимита.
+
+### 1.5. Правки по ревью `w18-er08-review.md` (F-4, F-5 + неблокирующие)
+
+**F-4 — hot-значение пробивало окно модели (реальный дефект).** Было:
+`floor = max(1600, l1_context_tokens())` включал hot-значение, поэтому hot был
+одновременно полом и потолком — `hot=200000` при окне 131072 давал бюджет
+200000, то есть запрос длиннее окна модели. Стало
+(`resolve_l1_context_budget`): физическая граница — `BudgetResult.auto_input_budget`
+(вход стадии до policy-капа, уже после клампа fallback-окном); итог
+`budget = min(policy_budget, available)`, затем `min(·, hot)`, пол —
+`min(L1_CONTEXT_FLOOR_TOKENS, available)`. Hot по-прежнему авторитетен НИЖЕ
+окна, факт клампа виден в `clamped_by_window=True`.
+
+| Сценарий (окно 131072, mandatory 400) | Было | Стало |
+| --- | --- | --- |
+| hot не задан | 112737 `model_window` | 112737 `model_window` |
+| hot=2400 (ниже окна) | 2400 `hot` | 2400 `hot` (без клампа) |
+| hot=200000 (выше окна) | **200000 `hot`** | **112737 `hot`, `clamped_by_window=true`** |
+| hot=50000, неизвестная модель (окно 16384) | 50000 | **≤16384** |
+
+**Честный `source`.** `model_window` больше не пишется, когда бюджет сужен
+fallback-моделью: `source=model_window_fallback` (+ `fallback_model` в meta).
+Проверка: `deepseek-v4-flash` + fallback `gpt-4-mini` → `model_window_fallback`,
+бюджет = 5885 при доступном входе основной модели 112737.
+
+**F-5 — честная граница середины сообщения (тест-валидность).** Ревью верно
+указало: прежние тесты доказывали выживание ХВОСТОВЫХ маркеров, а не смыслового
+контрдовода из СЕРЕДИНЫ реплики. Добавлены два теста, фиксирующие границу
+явно, а не «зелёным» умолчанием:
+
+* `test_mid_message_counterargument_at_static_1600_is_lost` — 20-строчное окно,
+  реплика 755 симв., контрдовод «но на самом деле в 1017 нет функции X…» на
+  позиции 325-382. При явном hot=1600 (кап строки 200: голова 120 + хвост 77)
+  контрдовод **НЕ доезжает** — assert именно на это; на бюджете из окна модели
+  (112737, кап 1200) — доезжает.
+* `test_mid_message_counterargument_needs_budget_above_line_cap` — порог в
+  числах: при 1600 и 5000 (кап 600, голова 360) не доезжает, при 5600 (кап 672,
+  голова 403) доезжает; измеренный порог для этой фикстуры ≈ **5400** бюджета
+  (кап 648). То есть граница — не «хвост против середины», а геометрия среза:
+  `голова = 0.6 × кап_строки`, `кап_строки = 0.12 × бюджета` (при 20 строках).
+
+**Остаточная граница, зафиксированная честно (не решена в этом слайсе).** Потолок
+строки окна `L1_WINDOW_LINE_CHARS_MAX = 1200` (класс C) означает: реплика
+длиннее ~1200 символов сохраняет голову 720 и хвост 477, а её СЕРЕДИНА теряется
+даже на производном бюджете. Для Telegram-сообщений до 1200 символов потерь нет;
+для более длинных — есть, и это отдельное решение (поднять потолок строки или
+резать длинную реплику по границам предложений/claim'ов), которое меняет расход
+входных токенов L1 и потому не входит в правку по ревью.
+
+**Неблокирующие пункты ревью (сделаны):**
+
+* `chain_meta["cost_calls"]` — «денежный» счётчик выводится рядом с `metered`
+  в simple- и adaptive-цепочке, отказ `chain_cost_limit` объясняется числами.
+* `plans/features/evol/audit/asap-evidence-routing-matrix.md` п.40 — убрано
+  расхождение doc/код (`ORCHESTRATOR_MAX_TIME_SECONDS=90` → общий резолв
+  `MCA_TOOL_CHAIN_TIMEOUT_SECONDS`, дефолт 360).
+* `clip_body` — срез не попадает ВНУТРЬ URL (`_url_safe_cut`: голова тянется до
+  конца URL, хвост отступает к его началу); длина среза может вырасти на длину
+  URL (bounded). Тест `test_clip_body_does_not_cut_inside_url`.
 
 ---
 
@@ -215,12 +276,14 @@ override 45 с — 45 с. `ChainBudget().deadline` = now + 120 с при нас�
 
 ## 5. Тесты и числа
 
-Новый файл `tests/test_er08_limits_context.py` — 20 тестов (CONTRACT/REGRESSION):
-потери окна/цитаты/сообщения/hints, бюджет из окна модели, малый-окно клампинг,
-приоритет hot-ключа, AST-проводка живого пути, durable-оси plan_meta,
-структурный статус evidence у планировщика (№31), разделение metered/деньги +
-сохранение анти-петель, граница денежных caps, дедлайны, видимость неизвестной
-цены.
+Новый файл `tests/test_er08_limits_context.py` — 27 тестов (CONTRACT/REGRESSION):
+потери окна/цитаты/сообщения/hints, бюджет из окна модели, клампинг бюджета
+окном (в т.ч. fallback-окно неизвестной модели), приоритет hot-ключа ниже окна,
+честный `source`, честная граница середины реплики (два теста), AST-проводка
+живого пути, durable-оси plan_meta, структурный статус evidence у планировщика
+(№31), разделение metered/деньги + `cost_calls` в `chain_meta`, сохранение
+анти-петель, граница денежных caps, дедлайны, URL-безопасный срез, видимость
+неизвестной цены.
 
 Обновлены тесты, которые утверждали ПРЕЖНИЙ контракт (счётчик платных вызовов
 резал read-only поиск), — это осознанная правка под решение владельца:
@@ -236,21 +299,23 @@ override 45 с — 45 с. `ChainBudget().deadline` = now + 120 с при нас�
 Сводные прогоны (`py -3 -m pytest ... -q -p no:randomly`):
 
 ```text
-tests/test_er08_limits_context.py + evidence_window + asap7_direct_l1
-  + direct_l1_corrective_r1 + direct_l1_l1d_contract
-  + tool_chains + tool_loop + mca11_chain_stages + asap8_v6_wc_direct_matrix
-  + asap8_v6_wc_direct_d04 + mca13_event_contract            → 283 passed
-затем (после правки шага 0 и hints) 155 passed (L1/parity-подмножество)
+27 тестов test_er08_limits_context.py                          → 27 passed
+поток-набор (er08 + evidence_window + asap7_direct_l1 +
+  direct_l1_corrective_r1 + direct_l1_l1d_contract + tool_chains +
+  tool_loop + mca11_chain_stages + asap8_v6_wc_direct_matrix +
+  asap8_v6_wc_direct_d04 + mca13_event_contract +
+  evol_evidence_routing + soul1_machine_profile + soul1_composer_parity_off)
+                                                               → 425 passed
 
 широкий срез: tests/ -k "direct or initiative or tool or l1 or evidence or
 prompt or smartsearch or search or parity or cost or metered"
-  кандидат 835c0905 → 13 failed, 3873 passed, 2 skipped
-  база  a9fcf7f9    → 13 failed, 3853 passed, 2 skipped
+  кандидат (правки по ревью) → 13 failed, 3880 passed, 2 skipped
+  база  a9fcf7f9              → 13 failed, 3853 passed, 2 skipped
   набор падений ИДЕНТИЧЕН: 5× test_direct_fallback_recompose_asap32,
   test_mca11_money_limits::test_no_runtime_callers_off_parity (упоминание
   модуля в docstring evidence_policy), test_mca20_rework1_f1_f2,
   6× summary_* (порядок/состояние; поодиночке проходят).
-  Разница +19 passed = новые тесты ER-08.
+  Разница +27 passed = новые тесты ER-08.
 ```
 
 Известные пред-существующие падения проекта (`test_samples_fewshot` 2,
@@ -282,11 +347,12 @@ prompt or smartsearch or search or parity or cost or metered"
 1. **Фактические цифры прода.** В проде эффективный бюджет зависит от
    (а) конфигурации L1-слота (`models.direct_l1_model_name` / hot-ключей),
    (б) значения hot-ключа `limits.direct_l1_context_tokens`. Если оператор
-   задал этот ключ явно, он остаётся высшим приоритетом и динамика не
-   применится — это осознанная семантика «ручного решения», но проверить
-   наличие значения можно только на живой hot-конфигурации (в репозитории
-   значения нет). Наблюдаемость: `plan_meta.l1_context_budget` /
-   `l1_context_source` (`hot|model_window|floor`) на usage-строке
+   задал этот ключ явно, он остаётся высшим приоритетом (но уже не может
+   превысить окно модели — F-4), и динамика не применится: осознанная семантика
+   «ручного решения», проверить наличие значения можно только на живой
+   hot-конфигурации (в репозитории значения нет). Наблюдаемость:
+   `plan_meta.l1_context_budget` / `l1_context_source`
+   (`hot|model_window|model_window_fallback|floor`) на usage-строке
    `step="l1_planner"` + `AUTO_CONTEXT_BUDGET`/`MODEL_CAPACITY_RESOLVED`.
 2. **Первая холодная резолюция capacity для L1-модели** может один раз
    выполнить discovery провайдера (таймаут 2 с, кэш 24 ч / 300 с для fallback).
@@ -306,6 +372,12 @@ prompt or smartsearch or search or parity or cost or metered"
 
 ## 8. Остаточные наблюдения (не блокируют этот слайс)
 
+* **Потолок строки окна 1200 символов** (`L1_WINDOW_LINE_CHARS_MAX`, класс C):
+  реплика длиннее ~1200 символов сохраняет голову 720 и хвост 477, её середина
+  теряется даже на производном бюджете. Для Telegram-сообщений до 1200 символов
+  потерь нет. Решение (поднять потолок строки до платформенного лимита или
+  резать длинную реплику по границам предложений/claim'ов) меняет расход
+  входных токенов L1 — на ревью не запрашивалось, выношу Архитектору.
 * **`_CHAT_CONTEXT_MAX_CHARS = 2000`** (№17): модуль `chat_context` остаётся на
   статическом капе для поиска/узкого фактчека — отдельная правка «окно/reader».
 * **Writer-путь `<Current_Question>`** по-прежнему режет сообщение на 800

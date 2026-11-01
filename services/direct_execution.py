@@ -735,6 +735,9 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
             "steps": len(evidence_sources),
             "ok": ok_count,
             "metered": budget.metered_calls,
+            # ER-08: «денежный» счётчик отдельно — отказ chain_cost_limit
+            # объясняется числами, а не догадкой (read-only его не тратит).
+            "cost_calls": budget.cost_calls,
         }
         context = "\n".join(s.content for s in evidence_sources if s.content)
         logger.info(
@@ -983,6 +986,7 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                                    "steps": len(evidence_sources),
                                    "ok": ok_count,
                                    "metered": budget.metered_calls,
+                                   "cost_calls": budget.cost_calls,
                                    "tokens_spent": spent_tokens})
 
 

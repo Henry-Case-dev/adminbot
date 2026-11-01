@@ -905,13 +905,38 @@ def window_line_chars(window=None, *, budget_tokens: int | None = None) -> int:
         return L1_WINDOW_LINE_CHARS
 
 
+_URL_RE = re.compile(r"https?://[^\s)\]>\"'«»]+")
+
+
+def _url_safe_cut(text: str, pos: int, *, keep_head: bool) -> int:
+    """Позиция среза, не попадающая ВНУТРЬ URL (источник не рвётся пополам).
+
+    ``keep_head`` — срез головы: если ``pos`` внутри URL, тянем до его конца
+    (URL остаётся в голове). Иначе — срез хвоста: если ``pos`` внутри URL,
+    отступаем к началу URL (URL остаётся в хвосте). Сдвиг ограничен длиной URL
+    и не отменяет срез. Никогда не бросает."""
+    try:
+        limit = len(text)
+        if pos <= 0 or pos >= limit:
+            return pos
+        for match in _URL_RE.finditer(text):
+            start, end = match.span()
+            if start < pos < end:
+                return end if keep_head else start
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+    return pos
+
+
 def clip_body(body: str, cap: int) -> str:
     """Срез с сохранением ХВОСТА (head+tail) — данные, а не бюджет.
 
     Голова одна теряет то, что несут контрдоводы и уточнения в конце
     сообщения/цитаты («… но на самом деле X не работает», версия в последней
     фразе). Поэтому срез сохраняет начало И конец с явным маркером
-    :data:`CLIP_MARK`; сама длина среза не меняется."""
+    :data:`CLIP_MARK`; сама длина среза не меняется. Границы среза не режут
+    URL (см. :func:`_url_safe_cut`) — источник остаётся целым; длина среза
+    может увеличиться на длину самого URL (bounded, единицы процентов пакета)."""
     try:
         text = str(body or "")
         limit = int(cap or 0)
@@ -923,7 +948,11 @@ def clip_body(body: str, cap: int) -> str:
         return text[:limit]
     head = int(limit * 0.6)
     tail = max(1, limit - head - len(CLIP_MARK))
-    return text[:head] + CLIP_MARK + text[-tail:]
+    head_cut = _url_safe_cut(text, head, keep_head=True)
+    tail_start = _url_safe_cut(text, len(text) - tail, keep_head=False)
+    if head_cut >= tail_start:            # защита от наложения (совсем мало места)
+        return text[:head]
+    return text[:head_cut] + CLIP_MARK + text[tail_start:]
 
 
 def reply_block_chars(budget_tokens: int | None = None) -> int:
@@ -994,10 +1023,20 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
     :data:`L1_CONTEXT_FLOOR_TOKENS`. Если L1-слот умеет откатиться на main-
     модель, берётся МИНИМУМ двух бюджетов (композер не знает, кто ответит).
 
+    Физическая граница (F-4 ревью 02.11.2026): ИТОГОВЫЙ бюджет никогда не
+    превышает доступный вход модели (`BudgetResult.auto_input_budget` после
+    клампа fallback-окном). Hot-значение авторитетно ТОЛЬКО ниже окна: оно
+    действует как потолок (`min(available, hot)`), а пол снизу —
+    ``min(L1_CONTEXT_FLOOR_TOKENS, available)``, иначе hot=200000 при окне
+    131072 давал бы запрос длиннее окна модели.
+
     Возврат ``(budget_tokens, meta)``; ``meta`` — R17-safe числа/enum
     (`effective_limit`/`source`/`capacity_source`/`context_window`/`model`).
+    ``source``: ``hot`` (явный операторский cap), ``model_window`` (из окна
+    L1-модели), ``model_window_fallback`` (окно сужено fallback-моделью —
+    композер не знает, кто ответит), ``floor`` (резолвер недоступен).
     Никогда не бросает."""
-    floor = max(L1_CONTEXT_FLOOR_TOKENS, l1_context_tokens())
+    floor = L1_CONTEXT_FLOOR_TOKENS
     meta: dict = {"effective_limit": floor, "source": "floor",
                   "capacity_source": "", "context_window": 0,
                   "model": str(model or "")}
@@ -1011,6 +1050,8 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
             max_output_tokens=l1_max_output_tokens(),
             manual_cap=manual_cap)
         budget = int(stage.effective_input_budget or 0)
+        # Физический вход стадии (без policy-капа) — верхняя граница бюджета.
+        available = max(0, int(stage.auto_input_budget or 0))
         meta.update({
             "capacity_source": str(stage.source or ""),
             "context_window": int(stage.context_window or 0),
@@ -1021,25 +1062,41 @@ async def resolve_l1_context_budget(*, base_url: str = "", model: str = "",
         # sync-резолв БЕЗ сети (`fallback_window_for_model`, §14): второй
         # discovery-вызов в платный путь не добавляется.
         other = str(fallback_model or "").strip()
+        fallback_clamped = False
         if other and other != str(model or "").strip():
             from services import model_capacity as _capacity
             from services.token_counter import safe_budget as _safe
             window, _src = _capacity.fallback_window_for_model(other)
             reserve = max(_capacity.OUTPUT_RESERVE_FLOOR,
                           l1_max_output_tokens())
-            available = max(1, _safe(max(1, int(window) - int(
+            fb_available = max(1, _safe(max(1, int(window) - int(
                 mandatory_tokens or 0) - reserve)))
-            if available < budget:
-                budget = available
+            if fb_available < budget:
+                budget = fb_available
+                fallback_clamped = True
                 meta["fallback_model"] = other
+            if available <= 0 or fb_available < available:
+                available = fb_available if available <= 0 \
+                    else min(available, fb_available)
+        if available > 0:
+            # Клампим итог реальным входом модели (hot не пробивает окно).
+            budget = min(int(budget or 0), available)
+        if manual_cap is not None:
+            budget = min(int(budget or 0), manual_cap)
+        floor_effective = min(floor, available) if available > 0 else floor
+        budget = max(floor_effective, int(budget or 0))
+        meta["effective_limit"] = int(budget)
         if manual_cap is not None:
             meta["source"] = "hot"
-            budget = min(budget, manual_cap)
+            if available > 0 and manual_cap > available:
+                # Honest: hot больше окна → режет окно, а не hot.
+                meta["clamped_by_window"] = True
+        elif fallback_clamped:
+            meta["source"] = "model_window_fallback"
         else:
             meta["source"] = "model_window"
-        budget = max(floor, int(budget or 0))
-        meta["effective_limit"] = budget
-        return budget, meta
+        meta["available_input_budget"] = int(available)
+        return int(budget), meta
     except Exception:      # pragma: no cover - защитная ветка (fail-open)
         return floor, meta
 
