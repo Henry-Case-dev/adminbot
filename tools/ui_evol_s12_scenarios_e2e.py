@@ -895,20 +895,28 @@ def _leak(pg, clip):
 def _fails_leak(stats, label):
     """Контракт §12.7: текст заднего слоя не читается через меню.
 
-    Допустимы оба принятых способа: фактически непрозрачная подложка
-    (утечка <= 10 уровней) ИЛИ реальный blur (утечка есть, но резких
-    контуров текста в карте разницы практически нет).
+    Критерий — по ФАКТИЧЕСКОМУ композитингу, а не по альфе в CSS. Принятый
+    материал подложки (непрозрачная рабочая поверхность `--surface-2`) даёт
+    утечку ноль, поэтому допускается только шум измерений:
+
+      * max <= 3 уровня на канал;
+      * доля пикселей, отличающихся больше чем на 2 уровня, <= 0,4 %.
+
+    Проверено негативной фикстурой (`residual.leakMutation`): прежняя
+    подложка `rgba(23,28,42,0.94)` даёт max≈15 и единицы процентов
+    «контрастных» пикселей — этот критерий её ОТКЛОНЯЕТ. Прежняя редакция
+    (`max<=60 и sharpShare<=0.002`) дефект пропускала.
+    Замечание на будущее: если материал сменят на blur-вариант, ему нужен
+    собственный критерий читаемости — этот измеряет именно непрозрачность.
     """
     if not stats:
         return ["%s: композитинг не измерен" % label]
-    if stats["max"] <= 10:
-        return []
-    if stats["max"] <= 60 and stats["sharpShare"] <= 0.002:
+    if stats["max"] <= 3 and stats["shareOver2"] <= 0.004:
         return []
     return ["%s: задний слой просвечивает — утечка max=%d, p99=%d, "
-            "резких контуров %.3f%% пикселей"
+            "пикселей >2 уровней %.2f%% (допустимо max<=3 и <=0.4%%)"
             % (label, stats["max"], stats["p99"],
-               stats["sharpShare"] * 100)]
+               stats["shareOver2"] * 100)]
 
 
 def s7_overlay(browser, out_dir, rec, fails):
@@ -1455,6 +1463,59 @@ P_EDITOR = r"""
 EDITOR_ROUTE = "#/modules/direct/synthesizer"
 
 
+P_HIT = r"""
+() => {
+  const bar = document.querySelector('.sticky-save');
+  const rect = (n) => { if (!n) return null; const r = n.getBoundingClientRect();
+    return {t: Math.round(r.top), b: Math.round(r.bottom),
+            l: Math.round(r.left), r: Math.round(r.right),
+            w: Math.round(r.width), h: Math.round(r.height)}; };
+  const probe = (re) => {
+    const btn = Array.from(document.querySelectorAll('.sticky-save button'))
+      .find((n) => re.test(n.textContent || ''));
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2);
+    const cy = Math.round(r.top + r.height / 2);
+    const el = document.elementFromPoint(cx, cy);
+    const owner = el && el.closest ? el.closest('button') : null;
+    return {rect: rect(btn), cx: cx, cy: cy,
+            hit: el ? (el.tagName + '.' + (el.className || '').toString()
+              .slice(0, 24)) : null,
+            isSelf: owner === btn,
+            topmost: owner ? (owner.textContent || '').trim().slice(0, 24)
+              : null};
+  };
+  const cs = bar ? getComputedStyle(bar) : null;
+  return {
+    bar: rect(bar),
+    barZ: cs ? cs.zIndex : null,
+    barPos: cs ? cs.position : null,
+    barParent: bar && bar.parentElement ? bar.parentElement.tagName : null,
+    save: probe(/Сохранить/),
+    cancel: probe(/Отмена/),
+  };
+}
+"""
+
+P_SAVE_STATE = r"""
+() => {
+  const vm = window.__adminbotVm;
+  const ta = document.querySelector('[data-prompt-textarea]');
+  const bar = document.querySelector('.sticky-save');
+  return {
+    dirty: vm && typeof vm.hasUnsavedEdits === 'function'
+      ? !!vm.hasUnsavedEdits() : null,
+    len: ta ? (ta.value || '').length : null,
+    baseline: vm && vm.workspacePromptFocus
+      ? (vm.workspacePromptFocus.value || '').length : null,
+    bar: !!bar,
+    fullscreen: !!(vm && vm.promptEditorFull),
+  };
+}
+"""
+
+
 def _open_prompt_editor(pg, settle=900):
     """Открыть ОДИН промпт модуля: дерево промптов → редактор.
 
@@ -1539,17 +1600,59 @@ def s15_keyboard_zoom(browser, out_dir, rec, fails):
         ctx.close()
 
     # ── (b) полноэкранный редактор при открытой клавиатуре (stable = 520)
-    ctx, pg, errs = _page(browser, 390, 844, route=EDITOR_ROUTE, settle=1500)
+    api_fs = _api()
+    ctx, pg, errs = _page(browser, 390, 844, api=api_fs, route=EDITOR_ROUTE,
+                          settle=1500)
     opened = _open_prompt_editor(pg)
     _kb_vars(pg, 520)
-    _dirty_editor(pg)
+    marker = " ЧЕРНОВИК-СОХРАНЕНИЯ"
+    pg.evaluate("""(m) => { const ta = document.querySelector(
+        '[data-prompt-textarea]'); ta.focus();
+      ta.value = ta.value + m;
+      ta.dispatchEvent(new Event('input', {bubbles: true})); }""", marker)
+    pg.wait_for_timeout(500)
     pg.evaluate("() => { const b = document.querySelector("
                 "'[data-prompt-fullscreen]'); if (b) b.click(); }")
     pg.wait_for_timeout(700)
     fs = pg.evaluate(P_EDITOR)
+    # HIT-TEST (ревью W14 Re-check 2): геометрии недостаточно — кнопка должна
+    # быть РЕАЛЬНО нажимаемой. Раньше полоса оставалась под оверлеем и
+    # elementFromPoint в её центрах возвращал TEXTAREA.
+    hit = pg.evaluate(P_HIT)
     rows.append({"case": "fullscreen-kb-390", "opened": opened, **fs,
-                 "errors": errs,
+                 "hit": hit, "errors": errs,
                  "shots": [_snap(pg, out_dir, "s12-s15-fullscreen-kb-390.png")]})
+    # Реальный клик по «Сохранить изменения»: должен уйти POST и сняться dirty.
+    posts_before = len(api_fs.log)
+    save_box = (hit or {}).get("save") or {}
+    if save_box.get("cx") is not None:
+        pg.mouse.click(save_box["cx"], save_box["cy"])
+        pg.wait_for_timeout(1400)
+    after_save = pg.evaluate(P_SAVE_STATE)
+    posts_save = api_fs.log[posts_before:]
+    rows.append({"case": "fullscreen-save-click-390", **after_save,
+                 "posts": posts_save,
+                 "shots": [_snap(pg, out_dir,
+                                 "s12-s15-fullscreen-saved-390.png")]})
+    # Реальная «Отмена»: черновик возвращается к сохранённому значению и
+    # НИ ОДНОГО POST не уходит.
+    pg.evaluate("""() => { const ta = document.querySelector(
+        '[data-prompt-textarea]'); ta.focus();
+      ta.value = ta.value + ' ЧЕРНОВИК-ОТМЕНЫ';
+      ta.dispatchEvent(new Event('input', {bubbles: true})); }""")
+    pg.wait_for_timeout(500)
+    hit_cancel = pg.evaluate(P_HIT)
+    posts_before_cancel = len(api_fs.log)
+    cancel_box = (hit_cancel or {}).get("cancel") or {}
+    if cancel_box.get("cx") is not None:
+        pg.mouse.click(cancel_box["cx"], cancel_box["cy"])
+        pg.wait_for_timeout(1000)
+    after_cancel = pg.evaluate(P_SAVE_STATE)
+    posts_cancel = api_fs.log[posts_before_cancel:]
+    rows.append({"case": "fullscreen-cancel-click-390", **after_cancel,
+                 "hit": hit_cancel, "posts": posts_cancel,
+                 "shots": [_snap(pg, out_dir,
+                                 "s12-s15-fullscreen-cancel-390.png")]})
     pg.keyboard.press("Escape")
     pg.wait_for_timeout(500)
     afterEsc = pg.evaluate(P_EDITOR)
@@ -1568,6 +1671,35 @@ def s15_keyboard_zoom(browser, out_dir, rec, fails):
         if fs["ta"] and fs["ta"]["b"] > fs["vh"] + 1 else "",
         "полноэкранный редактор: горизонтальный overflow %d" % fs["hScroll"]
         if fs["hScroll"] > 0 else "",
+        # HIT-TEST: кнопки обязаны быть верхним слоем в своих центрах.
+        "Save перекрыт: elementFromPoint вернул %s"
+        % ((hit or {}).get("save") or {}).get("hit")
+        if not ((hit or {}).get("save") or {}).get("isSelf") else "",
+        "«Отмена» перекрыта: elementFromPoint вернул %s"
+        % ((hit or {}).get("cancel") or {}).get("hit")
+        if not ((hit or {}).get("cancel") or {}).get("isSelf") else "",
+        "полоса сохранения не поднята над оверлеем (z=%s, position=%s)"
+        % ((hit or {}).get("barZ"), (hit or {}).get("barPos"))
+        if (hit or {}).get("barPos") != "fixed" else "",
+        "полоса сохранения ниже видимой области (%s)"
+        % ((hit or {}).get("bar") or {}) if (hit or {}).get("bar")
+        and hit["bar"]["b"] > fs["vh"] + 1 else "",
+        # Реальный клик по «Сохранить изменения».
+        "клик по Save не отправил POST /api/config" if not posts_save else "",
+        "клик по Save не сохранил черновик (dirty=%s, bar=%s)"
+        % (after_save.get("dirty"), after_save.get("bar"))
+        if after_save.get("dirty") or after_save.get("bar") else "",
+        "POST сохранения не содержит изменённый текст промпта"
+        if posts_save and marker.strip() not in (posts_save[0].get("body")
+                                                 or "") else "",
+        # Реальная «Отмена».
+        "клик по «Отмена» не снял черновик (dirty=%s)"
+        % after_cancel.get("dirty") if after_cancel.get("dirty") else "",
+        "клик по «Отмена» не вернул исходный текст (len=%s, база=%s)"
+        % (after_cancel.get("len"), after_cancel.get("baseline"))
+        if after_cancel.get("len") != after_cancel.get("baseline") else "",
+        "«Отмена» отправила POST (сохранение вместо отмены)" if posts_cancel
+        else "",
         "Esc не вернул редактор из полноэкранного режима"
         if afterEsc["fullscreen"] else "",
         "после Esc фокус не вернулся на переключатель (%s)"
@@ -1964,6 +2096,44 @@ P_LOADING = r"""
 """
 
 
+def leak_mutation_check(browser, out_dir, fails):
+    """Негативная фикстура для критерия §12.7 (ревью W14 Re-check 2).
+
+    Возвращаем ровно прежний дефект — подложку `rgba(23,28,42,0.94)` — и
+    требуем, чтобы критерий `_fails_leak` её ОТКЛОНИЛ. Если критерий снова
+    станет мягким, этот шаг покраснеет: фикстура документирована и живёт
+    рядом с проверкой, а не в голове ревьюера.
+    """
+    pid = "leakMutation"
+    ctx, pg, errs = _page(browser, 390, 844)
+    pg.click(".scope-trigger")
+    pg.wait_for_timeout(450)
+    sc = pg.evaluate(P_SCOPE)
+    rect = sc["panelRect"]
+    inset = 6
+    clip = {"x": rect["l"] + inset, "y": rect["t"] + inset,
+            "width": max(8, rect["w"] - 2 * inset),
+            "height": max(8, rect["h"] - 2 * inset)}
+    clean = _leak(pg, clip)
+    pg.evaluate("""() => {
+      const p = document.querySelector('#scope-panel');
+      if (p) p.style.backgroundColor = 'rgba(23, 28, 42, 0.94)';
+    }""")
+    pg.wait_for_timeout(200)
+    mutated = _leak(pg, clip)
+    shot = _snap(pg, out_dir, "s12-s7-leak-mutation-390.png")
+    caught = bool(_fails_leak(mutated, "мутация alpha 0.94"))
+    _fails_probe(pid, fails, [x for x in [
+        "эталонная подложка не проходит собственный критерий: %s"
+        % (clean,) if _fails_leak(clean, "эталон") else "",
+        "критерий НЕ поймал исходный дефект (alpha 0.94): %s" % (mutated,)
+        if not caught else "",
+    ] if x])
+    ctx.close()
+    return {"clean": clean, "mutated": mutated, "caught": caught,
+            "shots": [shot]}
+
+
 def residual_loading(browser, out_dir, fails):
     """Медленный `/api/config`: честный индикатор первичной загрузки.
 
@@ -2085,6 +2255,8 @@ def run(out_dir):
         report["residual"]["interactions"] = residual_interactions(
             browser, out_dir, fails)
         report["residual"]["loading"] = residual_loading(
+            browser, out_dir, fails)
+        report["residual"]["leakMutation"] = leak_mutation_check(
             browser, out_dir, fails)
         browser.close()
     httpd.shutdown()

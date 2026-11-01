@@ -7590,6 +7590,26 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
 @media (max-width: 767px) {
   .prompt-editor--full { padding-left: 8px; padding-right: 8px; }
 }
+/* W14-fix (ревью W14 Re-check 2, блокер §12.15): полоса сохранения,
+   телепортированная в <body> на время полноэкранного редактора промпта.
+   До этой правки она оставалась в `main.scroll-area` ПОД оверлеем
+   (`position: fixed; z-index: var(--z-modal)`): elementFromPoint в центрах
+   «Отмена»/«Сохранить изменения» возвращал TEXTAREA, реальный клик не давал
+   ни POST, ни отмены (видимая высота 520: поле 210–510, панель 444–504).
+   Решение в рамках принятой модели — та же панель `<sticky-save>`
+   (без второй копии и без новой системы слоёв) встаёт в слой диалога над
+   экранной клавиатурой по существующим токенам `--kb-inset`/`--z-modal`. */
+body > .sticky-save[data-save-panel] {
+  position: fixed;
+  left: 12px; right: 12px;
+  margin-left: 0;
+  width: auto; max-width: none;
+  bottom: calc(var(--kb-inset, 0px) + 8px);
+  z-index: calc(var(--z-modal) + 1);
+}
+/* Текст под панелью не теряется: у полноэкранного редактора появляется запас
+   прокрутки, поэтому последняя строка читается, а не уходит под панель. */
+.prompt-editor--full { scroll-padding-bottom: 92px; }
 
 /* ══ W12-06. EVOL-039: результат проверки соединения в карточке ══════════ */
 .conn-check-meta {

@@ -174,6 +174,65 @@ class TestHeartbeatTransientStates:
         assert "if (hb === 'disabled') return 'disabled';" in block
 
 
+class TestFullscreenSaveBar:
+    """§12.15 (блокер Re-check 2): полоса сохранения в полноэкранном редакторе.
+
+    Дефект: панель оставалась в `main.scroll-area` ПОД оверлеем
+    (`position: fixed; z-index: var(--z-modal)`), поэтому «Сохранить» и
+    «Отмена» были недоступны — `elementFromPoint` возвращал TEXTAREA.
+    """
+
+    def test_save_bar_is_teleported_into_fullscreen_layer(self):
+        marker = '<teleport to="body" :disabled="!promptEditorFull">'
+        assert marker in INDEX
+        blocks = []
+        start = 0
+        while True:
+            i = INDEX.find(marker, start)
+            if i < 0:
+                break
+            blocks.append(INDEX[i:i + 700])
+            start = i + 1
+        assert any("<sticky-save" in b for b in blocks), \
+            "та же панель (без второй копии) обязана переезжать в слой диалога"
+
+    def test_teleported_bar_sits_above_overlay_and_keyboard(self):
+        block = CSS[CSS.index("body > .sticky-save[data-save-panel]"):]
+        block = block[:block.index("}")]
+        assert "position: fixed" in block
+        assert "z-index: calc(var(--z-modal) + 1)" in block, \
+            "панель обязана быть выше оверлея редактора"
+        assert "bottom: calc(var(--kb-inset" in block, \
+            "панель обязана стоять над экранной клавиатурой"
+
+    def test_fullscreen_editor_has_scroll_reserve(self):
+        assert ".prompt-editor--full { scroll-padding-bottom: 92px; }" in CSS
+
+
+class TestLeakCriterion:
+    """§12.7: критерий просвечивания обязан ловить исходный дефект."""
+
+    def test_criterion_is_strict(self):
+        tool = (ROOT / "tools" / "ui_evol_s12_scenarios_e2e.py").read_text(
+            encoding="utf-8")
+        block = tool[tool.index("def _fails_leak"):]
+        block = block[:block.index("def s7_overlay")]
+        assert 'stats["max"] <= 3' in block, "порог утечки ослаблен"
+        assert 'stats["shareOver2"] <= 0.004' in block, \
+            "доля контрастных пикселей не ограничена"
+        assert 'sharpShare"] <= 0.002' not in block, \
+            "вернулась прежняя мягкая формулировка (max<=60 + контуры)"
+
+    def test_negative_fixture_exists_and_runs(self):
+        tool = (ROOT / "tools" / "ui_evol_s12_scenarios_e2e.py").read_text(
+            encoding="utf-8")
+        assert "def leak_mutation_check" in tool, \
+            "нет негативной фикстуры alpha 0.94"
+        assert "rgba(23, 28, 42, 0.94)" in tool
+        assert 'report["residual"]["leakMutation"]' in tool, \
+            "фикстура не подключена к прогону"
+
+
 class TestLoadingState:
     def test_boot_indicator_exists_and_is_accessible(self):
         """E.3: до готовности оболочки видно загрузку, а не пустой экран."""

@@ -5597,7 +5597,16 @@
                    промпты и key-drafts на конфиг-вкладках; рендерится ТОЛЬКО
                    при dirty/saving/failed (clean → absent, v-if в компоненте).
                    Reserved spacer удалён. Финальный блок ветки currentTabIsConfig. -->
+              <!-- W14-fix (ревью W14 Re-check 2, блокер §12.15): в
+                   полноэкранном редакторе промпта полоса сохранения оставалась
+                   в форме ПОД оверлеем (position:fixed, z 80) — «Сохранить» и
+                   «Отмена» были физически недоступны при открытой клавиатуре
+                   (elementFromPoint возвращал TEXTAREA). Тот же приём, что у
+                   самого редактора: <teleport> в <body> только в полноэкранном
+                   режиме, вторая копия панели не создаётся. -->
+              <teleport to="body" :disabled="!promptEditorFull">
               <sticky-save class="col-span-full"></sticky-save>
+              </teleport>
             </template>
           </template>
           <template v-else-if="activeTab === 'modules'">

@@ -1252,10 +1252,10 @@
       "visibleSections": 4,
       "swiper": 4,
       "samples": [
-       43,
+       42,
        50,
-       57,
-       64
+       56,
+       63
       ],
       "moving": true,
       "pausedStable": true,
@@ -1930,11 +1930,11 @@
        "h": 300
       },
       "save": {
-       "t": 444,
-       "b": 504,
-       "l": 19,
-       "r": 382,
-       "w": 363,
+       "t": 452,
+       "b": 512,
+       "l": 12,
+       "r": 378,
+       "w": 366,
        "h": 60
       },
       "close": {
@@ -1957,17 +1957,133 @@
       "hScroll": 0,
       "focusLabel": "",
       "focusIsToggle": false,
+      "hit": {
+       "bar": {
+        "t": 452,
+        "b": 512,
+        "l": 12,
+        "r": 378,
+        "w": 366,
+        "h": 60
+       },
+       "barZ": "81",
+       "barPos": "fixed",
+       "barParent": "BODY",
+       "save": {
+        "rect": {
+         "t": 460,
+         "b": 504,
+         "l": 189,
+         "r": 367,
+         "w": 178,
+         "h": 44
+        },
+        "cx": 278,
+        "cy": 482,
+        "hit": "BUTTON.btn-accent text-sm",
+        "isSelf": true,
+        "topmost": "Сохранить изменения"
+       },
+       "cancel": {
+        "rect": {
+         "t": 460,
+         "b": 504,
+         "l": 102,
+         "r": 181,
+         "w": 79,
+         "h": 44
+        },
+        "cx": 142,
+        "cy": 482,
+        "hit": "BUTTON.btn-ghost text-sm",
+        "isSelf": true,
+        "topmost": "Отмена"
+       }
+      },
       "errors": [],
       "shots": [
        "s12-s15-fullscreen-kb-390.png"
       ]
      },
      {
+      "case": "fullscreen-save-click-390",
+      "dirty": false,
+      "len": 0,
+      "baseline": 0,
+      "bar": false,
+      "fullscreen": true,
+      "posts": [
+       {
+        "url": "http://127.0.0.1:8853/api/config",
+        "body": "{\"items\":[{\"key\":\"prompts.direct_chat_synthesizer_system_prompt\",\"value\":\" ЧЕРНОВИК-СОХРАНЕНИЯ\"}],\"updated_at\":null}",
+        "hdrChat": "-1001234567890"
+       }
+      ],
+      "shots": [
+       "s12-s15-fullscreen-saved-390.png"
+      ]
+     },
+     {
+      "case": "fullscreen-cancel-click-390",
+      "dirty": false,
+      "len": 0,
+      "baseline": 0,
+      "bar": false,
+      "fullscreen": true,
+      "hit": {
+       "bar": {
+        "t": 452,
+        "b": 512,
+        "l": 12,
+        "r": 378,
+        "w": 366,
+        "h": 60
+       },
+       "barZ": "81",
+       "barPos": "fixed",
+       "barParent": "BODY",
+       "save": {
+        "rect": {
+         "t": 459,
+         "b": 503,
+         "l": 189,
+         "r": 367,
+         "w": 178,
+         "h": 44
+        },
+        "cx": 278,
+        "cy": 481,
+        "hit": "BUTTON.btn-accent text-sm",
+        "isSelf": true,
+        "topmost": "Сохранить изменения"
+       },
+       "cancel": {
+        "rect": {
+         "t": 460,
+         "b": 504,
+         "l": 102,
+         "r": 181,
+         "w": 79,
+         "h": 44
+        },
+        "cx": 142,
+        "cy": 482,
+        "hit": "BUTTON.btn-ghost text-sm",
+        "isSelf": true,
+        "topmost": "Отмена"
+       }
+      },
+      "posts": [],
+      "shots": [
+       "s12-s15-fullscreen-cancel-390.png"
+      ]
+     },
+     {
       "case": "fullscreen-esc-390",
       "vh": 520,
       "editor": {
-       "t": 362,
-       "b": 961,
+       "t": 545,
+       "b": 1144,
        "l": 8,
        "r": 382,
        "w": 374,
@@ -1975,32 +2091,25 @@
       },
       "fullscreen": false,
       "ta": {
-       "t": 578,
-       "b": 846,
+       "t": 761,
+       "b": 1029,
        "l": 25,
        "r": 365,
        "w": 340,
        "h": 269
       },
-      "save": {
-       "t": 444,
-       "b": 504,
-       "l": 19,
-       "r": 382,
-       "w": 363,
-       "h": 60
-      },
+      "save": null,
       "close": {
-       "t": 379,
-       "b": 423,
+       "t": 562,
+       "b": 606,
        "l": 25,
        "r": 116,
        "w": 91,
        "h": 44
       },
       "fsToggle": {
-       "t": 379,
-       "b": 423,
+       "t": 562,
+       "b": 606,
        "l": 314,
        "r": 365,
        "w": 51,
@@ -2098,6 +2207,8 @@
     "s12-s15-editor-320.png",
     "s12-s15-editor-390.png",
     "s12-s15-fullscreen-kb-390.png",
+    "s12-s15-fullscreen-saved-390.png",
+    "s12-s15-fullscreen-cancel-390.png",
     "s12-s15-fullscreen-esc-390.png",
     "s12-s15-model-kb-390.png",
     "s12-s15-search-kb-390.png",
@@ -2373,7 +2484,7 @@
       "frames": 75,
       "p50": 34,
       "p95": 36,
-      "max": 64,
+      "max": 36,
       "slowFrames": 0,
       "longTasks": 0,
       "longMax": 0,
@@ -2386,10 +2497,10 @@
      },
      {
       "route": "#/status/graph",
-      "frames": 43,
-      "p50": 58,
-      "p95": 64,
-      "max": 118,
+      "frames": 45,
+      "p50": 56,
+      "p95": 60,
+      "max": 105,
       "slowFrames": 1,
       "longTasks": 0,
       "longMax": 0,
@@ -2637,6 +2748,30 @@
    "shots": [
     "s12-loading-boot-390.png",
     "s12-loading-boot-palette-390.png"
+   ]
+  },
+  "leakMutation": {
+   "clean": {
+    "w": 1086,
+    "h": 444,
+    "max": 0,
+    "p99": 0,
+    "shareOver8": 0,
+    "shareOver2": 0,
+    "sharpShare": 0
+   },
+   "mutated": {
+    "w": 1086,
+    "h": 444,
+    "max": 15,
+    "p99": 11,
+    "shareOver8": 0.032833938911286976,
+    "shareOver2": 0.04424037296965474,
+    "sharpShare": 0.0005661739087153452
+   },
+   "caught": true,
+   "shots": [
+    "s12-s7-leak-mutation-390.png"
    ]
   }
  }
