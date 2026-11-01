@@ -135,6 +135,38 @@ def test_scope_combobox_flip_and_sheet_states():
     assert "_ctlPlacePopover" in JS and "setAttribute('data-placement'" in JS
 
 
+# ═══ 2b. Комбобокс области: на телефоне — ЛИСТ (L01854, после ревью) ═══════
+def test_scope_is_sheet_on_phone_only():
+    """<768 — лист; ≥768 — якорный dropdown с flip (без второго поповера)."""
+    assert "function _ctlScopePlacement(" in JS
+    body = JS[JS.index("function _ctlScopePlacement("):]
+    body = body[:body.index("\n  //")]
+    assert "if (!isPhone) return out;" in body, \
+        "на широком экране placement остаётся якорным (flip)"
+    assert "out.sheet = true;" in body and "out.placement = 'sheet';" in body
+    # Решение принимается тем же shellMode, что и вся адаптивная раскладка.
+    pos = JS[JS.index("positionScopePanel: function () {"):]
+    pos = pos[:pos.index("// EVOL-023 §2")]
+    assert "_ctlScopePlacement(box, metrics, self.shellMode === 'mobile')" in pos
+    # Лист позиционируется в системе содержащего блока шапки (backdrop-filter),
+    # иначе fixed-элемент «улетает» над вьюпортом.
+    assert "_ctlFixedContainingBlock(panel)" in pos
+    assert "function _ctlFixedContainingBlock(" in JS
+    # Чистая функция доступна как метод (поведенческий юнит-тест в tests/js).
+    assert "ctlScopePlacement: function (box, opts)" in JS
+
+
+def test_scope_sheet_title_wraps_instead_of_ellipsis():
+    assert "scope-option__title" in HTML, "подпись опции области — свой хук"
+    assert ":title=\"o.title\"" in HTML, "полное имя остаётся в title"
+    rule = _rule(r"\.scope-panel\[data-placement=\"sheet\"\] \.scope-option > span > \.scope-option__title")
+    assert "white-space: normal" in rule and "overflow-wrap: anywhere" in rule
+    assert "max-height: calc(2 * 1.35em)" in rule, "не больше двух строк"
+    # Усечение на desktop остаётся (одна строка + многоточие).
+    base = _rule(r"\.scope-option > span:not\(\.scope-initial\):not\(\.badge\) > span")
+    assert "white-space: nowrap" in base and "text-overflow: ellipsis" in base
+
+
 # ═══ 2. Один motion-масштаб для переходов и лент (L01950) ═════════════════
 def test_motion_tokens_single_source():
     assert "--dur-fast:var(--motion-fast);" in CSS
@@ -178,6 +210,56 @@ def test_back_button_visible_for_nested_layers():
     assert "backStackLayers().length" in body
     assert "routeDepth(this.route) > 0 || stack > 0" in body, \
         "BackButton обязан быть доступен и при открытом вложенном слое"
+
+
+def test_back_stack_has_no_recursion_into_itself():
+    """Полный экран графа — слой стека: его закрытие не идёт общим Back-путём.
+
+    Живой прогон §12 п.6 поймал цикл `goBack → верхний слой → closeGraphFull →
+    goBack` (переполнение стека, экран падал). Проверяем первопричину и guard.
+    """
+    body = JS[JS.index("closeGraphFull: function () {"):]
+    body = body[:body.index("\n      },")]
+    assert "this.goBack()" not in body, \
+        "закрыватель слоя не должен вызывать общий Back (цикл)"
+    assert "routeParent(this.route)" in body, \
+        "граф закрывается возвратом на РОДИТЕЛЬСКИЙ маршрут"
+    close = JS[JS.index("function backStackClose(vm) {"):]
+    close = close[:close.index("\n  }")]
+    assert "_backStackBusy" in close, "guard от повторного входа в закрыватель"
+
+
+# ═══ 3b. Палитра: RBAC и восстановление позиции (L01943, после ревью) ═════
+def test_palette_static_entries_are_rbac_gated():
+    body = JS[JS.index("paletteIndexEntries: function () {"):]
+    body = body[:body.index("paletteMatches: function () {")]
+    gate = body[body.index("SEARCH_STATIC_ENTRIES.forEach"):]
+    assert "var tab = routeToTab(e.route);" in gate, \
+        "адрес разделов проверяется по своей вкладке"
+    assert "!self.canViewTab(tab)" in gate, \
+        "недоступная ролью вкладка не попадает в палитру"
+
+
+def test_palette_target_focus_resolves_on_module_page():
+    """`?focus=module-card:<id>` должен находиться и на странице модуля."""
+    assert 'data-focus-id="\'module-card:\' + m.id"' in HTML, "карточка каталога"
+    assert ':data-focus-id="\'module-card:\' + workspaceModule.id"' in HTML, \
+        "страница модуля — тот же объект, тот же токен focus"
+
+
+def test_route_scroll_position_survives_return():
+    """Контракт «возврат сохраняет позицию»: память по маршруту + поздний restore."""
+    assert "var _routeScroll = {};" in JS
+    assert "_rememberRouteScroll(this.route, _currentScrollTop());" in JS
+    assert "_restoreRouteScroll(route);" in JS
+    body = JS[JS.index("function _restoreRouteScroll("):]
+    body = body[:body.index("\n  }")]
+    assert "requestAnimationFrame" in body, \
+        "восстановление идёт после $nextTick-сброса setTab, а не до него"
+    cur = JS[JS.index("function _currentScrollTop("):]
+    cur = cur[:cur.index("\n  }")]
+    assert "scrollHeight > sc.clientHeight + 1" in cur, \
+        "берётся реально прокручиваемый контейнер (main или документ)"
 
 
 # ═══ 4. Один стандарт детального просмотра (L01843) ══════════════════════

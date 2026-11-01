@@ -117,7 +117,12 @@ function vm(extra) {
 
   v.escClose();
   assert.deepStrictEqual(calls, ['palette'],
-    'Esc на пустом стеке редактора не трогает (редактор — computed-слой ниже)');
+    'Esc закрыл ровно один слой (палитра)');
+  assert.strictEqual(v.promptEditorFull, false,
+    'следующий по старшинству слой закрыт, пока палитра была верхней');
+  assert.strictEqual(v.statusRecordOpen, true, 'деталь осталась открытой');
+  assert.strictEqual(v.scopeOpen, true, 'dropdown области остался открытым');
+  assert.strictEqual(v.drawerOpen, true, 'drawer остался открытым');
 
   v.promptEditorFull = false;           // редактор закрыт своим действием
   v.goBack();
@@ -246,6 +251,67 @@ function vm(extra) {
   same.paletteSelect({ route: '#/modules/initiative', focus: 'module-card:x' });
   assert.strictEqual(same.__focusApplied, true,
     'на том же маршруте фокус применяется сразу');
+})();
+
+// ═══ 6. Fullscreen-граф: Back закрывает слой, а не уходит в рекурсию ══════
+// Живой прогон §12 п.6 нашёл цикл: `goBack → верхний слой = граф →
+// closeGraphFull → goBack`. Закрыватель больше не идёт общим Back-путём,
+// а сам возвращает на родительский маршрут; плюс у стека есть guard от
+// повторного входа.
+(function () {
+  const nav = [];
+  const v = vm({
+    route: '#/status/graph',
+    graphFullVisible: true,
+    navigateTo(r) {
+      nav.push('nav:' + r);
+      this.route = r;
+      this.graphFullVisible = false;
+    },
+  });
+  assert.deepStrictEqual(v.backStack, ['graph-full'], 'граф — верхний слой стека');
+  v.goBack();
+  assert.deepStrictEqual(nav, ['nav:#/'],
+    'Back закрывает fullscreen-граф возвратом на родительский маршрут');
+  assert.deepStrictEqual(v.backStack, [], 'после Back граф больше не слой');
+  assert.strictEqual(v.route, '#/', 'маршрут — родитель графа (#/status/graph → #/)');
+
+  // Guard от повторного входа: закрыватель, который сам зовёт backStackClose,
+  // не должен уронить приложение в переполнение стека.
+  let reentered = 0;
+  const loop = vm({
+    drawerOpen: true,
+    closeDrawer() { reentered += 1; this.backStackClose(); },
+  });
+  loop.goBack();
+  assert.strictEqual(reentered, 1,
+    'вложенный вызов backStackClose из закрывателя не зацикливается');
+})();
+
+// ═══ 7. Комбобокс области: лист на телефоне, dropdown на широком экране ═══
+(function () {
+  const box = { placement: 'bottom', maxHeight: 240, sheet: false, pad: 8 };
+  const view = { visibleH: 700 };
+
+  const desktop = methods.ctlScopePlacement.call(
+    { shellMode: 'desktop' }, box, { visibleH: 700, isPhone: false });
+  assert.strictEqual(desktop.placement, 'bottom',
+    'на desktop размещение остаётся якорным (flip), не листом');
+  assert.strictEqual(desktop.sheet, false, 'на desktop лист не включается');
+
+  const phone = methods.ctlScopePlacement.call(
+    { shellMode: 'mobile' }, box, { visibleH: 700 });
+  assert.strictEqual(phone.sheet, true, 'на телефоне панель области — лист');
+  assert.strictEqual(phone.placement, 'sheet', 'placement = sheet');
+  assert.strictEqual(phone.maxHeight, 684,
+    'лист ограничен видимой областью (700 - 2*8)');
+
+  const flip = methods.ctlScopePlacement.call(
+    { shellMode: 'compact' }, { placement: 'top', maxHeight: 200, sheet: false },
+    { visibleH: 600 });
+  assert.strictEqual(flip.placement, 'top',
+    'на планшете сохраняется flip вверх, когда снизу нет места');
+  assert.strictEqual(flip.sheet, false, 'на планшете лист не включается');
 })();
 
 console.log('ASAP-UI02-DELTA-OK');

@@ -6973,6 +6973,8 @@ html.w9-sheet-bottom .modal-close {
   min-width: 0; max-width: none;
   border-radius: var(--overlay-radius);
 }
+/* ASAP-UI-02 §4.3 (L01854): одна реализация подписи опции области. */
+.scope-option__title { min-width: 0; }
 
 /* ── W11-5. Поля и редактор длинного текста ──────────────────────────────
    `.ctl-input`/`.ctl-textarea` — контрактные МОДИФИКАТОРЫ существующего
@@ -7164,6 +7166,16 @@ html.kb-open .ctl-keyboard-spacer {
 .scope-option > span:not(.scope-initial):not(.badge) > span {
   display: block; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ASAP-UI-02 §4.3 (L01854): на телефоне панель области — ЛИСТ, и подпись там
+   переносится до двух строк вместо ellipsis «Рабо…» (замер ревью на 320:
+   панель 88 px, scrollWidth 102 > clientWidth 73). Специфичность выровнена с
+   правилом усечения выше и стоит ПОСЛЕ него — последнее слово за листом.
+   На desktop правило не применяется: там по-прежнему одна строка + `title`. */
+.scope-panel[data-placement="sheet"] .scope-option > span > .scope-option__title {
+  white-space: normal; text-overflow: clip; overflow-wrap: anywhere;
+  display: block; overflow: hidden;
+  max-height: calc(2 * 1.35em);
 }
 
 /* ── W11-10. Reduced motion: смысл остаётся, декоративное движение — нет ──

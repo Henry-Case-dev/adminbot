@@ -278,7 +278,14 @@
                      class="w-6 h-6 rounded-full object-cover shrink-0">
                 <span v-else class="scope-initial">{{ o.initial }}</span>
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate">{{ o.title }}</span>
+                  <!-- ASAP-UI-02 §4.3 (L01854): в листе (телефон) название
+                       переносится на две строки вместо ellipsis «Рабо…»;
+                       на desktop остаётся одна строка с многоточием (правило
+                       W11) + полное имя в title. Класс `truncate` не нужен:
+                       и усечение, и перенос заданы одним `.scope-option__title`
+                       (без борьбы специфичностей с утилитами). -->
+                  <span class="block scope-option__title"
+                        :title="o.title">{{ o.title }}</span>
                   <span class="text-[10px] text-gray-500">{{ o.subtitle }}</span>
                 </span>
                 <span v-if="o.badge" class="badge badge-info shrink-0">{{ o.badge }}</span>
@@ -900,7 +907,8 @@
                    boolean); навигация — табы, не аккордеоны. ═══ -->
               <div v-if="workspaceModule && workspace.door === 'modules'"
                    class="col-span-full card p-4 workspace-head"
-                   :data-module="workspaceModule.id" data-workspace-head>
+                   :data-module="workspaceModule.id" data-workspace-head
+                   :data-focus-id="'module-card:' + workspaceModule.id">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="msr" aria-hidden="true">{{ iconGlyph(workspaceModule.icon) }}</span>
                   <div class="min-w-0">
