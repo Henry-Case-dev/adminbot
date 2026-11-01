@@ -172,7 +172,7 @@ Truth table (проверено тестом `tests/js/evol_w12_internals_test.j
 | Что | Команда/файл | Результат |
 | --- | --- | --- |
 | Поведение (поиск, реестр, группы, инспектор, модели, промпты) | `node tests/js/evol_w12_internals_test.js` | `EVOL-W12-INTERNALS-OK` |
-| Структура + запуск живого теста | `pytest tests/test_webapp_evol_w12_internals.py` | 17 passed |
+| Структура + запуск живого теста | `pytest tests/test_webapp_evol_w12_internals.py` | 19 passed (§9 — было 17) |
 | Живой Chromium 1280/390 | `py -3 tools/ui_evol_w12_internals_e2e.py` | `EVOL-W12-INTERNALS OK` |
 | Существующие W7/W9/W10/W11 | `pytest tests/test_webapp_evol_w*.py` | 415 passed (набор webapp) |
 | Промпты/каталог/дизайн-токены/роутинг | node `round1025_*`, `round1030_*`, `routing_test`, `round1025_design_tokens` | PASS |
@@ -208,3 +208,86 @@ Truth table (проверено тестом `tests/js/evol_w12_internals_test.j
    «успех». Это осознанное поведение, а не незакрытая часть.
 5. Живые Telegram-сообщения не отправлялись; проверки выполнялись на локальном
    стенде с заглушками API.
+
+---
+
+## 9. review-fix (компактное ревью W12, блокеры B1/B2)
+
+### 9.1 B1 — выбор в поиске вёл не на ту вкладку модуля
+
+**Причина.** `_settingDestination` для любого параметра модуля возвращала
+`#/modules/<slug>/settings`. Параметр, который рендерится на другой рабочей
+вкладке (лимиты → «Лимиты», подключения → «Модели», секции Summary →
+`hybrid`/`legacy`), на «Основных настройках» отсутствует, `_applyRouteFocus`
+не находил `[data-cfg-key="…"]` и молча выходил — `document.activeElement`
+оставался `BODY`. Живое доказательство прошлого прогона:
+`picked = setting:limits.intent_heartbeat_batch_max`,
+`hash = #/modules/initiative/settings?focus=…`, `focused = BODY`.
+
+**Что сделано (web/app.js).**
+* `_settingRenderMap()` — карта «ключ параметра → модуль + его рабочая вкладка».
+  Строится из того же источника, что и рендер (`_workspaceGroupsFor` →
+  `workspaceGroupTab`), поэтому найденный адрес гарантированно содержит поле;
+  результат кэшируется до смены состава `configItems`/`modules` (замер на
+  стенде: ~38 мс на 250 адресов, один раз).
+* `_settingDestination` сначала спрашивает карту и только потом падает в прежний
+  `"/settings"`/`tabToRoute` (совместимость и node-контракт сохранены; master-флаг
+  и промпты обрабатываются как раньше, до карты).
+* `_applyRouteFocus` получил короткую серию повторов (20 × 200 мс): конфиг и
+  данные модуля приходят асинхронно. Если цель так и не появилась — честное
+  сообщение «Не удалось перейти к параметру: он не отображается на открытом
+  экране» вместо тихого прыжка на верх страницы.
+
+### 9.2 B2 — живая проверка фокуса была беззубой
+
+`check(bool(focused))` проходил на `tagName === 'BODY'`, а python-тест лишь
+искал строки. Теперь:
+
+* `tools/ui_evol_w12_internals_e2e.py` вычисляет ожидаемый токен из выбранного
+  результата (`setting:<key>` → `<key>`), сравнивает `focused == expected_focus`,
+  отдельно запрещает `BODY/HTML` и проверяет `?focus=<key>` в адресе; добавлен
+  прогон по трём адресам с РАЗНЫХ вкладок модуля (`summary/settings`,
+  `direct/settings`, `direct/limits`) — все дают фокус на своём ключе.
+* `tests/test_webapp_evol_w12_internals.py` получил два постоянных теста:
+  структура строгой сверки в живом инструменте (`bool(focused)` запрещён) и
+  структура адреса параметра (карта витрины + повторы + честное сообщение).
+
+### 9.3 Доказательства (текущий кандидат)
+
+| Что | Команда/файл | Результат |
+| --- | --- | --- |
+| JS-поведение | `node tests/js/evol_w12_internals_test.js` | `EVOL-W12-INTERNALS-OK` |
+| Структура + запуск живого теста | `pytest tests/test_webapp_evol_w12_internals.py` | **19 passed** (было 17) |
+| Живой Chromium 1280/390 | `py -3 tools/ui_evol_w12_internals_e2e.py` | `EVOL-W12-INTERNALS OK`, `fails: []` |
+| Затронутые соседние контракты | `pytest tests/test_webapp_evol_w7_nav.py tests/test_frontend_tab_mapping.py` | 92 passed (общий прогон с W12) |
+
+Красное/зелёное на одном и том же стенде (токен
+`limits.intent_heartbeat_batch_max`):
+
+```
+#/modules/initiative/settings  present=False active='BODY'                       (старый адрес)
+#/modules/initiative/limits    present=True  active='limits.intent_heartbeat_batch_max'
+```
+
+Из отчёта `evidence/w12-internals-e2e.json`:
+
+```
+palette_navigation: picked.setting=limits.intent_heartbeat_batch_max
+  hash   = #/modules/initiative/limits?focus=limits.intent_heartbeat_batch_max
+  focused= limits.intent_heartbeat_batch_max
+palette_focus_routes:
+  #/modules/summary/settings + reactions.allowed_summary_ids      → focused = тот же ключ
+  #/modules/direct/settings  + flags.chat_autonomous_reply_enabled→ focused = тот же ключ
+  #/modules/direct/limits    + limits.chat_branch_context_hops    → focused = тот же ключ
+```
+
+### 9.4 Остаточное
+
+* Параметры, скрытые из generic-сетки фильтрами (семантические тумблеры
+  «Инициативы» рендерит собственная секция на «Основных настройках»), ведёт
+  прежний фолбэк `/settings` — там они и отрисованы, фокус работает.
+* Если рол параметра недоступен вовсе (нет в `configItems`), он не индексируется:
+  поиск не покажет адрес, которого не существует.
+* `tests/js/round1025_ia_routing_test.js` («Личность осталась в ИИ») падает
+  и на HEAD — это прежняя находка (§8.1), к B1/B2 не относится.
+

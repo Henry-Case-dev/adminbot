@@ -5,8 +5,10 @@ API - стенд `tools/ui_round1025_matrix.py`, боевой Telegram не за
 
   * EVOL-037 - один поиск/command palette: `Ctrl+K` открывает, Esc закрывает,
     ввод текста не перехватывается, результаты сгруппированы, выбор открывает
-    нужный маршрут с `?focus=` и фокусирует конкретный элемент; на 390 поиск
-    открывается полноэкранным листом из меню «⋯»/drawer, секретов в выдаче нет;
+    нужный маршрут с `?focus=` и фокусирует КОНКРЕТНЫЙ элемент (сверка с ключом
+    выбранного параметра на нескольких вкладках модуля, а не «фокус непустой»);
+    на 390 поиск открывается полноэкранным листом из «⋯»/drawer, секретов в
+    выдаче нет;
   * EVOL-038 - полноэкранный редактор промпта и поиск в каталоге промптов;
   * EVOL-042 - явные режимы инспектора «последний реальный вызов» vs
     «предпросмотр», у предпросмотра всегда метка «не отправлено»;
@@ -20,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -286,7 +289,8 @@ def main() -> int:
         check(all("keys." not in (d or "") for d in sec["dests"]),
               "1280: ключи/секреты не попадают в выдачу")
 
-        # Выбор результата: маршрут + ?focus= + фокус на реальном элементе.
+        # Выбор результата: маршрут + ?focus= + фокус на РЕАЛЬНОМ выбранном
+        # параметре (B2: сравниваем с токеном, а не «хоть что-то сфокусировано»).
         page.evaluate("() => window.__adminbotVm.closePalette()")
         open_palette(page)
         page.keyboard.type("heartbeat")
@@ -298,29 +302,85 @@ def main() -> int:
                 .indexOf('/modules/') >= 0) || rows[0];
               if (!row) return null;
               const id = row.getAttribute('data-palette-item');
+              const dest = row.getAttribute('data-palette-dest') || '';
               row.click();
-              return id;
+              return {id: id, dest: dest};
             }
         """)
-        page.wait_for_timeout(1200)
+        page.wait_for_timeout(1500)
         href = page.evaluate("() => window.location.hash")
         focused = page.evaluate(r"""
             () => {
               const el = document.activeElement;
-              return el ? (el.getAttribute('data-cfg-key')
-                || el.getAttribute('data-focus-id') || el.tagName) : null;
+              if (!el) return null;
+              return el.getAttribute('data-cfg-key')
+                || el.getAttribute('data-focus-id') || el.tagName;
             }
         """)
+        # Токен фокуса = ключ параметра: id результата = 'setting:<key>' /
+        # 'prompt:<key>'. Именно он обязан оказаться в адресе и в фокусе.
+        expected_focus = ''
+        if picked and picked.get("id"):
+            expected_focus = re.sub(r"^(?:setting|prompt):", "", picked["id"])
         report["checks"]["palette_navigation"] = {
-            "picked": picked, "hash": href, "focused": focused}
+            "picked": picked, "expected_focus": expected_focus,
+            "hash": href, "focused": focused}
         check(picked is not None, "1280: результат выбора найден")
-        check("focus=" in href, "1280: маршрут несёт ?focus= (deep-link)")
-        check(bool(focused), "1280: после выбора элемент получил фокус")
+        check(bool(expected_focus), "1280: у выбранного результата есть ключ фокуса")
+        check("?focus=" in (href or "") and
+              ("focus=" + expected_focus) in (href or ""),
+              "1280: маршрут несёт ?focus=<выбранный ключ> (deep-link), hash=%s"
+              % href)
+        check(focused == expected_focus,
+              "1280: фокус на выбранном параметре %r, а не на %r (B1: ведём на "
+              "ту вкладку модуля, где поле реально отрисовано)"
+              % (expected_focus, focused))
+        check(focused not in (None, "BODY", "HTML"),
+              "1280: фокус не упирается в BODY (молчаливый прыжок)")
         shot(page, "1280-palette-target")
+
+        # ═══ 1b. B1/B2: не один «удачный» пункт, а разные вкладки модуля ═══
+        # Для каждого адреса из реестра (`route` + `focus` = ключ параметра)
+        # фокус обязан оказаться ИМЕННО на этом ключе. Раньше все адреса
+        # указывали на «Основные настройки», а поле лимитов/моделей там не
+        # рендерится — фокус молча оставался на BODY.
+        multi = page.evaluate(r"""
+            () => {
+              const vm = window.__adminbotVm;
+              const out = [];
+              const seen = {};
+              (vm.paletteIndexEntries || []).forEach((e) => {
+                if (e.kind !== 'setting' || !e.focus) return;
+                if ((e.route || '').indexOf('#/modules/') !== 0) return;
+                if (seen[e.route]) return;          // по одному с каждой вкладки
+                seen[e.route] = true;
+                out.push({key: e.focus, route: e.route});
+              });
+              return out.slice(0, 3);
+            }
+        """)
+        rows = []
+        for ent in (multi or []):
+            page.evaluate("(e) => window.__adminbotVm.paletteSelect(e)",
+                          {"route": ent["route"], "focus": ent["key"]})
+            page.wait_for_timeout(1300)
+            got = page.evaluate(r"""
+                () => {
+                  const el = document.activeElement;
+                  if (!el) return null;
+                  return el.getAttribute('data-cfg-key')
+                    || el.getAttribute('data-focus-id') || el.tagName;
+                }
+            """)
+            rows.append({"route": ent["route"], "key": ent["key"], "focused": got})
+            check(got == ent["key"],
+                  "1280: %s → фокус на %r (получено %r)"
+                  % (ent["route"], ent["key"], got))
+        report["checks"]["palette_focus_routes"] = rows
+        check(len(rows) >= 2,
+              "1280: проверено больше одной вкладки модуля (адреса не схлопнуты)")
         check(not errs, "1280: ошибок консоли нет (%s)" % errs[:2])
         ctx.close()
-
-        # ═══ 2. Мобильный 390: полноэкранный лист из «⋯»/drawer ═══
         ctx = open_ctx(browser, 390, 844)
         page = ctx.new_page()
         errs = []

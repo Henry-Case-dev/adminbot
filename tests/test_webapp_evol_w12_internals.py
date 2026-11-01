@@ -8,7 +8,8 @@
   * EVOL-037 - единственный глобальный поиск/command palette: точка входа в
     topbar (desktop), пункт в навигации/меню (tablet/mobile), Ctrl+K, Esc,
     структурный реестр результатов с группами, deep-link `?focus=` и фокус
-    конкретного элемента; секретов и ключей API в индексе нет;
+    конкретного элемента (в живой проверке — строгая сверка с ключом
+    выбранного параметра); секретов и ключей API в индексе нет;
   * EVOL-040 - master-флаг модуля не имеет второго записывающего тумблера
     внутри модуля (read-only статус + вход в каталог), guard в saveConfigItem;
   * EVOL-035 - семантические группы тумблеров «Инициативы», per-chat opt-in
@@ -69,7 +70,8 @@ class TestGlobalSearch:
             "хоткей объявлен для доступности"
         assert 'data-palette-open-drawer' in INDEX, \
             "на планшете/телефоне вход в навигации (шапку не раздуваем)"
-        assert 'data-palette-open-mobile' in INDEX, "пункт меню «⋯»"
+        # §6.1 v2.1: меню «…» удалено — его пункт поиска тоже.
+        assert 'data-palette-open-mobile' not in INDEX
         assert "v-if=\"!hasDrawer\"" in INDEX, \
             "кнопка topbar не дублируется там, где есть drawer"
         # Ctrl+K обрабатывается глобально, Esc закрывает панель первой.
@@ -106,6 +108,42 @@ class TestGlobalSearch:
             "цель внутри свёрнутого блока раскрывается"
         # Фокус применяется и при повторном выборе того же маршрута.
         assert "this._applyRouteFocus();" in APP_JS
+
+    def test_live_focus_check_binds_exact_token(self):
+        """B2: живая проверка сравнивает фокус с выбранным ключом, а не «есть
+        хоть что-то». Прошлая версия принимала `tagName === 'BODY'`."""
+        src = LIVE_TOOL.read_text(encoding="utf-8")
+        nav = src[src.index('"palette_navigation"'):]
+        nav = nav[:nav.index("shot(page")] if "shot(page" in nav else nav
+        assert "bool(focused)" not in src, \
+            "проверка «фокус непустой» проходит на BODY — так нельзя"
+        assert "expected_focus" in nav, \
+            "ожидаемый токен фокуса вычисляется из выбранного результата"
+        assert "focused == expected_focus" in nav, \
+            "фокус сравнивается с ключом выбранного параметра строго"
+        assert "BODY" in nav, "явный запрет фокуса на BODY/HTML"
+
+    def test_setting_destination_uses_rendering_tab(self):
+        """B1: адрес параметра — вкладка модуля, где поле реально отрисовано.
+
+        `#/modules/<slug>/settings` для лимитов/моделей вёл туда, где
+        `[data-cfg-key]` нет: deep-link `?focus=` молча упирался в BODY.
+        """
+        body = APP_JS[APP_JS.index("_settingDestination: function"):
+                      APP_JS.index("_settingRouteOf: function")]
+        assert "_settingRenderMap" in body, \
+            "адрес берётся из фактической витрины модуля"
+        assert "workspaceGroupTab" in APP_JS, \
+            "раскладка групп по вкладкам — единый контракт (не второй список)"
+        assert "#/modules/' + hslug + '/' + hit.tab" in body, \
+            "маршрут несёт реальную рабочую вкладку модуля"
+        # Недостижимая цель — честное сообщение, а не тихий прыжок наверх.
+        focus_src = APP_JS[APP_JS.index("_applyRouteFocus: function"):
+                           APP_JS.index("_tabOfItem: function")]
+        assert "_applyRouteFocus(tries + 1)" in focus_src, \
+            "цель ищется с повторами: конфиг/данные модуля приходят позже"
+        assert "он не отображается" in focus_src, \
+            "если цель так и не найдена — пользователю сказано прямо"
 
     def test_no_redundant_parameter_search_controls(self):
         """Бессмысленных дублей «Поиск по параметрам…» больше нет."""
@@ -212,8 +250,10 @@ class TestSpeechCenterAndInspector:
     def test_task_areas_replace_long_catalog(self):
         assert "data-speech-area-nav" in INDEX
         assert "openSpeechArea" in APP_JS
-        for area in ("Обзор", "Характер", "Манера речи", "Юмор",
-                     "Опыт и обучение", "Как собирается ответ"):
+        # §4.2 v2.1: пять независимых рабочих вкладок (названия — по реальным
+        # группам настроек); это ЗАМЕНЯЕТ прежние 6 областей W12.
+        for area in ("Личность", "Речь и стиль", "Мат", "Примеры",
+                     "Правила и источники"):
             assert area in APP_JS, "область %s" % area
         assert "SPEECH_AREAS" in APP_JS
         assert ".speech-area-nav" in W12_CSS

@@ -35,13 +35,11 @@
     "bf": "none",
     "inputValue": "юмор",
     "inputH": 44,
-    "rows": 9,
+    "rows": 8,
     "groups": [
-     "section",
      "setting"
     ],
     "dests": [
-     "#/ai/speech",
      "#/permsoc",
      "#/modules/initiative/settings",
      "#/memory/rag",
@@ -81,9 +79,9 @@
     "#/modules/initiative/limits",
     "#/modules/initiative/settings",
     "#/modules/initiative/settings",
-    "#/modules/initiative/settings",
+    "#/modules/initiative/limits",
     "#/modules",
-    "#/modules/initiative/settings",
+    "#/modules/initiative/limits",
     "#/modules/images/settings",
     "#/modules/images/settings",
     "#/modules/initiative/settings",
@@ -113,10 +111,31 @@
    "hScroll": false
   },
   "palette_navigation": {
-   "picked": "setting:limits.intent_heartbeat_batch_max",
-   "hash": "#/modules/initiative/settings?focus=limits.intent_heartbeat_batch_max",
-   "focused": "BODY"
+   "picked": {
+    "id": "setting:limits.intent_heartbeat_batch_max",
+    "dest": "#/modules/initiative/limits"
+   },
+   "expected_focus": "limits.intent_heartbeat_batch_max",
+   "hash": "#/modules/initiative/limits?focus=limits.intent_heartbeat_batch_max",
+   "focused": "limits.intent_heartbeat_batch_max"
   },
+  "palette_focus_routes": [
+   {
+    "route": "#/modules/summary/settings",
+    "key": "reactions.allowed_summary_ids",
+    "focused": "reactions.allowed_summary_ids"
+   },
+   {
+    "route": "#/modules/direct/settings",
+    "key": "flags.chat_autonomous_reply_enabled",
+    "focused": "flags.chat_autonomous_reply_enabled"
+   },
+   {
+    "route": "#/modules/direct/limits",
+    "key": "limits.chat_branch_context_hops",
+    "focused": "limits.chat_branch_context_hops"
+   }
+  ],
   "prompt_editor": {
    "editor": true,
    "full": false,

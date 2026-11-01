@@ -1676,6 +1676,10 @@
     }
     return true;
   }
+  // W12 review-fix (B1): кэш карты «параметр → РЕАЛЬНАЯ витрина модуля».
+  // Один расчёт на актуальный состав `configItems`/`modules` (см.
+  // `_settingRenderMap`); значения параметров на адрес не влияют.
+  var _settingRenderCache = null;
 
   // F5 (ADR-1025-15 D4/§49, T-2714): карточка подключения.
   // Значения — ТОЛЬКО из существующей структуры `PROVIDER_BLOCKS`/`models_*`
@@ -12419,8 +12423,12 @@
       // Фокус конкретного элемента по deep-link. Токен ищется в двух
       // контрактах: `data-focus-id` (составные цели: prompt:, conn-) и
       // `data-cfg-key` (любое поле настройки). Раскрываем <details> вокруг.
-      _applyRouteFocus: function () {
+      // W12 review-fix (B1): данные модуля/конфига приходят асинхронно, поэтому
+      // цель ищется с короткой серией повторов; если её так и нет — честное
+      // сообщение вместо молчаливого прыжка на верх страницы (фокус = BODY).
+      _applyRouteFocus: function (attempt) {
         var self = this;
+        var tries = (typeof attempt === 'number' && attempt > 0) ? attempt : 0;
         var hash = '';
         try { hash = String(window.location.hash || ''); } catch (e) { return; }
         var q = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
@@ -12441,7 +12449,19 @@
             var sel1 = '[data-focus-id="' + token.replace(/"/g, '\\"') + '"]';
             var sel2 = '[data-cfg-key="' + token.replace(/"/g, '\\"') + '"]';
             el = document.querySelector(sel1) || document.querySelector(sel2);
-            if (!el) return;
+            if (!el) {
+              if (tries < 20 && typeof setTimeout === 'function') {
+                setTimeout(function () {
+                  self._applyRouteFocus(tries + 1);
+                }, 200);
+                return;
+              }
+              if (typeof self.toast === 'function') {
+                self.toast('Не удалось перейти к параметру: он не отображается '
+                  + 'на открытом экране', 'warn');
+              }
+              return;
+            }
             var node = el;
             while (node && node.tagName) {
               if (String(node.tagName).toLowerCase() === 'details') {
@@ -12486,8 +12506,45 @@
         var t = (this.tabs || []).find(function (x) { return x.id === tabId; });
         return t ? t.label : 'Настройка';
       },
-      // Адрес редактирования конкретного параметра. Промпт → тот же
-      // мастер-детейл редактор модуля (один объект/история, без копий).
+      // ═══ W12 review-fix (B1): адрес параметра = та вкладка, где он ОТРИСОВАН ═══
+      // Параметр живёт не всегда на «Основные настройки»: лимиты рендерятся на
+      // вкладке «Лимиты», подключения — на «Модели». Карта строится ИЗ ТОГО ЖЕ
+      // источника, что и рендер (`_workspaceGroupsFor` → generic-сетка), поэтому
+      // найденный адрес гарантированно содержит `[data-cfg-key]` и deep-link
+      // `?focus=` не упирается молча в BODY.
+      _settingRenderMap: function () {
+        var self = this;
+        var items = this.configItems || [];
+        var mods = this.modules || [];
+        var cache = _settingRenderCache;
+        if (cache && cache.items === items && cache.mods === mods
+            && cache.itemsCount === items.length
+            && cache.modsCount === mods.length) {
+          return cache.map;
+        }
+        var map = {};
+        if (typeof this._workspaceGroupsFor === 'function') {
+          mods.forEach(function (m) {
+            if (!m || !m.id) return;
+            (m.tabs || []).forEach(function (wt) {
+              // «Обзор» параметров не содержит; промпты рендерит master-detail
+              // отдельного маршрута (§48) и в карту настроек не входят.
+              if (wt === 'overview' || wt === 'prompts'
+                  || wt === 'synthesizer' || wt === 'verbalizer') return;
+              var groups = self._workspaceGroupsFor(m, wt) || [];
+              groups.forEach(function (g) {
+                (g.items || []).forEach(function (it) {
+                  if (!it || !it.key || map[it.key]) return;
+                  map[it.key] = { module: m, tab: wt };
+                });
+              });
+            });
+          });
+        }
+        _settingRenderCache = { items: items, mods: mods,
+          itemsCount: items.length, modsCount: mods.length, map: map };
+        return map;
+      },
       // Адрес редактирования конкретного параметра. Промпт → тот же
       // мастер-детейл редактор модуля (один объект/история, без копий);
       // master-флаг модуля → карточка каталога (единственная запись).
@@ -12513,6 +12570,19 @@
               return { route: '#/modules/' + slug + '/prompts/' + item.key,
                        focus: 'prompt:' + item.key };
             }
+          }
+        }
+        // B1: сначала — фактическая витрина (модуль + его рабочая вкладка).
+        var hit = null;
+        if (typeof this._settingRenderMap === 'function') {
+          hit = this._settingRenderMap()[item.key] || null;
+        }
+        if (hit && hit.module) {
+          var hslug = this.routeSlugOf ? this.routeSlugOf(hit.module)
+            : hit.module.routeSlug;
+          if (hslug) {
+            return { route: '#/modules/' + hslug + '/' + hit.tab,
+                     focus: item.key };
           }
         }
         var mod = (this.modules || []).find(function (m) {
