@@ -1635,7 +1635,7 @@
   "identical": true,
   "isolated_processes": true,
   "runs": 2,
-  "snapshot_core_sha256": "e8e99d4f9efdc8ccd602132892a87342572a62fddc8b19c1170e49b8c706a01c"
+  "snapshot_core_sha256": "03657d01a28430892b07d66715be777c9b08e76f5782f79f182ce3cc0703d616"
  },
  "environment": {
   "app_version": "2.58.144",
@@ -1828,10 +1828,10 @@
  "schema": "er65-sent-segments-v2",
  "sources": {
   "services/bot_persona.py": {
-   "bytes": 40630,
-   "bytes_utf8": 40630,
-   "lines": 861,
-   "sha256": "47729dfaef312c773e4b4bcf5e4bd8d824293424db7a49d0fedae2a494d3bf6a"
+   "bytes": 44125,
+   "bytes_utf8": 44125,
+   "lines": 921,
+   "sha256": "f73977782a415abd2198b085b1a5e471b00c1bbc32f25f74803cf97d8898be34"
   },
   "services/chat_prompts.py": {
    "bytes": 206872,
@@ -1840,10 +1840,10 @@
    "sha256": "3ef55672e7b0d62c4dec9ba38dd1f997fdb766e6eb414f450334f53702131974"
   },
   "services/direct_chat_service.py": {
-   "bytes": 814592,
-   "bytes_utf8": 814592,
-   "lines": 13432,
-   "sha256": "54e3fcf83360ba86f84996c0a46e4720c11fd789759de643c566a94974dcc6c7"
+   "bytes": 816064,
+   "bytes_utf8": 816064,
+   "lines": 13450,
+   "sha256": "ca737da24fb91d89b66370fa61abb9b8f0ed21f5fc6f51c9aea3164dfa18eb4c"
   },
   "services/direct_execution.py": {
    "bytes": 73775,

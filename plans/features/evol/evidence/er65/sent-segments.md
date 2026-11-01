@@ -14,7 +14,7 @@
 * Канон: Registry `soul1-w3-1`, заводской набор `b1c1ab5b3b68`, нарушения печатей: нет
 * Сеть: blocked (socket.connect/connect_ex бросают); PG: PG-стенд (ConfigLayer): присутствует слой с флагами гейтов; документы владельца character.core/expression/persona отсутствуют намеренно (PG недоступен)
 * Стадий: **27** (боевых 18 + вторичных OFF 9), сегментов сообщений: **58** (system 27 / user 27 / assistant 2 / tool 2)
-* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `e8e99d4f9efdc8cc…`
+* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `03657d01a2843089…`
 
 ## Боевая карта гейтов
 
@@ -486,9 +486,9 @@ _(один неразмеченный блок)_
 
 | Файл | Строк | sha256 |
 | --- | --- | --- |
-| `services/bot_persona.py` | 861 | `47729dfaef312c77…` |
+| `services/bot_persona.py` | 921 | `f73977782a415abd…` |
 | `services/chat_prompts.py` | 1641 | `3ef55672e7b0d62c…` |
-| `services/direct_chat_service.py` | 13432 | `54e3fcf83360ba86…` |
+| `services/direct_chat_service.py` | 13450 | `ca737da24fb91d89…` |
 | `services/direct_execution.py` | 1429 | `5c789feba2f284e9…` |
 | `services/direct_l1.py` | 2202 | `7f30653a74629596…` |
 | `services/factcheck_prompts.py` | 631 | `cc33b7046a08d730…` |
