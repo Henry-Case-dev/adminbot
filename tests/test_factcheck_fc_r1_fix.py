@@ -563,10 +563,12 @@ def _patch_verbalize(monkeypatch, text):
 
     monkeypatch.setattr(fs, "verbalize_validated", fake_verbalize)
 
-    async def fake_owner(chat_id):
-        return ""
+    async def fake_compose(**kwargs):
+        # ASAP-FC-VOICE-01 / A (§3): слои владельца — из единой точки сборки;
+        # этот replay проверяет вердикт/покрытие/рендер, не речевые слои.
+        return kwargs["base_prompt"], None
 
-    monkeypatch.setattr(fs, "speech_owner_block", fake_owner)
+    monkeypatch.setattr(fs, "compose_speech_system", fake_compose)
 
 
 ORIGIN_ROW = {
@@ -646,7 +648,10 @@ class TestVapingReplayOffline:
         markup = bot.sent[0]["text"]
         assert "<b>Подтверждается частично</b>" in markup
         assert "Недостаточно данных" not in markup
-        assert "По утверждениям:" in markup     # ссылки привязаны к тезисам
+        # ASAP-FC-VOICE-01 / A (§5): «По утверждениям» — FALLBACK проверенных
+        # данных, а не обязательный блок: при содержательном теле Writer'а тот
+        # же разбор второй раз не повторяется.
+        assert "По утверждениям:" not in markup
         # роль каждого источника объяснена
         visible = fr.visible_text(markup)
         assert ("— пересказ" in visible or "— энциклопедия" in visible

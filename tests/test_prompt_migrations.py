@@ -76,10 +76,12 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+    PREV_FACTCHECK_ANALYST_VOICE01,
     PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+    PREV_FACTCHECK_VERBALIZER_VOICE01,
     PREV_FACTCHECK_VERBALIZER_W1,
 )
 from services.prompt_migrations import (
@@ -324,8 +326,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # стек ступеней цел.
     "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR1,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
+    # ASAP-FC-VOICE-01 / A (02.11.2026): первый откат снимает ТОЛЬКО новый
+    # канон голоса → байты прода 2.58.148 (PREV_FACTCHECK_VERBALIZER_VOICE01).
     "prompts.factcheck_verbalizer_system_prompt":
-        PREV_FACTCHECK_VERBALIZER_W1,
+        PREV_FACTCHECK_VERBALIZER_VOICE01,
     # ASAP-2.1 (round1028, контракт g): откат Legacy Single вёл на канон
     # 2.58.33 (PREV_SUMMARY_SYSTEM_R1028).
     # CFG-07A-2: откат → НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
@@ -356,8 +360,11 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # tone_hint) → непосредственный прежний прод-канон с полем.
     # EVOL W17 (02.11.2026): первый откат снимает ТОЛЬКО правило фаз работы
     # модели → байты прода 2.58.147 (PREV_FACTCHECK_ANALYST_PHASE_SCOPE).
+    # ASAP-FC-VOICE-01 / A (02.11.2026): теперь первый откат снимает ТОЛЬКО
+    # два смысловых поля → байты прода 2.58.148
+    # (PREV_FACTCHECK_ANALYST_VOICE01).
     "prompts.factcheck_analyst_system_prompt":
-        PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+        PREV_FACTCHECK_ANALYST_VOICE01,
     # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
     # ASAP-2 (round1027, контракт l): откат снимает ступень R1027 →
     # непосредственный прежний канон R1026 (PREV_*_R1027 = база+блок).
@@ -460,10 +467,15 @@ class TestPromptMigrationsCatalog:
 
     def test_w1_steps_present(self):
         """ASAP W1 (22.10.2026, §3.1-3.7): ступени прод-канонов 2.58.110
-        (tool phase/L2 writer/L1) и первая ступень Вербализатора фактчека."""
+        (tool phase/L2 writer/L1) и ступени Вербализатора фактчека.
+
+        ASAP-FC-VOICE-01 / A (02.11.2026): к ступени W1 добавлена ступень
+        прода 2.58.148 — первой, потому что её байты актуальнее.
+        """
         from services.chat_prompts import PREV_DIRECT_L1_PLANNER_L1D
         from services.factcheck_prompts import (
             FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+            PREV_FACTCHECK_VERBALIZER_VOICE01,
             PREV_FACTCHECK_VERBALIZER_W1,
         )
         assert (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT) in \
@@ -475,7 +487,9 @@ class TestPromptMigrationsCatalog:
                 DIRECT_L1_PLANNER_SYSTEM_PROMPT) in \
             PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
         assert PROMPT_MIGRATIONS["prompts.factcheck_verbalizer_system_prompt"] \
-            == [(PREV_FACTCHECK_VERBALIZER_W1,
+            == [(PREV_FACTCHECK_VERBALIZER_VOICE01,
+                 FACTCHECK_VERBALIZER_SYSTEM_PROMPT),
+                (PREV_FACTCHECK_VERBALIZER_W1,
                  FACTCHECK_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
@@ -753,8 +767,12 @@ class TestRound1023Migration:
         # (мёртвый tone_hint) — на непосредственный прежний прод-канон.
         # EVOL W17 (02.11.2026): первая обратная ступень снимает ТОЛЬКО правило
         # фаз работы модели (prefill/decode) → байты прода 2.58.147.
+        # ASAP-FC-VOICE-01 / A (02.11.2026): теперь первая ступень снимает
+        # ТОЛЬКО два смысловых поля → байты прода 2.58.148.
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == [(
             FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            PREV_FACTCHECK_ANALYST_VOICE01), (
+            PREV_FACTCHECK_ANALYST_VOICE01,
             PREV_FACTCHECK_ANALYST_PHASE_SCOPE), (
             PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
             PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]

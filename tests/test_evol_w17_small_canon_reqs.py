@@ -64,7 +64,11 @@ FC_SINGLE_KEY = "prompts.factcheck_system_prompt"
 #: Байты прода 2.58.147 (выложенный кандидат e18a86eb): ступень обязана
 #: узнавать ИХ и только их.
 DEPLOYED_L1_SHA12 = "eb496e938c49"
-DEPLOYED_FC_ANALYST_SHA12 = "9573b3d86161"
+#: Байты прода 2.58.148 (ASAP-FC-VOICE-01 / A): канон Аналитика с правилом фаз
+#: БЕЗ двух смысловых полей — непосредственная ступень откатa.
+DEPLOYED_FC_ANALYST_SHA12 = "806d6cc6af77"
+#: Байты прода 2.58.147 (ступень ER-54): канон БЕЗ правила фаз.
+DEPLOYED_FC_ANALYST_PHASE_SHA12 = "9573b3d86161"
 DEPLOYED_FC_SINGLE_SHA12 = "aa6a2ed38b4c"
 
 DOC_CANON = "plans/docs/canon/architecture.md"
@@ -286,8 +290,10 @@ def test_er54_phase_scope_reaches_factcheck_judge():
     """Правило фаз есть в каноне, который реально уходит судье (Stage-1)."""
     canon = fcp.FACTCHECK_ANALYST_SYSTEM_PROMPT
     assert fcp.FACTCHECK_PHASE_SCOPE_BLOCK in canon
-    assert canon == fcp.PREV_FACTCHECK_ANALYST_PHASE_SCOPE + "\n\n" \
-        + fcp.FACTCHECK_PHASE_SCOPE_BLOCK
+    # ASAP-FC-VOICE-01 / A: правило фаз осталось ПОСЛЕДНЕЙ частью канона
+    # (порядок не переписан), схема Stage-1 расширена двумя смысловыми полями.
+    assert canon.endswith(fcp.FACTCHECK_PHASE_SCOPE_BLOCK)
+    assert canon.startswith(fcp._FACTCHECK_ANALYST_SEMANTICS_BASE)
     # Именно этот текст сервис передаёт стадии-1 (`resolve_prompt` по ключу).
     resolved = resolve_prompt(FC_KEY, canon)
     assert fcp.FACTCHECK_PHASE_SCOPE_BLOCK in resolved
@@ -297,7 +303,7 @@ def test_er54_phase_scope_reaches_factcheck_judge():
     assert "только внутри одной фазы" in canon
     assert "не заменяют технический анализ" in canon
     label, seal = pr.FACTORY_REVISION_SEALS["factcheck.base.analyst"]
-    assert label == "factcheck-analyst-phases-w17"
+    assert label == "factcheck-analyst-voice01-semantics"
     assert pr.FACTORY_REVISION_LABELS["factcheck.base.analyst"] == label
     assert pr.sha12(pr.factory_text("factcheck.base.analyst")) == seal
     assert pr.seal_integrity() == {}
@@ -366,13 +372,21 @@ def test_er54_same_phase_contradiction_is_still_flagged():
 
 
 def test_er54_migration_applies_only_to_deployed_bytes():
-    """Ступень узнаёт ровно выложенные байты канона Аналитика 2.58.147."""
-    deployed = fcp.PREV_FACTCHECK_ANALYST_PHASE_SCOPE
+    """Ступень узнаёт ровно выложенные байты канона Аналитика 2.58.148.
+
+    ASAP-FC-VOICE-01 / A добавил новую первую ступень: байты прода 2.58.148
+    (2.58.147 + правило фаз) → редакция с двумя смысловыми полями. Ступень
+    ER-54 (2.58.147) остаётся в лестнице и ведёт на тот же активный канон.
+    """
+    deployed = fcp.PREV_FACTCHECK_ANALYST_VOICE01
     active = fcp.FACTCHECK_ANALYST_SYSTEM_PROMPT
     assert deployed != active
     assert _sha12(deployed) == DEPLOYED_FC_ANALYST_SHA12
+    assert _sha12(fcp.PREV_FACTCHECK_ANALYST_PHASE_SCOPE) == \
+        DEPLOYED_FC_ANALYST_PHASE_SHA12
     steps = pm.PROMPT_MIGRATIONS[FC_KEY]
     assert steps[0] == (deployed, active)
+    assert (fcp.PREV_FACTCHECK_ANALYST_PHASE_SCOPE, active) in steps
     rollback = pm.ROLLBACK_MIGRATIONS[FC_KEY]
     assert rollback[0] == (active, deployed)
     owner_tail = deployed + "\n\nмой хвост"
@@ -417,7 +431,7 @@ def test_er54_both_stages_share_the_same_normative_core():
     assert block in analyst and block in single
     # Обе ревизии зарегистрированы и целы.
     assert pr.FACTORY_REVISION_LABELS["factcheck.base.analyst"] == \
-        "factcheck-analyst-phases-w17"
+        "factcheck-analyst-voice01-semantics"
     assert pr.FACTORY_REVISION_LABELS["factcheck.base.single"] == \
         "factcheck-phases-w17"
     assert pr.sha12(pr.factory_text("factcheck.base.single")) == \

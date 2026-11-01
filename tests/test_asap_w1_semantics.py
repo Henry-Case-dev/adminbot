@@ -351,15 +351,18 @@ def test_p0f_factcheck_verbalizer_identity_removed_genre_kept():
     fv = fp.FACTCHECK_VERBALIZER_SYSTEM_PROMPT
     for marker in _IDENTITY_MARKERS:
         assert marker not in fv, marker
-    # жанровые правила сохранены (нормализация точечная, не по шаблону)
-    assert "Ты получаешь ТОЛЬКО готовый разбор в формате JSON от аналитика." \
-        in fv
-    for marker in ("claim, findings, verdict", "Вынеси дерзкий вердикт",
-                   "{max_symbols}", "СТИЛЬ" if False else "АНТИ-БОТ"):
+    # жанровые правила сохранены (ASAP-FC-VOICE-01 / A: исторический голос
+    # жанра — прямая полемика вместо пересказа отчета; входной контракт и
+    # технические границы прежние)
+    for marker in ("Вступай в спор", "claim, findings", "inference_gap",
+                   "counterpoint", "{max_symbols}", "АНТИ-БОТ"):
         assert marker in fv, marker
-    # прежние прод-байты (с identity) — в слепке/ступени
+    # прежние прод-байты — в слепке/ступени
     assert "токсичный" in fp.PREV_FACTCHECK_VERBALIZER_W1
     assert (fp.PREV_FACTCHECK_VERBALIZER_W1,
+            fp.FACTCHECK_VERBALIZER_SYSTEM_PROMPT) in \
+        pm.PROMPT_MIGRATIONS["prompts.factcheck_verbalizer_system_prompt"]
+    assert (fp.PREV_FACTCHECK_VERBALIZER_VOICE01,
             fp.FACTCHECK_VERBALIZER_SYSTEM_PROMPT) in \
         pm.PROMPT_MIGRATIONS["prompts.factcheck_verbalizer_system_prompt"]
 

@@ -263,7 +263,9 @@ async def test_case1_refuted_publishes_grounded_critique_with_style_layer(
     payload = llm.system_of("temporal_verbalize")
     # директива владельца — дословно в ФАКТИЧЕСКОМ payload публичной фазы
     assert DIRECTIVE in payload
-    assert HEADING + ":" in payload
+    # ASAP-FC-VOICE-01 / A (§5): обязательного раздела с фиксированным
+    # заголовком больше нет — директива действует внутри рассуждения
+    assert "начинается строкой ровно так" not in payload
     # разрешённый style layer того же чата дошёл до Writer (ровно один раз)
     assert payload.count("MAT: разрешён") == 1
     assert monkeypatched == [CHAT_ID]
@@ -272,14 +274,14 @@ async def test_case1_refuted_publishes_grounded_critique_with_style_layer(
     assert verdict.factual_verdict == "refuted"
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
-    assert "<b>" + HEADING + "</b>" in markup          # отдельный блок
-    assert HEADING in visible
-    # критика опирается на установленную ошибку прогона, а не на новую «правду»
+    # критика дошла как АВТОРСКИЙ текст, а не как форматированный раздел
     assert "придуманным сроком" in visible
+    assert "<b>" + HEADING + "</b>" not in markup
+    assert markup.count(HEADING) == 1          # ровно как написал Writer
     # egress-guard не нейтрализует настроенный характер
     guarded, _v = orch._apply_delivery_guard(
         orch.build_presentation(verdict), verdict)
-    assert HEADING in guarded.text and "придуманным сроком" in guarded.text
+    assert "придуманным сроком" in guarded.text
 
 
 # ═══ 2. partially_true → критика только опровергнутых частей ════════════════
@@ -314,11 +316,14 @@ async def test_case2_partial_critique_only_refuted_parts_confirmed_stay():
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
     assert "<b>Подтверждается частично</b>" in markup
-    assert HEADING in visible
-    # подтверждённая часть осталась подтверждённой и не переписана критикой
-    assert "агентов подключат через API — подтверждается" in visible
-    assert "запуск со дня на день — не подтверждается" in visible
-    assert visible.index(HEADING) < visible.index("По утверждениям:")
+    # ASAP-FC-VOICE-01 / A (§5): подтверждённая и опровергнутая части
+    # различимы в авторском тексте Writer'а и в данных прогона; renderer
+    # больше не пересобирает их в отдельный список «По утверждениям»,
+    # поэтому одна и та же мысль не повторяется трижды (§4 п.14 задания).
+    assert "Часть про API подтверждается" in visible
+    assert "со дня на день" in visible
+    assert "По утверждениям:" not in visible
+    assert verdict.factual_verdict == "mixed"
 
 
 # ═══ 3. true → нет выдуманного опровержения ═════════════════════════════════
@@ -343,11 +348,21 @@ async def test_case3_supported_never_invents_refutation():
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
     assert "<b>Подтверждается</b>" in markup
-    assert HEADING not in visible
-    assert "разъёбывать" not in visible
+    # ASAP-FC-VOICE-01 / A (§5): renderer не форматирует и не создаёт раздел.
+    # Серверная гарантия «нет выдуманного разгрома» живёт в промпте (директивы
+    # нет — проверено выше) и в детерминированном гейте политики; текст
+    # авторского ответа не переписывается и не режется.
+    assert "<b>" + HEADING + "</b>" not in markup
     # факты и источники на месте
     assert "официальный анонс есть" in visible
     assert "news.example.org" in visible
+    # гейт политики остаётся детерминированным: подтверждённый тезис
+    # критику не разрешает
+    assert fp.critique_policy_for_verdict(
+        factual_verdict="supported", has_evidence=True,
+        parts=({"factual_verdict": "supported"},)) == \
+        fp.CRITIQUE_POLICY_FORBIDDEN
+    assert fr.critique_publishable(verdict, allow_critique=True) is False
 
 
 # ═══ 4. insufficient_evidence / source_missing → без ложного разгрома ══════
@@ -376,8 +391,13 @@ async def test_case4_incomplete_data_no_fake_demolition(verdict_json, refs,
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
     assert expected_headline in visible
-    assert HEADING not in visible
-    assert "выдумал" not in visible
+    # ASAP-FC-VOICE-01 / A (§5): renderer не создаёт и не форматирует раздел
+    # критики; при неполных данных его не запрашивает промпт (проверено выше),
+    # а политика остаётся детерминированно запрещающей.
+    assert "<b>" + HEADING + "</b>" not in markup
+    assert fp.critique_policy_for_verdict(
+        factual_verdict="insufficient_evidence", reason_code="source_missing",
+        has_evidence=False) == fp.CRITIQUE_POLICY_FORBIDDEN
     # граница проверки названа, а не выдана за доказанный разгром
     assert ("ограничение" in visible.lower()
             or "недостаточно данных" in visible.lower()
@@ -490,16 +510,23 @@ async def test_case7_render_chunking_and_citation_binding(monkeypatch):
         parts=({"part_id": "p1", "text": "подключение через API",
                 "factual_verdict": "supported", "evidence_refs": ["ev-1"]},))
     markup = _publish(verdict)
-    # секция отдельным блоком и ровно один раз
-    assert markup.count("<b>" + HEADING + "</b>") == 1
-    # ссылка привязана к своему утверждению (в той же строке разбора)
-    bound_line = [ln for ln in markup.splitlines()
+    # ASAP-FC-VOICE-01 / A (§5): раздел критики больше не форматируется
+    # отдельным блоком — текст проходит как автор написал.
+    assert "<b>" + HEADING + "</b>" not in markup
+    assert markup.count(HEADING) == 1
+    # привязка ссылки к своему утверждению сохранена в FALLBACK-публикации
+    # проверенных данных (пустое тело Writer'а)
+    fallback = fr.render_factcheck(
+        orch.FactcheckPresentation(text="   ",
+                                   links=(URL_PRIMARY, URL_EXTRA)),
+        verdict).text
+    bound_line = [ln for ln in fallback.splitlines()
                   if "подключение через API — подтверждается" in ln]
     assert bound_line and URL_PRIMARY in bound_line[0]
     # фантомных источников нет: все href — только из EvidenceMap прогона
     hrefs = set(re.findall(r'href="([^"]+)"', markup))
     assert hrefs <= {URL_PRIMARY, URL_EXTRA}
-    # чанкинг: каждая часть — самостоятельный валидный HTML, секция не рвётся
+    # чанкинг: каждая часть — самостоятельный валидный HTML
     chunks = fr.split_entity_safe(markup, 900)
     assert len(chunks) > 1
     assert all(_tags_balanced(chunk) for chunk in chunks)

@@ -413,14 +413,17 @@ def test_layered_writer_keeps_declared_block_order():
         _layer_text(snapshot, "canon:no_meta_closing", stage))
 
 
-def test_factcheck_keeps_genre_canon_and_critique_section():
+def test_factcheck_keeps_genre_canon_and_critique_directive():
+    """Жанр и директива владельца доезжают; формат раздела канон не диктует."""
     snapshot = _snapshot()
     stage = _stage(snapshot, "factcheck.single")
     system = _message(stage, "system")["text"]
     user = _message(stage, "user")["text"]
     genre = _resolved_text(stage, "prompts.factcheck_system_prompt")
     assert system.startswith(genre.split("{max_symbols}")[0].rstrip())
-    assert "КРИТИЧЕСКИЙ РАЗНОС" in system
+    # ASAP-FC-VOICE-01 / A (§5): обязательного раздела с фиксированным
+    # заголовком больше нет — директива действует внутри рассуждения
+    assert "КРИТИЧЕСКИЙ РАЗНОС" not in system
     assert _resolutions(stage, "prompts.factcheck_critique_directive")
     assert user.index("<claim>") < user.index("<search_results>")
 

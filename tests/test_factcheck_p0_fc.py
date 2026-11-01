@@ -391,9 +391,17 @@ class TestFC07Partial:
         markup = fr.render_factcheck(
             orch.build_presentation(verdict), verdict).text
         assert "<b>Подтверждается частично</b>" in markup
-        assert "По утверждениям:" in markup
-        assert "подтверждается" in markup and "данных недостаточно" in markup
-        assert "проверяемой ссылки нет" in fr.visible_text(markup)
+        # ASAP-FC-VOICE-01 / A (§5): обязательный список «По утверждениям»
+        # снят — при содержательном теле Writer'а разбор не дублируется.
+        assert "По утверждениям:" not in markup
+        # Проверенные данные не теряются: на вырожденном теле (сбой речевой
+        # фазы) публикуется fallback-разбор, где различимы обе части.
+        fallback = fr.render_factcheck(
+            orch.FactcheckPresentation(text=" ", links=()), verdict).text
+        assert "По утверждениям:" in fallback
+        assert "подтверждается" in fallback
+        assert "данных недостаточно" in fallback
+        assert "проверяемой ссылки нет" in fr.visible_text(fallback)
 
 
 # ── FC-08: подпись + изображение ────────────────────────────────────────────

@@ -229,6 +229,9 @@ class TestFailurePathWiring:
 
     @pytest.mark.asyncio
     async def test_factcheck_failure_uses_fallback_key(self):
+        """ASAP-FC-VOICE-01 / A: у фактчека нет режимного блока, поэтому
+        резервный ключ режима не может подменить публичный канон на сбойном
+        пути (форма подачи описана самим каноном)."""
         from services.factcheck_service import FactCheckService
         hot.set_config_cache(_FakeCache({
             "prompts.verbilizer_mode_casual": "CASUAL_SENTINEL",
@@ -241,8 +244,9 @@ class TestFailurePathWiring:
         service = FactCheckService(aggregator, llm)
         await service.check_claim("тезис")
         stage2 = llm.generate.await_args_list[1].args[0][0]["content"]
-        assert "CASUAL_SENTINEL" in stage2
+        assert "CASUAL_SENTINEL" not in stage2
         assert MODE_SERIOUS_BLOCK not in stage2
+        assert "СИСТЕМНАЯ РОЛЬ" in stage2
 
     @pytest.mark.asyncio
     async def test_summary_failure_uses_fallback_key(self):

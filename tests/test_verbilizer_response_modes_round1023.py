@@ -417,6 +417,13 @@ class TestTwoCallModes:
 class TestFactcheckTwoCallMode:
     @pytest.mark.asyncio
     async def test_casual_mode_selected(self):
+        """ASAP-FC-VOICE-01 / A (§3): у фактчека БОЛЬШЕ НЕТ режимного блока.
+
+        Режим Stage-1 остаётся служебным полем (правила канала), но в system
+        публичной Writer-фазы он не едет: канон подачи описывает форму сам, а
+        MODE_CASUAL запрещал заголовки и списки — это противоречило
+        адаптивной подаче внутри одного payload.
+        """
         from services.factcheck_service import FactCheckService
         aggregator = MagicMock()
         aggregator.search = AsyncMock(return_value="хиты")
@@ -427,8 +434,10 @@ class TestFactcheckTwoCallMode:
         result = await service.check_claim("тезис")
         assert result == "дерзкий ответ"
         stage2_system = llm.generate.await_args_list[1].args[0][0]["content"]
-        assert MODE_CASUAL_BLOCK in stage2_system
+        assert MODE_CASUAL_BLOCK not in stage2_system
+        assert MODE_SERIOUS_BLOCK not in stage2_system
         assert FORMAT_RICH_BLOCK not in stage2_system
+        assert "СИСТЕМНАЯ РОЛЬ" in stage2_system   # жанровый канон на месте
         assert llm.generate.await_count == 2
 
     @pytest.mark.asyncio

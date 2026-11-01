@@ -444,10 +444,11 @@ class TestCompositeCfg06B:
         """(1) gate: два спора → уточнение (персона, без поиска)."""
         import services.prompt_composer as pc
 
-        async def _owner(chat_id):
-            return "[PERSONA]"
+        async def _owner_compose(**kwargs):
+            # ASAP-FC-VOICE-01 / A (§3): единая точка сборки речевых слоёв.
+            return kwargs["base_prompt"] + "\n\n[PERSONA]", None
 
-        monkeypatch.setattr(pc, "speech_owner_block", _owner)
+        monkeypatch.setattr(pc, "compose_speech_system", _owner_compose)
         rows = []
         base = 0
         for tg0, thesis, author in ((8000, THESIS, "Вася"),
