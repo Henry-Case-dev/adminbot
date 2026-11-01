@@ -305,9 +305,34 @@ stages=27 segments=58). В снимке видно, что `factcheck.stage2_ver
 `test_mca08_style_form`, `test_mca17a_observability_core_round1027`,
 `test_factcheck_post_release_w1::TestAggregatorFailureTaxonomy` (2),
 `test_samples_fewshot` (2), `test_asap2_clar_contract` (2),
-`test_asap8_v6_p1_d11_registry::test_env_off_beats_product_toggle` — все
-воспроизводятся на базе `53f1b229` (общий корень — `_post_fallback(sent=…)` в
-`llm_client` и зависимость от порядка тестов), к этому срезу не относятся.
+`test_asap5_paradigms_diagnostics::test_bootstrap_cooldown_bypass_then_cap`,
+`test_cfg02c_image_isolation::TestSharedCeilingHonesty::test_usage_breakdown_separates_user_and_cover` —
+все воспроизводятся на базе `53f1b229` (общий корень — `_post_fallback(sent=…)`
+в `llm_client` и флаки, зависящие от порядка/времени), к этому срезу не
+относятся.
+
+Полный набор `tests/` (порядок фиксирован, `-p no:randomly`):
+
+| Дерево | failed | passed | errors |
+|---|---|---|---|
+| база `53f1b229` | 60 | 17408 | 23 |
+| этот срез (`f7319638`) | 61 | 17445 | 23 |
+
+Разница наборов: в срезе добавлено 38 новых проверок; «лишние» падения
+относятся к трём файлам, каждый из которых проверен отдельно:
+`test_asap5_paradigms_diagnostics` и `test_cfg02c_image_isolation` падают и на
+базе при том же изолированном наборе, а
+`test_mca09_intents_block_e_round1040::test_handle_initiative_sent_single_transport_chunks`
+— плавающий: на базе в паре с `test_factcheck_orchestrator_cfg06` падает 2 из 6
+прогонов, в срезе — 1 из 5. Это флаки общих синглтонов (`mi.get_service`), не
+регресс среза; отдельно: `test_factcheck_fc_r1_fix` на базе падал в полном
+прогоне, а в срезе зелёный (после добавления изоляции hot-кеша).
+
+Отдельно отмечу найденный при этом дефект тестовой изоляции: публичная
+Writer-фаза фактчека теперь реально резолвит оси (Core/Expression/Style) и
+заполняет процессный hot-слой. Без сброса это протекало в следующие файлы
+(каскад релевантности поиска падал на порядке файлов). Добавлена autouse-фикстура
+сброса hot-кеша в `tests/test_evol_fc_evidence_style.py` и в новом наборе.
 
 ## 6. Что остаётся Reviewer'у (22 сценария владельца)
 
