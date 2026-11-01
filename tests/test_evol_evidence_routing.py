@@ -16,6 +16,7 @@ TEST-LIFECYCLE: CONTRACT owner=ASAP-EVIDENCE-ROUTING-01
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 
 import pytest
@@ -527,23 +528,49 @@ def _init_service(router, monkeypatch, answer="Кстати, релиз 1017 в�
 
 @pytest.mark.asyncio
 async def test_scenario29_initiative_uses_same_evidence_contour(monkeypatch):
-    """Сценарий 29: инициативный текст проходит preflight → tools → Writer.
+    """Сценарий 29: инициатива С внешним claim'ом — тот же контур.
 
-    Инициатива — не «отдельный контур»: тот же `_evidence_preflight`, та же
+    Инициатива не «отдельный контур»: тот же `_evidence_preflight`, та же
     tool-фаза по `required_caps`, тот же пакет в Writer и тот же bounded
-    egress-guard."""
+    egress-guard. Поисковый запрос — из claim-key плана, не из цели."""
     router = _Router(outputs={"execute_web_search": "Релиз 1017 вышел 1 октября"})
     svc, writer_calls = _init_service(router, monkeypatch)
     monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
-    plan = _plan(response_act="answer")            # факт → проверка обязательна
+    plan = _plan(response_act="answer", external_claims=[
+        {"entity": "релиз 1017", "relation": "event", "date": "1 октября"}])
     text = await svc.generate_initiative_reply(
         CHAT, {"goal": "напомнить про релиз 1017"}, l1_plan=plan,
         correlation_id="run-s29")
     assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
+    assert "релиз 1017" in json.dumps(router.dispatched[0]["arguments"],
+                                      ensure_ascii=False).lower()
     assert writer_calls and writer_calls[0]["evidence"]
     assert any(block.startswith("[EVIDENCE]")
                for block in writer_calls[0]["user_blocks"])
     assert text
+
+
+@pytest.mark.asyncio
+async def test_scenario29_initiative_answer_without_claims_makes_no_search(
+        monkeypatch):
+    """Инициатива `response_act=answer` без claim'ов — НОЛЬ сетевых вызовов.
+
+    Внутренняя цель («напомнить про релиз 1017») — служебный текст, а не
+    пользовательский вопрос: адресовать запрос нечем, поэтому tool-фаза не
+    запускается, а Writer не получает ни пакета, ни утверждения о проверке."""
+    router = _Router(outputs={"execute_web_search": "что-то из сети"})
+    svc, writer_calls = _init_service(router, monkeypatch,
+                                      answer="Кстати, в чате тихо.")
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    text = await svc.generate_initiative_reply(
+        CHAT, {"goal": "напомнить Ane про релиз 1017"},
+        l1_plan=_plan(response_act="answer"), correlation_id="run-s29b")
+    assert router.dispatched == []
+    assert text == "Кстати, в чате тихо."
+    assert writer_calls and writer_calls[0]["evidence"] == ""
+    assert not any(block.startswith("[EVIDENCE]")
+                   for block in writer_calls[0]["user_blocks"])
+
 
 
 @pytest.mark.asyncio
@@ -750,25 +777,44 @@ def test_review_fix2_transformation_class_is_still_not_guarded():
     assert verdict.note == "not_externally_factual"
 
 
-def test_review_fix2_casual_plan_without_claims_needs_no_search():
+def test_review_fix2_direct_unknown_plan_still_requires_check():
+    """§1.2 п.8 для Direct: неизвестно → проверка требуется.
+
+    Правило 7b (review-fix 2) было ГЛОБАЛЬНЫМ и гасило п.8: план
+    `response_act=other` + `tool_policy=none` без `external_claims` в Direct
+    получал «проверка не требуется», хотя содержания мы просто не знаем.
+    Теперь его законная часть живёт только на инициативном пути
+    (`RuntimeState.initiative`)."""
+    decision = ep.evaluate_evidence_need(
+        plan=_plan(response_act="other", tool_policy="none"),
+        task_kind="direct_answer", supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(), context=_ok_ctx())
+    assert decision.required is True
+    assert decision.required_caps == ("web_search",)
+    assert decision.skip_reason is None
+    assert decision.note == "unknown_requires_check"
+
+
+def test_review_fix2_casual_initiative_plan_without_claims_needs_no_search():
     """Инициатива/casual с response_act=other и без claim'ов → нет проверки.
 
-    Иначе §1.2 п.8 гнал бы веб-поиск по внутренней формулировке цели; запрос
-    строится только из claim'а (`claims_query`)."""
+    Адресного запроса у инициативного хода нет: единственный его источник —
+    claim-key плана (`claims_query`)."""
     decision = ep.evaluate_evidence_need(
         plan=_plan(response_act="other"), task_kind="social_chat",
-        supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
-        context=_ok_ctx())
+        supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(initiative=True), context=_ok_ctx())
     assert decision.required is False
     assert decision.required_caps == ()
     assert decision.skip_reason is ep.EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM
+    assert decision.note == "initiative_without_claim_query"
     assert ep.claims_query(decision) == ""
     claim_plan = _plan(response_act="answer", external_claims=[
         {"entity": "GeForce RTX 9090", "relation": "version", "version": "1.0"}])
     factual = ep.evaluate_evidence_need(
-        plan=claim_plan, task_kind="direct_answer",
-        supplied=ep.SuppliedSources(), runtime_state=ep.RuntimeState(),
-        context=_ok_ctx())
+        plan=claim_plan, task_kind="social_chat",
+        supplied=ep.SuppliedSources(),
+        runtime_state=ep.RuntimeState(initiative=True), context=_ok_ctx())
     assert factual.required and factual.required_caps == ("web_search",)
     query = ep.claims_query(factual)
     assert "geforce rtx 9090" in query.lower() and "1.0" in query
@@ -792,6 +838,29 @@ async def test_review_fix2_casual_initiative_makes_no_search(monkeypatch):
     assert router.dispatched == []
     assert text == "Кстати, в чате тихо."
     assert writer_calls and writer_calls[0]["evidence"] == ""
+
+
+@pytest.mark.asyncio
+async def test_review_fix3_initiative_required_without_query_is_unmet(monkeypatch):
+    """§1.2 п.10: обязательная проверка без адресного запроса — честно unmet.
+
+    Инициативная цель с маркером поиска («погугли …») делает проверку
+    обязательной, но claim'ов в плане нет → запроса, который можно отправить
+    в сеть, тоже нет. Служебная цель в поисковик НЕ уходит (0 вызовов), а
+    решение остаётся `required=True` + `required_unmet`, Writer получает
+    «внешняя проверка НЕ выполнена»."""
+    router = _Router(outputs={"execute_web_search": "что-то из сети"})
+    svc, writer_calls = _init_service(router, monkeypatch,
+                                      answer="Кстати, в чате тихо.")
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    text = await svc.generate_initiative_reply(
+        CHAT, {"goal": "погугли про релиз 1017"},
+        l1_plan=_plan(response_act="other"), correlation_id="run-rf3")
+    assert router.dispatched == []
+    assert text == "Кстати, в чате тихо."
+    assert writer_calls and writer_calls[0]["evidence"] == ""
+    note = " ".join(writer_calls[0]["user_blocks"])
+    assert "внешняя проверка НЕ выполнена" in note
 
 
 @pytest.mark.asyncio

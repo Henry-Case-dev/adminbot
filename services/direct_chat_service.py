@@ -5403,7 +5403,8 @@ class DirectChatService:
 
     async def _evidence_preflight(self, chat_id: int, correlation_id, *,
                                   query: str, reply_text: str, l1_plan,
-                                  response_plan, task_kind: str = ""
+                                  response_plan, task_kind: str = "",
+                                  initiative: bool = False
                                   ) -> "_evp.EvidenceDecision":
         """ASAP-EVIDENCE-ROUTING-01 v3 (§2.1): preflight ДО tool-фазы.
 
@@ -5414,6 +5415,12 @@ class DirectChatService:
         запрет сети → доступность провайдера → квота → SSRF → privacy).
         Ни LLM, ни сети; сбой политики не роняет ход (решение «не требуется»
         с машинной пометкой — честная деградация, не тишина).
+
+        ``initiative=True`` — ход БЕЗ входящей реплики (инициативный Writer):
+        политика не выводит внешний класс из служебной цели, а при
+        обязательной проверке без claim-key запроса помечает её честно
+        невыполненной (:func:`evidence_policy.mark_required_unmet`) вместо
+        отправки цели в поисковик.
         """
         try:
             plan = l1_plan if l1_plan is not None else _l1.L1Plan()
@@ -5427,6 +5434,7 @@ class DirectChatService:
                 self_status_question=_evp.is_runtime_self_question(
                     f"{query}\n{reply_text}"),
                 user_forbids_external=bool(forbids),
+                initiative=bool(initiative),
                 enabled=_evp.policy_enabled())
             if task_kind:
                 kind = str(task_kind)
@@ -5445,6 +5453,12 @@ class DirectChatService:
                     plan=plan, task_kind=kind, explicit=explicit,
                     supplied=supplied, runtime_state=runtime_state,
                     context=context)
+            if initiative and decision.required \
+                    and not _evp.claims_query(decision):
+                # §1.2 п.10: обязательная проверка есть, адресного запроса нет
+                # (инициатива без claim'ов) — служебная цель в поисковик не
+                # отправляется, решение честно помечается невыполненным.
+                decision = _evp.mark_required_unmet(decision)
             self._emit_evidence_policy_event(
                 chat_id, correlation_id, decision)
             if decision.required and decision.note:
@@ -11653,7 +11667,7 @@ class DirectChatService:
             _preflight = getattr(self, "_evidence_preflight", None)
             _initiative_decision = (await _preflight(
                 chat_id, correlation_id, query=_goal_query, reply_text="",
-                l1_plan=plan, response_plan=response_plan)
+                l1_plan=plan, response_plan=response_plan, initiative=True)
                 if _preflight is not None else None)
             _initiative_evidence = ""
             _initiative_pack = None
@@ -11661,16 +11675,18 @@ class DirectChatService:
                                              "required_caps", ()) or ())
             # Поисковый запрос — ТОЛЬКО из claim'ов плана: внутренняя
             # формулировка цели («напомнить про релиз») служебная и уводила
-            # единственный сетевой вызов в мусор. Нет claim'ов → политика уже
-            # вернула NO_NEW_EXTERNAL_CLAIM и tool-фаза не запускается.
-            _init_search_query = (
-                _evp.claims_query(_initiative_decision) or _goal_query)
+            # единственный сетевой вызов в мусор. Нет claim'ов → адресовать
+            # запрос нечем, и tool-фаза не запускается вовсе (решение политики
+            # при этом честно помечено `required_unmet` в preflight; цель
+            # остаётся только Writer'у).
+            _init_search_query = _evp.claims_query(_initiative_decision)
             _init_router = getattr(self, "tool_router", None)
             _init_tool_ctx = ToolContext(
                 chat_id, _goal_query, correlation_id=correlation_id)
             _init_tool_ctx.evidence_budget_chars = _l1.evidence_max_chars()
             if getattr(_initiative_decision, "required", False) \
-                    and _initiative_caps and _init_router is not None:
+                    and _initiative_caps and _init_search_query \
+                    and _init_router is not None:
                 try:
                     _init_schemas, _init_rejected = await self._l1_tool_subset(
                         chat_id, correlation_id, False, False, plan,

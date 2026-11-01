@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 __all__ = [
@@ -38,6 +38,7 @@ __all__ = [
     "EvidenceFailureCode", "EvidenceClass", "EVIDENCE_CLASSES",
     "CLAIM_RELATIONS", "FACTUAL_ACTS", "SOCIAL_ACTS", "FACTUAL_STRUCTURES",
     "evaluate_evidence_need", "allowed", "effective_capabilities",
+    "mark_required_unmet",
     "classify_claims", "claims_coverage", "delivered_claim_keys",
     "skip_reason_code",
     "failure_reason_code", "blocked_reason_code", "policy_enabled",
@@ -361,6 +362,11 @@ class RuntimeState:
     self_status_question: bool = False
     reuse_enabled: bool = True
     user_forbids_external: bool = False
+    #: ход БЕЗ входящей реплики (инициатива/casual-продолжение): единственный
+    #: возможный поисковый запрос — claim-key плана (§2.1 `claims_query`).
+    #: Для Direct значение ``False``: там есть текст пользователя, и §1.2 п.8
+    #: («неизвестно → проверка требуется») действует в полную силу.
+    initiative: bool = False
     #: policy kill-switch: OFF → прежнее поведение (решение «не требуется»)
     enabled: bool = True
 
@@ -680,6 +686,17 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
             skip_reason=EvidenceSkipReason.SUFFICIENT_RUNTIME_SOURCE,
             note="runtime_route_source")
     # 6. Планируемое содержание несёт внешний факт.
+    #    Инициативный ход БЕЗ входящей реплики — отдельная ветка: адресного
+    #    запроса у него нет вовсе, единственный его источник — claim-key плана
+    #    (§2.1 `claims_query`). План без claim'ов → проверять нечего; служебная
+    #    формулировка цели («напомнить про релиз 1017») в сеть не уходит.
+    #    Для Direct ветка НЕ действует: там есть текст пользователя, поэтому
+    #    §1.2 п.8 («неизвестно → проверка требуется») работает в полную силу.
+    if runtime_state.initiative and not claims:
+        return EvidenceDecision(
+            required=False, evidence_class="social", claims=claims,
+            skip_reason=EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM,
+            note="initiative_without_claim_query")
     factual = bool(claims) or act in FACTUAL_ACTS \
         or structure in FACTUAL_STRUCTURES \
         or str(task_kind or "") in ("explanation", "research", "comparison")
@@ -713,15 +730,11 @@ def _evaluate(*, plan, task_kind, explicit, supplied, runtime_state,
             required=False, evidence_class="social", claims=claims,
             skip_reason=EvidenceSkipReason.PURE_SOCIAL_OR_CREATIVE,
             note="social_act")
-    # 7b. План без claim'ов и с НЕфактическим актом (типичный casual/инициатива
-    #     с response_act=other): своего внешнего утверждения нет — проверять
-    #     нечего. Иначе §1.2 п.8 («неизвестно → требуется») гнал бы веб-поиск по
-    #     внутренней формулировке цели («напомнить про релиз»), а не по claim'у.
-    if not claims and act not in FACTUAL_ACTS:
-        return EvidenceDecision(
-            required=False, evidence_class="social", claims=claims,
-            skip_reason=EvidenceSkipReason.NO_NEW_EXTERNAL_CLAIM,
-            note="no_new_external_claim")
+    # 7b. Убран (review-fix 3): правило было ГЛОБАЛЬНЫМ и гасило §1.2 п.8 для
+    #     Direct — план `response_act=other` + `tool_policy=none` без claim'ов
+    #     получал «проверка не требуется», хотя содержания мы просто не знаем.
+    #     Его законная часть (инициатива без claim'ов) перенесена в правило 6 и
+    #     срабатывает ТОЛЬКО при `runtime_state.initiative`.
     # 8. Неизвестно → проверка требуется (осознанная асимметрия).
     #    Для деградированного плана (LLM не ответил) содержания нет вовсе:
     #    класс берём из детерминированных сигналов — без сигнала внешнего
@@ -813,6 +826,32 @@ def _with_allowed(decision: EvidenceDecision, *, context, runtime_state
         note=(decision.note + "+blocked") if decision.note else "blocked",
         failure_code=failure or EvidenceFailureCode.CAPABILITY_NOT_READY,
         required_unmet=True, blocked=blocked)
+
+
+def mark_required_unmet(decision, *,
+                        code: EvidenceFailureCode | None = None,
+                        note: str = "no_addressable_query"
+                        ) -> EvidenceDecision:
+    """Обязательная проверка есть, но адресного запроса у хода нет (§1.2 п.10).
+
+    Единственный такой случай — инициативный ход без входящей реплики, план
+    которого не дал ни одного claim-key: адресовать запрос некуда, а служебная
+    формулировка цели («напомнить про релиз 1017») в поисковик не уходит
+    (§2.1/§7 ТЗ). Это НЕ «проверка выполнена»: решение остаётся
+    ``required=True``, помечается ``required_unmet`` с наблюдаемым кодом, а
+    Writer получает честную подсказку «не утверждай, что проверил».
+    Никогда не бросает."""
+    if decision is None:
+        return decision
+    try:
+        if not decision.required:
+            return decision
+        return replace(
+            decision, required_caps=(), source_kind="", required_unmet=True,
+            failure_code=(code or EvidenceFailureCode.NO_RELEVANT_RESULTS),
+            note=((str(decision.note) + "+" + note) if decision.note else note))
+    except Exception:      # pragma: no cover - защитная ветка
+        return decision
 
 
 def delivered_claim_keys(decision: EvidenceDecision, evidence_text) -> tuple:

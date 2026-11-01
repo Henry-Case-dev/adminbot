@@ -268,3 +268,60 @@ pytest tests/test_asap7_direct_l1, test_direct_chat_lore_inject/prompts/relation
 5 падений — `tests/test_direct_fallback_recompose_asap32.py` (`TypeError: fb_retries() got an unexpected keyword argument 'sent'`, вызов из `services/llm_client.py:1485`): тестовый двойник отстал от сигнатуры `_fallback_with_retries(payload, sent=…)`. `git diff HEAD` по `services/llm_client.py` и этому тесту ПУСТ — состояние ветки до моей правки, evidence-routing в этих тестах не участвует. Вне моей зоны; зафиксировано как incidental finding.
 
 **Границы.** Изменены только мои файлы: `services/evidence_policy.py`, `services/direct_chat_service.py` (только инициативный запрос), `tests/test_evol_evidence_routing.py`, этот отчёт. Ни `git reset/checkout/stash/clean/restore`, ни коммитов не выполнялось; чужие полосы (`services/cover*`, web-слой, `services/pipeline_analytics.py`, правимые mca-тесты, скриншот-евidence) не трогались.
+
+---
+
+## 10. Review-fix 3: два блокера доказательной базы (закрыто)
+
+Ревью доказательной базы дало два FAIL-критерия. Оба воспроизведены offline-пробой ДО правки и подтверждены после.
+
+### 10.1. Правило 7b было ГЛОБАЛЬНЫМ и гасило §1.2 п.8 для Direct
+
+**Блокер.** `if not claims and act not in FACTUAL_ACTS → NO_NEW_EXTERNAL_CLAIM` не различало пути. План Direct `response_act=other`, `tool_policy=none`, без `external_claims`, `task_kind=direct_answer` получал `required=False` — то есть контрактный §1.2 п.8 («неизвестно → проверка требуется») был мёртв: обязательная проверка пропускалась именно там, где содержание ответа нам просто неизвестно.
+
+**Исправление (моя зона).**
+* `RuntimeState.initiative: bool = False` — признак хода БЕЗ входящей реплики. Заполняется единственным новым аргументом `_evidence_preflight(..., initiative=True)` из инициативного Writer'а; Direct его не передаёт (значение по умолчанию `False`), поэтому для Direct действует обычный порядок правил.
+* Законная часть 7b перенесена в правило 6 и срабатывает ТОЛЬКО при `runtime_state.initiative`: инициатива без claim'ов → `required=False`, `skip_reason=NO_NEW_EXTERNAL_CLAIM`, `note="initiative_without_claim_query"`. Сама 7b удалена (на её месте — комментарий с причиной), иначе она продолжала бы перекрывать п.8.
+* Для Direct без claim'ов и с НЕфактическим актом теперь работает п.8: `required=True`, `required_caps=("web_search",)`, `note="unknown_requires_check"`.
+
+### 10.2. Инициатива `act=answer` без claim'ов уходила в сеть со служебной целью
+
+**Блокер.** `_init_search_query = claims_query(decision) or _goal_query` — при пустом `claims_query` в поисковик уходила внутренняя формулировка цели («напомнить Ane про релиз 1017»), т.е. единственный сетевой вызов тратился на служебный текст, а не на проверяемое утверждение.
+
+**Исправление (моя зона).**
+* `_init_search_query = _evp.claims_query(decision)` — фолбэка на цель больше нет; tool-фаза дополнительно требует непустой запрос (`and _init_search_query`).
+* Правило 6 (см. 10.1) для инициативы без claim'ов вообще не запрашивает проверку → tool-фазы нет, пакета нет, Writer'у ничего не выдаётся за проверку.
+* Честный случай «проверка обязательна, но адресовать нечем» (инициативная цель с маркером поиска, claim'ов нет) закрыт новым `evidence_policy.mark_required_unmet(decision)`: `required` остаётся `True`, решение помечается `required_unmet=True` + `failure_code=NO_RELEVANT_RESULTS` (`retrieval_empty`), `required_caps` очищаются, `note` получает `+no_addressable_query`. Preflight применяет это сам до события, поэтому `EVIDENCE_POLICY_DECIDED` несёт честные `required/required_unmet`, а Writer получает «внешняя проверка НЕ выполнена».
+
+### 10.3. Доказательство (тесты `tests/test_evol_evidence_routing.py`)
+
+* `test_review_fix2_direct_unknown_plan_still_requires_check` (переписан из rf2) — Direct `act=other` + `tool_policy=none` без claim'ов → `required=True`, `("web_search",)`, `skip_reason is None`, `note="unknown_requires_check"`.
+* `test_review_fix2_casual_initiative_plan_without_claims_needs_no_search` — инициатива (`RuntimeState(initiative=True)`) `act=other` без claim'ов → `required=False`, `initiative_without_claim_query`, `claims_query == ""`; инициатива С claim'ом → `required=True`, запрос из claim'а («geforce rtx 9090 … 1.0», без служебной цели).
+* `test_scenario29_initiative_uses_same_evidence_contour` (переписан) — инициатива С claim'ом: ровно один `execute_web_search`, в аргументах запроса есть claim («релиз 1017»), пакет доехал до Writer'а.
+* `test_scenario29_initiative_answer_without_claims_makes_no_search` (новый) — инициатива `act=answer` без claim'ов: `router.dispatched == []`, `evidence == ""`, блока `[EVIDENCE]` Writer'у нет.
+* `test_review_fix3_initiative_required_without_query_is_unmet` (новый) — инициативная цель «погугли про релиз 1017»: проверка обязательна, но запроса нет → 0 сетевых вызовов, Writer получает «внешняя проверка НЕ выполнена».
+* `test_review_fix2_casual_initiative_makes_no_search` — сохранён без изменений и проходит (инициативный `act=other`, 0 вызовов).
+
+### 10.4. Прогоны (offline; без сети, живых провайдеров и Telegram-публикаций)
+
+```text
+pytest tests/test_evol_evidence_routing.py -q                     → 60 passed
+pytest tests/test_evol_evidence_routing.py
+       tests/test_evol_evidence_window.py -q                      → 110 passed
++ direct/initiative набор §9 (test_direct_chat*, asap8_v6_wc_direct_d03/d04/matrix,
+  asap8_f6_initiative, asap8_v63_b01_initiative_observer,
+  initiative_delivery_telemetry, p0_initfix_initiative_observer,
+  evol014_meme_initiative, soul1_w5_initiative_vitality, evol_social_frame,
+  asap8_initreply_binding) -q                                     → 625 passed
++ direct-L1 набор §9 (asap7_direct_l1, direct_chat_lore_inject/prompts/
+  relations_inject, direct_context_capacity/composer/scenarios_asap3,
+  direct_decision_matrix_asap3, direct_l1_corrective_r1/l1_l1d_contract,
+  direct_llm_decision_asap32, direct_two_call_round1022,
+  soul1_direct_prompt_reads) -q                                   → 268 passed
+```
+
+5 пред-существующих падений `tests/test_direct_fallback_recompose_asap32.py` (`fb_retries() got an unexpected keyword argument 'sent'`) остаются вне моего набора и вне зоны: `git diff HEAD` по `services/llm_client.py` и этому тесту пуст.
+
+**Кандидат.** Worktree `WorkspaceData/worktrees/c742e4de9e92c489/evol-71536a366a11-c63f6f44`, ветка `evol/impl`, HEAD `26905a89`; изменения этой правки не закоммичены (по правилу задания): `services/evidence_policy.py`, `services/direct_chat_service.py`, `tests/test_evol_evidence_routing.py`, этот отчёт.
+
+**Остаточный риск.** Для Direct план без claim'ов и с `response_act=other` теперь тратит один bounded lookup (§1.2 п.8, осознанная асимметрия контракта) — это и есть восстановленное поведение, но вызовов в реальных casual-ходах станет больше; ширина ограничена прежними гейтами `allowed()`, рубильником и бюджетом «один адресный lookup».
