@@ -1635,7 +1635,7 @@
   "identical": true,
   "isolated_processes": true,
   "runs": 2,
-  "snapshot_core_sha256": "908b614c33ec5f613a970b3315770d0a66f47ad80a78b51c8241752933bb510f"
+  "snapshot_core_sha256": "564c5430cb73b35c94455aaefa82db8533ba8f3ba1a69e9d1e32a6132eaef545"
  },
  "environment": {
   "app_version": "2.58.144",
@@ -1846,10 +1846,10 @@
    "sha256": "5c789feba2f284e96959b000dd834834d1b483fe81eb4dc5d29c036884d82bf2"
   },
   "services/direct_l1.py": {
-   "bytes": 109282,
-   "bytes_utf8": 109282,
-   "lines": 1864,
-   "sha256": "0c711ac283427e935ad54430bdf8f9b6d7ca37a9092fa9050988086274c32e2c"
+   "bytes": 120994,
+   "bytes_utf8": 120994,
+   "lines": 2056,
+   "sha256": "fe94ca4f63feb52b1debced1b92e0113e01a7aaa602ccc1fa15e092a0ed2b86a"
   },
   "services/factcheck_prompts.py": {
    "bytes": 60775,
