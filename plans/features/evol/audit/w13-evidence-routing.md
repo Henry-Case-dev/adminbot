@@ -720,7 +720,19 @@ pytest <11 файлов: routing, window, corpus, prompt_migrations, p0_prompts_
 pytest tests/ -q -p no:randomly -k "direct or initiative or tool or l1 or
        evidence or prompt or smartsearch or search or parity"
                                      → 3819 passed, 13 failed (те же пред-существующие)
+pytest tests/ -q -p no:randomly --tb=no -rfE (полный набор, ~19-20 мин)
+       база e1adc7b3  → 17316 passed, 62 failed, 23 errors
+       этот кандидат  → 17352 passed, 58 failed, 23 errors
+       сверка по идентификаторам: НИ ОДНОГО падения, которого нет на базе;
+       ровно 4 теста, красных на базе, стали зелёными (отставшие пины канонов)
 ```
+
+Полный набор сверен не «на глаз», а по идентификаторам: одинаковый прогон на
+базе e1adc7b3 и на кандидате, затем те же 39 файлов и те же 81 упавший id
+отдельным прогоном в обеих ветках — идентичный результат (33 failed / 29 passed
+/ 19 errors). Значит, остаток падений пред-существующий и к этой полосе
+отношения не имеет: webapp-UI, youtube-download, summary-семейство,
+observability-реестр `mca07_answer_cache`, окружение без Selenium/node.
 
 13 падений — тот же набор, что в §12.4 (5× `test_direct_fallback_recompose_asap32`,
 `mca11 off_parity`, `mca20 evidence_injection`, 6× `summary_*`). В одном из
