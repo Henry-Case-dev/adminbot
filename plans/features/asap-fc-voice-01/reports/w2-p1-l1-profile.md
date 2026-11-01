@@ -198,6 +198,14 @@ structural_not_substring` (обе ветви + пустой блок) и
 - `FACTORY_SET_SHA256_12`: было `f84baaf69559` → стало `b1c1ab5b3b68`
   (changed = 1, только `direct.base.l1_planner`).
 
+> **Мерж в `evol/impl` (P0+P1).** В ветке среза значение `b1c1ab5b3b68`
+> соответствовало только ревизии P1. После слияния с P0 (голос/каноны
+> фактчека: `factcheck.base.verbalizer`, `factcheck.base.analyst`,
+> `factcheck.base.single`, `temporal.analyst`) набор фабричных текстов
+> пересчитан по объединению: **`630ca46dff76`**. Печати обоих лейнов целы
+> (`seal_integrity() == {}`), активные метки: L1 — `l1-planner-decision-profile`
+> (`ef61a9dd6798`), фактчек — `factcheck-voice-historic-01` и др.
+
 **Как ревизия реально активируется и откатывается (исправлено по ревью F3).**
 Стартовая проводка промптов — НЕ строковая лестница канонов (EVOL-016, решение
 владельца 29.10.2026): `bot.py:1383-1384` вызывает
