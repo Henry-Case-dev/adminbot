@@ -189,7 +189,13 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "verbilizer.mode.deep_research": "mode-no-meta-lexical",
     "verbilizer.mode.default": "mode-r1024",
     # Factcheck / Summary / поиск
-    "factcheck.base.single": "factcheck-r1022",
+    # EVOL W17b (02.11.2026): одиночный канон фактчека (путь fallback при сбое
+    # стадии-1) получил то же правило фаз работы модели, что и Аналитик —
+    # нормативное ядро общее (`FACTCHECK_PHASE_SCOPE_CORE`), заголовок секции
+    # общий. Блок эталона `plans/docs/canon/architecture.md` (Section 72)
+    # обновлён теми же байтами (пин сохранён). Прежние байты —
+    # PREV_FACTCHECK_SINGLE_PHASE_SCOPE (= прод 2.58.147).
+    "factcheck.base.single": "factcheck-phases-w17",
     # EVOL W17 (02.11.2026, §6 владельца): канон Аналитика получил правило
     # фаз работы модели (prefill и decode — разные этапы, противоречия между
     # ними нет; сравнение только внутри одной фазы). Прежние байты —
@@ -351,7 +357,9 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
     "verbilizer.mode.default": ("mode-r1024", "c633eb52f63c"),
-    "factcheck.base.single": ("factcheck-r1022", "aa6a2ed38b4c"),
+    # EVOL W17b (02.11.2026): одиночный канон фактчека — то же правило фаз,
+    # что у Аналитика (нормативное ядро общее).
+    "factcheck.base.single": ("factcheck-phases-w17", "d02776dec166"),
     # EVOL W17 (02.11.2026): правило фаз работы модели в каноне Аналитика.
     "factcheck.base.analyst": ("factcheck-analyst-phases-w17",
                                "806d6cc6af77"),
@@ -2717,8 +2725,16 @@ def factory_set_fingerprint() -> str:
 #: PREV_FACTCHECK_ANALYST_PHASE_SCOPE = прод 2.58.147). Схема JSON, правила
 #: L1, тексты владельца, Writer, tool phase и фоновые каноны не менялись.
 #: Было ``de8e77a2a3f4``, стало ``63c0ae3546d1``.
+#: Бамп EVOL W17b (02.11.2026, закрытие расхождения путей фактчека): changed =
+#: 1 — ``factcheck.base.single`` (legacy-канон одиночной стадии 10.21, реальный
+#: путь при сбое/невалидном JSON стадии-1) получил то же правило фаз работы
+#: модели, что и Аналитик; нормативное ядро общее
+#: (``FACTCHECK_PHASE_SCOPE_CORE``). Метка ``factcheck-phases-w17``, прежние
+#: байты PREV_FACTCHECK_SINGLE_PHASE_SCOPE = прод 2.58.147. Эталон
+#: ``plans/docs/canon/architecture.md`` (Section 72) обновлён теми же байтами.
+#: Было ``63c0ae3546d1``, стало ``748641ded024``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "63c0ae3546d1"
+FACTORY_SET_SHA256_12 = "748641ded024"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

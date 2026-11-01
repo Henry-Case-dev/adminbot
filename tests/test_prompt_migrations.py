@@ -76,6 +76,7 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+    PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
@@ -336,8 +337,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
     # UNIFIED-CORE (C14, 20.10.2026): откат фактчека — НЕПОСРЕДСТВЕННО прежний
     # прод-канон (с обходом safety, релиз 2.58.97); стек ступеней цел.
+    # EVOL W17b (02.11.2026): первый откат снимает ТОЛЬКО правило фаз работы
+    # модели → байты прода 2.58.147 (PREV_FACTCHECK_SINGLE_PHASE_SCOPE).
     "prompts.factcheck_system_prompt":
-        PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+        PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     # CFG-07A-2 (20.10.2026, ADR-1013-3): откаты 6 канонов НЕ-фактчек
     # маршрутов — НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
     # (PREV_*_CFG07A; снимается только ступень CFG-07A).

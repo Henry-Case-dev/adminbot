@@ -2,8 +2,12 @@
 
 Дата: 02.11.2026. Ветка `feat/evol-small-reqs`, база `087c9a1c` (содержимое прода
 2.58.147 @ `e18a86eb`). Правки только в каноне промптов, реестре ревизий, ступенях
-миграции и тестах; `web/**`, `requirements-map.json` и `progress_scope.json` не
-тронуты, деплоя не было.
+миграции, канонном эталоне `plans/docs/canon/architecture.md` (Section 72) и
+тестах; `web/**`, `requirements-map.json` и `progress_scope.json` не тронуты,
+деплоя не было.
+
+Две порции: W17 (ER-S25 + правило фаз в каноне Аналитика) и W17b (то же правило в
+одиночном каноне фактчека — закрытие расхождения двух путей).
 
 ## 1. Что именно требовалось (дословно из источника владельца)
 
@@ -78,6 +82,35 @@ JSON, база и тексты владельца не переписаны ни
 `arch/evidence-routing-contract.md`): фаза различается по предмету высказывания,
 то есть это смысловое правило для модели, а не кодовый детектор.
 
+### 2.3. W17b — то же правило в одиночном каноне фактчека (путь fallback)
+
+Одиночный канон `factcheck.base.single` — реальный путь, когда стадия-1 не
+ответила или вернула невалидный JSON (`factcheck_service.check_claim`, ветка
+«fallback на одиночный путь 10.21»). Без правила фаз судья на этом пути оставался
+фазово-слепым: при сбое стадии-1 поведение расходилось с Аналитиком — ровно то
+расхождение путей, которое требование убирает.
+
+Правка: нормативная часть правила вынесена в общий объект
+`FACTCHECK_PHASE_SCOPE_CORE` (два абзаца, дословно те же, что в §2.2) и
+`FACTCHECK_PHASE_SCOPE_TITLE`; блок =
+`FACTCHECK_PHASE_SCOPE_TITLE + "\n" + FACTCHECK_PHASE_SCOPE_CORE`. Оба канона
+(Аналитик и одиночный) содержат этот блок целиком, поэтому эквивалентность — это
+совпадение байт нормативного ядра, а не пересказ. Байты канона Аналитика от
+рефакторинга не изменились (`806d6cc6af77`).
+
+Место вставки в одиночном каноне — **перед** последним owner-абзацем
+`<bot_knowledge>` (R46-4): действующий контракт канона требует, чтобы промпт
+заканчивался именно этой инструкцией, и это проверяют три существующих теста
+(`test_ends_with_rag_instruction`,
+`test_antibot_and_asymmetry_in_every_actual`,
+`test_new_bot_knowledge_instruction_kept`). Они не правились и остаются зелёными.
+
+Байты одиночного канона прибиты тестом `tests/test_factcheck_prompts.py`
+(`test_byte_for_byte`) к эталонному блоку `plans/docs/canon/architecture.md`
+(Section 72). Поэтому канон документа обновлён ТЕМИ ЖЕ байтами (правка канона и
+правка эталона — одна операция), пин сохранён и по-прежнему падает при любом
+расхождении; проверено мутацией эталона (см. §5.1).
+
 ## 3. Ревизии, печати, откат
 
 | Что | Значение |
@@ -88,17 +121,23 @@ JSON, база и тексты владельца не переписаны ни
 | Канон Аналитика фактчека, метка | `factcheck-analyst-phases-w17` |
 | Канон Аналитика, печать | `806d6cc6af77` (было `9573b3d86161`) |
 | Аналитик, слепок прежних байт (прод 2.58.147) | `PREV_FACTCHECK_ANALYST_PHASE_SCOPE` = `9573b3d86161` |
-| `FACTORY_SET_SHA256_12` | `63c0ae3546d1` (было `de8e77a2a3f4`), changed = 2 |
+| Одиночный канон фактчека, метка (W17b) | `factcheck-phases-w17` (было `factcheck-r1022`) |
+| Одиночный канон, печать (W17b) | `d02776dec166` (было `aa6a2ed38b4c`) |
+| Одиночный канон, слепок прежних байт (прод 2.58.147) | `PREV_FACTCHECK_SINGLE_PHASE_SCOPE` = `aa6a2ed38b4c` |
+| `FACTORY_SET_SHA256_12` | `748641ded024` (было `de8e77a2a3f4` → `63c0ae3546d1`), changed = 3 в двух шагах (2 + 1) |
 | Ступень миграции L1 | `PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"][0] = (PREV_DIRECT_L1_PLANNER_EVR1, DIRECT_L1_PLANNER_SYSTEM_PROMPT)` |
 | Ступень миграции Аналитика | `PROMPT_MIGRATIONS["prompts.factcheck_analyst_system_prompt"][0] = (PREV_FACTCHECK_ANALYST_PHASE_SCOPE, FACTCHECK_ANALYST_SYSTEM_PROMPT)` |
+| Ступень миграции одиночного канона | `PROMPT_MIGRATIONS["prompts.factcheck_system_prompt"][0] = (PREV_FACTCHECK_SINGLE_PHASE_SCOPE, FACTCHECK_SYSTEM_PROMPT)` |
 | Откат L1 (первый шаг) | `(DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR1)` |
 | Откат Аналитика (первый шаг) | `(FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_PHASE_SCOPE)` |
+| Откат одиночного канона (первый шаг) | `(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_SINGLE_PHASE_SCOPE)` |
 
 Прежние ступени лестницы целы: откат L1 идёт дальше на `EVR1 → EVR0` и старую
-цепочку, откат Аналитика — на `PHASE_SCOPE → UNIFIED_CORE`. Ступень привязана к
-**точному совпадению байт** выложенного канона (кастом владельца с хвостом ею не
-узнаётся — проверено тестом). Печати сверены `seal_integrity() == {}`,
-`factory_set_fingerprint() == FACTORY_SET_SHA256_12`.
+цепочку, откат Аналитика — на `PHASE_SCOPE → UNIFIED_CORE`, откат одиночного
+канона — на `PHASE_SCOPE → UNIFIED_CORE` (ступень C14 не потеряна). Ступень
+привязана к **точному совпадению байт** выложенного канона (кастом владельца с
+хвостом ею не узнаётся — проверено тестом). Печати сверены
+`seal_integrity() == {}`, `factory_set_fingerprint() == FACTORY_SET_SHA256_12`.
 
 Порядок активации — действующий, не мой: по решению владельца от 29.10.2026
 (EVOL-012, `services/prompt_release_policy.py`) новая заводская ревизия в составе
@@ -123,11 +162,14 @@ JSON, база и тексты владельца не переписаны ни
 | FC analyst | «4. Довод evidence бери только из данных, без домыслов… 5. Если данных нет — unverifiable» | «фазу определяй по предмету» могло стать разрешением домысливать фазу и снимать любой конфликт | тот же | фаза — предмет высказывания, а не уверенность/тон; при неясности сравниваются только одинаковые предметы; бравада не заменяет разбор | `test_er54_phase_scope_reaches_factcheck_judge` |
 | FC analyst | прежнее отсутствие границы («правило касается только судьи») | правило могло растечься в Summary/Writer как общее «противоречий не бывает» | реестр канонов | блок добавлен только в канон Аналитика; отсутствие в Summary/Writer/L1 проверяется тестом | `test_er54_phase_scope_is_not_a_general_licence` |
 | FC planner (код, не правился) | `_claim_units`: самостоятельные проверяемые части из предложений | числа разных фаз могли попасть в одну часть и «спорить» друг с другом | `factcheck_planner.build_claim_units` | код не менялся: части и так раздельные, свойство зафиксировано тестом; настоящее противоречие внутри фазы по-прежнему ловится | `test_er54_two_phase_statements_are_never_one_proposition`, `test_er54_same_phase_contradiction_is_still_flagged` |
+| FC single (W17b) / `factcheck.base.single` / `factcheck-phases-w17` | «Сверь тезис… вынеси дерзкий вердикт» без различения предмета | тот же фазово-слепой суд, но на пути fallback: при сбое/невалидном JSON стадии-1 поведение расходилось с Аналитиком | `factcheck_service.check_claim` → `resolve_prompt("prompts.factcheck_system_prompt")` | в канон добавлено то же нормативное ядро (`FACTCHECK_PHASE_SCOPE_CORE`), вставлено ПЕРЕД последним owner-абзацем `<bot_knowledge>` | `test_er54_single_stage_rule_reaches_effective_payload`, `test_er54_both_stages_share_the_same_normative_core` |
+| FC single | действующий порядок канона: R46-4 («Если в блоке `<bot_knowledge>`…») — последний абзац промпта | правило фаз, дописанное в конец, ломало контракт порядка | `test_factcheck_prompts::test_ends_with_rag_instruction`, `test_de_robotization::test_antibot_and_asymmetry_in_every_actual/*`, `::test_new_bot_knowledge_instruction_kept/*` | блок вставлен перед R46-4; пины не ослаблены и продолжают падать при сдвиге | те же |
+| Эталон `plans/docs/canon/architecture.md` (Section 72) | байты эталона = байты канона | правка кода без правки эталона сломала бы пин | `tests/test_factcheck_prompts::test_byte_for_byte` | эталон обновлён теми же байтами; сверка `sha12` совпадает с печатью реестра | `test_er54_doc_block_and_code_canon_are_byte_identical` |
 
 ## 5. Тесты
 
 Новый файл `tests/test_evol_w17_small_canon_reqs.py` (`CONTRACT`,
-owner=ER-S25+ER-54), 10 тестов:
+owner=ER-S25+ER-54), 15 тестов:
 
 | Тест | Что реально утверждает |
 | --- | --- |
@@ -141,16 +183,22 @@ owner=ER-S25+ER-54), 10 тестов:
 | `test_er54_two_phase_statements_are_never_one_proposition` | две фразы о разных фазах → две claim-единицы, у каждой только своя метрика (`5 Г` / `2.5 Г`), смешанной части нет |
 | `test_er54_same_phase_contradiction_is_still_flagged` | «за тезис» + «против» внутри одной фазы → `evidence_conflicting` + `contradictory_evidence`; только «против» → `refuted` |
 | `test_er54_migration_applies_only_to_deployed_bytes` | ступень и обратный шаг привязаны ровно к байтам прода 2.58.147 канона Аналитика |
+| `test_er54_single_stage_rule_reaches_effective_payload` | правило фаз в одиночном каноне и в том payload, который реально собирается сервисом (`resolve_prompt` + подстановка `{max_symbols}`); owner-абзац R46-4 остаётся последним |
+| `test_er54_both_stages_share_the_same_normative_core` | ядро `FACTCHECK_PHASE_SCOPE_CORE` входит в оба канона ровно один раз; блок = заголовок + то же ядро; метки/печати обеих ревизий целы |
+| `test_er54_single_migration_applies_on_deployed_bytes_only` | ступень = ровно `(байты прода 2.58.147, новые)`, обратный шаг; кастом с хвостом ступенью не узнаётся |
+| `test_er54_single_migration_preserves_owner_edit_as_revision` | прогон `migrate_prompt_canons` на кастоме: активна заводская ревизия по метке, текст владельца сохранён ревизией журнала (байт-в-байт), повторный прогон — `same` без новых записей |
+| `test_er54_doc_block_and_code_canon_are_byte_identical` | блок Section 72 эталона байт-в-байт равен коду и совпадает с печатью реестра (мутация эталона роняет и этот тест, и `test_factcheck_prompts::test_byte_for_byte` — проверено) |
 
 Прогоны (`py -3 -m pytest … -q -p no:randomly`), счётчики сняты этими прогонами:
 
 ```text
-tests/test_evol_w17_small_canon_reqs.py (новый файл)                    10 passed
-полоса «evol/prompts/p0/speech» (87 файлов, включает новый файл)      1689 passed, 2 skipped
-полоса «direct/factcheck/soul1/asap» (77 файлов)                      1762 passed, 7 failed
+tests/test_evol_w17_small_canon_reqs.py (новый файл)                    15 passed
+полоса «evol/prompts/p0/speech» (87 файлов, включает новый файл)      1694 passed, 2 skipped
+полоса «direct/factcheck/soul1/asap/unified_core» (78 файлов)         1780 passed, 7 failed
+пин-набор канона/реестра/эталона (12 файлов)                            287 passed, 1 skipped
 ```
 
-Итого по затронутым полосам: **3451 passed, 2 skipped, 7 failed**. Все 7 отказов
+Итого по затронутым полосам: **3474 passed, 2 skipped, 7 failed**. Все 7 отказов
 воспроизводятся на чистой базе `087c9a1c` (проверено отдельным worktree без моих
 правок):
 
@@ -160,10 +208,38 @@ tests/test_evol_w17_small_canon_reqs.py (новый файл)                   
 * `tests/test_direct_fallback_recompose_asap32.py` — 5 тестов про oversize/
   fallback-recompose в `llm_client` (не правился).
 
+Дополнительно снят паритет отказов на широком срезе: 42 файла, упавшие в полном
+прогоне репозитория (в нём много средовых отказов — БД/webapp/summary), прогнаны
+изолированно в этой полосе и на чистой базе `087c9a1c`. Наборы отказов совпали
+поэлементно (**52 = 52**, различий нет): собственным дефектом полосы был только
+`test_unified_core_route_coverage::test_unified_core_migration_ladder_and_rollback`
+(точный список шагов откатa одиночного канона) — он найден этим сравнением и
+исправлен, после исправления паритет полный.
+
 Ни один существующий тест не ослаблен: обновлены только пины, которые обязаны
-меняться вместе с каноном (`eb496e938c49 → 7637864d50b5`, `de8e77a2a3f4 →
-63c0ae3546d1`, метки ревизий, первая ступень откатa), причём в каждый пин
-добавлено утверждение про новые байты, а не снято утверждение про старые.
+меняться вместе с каноном (`eb496e938c49 → 7637864d50b5`, `aa6a2ed38b4c →
+d02776dec166`, `de8e77a2a3f4 → 63c0ae3546d1 → 748641ded024`, метки ревизий,
+первые ступени откатa), причём в каждый пин добавлено утверждение про новые байты,
+а не снято утверждение про старые. Пин «документ ↔ код» сохранён и проверен
+мутацией: сдвиг одного символа в эталоне роняет и `test_byte_for_byte`, и
+`test_er54_doc_block_and_code_canon_are_byte_identical`.
+
+## 5.1. W17b — доказательство «документ = код»
+
+```text
+sha12(FACTCHECK_SYSTEM_PROMPT)                 = d02776dec166
+sha12(блок Section 72 в architecture.md)       = d02776dec166
+sha12(PREV_FACTCHECK_SINGLE_PHASE_SCOPE)       = aa6a2ed38b4c  (= прод 2.58.147)
+печать реестра factcheck.base.single           = d02776dec166
+равенство строк: \n.join(строк фенса) == код   = True
+мутация эталона (1 пробел) → оба пина          = FAILED (пин живой)
+```
+
+Нормативное ядро у двух стадий — один объект `FACTCHECK_PHASE_SCOPE_CORE`;
+в одиночном каноне блок стоит **перед** последним owner-абзацем
+`<bot_knowledge>` (R46-4), потому что действующий контракт канона требует, чтобы
+промпт заканчивался именно этой инструкцией (три существующих теста это
+проверяют; они не правились).
 
 ## 6. Что НЕ доказано (честные границы)
 
@@ -174,13 +250,14 @@ tests/test_evol_w17_small_canon_reqs.py (новый файл)                   
    `structure=summary` + заполнит `external_claims` и не назовёт prefill/decode
    противоречием — offline не проверяется. Живого прогона в этой полосе не было
    (деплой в задании запрещён).
-2. **Одиночный (legacy 10.21) канон фактчека `factcheck.base.single` правило фаз
-   НЕ получил.** Это путь fallback при сбое/невалидном JSON стадии-1. Причина, по
-   которой его не трогали: его байты прибиты тестом `test_factcheck_prompts.py`
-   к эталонному блоку `plans/docs/canon/architecture.md` (Section 72), то есть
-   это отдельная канонная правка с правкой самого канонного документа, а не
-   «малая» правка этой полосы. Риск зафиксирован: на fallback-пути правило фаз
-   отсутствует.
+2. **Одиночный (legacy 10.21) канон `factcheck.base.single` — W17b закрыл
+   расхождение:** правило фаз теперь есть и на fallback-пути, нормативное ядро
+   общее с Аналитиком, эталон `architecture.md` обновлён теми же байтами.
+   Остаётся непроверенным ровно то же, что и для стадии-1: реакция модели на
+   живой прогон fallback (сценарий «Stage-1 вернул невалидный JSON») offline не
+   воспроизводится — нет ни провайдера, ни разрешённого деплоя в этой полосе.
+   Плюс: `factcheck.critique.directive` (раздел «Критический разнос» в одиночном
+   пути) правилом фаз не затрагивался — он про форму критики, не про статусы.
 3. **Writer-канон не менялся.** «Сводка без вердиктов» обеспечивается контрактом
    плана и egress-guard'ом (атрибутированный пересказ не вырезается, добавленный
    claim фазы проверки — вырезается), но не отдельной инструкцией Writer'а.

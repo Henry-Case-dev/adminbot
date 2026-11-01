@@ -30,14 +30,19 @@
    ступень `PROMPT_MIGRATIONS` ровно на выложенных байтах (не на подстроке и
    не на кастоме владельца с хвостом) и обратная ступень откатa на те же
    выложенные байты.
+4. W17b — правило фаз есть в ОБОИХ канонах фактчека: в Аналитике (двухвызовный
+   путь) и в одиночном `factcheck.base.single` (путь fallback при сбое
+   Stage-1). Нормативное ядро у них — один и тот же объект
+   (`FACTCHECK_PHASE_SCOPE_CORE`), поэтому эквивалентность проверяется
+   сравнением байт, а не пересказом. Блок эталона
+   `plans/docs/canon/architecture.md` (Section 72) обязан совпадать с кодом
+   байт-в-байт — это и есть смысл пина.
 
 ЧЕГО ЭТОТ ФАЙЛ НЕ ДОКАЗЫВАЕТ (честная граница): поведение модели на живом
 прогоне (LLM выбирает structure/statuses) — offline-фикстура проверяет
 контракт канона и детерминированные швы, а не текст будущего ответа модели.
-Одиночный (legacy 10.21) канон фактчека `factcheck.base.single` правило фаз
-не получил — он остаётся путём fallback при сбое Stage-1 (см. отчёт волны).
 
-TEST-LIFECYCLE: CONTRACT owner=ER-S25+ER-54 (EVOL W17)
+TEST-LIFECYCLE: CONTRACT owner=ER-S25+ER-54 (EVOL W17/W17b)
 """
 from __future__ import annotations
 
@@ -54,11 +59,37 @@ from services.prompt_style_blocks import resolve_prompt
 
 L1_KEY = "prompts.direct_l1_planner_system_prompt"
 FC_KEY = "prompts.factcheck_analyst_system_prompt"
+FC_SINGLE_KEY = "prompts.factcheck_system_prompt"
 
 #: Байты прода 2.58.147 (выложенный кандидат e18a86eb): ступень обязана
 #: узнавать ИХ и только их.
 DEPLOYED_L1_SHA12 = "eb496e938c49"
 DEPLOYED_FC_ANALYST_SHA12 = "9573b3d86161"
+DEPLOYED_FC_SINGLE_SHA12 = "aa6a2ed38b4c"
+
+DOC_CANON = "plans/docs/canon/architecture.md"
+
+
+def _doc_section72_canon() -> str:
+    """Эталонный блок канона фактчека из `architecture.md` (Section 72).
+
+    Тот же разбор, что в `tests/test_factcheck_prompts.py` (якорь — строка
+    `## Section 72`, тело — первый ```text-фенс после якоря). Здесь он нужен,
+    чтобы сверять ДОКУМЕНТ и КОД в одном месте и падать с внятным сообщением.
+    """
+    import pathlib
+
+    lines = pathlib.Path(DOC_CANON).read_text(encoding="utf-8").splitlines()
+    anchor = next((i for i, line in enumerate(lines)
+                   if line.startswith("## Section 72")), None)
+    assert anchor is not None, "в эталоне нет якоря '## Section 72'"
+    fence_start = next((i for i in range(anchor, len(lines))
+                       if lines[i].strip() == "```text"), None)
+    assert fence_start is not None, "после якоря нет ```text-фенса"
+    fence_end = next((i for i in range(fence_start + 1, len(lines))
+                     if lines[i].strip() == "```"), None)
+    assert fence_end is not None, "фенс канона не закрыт"
+    return "\n".join(lines[fence_start + 1:fence_end])
 
 
 def _sha12(text: str) -> str:
@@ -336,3 +367,125 @@ def test_er54_migration_applies_only_to_deployed_bytes():
     assert rollback[0] == (active, deployed)
     owner_tail = deployed + "\n\nмой хвост"
     assert all(old != owner_tail for old, _new in steps)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  W17b — то же правило в ОДИНОЧНОМ каноне фактчека (путь fallback)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_er54_single_stage_rule_reaches_effective_payload():
+    """Правило фаз есть в каноне одиночной стадии — и в том виде, что уходит."""
+    canon = fcp.FACTCHECK_SYSTEM_PROMPT
+    assert fcp.FACTCHECK_PHASE_SCOPE_CORE in canon
+    assert fcp.FACTCHECK_PHASE_SCOPE_TITLE in canon
+    # Сервис собирает system prompt так: resolve_prompt + подстановка лимита.
+    effective = resolve_prompt(FC_SINGLE_KEY, canon).replace(
+        "{max_symbols}", "4000")
+    assert fcp.FACTCHECK_PHASE_SCOPE_CORE in effective
+    assert "{max_symbols}" not in effective
+    # Прежний owner-абзац R46-4 остаётся последним: правило вставлено ПЕРЕД ним,
+    # порядок канона не переписан.
+    assert effective.rstrip().endswith(
+        "используй её, чтобы унизить оппонента своими знаниями.")
+    assert effective.rfind(fcp.FACTCHECK_PHASE_SCOPE_BLOCK) < \
+        effective.rfind("Если в блоке <bot_knowledge>")
+
+
+def test_er54_both_stages_share_the_same_normative_core():
+    """Эквивалентность стадий — совпадение байт нормативного ядра, не пересказ."""
+    core = fcp.FACTCHECK_PHASE_SCOPE_CORE
+    analyst = fcp.FACTCHECK_ANALYST_SYSTEM_PROMPT
+    single = fcp.FACTCHECK_SYSTEM_PROMPT
+    assert core in analyst and core in single
+    # Ядро входит в оба канона ровно один раз (нет второго, «смягчённого»).
+    assert analyst.count(core) == 1
+    assert single.count(core) == 1
+    # Блок каждой стадии — заголовок + то же ядро.
+    block = fcp.FACTCHECK_PHASE_SCOPE_TITLE + "\n" + core
+    assert fcp.FACTCHECK_PHASE_SCOPE_BLOCK == block
+    assert block in analyst and block in single
+    # Обе ревизии зарегистрированы и целы.
+    assert pr.FACTORY_REVISION_LABELS["factcheck.base.analyst"] == \
+        "factcheck-analyst-phases-w17"
+    assert pr.FACTORY_REVISION_LABELS["factcheck.base.single"] == \
+        "factcheck-phases-w17"
+    assert pr.sha12(pr.factory_text("factcheck.base.single")) == \
+        pr.FACTORY_REVISION_SEALS["factcheck.base.single"][1]
+    assert pr.seal_integrity() == {}
+
+
+def test_er54_single_migration_applies_on_deployed_bytes_only():
+    """Ступень узнаёт ровно выложенные байты одиночного канона 2.58.147."""
+    deployed = fcp.PREV_FACTCHECK_SINGLE_PHASE_SCOPE
+    active = fcp.FACTCHECK_SYSTEM_PROMPT
+    assert deployed != active
+    assert _sha12(deployed) == DEPLOYED_FC_SINGLE_SHA12
+    steps = pm.PROMPT_MIGRATIONS[FC_SINGLE_KEY]
+    assert steps[0] == (deployed, active)
+    rollback = pm.ROLLBACK_MIGRATIONS[FC_SINGLE_KEY]
+    assert rollback[0] == (active, deployed)
+    # Кастом владельца (те же байты + хвост) ступенью не узнаётся.
+    owner_tail = deployed + "\n\nмой хвост"
+    assert all(old != owner_tail for old, _new in steps)
+
+
+def test_er54_single_migration_preserves_owner_edit_as_revision(monkeypatch):
+    """Правка владельца не теряется: она становится ревизией журнала.
+
+    Действующая политика (решение владельца 29.10.2026, EVOL-012) активирует
+    новую заводскую ревизию ПО МЕТКЕ, в том числе поверх ручной правки; сама
+    правка сохраняется неизменяемой записью журнала. Поэтому «не перетирать
+    кастом» проверяется двумя фактами: ступень не матчит кастом по байтам
+    (см. тест выше) и текст владельца остаётся в журнале после прогона.
+    """
+    import asyncio
+
+    from services import prompt_release_policy as prp
+
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    try:
+        custom = fcp.FACTCHECK_SYSTEM_PROMPT + "\n\nвладельческая строка"
+
+        class Cache:
+            pg_available = True
+
+            def __init__(self, values):
+                self.values = dict(values)
+
+            def get(self, key, default=None):
+                return self.values.get(key, default)
+
+            async def set(self, key, value, category):
+                self.values[key] = value
+
+        cache = Cache({FC_SINGLE_KEY: custom})
+        report = asyncio.run(pm.migrate_prompt_canons(cache))
+        assert report.get(FC_SINGLE_KEY) in ("updated", "same")
+        # Активна заводская ревизия (по метке), а текст владельца сохранён.
+        assert cache.values[FC_SINGLE_KEY] == fcp.FACTCHECK_SYSTEM_PROMPT
+        kept = [r for r in store.revisions.values()
+                if r.pg_key == FC_SINGLE_KEY
+                and r.content_sha12 == pr.sha12(custom)]
+        assert len(kept) == 1
+        assert kept[0].body == custom
+
+        # Повторный прогон на тех же байтах — no-op: ничего не перезаписано.
+        before = (len(store.revisions), len(store.activations))
+        again = asyncio.run(pm.migrate_prompt_canons(cache))
+        assert again.get(FC_SINGLE_KEY) == "same"
+        assert (len(store.revisions), len(store.activations)) == before
+    finally:
+        pr.set_release_policy_active(False)
+        from services import prompt_factory as pf
+        pf._HISTORY_FROZEN = False
+        pr.reset_cache()
+
+
+def test_er54_doc_block_and_code_canon_are_byte_identical():
+    """Пин эталона: документ Section 72 и код — одни и те же байты."""
+    doc = _doc_section72_canon()
+    assert doc == fcp.FACTCHECK_SYSTEM_PROMPT
+    assert _sha12(doc) == pr.FACTORY_REVISION_SEALS["factcheck.base.single"][1]
+    assert fcp.FACTCHECK_PHASE_SCOPE_CORE in doc

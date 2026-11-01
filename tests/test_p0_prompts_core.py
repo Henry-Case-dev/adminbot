@@ -117,8 +117,8 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # de8e77a2a3f4.
     # EVOL W17 (02.11.2026): L1-планер → EVR2 (две фазы «саммари/проверка»),
     # канон Аналитика фактчека → правило фаз prefill/decode →
-    # 63c0ae3546d1. Пин переутверждён осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "63c0ae3546d1"
+    # 748641ded024. Пин переутверждён осознанно (SOUL-AMD.3.2).
+    assert pr.FACTORY_SET_SHA256_12 == "748641ded024"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
