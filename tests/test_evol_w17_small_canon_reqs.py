@@ -112,8 +112,12 @@ def test_scenario25_canon_has_two_phase_contract():
     """Правило разделения фаз есть в активном каноне и это ревизия EVR2."""
     canon = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert cp._DIRECT_L1_TWO_PHASE_EVR2 in canon
-    assert canon == cp.PREV_DIRECT_L1_PLANNER_EVR1 \
-        + cp._DIRECT_L1_TWO_PHASE_EVR2
+    # ASAP-FC-VOICE-01 / B: слепок W17 — EVR2; активные байты = EVR2 + одно
+    # правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ].
+    assert cp.PREV_DIRECT_L1_PLANNER_EVR2 == (
+        cp.PREV_DIRECT_L1_PLANNER_EVR1 + cp._DIRECT_L1_TWO_PHASE_EVR2)
+    assert canon == cp.PREV_DIRECT_L1_PLANNER_EVR2 \
+        + cp._DIRECT_L1_DECISION_PROFILE_EVR3
     # Обе фазы названы, и у каждой свой маркер из СУЩЕСТВУЮЩИХ полей плана.
     assert "САММАРИ И ПРОВЕРКА" in canon
     assert "response_act=summarization" in canon
@@ -136,7 +140,7 @@ def test_scenario25_canon_has_two_phase_contract():
     assert "Материал важнее оценки" in canon
     # Печать и метка — та же ревизия, что в реестре (канон не «висит» мимо).
     label, seal = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-two-phase-precedence"
+    assert label == "l1-planner-decision-profile"
     assert pr.FACTORY_REVISION_LABELS["direct.base.l1_planner"] == label
     assert pr.sha12(pr.factory_text("direct.base.l1_planner")) == seal
     assert pr.seal_integrity() == {}
@@ -268,16 +272,23 @@ def test_scenario25_factcheck_phase_does_not_rewrite_summary():
 
 
 def test_scenario25_migration_applies_only_to_deployed_bytes():
-    """Ступень узнаёт ровно выложенные байты 2.58.147 и откатывается на них."""
+    """Ступень W17 узнаёт ровно выложенные байты 2.58.147 и ведёт на канон.
+
+    ASAP-FC-VOICE-01 / B добавил БОЛЕЕ НОВУЮ ступень (EVR2 → EVR3) выше по
+    стеку, поэтому ступень W17 проверяется как элемент стека: правило «ступень
+    узнаёт только точное совпадение байт» не изменилось.
+    """
     deployed = cp.PREV_DIRECT_L1_PLANNER_EVR1
     active = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert deployed != active
     assert _sha12(deployed) == DEPLOYED_L1_SHA12
     steps = pm.PROMPT_MIGRATIONS[L1_KEY]
-    assert steps[0] == (deployed, active)
+    assert (deployed, active) in steps
+    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR2, active)
     assert steps[0][0] != active
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert rollback[0] == (active, deployed)
+    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR2) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR2, deployed) in rollback
     # Кастом владельца (те же байты + хвост) ступенью не узнаётся: правка
     # привязана к точному совпадению, а не к подстроке.
     owner_tail = deployed + "\n\nмой хвост"

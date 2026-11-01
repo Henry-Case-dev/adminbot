@@ -33,6 +33,9 @@ import time
 from dataclasses import dataclass
 
 from config.settings import settings
+# ASAP-FC-VOICE-01 / B: имя секции профиля решений живёт в единственной точке
+# сборки характера (`bot_persona`), здесь только вставка и защита секции.
+from services import bot_persona
 # ER-08-RC (P2): границы предложений и детектор высокорисковых claim'ов —
 # СУЩЕСТВУЮЩИЕ примитивы evidence-слоя; своего парсера/справочника не заводим.
 from services.evidence_policy import _SENTENCE_SPLIT_RE, _high_risk
@@ -854,7 +857,13 @@ async def record_l1_usage(llm, *, usage, messages, content, model: str,
 # ── §1.5: компактный L1-контекст ────────────────────────────────────────────
 
 L1_WINDOW_MESSAGES = 20       # §1.5: окно последних N (дефолт 20)
-L1_PERSONA_FRAME_CHARS = 400  # голова character_block
+# ASAP-FC-VOICE-01 / B: характер подаётся планеру как ДАННЫЕ решения, а не как
+# головной срез прозы. Прежний `L1_PERSONA_FRAME_CHARS = 400` обрывал
+# `<Persona>` на биографии и не давал ни одного поведенческого факта, поэтому
+# срез удалён целиком: секцию собирает единственная точка
+# `bot_persona.build_decision_profile_block` (закрытый набор измерений кадра),
+# и она защищена от сжатия — размер определяется составом данных, а не квотой.
+L1_PROFILE_SECTION = bot_persona.DECISION_PROFILE_SECTION
 #: Имя секции «reply/цитата» — она защищена в `_cap_context` (фрагмент, на
 #: который отвечают, обязан дойти до планера).
 L1_REPLY_SECTION = "ОТВЕТ НА (reply/цитата)"
@@ -1422,7 +1431,7 @@ def build_l1_context(*, query, current_question: str = "",
                      social_frame: str = "",
                      memory_hints: str = "", speech_hints: str = "",
                      capabilities=(), force_line: str = "",
-                     persona_frame: str = "",
+                     decision_profile: str = "",
                      bot_replies: tuple[str, ...] = (),
                      budget_tokens: int | None = None,
                      with_ids: bool = False,
@@ -1439,7 +1448,11 @@ def build_l1_context(*, query, current_question: str = "",
     ASAP2 T10-BOUNDARY: ``history_partial`` — вызывающий знает, что в БД
     есть сообщения старше видимого окна; пометка ``ГРАНИЦА ИСТОРИИ``
     добавляется ровно по факту усечения (флаг или окно > L1_WINDOW_MESSAGES
-    либо срез ``_cap_context``) и переживает сжатие бюджета."""
+    либо срез ``_cap_context``) и переживает сжатие бюджета.
+    ASAP-FC-VOICE-01 / B: ``decision_profile`` — секция
+    ``[ПРОФИЛЬ РЕШЕНИЙ]`` (собирается один раз в
+    ``bot_persona.build_decision_profile_block``); она защищена в
+    ``_cap_context`` и никогда не подаётся как срез прозы."""
     try:
         sections: list[tuple[str, str]] = []
         budget = int(budget_tokens) if budget_tokens is not None \
@@ -1490,9 +1503,15 @@ def build_l1_context(*, query, current_question: str = "",
                          ", ".join(caps) if caps else "нет"))
         if str(force_line or "").strip():
             sections.append(("УСЛОВИЯ", str(force_line).strip()))
-        if str(persona_frame or "").strip():
-            sections.append(("ХАРАКТЕР (кадр)",
-                             str(persona_frame).strip()[:L1_PERSONA_FRAME_CHARS]))
+        if str(decision_profile or "").strip():
+            # ASAP-FC-VOICE-01 / B: характер как данные решения. Секция
+            # защищена в `_cap_context` (не сжимается и не вытесняется):
+            # прежний головной срез прозы (400 символов) исчезал при
+            # переполнении бюджета первым, то есть ровно тогда, когда решение
+            # труднее всего. Размер профиля структурный (закрытый набор
+            # измерений + фиксированные строки), поэтому отдельного капа нет.
+            sections.append((L1_PROFILE_SECTION,
+                             str(decision_profile).strip()))
         text = "\n\n".join(f"[{name}]\n{body}" for name, body in sections)
         return _cap_context(text, sections_budget=sections, budget=budget)
     except Exception:          # pragma: no cover - защитная ветка
@@ -1515,8 +1534,13 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         # ER-08: цитата — фрагмент, на который отвечают; сжимается вместе с
         # окном, а не вытесняется первым (прежний factor-срез был головной и
         # молча терял claim в середине/хвосте цитаты).
+        # ASAP-FC-VOICE-01 / B: профиль решений защищён наравне со
+        # структурными блоками — характер не должен исчезать при сжатии
+        # (это и был дефект прежней секции «ХАРАКТЕР (кадр)», стоявшей
+        # последней и незащищённой).
         protected = {"СООБЩЕНИЕ", L1_REPLY_SECTION, "УЧАСТНИКИ",
-                     "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION}
+                     "ДОСТУПНЫЕ ВОЗМОЖНОСТИ", "УСЛОВИЯ", HISTORY_SCOPE_SECTION,
+                     L1_PROFILE_SECTION}
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
@@ -2161,7 +2185,7 @@ __all__ = [
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
     "FORCE_LINE", "AUTONOMOUS_LINE", "INITIATIVE_LINE", "REPAIR_ANNOTATION",
     "L1_DELIVERY_MODES", "EXECUTION_MODES", "normalize_l1_plan",
-    "parse_l1_plan", "reply_binding_requested",
+    "parse_l1_plan", "reply_binding_requested", "L1_PROFILE_SECTION",
     "build_repair_messages", "confidence_bucket", "direct_l1_enabled",
     "l1_fallback_enabled", "l1_context_tokens", "l1_timeout_seconds",
     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",

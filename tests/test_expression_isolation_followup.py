@@ -190,4 +190,8 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # 033670411c73; затем одиночный канон без «торопливого письма» и без
     # приоритета «своей логики» (factcheck.base.single) → 68c915718b7d.
     # Пин переутверждён осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "68c915718b7d"
+    # ASAP-FC-VOICE-01 / B (02.11.2026): L1-планер → EVR3 (правило статуса
+    # секции «ПРОФИЛЬ РЕШЕНИЙ») → b1c1ab5b3b68.
+    # Мерж P0+P1 (evol/impl): обе ревизии активны одновременно — набор фабричных текстов пересчитан по объединению.
+    assert pr.FACTORY_SET_SHA256_12 == "630ca46dff76"
+

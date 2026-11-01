@@ -122,7 +122,13 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # 033670411c73; затем одиночный канон без «торопливого письма» и без
     # приоритета «своей логики» (factcheck.base.single) → 68c915718b7d.
     # Пин переутверждён осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "68c915718b7d"
+    # канон Аналитика фактчека → правило фаз prefill/decode →
+    # f84baaf69559. Пин переутверждён осознанно (SOUL-AMD.3.2).
+    # ASAP-FC-VOICE-01 / B (02.11.2026): L1-планер → EVR3 (правило статуса
+    # секции «ПРОФИЛЬ РЕШЕНИЙ») → b1c1ab5b3b68, переутверждено осознанно.
+    # Мерж P0+P1 (evol/impl): обе ревизии активны одновременно — набор фабричных текстов пересчитан по объединению.
+    assert pr.FACTORY_SET_SHA256_12 == "630ca46dff76"
+
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
