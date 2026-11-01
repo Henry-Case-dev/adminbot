@@ -917,6 +917,7 @@
         "web/static/design-tokens.css",
         "web/api/memory_graph.py",
         "web/api/memory_agi.py",
+        "web/app.py",
         "tests/js/evol_cognitive_map_test.js",
         "plans/features/evol/audit/w7-cognitive-map.md"
       ],
@@ -924,7 +925,8 @@
       "req_ids": [
         "EVOL-COG-MAP"
       ],
-      "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет."
+      "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет.",
+      "note": "Скоуп расширен на `web/app.py` (одна строка `include_router`) — без неё новый endpoint `GET /api/memory/cognitive-map` не публикуется. Реализация идёт четырьмя под-слайсами по контракту `plans/features/evol/arch/cog-map-contract.md`: W7-S1 — API и адаптер данных (эндпоинт + публикация роутера), W7-S2 — карта (визуальная система, легенда/LOD, drilldown), W7-S3 — карточка записи и адресные переходы, W7-S4 — mobile (embedded↔fullscreen), паритет старого графа и регрессия. W7-S1..S4 сериализуются с линией композиции UI на `web/index.html`, `web/app.js`, `web/static/app.css`: параллельных писателей этих файлов нет (остальные UI-слайсы — предки по `depends_on`)."
     },
     {
       "id": "ASAP-FC-ADMISSION-01",
