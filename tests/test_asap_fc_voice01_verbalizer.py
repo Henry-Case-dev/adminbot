@@ -244,6 +244,31 @@ class TestVoiceCanonRevision:
         assert label == "temporal-analyst-voice01-semantics"
         assert pr.sha12(pr.factory_text("temporal.analyst")) == seal
 
+    def test_single_canon_conflicting_directives_removed(self):
+        """F3: одиночный канон очищен от двух конфликтов с новым контрактом.
+
+        1) «торопливое письмо» — навязанная небрежная орфография;
+        2) «Твоя собственная логика и кругозор важнее» — приоритет внутренней
+        уверенности над первоисточником (FCV-P23).
+        Одиночный канон — тот же жанр (ветка откAта/legacy-фолбэк).
+        """
+        canon = fp.FACTCHECK_SYSTEM_PROMPT
+        label, seal = pr.FACTORY_REVISION_SEALS["factcheck.base.single"]
+        assert label == "factcheck-single-voice01"
+        assert pr.sha12(pr.factory_text("factcheck.base.single")) == seal
+        # откат — ровно байты прода 2.58.148, в них оба конфликта ещё есть
+        assert pr.sha12(fp.PREV_FACTCHECK_SINGLE_VOICE01) == "d02776dec166"
+        assert "торопливое письмо" in fp.PREV_FACTCHECK_SINGLE_VOICE01
+        assert "кругозор важнее" in fp.PREV_FACTCHECK_SINGLE_VOICE01
+        assert "торопливое письмо" not in canon
+        assert "кругозор важнее" not in canon
+        # доказательная дисциплина «умной фильтрации» сохранена
+        assert "Категорически запрещено притягивать мусорные ссылки" in canon
+        # нормативная часть канона (фазы) и общие блоки не тронуты
+        assert fp.FACTCHECK_PHASE_SCOPE_CORE in canon
+        assert fp.FACTCHECK_PHASE_SCOPE_CORE in fp.PREV_FACTCHECK_SINGLE_VOICE01
+        assert "торопливое" not in pr.factory_text("factcheck.base.verbalizer")
+
 
 class TestVoiceCanonContent:
     def test_genre_voice_restored(self):
@@ -339,15 +364,21 @@ class TestSingleCompositionPoint:
         assert "Вступай в спор" not in system
 
     @pytest.mark.asyncio
-    async def test_temporal_verbalizer_uses_single_point(self, monkeypatch,
-                                                        owner_layers):
+    async def test_temporal_verbalizer_keeps_speech_base_layer(self, monkeypatch,
+                                                               owner_layers):
+        """`<Speech_Base>` — отдельный слой манеры/длины/достоверности.
+
+        До правки его добавлял `speech_owner_block`; теперь — единая точка
+        сборки, но слой сохранён и присутствует ровно один раз.
+        """
         cap = _capture(monkeypatch)
         service = fs.FactCheckService(None, None, None)
         await service._temporal_verbalize(_env(), _temporal_verdict(), False,
                                          None)
         system = cap.messages[0]["content"]
         _assert_single_owner_layers(system)
-        assert "<Speech_Base>" in system
+        assert system.count("<Speech_Base>") == 1
+        assert system.count("</Speech_Base>") == 1
 
     @pytest.mark.asyncio
     async def test_single_route_uses_single_point(self, monkeypatch,

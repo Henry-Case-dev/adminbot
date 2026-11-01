@@ -187,5 +187,7 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # канон Аналитика фактчека → правило фаз prefill/decode → f84baaf69559.
     # ASAP-FC-VOICE-01 / A (02.11.2026): голос жанра фактчека (вербализатор),
     # смысловые поля аналитика (factcheck.base.analyst и temporal.analyst) →
-    # 033670411c73. Пин переутверждён осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "033670411c73"
+    # 033670411c73; затем одиночный канон без «торопливого письма» и без
+    # приоритета «своей логики» (factcheck.base.single) → 68c915718b7d.
+    # Пин переутверждён осознанно (SOUL-AMD.3.2).
+    assert pr.FACTORY_SET_SHA256_12 == "68c915718b7d"

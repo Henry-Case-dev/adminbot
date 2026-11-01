@@ -98,6 +98,7 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
     PREV_FACTCHECK_ANALYST_VOICE01,
+    PREV_FACTCHECK_SINGLE_VOICE01,
     PREV_FACTCHECK_VERBALIZER_VOICE01,
     PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
@@ -354,6 +355,14 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # перезаписывается; старые PREV_* не переписаны.
         (PREV_CHECKUP_P0_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt": [
+        # ASAP-FC-VOICE-01 / A (02.11.2026): байты прода 2.58.148 (канон с
+        # директивой «торопливое письмо») ведут на редакцию без неё. ВНИМАНИЕ:
+        # с EVOL-016 (29.10.2026) эта лестница НЕ исполняется на старте —
+        # активацию решает релизная политика по МЕТКЕ и ПЕЧАТИ
+        # (`prompt_release_policy.apply_release` -> `activation_plan`), а
+        # `rollback_prompt_canons` отказывает; таблицы сохранены как байт-эталоны
+        # ступеней и источник слепков (см. отчёт W1 §1.1).
+        (PREV_FACTCHECK_SINGLE_VOICE01, FACTCHECK_SYSTEM_PROMPT),
         # EVOL W17b (02.11.2026): байты прода 2.58.147 одиночного канона
         # фактчека ведут на ту же редакцию с правилом фаз работы модели
         # (fallback-путь больше не расходится с Аналитиком). Только точное
@@ -601,9 +610,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
          (PREV_CHECKUP_P0_SYSTEM_PROMPT,
           PREV_CHECKUP_CFG07A_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt":
-        # EVOL W17b (02.11.2026): первая обратная ступень снимает ТОЛЬКО
-        # правило фаз работы модели → байты прода 2.58.147.
-        [(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_SINGLE_PHASE_SCOPE),
+        # ASAP-FC-VOICE-01 / A (02.11.2026): первый обратный шаг снимает
+        # ТОЛЬКО правку одиночного канона → байты прода 2.58.148
+        # (PREV_FACTCHECK_SINGLE_VOICE01); в бою откат идёт через
+        # `activate_revision` (лестница с EVOL-016 не исполняется).
+        [(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_SINGLE_VOICE01),
+         # EVOL W17b (02.11.2026): первый обратный шаг снимает ТОЛЬКО
+         # правило фаз работы модели → байты прода 2.58.147.
+         (PREV_FACTCHECK_SINGLE_VOICE01, PREV_FACTCHECK_SINGLE_PHASE_SCOPE),
          # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
          # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
          # ступень C14; стек ступеней цел (ADR-1013-3).

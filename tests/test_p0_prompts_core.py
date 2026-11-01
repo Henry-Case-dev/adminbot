@@ -119,8 +119,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # канон Аналитика фактчека → правило фаз prefill/decode → f84baaf69559.
     # ASAP-FC-VOICE-01 / A (02.11.2026): +голос жанра фактчека и смысловые
     # поля аналитика (factcheck.base.analyst, temporal.analyst) →
-    # 033670411c73. Пин переутверждён осознанно (SOUL-AMD.3.2).
-    assert pr.FACTORY_SET_SHA256_12 == "033670411c73"
+    # 033670411c73; затем одиночный канон без «торопливого письма» и без
+    # приоритета «своей логики» (factcheck.base.single) → 68c915718b7d.
+    # Пин переутверждён осознанно (SOUL-AMD.3.2).
+    assert pr.FACTORY_SET_SHA256_12 == "68c915718b7d"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

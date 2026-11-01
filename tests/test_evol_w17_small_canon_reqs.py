@@ -70,6 +70,9 @@ DEPLOYED_FC_ANALYST_SHA12 = "806d6cc6af77"
 #: Байты прода 2.58.147 (ступень ER-54): канон БЕЗ правила фаз.
 DEPLOYED_FC_ANALYST_PHASE_SHA12 = "9573b3d86161"
 DEPLOYED_FC_SINGLE_SHA12 = "aa6a2ed38b4c"
+#: Байты прода 2.58.148 одиночного канона (ER-54 + директива «торопливое
+#: письмо») — непосредственная ступень откатa правки ASAP-FC-VOICE-01 / A.
+DEPLOYED_FC_SINGLE_VOICE01_SHA12 = "d02776dec166"
 
 DOC_CANON = "plans/docs/canon/architecture.md"
 
@@ -432,23 +435,34 @@ def test_er54_both_stages_share_the_same_normative_core():
     # Обе ревизии зарегистрированы и целы.
     assert pr.FACTORY_REVISION_LABELS["factcheck.base.analyst"] == \
         "factcheck-analyst-voice01-semantics"
+    # ASAP-FC-VOICE-01 / A: одиночный канон получил вторую правку (снята
+    # директива «торопливое письмо»), метка поднята поверх ER-54.
     assert pr.FACTORY_REVISION_LABELS["factcheck.base.single"] == \
-        "factcheck-phases-w17"
+        "factcheck-single-voice01"
     assert pr.sha12(pr.factory_text("factcheck.base.single")) == \
         pr.FACTORY_REVISION_SEALS["factcheck.base.single"][1]
     assert pr.seal_integrity() == {}
 
 
 def test_er54_single_migration_applies_on_deployed_bytes_only():
-    """Ступень узнаёт ровно выложенные байты одиночного канона 2.58.147."""
+    """Ступень узнаёт ровно выложенные байты одиночного канона 2.58.147.
+
+    ASAP-FC-VOICE-01 / A добавил верхнюю ступень (байты 2.58.148 → канон без
+    директивы «торопливое письмо»); ступень ER-54 осталась в лестнице второй и
+    по-прежнему ведёт на тот же активный канон.
+    """
     deployed = fcp.PREV_FACTCHECK_SINGLE_PHASE_SCOPE
     active = fcp.FACTCHECK_SYSTEM_PROMPT
     assert deployed != active
     assert _sha12(deployed) == DEPLOYED_FC_SINGLE_SHA12
+    assert _sha12(fcp.PREV_FACTCHECK_SINGLE_VOICE01) == \
+        DEPLOYED_FC_SINGLE_VOICE01_SHA12
     steps = pm.PROMPT_MIGRATIONS[FC_SINGLE_KEY]
-    assert steps[0] == (deployed, active)
+    assert steps[0] == (fcp.PREV_FACTCHECK_SINGLE_VOICE01, active)
+    assert steps[1] == (deployed, active)
     rollback = pm.ROLLBACK_MIGRATIONS[FC_SINGLE_KEY]
-    assert rollback[0] == (active, deployed)
+    assert rollback[0] == (active, fcp.PREV_FACTCHECK_SINGLE_VOICE01)
+    assert rollback[1] == (fcp.PREV_FACTCHECK_SINGLE_VOICE01, deployed)
     # Кастом владельца (те же байты + хвост) ступенью не узнаётся.
     owner_tail = deployed + "\n\nмой хвост"
     assert all(old != owner_tail for old, _new in steps)
