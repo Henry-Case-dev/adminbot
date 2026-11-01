@@ -3,7 +3,7 @@
   "source_path": "plans/owner_inputs/2026-11-02-asap-fc-voice-01.md",
   "source_sha256": "9ce180ad702588b4552cf97fbeaee615ec9d3d67654d9369d29670c91b762c29",
   "candidate_commit": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
-  "deployed_commit": "",
+  "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -2998,5 +2998,16 @@
       "classification": "PARTIAL"
     }
   ],
-  "source_note": "\n2026-11-02 (PM, привязка P0/P1): candidate_commit = `5fc2ded5` (релиз-кандидат: из него собирается 2.58.149; прод на момент привязки — 2.58.148 @ `6645ae8d`, выката ещё не было — `deployed_commit` не заполняется). P0: привязано 14 строк сценариев (FCV-ACC-03…16, PROVEN по P0 Re-review); FCV-ACC-01/02 остаются PENDING как NOT PROVEN (живой прогон на фикстурах A/B). P1: привязано 10 строк (FCV-L1-01,02,03,04,05,07,08 и FCV-ACC-17,19,20) по Re-review 2 на `0eec0996`; FCV-L1-06, FCV-ACC-18, FCV-ACC-21, FCV-ACC-22 остаются PENDING до post-deploy. Итого required: 37 VERIFIED / 56 PENDING."
+  "source_note": "\n2026-11-02 (PM, привязка P0/P1): candidate_commit = `5fc2ded5` (релиз-кандидат: из него собирается 2.58.149; прод на момент привязки — 2.58.148 @ `6645ae8d`, выката ещё не было — `deployed_commit` не заполняется). P0: привязано 14 строк сценариев (FCV-ACC-03…16, PROVEN по P0 Re-review); FCV-ACC-01/02 остаются PENDING как NOT PROVEN (живой прогон на фикстурах A/B). P1: привязано 10 строк (FCV-L1-01,02,03,04,05,07,08 и FCV-ACC-17,19,20) по Re-review 2 на `0eec0996`; FCV-L1-06, FCV-ACC-18, FCV-ACC-21, FCV-ACC-22 остаются PENDING до post-deploy. Итого required: 37 VERIFIED / 56 PENDING.\n2026-11-02 (PM): прод 2.58.149 @ `40d615f1` — кандидат `5fc2ded5` вошёл в релиз целиком, `deployed_commit` заполнен; required: 37 VERIFIED / 56 PENDING (живые проверки P0/P1 и post-deploy строки остаются открытыми).",
+  "deployed_release": {
+    "version": "2.58.149",
+    "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
+    "branch": "release/2.58.149",
+    "candidate_in_release": "5fc2ded58f7a2a022602a85fe0aa514401774aa4",
+    "deploy_report": "plans/features/evol/audit/deploy-2.58.149.md",
+    "deploy_report_note": "Отчёт на ветке release/2.58.149 в коммите d967f889 (sha256 8154d8918e99c0b756f58fba3c7c237ef9238e2c68a1d0cc3f84710666f7275d).",
+    "previous_production": "6645ae8d (2.58.148)",
+    "prod_observations": "активированы пять канонов, включая verbalizer `factcheck-voice-historic-01` → rev:a124fc8074a9, analyst `factcheck-analyst-voice01-semantics` → rev:fd4fe7110feb, single `factcheck-single-voice01` → rev:aba72f127099; FACTORY_SET_SHA256_12 = 630ca46dff76; healthz 200, NRestarts=0, schema v40, media 66.",
+    "note": "Кандидат 5fc2ded5 целиком вошёл в 2.58.149. ЧЕСТНЫЕ ОГРАНИЧЕНИЯ: живой тон и выбор фазы моделью остаются post-deploy проверками; `l1_context_source`/`l1_reply_*` на проде NOT_OBSERVED (нет живого хода в окне)."
+  }
 }
