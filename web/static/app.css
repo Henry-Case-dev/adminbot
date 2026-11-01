@@ -169,6 +169,35 @@
       --space-4: 16px;
       --space-6: 24px;
       --space-8: 32px;
+      /* ═══ EVOL-033 §A/§E.2 (W15): одна система поверхностей ═══════════════
+         Одна визуальная роль = один тип компонента (L01826). Радиусы/границы/
+         ритм берутся отсюда, а не из литералов в каждом экране:
+           карточка/панель: --card-*   (крупная стеклянная поверхность)
+           компактная строка: --row-*  (запись/событие/раздел списка)
+           строка таблицы: --table-*   (плотный инспектор, матрица прав)
+           график: --chart-*           (мета/легенда одного размера)
+         Допустимые варианты: плотность текста (--row-pad-y в жёстком слоте
+         ленты, p-2/p-3/p-4/p-5 у карточек) — объявлены, а не случайны. */
+      --card-radius: var(--radius-xl);
+      --card-hairline: 1px solid var(--surface-border);
+      --card-pad: var(--space-4);
+      --card-pad-tight: var(--space-3);
+      --card-pad-roomy: 20px;
+      --row-radius: var(--radius-md);
+      --row-hairline: 1px solid var(--surface-border);
+      --row-pad: var(--space-2) var(--space-3);
+      --row-gap: var(--space-1);
+      --row-font: .78rem;
+      --row-bg: rgba(148, 163, 184, .06);
+      --row-bg-hover: rgba(148, 163, 184, .12);
+      --row-bg-solid: rgba(10, 14, 22, .45);
+      --table-row-radius: var(--radius-md);
+      --table-hairline: 1px solid var(--surface-border);
+      --table-row-pad: var(--space-2) var(--space-3);
+      --table-row-bg: rgba(9, 14, 25, .78);
+      --chart-title-size: var(--tx-small);
+      --chart-meta-size: var(--tx-tiny);
+      --chart-legend-gap: var(--space-1);
       --control-h-sm: 32px;
       --control-h: 40px;
       --control-h-touch: 44px;
@@ -545,13 +574,16 @@
       .aurora-bg { display: none !important; }
     }
 
-    /* Glass-карточки (84.7/UPD3): полупрозрачные — фон просвечивает */
+    /* Glass-карточки (84.7/UPD3): полупрозрачные — фон просвечивает.
+       W15 (§A/§E.2): радиус и hairline — из общей системы поверхностей
+       (--card-radius/--card-hairline), а не 1rem/--glass-border: у одного
+       класса карточки не должно быть двух разных альф границы. */
     .card {
       background-color: var(--glass-bg);
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
-      border: var(--glass-border);
-      border-radius: 1rem;
+      border: var(--card-hairline);
+      border-radius: var(--card-radius);
       box-shadow: var(--shadow-lg);
     }
     /* G1.3: card-solid — плотная подложка только header-sticky/scope-panel. */
@@ -716,8 +748,10 @@
     /* Раунд 10.6 (A9) / 10.8 (§4): эксклюзивный аккордеон «Доступы» заменён
        route-driven модалками (ADR-001) — CSS аккордеона удалён; используются
        существующие .hub-card/.modal-*. */
-    /* Раунд 10.6 (A4): блоки провайдеров */
-    .prov-block { border: var(--card-border); border-radius: var(--radius-lg); }
+    /* Раунд 10.6 (A4): блоки провайдеров. W15: тот же каркас карточки, что и
+       у остальных панелей (`--card-*`), иначе «карточка подключения» — второй
+       тип карточки на одной странице. */
+    .prov-block { border: var(--card-hairline); border-radius: var(--card-radius); }
     .prov-test-btn:disabled { opacity: .5; cursor: not-allowed; }
     /* ═══ P0 Vision (§4 / P0V-UI-OVERFLOW): контракт раскладки форм
        провайдеров — первопричина, не симптом. ═══
@@ -776,8 +810,10 @@
     }
     .hub-card {
       display: flex; align-items: flex-start; gap: .75rem; text-align: left;
-      background-color: var(--glass-bg); border: var(--glass-border);
-      border-radius: var(--radius-lg); padding: .9rem; cursor: pointer;
+      background-color: var(--glass-bg); border: var(--card-hairline);
+      /* W15: 12 px / .9rem были случайными значениями — карточка-плитка
+         получает тот же радиус и ритм, что и любая панель (14.4 → 16). */
+      border-radius: var(--card-radius); padding: var(--card-pad); cursor: pointer;
       color: var(--text-1); transition: transform .12s ease, border-color .12s ease;
     }
     .hub-card:hover { transform: translateY(-1px); border-color: var(--teal-500); }
@@ -1834,7 +1870,10 @@
       background-color: var(--glass-bg);
       -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
       backdrop-filter: var(--glass-blur) saturate(140%);
-      border: var(--glass-border);
+      /* W15: одна hairline-альфа для всех панелей (§A: «границы ~1 px с
+         одинаковым альфа-контрастом»); --glass-border остаётся для стекла
+         shell/hero, где альфа задана отдельно. */
+      border: var(--card-hairline);
       /* D3.4/ADR-1025-13: карточки — тоньше и ближе к фону (низкая «высота»),
          отдельная --card-shadow; модалки/тултипы возвращаются на --glass-shadow
          ниже — сохраняется глубина «фон → карточки → shell → модалки». */
@@ -1981,7 +2020,10 @@
       background-color: var(--glass-bg);
       -webkit-backdrop-filter: var(--lg-frost);
       backdrop-filter: var(--lg-frost);
-      border: var(--glass-border);
+      /* W15: материал уровня B не вводит свою альфу кромки — граница одна на
+         все панели (--card-hairline). Иначе `.card` на «Аналитике» получал
+         0.16, а такой же `.card` на «Статусе» — 0.14. */
+      border: var(--card-hairline);
       box-shadow: var(--card-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
@@ -2209,7 +2251,10 @@
       max-height: min(calc(var(--app-usable-height, 100vh) - 24px
         - var(--kb-offset, 0px)), 720px);
       overflow: hidden;
-      border-radius: var(--radius-lg);
+      /* W15: 12 px у модалки против 16 px у карточек — один и тот же класс
+         «большая панель» с разным радиусом. Радиус берём из общей системы;
+         верхние 18 px нижнего листа остаются объявленным поведением листа. */
+      border-radius: var(--card-radius);
     }
     .modal-head { flex: 0 0 auto; }
     .modal-body {
@@ -2572,10 +2617,14 @@
       display: flex;
       align-items: baseline;
       gap: .4rem;
-      font-size: var(--tx-small);
+      /* W15 (§B: «стиль движущейся ленты досье согласован с ними»): тот же
+         радиус/шрифт, что у строк лент «Статуса». Рамки нет намеренно —
+         строка едет в маскированной полосе, рамка превратила бы тикер в
+         список карточек. */
+      font-size: var(--row-font);
       color: var(--text-2);
-      padding: .35rem .5rem;
-      border-radius: 8px;
+      padding: 6px var(--space-3);
+      border-radius: var(--row-radius);
       transition: background var(--dur-fast) var(--ease-out);
     }
     .dossier-ticker__item--click { cursor: pointer; }
@@ -3066,8 +3115,10 @@
       .matrix-table, .matrix-table tbody,
       .matrix-table tr, .matrix-table td { display: block; width: 100%; }
       .matrix-table tr {
-        border: 1px solid var(--surface-border); border-radius: .6rem;
-        padding: .5rem .6rem; margin-bottom: .5rem;
+        /* W15: mobile-строка матрицы — тот же радиус/граница/ритм строки
+           таблицы (.6rem/.5rem/.6rem были литералами вне шкалы). */
+        border: var(--table-hairline); border-radius: var(--table-row-radius);
+        padding: var(--table-row-pad); margin-bottom: var(--space-2);
       }
       .matrix-table td { border: none; padding: .2rem 0; }
       .matrix-table td[data-label]::before {
@@ -5153,7 +5204,9 @@ html.cover-editor-open { overflow: hidden; }
   overflow-x: auto;
 }
 
-/* Плотные таблицы/ряды (tier C) */
+/* Плотные таблицы/ряды (tier C). W15: тот же каркас строки таблицы, что у
+   матрицы прав и среза инспектора — иначе три копии литералов 8/10 px,
+   альфа .18 и радиус 10 px расходились с остальной консистентной системой. */
 .speech-table { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .speech-rule,
 .speech-soft,
@@ -5166,11 +5219,11 @@ html.cover-editor-open { overflow: hidden; }
 .speech-block-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(9, 14, 25, .78);
-  border: 1px solid rgba(148, 163, 184, .18);
+  gap: var(--space-1);
+  padding: var(--table-row-pad);
+  border-radius: var(--table-row-radius);
+  background: var(--table-row-bg);
+  border: var(--table-hairline);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -5187,11 +5240,11 @@ html.cover-editor-open { overflow: hidden; }
 .speech-conflict-row {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(9, 14, 25, .78);
-  border: 1px solid rgba(148, 163, 184, .18);
+  gap: var(--space-1);
+  padding: var(--table-row-pad);
+  border-radius: var(--table-row-radius);
+  background: var(--table-row-bg);
+  border: var(--table-hairline);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -5203,13 +5256,13 @@ html.cover-editor-open { overflow: hidden; }
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(9, 14, 25, .78);
-  border: 1px solid rgba(148, 163, 184, .18);
+  padding: var(--table-row-pad);
+  border-radius: var(--table-row-radius);
+  background: var(--table-row-bg);
+  border: var(--table-hairline);
   cursor: pointer;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--control-h-touch);
   overflow-wrap: anywhere;
 }
 .speech-hier-row.is-open { border-color: rgba(96, 165, 250, .55); }
@@ -5810,12 +5863,16 @@ html.cover-editor-open { overflow: hidden; }
      (именно так ломался прежний отдельный блок «Новых фактов»). */
   flex: 0 0 var(--sfeed-row-h);
   width: 100%; height: var(--sfeed-row-h);
-  margin: 0; padding: 6px 8px;
-  text-align: left; font: inherit; font-size: .78rem; line-height: 1.3;
+  /* W15: горизонтальный ритм — общий (--row-pad), вертикальный 6 px — вариант
+     плотности внутри жёсткого слота 64 px (объявлен в --row-* комментарии).
+     Подложка плотнее, чем у статичной строки списка: содержимое едет под
+     маской, фон не должен просвечивать между строками. */
+  margin: 0; padding: 6px var(--space-3);
+  text-align: left; font: inherit; font-size: var(--row-font); line-height: 1.3;
   color: var(--text-1, #F4F7FB);
-  background: rgba(10, 14, 22, .45);
-  border: 1px solid var(--sfeed-hairline);
-  border-radius: var(--radius-md);
+  background: var(--row-bg-solid);
+  border: var(--row-hairline);
+  border-radius: var(--row-radius);
   cursor: pointer;
   overflow: hidden;
   transition: background-color .18s ease, border-color .18s ease,
@@ -5885,7 +5942,8 @@ html.cover-editor-open { overflow: hidden; }
 .rec-row {
   display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
   gap: 8px; align-items: baseline; padding: 4px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  /* W15: линия разделителя — общая hairline таблицы (было rgba(.06)). */
+  border-bottom: var(--table-hairline);
 }
 .rec-row:last-child { border-bottom: none; }
 .rec-label { font-size: .7rem; color: #94a3b8; margin: 0; }
@@ -5914,7 +5972,7 @@ html.cover-editor-open { overflow: hidden; }
   .rec-row { grid-template-columns: 1fr; gap: 2px; }
 }
 .rec-section {
-  border-top: 1px solid rgba(255, 255, 255, .08);
+  border-top: var(--table-hairline);
   padding-top: 10px;
 }
 .rec-section__title { font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
@@ -6767,14 +6825,19 @@ html.w9-sheet-bottom .modal-close {
 .mem-search { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .mem-types { display: flex; gap: 6px; flex-wrap: wrap; }
 .mem-list { display: grid; gap: 8px; }
+/* EVOL-033 §B (W15): компактная СТРОКА-сущность — один тип компонента.
+   Раньше те же строки жили двумя копиями литералов (10 px радиус, альфа .10,
+   padding 10/12) — теперь общий каркас --row-*, одинаковый на «Памяти»,
+   «Доступах» и в лентах «Статуса». */
 .mem-item {
-  display: grid; gap: 4px; min-width: 0;
-  padding: 10px 12px; border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, .10);
-  background: rgba(148, 163, 184, .06);
+  display: grid; gap: var(--row-gap); min-width: 0;
+  padding: var(--row-pad); border-radius: var(--row-radius);
+  border: var(--row-hairline);
+  background: var(--row-bg);
   text-align: left; width: 100%;
+  min-height: var(--control-h-touch);
 }
-.mem-item:hover { background: rgba(148, 163, 184, .12); }
+.mem-item:hover { background: var(--row-bg-hover); }
 .mem-item:focus-visible {
   outline: var(--focus-ring, 2px solid #a78bfa);
   outline-offset: var(--focus-ring-offset, 2px);
@@ -6796,13 +6859,13 @@ html.w9-sheet-bottom .modal-close {
 .access-sections { display: grid; gap: 8px; }
 .access-section-row {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, .10);
-  background: rgba(148, 163, 184, .06);
-  text-align: left; width: 100%; min-height: 44px;
+  align-items: center; gap: var(--row-gap);
+  padding: var(--row-pad); border-radius: var(--row-radius);
+  border: var(--row-hairline);
+  background: var(--row-bg);
+  text-align: left; width: 100%; min-height: var(--control-h-touch);
 }
-.access-section-row:hover { background: rgba(148, 163, 184, .12); }
+.access-section-row:hover { background: var(--row-bg-hover); }
 .access-section-row:focus-visible {
   outline: var(--focus-ring, 2px solid #a78bfa);
   outline-offset: var(--focus-ring-offset, 2px);
