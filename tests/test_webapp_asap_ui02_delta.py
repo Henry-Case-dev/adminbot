@@ -67,16 +67,21 @@ def _decl(selector_re, prop):
 # ═══ 1. Одна лестница слоёв (L01848) ═══════════════════════════════════════
 def test_single_z_layer_ladder_exists_and_ordered():
     z = _tokens()
-    for name in ("base", "content", "inline", "sidebar", "scrim", "nav",
-                 "local", "menu", "modal-scrim", "modal", "toast",
+    for name in ("base", "content", "inline", "sidebar", "header", "scrim",
+                 "nav", "local", "menu", "modal-scrim", "modal", "toast",
                  "palette", "dev", "dev-top"):
         assert name in z, "нет ранга --z-%s в единой лестнице" % name
     # Порядок = смысл слоя. Если кто-то «поправит» одно число, порядок сломается.
-    assert z["base"] < z["content"] < z["inline"] < z["sidebar"] < z["scrim"]
+    assert z["base"] < z["content"] < z["inline"] < z["sidebar"]
+    # EVOL-033 (W13, P1): у шапки СВОЙ ранг ниже подложки — иначе скрим
+    # затемнял контент, но не шапку (было: шапка и drawer делили 40, скрим 35).
+    assert z["sidebar"] < z["header"] < z["scrim"] < z["nav"]
     assert z["scrim"] < z["nav"] < z["local"]
     assert z["nav"] < 50 < z["menu"], "dropdown/меню должны быть выше шапки"
-    assert z["menu"] < z["modal-scrim"] < z["modal"] < z["toast"]
-    assert z["toast"] < z["palette"] < z["dev"] < z["dev-top"]
+    assert z["menu"] < z["modal-scrim"] < z["modal"]
+    # EVOL-033 (W13, P1): тост выше палитры — уведомление не должно тонуть
+    # под открытым поиском.
+    assert z["modal"] < z["palette"] < z["toast"] < z["dev"] < z["dev-top"]
     # Существующий контракт EVOL-023 не переписан: база dropdown осталась 50.
     assert "--overlay-z: 50;" in CSS, "--overlay-z остаётся базой dropdown"
 
@@ -98,7 +103,7 @@ def test_overlay_surfaces_read_the_ladder():
         (r"\.exec-detail-backdrop", "z-index", "var(--z-modal-scrim)"),
         (r"\.exec-detail", "z-index", "var(--z-modal)"),
         (r"\.app-drawer", "z-index", "var(--z-nav)"),
-        (r"header\.header-sticky", "z-index", "var(--z-nav)"),
+        (r"header\.header-sticky", "z-index", "var(--z-header)"),
         (r"\.drawer-backdrop", "z-index", "var(--z-scrim)"),
         (r"\.scope-panel", "z-index", "var(--overlay-z)"),
         (r"\.palette-root", "z-index", "var(--z-palette)"),

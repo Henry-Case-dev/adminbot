@@ -255,19 +255,25 @@
          модалка/лист выше dropdown; тост выше модалки; палитра выше модалок;
          dev-диагностика выше всего (включается только внутренним флагом).
          Позиции `--overlay-z + 10/+ 20` (W11 `.ctl-pop`/`.ctl-sheet`) остаются
-         производными от того же базового ранга. */
+         производными от того же базового ранга.
+
+         EVOL-033 (W13, P1): два ранга уточнены — шапка получила СВОЙ ранг
+         (`--z-header`) ниже подложки, иначе открытый drawer затемнял контент,
+         но не шапку (шапка и drawer делили 40, скрим был 35). Тост поднят выше
+         палитры: уведомление не должно тонуть под открытым поиском. */
       --z-base: 0;            /* фоновые канвы (aurora / polygon) */
       --z-content: 1;         /* #app над фоном */
       --z-inline: 5;          /* подъём внутри экрана (sticky save, подсказка) */
       --z-sidebar: 30;        /* постоянная панель ≥1200 */
-      --z-scrim: 35;          /* подложка за навигационной панелью */
-      --z-nav: 40;            /* шапка и drawer */
+      --z-header: 32;         /* шапка: над панелью, ПОД подложкой overlay */
+      --z-scrim: 35;          /* подложка за навигационной панелью/оверлеем */
+      --z-nav: 40;            /* drawer (навигационная панель) */
       --z-local: 45;          /* локальный подъём: табы с открытым списком */
       --z-menu: 55;           /* меню-порталы (more / speech) */
       --z-modal-scrim: 75;    /* подложка модалки/диалога */
       --z-modal: 80;          /* модалка, лист, полноэкранный редактор, сцена */
-      --z-toast: 90;
       --z-palette: 100;       /* command palette (EVOL-037) */
+      --z-toast: 105;         /* EVOL-033: тост выше палитры (не тонет под ней) */
       --z-dev: 110;           /* dev-оверлей границ (только по флагу) */
       --z-dev-top: 120;       /* dev-панель геометрии (только по флагу) */
       /* Видимый фокус (клавиатура) — единый контур для навигации/контролов. */
@@ -1187,7 +1193,10 @@
     header.header-sticky {
       position: sticky;
       top: 0;
-      z-index: var(--z-nav);
+      /* EVOL-033 (W13): собственный ранг ниже подложки drawer'а — иначе
+         скрим затемнял контент, но не шапку (было: и шапка, и drawer = 40,
+         скрим = 35). Шапка остаётся выше контента и постоянной панели. */
+      z-index: var(--z-header);
       /* HOTFIX8 (ADR-1025-16 D2): шапка — отдельный серо-графитовый shell-слой
          §4 (--shell-bg, glass), не карточный --glass-bg. Ширину рамки даёт
          `[data-glass="shell"]`; сверху/сбоку рамка снята (full-bleed шапка). */
@@ -2488,8 +2497,13 @@
     }
     .secret-field__desc { font-size: var(--tx-tiny); color: var(--text-3); margin-bottom: .35rem; }
     .secret-field__mask { display: inline-block; margin-bottom: .35rem; }
-    .secret-field__row { display: flex; gap: .5rem; align-items: center; }
-    .secret-field__input { flex: 1 1 auto; min-width: 0; }
+    /* EVOL-033 (W13): поле ввода секрета не должно сжиматься до нерабочих
+       24 px в узкой колонке (замер на 768: rect 24×44, область нажатия 2 px).
+       Флекс-базис 12rem задаёт рабочую ширину, а перенос строки уводит
+       кнопку «показать» вниз, если места мало; на десктопе поле растягивается
+       как раньше. */
+    .secret-field__row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .secret-field__input { flex: 1 1 12rem; min-width: 8rem; }
     .secret-field__reveal { flex: 0 0 auto; }
     .secret-field__actions {
       display: flex;
@@ -7475,4 +7489,28 @@ body { --w12-fs-micro: 10px; --w12-fs-small: 11px; --w12-fs-body: .875rem;
   border: 1px dashed rgba(170, 182, 200, .3);
   border-radius: var(--radius-md, 8px);
   padding: 6px 8px; margin-top: 4px;
+}
+
+/* ═══ EVOL-033 (W13, P1): тач-цели ≥ 44×44 (L00478 §A) ═══════════════════════
+   Плотные технические примитивы (ключ параметра + «копировать», хлебные
+   крошки, пункты дерева промптов, нативные чекбоксы) остаются ВИЗУАЛЬНО
+   компактными, но на указателе coarse получают полноценную область нажатия:
+     · настоящие кнопки — min-height/min-width (текст и иконка не меняются);
+     · хлебные крошки — невидимая ::after-зона, чтобы не растить шапку;
+     · нативные чекбоксы — 44 px у содержащего <label class="ctl-check">.
+   На fine-pointer (десктоп) плотность НЕ меняется: контракт разрешает 32–40 px
+   и однострочные списки на ≥1024. Проверяется живым hit-тестом (не только
+   геометрией): tools/ui_evol_w13_full_visual_e2e.py --only touch. */
+@media (pointer: coarse) {
+  .tech-key { min-height: 44px; align-items: center; }
+  .tech-key__value { display: inline-flex; align-items: center; min-height: 44px; }
+  .tech-key__copy { min-width: 44px; min-height: 44px; }
+  .prompt-tree-item { min-height: 44px; }
+  .ctl-check { min-height: 44px; }
+  /* Раскрывающийся «ID» в шапке (технический обработчик данных) — тоже
+     кнопка: 28×22 было меньше любой разумной тач-цели. */
+  summary.badge { min-height: 44px; min-width: 44px; }
+  /* Крошки живут в шапке: растить её нельзя — расширяем зону нажатия. */
+  .breadcrumb-link { position: relative; }
+  .breadcrumb-link::after { content: ""; position: absolute; inset: -16px -8px; }
 }

@@ -164,8 +164,7 @@ def build_screens():
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. ПРОБЫ
 # ═══════════════════════════════════════════════════════════════════════════
-ROUTE_PROBE = r"""
-() => {
+ROUTE_PROBE = r"""() => {
   const de = document.documentElement;
   const vw = window.innerWidth, vh = window.innerHeight;
   const label = (el) => {
@@ -567,8 +566,11 @@ def run_sweep(browser, out_dir, inventory, limit=0):
             if not d["mainTextLen"] or d["mainTextLen"] < 40:
                 fails.append("%s: экран пуст (%d символов)"
                              % (base, d["mainTextLen"]))
-            if coarse and d["smallCount"]:
-                fails.extend(_targets_fail(d["small"], base))
+            # Тач-цели НЕ валят матрицу раскладки: здесь считается rect, а
+            # контракт 44×44 — про ОБЛАСТЬ НАЖАТИЯ (у плотных примитивов она
+            # расширена невидимой зоной, у чекбокса цель — <label>). Живой
+            # hit-тест — секция `touch` этого же инструмента; здесь число
+            # публикуется как `smallCount`/`tapSmall` без приговора.
             if d["consoleErrors"]:
                 fails.append("%s: консоль %s" % (base, d["consoleErrors"][:2]))
             if shot_here:
@@ -689,11 +691,10 @@ SHEET_PROBE = r"""
   if (!m) return {open: false};
   const cs = getComputedStyle(m);
   const r = m.getBoundingClientRect();
+  const rootEl = m.closest('.modal-backdrop') || m;
   return {open: cs.display !== 'none' && r.width > 1, zIndex: cs.zIndex,
-          inBody: (function () {
-            let p = m.parentElement;
-            while (p) { if (p === document.body) return true; p = p.parentElement; }
-            return false; })(),
+          parentIsBody: rootEl.parentElement === document.body,
+          insideMain: !!m.closest('main'),
           rect: {x: Math.round(r.x), y: Math.round(r.y),
                  w: Math.round(r.width), h: Math.round(r.height)},
           focusInside: m.contains(document.activeElement),
@@ -725,16 +726,18 @@ ZINDEX_PROBE = r"""
     const el = document.querySelector(sel);
     if (!el) return null;
     const cs = getComputedStyle(el);
-    let p = el.parentElement, portal = false;
-    while (p) { if (p === document.body) { portal = true; break; } p = p.parentElement; }
-    return {sel: sel, z: cs.zIndex, position: cs.position, portal: portal,
+    return {sel: sel, z: cs.zIndex, position: cs.position,
+            // true только для НАСТОЯЩЕГО портала: прямой ребёнок <body>.
+            parentIsBody: el.parentElement === document.body,
+            // null — оверлей не внутри прокручиваемого контента.
+            insideMain: !!el.closest('main'),
             visible: cs.display !== 'none' && cs.visibility !== 'hidden'};
   };
   const root = getComputedStyle(document.documentElement);
   const vars = {};
-  ['--z-base', '--z-content', '--z-inline', '--z-sidebar', '--z-scrim',
-   '--z-nav', '--z-local', '--z-menu', '--z-modal-scrim', '--z-modal',
-   '--z-toast', '--z-palette'].forEach((v) => {
+  ['--z-base', '--z-content', '--z-inline', '--z-sidebar', '--z-header',
+   '--z-scrim', '--z-nav', '--z-local', '--z-menu', '--z-modal-scrim',
+   '--z-modal', '--z-palette', '--z-toast'].forEach((v) => {
     vars[v] = root.getPropertyValue(v).trim();
   });
   return {vars: vars,
@@ -746,6 +749,105 @@ ZINDEX_PROBE = r"""
           sheetModal: pick('.sfeed-modal-backdrop, .modal-backdrop'),
           fullscreen: pick('.prompt-editor--full, .status-graph-full'),
           toast: pick('.toast, [role="status"].toast')};
+}
+"""
+
+
+# ── EVOL-033 (W13, P1): тач-цели живым hit-тестом ───────────────────────────
+# Геометрия элемента не доказывает размер ОБЛАСТИ НАЖАТИЯ: у плотных
+# примитивов она расширена невидимой `::after`-зоной, а у чекбокса внутри
+# `<label>` реальная цель — сам label. Поэтому ниже идёт `elementFromPoint`
+# по четырём направлениям от центра: возвращает фактическую ширину/высоту
+# нажатия, а не rect. Кандидат — только то, что МЕНЬШЕ 44 px по rect (иначе
+# мерить нечего); чекбоксы/радио заменяются на ближайший `<label>`.
+HIT_PROBE = r"""
+async () => {
+  const CTRL = 'button, [role="button"], input:not([type="hidden"]), '
+    + 'select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+  const exempt = ['.viz-heat__cell', '.sr-only'];
+  const label = (el) => el.tagName.toLowerCase() + '.'
+    + (el.className || '').toString().split(/\s+/).filter(Boolean)
+        .slice(0, 2).join('.');
+  const cand = [];
+  document.querySelectorAll(CTRL).forEach((el) => {
+    if (el.closest('[aria-hidden="true"]')) return;
+    if (exempt.some((s) => el.matches(s) || el.closest(s))) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden'
+        || parseFloat(cs.opacity) === 0) return;
+    let target = el;
+    if ((el.type === 'checkbox' || el.type === 'radio') && el.closest('label')) {
+      target = el.closest('label');
+    }
+    const r = target.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+    if (r.width >= 44 && r.height >= 44) return;   // уже соответствует
+    cand.push(target);
+  });
+  const out = [];
+  for (const el of cand) {
+    try { el.scrollIntoView({block: 'center', inline: 'nearest'}); } catch (e) {}
+    await new Promise((res) => requestAnimationFrame(() => res()));
+    await new Promise((res) => setTimeout(res, 60));
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    const cx = Math.min(Math.max(r.left + r.width / 2, 1), window.innerWidth - 1);
+    const cy = Math.min(Math.max(r.top + r.height / 2, 1), window.innerHeight - 1);
+    const hit = (x, y) => {
+      if (x < 0 || y < 0 || x > window.innerWidth - 1
+          || y > window.innerHeight - 1) return false;
+      const t = document.elementFromPoint(x, y);
+      return !!(t && (t === el || el.contains(t) || t.contains(el)));
+    };
+    let up = 0, dn = 0, lf = 0, rt = 0;
+    // Элемент может быть ПЕРЕКРЫТ открытым оверлеем (например, роут
+    // `#/access/<id>` сразу открывает окно поверх шапки). Такой узел сейчас не
+    // является целью нажатия — это не «маленькая цель», а окклюзия: считаем
+    // отдельно и в метрику 44×44 не включаем.
+    if (!hit(cx, cy)) {
+      out.push({el: label(el), w: Math.round(r.width), h: Math.round(r.height),
+                hitW: 0, hitH: 0, occluded: true,
+                txt: (el.textContent || el.value || '').trim()
+                      .replace(/\s+/g, ' ').slice(0, 26)});
+      continue;
+    }
+    while (up < 30 && hit(cx, cy - up - 2)) up += 2;
+    while (dn < 30 && hit(cx, cy + dn + 2)) dn += 2;
+    while (lf < 40 && hit(cx - lf - 2, cy)) lf += 2;
+    while (rt < 40 && hit(cx + rt + 2, cy)) rt += 2;
+    out.push({el: label(el), w: Math.round(r.width), h: Math.round(r.height),
+              hitW: Math.round(lf + rt + 2), hitH: Math.round(up + dn + 2),
+              txt: (el.textContent || el.value || '').trim().replace(/\s+/g, ' ')
+                    .slice(0, 26)});
+  }
+  return out;
+}
+"""
+
+# Кадры двух дефектов + счётчик повторяющегося текста (проверка дублей).
+DUP_PROBE = r"""
+() => {
+  const zone = document.querySelector('[data-health-subsystem="heartbeat"]')
+    || document.querySelector('.status-block');
+  const text = zone ? (zone.innerText || '') : '';
+  const line = document.querySelector('[data-health-inline="heartbeat"]');
+  const reasonEl = line ? line.querySelector('.health-status-line__reason') : null;
+  const reason = reasonEl ? reasonEl.textContent.trim() : '';
+  let count = 0;
+  if (reason) {
+    let idx = text.indexOf(reason);
+    while (idx >= 0) { count += 1; idx = text.indexOf(reason, idx + reason.length); }
+  }
+  return {reason: reason, reasonCount: count,
+          headings: Array.from(document.querySelectorAll(
+            '[role="dialog"] h2, [role="dialog"] .text-sm.font-bold'))
+            .map((h) => (h.textContent || '').trim())
+            .filter((t) => t === 'Матрица ролей' || t === 'Роли и права'),
+          dialogTitle: (() => {
+            const d = document.querySelector('[role="dialog"]');
+            const h = d ? d.querySelector('h2') : null;
+            return h ? h.textContent.trim() : '';
+          })()};
 }
 """
 
@@ -1070,6 +1172,27 @@ def run_portal(browser, out_dir):
     res["focus"].append({"overlay": "palette", "openFocus": focus_open,
                          "trapSteps": inside, "afterEsc": after})
 
+    # ── 8.1b та же ловушка при НЕПУСТОЙ выдаче (не дискриминирующий случай
+    # «два узла»): 16 результатов + 8 Tab — фокус обязан остаться внутри.
+    page.evaluate("() => window.__adminbotVm.openPalette()")
+    page.wait_for_timeout(320)
+    page.fill("[data-palette-input]", "prompt")
+    page.wait_for_timeout(400)
+    rows_n = page.evaluate(
+        "() => document.querySelectorAll('[data-palette-item]').length")
+    inside_rich = []
+    for _ in range(10):
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(60)
+        f = page.evaluate(FOCUS_PROBE)
+        inside_rich.append(bool(f and f["inOverlay"]))
+    note("palette.focusTrapRich", {"rows": rows_n, "steps": inside_rich,
+                                   "allInside": all(inside_rich)})
+    res["focus"].append({"overlay": "palette-16-results",
+                         "rows": rows_n, "trapSteps": inside_rich})
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(250)
+
     # ── 8.2 лист записи (mobile sheet + desktop modal) ─────────────────────
     for (w, h) in ((390, 844), (1280, 900)):
         c2 = open_ctx(browser, w, h,
@@ -1175,9 +1298,9 @@ def run_portal(browser, out_dir):
       if (!root) return {open: false};
       const cs = getComputedStyle(root);
       const r = root.getBoundingClientRect();
-      let p = root.parentElement, portal = false;
-      while (p) { if (p === document.body) { portal = true; break; } p = p.parentElement; }
-      return {open: cs.display !== 'none', z: cs.zIndex, portal: portal,
+      return {open: cs.display !== 'none', z: cs.zIndex,
+              parentIsBody: root.parentElement === document.body,
+              insideMain: !!root.closest('main'),
               position: cs.position,
               rect: {x: Math.round(r.x), y: Math.round(r.y),
                      w: Math.round(r.width), h: Math.round(r.height)},
@@ -1247,6 +1370,176 @@ def run_portal(browser, out_dir):
                  encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     print("[portal] saved")
+    return res
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8.5. ТАЧ-ЦЕЛИ (P1 L00478 §A): живой hit-тест по классам контролов
+# ═══════════════════════════════════════════════════════════════════════════
+# Три coarse-полосы: 320 (узкий телефон), 390 (телефон), 768 (планшет,
+# compact-shell). Правило 44×44 привязано к `(pointer: coarse)`, а не к
+# ширине, поэтому эти три вьюпорта покрывают обе полосы; десктоп (fine
+# pointer) по контракту сохраняет плотность 32–40 px и в счётчик не входит.
+TOUCH_VIEWPORTS = ((320, 568), (390, 844), (768, 1024))
+
+
+def run_touch(browser, out_dir, inventory, limit=0):
+    routes = [s["route"] for s in inventory["screens"] if not s["redirected"]]
+    if limit:
+        routes = routes[:limit]
+    cells, fails = [], []
+    by_class = {}
+    for (w, h) in TOUCH_VIEWPORTS:
+        vp = "%dx%d" % (w, h)
+        ctx = open_ctx(browser, w, h)
+        page = ctx.new_page()
+        page.goto("http://127.0.0.1:%d/web/index.html#/" % PORT,
+                  wait_until="load")
+        page.wait_for_selector(".app-shell", timeout=20000)
+        page.wait_for_timeout(900)
+        for route in routes:
+            page.evaluate("(r) => { window.location.hash = r; }", route)
+            page.wait_for_timeout(CELL_SETTLE_MS)
+            rows = page.evaluate(HIT_PROBE)
+            measured = [r for r in rows if not r.get("occluded")]
+            occluded = [r for r in rows if r.get("occluded")]
+            bad = [r for r in measured if r["hitW"] < 44 or r["hitH"] < 44]
+            cells.append({"viewport": vp, "route": route, "controls": rows,
+                          "below44": bad,
+                          "occluded": [{"el": r["el"], "txt": r["txt"]}
+                                       for r in occluded]})
+            for r in measured:
+                agg = by_class.setdefault(r["el"], {
+                    "minHitW": 999, "minHitH": 999, "samples": 0,
+                    "below44": 0, "example": r["txt"]})
+                agg["minHitW"] = min(agg["minHitW"], r["hitW"])
+                agg["minHitH"] = min(agg["minHitH"], r["hitH"])
+                agg["samples"] += 1
+                if r["hitW"] < 44 or r["hitH"] < 44:
+                    agg["below44"] += 1
+            for r in bad:
+                fails.append("%s %s: %s цель %s×%s (rect %s×%s) «%s»"
+                             % (vp, route, r["el"], r["hitW"], r["hitH"],
+                                r["w"], r["h"], r["txt"]))
+        if (w, h) in SHOT_VIEWPORTS or (w, h) == (320, 568):
+            _shot(page, out_dir, "w13-touch-%s-modules.jpg" % vp)
+        ctx.close()
+    data = {"viewports": [("%dx%d" % vp) for vp in TOUCH_VIEWPORTS],
+            "routes": len(routes), "cells": cells, "byClass": by_class,
+            "failures": fails,
+            "summary": {
+                "routes": len(routes),
+                "viewports": len(TOUCH_VIEWPORTS),
+                "cells": len(cells),
+                "cellsBelow44": sum(1 for c in cells if c["below44"]),
+                "controlsMeasured": sum(
+                    1 for c in cells for r in c["controls"]
+                    if not r.get("occluded")),
+                "controlsBelow44": sum(len(c["below44"]) for c in cells),
+                "occluded": sum(len(c["occluded"]) for c in cells),
+                "classes": len(by_class),
+                "classesBelow44": sorted(
+                    k for k, v in by_class.items() if v["below44"]),
+            }}
+    with io.open(os.path.join(out_dir, "w13-touch-targets.json"), "w",
+                 encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    print("[touch] %s" % json.dumps(data["summary"], ensure_ascii=False))
+    for k, v in sorted(by_class.items()):
+        print("   %-34s min %s×%s  below44=%d/%d  «%s»"
+              % (k, v["minHitW"], v["minHitH"], v["below44"], v["samples"],
+                 v["example"][:24]))
+    return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8.6. КАДРЫ ДВУХ ДЕФЕКТОВ (дубли текста) + состояние degraded в кадре
+# ═══════════════════════════════════════════════════════════════════════════
+def run_defects(browser, out_dir):
+    res = {"checks": {}, "shots": []}
+
+    def shot(page, name):
+        _shot(page, out_dir, name)
+        res["shots"].append(name)
+        return name
+
+    # 1. «Статус»: причина сердцебиения ровно один раз.
+    for (w, h) in ((390, 844), (1280, 900)):
+        ctx = open_ctx(browser, w, h)
+        page = ctx.new_page()
+        page.goto("http://127.0.0.1:%d/web/index.html#/" % PORT,
+                  wait_until="load")
+        page.wait_for_selector(".app-shell", timeout=20000)
+        page.wait_for_timeout(1600)
+        d = page.evaluate(DUP_PROBE)
+        res["checks"]["heartbeat.%d" % w] = d
+        page.evaluate(r"""() => {
+          const el = document.querySelector(
+            '[data-health-subsystem="heartbeat"]')
+            || document.querySelector('.status-block');
+          if (el) el.scrollIntoView({block: 'center'});
+        }""")
+        page.wait_for_timeout(400)
+        shot(page, "w13-defect-heartbeat-%d.jpg" % w)
+        ctx.close()
+
+    # 2. `#/access/roles`: заголовок модалки один раз.
+    for (w, h) in ((390, 844), (1440, 900)):
+        ctx = open_ctx(browser, w, h)
+        page = ctx.new_page()
+        page.goto("http://127.0.0.1:%d/web/index.html#/access/roles" % PORT,
+                  wait_until="load")
+        page.wait_for_selector(".app-shell", timeout=20000)
+        page.wait_for_timeout(1400)
+        clicked = page.evaluate(r"""() => {
+          const vm = window.__adminbotVm;
+          if (vm && typeof vm.openAccessWindow === 'function') {
+            vm.openAccessWindow('roles');
+            return true;
+          }
+          return false;
+        }""")
+        page.wait_for_timeout(700)
+        d = page.evaluate(DUP_PROBE)
+        d["openedViaVm"] = clicked
+        res["checks"]["roles.%d" % w] = d
+        shot(page, "w13-defect-roles-%d.jpg" % w)
+        ctx.close()
+
+    # 3. degraded-состояние: карточка experience В КАДРЕ (а не за срезом).
+    status = _deep(STATUS_BASE, {"experience.state": "degraded",
+                                 "experience.reason": "часть уроков не применилась"})
+    for (w, h) in ((390, 844), (1280, 900)):
+        ctx = open_ctx(browser, w, h,
+                       api=_api_handler({"/api/status": status}))
+        page = ctx.new_page()
+        page.goto("http://127.0.0.1:%d/web/index.html#/" % PORT,
+                  wait_until="load")
+        page.wait_for_selector(".app-shell", timeout=20000)
+        page.wait_for_timeout(1600)
+        d = page.evaluate(r"""() => {
+          const el = document.querySelector(
+            '[data-health-subsystem="experience"]');
+          if (el) el.scrollIntoView({block: 'center'});
+          const r = el ? el.getBoundingClientRect() : null;
+          return {found: !!el, state: el ? el.getAttribute('data-health-state')
+                    : null,
+                  inViewport: r ? (r.top >= 0 && r.bottom <= window.innerHeight)
+                    : false,
+                  texts: Array.from(document.querySelectorAll(
+                    '[data-health-state]')).map((c) => c.getAttribute(
+                      'data-health-subsystem') + '=' + c.getAttribute(
+                        'data-health-state'))};
+        }""")
+        page.wait_for_timeout(400)
+        res["checks"]["degraded.%d" % w] = d
+        shot(page, "w13-state-status-degraded-%d.jpg" % w)
+        ctx.close()
+
+    with io.open(os.path.join(out_dir, "w13-defects.json"), "w",
+                 encoding="utf-8") as f:
+        json.dump(res, f, ensure_ascii=False, indent=1)
+    print("[defects] %s" % json.dumps(res["checks"], ensure_ascii=False)[:700])
     return res
 
 
@@ -1413,7 +1706,7 @@ def run_extras(browser, out_dir):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=DEFAULT_OUT)
-    ap.add_argument("--only", default="inv,sweep,states,portal,extras")
+    ap.add_argument("--only", default="inv,sweep,states,portal,extras,touch,defects")
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
     only = [s.strip() for s in args.only.split(",") if s.strip()]
@@ -1449,11 +1742,36 @@ def main():
             run["sections"]["portal"] = portal["checks"]
         if "extras" in only:
             run["sections"]["extras"] = run_extras(browser, out_dir)["checks"]
+        if "touch" in only:
+            run["sections"]["touch"] = run_touch(browser, out_dir, inv,
+                                                 limit=args.limit)["summary"]
+        if "defects" in only:
+            run["sections"]["defects"] = run_defects(browser, out_dir)["checks"]
         browser.close()
 
     httpd.shutdown()
     import datetime
     run["finished"] = datetime.datetime.now().isoformat(timespec="seconds")
+    # Сводка по всем секциям: если секцию в этом прогоне не запускали, берём
+    # её summary из уже лежащего JSON (иначе w13-run.json показывал бы только
+    # последний частичный запуск).
+    for key, fname, field in (
+            ("inv", "w13-routes-inventory.json", "summary"),
+            ("sweep", "w13-sweep.json", "summary"),
+            ("states", "w13-states.json", "summary"),
+            ("touch", "w13-touch-targets.json", "summary"),
+            ("portal", "w13-portal-focus.json", "checks"),
+            ("defects", "w13-defects.json", "checks"),
+            ("extras", "w13-extras.json", "checks")):
+        if key in run["sections"]:
+            continue
+        path = os.path.join(out_dir, fname)
+        if not os.path.exists(path):
+            continue
+        with io.open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if field in data:
+            run["sections"][key] = data[field]
     with io.open(os.path.join(out_dir, "w13-run.json"), "w",
                  encoding="utf-8") as f:
         json.dump(run, f, ensure_ascii=False, indent=1)

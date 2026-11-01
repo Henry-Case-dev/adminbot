@@ -2424,6 +2424,41 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'EVOL-033: адресная строка переписана на канонический #/ai (' + replaced + ')');
   })();
 
+  // ── EVOL-033 (W13): ВСЕ 11 легаси-алиасов ведут в объявленный дом ──────
+  // Одна проверка `#/ai/smart-cache` не покрывала карту целиком: адрес, у
+  // которого нет записи в ROUTE_TO_TAB, отбрасывался нормализацией молча.
+  // Здесь сверяется каждый объявленный алиас: итоговый маршрут и replaceState.
+  (function () {
+    const aliases = {
+      '#/ai/limits': '#/ai',
+      '#/ai/sleep': '#/modules',
+      '#/ai/nostalgia': '#/modules',
+      '#/ai/smart-cache': '#/ai',
+      '#/ai/memory': '#/memory',
+      '#/ai/lore': '#/memory/lore',
+      '#/ai/relations': '#/memory/relations',
+      '#/modules/features': '#/modules',
+      '#/modules/switches': '#/modules',
+      '#/modules/reactions': '#/modules',
+      '#/modules/custom': '#/modules',
+    };
+    Object.keys(aliases).forEach((from) => {
+      const replaced = [];
+      const orig = global.history.replaceState;
+      global.history.replaceState = function (a, b, url) { replaced.push(url); };
+      const c = makeCtx([]);
+      c.canViewTab = function () { return true; };  // проверяем маршрут, не RBAC
+      methods.applyRoute.call(c, from);
+      global.history.replaceState = orig;
+      assert.strictEqual(c.route, aliases[from],
+        'EVOL-033: ' + from + ' → ' + aliases[from]
+        + ' (получено ' + c.route + ')');
+      assert.ok(replaced.indexOf(aliases[from]) >= 0,
+        'EVOL-033: адресная строка ' + from + ' → ' + aliases[from]
+        + ' (' + replaced + ')');
+    });
+  })();
+
   console.log('JS-UNIT-OK');
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

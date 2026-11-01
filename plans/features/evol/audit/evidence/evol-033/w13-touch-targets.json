@@ -1,0 +1,3888 @@
+{
+ "viewports": [
+  "320x568",
+  "390x844",
+  "768x1024"
+ ],
+ "routes": 104,
+ "cells": [
+  {
+   "viewport": "320x568",
+   "route": "#/",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/status/graph",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/oversight",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/how",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/budgets",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/images",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/vision",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/permsoc",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/llm",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/names",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/memory",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/memory/rag",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/memory/lore",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/memory/relations",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/persona",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/speech",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/access",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/access/roles",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/access/local",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/access/admins",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/transcribe",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/media_download",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/checkup",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/sleep",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/nostalgia",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/initiative",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/clusterizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/writer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/hybrid",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/legacy",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/summary/styles",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/synthesizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/verbalizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/direct/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/synthesizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/verbalizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/factcheck/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/search/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/transcribe/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/transcribe/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/transcribe/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/transcribe/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/video_summary/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/media_download/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/media_download/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/web/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/checkup/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/checkup/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/checkup/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/checkup/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/sleep/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/sleep/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/nostalgia/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/nostalgia/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/budgets/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/budgets/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/images/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/images/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/images/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/images/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/vision/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/vision/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/vision/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/initiative/settings",
+   "controls": [
+    {
+     "el": "label.meme-row",
+     "w": 270,
+     "h": 44,
+     "hitW": 82,
+     "hitH": 58,
+     "txt": "Мемы включены в этом чате "
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/modules/initiative/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/direct",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/factcheck",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/search",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/video_summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/web",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/checkup",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "320x568",
+   "route": "#/ai/prompts/sleep",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/status/graph",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/oversight",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/how",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/budgets",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/images",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/vision",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/permsoc",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/llm",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/names",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/memory",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/memory/rag",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/memory/lore",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/memory/relations",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/persona",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/speech",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/access",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/access/roles",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/access/local",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/access/admins",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/transcribe",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/media_download",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/checkup",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/sleep",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/nostalgia",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/initiative",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/clusterizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/writer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/hybrid",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/legacy",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/summary/styles",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/synthesizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/verbalizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/direct/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/synthesizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/verbalizer",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/factcheck/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/search/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/transcribe/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/transcribe/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/transcribe/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/transcribe/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/video_summary/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/media_download/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/media_download/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/web/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/checkup/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/checkup/prompts",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/checkup/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/checkup/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/sleep/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/sleep/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/nostalgia/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/nostalgia/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/budgets/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/budgets/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/images/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/images/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/images/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/images/testing",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/vision/settings",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/vision/models",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/vision/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/initiative/settings",
+   "controls": [
+    {
+     "el": "label.meme-row",
+     "w": 340,
+     "h": 44,
+     "hitW": 82,
+     "hitH": 60,
+     "txt": "Мемы включены в этом чате "
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/modules/initiative/limits",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/direct",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/factcheck",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/search",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/video_summary",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/web",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/checkup",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "390x844",
+   "route": "#/ai/prompts/sleep",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/status/graph",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/oversight",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/how",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/budgets",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/images",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/vision",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/permsoc",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/llm",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 16,
+     "h": 13,
+     "hitW": 58,
+     "hitH": 46,
+     "txt": "ИИ"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 16,
+     "h": 13,
+     "hitW": 58,
+     "hitH": 46,
+     "txt": "ИИ"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/names",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 16,
+     "h": 13,
+     "hitW": 58,
+     "hitH": 46,
+     "txt": "ИИ"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/memory",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/memory/rag",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 36,
+     "h": 13,
+     "hitW": 68,
+     "hitH": 46,
+     "txt": "Память"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/memory/lore",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 36,
+     "h": 13,
+     "hitW": 68,
+     "hitH": 46,
+     "txt": "Память"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/memory/relations",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 36,
+     "h": 13,
+     "hitW": 68,
+     "hitH": 46,
+     "txt": "Память"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/persona",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 16,
+     "h": 13,
+     "hitW": 58,
+     "hitH": 46,
+     "txt": "ИИ"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/speech",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 16,
+     "h": 13,
+     "hitW": 58,
+     "hitH": 46,
+     "txt": "ИИ"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/access",
+   "controls": [],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/access/roles",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 43,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Доступы"
+    }
+   ],
+   "below44": [],
+   "occluded": [
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Доступы"
+    }
+   ]
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/access/local",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 43,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Доступы"
+    }
+   ],
+   "below44": [],
+   "occluded": [
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Доступы"
+    }
+   ]
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/access/admins",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 43,
+     "h": 13,
+     "hitW": 0,
+     "hitH": 0,
+     "occluded": true,
+     "txt": "Доступы"
+    }
+   ],
+   "below44": [],
+   "occluded": [
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "txt": "Доступы"
+    }
+   ]
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/transcribe",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/media_download",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/checkup",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/sleep",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/nostalgia",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/initiative",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 39,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Модули"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/clusterizer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/writer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/hybrid",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/legacy",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/summary/styles",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 68,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Сводки чатов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/synthesizer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/verbalizer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/direct/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 70,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Ответы в чате"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/synthesizer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/verbalizer",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/factcheck/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 41,
+     "h": 13,
+     "hitW": 70,
+     "hitH": 46,
+     "txt": "Фактчек"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 31,
+     "h": 13,
+     "hitW": 66,
+     "hitH": 46,
+     "txt": "Поиск"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search/prompts",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 31,
+     "h": 13,
+     "hitW": 66,
+     "hitH": 46,
+     "txt": "Поиск"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 31,
+     "h": 13,
+     "hitW": 66,
+     "hitH": 46,
+     "txt": "Поиск"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 31,
+     "h": 13,
+     "hitW": 66,
+     "hitH": 46,
+     "txt": "Поиск"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/search/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 31,
+     "h": 13,
+     "hitW": 66,
+     "hitH": 46,
+     "txt": "Поиск"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/transcribe/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 156,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Транскрипт голосовых и вид"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/transcribe/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 156,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Транскрипт голосовых и вид"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/transcribe/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 156,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Транскрипт голосовых и вид"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/transcribe/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 156,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Транскрипт голосовых и вид"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 80,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Выжимка видео"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary/prompts",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 80,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Выжимка видео"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 80,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Выжимка видео"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 80,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Выжимка видео"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/video_summary/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 80,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Выжимка видео"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/media_download/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 94,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Скачивание медиа"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/media_download/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 94,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Скачивание медиа"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 71,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Веб-страницы"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web/prompts",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 71,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Веб-страницы"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 71,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Веб-страницы"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 71,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Веб-страницы"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/web/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 71,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Веб-страницы"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/checkup/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 63,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Диагностика"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/checkup/prompts",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 63,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Диагностика"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/checkup/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 63,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Диагностика"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/checkup/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 63,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Диагностика"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/sleep/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 19,
+     "h": 13,
+     "hitW": 60,
+     "hitH": 46,
+     "txt": "Сон"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/sleep/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 19,
+     "h": 13,
+     "hitW": 60,
+     "hitH": 46,
+     "txt": "Сон"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/nostalgia/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 56,
+     "h": 13,
+     "hitW": 78,
+     "hitH": 46,
+     "txt": "Ностальгия"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/nostalgia/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 56,
+     "h": 13,
+     "hitW": 78,
+     "hitH": 46,
+     "txt": "Ностальгия"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/budgets/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 47,
+     "h": 13,
+     "hitW": 74,
+     "hitH": 46,
+     "txt": "Бюджеты"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/budgets/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 47,
+     "h": 13,
+     "hitW": 74,
+     "hitH": 46,
+     "txt": "Бюджеты"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/images/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 125,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Генерация изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/images/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 125,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Генерация изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/images/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 125,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Генерация изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/images/testing",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 125,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Генерация изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/vision/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 147,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Распознавание изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/vision/models",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 147,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Распознавание изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/vision/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 147,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Распознавание изображений"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/initiative/settings",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 61,
+     "h": 13,
+     "hitW": 80,
+     "hitH": 46,
+     "txt": "Инициатива"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/modules/initiative/limits",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 61,
+     "h": 13,
+     "hitW": 80,
+     "hitH": 46,
+     "txt": "Инициатива"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/summary",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/direct",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/factcheck",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/search",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/video_summary",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/web",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/checkup",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  },
+  {
+   "viewport": "768x1024",
+   "route": "#/ai/prompts/sleep",
+   "controls": [
+    {
+     "el": "button.breadcrumb-link",
+     "w": 32,
+     "h": 13,
+     "hitW": 44,
+     "hitH": 46,
+     "txt": "Статус"
+    },
+    {
+     "el": "button.breadcrumb-link",
+     "w": 111,
+     "h": 13,
+     "hitW": 82,
+     "hitH": 46,
+     "txt": "Библиотека промптов"
+    }
+   ],
+   "below44": [],
+   "occluded": []
+  }
+ ],
+ "byClass": {
+  "label.meme-row": {
+   "minHitW": 82,
+   "minHitH": 58,
+   "samples": 2,
+   "below44": 0,
+   "example": "Мемы включены в этом чате "
+  },
+  "button.breadcrumb-link": {
+   "minHitW": 44,
+   "minHitH": 46,
+   "samples": 184,
+   "below44": 0,
+   "example": "Статус"
+  }
+ },
+ "failures": [],
+ "summary": {
+  "routes": 104,
+  "viewports": 3,
+  "cells": 312,
+  "cellsBelow44": 0,
+  "controlsMeasured": 186,
+  "controlsBelow44": 0,
+  "occluded": 6,
+  "classes": 2,
+  "classesBelow44": []
+ }
+}
