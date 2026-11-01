@@ -97,6 +97,8 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
     PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
+    PREV_FACTCHECK_ANALYST_VOICE01,
+    PREV_FACTCHECK_VERBALIZER_VOICE01,
     PREV_FACTCHECK_SINGLE_PHASE_SCOPE,
     PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
@@ -408,6 +410,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # веб-поиска. Старые прод-значения (pre-F1 и F1) ведут на новый канон.
     # 10.23 (F3, ADR-1023-3): ступень F3 — поле response_mode в том же JSON.
     "prompts.factcheck_analyst_system_prompt": [
+        # ASAP-FC-VOICE-01 / A (02.11.2026, §4 контракта): байты прода
+        # 2.58.148 (канон с правилом фаз, без смысловых полей) ведут на ту же
+        # редакцию, расширенную inference_gap/counterpoint. Только точное
+        # совпадение байт; кастом владельца ступень не узнаёт.
+        (PREV_FACTCHECK_ANALYST_VOICE01, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         # EVOL W17 (02.11.2026, §6 владельца): байты прода 2.58.147 (канон
         # Аналитика без правила фаз) ведут на канон с правилом prefill/decode.
         # Только точное совпадение байт; кастом владельца не перетирается.
@@ -424,6 +431,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # «Ты — токсичный, ироничный фактчекер … двача» + ТИПОГРАФИКА) ведёт на
     # канон без identity-фразы (жанровые правила/контракты прежние).
     "prompts.factcheck_verbalizer_system_prompt": [
+        # ASAP-FC-VOICE-01 / A (02.11.2026, §1-2 владельца): байты прода
+        # 2.58.148 (канон W1 без голоса жанра) ведут на восстановленную
+        # историческую манеру с адаптивной подачей. Только точное совпадение
+        # байт; кастом владельца ступень не узнаёт.
+        (PREV_FACTCHECK_VERBALIZER_VOICE01, FACTCHECK_VERBALIZER_SYSTEM_PROMPT),
         (PREV_FACTCHECK_VERBALIZER_W1, FACTCHECK_VERBALIZER_SYSTEM_PROMPT)],
     # 10.26 (S3, ADR-1026-5 D4; ADR-1013-3): новый PG-ключ L1-Кластеризатора.
     # Ступень — правило маркировки целевого сообщения (TARGET_INSTRUCTION_BLOCK);
@@ -569,9 +581,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # ступень 4: R3 → прод-канон 2.58.113 (контракт уточнений).
         # Полный откат до 2.58.113 = пять вызовов rollback_prompt_canons.
         (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)],
-    # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
+    # ASAP-FC-VOICE-01 / A (02.11.2026): первая обратная ступень снимает
+    # ТОЛЬКО новый канон голоса → байты прода 2.58.148; вторая — ступень W1.
     "prompts.factcheck_verbalizer_system_prompt":
-        [(FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1)],
+        [(FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+          PREV_FACTCHECK_VERBALIZER_VOICE01),
+         (PREV_FACTCHECK_VERBALIZER_VOICE01, PREV_FACTCHECK_VERBALIZER_W1)],
     "prompts.summary_system_prompt":
         # CFG-07A-2: откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон
         # 2.58.100 (снимается только ступень CFG-07A; стек ступеней цел).
@@ -618,10 +633,15 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.summary_editor_system_prompt":
         [(SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)],
     "prompts.factcheck_analyst_system_prompt":
-        # EVOL W17 (02.11.2026): откат снимает ТОЛЬКО правило фаз работы
-        # модели — на непосредственный прежний прод-канон 2.58.147
-        # (PREV_FACTCHECK_ANALYST_PHASE_SCOPE); стек ступеней цел.
+        # ASAP-FC-VOICE-01 / A (02.11.2026): первая обратная ступень снимает
+        # ТОЛЬКО два смысловых поля — на прод-байты 2.58.148
+        # (PREV_FACTCHECK_ANALYST_VOICE01).
         [(FACTCHECK_ANALYST_SYSTEM_PROMPT,
+          PREV_FACTCHECK_ANALYST_VOICE01),
+         # EVOL W17 (02.11.2026): откат снимает ТОЛЬКО правило фаз работы
+         # модели — на непосредственный прежний прод-канон 2.58.147
+         # (PREV_FACTCHECK_ANALYST_PHASE_SCOPE); стек ступеней цел.
+         (PREV_FACTCHECK_ANALYST_VOICE01,
           PREV_FACTCHECK_ANALYST_PHASE_SCOPE),
          # UNIFIED-CORE (C13): откат снимает только ступень C13 (мёртвый
          # tone_hint) — на непосредственный прежний прод-канон с полем.

@@ -97,6 +97,10 @@ SKIP_REASONS = frozenset({
     # response plan
     "response_plan_absent", "response_plan_disabled",
     "verbilizer_modes_disabled",
+    # ASAP-FC-VOICE-01 / A: жанровые причины — публичный Writer жанра не
+    # получает L1-план и приёмы юмора Direct, а личность здесь уже задана
+    # Core (иначе два описания личности в одном payload).
+    "no_l1_plan_in_genre", "duplicate_of_persona", "genre_argued_analysis",
     # expression / humor / few-shot / style policy
     "expression_absent", "expression_disabled",
     "expression_examples_absent", "expression_examples_disabled",
@@ -243,6 +247,13 @@ SKIP_REASON_LABELS: Mapping[str, str] = {
         "План ответа выключен — модель получила запрос без плана.",
     "verbilizer_modes_disabled":
         "Умные режимы речевого слоя выключены — использована прежняя база.",
+    "no_l1_plan_in_genre":
+        "План ответа принадлежит Direct: у этого жанра своя схема ответа.",
+    "duplicate_of_persona":
+        "Описание личности не передаётся: ту же роль уже задаёт Core.",
+    "genre_argued_analysis":
+        "Приёмы юмора Direct в этом жанре не подключены: жанр спорит по "
+        "доказательствам, а юмор остаётся в голосе владельца.",
     "expression_absent": "Параметры манеры речи не заданы — блок пуст.",
     "expression_disabled":
         "Параметры манеры речи выключены — слой не отправлен.",
@@ -545,6 +556,15 @@ class PromptPlan:
     #: `expression_examples_absent` в манифесте.
     expression_examples: tuple[SampleRef, ...] = ()
     humor: HumorStrategy | None = None
+    #: ASAP-FC-VOICE-01 / A: явная жанровая причина отсутствия приёмов юмора.
+    #: Пусто → прежняя логика осей (`humor_disabled`/`humor_no_strategy`).
+    humor_skip_reason: str = ""
+    #: ``<Speech_Base>`` (короткая манера/юмор/длина/достоверность). ``None``
+    #: → прежняя эвристика сборки (речевые профили, кроме функциональных
+    #: Writer'ов); ``True``/``False`` → явное решение вызывающего. Нужен
+    #: новому единому речевому шву: жанровый публичный Writer получает ту же
+    #: базовую манеру, что и раньше через ``speech_owner_block``.
+    include_speech_base: bool | None = None
     lessons: tuple[LessonRef, ...] = ()
     samples: tuple[SampleRef, ...] = ()
     style_policy: StylePolicyRef | None = None
@@ -940,6 +960,165 @@ async def speech_style_hint(chat_id: int | None) -> str:
     if ref is None or not ref.enabled:
         return ""
     return str(ref.hint or "").strip()
+
+
+async def compose_speech_system(*, chat_id: int, writer: str,
+                                base_prompt: str,
+                                run_id: str | None = None,
+                                base_key: str = "", base_default: str = "",
+                                gates: GateState | None = None,
+                                profile: str = PROFILE_SPEECH_PLAIN,
+                                channel: str = "plain",
+                                html_safe: bool = False,
+                                base_source: str = "",
+                                include_mode_block: bool = True,
+                                response_mode: str = "",
+                                response_plan=None, extent_block: str = "",
+                                identity_text: str = "",
+                                identity_source: str = "chat",
+                                identity_skipped: str = "",
+                                style_block: str = "", style_skip: str = "",
+                                lessons_block: str = "", lessons_skip: str = "",
+                                speech_block: str = "", speech_skip: str = "",
+                                context_text: str = "",
+                                user_parts: tuple[str, ...] = (),
+                                plan_skip: str = "",
+                                humor_skip: str = "",
+                                include_speech_base: bool | None = None,
+                                ) -> tuple[str, PromptManifest | None]:
+    """ЕДИНАЯ точка сборки речевого system для любого публичного Writer'а.
+
+    ASAP-FC-VOICE-01 / A (§3 контракта): тело боевого метода Direct
+    (``DirectChatService._compose_speech_system``) вынесено сюда, в модуль
+    владельца сборки; ``DirectChatService`` остался тонким делегатом
+    (байт-паритет Direct сохраняется). Жанровые публичные Writer'ы
+    (фактчек) больше не склеивают Core/Expression вручную через
+    ``speech_owner_block``: они получают ТЕ ЖЕ слои из одного ``compose_prompt``
+    и манифест с причиной пропуска по каждому слою.
+
+    Что это гарантирует (инварианты контракта §6):
+
+    * один ``compose_prompt`` на маршрут: Core/Expression попадают в payload
+      ровно один раз (двойной инъекции нет конструктивно);
+    * пропуск слоя всегда назван кодом причины в манифесте
+      (``LayerTrace.skip_reason``), включая жанровые причины
+      ``no_l1_plan_in_genre`` / ``duplicate_of_persona`` /
+      ``genre_argued_analysis``;
+    * ``include_speech_base`` — явное решение вызывающего: ``None`` сохраняет
+      прежнюю эвристику Direct байт-в-байт, ``True``/``False`` добавляет в
+      манифест слой ``speech_base`` (рендер или честная причина).
+
+    Никогда не бросает: сбой резолва слоя → слой пропущен по своей причине
+    (резолверы fail-open), сбой самой сборки → возвращается база канала без
+    слоёв владельца (``manifest=None``) с записью в лог.
+    """
+    try:
+        snapshot = await turn_snapshot(chat_id, run_id)
+        source = base_source or await resolve_base_source(
+            chat_id, base_key, base_default)
+        _gates_now = gates or gates_from_config()
+        _strategy = str(getattr(response_plan, "comic_strategy", "") or "")
+        _extent_value = str(getattr(response_plan, "extent", "") or "")
+        _structure = str(getattr(response_plan, "structure", "") or "")
+        _tone = str(getattr(response_plan, "tone", "") or "")
+        humor_ref = None
+        sample_refs: tuple = ()
+        if getattr(_gates_now, "humor_craft_enabled", False):
+            try:
+                from services import mca_humor_craft as _humor_craft
+                _weight = 1.0
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _weight = await _humor_fb.strategy_weight(
+                            _lore_rt.get_lore_db(), chat_id, _strategy)
+                    except Exception:
+                        _weight = 1.0
+                humor_ref = await _humor_craft.resolve_ref(
+                    chat_id=chat_id, comic_strategy=_strategy,
+                    extent=_extent_value, structure=_structure, tone=_tone,
+                    context_weight=_weight)
+            except Exception:
+                logger.warning("compose_speech_system: humor craft resolve "
+                               "failed (слой пропущен)", exc_info=True)
+                humor_ref = None
+        if getattr(_gates_now, "humor_library_enabled", False):
+            try:
+                from services import mca_sample_library as _samples_lib
+                _penalties: dict = {}
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _penalties = await _humor_fb.sample_penalties(
+                            _lore_rt.get_lore_db(), chat_id)
+                    except Exception:
+                        _penalties = {}
+                sample_refs, _selection = await _samples_lib.resolve_refs(
+                    chat_id=chat_id, technique=_strategy,
+                    extent=_extent_value, context=context_text or "",
+                    penalties=_penalties)
+            except Exception:
+                logger.warning("compose_speech_system: sample library resolve "
+                               "failed (слой пропущен)", exc_info=True)
+                sample_refs = ()
+        expression_ref = None
+        try:
+            expression_ref = await resolve_expression_settings(chat_id)
+        except Exception:
+            logger.warning("compose_speech_system: expression resolve failed "
+                           "(слой пропущен)", exc_info=True)
+            expression_ref = None
+        expression_examples: tuple = ()
+        if expression_ref is not None and str(
+                getattr(expression_ref, "mode", "") or "") in (
+                "off", "occasional", "frequent"):
+            try:
+                from services import mca_expression as _expr
+                expression_examples = await _expr.build_expression_examples_refs(
+                    chat_id, str(expression_ref.mode))
+            except Exception:
+                logger.warning("compose_speech_system: expression examples "
+                               "resolve failed (слой пропущен)", exc_info=True)
+                expression_examples = ()
+        plan = PromptPlan(
+            profile=profile, writer=writer, chat_id=chat_id, channel=channel,
+            html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
+            base_source=source, include_mode_block=include_mode_block,
+            response_mode=response_mode,
+            core=snapshot.core,
+            identity=identity_from_text(
+                identity_text, chat_id=chat_id, run_id=run_id,
+                source=identity_source, skipped=identity_skipped),
+            response_plan=(plan_ref_from_response_plan(
+                response_plan, extent_block)
+                if plan_skip == "" else
+                PlanRef(text="", source="l1", skip_reason=plan_skip)),
+            expression=expression_ref,
+            expression_examples=expression_examples,
+            humor=humor_ref,
+            humor_skip_reason=humor_skip,
+            include_speech_base=include_speech_base,
+            samples=sample_refs,
+            style_policy=snapshot.style_policy,
+            scoped_requests=(Block(
+                "style_requests", style_block, owner="l1",
+                source="participant", skip_reason=style_skip),),
+            lessons=(Block(
+                "verified_lessons", lessons_block, owner="experience",
+                source="chat", skip_reason=lessons_skip),),
+            speech=Block(
+                "speech_understanding", speech_block, owner="l1",
+                source="code", skip_reason=speech_skip),
+            user_parts=tuple(str(p) for p in (user_parts or ())),
+            gates=_gates_now)
+        manifest = compose_prompt(plan)
+        return manifest.system, manifest
+    except Exception:
+        logger.warning("[composer] compose_speech_system failed — база канала "
+                       "без слоёв владельца", exc_info=True)
+        return str(base_prompt or ""), None
 
 
 def core_detail_label(core_ref: CoreRef | None) -> str:
@@ -1589,11 +1768,28 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         or any(marker in _base_l
                for marker in ("фактчекер", "betterstack", "сводк", "checkup",
                               "summary")))
-    speech_base_text = (psb.speech_base_block()
-                        if profile in ("speech_plain", "speech_rich")
-                        and not _functional_writer else "")
+    _explicit_base = plan.include_speech_base
+    if _explicit_base is None:
+        speech_base_on = (profile in ("speech_plain", "speech_rich")
+                          and not _functional_writer)
+    else:
+        # Явное решение вызывающего (единый речевой шов жанра): прежняя
+        # эвристика «функционального Writer'а» не применяется молча.
+        speech_base_on = bool(_explicit_base)
+    speech_base_text = psb.speech_base_block() if speech_base_on else ""
     if speech_base_text and speech_base_text not in "\n".join(parts):
         _append(parts, speech_base_text)
+        if _explicit_base is not None:
+            # Явный путь: слой виден в манифесте (пропуск слоя не бывает
+            # неназванным — §6 инвариант 5 контракта).
+            traces.append(_trace(
+                LAYER_CHANNEL_CONTRACT, block_id="speech_base",
+                text=speech_base_text, owner="core", source="code",
+                revision=sha12(speech_base_text), rendered=True))
+    elif _explicit_base is not None:
+        traces.append(_trace(
+            LAYER_CHANNEL_CONTRACT, block_id="speech_base", owner="core",
+            skip_reason="character_speech_disabled"))
 
     # ── 7. expression: эмоциональная температура/резкость (soft) ───────────
     expression = plan.expression
@@ -1640,6 +1836,14 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     if not speech:
         traces.append(_trace(LAYER_HUMOR_CRAFT, block_id="humor_craft",
                              owner="library", skip_reason=profile_reason))
+    elif str(getattr(plan, "humor_skip_reason", "") or ""):
+        # Жанровая причина (ASAP-FC-VOICE-01 / A): публичный жанр спорит
+        # доказательствами, приёмы юмора Direct к нему не подключены — причина
+        # названа явно, а не спрятана за общим «выключено настройкой».
+        traces.append(_trace(
+            LAYER_HUMOR_CRAFT, block_id="humor_craft", owner="library",
+            revision=(plan.humor.revision if plan.humor is not None else ""),
+            skip_reason=str(plan.humor_skip_reason)))
     elif not gates.humor_craft_enabled:
         # SOUL-06.7: диагностическое выключение ремесла (Core живёт).
         traces.append(_trace(LAYER_HUMOR_CRAFT, block_id="humor_craft",

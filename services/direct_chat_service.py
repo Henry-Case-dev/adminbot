@@ -6741,114 +6741,26 @@ class DirectChatService:
                                      ):
         """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
 
-        Один рендер личности на ход: пин по ``run_id`` даёт tool-phase и
-        L2 Writer одну и ту же ревизию ``identity`` (SOUL-03.6/15.5).
-        Никогда не бросает: сбой композера → честный fallback на базу.
+        ASAP-FC-VOICE-01 / A (§3 контракта): тело сборки переехало в модуль
+        владельца сборки - ``services.prompt_composer.compose_speech_system``.
+        Здесь остался тонкий делегат: поведение Direct не меняется
+        байт-в-байт, а тот же шов (Core/Identity/Plan/Expression/примеры/
+        Style Policy/speech) стал доступен жанровым Writer'ам без второй
+        копии кода и без ручной склейки ``speech_owner_block``.
         """
-        snapshot = await _pcomp.turn_snapshot(chat_id, run_id)
-        source = base_source or await _pcomp.resolve_base_source(
-            chat_id, base_key, base_default)
-        # ── SOUL-06/07 (W4): приёмы и примеры — ТОЛЬКО при своих осях ──────
-        # Обе оси по умолчанию OFF → ни одного лишнего чтения БД и ни одного
-        # LLM-вызова на обычный ответ (паритет W2/W3 сохраняется байт-в-байт).
-        _gates_now = gates or _pcomp.gates_from_config()
-        _strategy = str(getattr(response_plan, "comic_strategy", "") or "")
-        _extent_value = str(getattr(response_plan, "extent", "") or "")
-        _structure = str(getattr(response_plan, "structure", "") or "")
-        _tone = str(getattr(response_plan, "tone", "") or "")
-        humor_ref = None
-        sample_refs: tuple = ()
-        if getattr(_gates_now, "humor_craft_enabled", False):
-            try:
-                from services import mca_humor_craft as _humor_craft
-                _weight = 1.0
-                if mca_gates.humor_feedback_enabled():
-                    try:
-                        from services import mca_humor_feedback as _humor_fb
-                        from services import lore_runtime as _lore_rt
-                        _weight = await _humor_fb.strategy_weight(
-                            _lore_rt.get_lore_db(), chat_id, _strategy)
-                    except Exception:
-                        _weight = 1.0
-                humor_ref = await _humor_craft.resolve_ref(
-                    chat_id=chat_id, comic_strategy=_strategy,
-                    extent=_extent_value, structure=_structure, tone=_tone,
-                    context_weight=_weight)
-            except Exception:
-                logger.warning("direct: humor craft resolve failed "
-                               "(слой пропущен)", exc_info=True)
-                humor_ref = None
-        if getattr(_gates_now, "humor_library_enabled", False):
-            try:
-                from services import mca_sample_library as _samples_lib
-                _penalties: dict = {}
-                if mca_gates.humor_feedback_enabled():
-                    try:
-                        from services import mca_humor_feedback as _humor_fb
-                        from services import lore_runtime as _lore_rt
-                        _penalties = await _humor_fb.sample_penalties(
-                            _lore_rt.get_lore_db(), chat_id)
-                    except Exception:
-                        _penalties = {}
-                sample_refs, _selection = await _samples_lib.resolve_refs(
-                    chat_id=chat_id, technique=_strategy,
-                    extent=_extent_value, context=context_text or "",
-                    penalties=_penalties)
-            except Exception:
-                logger.warning("direct: sample library resolve failed "
-                               "(слой пропущен)", exc_info=True)
-                sample_refs = ()
-        # ── ADD-EXP (wiring): слой «Выражение» подключён к боевой сборке —
-        # тот же builder, что у preview (§1.6); режим действует со
-        # следующего ответа (hot reload, без рестарта).
-        expression_ref = None
-        try:
-            expression_ref = await _pcomp.resolve_expression_settings(chat_id)
-        except Exception:
-            logger.warning("direct: expression resolve failed "
-                           "(слой пропущен)", exc_info=True)
-            expression_ref = None
-        expression_examples: tuple = ()
-        if expression_ref is not None and str(
-                getattr(expression_ref, "mode", "") or "") in (
-                "off", "occasional", "frequent"):
-            try:
-                from services import mca_expression as _expr
-                expression_examples = await _expr.build_expression_examples_refs(
-                    chat_id, str(expression_ref.mode))
-            except Exception:
-                logger.warning("direct: expression examples resolve failed "
-                               "(слой пропущен)", exc_info=True)
-                expression_examples = ()
-        plan = _pcomp.PromptPlan(
-            profile=profile, writer=writer, chat_id=chat_id, channel=channel,
-            html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
-            base_source=source, include_mode_block=include_mode_block,
-            response_mode=response_mode,
-            core=snapshot.core,
-            identity=_pcomp.identity_from_text(
-                identity_text, chat_id=chat_id, run_id=run_id,
-                source=identity_source, skipped=identity_skipped),
-            response_plan=_pcomp.plan_ref_from_response_plan(
-                response_plan, extent_block),
-            expression=expression_ref,
-            expression_examples=expression_examples,
-            humor=humor_ref,
-            samples=sample_refs,
-            style_policy=snapshot.style_policy,
-            scoped_requests=(_pcomp.Block(
-                "style_requests", style_block, owner="l1",
-                source="participant", skip_reason=style_skip),),
-            lessons=(_pcomp.Block(
-                "verified_lessons", lessons_block, owner="experience",
-                source="chat", skip_reason=lessons_skip),),
-            speech=_pcomp.Block(
-                "speech_understanding", speech_block, owner="l1",
-                source="code", skip_reason=speech_skip),
-            user_parts=tuple(str(p) for p in (user_parts or ())),
-            gates=gates or _pcomp.gates_from_config())
-        manifest = _pcomp.compose_prompt(plan)
-        return manifest.system, manifest
+        return await _pcomp.compose_speech_system(
+            chat_id=chat_id, writer=writer, run_id=run_id,
+            base_prompt=base_prompt, base_key=base_key,
+            base_default=base_default, gates=gates, profile=profile,
+            channel=channel, html_safe=html_safe, base_source=base_source,
+            include_mode_block=include_mode_block,
+            response_mode=response_mode, response_plan=response_plan,
+            extent_block=extent_block, identity_text=identity_text,
+            identity_source=identity_source, identity_skipped=identity_skipped,
+            style_block=style_block, style_skip=style_skip,
+            lessons_block=lessons_block, lessons_skip=lessons_skip,
+            speech_block=speech_block, speech_skip=speech_skip,
+            context_text=context_text, user_parts=user_parts)
 
     async def _l2_write_answer(self, chat_id: int, query: str, *,
                                temperature, correlation_id=None,

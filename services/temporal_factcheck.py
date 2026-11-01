@@ -236,6 +236,13 @@ class TemporalVerdict:
     parts: tuple = ()
     verdict_text: str = ""
     reason: str | None = None
+    #: ASAP-FC-VOICE-01 / A (§4 контракта): ДВА необязательных смысловых поля
+    #: аналитика той же стадии (третьего LLM-вызова нет). ``inference_gap`` —
+    #: что НЕ следует из подтверждённых данных; ``counterpoint`` — сильнейшее
+    #: честное контрпрочтение. Пустая строка = поля не было в ответе, ключ в
+    #: payload вербализатора не появляется (пустые поля не передаются).
+    inference_gap: str = ""
+    counterpoint: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -585,6 +592,25 @@ def _aggregate_factual_verdict(top: str, parts: tuple) -> str:
     return top
 
 
+def _optional_semantic_text(value) -> str:
+    """Необязательный смысловой текст аналитика (ASAP-FC-VOICE-01 / A §4).
+
+    Не строка/пусто/``None`` → ``""`` (поля в payload не будет). Строка с
+    системными тегами/ID не проходит контракт изоляции Stage-1 → ``""``:
+    служебные метки не попадают к публичному Writer'у. Никогда не бросает.
+    """
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    if not text:
+        return ""
+    try:
+        from services.system2_handoff import contains_system_ids
+    except Exception:          # pragma: no cover — модуль разбора не рвёт вердикт
+        return text
+    return "" if contains_system_ids(text) else text
+
+
 def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
                          fallback_reason: str | None = None,
                          allowed_refs=None) -> TemporalVerdict:
@@ -634,6 +660,11 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
     reason = payload.get("reason") or fallback_reason
     if reason is not None and reason not in mca_events.REASON_CODES:
         reason = fallback_reason
+    # ASAP-FC-VOICE-01 / A (§4): необязательные смысловые поля того же JSON.
+    # Строка, прошедшая ``contains_system_ids``; пустая/нестроковая/с тегами
+    # → поля нет (payload вербализатора не получает пустое значение).
+    gap_text = _optional_semantic_text(payload.get("inference_gap"))
+    counterpoint_text = _optional_semantic_text(payload.get("counterpoint"))
     # FC-PERCLAIM/FC-RENDER: части модели дополняются текстом из СЕРВЕРНОЙ
     # декомпозиции (deterministic, по part_id) — вербализатор и renderer
     # показывают разбор утверждений с реальными формулировками клейма,
@@ -658,7 +689,9 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
         evidence_refs=refs_tuple,
         uncertainty=uncertainty,
         parts=parts_tuple,
-        reason=reason or None)
+        reason=reason or None,
+        inference_gap=gap_text,
+        counterpoint=counterpoint_text)
 
 
 def has_freshness_markers(text: str | None) -> bool:
@@ -697,6 +730,11 @@ def apply_validator(verdict: TemporalVerdict, payload: object,
         "parts": list(verdict.parts),
         "evidence_refs": list(verdict.evidence_refs),
         "reason": verdict.reason,
+        # ASAP-FC-VOICE-01 / A §4: смысловые поля аналитика переживают
+        # перепроверку validator'ом (иначе коррекция вердикта стирала бы
+        # разбор, который к вердикту отношения не меняет).
+        "inference_gap": verdict.inference_gap,
+        "counterpoint": verdict.counterpoint,
     }
     return verdict_from_payload(merged, envelope,
                                 fallback_reason=verdict.reason), True
@@ -878,7 +916,10 @@ TEMPORAL_ANALYST_SYSTEM = (
     '"precision": "day|month|year|interval|unknown"}, "parts": [{"part_id": '
     '"p1", "factual_verdict": "...", "temporal_status": "...", "note": "...", '
     '"evidence_refs": ["ev-1"]}'
-    '], "uncertainty": {"summary": "..."}, "reason": "<reason_code из '
+    '], "uncertainty": {"summary": "..."}, '
+    '"inference_gap": "<что НЕ следует из подтверждённых данных, или null>", '
+    '"counterpoint": "<сильнейшее честное контрпрочтение, или null>", '
+    '"reason": "<reason_code из '
     'словаря или null>"}\n'
     "Правила: (1) подтверждение/опровержение ВНЕШНЕГО факта — только по "
     "evidence: неподтверждаемый внешний факт → insufficient_evidence/"
@@ -902,7 +943,13 @@ TEMPORAL_ANALYST_SYSTEM = (
     "(10) если хотя бы одна часть подтверждена или опровергнута, а для "
     "остальных данных недостаточно — общий factual_verdict=mixed, НЕ "
     "insufficient_evidence; недостаточность целого — только когда ни одна "
-    "часть не проверена."
+    "часть не проверена.\n"
+    "(11) inference_gap заполняй, когда из подтверждённых данных делают "
+    "вывод, которого они не дают (подмена причинности, обобщение, скачок): "
+    "назови именно разрыв, а не пересказ findings; нет разрыва — null.\n"
+    "(12) counterpoint заполняй, когда у тезиса есть сильное честное "
+    "прочтение при тех же доказательствах; он не отменяет вердикт и не "
+    "противоречит findings, это формулировка вывода. Нет — null."
     # §8 (FC-08): директива дополняет правила, не заменяя их; ровно один
     # носитель (см. комментарий у ANALYST_DIRECTIVE).
     "\n" + ANALYST_DIRECTIVE

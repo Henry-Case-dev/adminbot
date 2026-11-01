@@ -11,10 +11,10 @@
 **Основной режим — боевой:** `mode=prod_on`, композер ON, все оси включены (Core / identity / Expression / lessons / speech / response_plan в system). Заводской OFF-контур (`mode=factory_off`) снят отдельно и помечен как вторичный: он боевым режимом не является.
 
 * Python 3.12.0 (Windows), токенизатор: `tiktoken`
-* Канон: Registry `soul1-w3-1`, заводской набор `f84baaf69559`, нарушения печатей: нет
+* Канон: Registry `soul1-w3-1`, заводской набор `033670411c73`, нарушения печатей: нет
 * Сеть: blocked (socket.connect/connect_ex бросают); PG: PG-стенд (ConfigLayer): присутствует слой с флагами гейтов; документы владельца character.core/expression/persona отсутствуют намеренно (PG недоступен)
 * Стадий: **27** (боевых 18 + вторичных OFF 9), сегментов сообщений: **58** (system 27 / user 27 / assistant 2 / tool 2)
-* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `908b614c33ec5f61…`
+* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `e61aa0aa4f78c78e…`
 
 ## Боевая карта гейтов
 
@@ -80,11 +80,11 @@ env-оси выставлены: `UNIFIED_COMPOSER_ENABLED=1`, `CHARACTER_CORE_E
 | `direct.l2_writer.fallback_model_repack` | prod_on | l1 | user | 1016 | `bd815c5825c7` | 9 | 8 |
 | `direct.l2_writer.fallback_model_capacity` | prod_on | l1 | system | 8037 | `c79a1ddacf75` | 17 | 16 |
 | `direct.l2_writer.fallback_model_capacity` | prod_on | l1 | user | 709 | `7ed533ba7ed8` | 6 | 192 |
-| `factcheck.single` | prod_on | factcheck | system | 6226 | `07013281498c` | 3 | 2 |
+| `factcheck.single` | prod_on | factcheck | system | 8796 | `6b6c739fda8b` | 7 | 6 |
 | `factcheck.single` | prod_on | factcheck | user | 222 | `e8275d4a239a` | 5 | 4 |
-| `factcheck.stage1_analyst` | prod_on | factcheck | system | 2872 | `806d6cc6af77` | 1 | 0 |
+| `factcheck.stage1_analyst` | prod_on | factcheck | system | 3346 | `ed4c7a642804` | 1 | 0 |
 | `factcheck.stage1_analyst` | prod_on | factcheck | user | 222 | `e8275d4a239a` | 3 | 0 |
-| `factcheck.stage2_verbalizer` | prod_on | factcheck | system | 1601 | `a1512229147a` | 3 | 2 |
+| `factcheck.stage2_verbalizer` | prod_on | factcheck | system | 8470 | `5f03db3c5d1d` | 7 | 6 |
 | `factcheck.stage2_verbalizer` | prod_on | factcheck | user | 303 | `7e6d8d8dbc58` | 1 | 0 |
 | `initiative.l1_planner` | prod_on | initiative | system | 15453 | `09f3d533d173` | 1 | 0 |
 | `initiative.l1_planner` | prod_on | initiative | user | 1199 | `2e4cca3fabf2` | 5 | 0 |
@@ -128,17 +128,17 @@ env-оси выставлены: `UNIFIED_COMPOSER_ENABLED=1`, `CHARACTER_CORE_E
 
 | Слой | Рендерился (стадий) | Пропущен | Ревизии |
 | --- | --- | --- | --- |
-| `channel_contract` | 15 | 0 | `09f3d533d173`, `68f0233d7050`, `7a5aea1b73a4`, `6bae7eb26bc3` |
-| `channel_output` | 0 | 15 | — |
-| `context_lessons` | 9 | 28 | `967168fb043a`, `3ee71340094e`, `b67aef6dcf09` |
-| `core` | 11 | 4 | `fac:8dbb8c10ddc6` |
-| `expression` | 11 | 4 | `e94abb8521ea` |
-| `few_shot` | 0 | 30 | — |
-| `humor_craft` | 0 | 15 | — |
-| `identity` | 3 | 12 | `bd902f20c0ca2ab8` |
-| `response_plan` | 11 | 4 | `a5146b0033b2`, `5c2c19523c24` |
-| `self_model_traits` | 0 | 15 | — |
-| `style_policy_hint` | 0 | 15 | — |
+| `channel_contract` | 19 | 0 | `09f3d533d173`, `68f0233d7050`, `7a5aea1b73a4`, `6bae7eb26bc3`, `bdf63ca2b4a4`, `9b33f0f3f15f`, `f59c5305b673` |
+| `channel_output` | 0 | 17 | — |
+| `context_lessons` | 9 | 34 | `967168fb043a`, `3ee71340094e`, `b67aef6dcf09` |
+| `core` | 13 | 4 | `fac:8dbb8c10ddc6` |
+| `expression` | 13 | 4 | `e94abb8521ea` |
+| `few_shot` | 0 | 34 | — |
+| `humor_craft` | 0 | 17 | — |
+| `identity` | 3 | 14 | `bd902f20c0ca2ab8` |
+| `response_plan` | 11 | 6 | `a5146b0033b2`, `5c2c19523c24` |
+| `self_model_traits` | 0 | 17 | — |
+| `style_policy_hint` | 0 | 17 | — |
 
 Слой присутствует в payload, если он `rendered`; причина пропуска видна в поле `composer_layers[].skip_reason` соответствующей стадии, полный манифест — в `sent-segments.json` (`composer_manifests`).
 
@@ -292,7 +292,7 @@ _(один неразмеченный блок)_
 
 ### `factcheck.single` → system (prod_on)
 
-`prompt:prompts.factcheck_system_prompt` → `separator` → `block:factcheck_critique_section(self_assessed)`
+`layer:channel_contract:channel_canon` → `separator` → `layer:core:core` → `separator` → `layer:channel_contract:speech_base` → `separator` → `layer:expression:expression`
 
 ### `factcheck.single` → user (prod_on)
 
@@ -308,7 +308,7 @@ _(один неразмеченный блок)_
 
 ### `factcheck.stage2_verbalizer` → system (prod_on)
 
-`prompt:prompts.factcheck_verbalizer_system_prompt` → `separator` → `prompt:prompts.verbilizer_mode_serious`
+`layer:channel_contract:channel_canon` → `separator` → `layer:core:core` → `separator` → `layer:channel_contract:speech_base` → `separator` → `layer:expression:expression`
 
 ### `factcheck.stage2_verbalizer` → user (prod_on)
 
@@ -448,15 +448,13 @@ _(один неразмеченный блок)_
 | `direct.l2_writer.fallback_model_repack` | `prompts.direct_chat_verbalizer_system_prompt` | `direct.base.l2_writer` | `act:68f0233d7050` | `fac:68f0233d7050(l2-writer-evidence-discipline)` | code_default | 0 |
 | `direct.l2_writer.fallback_model_capacity` | `prompts.direct_chat_verbalizer_system_prompt` | `direct.base.l2_writer` | `act:68f0233d7050` | `fac:68f0233d7050(l2-writer-evidence-discipline)` | code_default | 0 |
 | `factcheck.single` | `prompts.factcheck_system_prompt` | `factcheck.base.single` | `act:d02776dec166` | `fac:d02776dec166(factcheck-phases-w17)` | code_default | 0 |
-| `factcheck.single` | `prompts.factcheck_critique_directive` | `factcheck.critique.directive` | `act:cfcd9009df17` | `fac:cfcd9009df17(factcheck-critique-w5)` | code_default | 5311 |
+| `factcheck.single` | `prompts.factcheck_critique_directive` | `factcheck.critique.directive` | `act:cfcd9009df17` | `fac:cfcd9009df17(factcheck-critique-w5)` | code_default | 5315 |
 | `factcheck.stage1_analyst` | `prompts.factcheck_system_prompt` | `factcheck.base.single` | `act:d02776dec166` | `fac:d02776dec166(factcheck-phases-w17)` | code_default | -1 |
-| `factcheck.stage1_analyst` | `prompts.factcheck_analyst_system_prompt` | `factcheck.base.analyst` | `act:806d6cc6af77` | `fac:806d6cc6af77(factcheck-analyst-phases-w17)` | code_default | 0 |
-| `factcheck.stage1_analyst` | `prompts.factcheck_verbalizer_system_prompt` | `factcheck.base.verbalizer` | `act:42442333d77d` | `fac:42442333d77d(factcheck-verbalizer-w1)` | code_default | -1 |
-| `factcheck.stage1_analyst` | `prompts.verbilizer_mode_serious` | `verbilizer.mode.serious` | `act:0ffb292caf70` | `fac:0ffb292caf70(mode-r1023)` | code_default | -1 |
+| `factcheck.stage1_analyst` | `prompts.factcheck_analyst_system_prompt` | `factcheck.base.analyst` | `act:ed4c7a642804` | `fac:ed4c7a642804(factcheck-analyst-voice01-semantics)` | code_default | 0 |
+| `factcheck.stage1_analyst` | `prompts.factcheck_verbalizer_system_prompt` | `factcheck.base.verbalizer` | `act:45361c23221c` | `fac:45361c23221c(factcheck-voice-historic-01)` | code_default | -1 |
 | `factcheck.stage2_verbalizer` | `prompts.factcheck_system_prompt` | `factcheck.base.single` | `act:d02776dec166` | `fac:d02776dec166(factcheck-phases-w17)` | code_default | -1 |
-| `factcheck.stage2_verbalizer` | `prompts.factcheck_analyst_system_prompt` | `factcheck.base.analyst` | `act:806d6cc6af77` | `fac:806d6cc6af77(factcheck-analyst-phases-w17)` | code_default | -1 |
-| `factcheck.stage2_verbalizer` | `prompts.factcheck_verbalizer_system_prompt` | `factcheck.base.verbalizer` | `act:42442333d77d` | `fac:42442333d77d(factcheck-verbalizer-w1)` | code_default | 0 |
-| `factcheck.stage2_verbalizer` | `prompts.verbilizer_mode_serious` | `verbilizer.mode.serious` | `act:0ffb292caf70` | `fac:0ffb292caf70(mode-r1023)` | code_default | 1445 |
+| `factcheck.stage2_verbalizer` | `prompts.factcheck_analyst_system_prompt` | `factcheck.base.analyst` | `act:ed4c7a642804` | `fac:ed4c7a642804(factcheck-analyst-voice01-semantics)` | code_default | -1 |
+| `factcheck.stage2_verbalizer` | `prompts.factcheck_verbalizer_system_prompt` | `factcheck.base.verbalizer` | `act:45361c23221c` | `fac:45361c23221c(factcheck-voice-historic-01)` | code_default | 0 |
 | `initiative.l1_planner` | `prompts.direct_l1_planner_system_prompt` | `direct.base.l1_planner` | `act:09f3d533d173` | `fac:09f3d533d173(l1-planner-two-phase-precedence)` | code_default | 0 |
 | `initiative.l1_planner` | `prompts.direct_chat_verbalizer_system_prompt` | `direct.base.l2_writer` | `act:68f0233d7050` | `fac:68f0233d7050(l2-writer-evidence-discipline)` | code_default | -1 |
 | `initiative.l2_writer` | `prompts.direct_l1_planner_system_prompt` | `direct.base.l1_planner` | `act:09f3d533d173` | `fac:09f3d533d173(l1-planner-two-phase-precedence)` | code_default | -1 |
@@ -487,18 +485,18 @@ _(один неразмеченный блок)_
 | Файл | Строк | sha256 |
 | --- | --- | --- |
 | `services/chat_prompts.py` | 1613 | `9274fe14bb7b4736…` |
-| `services/direct_chat_service.py` | 13288 | `b574de5e682c0480…` |
+| `services/direct_chat_service.py` | 13200 | `f859f12f7f3146f3…` |
 | `services/direct_execution.py` | 1429 | `5c789feba2f284e9…` |
 | `services/direct_l1.py` | 1864 | `0c711ac283427e93…` |
-| `services/factcheck_prompts.py` | 631 | `cc33b7046a08d730…` |
-| `services/factcheck_service.py` | 2414 | `e4dbe97d5c2a12e3…` |
+| `services/factcheck_prompts.py` | 771 | `9d6da100faf64f04…` |
+| `services/factcheck_service.py` | 2438 | `561f6729f2eae762…` |
 | `services/llm_client.py` | 2015 | `b79ef1680ad7a0be…` |
 | `services/mca_expression.py` | 810 | `f292ad43e733e1b2…` |
 | `services/negative_constraints.py` | 933 | `e1ca1844e2edfdbe…` |
 | `services/payload_builder.py` | 36 | `30645fbba34850c4…` |
-| `services/prompt_composer.py` | 2392 | `15f5705cc91ede08…` |
-| `services/prompt_registry.py` | 3749 | `d6f872b614470242…` |
-| `services/prompt_style_blocks.py` | 920 | `ebc5be8c44c39b8e…` |
+| `services/prompt_composer.py` | 2596 | `5c010a9a9fc9fcdc…` |
+| `services/prompt_registry.py` | 3781 | `f822ff9e1c6f3667…` |
+| `services/prompt_style_blocks.py` | 951 | `36636496f08d685f…` |
 | `services/response_extent.py` | 768 | `851befe528339388…` |
 | `services/summary_xml.py` | 182 | `97f2a8c068191228…` |
 | `services/tool_loop.py` | 1123 | `ce297a0aa8f39bc8…` |
