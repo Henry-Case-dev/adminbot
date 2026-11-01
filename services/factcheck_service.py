@@ -30,7 +30,7 @@ from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
     FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
-    PREV_FACTCHECK_VERBALIZER_R1023,
+    PREV_FACTCHECK_VERBALIZER_VOICE01,
     CRITIQUE_POLICY_FORBIDDEN,
     build_critique_section_block,
     critique_policy_for_findings,
@@ -49,16 +49,13 @@ from services.media_group_buffer import (
 from services import anticliche_cache
 from services import mca_gates
 from services import usage_events
-from services.prompt_composer import speech_owner_block
+from services.prompt_composer import compose_speech_system
 from services.negative_constraints import (
     NumericContract,
     channel_enabled_rules,
     verbalize_validated,
 )
-from services.prompt_style_blocks import (
-    compose_verbalizer_system,
-    resolve_prompt,
-)
+from services.prompt_style_blocks import resolve_prompt
 from services.reply_postprocess import strip_reasoning_tags
 from services.search_aggregator import SearchAggregator, AllSearchEnginesFailedException
 from services import temporal_factcheck as tf
@@ -138,20 +135,35 @@ async def _critique_section_block(chat_id: int | None, policy: str) -> str:
                                         directive=resolve_critique_directive())
 
 
-async def _speech_style_hint(chat_id: int | None) -> str:
-    """Активный Style Policy hint для публичной Writer-фазы фактчека.
+async def _compose_genre_speech(chat_id: int | None, *, writer: str,
+                                base_prompt: str):
+    """ЕДИНАЯ сборка речевого system публичного жанра фактчека.
 
-    SOUL-16: hint — слой стиля владельца (W3-владелец ``style_policy``).
-    Пустое значение (ось выключена/нет правил) → ``""``: сборка прежняя
-    байт-в-байт. Никогда не бросает.
+    ASAP-FC-VOICE-01 / A (§3 контракта): все точки сборки фактчека
+    (одиночный путь, двухвызовный Stage-2, временной вербализатор и короткая
+    персона-реплика) получают слои владельца из ОДНОГО владельца сборки —
+    ``prompt_composer.compose_speech_system``. Ручная склейка
+    ``system + "\\n\\n" + speech_owner_block`` удалена: Core/Expression
+    попадают в payload ровно один раз конструктивно, а причина пропуска
+    каждого слоя видна в манифесте.
+
+    Профиль/канал: ``speech_plain`` + ``plain`` (фактчек публикуется текстом
+    с экранированием), режимный блок НЕ подключается — он задавал фактчеку
+    «как у Direct» длину и запрет структуры, что противоречит канону подачи.
+    ``include_speech_base`` — явное сохранение прежнего слоя ``<Speech_Base>``
+    (до правки его добавлял ``speech_owner_block``).
+
+    Никогда не бросает: сбой сборки → готовый жанровый канон без слоёв
+    владельца (``compose_speech_system`` возвращает базу и ``None``).
     """
-    if not chat_id:
-        return ""
-    try:
-        from services.prompt_composer import speech_style_hint
-        return str(await speech_style_hint(chat_id) or "").strip()
-    except Exception:          # pragma: no cover — слой стиля не роняет Writer
-        return ""
+    system, _manifest = await compose_speech_system(
+        chat_id=chat_id, writer=writer, base_prompt=base_prompt,
+        base_source="code", profile="speech_plain", channel="plain",
+        html_safe=False, include_mode_block=False,
+        identity_text="", identity_skipped="duplicate_of_persona",
+        plan_skip="no_l1_plan_in_genre", humor_skip="genre_argued_analysis",
+        include_speech_base=True)
+    return system
 
 
 def _with_critique_block(base: str, block: str) -> str:
@@ -1507,23 +1519,22 @@ class FactCheckService:
         # вербализация: после жанрового канона идут ТЕ ЖЕ Core + Expression
         # (GLOBAL/per-chat, hot-apply); конфиг-слой недоступен → блок пуст
         # (байт-паритет прежней сборки).
-        system = system_prompt.replace("{max_symbols}", str(max_symbols))
-        # EVOL §5 (W5): одиночный путь — тоже публичная Writer-фаза. Раздел
-        # «Критический разнос» здесь self-assessed: структуры проверенных
-        # частей нет (Writer сам и аналитик), поэтому инструкция требует
-        # критиковать только уже названные им ошибки и запрещает выдуманное
-        # опровержение. Политика — по наличию доказательств прогона.
+        # ASAP-FC-VOICE-01 / A (§3): слои владельца приходят из единственной
+        # точки сборки (манифест с причиной пропуска), ручной склейки нет.
+        genre_canon = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # EVOL §5 (W5): одиночный путь — тоже публичная Writer-фаза. Критика
+        # здесь self-assessed: структуры проверенных частей нет (Writer сам и
+        # аналитик), поэтому инструкция требует критиковать только уже
+        # названные им ошибки и запрещает выдуманное опровержение. Политика —
+        # по наличию доказательств прогона. Форма раздела снята (голос внутри
+        # рассуждения), гейт политики сохранен.
         critique_block = await _critique_section_block(
             chat_id, critique_policy_for_verdict(
                 factual_verdict=None,
                 has_evidence=bool(str(results or "").strip())))
-        system = _with_critique_block(system, critique_block)
-        owner_block = await speech_owner_block(chat_id)
-        if owner_block:
-            system = f"{system}\n\n{owner_block}"
-        style_hint = await _speech_style_hint(chat_id)
-        if style_hint:
-            system = f"{system}\n\n{style_hint}"
+        genre_canon = _with_critique_block(genre_canon, critique_block)
+        system = await _compose_genre_speech(
+            chat_id, writer="factcheck_single", base_prompt=genre_canon)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -1567,38 +1578,32 @@ class FactCheckService:
             return None
         response_mode = normalize_response_mode(data.get("response_mode"))
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+        # ASAP-FC-VOICE-01 / A (§1, §6 инвариант 6): OFF → ПРЕЖНЯЯ заводская
+        # редакция вербализатора (байты прода 2.58.148), режимный блок и так
+        # не подключается. Активная редакция — исторический голос жанра.
         verbalizer_template = (
             resolve_prompt("prompts.factcheck_verbalizer_system_prompt",
                            FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
-            if modes_on else PREV_FACTCHECK_VERBALIZER_R1023)
+            if modes_on else PREV_FACTCHECK_VERBALIZER_VOICE01)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
-        # EVOL §5 (W5): отдельный раздел «Критический разнос» — инструкция в
-        # ТОЙ ЖЕ публичной Writer-фазе (второго LLM-вызова нет). Политика
-        # считается по структуре проверенных findings: все подтверждены /
-        # не проверяемы → раздела нет (выдуманный разгром запрещён).
+        # EVOL §5 (W5): жанровая директива критики — в ТОЙ ЖЕ публичной
+        # Writer-фазе (второго LLM-вызова нет). Политика считается по
+        # структуре проверенных findings: все подтверждены / не проверяемы →
+        # директивы нет (выдуманный разгром запрещён). ASAP-FC-VOICE-01 / A:
+        # директива действует внутри рассуждения, обязательного раздела с
+        # фиксированным заголовком нет.
         critique_block = await _critique_section_block(
             chat_id, critique_policy_for_findings(data.get("findings")))
         verbalizer_base = _with_critique_block(verbalizer_base,
                                                critique_block)
-        # UNIFIED-CORE (P0, 20.10.2026): Вербализатор — пользовательская
-        # вербализация фактчека → Core + Expression владельца (критерии §5:
-        # один Core везде; жанровые исключения сняты; объективность, ссылки
-        # и структура жанра остаются в каноне). Блок идёт ПОСЛЕ режимного/
-        # канального (character_block — последний part; MCA-08 шов).
-        owner_block = await speech_owner_block(chat_id)
-        # EVOL §5 (W5): активный Style Policy hint владельца — до публичного
-        # Writer (хвост: rules → style, MCA-08 D5). Пусто → байт-паритет.
-        style_hint = await _speech_style_hint(chat_id)
-        # Review iter1 (H2): у фактчека нет safe-HTML-доставки → text-only
-        # plain-блок (без требования `<b>`, без HTML-тегов вовсе).
-        verbalizer_system = (compose_verbalizer_system(
-            verbalizer_base, response_mode, "plain",
-            character_block=owner_block, style_directives=style_hint)
-            if modes_on else
-            (_with_critique_block(
-                f"{verbalizer_base}\n\n{owner_block}" if owner_block
-                else verbalizer_base, style_hint)))
+        # UNIFIED-CORE → ASAP-FC-VOICE-01 / A: Core/Expression/Style/примеры
+        # приходят из ОДНОЙ точки сборки (manifest с причиной пропуска).
+        # Ручная склейка `compose_verbalizer_system(character_block=...)`
+        # удалена: иначе owner-слои попадали бы в payload дважды.
+        verbalizer_system = await _compose_genre_speech(
+            chat_id, writer="factcheck_verbalizer",
+            base_prompt=verbalizer_base)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
@@ -2235,10 +2240,21 @@ class FactCheckService:
             from services.factcheck_prompts import (
                 FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
             )
-            base = resolve_prompt(
-                "prompts.factcheck_verbalizer_system_prompt",
-                FACTCHECK_VERBALIZER_SYSTEM_PROMPT).replace(
-                "{max_symbols}", str(max_symbols))
+            # ASAP-FC-VOICE-01 / A (§1, §6 инвариант 6): OFF умных режимов →
+            # ПРЕЖНЯЯ заводская редакция вербализатора (байты прода), иначе —
+            # активная редакция голоса жанра.
+            _modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED",
+                                True)
+            if _modes_on:
+                base = resolve_prompt(
+                    "prompts.factcheck_verbalizer_system_prompt",
+                    FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
+            else:
+                from services.factcheck_prompts import (
+                    PREV_FACTCHECK_VERBALIZER_VOICE01 as _PREV_VOICE,
+                )
+                base = _PREV_VOICE
+            base = base.replace("{max_symbols}", str(max_symbols))
         except Exception:
             base = ("Перескажи проверку фактов кратко и по-человечески. "
                     "СОХРАНИ существенные даты и оговорки; не выдумывай "
@@ -2262,6 +2278,16 @@ class FactCheckService:
                    if str(v or "").strip()]
         if caveats:
             payload["caveats"] = caveats
+        # ASAP-FC-VOICE-01 / A (§4): два необязательных смысловых поля
+        # Аналитика ТОЙ ЖЕ стадии. Пустое значение в payload не появляется
+        # (выдумывать поле запрещено каноном), поэтому Writer видит только
+        # действительно установленный разрыв вывода и честный контрапункт.
+        _gap = str(getattr(verdict, "inference_gap", "") or "").strip()
+        if _gap:
+            payload["inference_gap"] = _gap
+        _counterpoint = str(getattr(verdict, "counterpoint", "") or "").strip()
+        if _counterpoint:
+            payload["counterpoint"] = _counterpoint
         payload["parts"] = list(verdict.parts)
         # §3.1/§5: покрытие частей — вербализатор пишет КОНКРЕТНЫЕ пробелы
         # (техсбой/нет источников/недоказанное число), а не общее «данных
@@ -2288,13 +2314,14 @@ class FactCheckService:
                 "фактическое ограничение и какой информации не хватает, "
                 "без абзацев ради объёма и без историй про сломанные "
                 "инструменты")
-        # UNIFIED-CORE (P0, владелец 20.10.2026): временной вербализатор —
-        # пользовательская речь → тот же штатный шов, что Stage-2/одиночный
-        # путь: Core + Expression владельца ПОСЛЕДНИМ блоком system (характер
-        # по настройкам владельца; блок пуст → сборка байт-в-байт прежняя).
-        # EVOL §5 (W5): тот же раздел «Критический разнос» и тот же слой
-        # стиля, что на остальных публичных путях (политика — по проверенному
-        # вердикту: supported/insufficient/техсбой → раздела нет).
+        # UNIFIED-CORE → ASAP-FC-VOICE-01 / A: временной вербализатор —
+        # пользовательская речь → слои владельца из ЕДИНОЙ точки сборки
+        # (Core/Expression/Style/примеры, причина пропуска — в манифесте).
+        # Порядок слоёв прежний по смыслу: жанровый канон → Core →
+        # Expression (+ её финальный контракт последним) → примеры → Style.
+        # EVOL §5 (W5): та же директива критики, что на остальных публичных
+        # путях (политика — по проверенному вердикту: supported/insufficient/
+        # техсбой → директивы нет).
         _chat = getattr(env, "chat_id", None)
         critique_block = await _critique_section_block(
             _chat, critique_policy_for_verdict(
@@ -2304,11 +2331,8 @@ class FactCheckService:
                 fallback_used=bool(fallback_used),
                 has_evidence=bool(verdict.parts or ())))
         base = _with_critique_block(base, critique_block)
-        owner_block = await speech_owner_block(_chat)
-        system = f"{base}\n\n{owner_block}" if owner_block else base
-        style_hint = await _speech_style_hint(_chat)
-        if style_hint:
-            system = f"{system}\n\n{style_hint}"
+        system = await _compose_genre_speech(
+            _chat, writer="factcheck_temporal_verbalizer", base_prompt=base)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": "ВЕРДИКТ (JSON):\n" + json.dumps(

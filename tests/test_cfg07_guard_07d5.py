@@ -559,10 +559,12 @@ class TestFactcheckV2Wiring:
         fs_svc, svc = _make_service()
         _analyst_raw(monkeypatch, svc)
 
-        async def no_owner_block(chat_id):
-            return ""
+        async def fake_compose(**kwargs):
+            # ASAP-FC-VOICE-01 / A (§3): слои владельца приходят из единой
+            # точки сборки; этот тест проверяет только контракт guard'а.
+            return kwargs["base_prompt"], None
 
-        monkeypatch.setattr(fs, "speech_owner_block", no_owner_block)
+        monkeypatch.setattr(fs, "compose_speech_system", fake_compose)
         monkeypatch.setattr(svc, "_finalize_text",
                             lambda *a, **k: "ФИНАЛ")
         await svc._check_claim_two_call(
@@ -581,10 +583,12 @@ class TestFactcheckV2Wiring:
         fs_svc, svc = _make_service()
         _analyst_raw(monkeypatch, svc)
 
-        async def no_owner_block(chat_id):
-            return ""
+        async def fake_compose(**kwargs):
+            # ASAP-FC-VOICE-01 / A (§3): слои владельца приходят из единой
+            # точки сборки; этот тест проверяет только контракт guard'а.
+            return kwargs["base_prompt"], None
 
-        monkeypatch.setattr(fs, "speech_owner_block", no_owner_block)
+        monkeypatch.setattr(fs, "compose_speech_system", fake_compose)
         monkeypatch.setattr(svc, "_finalize_text",
                             lambda *a, **k: "ФИНАЛ")
         await svc._check_claim_two_call(

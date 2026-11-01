@@ -103,20 +103,49 @@ class TestFactcheckPrompt:
         assert "жидко обосрался" in FACTCHECK_SYSTEM_PROMPT
 
     def test_style_markers_from_tz(self):
-        """R33-6: токсичный фактчекер, ленивая печать, запреты маркдауна/тире/ёлочек."""
+        """R33-6: токсичный фактчекер, запреты маркдауна/тире/ёлочек.
+
+        ASAP-FC-VOICE-01 / A (§1 владельца, «что НЕ переносить»): навязанная
+        небрежная орфография («торопливое письмо») снята с активного канона;
+        остальные правила оформления и жанровая роль сохранены.
+        """
         assert "токсичный, ироничный фактчекер" in FACTCHECK_SYSTEM_PROMPT
-        assert "Имитируй торопливое письмо" in FACTCHECK_SYSTEM_PROMPT
+        assert "торопливое письмо" not in FACTCHECK_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in FACTCHECK_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in FACTCHECK_SYSTEM_PROMPT
         assert "сплошной текст с разделением на абзацы" in FACTCHECK_SYSTEM_PROMPT
 
-    def test_round5_casing_and_typography(self):
-        """Раунд 5 (T-737): п.1 «торопливое письмо»; старые формулировки
-        отсутствуют (spec 5.3.4)."""
-        assert ("1. Имитируй торопливое письмо: иногда начинай предложения "
-                "с маленькой буквы. Пиши небрежно." in FACTCHECK_SYSTEM_PROMPT)
+    def test_round5_typewriter_directive_removed_from_active_canon(self):
+        """Раунд 5 (T-737) вводил п.1 «торопливое письмо».
+
+        ASAP-FC-VOICE-01 / A его снимает (владелец: искусственная небрежная
+        орфография не переносится). Прежние байты живут в слепках, поэтому
+        история распознаётся, а активный канон директиву не содержит.
+        Заодно снят приоритет «своей логики» над первоисточником (FCV-P23).
+        """
+        assert "Имитируй торопливое письмо" not in FACTCHECK_SYSTEM_PROMPT
+        assert "иногда начинай предложения с маленькой буквы" not in \
+            FACTCHECK_SYSTEM_PROMPT
+        assert "кругозор важнее" not in FACTCHECK_SYSTEM_PROMPT
+        # ленивая печать (раунд <5) тоже не вернулась
         assert "Имитируй ленивую печать" not in FACTCHECK_SYSTEM_PROMPT
         assert "чередуй заглавные и строчные" not in FACTCHECK_SYSTEM_PROMPT
+        # остальной текст группы правил не переписан: те же четыре правила
+        # дословно, менялась только нумерация (иначе список начинался бы с 2)
+        from services.factcheck_prompts import (
+            _SINGLE_STYLE_GROUP_NO_TYPEWRITER,
+            _SINGLE_STYLE_GROUP_TYPEWRITER,
+        )
+        old_rules = [line.split(". ", 1)[1] for line
+                     in _SINGLE_STYLE_GROUP_TYPEWRITER.splitlines()[1:]]
+        new_rules = [line.split(". ", 1)[1] for line
+                     in _SINGLE_STYLE_GROUP_NO_TYPEWRITER.splitlines()[1:]]
+        assert len(old_rules) == 5 and new_rules == old_rules[1:]
+        assert _SINGLE_STYLE_GROUP_NO_TYPEWRITER in FACTCHECK_SYSTEM_PROMPT
+        assert _SINGLE_STYLE_GROUP_TYPEWRITER not in FACTCHECK_SYSTEM_PROMPT
+        # замена применилась: якорь всё ещё находится в базовом литерале
+        from services.factcheck_prompts import _FACTCHECK_R1021_BASE
+        assert _SINGLE_STYLE_GROUP_TYPEWRITER in _FACTCHECK_R1021_BASE
 
     def test_prev_snapshot_is_before_round5(self):
         """PREV-слепок == HEAD 68fb03e (spec 5.3.2)."""

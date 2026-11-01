@@ -189,14 +189,27 @@ def parse_factcheck_analysis(raw: str) -> dict | None:
             "author": author.strip() if isinstance(author, str) and author.strip() else None,
             "evidence": evidence.strip(),
         })
-    tone_hint = data.get("tone_hint")
     result = {
         "claim": claim.strip(),
         "findings": clean,
         "verdict": verdict.strip(),
     }
-    if isinstance(tone_hint, str) and tone_hint.strip():
-        result["tone_hint"] = tone_hint.strip()
+    # ASAP-FC-VOICE-01 / A (§4 контракта): ДВА необязательных смысловых поля
+    # аналитика в той же JSON-схеме — `inference_gap` (что не следует из
+    # подтверждённых данных) и `counterpoint` (сильнейшее честное
+    # контрпрочтение). Третьей LLM-стадии нет; назад совместимо: нет поля —
+    # нет ключа в результате (пустые значения к Writer'у не едут), старые
+    # persisted-каноны без этих полей валидны. Строка с системными тегами/ID
+    # не проходит контракт изоляции Stage-1 и отбрасывается.
+    #
+    # Мёртвое поле `tone_hint` больше НЕ принимается (UNIFIED-CORE C13 снял
+    # его из схемы, ASAP-FC-VOICE-01 / A убирает остаток из payload): тон
+    # задаёт голос владельца (Core/Expression), а не подсказка машины.
+    for key in ("inference_gap", "counterpoint"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip() \
+                and not contains_system_ids(value):
+            result[key] = value.strip()
     # Поле добавляется последним (порядок F7 — корреляция — пойдёт ПОСЛЕ F3).
     result["response_mode"] = normalize_response_mode(data.get("response_mode"))
     return result

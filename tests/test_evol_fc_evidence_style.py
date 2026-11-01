@@ -239,6 +239,23 @@ def _offline_network():
     object.__setattr__(settings, "TEMPORAL_EVIDENCE_DATE_FETCH_ENABLED", old)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_hot_cache():
+    """Изоляция процесса: живой hot-кеш не протекает в следующие файлы.
+
+    ASAP-FC-VOICE-01 / A: публичная Writer-фаза фактчека собирается через
+    `compose_speech_system`, который читает действующие оси (Core/Expression/
+    Style Policy) реальным резолвером и заполняет hot-слой процесса. Без сброса
+    следующий файл (например, каскад релевантности поиска) видит чужие
+    значения настроек вместо дефолтов — прогон падал на порядке файлов.
+    """
+    from services import hot_config as hot
+
+    hot.set_config_cache(None)
+    yield
+    hot.set_config_cache(None)
+
+
 def _decision(*units: str):
     items = tuple(fsg.ClaimItem(text=u, claim_type=fsg.CHECKABLE_FACTUAL_CLAIM,
                                 verifiable=True, source="literal")
@@ -314,6 +331,22 @@ def _publish(verdict: orch.CheckedVerdict, *, allow_critique: bool = True,
     presentation = orch.build_presentation(verdict, notice=notice)
     return fr.render_factcheck(presentation, verdict,
                                allow_critique=allow_critique).text
+
+
+def _publish_fallback(verdict: orch.CheckedVerdict, *,
+                      allow_critique: bool = True) -> str:
+    """Публикация при ПУСТОМ теле Writer'а.
+
+    ASAP-FC-VOICE-01 / A (§5 контракта): список проверенных утверждений с
+    конкретной причиной пробела возле своего тезиса — FALLBACK проверенных
+    данных, а не обязательный блок, дублирующий авторский текст. Конкретность
+    причины (техсбой/нет источников/недоказанное число) проверяется именно
+    здесь, в серверной части текста.
+    """
+    presentation = orch.build_presentation(verdict)
+    return fr.render_factcheck(
+        dataclasses.replace(presentation, text=""), verdict,
+        allow_critique=allow_critique).text
 
 
 def _hrefs(markup: str) -> list[str]:
@@ -439,7 +472,7 @@ async def test_sc2_four_confirmed_two_concrete_gaps(planner_on):
     assert "технический сбой" in parts["c1"]["gap_note"]
     assert "сумма/число" in parts["c6"]["gap_note"]
 
-    markup = _publish(_checked(run))
+    markup = _publish_fallback(_checked(run))
     visible = fr.visible_text(markup)
     assert "сумма/число" in visible            # конкретная причина в публичном
     assert visible.lower().count("данных недостаточно") <= 2
@@ -565,7 +598,7 @@ async def test_sc6_index_drop_headline_does_not_confirm_market_cap(planner_on):
         "https://markets.example.com/markets-wrap"}
 
     verdict = _verdict_only(outcome)
-    visible = fr.visible_text(_publish(verdict))
+    visible = fr.visible_text(_publish_fallback(verdict))
     assert "сумма/число" in visible
     assert "Индекс" in visible and "капитализации" in visible
 
@@ -606,7 +639,7 @@ async def test_sc7_conflicting_sources_explained(planner_on):
     assert len(cov.evidence) >= 2
     verdict = _verdict_only(outcome)
     verdict = dataclasses.replace(verdict, factual_verdict="mixed")
-    visible = fr.visible_text(_publish(verdict))
+    visible = fr.visible_text(_publish_fallback(verdict))
     assert "расходятся" in visible
 
 
@@ -634,7 +667,7 @@ async def test_sc8_provider_and_deadline_are_technical(planner_on):
 
     verdict = _verdict_only(outcome)
     verdict = dataclasses.replace(verdict, factual_verdict="mixed")
-    markup = _publish(verdict)
+    markup = _publish_fallback(verdict)
     visible = fr.visible_text(markup)
     # Reviewer F3: технические части называются техническим исходом, а не
     # «данных недостаточно» (сбой поиска ≠ отсутствие фактов).
@@ -702,7 +735,9 @@ async def test_sc10_partial_verdict_live_style_within_structure(
 
     # активная директива и стиль-слой доходят до публичного Writer'а
     system = llm.system_of("temporal_verbalize")
-    assert DIRECTIVE in system and HEADING in system
+    assert DIRECTIVE in system
+    # ASAP-FC-VOICE-01 / A (§5): фиксированного заголовка раздела нет
+    assert "начинается строкой ровно так" not in system
     payload = llm.user_of("temporal_verbalize")
     assert "claims" in payload and "658" in payload
 
@@ -710,10 +745,13 @@ async def test_sc10_partial_verdict_live_style_within_structure(
     assert verdict.factual_verdict == "mixed"     # подтверждено + пробел
     markup = _publish(verdict)
     visible = fr.visible_text(markup)
-    # семантический порядок: вывод → разбор → критический разнос → источники
+    # семантический порядок: вывод → разбор → критика вплетена в текст
     assert visible.index("Коротко") < visible.index(HEADING)
-    assert visible.index(HEADING) < visible.index("По утверждениям:")
-    assert "сумма/число" in visible              # конкретный пробел, не шаблон
+    # ASAP-FC-VOICE-01 / A (§5): обязательного списка «По утверждениям» нет —
+    # тот же разбор не дублируется; конкретный пробел публикуется в fallback
+    assert "По утверждениям:" not in visible
+    fallback_visible = fr.visible_text(_publish_fallback(verdict))
+    assert "сумма/число" in fallback_visible     # конкретный пробел, не шаблон
     assert "<b>" in markup                       # структура сохранена
     # доказательства не изменены подачей
     assert set(_hrefs(markup)) <= {r.url for r in verdict.evidence.refs}
@@ -887,7 +925,7 @@ def test_review_f1a_units_must_match_scale(planner_on):
     assert "расходятся" in cov.gap_note
     run, _llm = asyncio_run(_run_service(outcome, units=(unit,)))
     assert run.verdict.factual_verdict != "supported"
-    visible = fr.visible_text(_publish(_checked(run)))
+    visible = fr.visible_text(_publish_fallback(_checked(run)))
     assert "Подтверждается\n" not in visible
     assert "расходятся" in visible
 
@@ -1008,7 +1046,7 @@ async def test_review_f2_diverging_estimates_become_conflicting(planner_on):
     assert cov.status_detail == fsp.CLAIM_STATUS_CONFLICTING
     assert "расходятся" in cov.gap_note
     assert len(cov.evidence) >= 2           # обе оценки не замолчаны
-    visible = fr.visible_text(_publish(_verdict_only(outcome)))
+    visible = fr.visible_text(_publish_fallback(_verdict_only(outcome)))
     assert "расходятся" in visible
 
 
@@ -1034,7 +1072,7 @@ def test_review_f3_technical_failure_not_called_insufficient(planner_on):
     PASS: технический сбой получает технический заголовок и подпись части;
     «данных недостаточно» остаётся только для реального отсутствия данных.
     """
-    markup = _publish(_technical_verdict())
+    markup = _publish_fallback(_technical_verdict())
     visible = fr.visible_text(markup)
     assert "Проверка не завершена: поиск недоступен" in visible
     assert "Недостаточно данных для проверки" not in visible

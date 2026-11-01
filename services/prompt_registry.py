@@ -200,19 +200,35 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # общий. Блок эталона `plans/docs/canon/architecture.md` (Section 72)
     # обновлён теми же байтами (пин сохранён). Прежние байты —
     # PREV_FACTCHECK_SINGLE_PHASE_SCOPE (= прод 2.58.147).
-    "factcheck.base.single": "factcheck-phases-w17",
+    # ASAP-FC-VOICE-01 / A (02.11.2026, §1 владельца, «что НЕ переносить»): из
+    # одиночного канона снята директива «торопливое письмо» (навязанная
+    # небрежная орфография); остальной текст байт-в-байт прежний, менялась
+    # только нумерация оставшихся правил. Эталон Section 72 обновлён теми же
+    # байтами. Прежние байты — PREV_FACTCHECK_SINGLE_VOICE01 (= прод 2.58.148,
+    # d02776dec166).
+    "factcheck.base.single": "factcheck-single-voice01",
     # EVOL W17 (02.11.2026, §6 владельца): канон Аналитика получил правило
     # фаз работы модели (prefill и decode — разные этапы, противоречия между
     # ними нет; сравнение только внутри одной фазы). Прежние байты —
     # PREV_FACTCHECK_ANALYST_PHASE_SCOPE (ступень + откат).
-    "factcheck.base.analyst": "factcheck-analyst-phases-w17",
+    # ASAP-FC-VOICE-01 / A (02.11.2026, §4): в ТОЙ ЖЕ JSON-схеме два
+    # необязательных смысловых поля аналитика (inference_gap, counterpoint) —
+    # третьей стадии нет. Прежние байты — PREV_FACTCHECK_ANALYST_VOICE01
+    # (= прод 2.58.148, 806d6cc6af77).
+    "factcheck.base.analyst": "factcheck-analyst-voice01-semantics",
     # EVOL §5 (W5, 31.10.2026): речевая директива раздела «Критический
     # разнос» — дословный текст владельца, редактируемый заводской промпт
     # (PG-ключ prompts.factcheck_critique_directive).
     "factcheck.critique.directive": "factcheck-critique-w5",
     # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3): identity-фраза снята
     # с активного вербализатора фактчека; жанровые правила сохранены.
-    "factcheck.base.verbalizer": "factcheck-verbalizer-w1",
+    # ASAP-FC-VOICE-01 / A (02.11.2026, §1-2 владельца): восстановлен
+    # исторический аргументативный голос жанра (прямая полемика, разбор
+    # логических разрывов, контраргументы, живые аналогии) и снят шаблон
+    # подачи; стилевой суффикс — вариант блока A без запрета списков; Core/
+    # Expression/Style доставляет единая точка сборки. Прежние байты —
+    # PREV_FACTCHECK_VERBALIZER_VOICE01 (= прод 2.58.148, 42442333d77d).
+    "factcheck.base.verbalizer": "factcheck-voice-historic-01",
     # CFG-07A-2 (20.10.2026): каноны НЕ-фактчек маршрутов вычищены
     # (safety-bypass/identity/hostility; ADR-1013-3) — метки бампнуты.
     "summary.base.single": "summary-cfg07a",
@@ -325,7 +341,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.image_probe": "image-probe-w2a",
     "internal.image_stage": "image-stage-w2a",
     # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита.
-    "temporal.analyst": "temporal-analyst-fc08",
+    "temporal.analyst": "temporal-analyst-voice01-semantics",
     "temporal.validator": "temporal-validator-fc08",
     "temporal.fallback": "temporal-fallback-fc08",
     "memory.fact_retry": "fact-retry-evol006",
@@ -364,13 +380,20 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "verbilizer.mode.default": ("mode-r1024", "c633eb52f63c"),
     # EVOL W17b (02.11.2026): одиночный канон фактчека — то же правило фаз,
     # что у Аналитика (нормативное ядро общее).
-    "factcheck.base.single": ("factcheck-phases-w17", "d02776dec166"),
+    # ASAP-FC-VOICE-01 / A: из канона сняты директива «торопливое письмо» и
+    # приоритет «своей логики» над первоисточником.
+    "factcheck.base.single": ("factcheck-single-voice01", "dcbd765fb860"),
     # EVOL W17 (02.11.2026): правило фаз работы модели в каноне Аналитика.
-    "factcheck.base.analyst": ("factcheck-analyst-phases-w17",
-                               "806d6cc6af77"),
+    # ASAP-FC-VOICE-01 / A: те же байты расширены двумя необязательными
+    # смысловыми полями (inference_gap, counterpoint) — печать обновлена.
+    "factcheck.base.analyst": ("factcheck-analyst-voice01-semantics",
+                               "ed4c7a642804"),
     # EVOL §5 (W5): печать дословной директивы раздела «Критический разнос».
     "factcheck.critique.directive": ("factcheck-critique-w5", "cfcd9009df17"),
-    "factcheck.base.verbalizer": ("factcheck-verbalizer-w1", "42442333d77d"),
+    # ASAP-FC-VOICE-01 / A: канон голоса жанра (историческая манера, подача
+    # без шаблона, честный входной контракт). Печать = sha12 новых байтов.
+    "factcheck.base.verbalizer": ("factcheck-voice-historic-01",
+                                  "45361c23221c"),
     "summary.base.single": ("summary-cfg07a", "e66c40b6acdf"),
     "summary.base.editor": ("summary-editor-r1025-hotfix4", "cbd95e5e2489"),
     "summary.base.narrator": ("summary-narrator-legfix", "497732fb2f71"),
@@ -473,7 +496,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "internal.image_stage": ("image-stage-w2a", "73b63febff17"),
     # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита
     # (приватные имена + скобочные конкатенации без тройных кавычек).
-    "temporal.analyst": ("temporal-analyst-fc08", "cd212371aa22"),
+    "temporal.analyst": ("temporal-analyst-voice01-semantics", "506f9787af4e"),
     "temporal.validator": ("temporal-validator-fc08", "d5418d060fdc"),
     "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
     "memory.fact_retry": ("fact-retry-evol006", "e04f4b32ef63"),
@@ -2746,8 +2769,31 @@ def factory_set_fingerprint() -> str:
 #: owner-тексты не менялись; метка ``l1-planner-two-phase-precedence``, прежние
 #: байты по-прежнему PREV_DIRECT_L1_PLANNER_EVR1 = прод 2.58.147.
 #: Было ``748641ded024``, стало ``f84baaf69559``.
-#: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "f84baaf69559"
+#:
+#: Бампа ASAP-FC-VOICE-01 / A (02.11.2026, §1-4 владельца, §3-5 контракта
+#: Architect): changed = 3.
+#: (1) ``factcheck.base.verbalizer`` — восстановлен исторический
+#: аргументативный голос жанра и адаптивная подача без шаблона (метка
+#: ``factcheck-voice-historic-01``, прежние байты
+#: PREV_FACTCHECK_VERBALIZER_VOICE01 = прод 2.58.148, 42442333d77d).
+#: (2) ``factcheck.base.analyst`` — в ТОЙ ЖЕ JSON-схеме два необязательных
+#: смысловых поля (inference_gap, counterpoint), третьей стадии нет (метка
+#: ``factcheck-analyst-voice01-semantics``, прежние байты
+#: PREV_FACTCHECK_ANALYST_VOICE01 = прод 2.58.148, 806d6cc6af77).
+#: (3) ``temporal.analyst`` — то же расширение схемы на стадии, которая
+#: реально работает в v2-envelope (метка ``temporal-analyst-voice01-semantics``,
+#: прежние байты ступени ``temporal-analyst-fc08``/``cd212371aa22``).
+#: (4) ``factcheck.base.single`` — сняты директива «торопливое письмо»
+#: (навязанная небрежная орфография) и приоритет «своей логики» над
+#: первоисточником (§1 владельца, FCV-P23); остальной текст байт-в-байт прежний,
+#: эталон Section 72 обновлён теми же байтами (метка
+#: ``factcheck-single-voice01``, прежние байты
+#: PREV_FACTCHECK_SINGLE_VOICE01 = прод 2.58.148, d02776dec166).
+#: Тексты владельца (Core, Expression, Style), Direct и фоновые каноны,
+#: ``factcheck.critique.directive`` не менялись.
+#: Было ``f84baaf69559``, стало ``033670411c73`` (срез 1), затем
+#: ``68c915718b7d`` (срез 2: одиночный канон).
+FACTORY_SET_SHA256_12 = "68c915718b7d"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

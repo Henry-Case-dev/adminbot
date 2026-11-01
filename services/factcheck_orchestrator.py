@@ -322,17 +322,32 @@ _SHORT_REPLY_INSTRUCTION = (
 async def persona_short_reply(service, chat_id: int, *, instruction: str,
                               situation: str,
                               fallback_phrases: tuple[str, ...]) -> str:
-    """Короткий ответ в образе: канон-инструкция + `speech_owner_block`
-    ПОСЛЕДНИМ блоком (тот же шов, что Вербализатор Stage-2). Любой сбой →
-    готовая фраза из пула (никогда не бросает)."""
-    from services.prompt_composer import speech_owner_block
-    system = str(instruction or "").strip()
+    """Короткий ответ в образе: канон-инструкция + слои владельца.
+
+    ASAP-FC-VOICE-01 / A (§3 контракта): это четвёртая точка сборки речевого
+    system фактчека. Слои владельца (Core/Expression/примеры/Style) приходят
+    из ТОЙ ЖЕ единственной точки, что у одиночного, двухвызовного и
+    временного маршрутов, - второй сборки ``speech_owner_block`` больше нет,
+    поэтому двойной инъекции не бывает и байты owner-блока совпадают.
+
+    Любой сбой → готовая фраза из пула (никогда не бросает).
+    """
+    from services.prompt_composer import compose_speech_system
+    base = str(instruction or "").strip()
+    system = base
     try:
-        owner_block = await speech_owner_block(chat_id)
-    except Exception:
-        owner_block = ""
-    if owner_block:
-        system = f"{system}\n\n{owner_block}"       # character_block — last
+        composed, _manifest = await compose_speech_system(
+            chat_id=chat_id, writer="factcheck_short_reply",
+            base_prompt=base, base_source="code", profile="speech_plain",
+            channel="plain", html_safe=False, include_mode_block=False,
+            identity_text="", identity_skipped="duplicate_of_persona",
+            plan_skip="no_l1_plan_in_genre",
+            humor_skip="genre_argued_analysis", include_speech_base=True)
+        if composed:
+            system = composed
+    except Exception:          # pragma: no cover — реплика не рвёт доставку
+        logger.warning("[factcheck_v2] short reply compose failed — база "
+                       "без слоёв владельца", exc_info=True)
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": str(situation or "").strip()},

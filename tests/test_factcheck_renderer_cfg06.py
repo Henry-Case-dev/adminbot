@@ -104,9 +104,10 @@ class TestRenderStructure:
         for i in range(1, 8):
             assert f"Предложение номер {i}." in p.text
 
-    def test_part_bindings_still_bulleted(self):
-        """FC-RENDER сохранён: разбор ключевых утверждений со ссылками
-        остаётся структурированным списком (привязка источников)."""
+    def test_part_bindings_are_fallback_only(self):
+        """ASAP-FC-VOICE-01 / A (§5): разбор утверждений со ссылками —
+        FALLBACK проверенных данных. При содержательном теле Writer'а список
+        не дублирует уже сказанное, а при пустом теле — выходит целиком."""
         v = _verdict()
         v = orch.CheckedVerdict(
             verdict_text=v.verdict_text, route="envelope_temporal",
@@ -115,9 +116,14 @@ class TestRenderStructure:
             parts=({"part_id": "p1", "text": "Число линий не сходится",
                     "factual_verdict": "refuted",
                     "evidence_refs": ["ev-1"]},))
-        p = fr.render_factcheck(_presentation(text="Вывод один.", links=()), v)
-        assert "По утверждениям:" in p.text
-        assert "• Число линий не сходится — не подтверждается:" in p.text
+        with_body = fr.render_factcheck(
+            _presentation(text="Вывод один.", links=()), v)
+        assert "По утверждениям:" not in with_body.text
+        # вырожденное (пустое) тело → проверенные данные публикуются
+        fallback = fr.render_factcheck(_presentation(text="  ", links=()), v)
+        assert "По утверждениям:" in fallback.text
+        assert "• Число линий не сходится — не подтверждается:" \
+            in fallback.text
 
     def test_insufficient_evidence_headline(self):
         v = _verdict(factual="insufficient_evidence", with_evidence=False)
@@ -453,38 +459,50 @@ class TestStyleNoteLeakGone:
             "чем следует из данных")
 
     @pytest.mark.asyncio
-    async def test_owner_block_last_system_seam(self, monkeypatch):
+    async def test_single_composition_point_gets_owner_layers(self, monkeypatch):
+        """ASAP-FC-VOICE-01 / A (§3): владелец речевых слоёв вызывается
+        ЕДИНОЙ точкой сборки с параметрами публикации фактчека, и его вывод
+        становится system (ручной склейки ``speech_owner_block`` нет)."""
         cap = _capture_verbalize(monkeypatch)
         seen = {}
 
-        async def fake_owner(chat_id):
-            seen["chat_id"] = chat_id
-            return "[PERSONA]"
+        async def fake_compose(**kwargs):
+            seen.update(kwargs)
+            return kwargs["base_prompt"] + "\n\n[PERSONA]", None
 
-        monkeypatch.setattr(fs, "speech_owner_block", fake_owner)
+        monkeypatch.setattr(fs, "compose_speech_system", fake_compose)
         svc = _make_service()
         await svc._temporal_verbalize(_env(), _temporal_verdict(), False,
                                       None)
         assert seen["chat_id"] == 777      # характер по настройкам владельца
+        assert seen["writer"] == "factcheck_temporal_verbalizer"
+        assert seen["profile"] == "speech_plain"
+        assert seen["channel"] == "plain"
+        assert seen["include_mode_block"] is False
+        assert seen["plan_skip"] == "no_l1_plan_in_genre"
+        assert seen["humor_skip"] == "genre_argued_analysis"
+        assert seen["identity_skipped"] == "duplicate_of_persona"
+        assert seen["include_speech_base"] is True
         system = cap.messages[0]["content"]
-        assert system.endswith("[PERSONA]")   # character_block — последний
+        assert system.endswith("[PERSONA]")
 
     @pytest.mark.asyncio
-    async def test_owner_block_empty_is_byte_parity(self, monkeypatch):
+    async def test_compose_failure_keeps_genre_canon(self, monkeypatch):
+        """Сбой сборки слоёв не оставляет Writer без жанрового канона: база
+        уходит как есть, без выдуманного «пустого» system."""
         cap = _capture_verbalize(monkeypatch)
-        monkeypatch.setattr(fs, "speech_owner_block",
-                            _empty_owner)
+
+        async def fake_compose(**kwargs):
+            return kwargs["base_prompt"], None
+
+        monkeypatch.setattr(fs, "compose_speech_system", fake_compose)
         svc = _make_service()
         await svc._temporal_verbalize(_env(), _temporal_verdict(), False,
                                       None)
-        system_without = cap.messages[0]["content"]
-        assert system_without.strip()
-        # тот же прогон с непустым блоком → канон + "\n\n" + блок
-        cap2 = _capture_verbalize(monkeypatch)
-        monkeypatch.setattr(fs, "speech_owner_block", _persona_owner)
-        await svc._temporal_verbalize(_env(), _temporal_verdict(), False,
-                                      None)
-        assert cap2.messages[0]["content"] == system_without + "\n\n[PERSONA]"
+        system = cap.messages[0]["content"]
+        assert system.strip()
+        assert "СИСТЕМНАЯ РОЛЬ:" in system
+        assert "[PERSONA]" not in system
 
 
 async def _empty_owner(chat_id):

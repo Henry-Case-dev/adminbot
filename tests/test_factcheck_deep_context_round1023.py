@@ -630,8 +630,12 @@ class TestWebSearchPrompt:
         # веб-поиска в нём СОХРАНЕНО; стек ступеней цел).
         # EVOL W17 (02.11.2026): первая обратная ступень снимает ТОЛЬКО правило
         # фаз работы модели (prefill/decode) → байты прода 2.58.147.
+        # ASAP-FC-VOICE-01 / A (02.11.2026): новая верхняя ступень снимает
+        # только два смысловых поля → байты прода 2.58.148.
         assert pm.ROLLBACK_MIGRATIONS[key] == [(
             FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            pm.PREV_FACTCHECK_ANALYST_VOICE01), (
+            pm.PREV_FACTCHECK_ANALYST_VOICE01,
             pm.PREV_FACTCHECK_ANALYST_PHASE_SCOPE), (
             pm.PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
             pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]

@@ -395,8 +395,10 @@ class TestRoutes:
         llm = FakeLLM(reply="какой именно тезис проверяем?")
         svc = FakeService(llm=llm)
         import services.prompt_composer as pc
-        monkeypatch.setattr(pc, "speech_owner_block",
-                            _fake_owner_block)
+        # ASAP-FC-VOICE-01 / A (§3): слои владельца (включая персону) приходят
+        # из ЕДИНОЙ точки сборки — подменяем именно её, а не speech_owner_block.
+        monkeypatch.setattr(pc, "compose_speech_system",
+                            _fake_compose_with_persona)
         bot = FakeBot()
         await orch.run_factcheck(
             orch.FactcheckRequest(chat_id=CHAT_ID,
@@ -411,8 +413,9 @@ class TestRoutes:
         assert "какой именно тезис" in bot.sent[0]["text"]
 
 
-async def _fake_owner_block(chat_id):
-    return "[PERSONA]"
+async def _fake_compose_with_persona(**kwargs):
+    """Единая точка сборки: канон + блок владельца последним (шов MCA-08)."""
+    return kwargs["base_prompt"] + "\n\n[PERSONA]", None
 
 
 def _two_disputes():

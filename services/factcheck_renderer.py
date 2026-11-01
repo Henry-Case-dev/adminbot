@@ -48,7 +48,6 @@ from services.factcheck_orchestrator import (
 )
 from services.factcheck_prompts import (
     CRITIQUE_POLICY_FORBIDDEN,
-    FACTCHECK_CRITIQUE_HEADING,
     critique_policy_for_verdict,
 )
 from services.smartmodule_utils import _CHUNK_LIMIT, send_chunked_reply
@@ -130,10 +129,10 @@ _TECHNICAL_STATUS_HEADLINE = {
 }
 
 #: §3.1/§4 (ASAP-FC-EVIDENCE-STYLE-02): показываются ВСЕ проверенные части
-#: составной новости (до 8 — предел серверной декомпозиции). Прежний предел 4
-#: обрезал разбор: «6 тезисов → 4 в ответе», и часть пробелов исчезала.
-_MAX_BOUND_PARTS = 8
-_PART_TEXT_MAX_CHARS = 110
+#: составной новости. ASAP-FC-VOICE-01 / A (§5 контракта): предел числа
+#: частей снят — список частей стал fallback-публикацией проверенных данных
+#: (тело Writer'а пустое), и молчаливая потеря тезисов там недопустима.
+_PART_TEXT_MAX_CHARS = 120
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _URL_SAFE_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
@@ -210,13 +209,17 @@ def split_critique_section(text: str) -> tuple[str, str]:
 
 def critique_publishable(verdict: CheckedVerdict | None, *,
                          allow_critique: bool = True) -> bool:
-    """Детерминированный gate раздела: доказанный разгром или ничего.
+    """Детерминированный gate жанровой директивы критики (промпт, не текст).
 
-    SEMANTIC GUARD §5.1/§5.2 (сервер, не пожелание модели): раздел
-    публикуется только когда прогон УЖЕ установил ошибку/подмену, есть
-    доказательства и настройка «Критический разнос» включена. Полностью
-    подтверждённый тезис, неполные данные, технический сбой поиска и
-    fallback → ``False`` (выдуманное опровержение запрещено).
+    SEMANTIC GUARD §5.1/§5.2 (сервер, не пожелание модели): директива
+    критики попадает в промпт только когда прогон УЖЕ установил ошибку/
+    подмену, есть доказательства и настройка «Критический разнос» включена.
+
+    ASAP-FC-VOICE-01 / A (§5 контракта): этот предикат больше не управляет
+    ФОРМОЙ публикации (renderer не создает и не режет раздел) — он остался
+    серверной проверкой «есть ли установленная ошибка», пригодной для
+    диагностики и для будущих швов. Рабочий гейт промпта — политика
+    ``factcheck_prompts.critique_policy_for_*``.
     """
     if not allow_critique or verdict is None:
         return False
@@ -280,8 +283,15 @@ def _content(presentation: FactcheckPresentation,
 
 
 def _trim(text: str, limit: int = _PART_TEXT_MAX_CHARS) -> str:
+    """Схлопнуть пробелы и обрезать по лимиту (ТОЛЬКО служебные пометки).
+
+    ASAP-FC-VOICE-01 / A (§5 контракта): обрезка осталась только для
+    ``gap_note`` (служебная причина пробела, 120 символов). Авторские
+    формулировки тезисов больше не режутся: ``_trim`` вызывается для частей
+    с явным лимитом ``None``.
+    """
     cleaned = " ".join(str(text or "").split())
-    if len(cleaned) <= limit:
+    if limit is None or len(cleaned) <= limit:
         return cleaned
     return cleaned[:limit - 1].rstrip() + "…"
 
@@ -338,15 +348,20 @@ def _part_bindings(verdict: CheckedVerdict | None) -> list:
 
     ASAP-FC-EVIDENCE-STYLE-02 §4: ``gap`` — КОНКРЕТНАЯ причина пробела из
     retrieval-слоя (техсбой/нет источников/недоказанное число), чтобы
-    публичная фраза отличала их друг от друга."""
+    публичная фраза отличала их друг от друга.
+
+    ASAP-FC-VOICE-01 / A (§5): предела числа частей больше нет — список
+    публикуется только как fallback проверенных данных, когда тела Writer'а
+    фактически нет, и терять в нём тезисы нельзя.
+    """
     if verdict is None:
         return []
     refs = _refs_by_id(verdict)
     out = []
     seen_texts: set[str] = set()
     for part in (verdict.parts or ()):
-        if not isinstance(part, dict) or len(out) >= _MAX_BOUND_PARTS:
-            break
+        if not isinstance(part, dict):
+            continue
         text = str(part.get("text") or "").strip()
         if not text:
             continue
@@ -399,28 +414,31 @@ def _serialize(presentation: FactcheckPresentation,
     if headline:
         headline = str(headline)
         blocks.append(f"<b>{esc(headline)}</b>" if html_mode else headline)
-    # EVOL §5 (W5): отдельный раздел «Критический разнос» — свой блок, ДО
-    # разбора/источников (ссылки в него не попадают). Публикуется только при
-    # доказанной ошибке прогона и включённой настройке (critique_publishable).
-    body, critique = split_critique_section(body)
-    if critique and not critique_publishable(verdict,
-                                             allow_critique=allow_critique):
-        logger.info("[factcheck_v2] critique section withheld | "
-                    "reason=not_established_or_disabled")
-        critique = ""
+    # ASAP-FC-VOICE-01 / A (§5 контракта): шаблонный раздел «Критический
+    # разнос» как ФОРМАТ снят — renderer больше не вырезает критику из текста и
+    # не печатает её жирным заголовком. Директива владельца действует в
+    # промпте (``resolve_critique_section`` + политика), а готовый текст
+    # публикуется как автор написал.
+    #
+    # ``allow_critique=False`` (настройка чата OFF) сохраняет детерминированную
+    # гарантию: прежний формат узнается и вычищается, чтобы выключенная
+    # настройка не оставляла в публикации «лишний раздел».
+    body_text = str(body or "").strip()
+    legacy_section = ""
+    if not allow_critique:
+        without_legacy, legacy_section = split_critique_section(body_text)
+        if legacy_section:
+            body_text = without_legacy.strip()
     # P0-FACTCHECK-CORRECTIVE (§7.4): обязательная композиция снята — тело
-    # вербализатора (его собственная структура и длина) проходит как есть;
-    # принудительный список «2–4 пункта» больше не создаётся. Разбор
-    # ключевых утверждений и привязка реальных источников сохранены.
-    if body.strip():
-        blocks.append(esc(body.strip()))
-    if critique:
-        title = f"<b>{esc(FACTCHECK_CRITIQUE_HEADING)}</b>" if html_mode \
-            else FACTCHECK_CRITIQUE_HEADING
-        blocks.append(f"{title}\n{esc(critique)}")
-    # FC-RENDER: разбор ключевых утверждений с цитатами при каждом тезисе +
-    # роль каждого источника. Без вердикта (legacy plain) — прежний список.
-    bindings = _part_bindings(verdict)
+    # вербализатора (его собственная структура и длина) проходит как есть.
+    if body_text:
+        blocks.append(esc(body_text))
+    # ASAP-FC-VOICE-01 / A (§5): список проверенных утверждений стал FALLBACK
+    # публикацией — он выходит, только когда содержательного тела Writer'а
+    # фактически нет (пустое/вырожденное тело). Так проверенный вердикт,
+    # покрытие тезисов и валидированные ссылки не теряются на сбое речевой
+    # фазы, но и не дублируют сказанное в обычном ответе.
+    bindings = [] if body_text else _part_bindings(verdict)
     if bindings:
         lines: list[str] = []
         for text, part_verdict, part_refs, gap_note, status_detail in bindings:
@@ -440,32 +458,28 @@ def _serialize(presentation: FactcheckPresentation,
                 else:
                     cites.append(f"{ref.url}{suffix}")
             cites_text = ", ".join(cites)
-            trimmed = _trim(text)
+            # §5: авторская формулировка тезиса не обрезается (лимит None).
+            trimmed = _trim(text, None)
             label_part = f" — {esc(label)}" if (label and html_mode) else \
                 (f" — {label}" if label else "")
             # §4: конкретная причина пробела (техсбой/нет источников/
             # недоказанное число) — рядом со СВОИМ утверждением; при
             # технической подписи тот же смысл второй раз не повторяется.
-            gap = _trim(gap_note, 120) if gap_note else ""
+            gap = _trim(gap_note, _PART_TEXT_MAX_CHARS) if gap_note else ""
             if status_detail in _TECHNICAL_PART_LABELS and gap:
                 gap = ""
             gap_part = (f" ({esc(gap)})" if html_mode else f" ({gap})") \
                 if gap else ""
-            body_text = esc(trimmed) if html_mode else trimmed
+            body_line = esc(trimmed) if html_mode else trimmed
             if cites_text:
-                line = f"{body_text}{label_part}{gap_part}: {cites_text}"
+                line = f"{body_line}{label_part}{gap_part}: {cites_text}"
             else:
                 # P0-FACTCHECK: часть без источника остаётся видимой и
                 # честно помечена (не «факт без ссылки» и не выброшена).
-                line = (f"{body_text}{label_part}{gap_part} "
+                line = (f"{body_line}{label_part}{gap_part} "
                         f"(проверяемой ссылки нет)")
             lines.append("• " + line)
-        # Reviewer nonblocking: части сверх лимита разбора не исчезают молча.
-        total_parts = len([p for p in (verdict.parts or ())
-                           if isinstance(p, dict) and str(p.get("text") or "")])
-        hidden = max(0, total_parts - len(bindings))
-        if hidden:
-            lines.append(f"…и ещё {hidden}: не показаны (лимит разбора)")
+        # §5: «…и ещё N: не показаны» удалено — тезисы не теряются молча.
         blocks.append("По утверждениям:\n" + "\n".join(lines))
     bound_urls = {ref.url for _t, _v, refs, _g, _s in bindings for ref in refs}
     rows = _sources_rows(verdict, links, bound_urls=bound_urls,
@@ -474,7 +488,7 @@ def _serialize(presentation: FactcheckPresentation,
         blocks.append("Источники:\n" + "\n".join(rows))
     if notice:
         blocks.append(f"<i>{esc(notice)}</i>" if html_mode else notice)
-    return "\n\n".join(blocks) if blocks else esc(body.strip())
+    return "\n\n".join(blocks) if blocks else esc(body_text)
 
 
 # ── Публичный API ────────────────────────────────────────────────────────────
@@ -485,8 +499,12 @@ def render_factcheck(presentation: FactcheckPresentation,
                      ) -> FactcheckPresentation:
     """Детерминированный рендер → НОВАЯ FactcheckPresentation (frozen) с
     ``parse_mode="HTML"``. Структура добавляется, факты не меняются.
-    ``allow_critique`` — настройка «Критический разнос» этого чата (default
-    ``True``: политика раздела всё равно проверяется по вердикту).
+
+    ``allow_critique`` — настройка «Критический разнос» этого чата: она
+    больше НЕ форматирует раздел (ASAP-FC-VOICE-01 / A §5); при ``False``
+    прежний формат узнаётся и вычищается, чтобы выключенная настройка не
+    оставляла в публикации лишний раздел.
+
     Любой сбой → та же презентация без parse_mode (plain-паритет)."""
     try:
         text = _serialize(presentation, verdict, html_mode=True,
