@@ -1034,13 +1034,54 @@ def build_reuse_evidence_pack(records, plan=None, *,
         return EvidencePack()
 
 
+#: Инструменты, чьи источники ПРОЧИТАНЫ извне (§3.3/§3.4). Reuse засчитывается
+#: только за них: история чата/лор/память не подтверждают ВНЕШНИЙ claim, иначе
+#: пересказ разговора продлевал бы «проверенность» факта без источника.
+EXTERNAL_EVIDENCE_TOOLS: tuple[str, ...] = ("execute_web_search",
+                                           "fetch_article")
+
+
+def _token_in_text(token: str, body: str, *, letters: bool = True) -> bool:
+    """Матч токена ПО ГРАНИЦАМ, а не подстрокой.
+
+    Review-fix 5 (reviewer, п.10): `4.1` подтверждался текстом про `4.10`, а
+    дата `1 октября` — текстом `11 октября`. Совпадение префикса/цифры рядом
+    превращало чужую выдержку в «verified».
+
+    ``letters=True`` (сущность) — сосед не должен быть буквенно-цифровым:
+    «release» не подтверждается «released».
+    ``letters=False`` (версия/дата/метрика) — запрещён только сосед-ЦИФРА:
+    версия `4.1` законно стоит внутри сущности `deepseek v4.1 flash`
+    (сосед «v»), но не является частью `4.10`. Никогда не бросает."""
+    try:
+        if not token:
+            return False
+
+        def _blocked(ch: str) -> bool:
+            return bool(ch) and (ch.isalnum() if letters else ch.isdigit())
+
+        pos = body.find(token)
+        while pos != -1:
+            end = pos + len(token)
+            before = body[pos - 1] if pos > 0 else ""
+            after = body[end] if end < len(body) else ""
+            if not (_blocked(before) or _blocked(after)):
+                return True
+            pos = body.find(token, pos + 1)
+        return False
+    except (TypeError, ValueError):      # pragma: no cover - защитная ветка
+        return False
+
+
 def delivered_chars_by_claim(pack, claims) -> dict:
     """claim_key → сколько символов источника реально доставлено Writer'у.
 
     ``source_fetched ≠ delivered`` (§3.4): reuse засчитывается только за
     выдержку, которая физически доехала в пакет. Привязка — по claim'у, а не
     «пакет целиком»: сущность И названные версия/дата/метрика обязаны быть в
-    тексте источника, иначе выдержка про 4.1 не подтверждает claim про 4.2."""
+    тексте источника, иначе выдержка про 4.1 не подтверждает claim про 4.2.
+    Совпадение — по границам токена (:func:`_token_in_text`) и только по
+    внешним источникам (:data:`EXTERNAL_EVIDENCE_TOOLS`)."""
     out: dict = {}
     try:
         sources = list(getattr(pack, "sources", None) or ())
@@ -1049,17 +1090,21 @@ def delivered_chars_by_claim(pack, claims) -> dict:
             key = claim.key() if callable(getattr(claim, "key", None)) else ""
             if not entity or not key:
                 continue
-            tokens = [entity]
+            tokens = [(entity, True)]
             for name in ("version", "date", "metric"):
                 token = str(getattr(claim, name, "") or "").strip().lower()
                 if token:
-                    tokens.append(token)
+                    tokens.append((token, False))
             chars = 0
             for src in sources:
                 if not getattr(src, "delivered_chars", 0):
                     continue
+                if str(getattr(src, "tool", "") or "") \
+                        not in EXTERNAL_EVIDENCE_TOOLS:
+                    continue
                 body = str(getattr(src, "content", "") or "").lower()
-                if all(token in body for token in tokens):
+                if all(_token_in_text(token, body, letters=entity_rule)
+                       for token, entity_rule in tokens):
                     chars += int(getattr(src, "delivered_chars", 0))
             if chars > 0:
                 out[key] = chars
@@ -1069,7 +1114,8 @@ def delivered_chars_by_claim(pack, claims) -> dict:
 
 
 def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
-                        min_per_source: int = EVIDENCE_FLOOR_CHARS
+                        min_per_source: int = EVIDENCE_FLOOR_CHARS,
+                        prepend_sources=()
                         ) -> EvidencePack:
     """Fair-allocation evidence pack (§18C.2):
       * per-source резервирование (равные доли + возврат излишка);
@@ -1079,10 +1125,16 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
       * ``tool succeeded`` ≠ ``delivered``: источник со статусом ok, не
         поместившийся в пакет, помечен limitation'ом;
       * capacity адаптируется к окну L2 (capacity_chars от вызывающего).
+
+    ASAP-EVIDENCE-ROUTING-01 v3 (review-fix 5, §3.4): ``prepend_sources`` —
+    источники, уже прочитанные и доставленные РАНЬШЕ (reuse-выдержка). Они
+    входят в тот же пакет рядом с находками инструментов этого хода, поэтому
+    fair allocation/truncation и ``delivered_chars`` считаются один раз на
+    общий бюджет (иначе reuse-выдержка вытесняла бы историю чата и наоборот).
     Никогда не бросает."""
     try:
         from services.system2_handoff import redact_secrets
-        sources: list[EvidenceSource] = list(
+        sources: list[EvidenceSource] = list(prepend_sources or ()) + list(
             getattr(raw, "evidence_sources", None) or [])
         if not sources:
             # Совместимость: plain ToolLoopResult без per-source данных.

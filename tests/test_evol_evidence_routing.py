@@ -18,6 +18,7 @@ from __future__ import annotations
 import ast
 import json
 import pathlib
+import time
 
 import pytest
 
@@ -29,7 +30,7 @@ from services import evidence_policy as ep
 from services import hot_config as hot
 from services import mca_events
 from services import source_reuse
-from services.tool_router import ToolContext
+from services.tool_router import ToolContext, ToolDeps, ToolRouter
 from tests.test_asap8_v6_wc_direct_d04 import _Router
 
 CHAT = -1001234567890
@@ -1303,16 +1304,73 @@ def _seed_reuse(claim, *, snippet="deepseek v4.1 flash: релиз 1 октяб�
     assert source_reuse.record_delivery(claim, delivered) is True
 
 
+class _NetSearchSpy:
+    """Сетевой поиск — РЕАЛЬНАЯ граница сети: любой вызов ломает reuse-ход."""
+
+    def __init__(self):
+        self.calls: list = []
+
+    async def search(self, query, **kw):
+        self.calls.append((query, kw))
+        return "СЕТЬ: на reuse-ходе вызовов быть не должно"
+
+
+class _NetExtractorSpy:
+    """Извлечение статьи — вторая сетевая граница того же класса."""
+
+    def __init__(self):
+        self.calls: list = []
+
+    async def extract(self, url, **kw):
+        self.calls.append((url, kw))
+        return "СЕТЬ: извлечение страницы на reuse-ходе невозможно"
+
+
+class _HistoryMemory:
+    """Память чата: FTS-выборка для `get_recent_history` (путь B)."""
+
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.long_term_calls: list = []
+
+    async def search_long_term(self, chat_id, words, limit=50):
+        self.long_term_calls.append((chat_id, tuple(words), limit))
+        return list(self.rows)
+
+
+def _history_row(text: str, *, ts=None, user_id=10, author="Вася"):
+    return {"user_id": user_id, "author_name": author, "text": text,
+            "timestamp": int(ts if ts is not None else time.time()),
+            "media_type": "text", "reply_to_message_id": None}
+
+
+def _spy_router(router):
+    """Обёртка dispatch реального роутера: вызванные tools."""
+    called: list = []
+    original = router.dispatch
+
+    async def _dispatch(name, arguments, ctx):
+        called.append(name)
+        return await original(name, arguments, ctx)
+
+    router.dispatch = _dispatch
+    return called
+
+
 @pytest.mark.asyncio
 async def test_wave3_direct_reuse_two_turns_second_is_network_free(monkeypatch):
-    """Сценарий 30 на живом шве: 2-й ход того же claim — reuse, 0 вызовов.
+    """Сценарий 30 на живом шве: 2-й ход того же claim — reuse, 0 сети.
 
-    Волна 1 объявляла `verified_reuse` в политике, но никто не заполнял
-    `SuppliedSources.verified_reuse` и не отдавал выученную выдержку Writer'у.
-    Здесь проверяется весь путь: preflight → решение reuse → пакет из уже
-    прочитанного источника → запись факта доставки. Сети нет ни на одном шаге.
+    Review-fix 5 (reviewer): прежняя проверка «`router.dispatched` пуст» была
+    тавтологией — тест не доходил до tool-фазы. Теперь ход доводится до неё:
+    реальный `ToolRouter`, а сеть считается НА ГРАНИЦЕ сети (агрегатор и
+    extractor). На reuse-ходе обязаны быть нули по обоим счётчикам.
     """
-    router = _Router(outputs={"execute_web_search": "что-то из сети"})
+    search = _NetSearchSpy()
+    extractor = _NetExtractorSpy()
+    memory = _HistoryMemory([_history_row("обсуждали релиз 1017")])
+    router = ToolRouter(ToolDeps(search=search, memory=memory,
+                                 extractor=extractor))
     svc = _service(router)
     monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
     plan = _reuse_plan("4.1")
@@ -1333,12 +1391,203 @@ async def test_wave3_direct_reuse_two_turns_second_is_network_free(monkeypatch):
     assert "deepseek v4.1 flash" in pack.text
     assert "reuse: " in pack.text
     assert any(src.delivered_chars > 0 for src in pack.sources)
-    # Пакет собран из кеша: сетевых вызовов на этом ходе нет.
-    assert router.dispatched == []
+
+    called = _spy_router(router)
+    ctx = ToolContext(CHAT, "что нового в deepseek v4.1 flash")
+    ctx.claim_keys = list(second.claims)
+    ctx.evidence_budget_chars = 4000
+    schemas, _rejected = await svc._l1_tool_subset(
+        CHAT, "run-w3b", False, False, plan, decision=second)
+    names = {t["function"]["name"] for t in schemas}
+    assert "execute_web_search" not in names
+    assert "fetch_article" not in names
+    await svc._l1_tool_phase(
+        None, ctx, query=ctx.query, lore_enabled=False, image_enabled=False,
+        temperature=0.5, chat_id=CHAT, correlation_id="run-w3b",
+        l1_plan=plan, response_plan=None, fallback_meta={}, time_line="",
+        tool_schemas=schemas, required_caps=())
+    # Сеть: ни одного вызова на обеих реальных границах.
+    assert search.calls == []
+    assert extractor.calls == []
+    assert not (set(called) & {"execute_web_search", "fetch_article"})
 
     before = source_reuse.stats()["delivered"]
     svc._record_evidence_delivery(second, pack, chat_id=CHAT)
     assert source_reuse.stats()["delivered"] > before
+
+
+@pytest.mark.asyncio
+async def test_wave3_reuse_turn_still_runs_nonnetwork_tools(monkeypatch):
+    """Review-fix 5 (BLOCKER-1): reuse отменяет СЕТЬ, а не tool-фазу.
+
+    Сценарий владельца: «правда ли X, и что мы про это говорили». Claim X уже
+    прочитан и доставлен (reuse), но план просит и историю чата. Раньше ход
+    ставил `raw = None` — история не исполнялась, и Writer выдумывал разговор.
+    Здесь тот же порядок шагов, что в `_handle_turn`: preflight → claim-keys и
+    бюджет в `ToolContext` → subset схем → tool-фаза → пакет.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    search = _NetSearchSpy()
+    extractor = _NetExtractorSpy()
+    memory = _HistoryMemory([_history_row("говорили про deepseek v4.1 flash")])
+    router = ToolRouter(ToolDeps(search=search, memory=memory,
+                                 extractor=extractor))
+    svc = _service(router)
+    plan = _plan(response_act="answer",
+                 capabilities_needed=["web_search", "chat_history"],
+                 external_claims=[{"entity": "deepseek v4.1 flash",
+                                   "relation": "version", "version": "4.1"}])
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+
+    decision = await svc._evidence_preflight(
+        CHAT, "run-w3f",
+        query="что нового в deepseek v4.1 flash и что мы про это говорили",
+        reply_text="", l1_plan=plan, response_plan=None)
+    assert decision.skip_reason is \
+        ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE
+
+    ctx = ToolContext(
+        CHAT, "что нового в deepseek v4.1 flash и что мы про это говорили")
+    # Те же два присваивания, что в _handle_turn ДО tool-фазы.
+    ctx.claim_keys = list(decision.claims)
+    ctx.evidence_budget_chars = 4000
+    reuse_pack = svc._evidence_reuse_pack(
+        decision, l1_plan=plan, response_plan=None, chat_id=CHAT,
+        capacity_chars=ctx.evidence_budget_chars)
+    assert reuse_pack is not None
+
+    called = _spy_router(router)
+    schemas, _rejected = await svc._l1_tool_subset(
+        CHAT, "run-w3f", False, False, plan, decision=decision)
+    raw = await svc._l1_tool_phase(
+        None, ctx, query=ctx.query, lore_enabled=False, image_enabled=False,
+        temperature=0.5, chat_id=CHAT, correlation_id="run-w3f",
+        l1_plan=plan, response_plan=None, fallback_meta={}, time_line="",
+        tool_schemas=schemas,
+        required_caps=tuple(decision.required_caps or ()))
+
+    # Не-сетевой инструмент РЕАЛЬНО исполнен (это и было сломано).
+    assert "get_recent_history" in called
+    assert isinstance(raw, dx.ToolLoopResult)
+    assert memory.long_term_calls, "история чата обязана быть прочитана"
+    # Сеть — ноль на обеих реальных границах.
+    assert search.calls == []
+    assert extractor.calls == []
+    assert not (set(called) & {"execute_web_search", "fetch_article"})
+
+    pack = dx.build_evidence_pack(
+        raw, None, capacity_chars=4000,
+        prepend_sources=list(reuse_pack.sources))
+    tools_in_pack = [src.tool for src in pack.sources]
+    assert "get_recent_history" in tools_in_pack
+    assert "reuse: " in pack.text, "внешняя выдержка обязана остаться в пакете"
+    assert "говорили про deepseek v4.1 flash" in pack.text
+
+    # Доставка засчитывается по внешнему источнику; история чата — не proof.
+    before = source_reuse.stats()["delivered"]
+    svc._record_evidence_delivery(decision, pack, chat_id=CHAT)
+    assert source_reuse.stats()["delivered"] > before
+
+
+def test_wave3_chat_history_is_not_proof_for_external_claim():
+    """Review-fix 5: пересказ чата не продлевает «проверенность» claim'а.
+
+    Пакет merge'ит reuse-выдержку и историю чата. Если зачёт считать по любому
+    источнику, фраза «мы говорили про deepseek v4.1 flash» (та же сущность и
+    версия) подтверждала бы внешний факт без источника — reuse жил бы вечно.
+    """
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    external = dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="deepseek v4.1 flash: релиз 1 октября", delivered_chars=40)
+    history = dx.EvidenceSource(
+        tool="get_recent_history", status="ok",
+        content="Вася: говорили про deepseek v4.1 flash вчера",
+        delivered_chars=50)
+    pack = dx.EvidencePack(sources=[external, history])
+    assert dx.delivered_chars_by_claim(pack, [claim]) == {claim.key(): 40}
+    # Только история без внешнего источника — вообще никакого зачёта.
+    assert dx.delivered_chars_by_claim(
+        dx.EvidencePack(sources=[history]), [claim]) == {}
+
+
+def test_wave3_delivered_chars_no_false_credit_on_version_prefix():
+    """Review-fix 5 (reviewer п.10): «4.1» не подтверждается «4.10».
+
+    Подстрочный матч засчитывал доставку по чужой версии/дате (4.1 ← 4.10,
+    «1 октября» ← «11 октября») — это ложный verified_reuse. Каждый кейс ниже
+    на прежнем коде давал зачёт (наблюдено на мутации), на новом — пусто.
+    """
+    version_claim = ep.ClaimKey(entity="deepseek flash", relation="version",
+                                version="4.1")
+    pack_410 = dx.EvidencePack(sources=[dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="deepseek flash 4.10: релиз 11 октября", delivered_chars=40)])
+    assert dx.delivered_chars_by_claim(pack_410, [version_claim]) == {}
+
+    metric_claim = ep.ClaimKey(entity="rtx 5090", relation="spec",
+                               metric="32 гб")
+    pack_50900 = dx.EvidencePack(sources=[dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="rtx 50900: 132 гб памяти", delivered_chars=40)])
+    assert dx.delivered_chars_by_claim(pack_50900, [metric_claim]) == {}
+
+    dated = ep.classify_claims(_plan(external_claims=[{
+        "entity": "deepseek v4.1 flash", "relation": "event",
+        "date": "1 октября"}]))
+    pack_11 = dx.EvidencePack(sources=[dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="deepseek v4.1 flash: релиз 11 октября", delivered_chars=40)])
+    assert dx.delivered_chars_by_claim(pack_11, dated) == {}
+    # Своя версия/дата по-прежнему засчитываются (проверка не стала слепой).
+    pack_ok = dx.EvidencePack(sources=[dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="deepseek v4.1 flash: релиз 1 октября", delivered_chars=40)])
+    assert dx.delivered_chars_by_claim(pack_ok, dated) == {dated[0].key(): 40}
+    pack_v41 = dx.EvidencePack(sources=[dx.EvidenceSource(
+        tool="fetch_article", status="ok",
+        content="deepseek flash 4.1 вышел", delivered_chars=40)])
+    assert dx.delivered_chars_by_claim(pack_v41, [version_claim]) == {
+        version_claim.key(): 40}
+
+
+@pytest.mark.parametrize("query", [
+    "правда ли, что deepseek v4.1 flash вышел",
+    "проверь факт: deepseek v4.1 flash вышел",
+    "это правда?",
+    "проверь это",
+    "фактчек: deepseek v4.1 flash вышел",
+])
+@pytest.mark.asyncio
+async def test_wave3_explicit_factcheck_phrases_cancel_reuse(monkeypatch,
+                                                             query):
+    """Review-fix 5 (BLOCKER-2): явная перепроверка отменяет reuse.
+
+    Сигнал берётся из СУЩЕСТВУЮЩЕГО детектора `detect_action_intent`
+    (`INTENT_FACT_CHECK`), а не из нового словаря фраз (§1.3). На свежей
+    доставленной записи preflight обязан дать required=True, не дать пакета и
+    удалить запись (bypass), иначе источник не перечитывается.
+    """
+    monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+    svc = _service(_Router())
+    plan = _reuse_plan("4.1")
+    claim = ep.classify_claims(plan)[0]
+    _seed_reuse(claim)
+    assert claim.key() in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
+
+    decision = await svc._evidence_preflight(
+        CHAT, "run-w3x", query=query, reply_text="", l1_plan=plan,
+        response_plan=None)
+    assert decision.required is True, query
+    assert decision.skip_reason is None, query
+    assert decision.note == "explicit_verify", query
+    assert "web_search" in decision.required_caps, query
+    assert svc._evidence_reuse_pack(
+        decision, l1_plan=plan, response_plan=None, chat_id=CHAT) is None
+    # bypass реально удалил запись: следующий ход тоже не переиспользует.
+    assert claim.key() not in dcs._evidence_reuse_claims(plan, chat_id=CHAT)
 
 
 @pytest.mark.asyncio
@@ -1376,6 +1625,43 @@ def test_wave3_explicit_recheck_bypasses_reuse():
         == frozenset()
 
 
+def test_wave3_reuse_turn_has_no_raw_none_shortcut_in_handle_turn():
+    """Review-fix 5 (BLOCKER-1) как инвариант кода хода, а не только теста.
+
+    Динамический тест ходит по тому же порядку шагов, но `_handle_turn`
+    (~2000 строк с БД/Telegram/LLM) целиком не исполняется ни одним тестом.
+    Здесь фиксируется именно место дефекта: в `_handle_turn` не должно быть
+    `raw = None` и вызов `_l1_tool_phase` не должен стоять под условием
+    «reuse-пакет найден» — иначе история чата снова перестанет исполняться.
+    """
+    tree = ast.parse(pathlib.Path(
+        dcs.__file__).read_text(encoding="utf-8"))
+    target = next(node for node in ast.walk(tree)
+                  if isinstance(node, ast.AsyncFunctionDef)
+                  and node.name == "_handle_turn")
+    for node in ast.walk(target):
+        if isinstance(node, ast.Assign):
+            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if "raw" in names:
+                assert not (isinstance(node.value, ast.Constant)
+                            and node.value.value is None), \
+                    "raw = None снова отключает tool-фазу на reuse-ходе"
+    guarded = []
+    for node in ast.walk(target):
+        if not isinstance(node, ast.If):
+            continue
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Call) and isinstance(sub.func,
+                                                       ast.Attribute) \
+                    and sub.func.attr == "_l1_tool_phase":
+                guarded.append(node)
+    assert guarded, "_l1_tool_phase обязан вызываться в _handle_turn"
+    for node in guarded:
+        cond = ast.dump(node.test)
+        assert "_ev_reuse_pack" not in cond, \
+            "tool-фаза не должна зависеть от reuse-пакета"
+
+
 def test_wave3_direct_sets_claim_keys_and_budget_before_tools():
     """§1.6/§4.3: claim-key и per-call бюджет уезжают в ToolContext ДО tools.
 
@@ -1408,14 +1694,32 @@ def test_wave3_direct_sets_claim_keys_and_budget_before_tools():
 
 
 def test_wave3_call_budget_matches_pack_formula(monkeypatch):
-    """§4.3/§4.2: бюджет инструмента считается тем же измерителем (C4)."""
+    """§4.3/§4.2: per-call бюджет РАВЕН бюджету пакета Writer'а (C4).
+
+    Проверяется равенство с формулой, а не «больше нуля»: тот же измеритель,
+    тот же план-блок, ровно один резерв вывода. Иначе окно инструментов и
+    пакет Writer'а живут в двух разных бюджетах."""
     svc = _service()
     plan = _reuse_plan("4.1")
-    budget = svc._evidence_call_budget_chars(
-        l1_plan=plan, l1_meta={}, fallback_meta={"l2_input_budget": 6000},
-        system_base="system", time_line="12:00", user_blocks=["q"],
-        lessons="", speech="", character="")
-    assert budget > 0
+    kwargs = dict(l1_plan=plan, l1_meta={},
+                  fallback_meta={"l2_input_budget": 6000},
+                  system_base="system", time_line="12:00",
+                  user_blocks=["q"], lessons="", speech="", character="")
+    budget = svc._evidence_call_budget_chars(**kwargs)
+
+    plan_block = l1.build_l2_plan_block(
+        plan, clarification=False, low_confidence=False,
+        include_analysis=l1.analysis_directive_needed(plan, modes_on=True),
+        include_delta=l1.delta_instruction_needed(plan), modes_on=True,
+        social_hint="")
+    others = dx.measure_nonevidence_chars(
+        system_base="system", plan_block=plan_block, time_line="12:00",
+        user_blocks=["q"], lessons="", speech="", character="")
+    expected = dx.l2_evidence_budget_chars(6000, other_chars=others)
+    assert budget == expected
+    # Кэп на 40% окна и floor 300 — тоже часть формулы, не «примерно».
+    assert dx.l2_evidence_budget_chars(6000, other_chars=0) == 9600
+    assert dx.l2_evidence_budget_chars(6000, other_chars=10 ** 6) == 300
     # Без бюджета композера (None) — 0 → инструмент берёт реальное окно.
     assert svc._evidence_call_budget_chars(
         l1_plan=plan, l1_meta={}, fallback_meta={}) == 0

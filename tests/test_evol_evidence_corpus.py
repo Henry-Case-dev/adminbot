@@ -182,7 +182,29 @@ def _metrics() -> dict:
         "unnecessary_search", "unsupported_blocked")}
 
 
-def _run_corpus() -> tuple[dict, float]:
+def _expected_required(case, *, warm: bool) -> bool:
+    """Ожидаемая обязательность кейса в прогоне (разметка ИЛИ reuse).
+
+    Разметка корпуса описывает ХОЛОДНОЕ хранилище. В прогретом (§3.3/§3.4)
+    claim-кейс без явной просьбы о проверке обязан перейти в reuse — иначе
+    разметка противоречила бы контракту. Ожидание выводится из того же
+    предиката покрытия, а не подгоняется под факт."""
+    required = bool(case["required"])
+    if not warm or not required:
+        return required
+    plan = _plan(case["plan"])
+    claims = ep.classify_claims(plan)
+    if not claims:
+        return required
+    explicit = dcs._evidence_explicit_request(case["query"],
+                                              str(case.get("reply") or ""))
+    if explicit.any:
+        return required
+    return not ep.SuppliedSources(
+        verified_reuse=frozenset(c.key() for c in claims)).reuse_covers(claims)
+
+
+def _run_corpus(*, warm: bool = False) -> tuple[dict, float]:
     """Один прогон корпуса через реальные швы. Возвращает (метрики, сек)."""
     started = time.perf_counter()
     m = _metrics()
@@ -190,14 +212,15 @@ def _run_corpus() -> tuple[dict, float]:
         query = case["query"]
         plan = _plan(case["plan"])
         decision = _decision(case)
-        # 1) Класс и обязательность совпали с разметкой?
+        expected_required = _expected_required(case, warm=warm)
+        # 1) Класс и обязательность совпали с разметкой или с reuse-ожиданием?
         assert str(decision.evidence_class) in (case["cls"], "background"), \
             (query, decision.evidence_class)
         if str(decision.evidence_class) != case["cls"]:
             # «background» допустим только для выключенной политики.
             assert decision.note == "policy_disabled", (query, decision)
-        assert bool(decision.required) is bool(case["required"]), \
-            (query, decision)
+        assert bool(decision.required) is expected_required, \
+            (query, decision, expected_required)
         router = _Router(outputs={"execute_web_search": "hit"})
         dispatch: list = []
         if decision.required:
@@ -223,7 +246,7 @@ def _run_corpus() -> tuple[dict, float]:
             # проверки (§1.2 п.8).
             m["invalid_skip"] += 1
         # 2) В исключённых классах сеть не запускается.
-        if not case["required"] and dispatch:
+        if not expected_required and dispatch:
             m["unnecessary_search"] += 1
         # 3) Egress: неподтверждённый внешний claim не уходит в чат.
         verdict = ep.guard_egress(answer=case["answer"], decision=decision,
@@ -269,20 +292,65 @@ def test_corpus45_zero_invalid_skip_zero_unnecessary_search():
 
 
 def test_corpus46_metrics_before_and_after_are_honest():
-    """Сценарий 46: метрики до/после на одном corpus + честные latency/calls.
+    """Сценарий 46: метрики «до/после» меняются ТОЛЬКО по законной причине.
 
-    «До» и «после» — тот же размеченный корпус и те же швы; меняется только
-    состояние reuse-хранилища. Утверждения не «улучшаются» подменой разметки,
-    а латентность — реальные секунды CPU (без сети/LLM)."""
+    Review-fix 5 (reviewer): прежняя версия сравнивала два одинаковых прогона
+    — тавтология. Теперь «до» — холодное хранилище, «после» — то же хранилище
+    с доставленными свежими источниками по всем claim'ам, где reuse допустим
+    (§3.3: явная проверка/поиск reuse снимает и не прогревается). Инвариант:
+    каждый claim-кейс либо свежая проверка, либо законный reuse — сумма
+    ``verified_fresh + verified_reuse + invalid_skip`` равна числу claim-кейсов
+    в ОБОИХ прогонах, а разница между ними равна числу прогретых claim'ов.
+    """
+    claim_cases = [case for case in CORPUS
+                   if ep.classify_claims(_plan(case["plan"]))]
     m_before, elapsed_before = _run_corpus()
-    source_reuse.clear()
-    m_after, elapsed_after = _run_corpus()
-    for key in ("eligible_factual", "valid_skip", "invalid_skip",
-                "unnecessary_search", "unsupported_blocked",
-                "verified_fresh", "unsupported_blocked"):
-        assert m_before[key] == m_after[key], (key, m_before, m_after)
-    assert elapsed_before >= 0.0 and elapsed_after >= 0.0
-    assert elapsed_before < 30.0 and elapsed_after < 30.0
+    seeded = _warm_store()
+    m_after, elapsed_after = _run_corpus(warm=True)
+
+    for m in (m_before, m_after):
+        assert m["invalid_skip"] == 0, m
+        assert m["unnecessary_search"] == 0, m
+        assert (m["verified_fresh"] + m["verified_reuse"]
+                + m["invalid_skip"]) == len(claim_cases), m
+    # Прогрев реально изменил маршрут: свежие проверки уступили reuse.
+    assert seeded >= 2
+    assert m_after["verified_reuse"] == m_before["verified_reuse"] + seeded, \
+        (m_before, m_after, seeded)
+    assert m_after["verified_fresh"] == m_before["verified_fresh"] - seeded, \
+        (m_before, m_after, seeded)
+    assert m_before["valid_skip"] == m_after["valid_skip"]
+    assert m_before["unsupported_blocked"] == m_after["unsupported_blocked"]
+    # Латентность — реальные секунды CPU (без сети/LLM).
+    assert 0.0 <= elapsed_before < 30.0
+    assert 0.0 <= elapsed_after < 30.0
+
+
+def _warm_store() -> int:
+    """Доставить свежий источник по claim'ам, где reuse допустим (§3.3).
+
+    Явная просьба проверить/поискать (существующий детектор) reuse снимает —
+    такие кейсы НЕ прогреваются, иначе тест закреплял бы нарушение §3.3."""
+    seeded = 0
+    for case in CORPUS:
+        if case.get("seed_reuse"):
+            continue
+        plan = _plan(case["plan"])
+        claims = ep.classify_claims(plan)
+        if not claims:
+            continue
+        explicit = dcs._evidence_explicit_request(case["query"],
+                                                  str(case.get("reply") or ""))
+        if explicit.any:
+            continue
+        for claim in claims:
+            source_reuse.store(claim, url="https://a.example/warm",
+                               source_id="warm",
+                               snippet=f"{claim.entity} (проверено)",
+                               read_level="selected")
+            source_reuse.record_delivery(claim, 120)
+            seeded += 1
+    return seeded
 
 
 def test_repeat_dialog_reuses_and_background_summary_makes_no_call():

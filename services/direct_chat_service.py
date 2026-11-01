@@ -2390,6 +2390,13 @@ _EVIDENCE_EVENT_POLICY = "EVIDENCE_POLICY_DECIDED"
 _EVIDENCE_EVENT_DELIVERY = "EVIDENCE_DELIVERY"
 _EVIDENCE_EVENT_EGRESS = "EVIDENCE_EGRESS_CHECK"
 
+#: §3.4 (review-fix 5): сетевые evidence-инструменты. На reuse-ходе выдержка
+#: уже доставлена из свежего прочитанного источника, поэтому эти инструменты не
+#: анонсируются — иначе тот же текст дублируется в пакете и тратит бюджет.
+#: Остальные инструменты хода (история чата, лор, изображение, фактчек)
+#: исполняются ВСЕГДА: reuse отменяет сеть, а не tool-фазу.
+_EVIDENCE_TOOLS: frozenset = frozenset({"execute_web_search", "fetch_article"})
+
 
 def _evidence_urls(*texts) -> tuple[str, ...]:
     """Явные ссылки хода (существующий `smartmodule_urls.extract_urls`)."""
@@ -2411,25 +2418,37 @@ def _evidence_explicit_request(query: str,
 
     * ``search`` — ``direct_capabilities.detect_action_intent``
       (``INTENT_WEB_SEARCH``; тот же класс запроса, что ``_SEARCH_RE``);
-    * ``verify`` — ``temporal_factcheck.is_referential_claim`` («проверь это»
-      на replied-сообщение);
+    * ``verify`` — ``detect_action_intent`` ``INTENT_FACT_CHECK`` («правда
+      ли…», «проверь факт…», «это правда», «проверь это», «фактчек») плюс
+      ``temporal_factcheck.is_referential_claim`` («проверь это» на
+      replied-сообщение);
     * ``read_source`` — поручение читать код/файл; инструмента нет до
       EVOL-SRC, поэтому политика честно вернёт ``capability_not_ready``
       только когда такое поручение реально распознано (сейчас — никогда,
-      детектор не заводится)."""
-    search = False
+      детектор не заводится).
+
+    Review-fix 5 (reviewer BLOCKER-2, §1.2 п.2 + §3.3): явная просьба
+    перепроверить обязана снимать reuse. Сигнал берётся из СУЩЕСТВУЮЩЕГО
+    смыслового детектора ``INTENT_FACT_CHECK`` — новый словарь фраз не
+    заводится (§1.3), второго FC-пайплайна не появляется (§2.4: исполнитель
+    остаётся web_search). Формулировки, которых нет ни в одном существующем
+    детекторе, поведением не подменяются — они вынесены в отчёт как вопрос
+    PM/Architect."""
+    kind = ""
     try:
         intent = _caps.detect_action_intent(str(query or ""),
                                             reply_text=str(reply_text or ""))
-        search = getattr(intent, "intent", "") == _caps.INTENT_WEB_SEARCH
+        kind = str(getattr(intent, "intent", "") or "")
     except Exception:      # pragma: no cover - защитная ветка
-        search = False
-    verify = False
-    try:
-        from services import temporal_factcheck as _tf
-        verify = bool(_tf.is_referential_claim(str(query or "")))
-    except Exception:      # pragma: no cover - защитная ветка
-        verify = False
+        kind = ""
+    search = kind == _caps.INTENT_WEB_SEARCH
+    verify = kind == _caps.INTENT_FACT_CHECK
+    if not verify:
+        try:
+            from services import temporal_factcheck as _tf
+            verify = bool(_tf.is_referential_claim(str(query or "")))
+        except Exception:      # pragma: no cover - защитная ветка
+            verify = False
     return _evp.ExplicitRequest(search=bool(search), verify=bool(verify),
                                 read_source=False)
 
@@ -4197,11 +4216,13 @@ class DirectChatService:
                                 bool(lore_enabled), bool(image_enabled),
                                 l1_plan, denied=_cap_denied,
                                 decision=_evidence_decision)
-                    if direct_l1_on and _ev_reuse_pack is not None:
-                        # §3.4: свежий claim-bound источник уже прочитан и
-                        # доставлен ранее → 0 сетевых вызовов на этом ходе.
-                        raw = None
-                    elif direct_l1_on:
+                    if direct_l1_on:
+                        # §3.4 (review-fix 5, reviewer BLOCKER-1): tool-фаза
+                        # исполняется ВСЕГДА. Reuse отменяет только СЕТЕВЫЕ
+                        # evidence-инструменты (их снимает `_l1_tool_subset`),
+                        # а история чата/лор/изображение/фактчек обязаны
+                        # исполниться — иначе «и что мы про это говорили»
+                        # отвечалось выдумкой поверх кеша.
                         raw = await self._l1_tool_phase(
                             payload, tool_ctx, query=query,
                             lore_enabled=bool(lore_enabled),
@@ -4575,19 +4596,7 @@ class DirectChatService:
                     modes_on=bool(getattr(
                         settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
                     social_hint=str(l1_meta.get("social_hint") or ""))
-                if _ev_reuse_pack is not None:
-                    # §3.4 (сценарий 30): exact-match reuse — сеть не
-                    # запускалась, пакет собран из уже прочитанного источника.
-                    _ev_cap = int(getattr(_ev_reuse_pack, "capacity_chars", 0)
-                                  or 0)
-                    _evidence = _ev_reuse_pack.text
-                    _evidence_delivered = _evidence
-                    self._emit_evidence_delivery_event(
-                        chat_id, correlation_id, _evidence_decision,
-                        _ev_reuse_pack, capacity=_ev_cap)
-                    self._record_evidence_delivery(
-                        _evidence_decision, _ev_reuse_pack, chat_id=chat_id)
-                elif isinstance(raw, ToolLoopResult):
+                if isinstance(raw, ToolLoopResult):
                     _ev_others = _dx.measure_nonevidence_chars(
                         system_base=_system_prompt_base,
                         plan_block=_plan_block,
@@ -4618,8 +4627,16 @@ class DirectChatService:
                     await self.collect_history_segments(
                         tool_ctx, raw, slot_chars=_ev_cap, chat_id=chat_id,
                         correlation_id=correlation_id)
+                    # §3.4 (review-fix 5): на reuse-ходе внешняя выдержка из
+                    # уже прочитанного источника идёт в ТОТ ЖЕ пакет, что и
+                    # находки не-сетевых инструментов этого хода: один
+                    # бюджет, одна fair allocation, один учёт доставленного.
+                    _ev_reuse_sources = (list(getattr(_ev_reuse_pack,
+                                                      "sources", ()) or ())
+                                         if _ev_reuse_pack is not None else [])
                     _ev_pack = _dx.build_evidence_pack(
-                        raw, response_plan, capacity_chars=_ev_cap)
+                        raw, response_plan, capacity_chars=_ev_cap,
+                        prepend_sources=_ev_reuse_sources)
                     _evidence = _ev_pack.text
                     # `source_fetched ≠ evidence_delivered_to_writer` (§4.5):
                     # в coverage/egress идёт РЕАЛЬНО доставленный пакет.
@@ -4631,6 +4648,19 @@ class DirectChatService:
                     # выдержку — фиксируем фактическую доставку по claim.
                     self._record_evidence_delivery(
                         _evidence_decision, _ev_pack, chat_id=chat_id)
+                elif _ev_reuse_pack is not None:
+                    # §3.4 (сценарий 30): у хода нет инструментальных
+                    # находок вовсе — source_fetched уже доставлен ранее,
+                    # сеть не запускалась, пакет собран из кеша.
+                    _ev_cap = int(getattr(_ev_reuse_pack, "capacity_chars", 0)
+                                  or 0)
+                    _evidence = _ev_reuse_pack.text
+                    _evidence_delivered = _evidence
+                    self._emit_evidence_delivery_event(
+                        chat_id, correlation_id, _evidence_decision,
+                        _ev_reuse_pack, capacity=_ev_cap)
+                    self._record_evidence_delivery(
+                        _evidence_decision, _ev_reuse_pack, chat_id=chat_id)
                 else:
                     _evidence = ""
                     _evidence_delivered = ""
@@ -5964,6 +5994,20 @@ class DirectChatService:
                     blocked_tools.update(_caps.CAPABILITY_TOOLS.get(cap, ()))
                     rejected = tuple(rejected) + ((cap,
                                                    _caps.REASON_NOT_READY),)
+                resolved = [t for t in resolved if t not in blocked_tools]
+            # §3.4 (review-fix 5, reviewer BLOCKER-1): reuse заменяет СЕТЕВУЮ
+            # часть evidence, но не отменяет tool-фазу. Снимаются только
+            # сетевые evidence-инструменты (`_EVIDENCE_TOOLS`): их выдержка
+            # уже доставлена из свежего прочитанного источника, и повторный
+            # вызов дублировал бы её в пакете. Это НЕ отказ capability —
+            # решение видно в `EVIDENCE_POLICY_DECIDED`
+            # (reason=verified_reuse) и `EVIDENCE_DELIVERY` (reused=1),
+            # поэтому `capability_rejected` здесь не эмитится (ложный код
+            # «инструмент недоступен» запрещён §1.5).
+            if decision is not None and getattr(
+                    decision, "skip_reason", None) is \
+                    _evp.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE:
+                blocked_tools.update(_EVIDENCE_TOOLS)
                 resolved = [t for t in resolved if t not in blocked_tools]
             for cap, reason in rejected:
                 _caps.emit_capability_rejected(
@@ -11870,25 +11914,24 @@ class DirectChatService:
                 response_plan=response_plan, chat_id=chat_id,
                 capacity_chars=_l1.evidence_max_chars())
                 if _reuse_fn is not None else None)
+            # §3.4 (review-fix 5): reuse-выдержка — база пакета, но tool-фаза
+            # для НЕ-сетевых инструментов исполняется и здесь (тот же
+            # BLOCKER-1: reuse отменяет сеть, а не инструменты хода).
             if _init_reuse is not None:
                 _initiative_pack = _init_reuse
                 _initiative_evidence = _init_reuse.text
-                self._emit_evidence_delivery_event(
-                    chat_id, correlation_id, _initiative_decision,
-                    _init_reuse,
-                    capacity=int(getattr(_init_reuse, "capacity_chars", 0)
-                                 or 0))
-                self._record_evidence_delivery(
-                    _initiative_decision, _init_reuse, chat_id=chat_id)
-            elif getattr(_initiative_decision, "required", False) \
-                    and _initiative_caps and _init_search_query \
-                    and _init_router is not None:
+            _init_want_tools = bool(
+                _init_reuse is not None
+                or (getattr(_initiative_decision, "required", False)
+                    and _initiative_caps and _init_search_query))
+            if _init_router is not None and _init_want_tools:
                 try:
                     _init_schemas, _init_rejected = await self._l1_tool_subset(
                         chat_id, correlation_id, False, False, plan,
                         decision=_initiative_decision)
                     _init_raw = await self._l1_tool_phase(
-                        None, _init_tool_ctx, query=_init_search_query,
+                        None, _init_tool_ctx,
+                        query=(_init_search_query or _goal_query),
                         lore_enabled=False, image_enabled=False,
                         temperature=temperature, chat_id=chat_id,
                         correlation_id=correlation_id, l1_plan=plan,
@@ -11898,19 +11941,27 @@ class DirectChatService:
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,
-                            capacity_chars=_l1.evidence_max_chars())
+                            capacity_chars=_l1.evidence_max_chars(),
+                            prepend_sources=(list(getattr(
+                                _init_reuse, "sources", ()) or ())
+                                if _init_reuse is not None else ()))
                         _initiative_evidence = _initiative_pack.text
-                        self._emit_evidence_delivery_event(
-                            chat_id, correlation_id, _initiative_decision,
-                            _initiative_pack,
-                            capacity=_l1.evidence_max_chars())
                 except asyncio.CancelledError:
                     raise
                 except Exception:      # честная деградация, не тишина
                     logger.warning(
                         "[f6] initiative evidence tools failed | chat=%s",
                         chat_id, exc_info=True)
-                    _initiative_evidence = ""
+                    if _init_reuse is None:
+                        _initiative_evidence = ""
+            if _initiative_pack is not None:
+                self._emit_evidence_delivery_event(
+                    chat_id, correlation_id, _initiative_decision,
+                    _initiative_pack,
+                    capacity=int(getattr(_initiative_pack, "capacity_chars", 0)
+                                 or 0))
+                self._record_evidence_delivery(
+                    _initiative_decision, _initiative_pack, chat_id=chat_id)
             _initiative_blocks = list(user_blocks)
             if _initiative_decision is not None:
                 _init_note = self._evidence_writer_note(

@@ -410,6 +410,9 @@ latency (CPU политика+упаковка+guard, без сети/LLM): 0.00
 
 ### 11.5. Тестовое доказательство (волны 3–5)
 
+> Review-fix 5 (§12): числа ниже — состояние ДО правки блокеров; актуальные
+> прогоны, состав тестов и что именно они доказывают — §12.4.
+
 ```text
 pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py
        tests/test_evol_evidence_corpus.py -q                       → 129 passed
@@ -438,6 +441,168 @@ pytest tests/ -q -k "direct or initiative or tool or l1 or evidence or prompt
 1. **`fetch_article` schema** расширена аддитивно: `terms`, `section`, `offset`, `claim` (все опциональные). Роутер их уже понимал (`_article_terms`, `select_excerpt(section/offset)`, `_claim_keys`), поэтому схема теперь просто сообщает модели то, чем инструмент уже умел пользоваться; существующие тесты схем/роутера зелёные, `additionalProperties: false` сохранён.
 2. **Инициатива**: `claim_keys` подключены, но `evidence_budget_chars` у неё остаётся `_l1.evidence_max_chars()` — в инициативном ходе нет композера L2 с `l2_input_budget`, считать per-call бюджет не из чего; это честная legacy-константа, а не «забыли».
 3. **Reuse после рестарта** процесса пуст (in-memory LRU волны 2) — первый такой ход читает источник заново, как и записано в §3.3 контракта.
-4. **`delivered_chars_by_claim`** привязывает доставку по сущности+версии/дате/метрике (текстовый матч канона `claim_key`), а не по source_id: источник, где нет названной версии, не подтверждает claim о версии.
+4. **`delivered_chars_by_claim`** привязывает доставку по сущности+версии/дате/метрике (текстовый матч канона `claim_key`), а не по source_id: источник, где нет названной версии, не подтверждает claim о версии. (Review-fix 5, §12.3: матч уточнён — по границам токена и только по внешним источникам.)
 5. **Поисковый выжимка-лимит** (`{max_symbols}`) не переведён на динамическое окно: в каноне это «жёсткий потолок ответа», а не объём выборки; менять семантику канона без ТЗ — придумывать требование.
+
+> Актуальные числа прогонов, состав тестов и уточнённые границы после ревью —
+> §12 («Review-fix 5»). История §11 не переписана.
+
+## 12. Review-fix 5 (01.11.2026): два блокера ревью волн 3-5
+
+Ревью: `plans/features/evol/reports/w13-evidence-routing-review-waves3-5.md`
+(Needs Fixes). Правки — минимальные, в тех же файлах; карта/acceptance не
+трогались.
+
+### 12.1. BLOCKER-1: reuse-ход молча отключал tool-фазу
+
+Было: при найденном reuse-пакете `raw = None`, `_l1_tool_phase` не вызывался.
+Следствие: `get_recent_history`/`query_chat_memory`/`dig_into_lore`/
+`recognize_image`/`fact_check` не исполнялись и молчали: на «правда ли X, и что
+мы про это говорили» Writer получал выдержку про X и выдумывал разговор.
+
+Стало (контракт §3.4: reuse отдаёт тот же EvidenceSource, а не отменяет
+инструменты):
+
+1. `_l1_tool_subset` на reuse-ходе снимает ТОЛЬКО сетевые evidence-инструменты
+   (`_EVIDENCE_TOOLS = {execute_web_search, fetch_article}`). Это не отказ
+   capability, поэтому `capability_rejected` не эмитится — решение видно в
+   `EVIDENCE_POLICY_DECIDED` (reason=`verified_reuse`) и `EVIDENCE_DELIVERY`
+   (reused=1).
+2. Tool-фаза исполняется всегда (`_handle_turn` больше не ставит `raw = None`).
+3. Упаковка: reuse-выдержка и находки не-сетевых инструментов идут в ОДИН
+   пакет одним бюджетом (`build_evidence_pack(..., prepend_sources=...)`),
+   fair allocation/truncation считаются один раз.
+4. `delivered_chars_by_claim` считает зачёт только по внешним источникам
+   (`EXTERNAL_EVIDENCE_TOOLS`): пересказ чата не подтверждает внешний claim,
+   иначе reuse продлевался бы историей разговора.
+5. Инициативный путь (`generate_initiative_reply`) приведён к той же
+   семантике: reuse-выдержка — база пакета, tool-фаза для не-сетевых
+   инструментов исполняется.
+
+### 12.2. BLOCKER-2: явная просьба перепроверить не отменяла reuse
+
+Было: `_evidence_explicit_request.verify` брался только из
+`temporal_factcheck.is_referential_claim`, поэтому существующий
+`direct_capabilities.detect_action_intent` с `INTENT_FACT_CHECK` игнорировался.
+
+Стало: `verify = (intent == INTENT_FACT_CHECK) or is_referential_claim(...)`.
+Новых словарей фраз нет (§1.3), второго FC-пайплайна нет (§2.4: исполнитель —
+web_search). Проверено поведение по фактическим формулировкам:
+
+| формулировка | сигнал | reuse |
+|---|---|---|
+| «правда ли, что …» | `INTENT_FACT_CHECK` | снят (§1.2 п.2) |
+| «проверь факт: …» | `INTENT_FACT_CHECK` | снят |
+| «это правда?» | `INTENT_FACT_CHECK` | снят |
+| «проверь это» | `INTENT_FACT_CHECK` + referential | снят |
+| «фактчек: …» / «fact check …» | `INTENT_FACT_CHECK` | снят |
+| «найди/поищи …» | `INTENT_WEB_SEARCH` | снят (как раньше) |
+
+Не покрыто ни одним существующим детектором (см. 12.5 — вопрос PM/Architect):
+«проверь заново …», «обнови данные про …», «перепроверь …», «проверь ещё
+раз …», «актуальна ли инфа про …», «свежие данные про …».
+
+### 12.3. Ложный зачёт доставки (п.10 ревью)
+
+`delivered_chars_by_claim` матчил подстрокой: claim про `4.1` подтверждался
+текстом `4.10`, дата `1 октября` — текстом `11 октября`. Теперь матч по
+границам токена (`_token_in_text`): сущность — по границе слова, версия/дата/
+метрика — с запретом соседней ЦИФРЫ (чтобы `4.1` внутри `deepseek v4.1 flash`
+оставался валидным, а `4.10` — нет).
+
+### 12.4. Тестовое доказательство (после правки)
+
+```text
+pytest tests/test_evol_evidence_routing.py tests/test_evol_evidence_window.py
+       tests/test_evol_evidence_corpus.py -q -p no:randomly     → 134 passed
+pytest tests/test_evol_fc_evidence_style.py tests/test_asap8_v6_wc_direct_d04.py
+       tests/test_direct_chat.py tests/test_history_segments.py
+       -q -p no:randomly                                        → 254 passed
+pytest tests/ -q -p no:randomly -k "direct or initiative or tool or l1 or
+       evidence or prompt or smartsearch or search or parity"
+                                     → 3785 passed, 13 failed (те же пред-существующие)
+```
+
+13 падений — тот же набор, что в §11.5 (5× `test_direct_fallback_recompose_asap32`,
+`test_mca11_money_limits_round1028::test_no_runtime_callers_off_parity`,
+`test_mca20_rework1_f1_f2::test_evidence_injection_stays_data_not_instructions`,
+6× `summary_*`); файлы этих тестов этой полосой не менялись.
+
+Ставшие несущими тесты (было — тавтология):
+
+1. `test_wave3_direct_reuse_two_turns_second_is_network_free` — ход доведён до
+   tool-фазы на РЕАЛЬНОМ `ToolRouter`; сеть считается на границе сети
+   (`_NetSearchSpy.search`, `_NetExtractorSpy.extract`) — оба счётчика 0, и
+   сетевые инструменты не диспатчились.
+2. `test_wave3_reuse_turn_still_runs_nonnetwork_tools` (новый) — сценарий
+   владельца: reuse + `capabilities_needed=["web_search","chat_history"]`.
+   Утверждает: `get_recent_history` реально исполнен (память вызвана, его
+   источник есть в пакете), reuse-выдержка осталась в том же пакете, сеть — 0.
+3. `test_wave3_chat_history_is_not_proof_for_external_claim` (новый) — история
+   чата не засчитывает внешний claim (защита от вечного reuse).
+4. `test_wave3_explicit_factcheck_phrases_cancel_reuse` (новый, 5 фраз) —
+   required=True, `_evidence_reuse_pack is None`, запись удалена bypass'ом.
+5. `test_wave3_delivered_chars_no_false_credit_on_version_prefix` (новый) —
+   4.1 vs 4.10, «1 октября» vs «11 октября», rtx 5090 vs 50900; своя версия/дата
+   по-прежнему засчитывается.
+6. `test_wave3_call_budget_matches_pack_formula` — теперь равенство с формулой
+   пакета (тот же измеритель, один резерв), а не «больше нуля»; плюс floor 300 и
+   кэп 40% окна.
+7. `test_corpus46_metrics_before_and_after_are_honest` — «до/после» различаются
+   СОСТОЯНИЕМ хранилища (прогрев доставленных источников), а не просто вторым
+   прогоном. Инвариант: `verified_fresh + verified_reuse + invalid_skip ==
+   |claim-кейсы|` в обоих прогонах; разница равна числу прогретых claim'ов.
+   Наблюдено: до `fresh=4, reuse=1`, прогрето 3, после `fresh=1, reuse=4`,
+   `invalid_skip=0`, `unnecessary_search=0` в обоих.
+7. `test_wave3_reuse_turn_has_no_raw_none_shortcut_in_handle_turn` (новый) —
+   инвариант кода `_handle_turn`: нет `raw = None` и вызов `_l1_tool_phase` не
+   стоит под условием «reuse-пакет найден» (защита от дрейфа: сам `_handle_turn`
+   целиком по-прежнему не исполняется ни одним тестом — ~2000 строк с БД,
+   Telegram и LLM).
+
+Мутационные контрпримеры (разово, вне репозитория): снятие `_EVIDENCE_TOOLS`
+ломает тест 1 (поиск реально уходит в сеть); `raw = None` ломает тест 2
+(история не читается); подстрочный матч снова даёт ложный зачёт 4.1/4.10;
+прежний сигнал verify (только `temporal_factcheck`) даёт False на «правда ли…».
+
+### 12.5. Вопрос PM/Architect (нужно решение, не словарь)
+
+Формулировки перепроверки, которых НЕТ ни в одном существующем детекторе
+(`detect_action_intent` — `_FACTCHECK_MARKERS`/`_SEARCH_MARKERS`,
+`temporal_factcheck.is_referential_claim`, `direct_execution._SEARCH_RE`), а
+контракт §3.3 требует снимать reuse:
+
+- «проверь заново, …»
+- «обнови данные про …»
+- «перепроверь, …»
+- «проверь ещё раз, …»
+- «актуальна ли инфа про …»
+- «свежие данные про …»
+
+Сейчас такие фразы дают reuse (если источник свежий) либо обычный `required`
+по классу плана — то есть «перечитать источник» гарантирует только первый
+вариант. Предложения (на выбор владельца контракта):
+(а) расширить `_FACTCHECK_MARKERS` — прямо запрещено §1.3;
+(б) один существующий маркер как класс «проверка факта» без нового словаря —
+вопрос трактовки §1.3;
+(в) сузить §3.3 до референтной проверки (описанное поведение) и зафиксировать
+список фраз как «не гарантируется»;
+(г) L1-план получает optional-поле «recheck: true» (как `external_claims`) —
+новый детектор слов не нужен, решение принимает модель, runtime лишь применяет
+bypass.
+
+Рекомендация Builder: (г) — не нарушает §1.3, не добавляет словарей, снимает
+требование §3.3 полностью; (в) — минимально и честно, если расширять контракт
+не хотят.
+
+Смежный вопрос того же класса (не блокер, поведение не хуже прежнего):
+пользователь прислал ССЫЛКУ и спрашивает по claim'у, который уже покрыт
+reuse. Политика (правило 9) всё равно решает reuse, поэтому `fetch_article`
+на этом ходе не анонсируется — явная ссылка не читается. До review-fix 5 на
+reuse-ходе не исполнялось НИЧЕГО, так что текущая правка строго расширяет
+tool-фазу; но «явная ссылка сильнее reuse» контрактом не зафиксирована. Это
+вопрос той же природы, что и список фраз: решать §1.2 п.2/§3.3 на уровне
+политики, а не в `_l1_tool_subset`.
+
+
 
