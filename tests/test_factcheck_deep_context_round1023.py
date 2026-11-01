@@ -628,8 +628,12 @@ class TestWebSearchPrompt:
         # UNIFIED-CORE (C13, 20.10.2026): откат снимает ступень C13 (мёртвый
         # tone_hint) — на непосредственный прежний прод-канон (правило
         # веб-поиска в нём СОХРАНЕНО; стек ступеней цел).
+        # EVOL W17 (02.11.2026): первая обратная ступень снимает ТОЛЬКО правило
+        # фаз работы модели (prefill/decode) → байты прода 2.58.147.
         assert pm.ROLLBACK_MIGRATIONS[key] == [(
             FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            pm.PREV_FACTCHECK_ANALYST_PHASE_SCOPE), (
+            pm.PREV_FACTCHECK_ANALYST_PHASE_SCOPE,
             pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]
         assert WEB_SEARCH_INSTRUCTION_BLOCK in \
             pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT

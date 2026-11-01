@@ -268,19 +268,26 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
         ' "confidence": 0.0,\n "future_intent": null,\n'
         ' "external_claims": [],\n'
         ' "recheck": false}', 1)
-    assert canon == evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+    assert canon == (evr0 + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1
+                     + cp._DIRECT_L1_TWO_PHASE_EVR2)
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
-    assert _sha12(canon) == "eb496e938c49"
+    # EVOL W17: слепок EVR1 = прод 2.58.147 (eb496e938c49); активные байты —
+    # ревизия EVR2 (контракт двух фаз).
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
+    assert _sha12(canon) == "7637864d50b5"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR0)
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
-    assert rollback[2] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    # EVOL W17: верхняя ступень снимает контракт двух фаз → байты 2.58.147.
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR1)
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR0)
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[3] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -437,8 +444,8 @@ def test_no_new_layers_routers_or_classifiers():
 
 def test_labels_and_fingerprint_after_bump():
     # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
-    # (прежние метки — в слепках PREV_*_EVR0).
-    assert "l1-planner-external-claims" in pr.factory_revision(
+    # (прежние метки — в слепках PREV_*_EVR0). EVOL W17: метка L1 — EVR2.
+    assert "l1-planner-two-phase-scenario25" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")

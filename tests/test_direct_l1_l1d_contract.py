@@ -66,12 +66,14 @@ def test_canon_schema_has_delivery_fields():
     # POST-ASAP5 W2: правило 4 — ред. PA5W2 (семантика своевременного поиска)
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): + секция «ВНЕШНИЕ УТВЕРЖДЕНИЯ»
     # и optional-поле external_claims в схеме (слепок EVR0 — байты PA5W2).
-    assert canon == (cp.PREV_DIRECT_L1_PLANNER_EVR0
-                     + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1).replace(
+    # EVOL W17: к тем же байтам добавлен контракт двух фаз (EVR2).
+    assert canon == ((cp.PREV_DIRECT_L1_PLANNER_EVR0
+                      + cp._DIRECT_L1_EXTERNAL_CLAIMS_EVR1).replace(
         ' "confidence": 0.0,\n "future_intent": null}',
         ' "confidence": 0.0,\n "future_intent": null,\n'
         ' "external_claims": [],\n'
         ' "recheck": false}', 1)
+        + cp._DIRECT_L1_TWO_PHASE_EVR2)
     assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         _DIRECT_L1_PLANNER_BASE_R3
         + _DIRECT_L1_CLARIFICATION_CONTRACT
@@ -233,7 +235,8 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     # ADR-1013-3: цепочка отката L1 —
     # active→EVR0→PA5W2→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_EVR0),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_EVR1),
+        (cp.PREV_DIRECT_L1_PLANNER_EVR1, cp.PREV_DIRECT_L1_PLANNER_EVR0),
         (cp.PREV_DIRECT_L1_PLANNER_EVR0, PREV_DIRECT_L1_PLANNER_PA5W2),
         (PREV_DIRECT_L1_PLANNER_PA5W2, PREV_DIRECT_L1_PLANNER_PA5W1),
         (PREV_DIRECT_L1_PLANNER_PA5W1, PREV_DIRECT_L1_PLANNER_P0CINTR2),

@@ -2199,10 +2199,11 @@ def test_wave6_prompt_canon_has_recheck_field():
 
 
 def test_wave6_canon_revision_seal_and_rollback_target():
-    """Та же невыпущенная ревизия EVR1: метка/печать/откат сходятся.
+    """Ревизия EVR2: метка/печать/откат сходятся.
 
-    Цель отката неизменна — прод 2.58.146 (`PREV_DIRECT_L1_PLANNER_EVR0`,
-    sha12 14743d288ea3): новая ступень лестницы не нужна, канон не выпущен.
+    Цель отката EVR2 — прод 2.58.147 (`PREV_DIRECT_L1_PLANNER_EVR1`,
+    sha12 eb496e938c49); следующая ступень по-прежнему ведёт на 2.58.146
+    (`PREV_DIRECT_L1_PLANNER_EVR0`, 14743d288ea3).
     """
     from services import chat_prompts as cp
     from services import prompt_migrations as pm
@@ -2211,15 +2212,16 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     block = "direct.base.l1_planner"
     label, seal = pr.FACTORY_REVISION_SEALS[block]
     assert pr.FACTORY_REVISION_LABELS[block] == label
-    assert "l1-planner-external-claims" in label
+    assert "l1-planner-two-phase-scenario25" in label
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR1) == "eb496e938c49"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR0) == "14743d288ea3"
     steps = pm.PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
-    assert (cp.PREV_DIRECT_L1_PLANNER_EVR0,
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR1,
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-            cp.PREV_DIRECT_L1_PLANNER_EVR0) in pm.ROLLBACK_MIGRATIONS[
+            cp.PREV_DIRECT_L1_PLANNER_EVR1) in pm.ROLLBACK_MIGRATIONS[
                 "prompts.direct_l1_planner_system_prompt"]
 
 
