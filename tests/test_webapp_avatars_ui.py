@@ -454,15 +454,17 @@ class TestAvatarFrontAudit:
         css = _Static.read("web/static/app.css")
         assert ".header-sticky" in css             # CSS-правило
         assert "position: sticky" in css
-        assert "z-index: 40" in css                # шапка — без изменений
+        # ASAP-UI-02 §4.2 (L01848): шапка живёт на ранге `--z-nav` единого
+        # слоя overlay (раньше здесь стояло «магическое» 40).
+        assert "z-index: var(--z-nav)" in css   # шапка — на своём ранге
+        assert re.search(r"--z-nav:\s*40;", css), "--z-nav — ранг шапки"
         assert 'class="main-header header-sticky card-solid' in html
         # Раунд 10.6 (A1/T-1161): sidebar (z-index:45) удалён; скролл — main.
-        # re-pin v6.3 U02.2: единственный законный z-index:45 — подъём
-        # mobile-dropdown oversight над соседями grid (бывший sidebar-слой
-        # не восстановлен).
+        # re-pin v6.3 U02.2: ранг выше соседей grid у mobile-dropdown oversight —
+        # `--z-local` (бывший sidebar-слой не восстановлен).
         assert re.search(r"oversight-tabs\.oversight-dd-open[^{]*\{[^}]*"
-                         r"z-index: 45", css), \
-            "U02.2: z-45 — только mobile-dropdown oversight"
+                         r"z-index: var\(--z-local\)", css), \
+            "U02.2: локальный ранг — только mobile-dropdown oversight"
         sidebar_rules = re.findall(r"[^{}]*\.app-sidebar[^{]*\{[^}]*\}", css)
         assert not any("z-index: 45" in r for r in sidebar_rules), \
             "T-1161: sidebar-слой с z-45 не восстановлен"

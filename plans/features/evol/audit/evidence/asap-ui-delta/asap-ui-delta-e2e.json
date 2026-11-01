@@ -1,0 +1,260 @@
+{
+ "layers": {
+  "scope": 50,
+  "header": 40,
+  "toast": 90,
+  "palette": 100,
+  "modalScrim": 75,
+  "recordScrim": 75,
+  "drawer": 40,
+  "drawerBackdrop": 35
+ },
+ "checks": {
+  "scope1280": {
+   "rect": {
+    "l": 678,
+    "t": 55,
+    "r": 938,
+    "b": 427,
+    "w": 260,
+    "h": 372
+   },
+   "placement": "bottom",
+   "bgAlpha": 0.94,
+   "position": "absolute",
+   "insideViewport": true,
+   "hitInside": true,
+   "vw": 1280,
+   "vh": 800
+  },
+  "palette1280": {
+   "panel": {
+    "rect": {
+     "l": 280,
+     "t": 48,
+     "r": 1000,
+     "b": 225,
+     "w": 720,
+     "h": 177
+    },
+    "placement": null,
+    "bgAlpha": 1,
+    "position": "absolute",
+    "insideViewport": true,
+    "hitInside": true,
+    "vw": 1280,
+    "vh": 800
+   },
+   "backCalls": [
+    "show"
+   ],
+   "focused": "palette-input",
+   "route": "#/ai"
+  },
+  "paletteEsc": {
+   "open": false,
+   "route": "#/ai"
+  },
+  "layers1280": {
+   "scope": 50,
+   "header": 40,
+   "toast": 90,
+   "palette": 100,
+   "modalScrim": 75,
+   "recordScrim": 75,
+   "drawer": 40,
+   "drawerBackdrop": 35
+  },
+  "record1280": {
+   "inViewport": true,
+   "fields": [
+    "text",
+    "type",
+    "scope",
+    "subject",
+    "user_id",
+    "created_at",
+    "event_at",
+    "confirmed_at",
+    "updated_at",
+    "origin",
+    "status",
+    "sources",
+    "changes",
+    "raw_id",
+    "raw_chat_id",
+    "raw_user_id",
+    "raw_tg_message_id",
+    "raw_key"
+   ],
+   "text": "Owner prefers concise Russian answers without ceremony",
+   "created": "21.10.2025, 10:40:00graph_facts.created_at",
+   "event": "20.10.2025, 06:53:20graph_facts.message_timestamp",
+   "confirmed": "22.10.2025, 14:26:40graph_facts.last_confirmed_at",
+   "origin": "manualorigin=manual",
+   "sources": "TG-сообщение #777 · чат -1001234567890graph_facts.tg_message_id",
+   "heading": "факт Owner",
+   "allText": "факт OwnerНовые факты · запись #4242✕Полный текстOwner prefers concise Russian answers without ceremonyТип записиНовый фактЧат / областьРабочий чат 1chat_id -1001234567890СубъектOwnerСвязанный Telegram user id5885953495Записано (извлечение)21.10.2025, 10:40:00graph_facts.created_atДата события (сообщение)20.10.2025, 06:53:20graph_facts.message_timestampПодтверждено22.10.2025, 14:26:40graph_facts.l",
+   "sheetMode": false,
+   "activeIsRow": false
+  },
+  "recordEsc": {
+   "open": false,
+   "row": true,
+   "route": "#/"
+  },
+  "drawer390": {
+   "z": 40,
+   "scrim": 35
+  },
+  "palette390": {
+   "rect": {
+    "l": 0,
+    "t": 0,
+    "r": 390,
+    "b": 844,
+    "w": 390,
+    "h": 844
+   },
+   "placement": null,
+   "bgAlpha": 1,
+   "position": "absolute",
+   "insideViewport": true,
+   "hitInside": true,
+   "vw": 390,
+   "vh": 844,
+   "input": {
+    "h": 44,
+    "w": 283
+   }
+  },
+  "closeOrder390": {
+   "palette": false,
+   "drawer": false
+  },
+  "record390": {
+   "record": {
+    "inViewport": true,
+    "fields": [
+     "text",
+     "type",
+     "scope",
+     "subject",
+     "user_id",
+     "created_at",
+     "event_at",
+     "confirmed_at",
+     "updated_at",
+     "origin",
+     "status",
+     "sources",
+     "changes",
+     "raw_id",
+     "raw_chat_id",
+     "raw_user_id",
+     "raw_tg_message_id",
+     "raw_key"
+    ],
+    "text": "Owner prefers concise Russian answers without ceremony",
+    "created": "21.10.2025, 10:40:00graph_facts.created_at",
+    "event": "20.10.2025, 06:53:20graph_facts.message_timestamp",
+    "confirmed": "22.10.2025, 14:26:40graph_facts.last_confirmed_at",
+    "origin": "manualorigin=manual",
+    "sources": "TG-сообщение #777 · чат -1001234567890graph_facts.tg_message_id",
+    "heading": "факт Owner",
+    "allText": "факт OwnerНовые факты · запись #4242✕Полный текстOwner prefers concise Russian answers without ceremonyТип записиНовый фактЧат / областьРабочий чат 1chat_id -1001234567890СубъектOwnerСвязанный Telegram user id5885953495Записано (извлечение)21.10.2025, 10:40:00graph_facts.created_atДата события (сообщение)20.10.2025, 06:53:20graph_facts.message_timestampПодтверждено22.10.2025, 14:26:40graph_facts.l",
+    "sheetMode": true,
+    "activeIsRow": false
+   },
+   "close": {
+    "l": 325,
+    "t": 89,
+    "w": 44,
+    "h": 44
+   }
+  },
+  "record390Esc": {
+   "open": false,
+   "row": true
+  },
+  "scope667x375": {
+   "rect": {
+    "l": 299,
+    "t": 54,
+    "r": 506,
+    "b": 364,
+    "w": 207,
+    "h": 310
+   },
+   "placement": "bottom",
+   "bgAlpha": 0.94,
+   "position": "absolute",
+   "insideViewport": true,
+   "hitInside": true,
+   "vw": 667,
+   "vh": 375
+  },
+  "palette320": {
+   "rect": {
+    "l": 0,
+    "t": 0,
+    "r": 320,
+    "b": 700,
+    "w": 320,
+    "h": 700
+   },
+   "placement": null,
+   "bgAlpha": 1,
+   "position": "absolute",
+   "insideViewport": true,
+   "hitInside": true,
+   "vw": 320,
+   "vh": 700
+  }
+ },
+ "tokens": {
+  "z": {
+   "base": 0,
+   "content": 1,
+   "inline": 5,
+   "sidebar": 30,
+   "scrim": 35,
+   "nav": 40,
+   "local": 45,
+   "menu": 55,
+   "overlay": 50,
+   "modalScrim": 75,
+   "modal": 80,
+   "toast": 90,
+   "palette": 100,
+   "dev": 110,
+   "devTop": 120
+  },
+  "motion": {
+   "durFast": "120ms",
+   "motionFast": "120ms",
+   "durNormal": "180ms",
+   "motionBase": "180ms",
+   "durSlow": "320ms",
+   "motionSlow": "320ms",
+   "easeOut": "cubic-bezier(.2, .8, .2, 1)",
+   "motionEase": "cubic-bezier(.2, .8, .2, 1)",
+   "feedSpeed": "16px",
+   "feedResume": "2600ms",
+   "feedEndHold": "1600ms",
+   "feedRewind": "900ms",
+   "feedStartHold": "600ms"
+  },
+  "engine": {
+   "speedPxS": 16,
+   "resumeMs": 2600,
+   "endHoldMs": 1600,
+   "rewindMs": 900,
+   "startHoldMs": 600
+  },
+  "vw": 1280,
+  "vh": 800,
+  "hScroll": false
+ },
+ "fails": []
+}

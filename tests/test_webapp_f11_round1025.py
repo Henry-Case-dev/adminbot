@@ -199,7 +199,12 @@ class TestD4Graph:
         assert 'tabindex="-1"' in INDEX
         assert 'aria-modal="true"' in INDEX
         assert "_focusGraphFull: function" in JS
-        assert "if (this.graphFullVisible) { this.closeGraphFull(); return; }" in JS
+        # ASAP-UI-02 §4.2/§11 (L01958): полный экран графа — слой ЕДИНОГО
+        # Back-stack (порядок слоёв живёт в одном месте, а не в if-чейне).
+        layers = JS[JS.index("function backStackLayers(vm) {"):]
+        layers = layers[:layers.index("\n  }")]
+        assert "ids.push('graph-full')" in layers, \
+            "полный экран графа закрывается Back/Esc как верхний слой"
         assert ".status-graph-full .badge" in CSS
         assert "min-height: 44px" in CSS
 

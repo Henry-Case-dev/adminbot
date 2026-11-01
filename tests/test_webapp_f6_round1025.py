@@ -157,7 +157,11 @@ class TestAnalyticsFilters:
         assert 'aria-modal="true"' in _INDEX
         assert "exec-detail-backdrop" in _INDEX and "exec-detail-backdrop" in _CSS
         assert '@click.self="closeExecDetail()"' in _INDEX
-        assert "if (this.execDetailOpen) { this.closeExecDetail(); return; }" in _APP_JS
+        # ASAP-UI-02 §4.2/§11 (L01958): детали — слой ЕДИНОГО Back-stack.
+        _layers = _APP_JS[_APP_JS.index("function backStackLayers(vm) {"):]
+        _layers = _layers[:_layers.index("\n  }")]
+        assert "ids.push('exec-detail')" in _layers, \
+            "детали закрываются Back/Esc как верхний слой"
 
     def test_memory_subgroup_seam_removed(self):
         # L-F6S-5: мёртвый шов удалён; подгруппа сбрасывается при входе.

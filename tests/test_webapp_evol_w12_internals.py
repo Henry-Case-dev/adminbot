@@ -77,7 +77,16 @@ class TestGlobalSearch:
         # Ctrl+K обрабатывается глобально, Esc закрывает панель первой.
         assert "_paletteHotkey" in APP_JS
         assert "event.ctrlKey || event.metaKey" in APP_JS
-        assert "if (this.paletteOpen) { this.closePalette(); return; }" in APP_JS
+        # ASAP-UI-02 §4.2/§11: Esc закрывает верхний слой через ЕДИНЫЙ
+        # Back-stack, а палитра — верхний слой в этом списке.
+        layers = APP_JS[APP_JS.index("function backStackLayers(vm) {"):]
+        layers = layers[:layers.index("\n  }")]
+        assert layers.index("ids.push('palette')") < layers.index("ids.push('drawer')"), \
+            "Esc закрывает поиск первым (палитра выше drawer)"
+        assert "backStackClose(this)" in APP_JS[
+            APP_JS.index("escClose: function () {"):
+            APP_JS.index("backStackLayers: function () {")
+        ]
         assert "paletteKeydown" in APP_JS and "ArrowDown" in APP_JS
 
     def test_registry_not_hardcoded_module_list(self):
