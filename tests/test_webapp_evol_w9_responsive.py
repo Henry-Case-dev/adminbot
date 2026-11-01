@@ -131,15 +131,20 @@ class TestPortraitContract:
         аватар+бейдж роли, «⋯». Микро-фикс F1 (31.10.2026): ⛶ уезжает в «⋯»
         до 519 px включительно, иначе на 420–500 он выдавливал имя раздела.
         """
-        seg = _section("/* ── ASAP-UI-02 §2.1/§2.2", 9000, source=CSS)
+        seg = _section("/* ── ASAP-UI-02 §2.1/§2.2", 12000, source=CSS)
         assert "flex-wrap: nowrap" in seg, "шапка не переносится на второй ряд"
         assert ".header-user-name { display: none; }" in seg, \
             "имя скрыто, но бейдж роли остаётся видимым"
         assert ".header-user-role" in seg and "text-overflow: ellipsis" in seg
         assert ".app-shell.shell-mobile .scope-tech { display: none; }" in seg, \
             "ID области не в постоянной шапке"
-        assert "order: 5" in seg and "order: 6" in seg, \
-            "⛶ и «⋯» — в конце той же строки, без второго ряда"
+        # §6.1 v2.1: меню «…» удалено решением владельца, поэтому пин
+        # `order: 6` относился к несуществующему элементу. Проверяется то же
+        # существо: ⛶ остаётся последним в этой же строке, второго
+        # постоянного ряда нет (шапка `nowrap`), а строка области при
+        # нехватке места переносит СВОИ элементы, а не создаёт новый ряд шапки.
+        assert "order: 5" in seg, "⛶ не в конце той же строки"
+        assert "flex-wrap: nowrap" in seg, "появился второй постоянный ряд шапки"
         # Имя раздела имеет резерв (микро-фикс F1): не схлопывается в 0 px.
         assert "min-width: var(--header-title-min" in seg, \
             "нет резерва имени раздела в мобильной шапке"

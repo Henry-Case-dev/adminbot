@@ -95,6 +95,85 @@ class TestControlStates:
         assert "box-shadow: inset 0 0 0 var(--ctl-hairline)" in block
 
 
+class TestOverlayBacking:
+    """§12.7: текст заднего слоя не читается через открытое меню."""
+
+    def test_floating_popovers_use_opaque_working_surface(self):
+        block = CSS[CSS.index("W14-fix (§12.7"):]
+        block = block[:block.index("/* Подпись управляющего элемента")]
+        assert "background-color: var(--surface-2" in block, \
+            "popover обязан иметь непрозрачную рабочую поверхность"
+        assert "backdrop-filter: none" in block
+        # Механизм overlay-контракта остаётся: бордюр/радиус/тень — из токенов.
+        assert "var(--overlay-border)" in CSS
+        for sel in (".scope-panel", ".scope-tech-body", ".more-menu-panel"):
+            assert sel in block, "нет правила для %s" % sel
+
+    def test_palette_keeps_its_opaque_surface(self):
+        # Палитра была непрозрачной раньше — контракт тот же, не разъезжается.
+        block = CSS[CSS.index(".palette-panel {"):]
+        block = block[:block.index("}")]
+        assert "var(--surface-2" in block
+
+
+class TestWideHeaderNoClipping:
+    """§C/§12.15: шапка не обрезает контролы ни на zoom, ни с черновиком."""
+
+    def test_save_chip_lives_in_scope_row(self):
+        start = INDEX.index('<div class="header-scope-row">')
+        # Находим ПАРНЫЙ закрывающий тег строки области подсчётом вложенности,
+        # иначе срез обрывается на первом же вложенном </div>.
+        depth = 0
+        i = start
+        end = None
+        for m in re.finditer(r"<div\b|</div>", INDEX[start:]):
+            if m.group(0) == "</div>":
+                depth -= 1
+                if depth == 0:
+                    end = start + m.start()
+                    break
+            else:
+                depth += 1
+        assert end, "не найден конец строки области"
+        inside = INDEX[start:end]
+        assert "header-save-chip" in inside, \
+            "счётчик черновика обязан переноситься вместе со строкой области"
+
+    def test_mobile_scope_row_may_wrap(self):
+        block = CSS[CSS.index(".app-shell.shell-mobile header.header-sticky.header-compact-v2\n    .header-scope-row"):]
+        block = block[:block.index("}")]
+        assert "flex-wrap: wrap" in block
+
+    def test_under_320_header_wraps_instead_of_clipping(self):
+        block = CSS[CSS.index("@media (max-width: 319px)"):]
+        block = block[:block.index("/* ── W14-fix (§12.7")]
+        assert "flex-wrap: wrap" in block
+        assert "flex: 1 1 100%" in block, \
+            "строка области уходит на свою строку вместо обрезки"
+
+
+class TestHeartbeatTransientStates:
+    """§12.21: transient и намеренно выключенное — не авария."""
+
+    def test_sample_flags_transient_and_stopped(self):
+        assert "sample.botStarting" in APP_JS
+        assert "sample.botStopped" in APP_JS
+        assert "bot.state === 'starting'" in APP_JS
+        assert "'stopped'" in APP_JS and "'disabled'" in APP_JS
+
+    def test_transition_returns_honest_states(self):
+        block = APP_JS[APP_JS.index("_heartbeatTransition: function"):]
+        block = block[:block.index("heartbeatSample: function")]
+        assert "state: 'disabled'" in block
+        assert "бот остановлен" in block
+        assert "state: 'unknown'" in block and "бот запускается" in block
+
+    def test_heartbeat_state_mapping(self):
+        block = APP_JS[APP_JS.index("function healthSubsystemState"):]
+        block = block[:block.index("if (id === 'experience')")]
+        assert "if (hb === 'disabled') return 'disabled';" in block
+
+
 class TestLoadingState:
     def test_boot_indicator_exists_and_is_accessible(self):
         """E.3: до готовности оболочки видно загрузку, а не пустой экран."""

@@ -233,15 +233,6 @@
               сохранения — панель <sticky-save> внизу формы; второй физический
               доступ к тому же действию не показывается. role=status —
               скринридер читает состояние без действия. -->
-          <div v-if="headerSaveChip.visible" class="header-save-chip text-xs shrink-0"
-               role="status" aria-live="polite"
-               data-save-indicator
-               :data-save-state="headerSaveChip.state"
-               :title="headerSaveChip.title">
-            <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
-            <span aria-hidden="true">·</span>
-            <span>{{ headerSaveChip.label }}</span>
-          </div>
           <!-- W2-FULLSCREEN (REQ-U07-2/U07.2) + FS-HOTFIX 18.10: -->
           <!-- ЕДИНСТВЕННЫЙ узел ⛶ — теперь на месте бывшего «…» (см. ниже). -->
           <!-- D2/T-2608: обёртка строки 2 — селектор/бейдж/аватар/роль.
@@ -320,6 +311,21 @@
               {{ isDmCtx() ? 'ЛС #' + activeChatId : '#' + activeChatId }}
             </div>
           </details>
+          <!-- W14-fix (ревью W14): счётчик черновика живёт в СТРОКЕ ОБЛАСТИ.
+               В одной строке с ⛶ его не хватало: на 320 px сумма min-content
+               (навигация + заголовок + ⛶ + счётчик + область) = 380 px, и
+               строка области с ⛶ уезжали за вьюпорт (замер: scope right 336
+               при vw 320). Здесь он переносится вместе со строкой области,
+               а не отнимает место у ⛶. -->
+          <div v-if="headerSaveChip.visible" class="header-save-chip text-xs shrink-0"
+               role="status" aria-live="polite"
+               data-save-indicator
+               :data-save-state="headerSaveChip.state"
+               :title="headerSaveChip.title">
+            <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ headerSaveChip.label }}</span>
+          </div>
           <div class="header-user ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — same-origin blob
                  через прокси avatarUrl('user', …) (S10.16-8: внешний CDN

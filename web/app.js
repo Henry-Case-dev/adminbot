@@ -22601,6 +22601,17 @@
         var ema = (prev && typeof prev.ema === 'number') ? prev.ema : null;
         var dwellPending = (prev && prev.dwellPending) || null;
         var dwellCount = (prev && prev.dwellCount) || 0;
+        // W14-fix (§12.21): «запускается» — переходное состояние, «остановлен/
+        // выключен» — намеренное. Ни то, ни другое не авария и не «нет данных»:
+        // состояния честные, причина названа, красного tint-а нет.
+        if (sample && sample.botStopped) {
+          return { state: 'disabled', ema: ema, dwellPending: null,
+                   dwellCount: 0, reason: 'бот остановлен (не авария)' };
+        }
+        if (sample && sample.botStarting) {
+          return { state: 'unknown', ema: ema, dwellPending: null,
+                   dwellCount: 0, reason: 'бот запускается' };
+        }
         if (!sample || sample.missing || sample.stale) {
           return {
             state: 'unknown', ema: ema, dwellPending: null, dwellCount: 0,
@@ -22690,6 +22701,14 @@
         // bad (значение есть, но бот не в рабочем состоянии) → CRITICAL.
         if (bot.state === 'polling_error') sample.botOk = false;
         else sample.botOk = (bot.state === 'running' || bot.state === 'polling');
+        // W14-fix (§12.21, ревью W14 3.5): transient и намеренно выключенное
+        // состояние — НЕ авария. До этой правки `botOk=false` для `starting`
+        // и `stopped` красил карточку «Сердцебиение» в красный с причиной
+        // «бот не работает»: старт объявлялся поломкой, а остановленный бот —
+        // ложной тревогой вместо честного disabled.
+        sample.botStarting = (bot.state === 'starting');
+        sample.botStopped = (bot.state === 'stopped'
+                             || bot.state === 'disabled');
         var cpu = Number(server.cpu_percent);
         var mem = (server.memory && server.memory.percent != null)
           ? Number(server.memory.percent) : NaN;
@@ -30093,6 +30112,10 @@
       // `warning` (мягкое красное стекло), а не `degraded`.
       if (hb === 'warning') return 'warning';
       if (hb === 'critical') return 'failed';
+      // W14-fix (§12.21): намеренно остановленный бот — `disabled`, а не
+      // «неизвестно»: иначе интерфейс не мог отличить «выключено» от «нет
+      // данных» и не показывал честную причину.
+      if (hb === 'disabled') return 'disabled';
       return 'unknown';
     }
     if (id === 'experience') {

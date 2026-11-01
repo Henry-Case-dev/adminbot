@@ -53,7 +53,7 @@
    "h": 406
   },
   "placement": "bottom",
-  "bgAlpha": 0.94,
+  "bgAlpha": 1,
   "position": "absolute",
   "insideViewport": true,
   "hitInside": true,

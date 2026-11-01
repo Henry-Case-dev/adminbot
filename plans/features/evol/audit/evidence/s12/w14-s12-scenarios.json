@@ -501,7 +501,7 @@
   {
    "id": "§12.4",
    "title": "Длинный чат: имя читается в селекторе, область корректна для двух чатов + global, переход не сбрасывает контекст",
-   "assertion": "в панели ровно 3 опции (2 чата + global); полное имя в title; на телефоне имя занимает 2 полные строки без обрезки по вертикали; выбор чата и global сохраняет маршрут #/modules и меняет scopeKind",
+   "assertion": "в панели ровно 3 опции (2 чата + global); полное имя в title; на телефоне имя занимает 2 полные строки без обрезки по вертикали; выбор ВТОРОГО чата даёт именно его chat_id и scopeKind=chat, global сохраняет маршрут #/modules",
    "status": "PASS",
    "probe": {
     "rows": [
@@ -547,7 +547,7 @@
         "w": 374,
         "h": 210
        },
-       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelBg": "rgb(28, 37, 55)",
        "panelFilter": "none",
        "triggerTitle": "Очень длинное название рабочего чата с уточнением и подписью",
        "triggerText": "ООчень длинное название рабочего чата с уточнением и подписьюЧАТ▾",
@@ -627,7 +627,7 @@
         "w": 380,
         "h": 169
        },
-       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelBg": "rgb(28, 37, 55)",
        "panelFilter": "none",
        "triggerTitle": "Очень длинное название рабочего чата с уточнением и подписью",
        "triggerText": "ООчень длинное название рабочего чата с уточнением и подписьюЧАТ▾",
@@ -735,7 +735,7 @@
   {
    "id": "§12.7",
    "title": "Overlay: dropdown у краёв не обрезается, текст заднего слоя не проходит через меню, фокус возвращается",
-   "assertion": "панель области и палитра целиком внутри вьюпорта на 320/390/1280; фон панели непрозрачен (alpha>=0.75) или имеет backdrop-filter; палитра телепортирована в body; после закрытия activeElement снова на триггере области",
+   "assertion": "панель области и палитра целиком внутри вьюпорта на 320/390/1280; ИЗМЕРЕННЫЙ композитинг: пиксели панели не зависят от контента под ней (утечка max<=10) либо зависят только сглаженно (нет резких контуров текста: sharpShare<=0.2 %); палитра телепортирована в body; после закрытия activeElement снова на триггере области",
    "status": "PASS",
    "probe": {
     "rows": [
@@ -773,7 +773,7 @@
         "w": 304,
         "h": 160
        },
-       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelBg": "rgb(28, 37, 55)",
        "panelFilter": "none",
        "triggerTitle": "Audit Chat",
        "triggerText": "AAudit ChatЧАТ▾",
@@ -786,12 +786,32 @@
        "r": 320,
        "t": 0,
        "b": 700,
+       "w": 320,
+       "h": 700,
        "bg": "rgb(21, 27, 42)",
        "filter": "none",
        "vw": 320,
        "vh": 700,
        "inBody": true,
        "trap": true
+      },
+      "leak": {
+       "w": 876,
+       "h": 444,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
+      },
+      "paletteLeak": {
+       "w": 924,
+       "h": 2064,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
       },
       "focusScope": {
        "isTrigger": true,
@@ -842,7 +862,7 @@
         "w": 374,
         "h": 160
        },
-       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelBg": "rgb(28, 37, 55)",
        "panelFilter": "none",
        "triggerTitle": "Audit Chat",
        "triggerText": "AAudit ChatЧАТ▾",
@@ -855,12 +875,32 @@
        "r": 390,
        "t": 0,
        "b": 844,
+       "w": 390,
+       "h": 844,
        "bg": "rgb(21, 27, 42)",
        "filter": "none",
        "vw": 390,
        "vh": 844,
        "inBody": true,
        "trap": true
+      },
+      "leak": {
+       "w": 1086,
+       "h": 444,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
+      },
+      "paletteLeak": {
+       "w": 1134,
+       "h": 2496,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
       },
       "focusScope": {
        "isTrigger": true,
@@ -911,7 +951,7 @@
         "w": 260,
         "h": 150
        },
-       "panelBg": "rgba(23, 28, 42, 0.94)",
+       "panelBg": "rgb(28, 37, 55)",
        "panelFilter": "none",
        "triggerTitle": "Audit Chat",
        "triggerText": "AAudit ChatЧАТ▾",
@@ -924,12 +964,32 @@
        "r": 1000,
        "t": 48,
        "b": 204,
+       "w": 720,
+       "h": 156,
        "bg": "rgb(28, 37, 55)",
        "filter": "none",
        "vw": 1280,
        "vh": 800,
        "inBody": true,
        "trap": true
+      },
+      "leak": {
+       "w": 248,
+       "h": 138,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
+      },
+      "paletteLeak": {
+       "w": 708,
+       "h": 144,
+       "max": 0,
+       "p99": 0,
+       "shareOver8": 0,
+       "shareOver2": 0,
+       "sharpShare": 0
       },
       "focusScope": {
        "isTrigger": true,
@@ -1194,8 +1254,8 @@
       "samples": [
        43,
        50,
-       56,
-       63
+       57,
+       64
       ],
       "moving": true,
       "pausedStable": true,
@@ -1277,8 +1337,8 @@
   },
   {
    "id": "§12.13",
-   "title": "Health tint: normal/warning/degraded/failed/unknown/disabled различимы, красное стекло не ломает прозрачность/преломление/фон, нет ложной окраски data-card",
-   "assertion": "на #/ с шестью статусами в DOM присутствуют normal, warning (EMA нагрузки 75 %), failed, unknown, disabled; у каждой [data-health-state] альфа фона <=0.6 (стекло, не плашка), backdrop-filter и w/h совпадают с тем же subsystem в normal (±2 px); число canvas неизменно; ни одна карточка без data-health-state не получила красный фон",
+   "title": "Health tint: normal/warning/degraded/failed/unknown/disabled различимы, красное стекло не ломает прозрачность/преломление/фон, нет ложной окраски data-card; transient/disabled не объявляются аварией",
+   "assertion": "на #/ с шестью статусами в DOM присутствуют normal, warning (EMA нагрузки 75 %), failed, unknown, disabled; у каждой [data-health-state] альфа фона <=0.6 (стекло, не плашка), backdrop-filter и w/h совпадают с тем же subsystem в normal (±2 px); число canvas неизменно; ни одна карточка без data-health-state не получила красный фон; heartbeat при bot.state=starting даёт unknown без красного tint-а, при bot.state=stopped — disabled без красного, при polling_error — failed",
    "status": "PASS",
    "probe": {
     "rows": [
@@ -1504,8 +1564,8 @@
        },
        {
         "sub": "heartbeat",
-        "state": "failed",
-        "bg": "rgba(141, 74, 85, 0.5)",
+        "state": "unknown",
+        "bg": "rgba(0, 0, 0, 0)",
         "alpha": "1",
         "filter": "none",
         "w": 314,
@@ -1556,8 +1616,8 @@
        },
        {
         "sub": "heartbeat",
-        "state": "failed",
-        "bg": "rgba(141, 74, 85, 0.5)",
+        "state": "disabled",
+        "bg": "rgba(0, 0, 0, 0)",
         "alpha": "1",
         "filter": "none",
         "w": 314,
@@ -1604,6 +1664,15 @@
      "warning"
     ],
     "problems": [],
+    "heartbeat": {
+     "normal": "normal",
+     "warning": "warning",
+     "degraded": "normal",
+     "failed": "failed",
+     "unknown": "unknown",
+     "disabled": "disabled"
+    },
+    "heartbeatProblems": [],
     "canvases": [
      3
     ]
@@ -1646,87 +1715,347 @@
   },
   {
    "id": "§12.15",
-   "title": "Клавиатура/zoom: длинный промпт, меню модели и поиск с открытой клавиатурой; 200 % zoom; Save и Close доступны, overflow нет",
-   "assertion": "на поддержанном минимуме 320 px и 390 px: scrollWidth<=innerWidth и все элементы шапки внутри вьюпорта; при открытой клавиатуре (stable=520) поле, Save и Close имеют bottom<=520; отдельно измерен zoom 200 % (195 CSS px) — его результат вынесен владельцу, контракт минимума 320 px им не меняется",
+   "title": "Клавиатура/zoom: длинный промпт, меню выбора модели и поиск с открытой клавиатурой; 200 % zoom; Save и Close доступны, overflow нет",
+   "assertion": "редактор промпта модуля (`#/modules/direct/synthesizer`) на 320 и 390: поле, Save и Close (К списку) существуют и имеют bottom<=видимой высоты; в полноэкранном режиме при клавиатуре (stable=520) Save и Close тоже внутри, Esc выходит и возвращает фокус на переключатель; меню выбора модели на #/ai/llm внутри видимой области, >=2 вариантов, выбор применяется; поиск Ctrl+K открывается, панель и поле выше клавиатуры; при zoom 200 % (195 CSS px) нет горизонтального overflow и ни один элемент шапки не выходит за вьюпорт",
    "status": "PASS",
    "probe": {
     "rows": [
      {
-      "case": "min-width-320",
-      "vw": 320,
+      "case": "editor-320",
+      "opened": true,
+      "dirty": true,
       "vh": 568,
-      "hScroll": 0,
-      "headerH": 58,
-      "headerKids": [
-       {
-        "cls": "btn-ghost header-nav-btn shr",
-        "off": false
-       },
-       {
-        "cls": "header-title-wrap min-w-0",
-        "off": false
-       },
-       {
-        "cls": "header-scope-row",
-        "off": false
-       },
-       {
-        "cls": "text-xs shrink-0 header-fs-b",
-        "off": false
-       }
-      ],
-      "headerOff": 0,
-      "save": null,
-      "close": null,
       "editor": {
-       "l": 42,
-       "r": 278,
-       "t": 1945,
-       "b": 2093
+       "t": 43,
+       "b": 695,
+       "l": 8,
+       "r": 312,
+       "w": 304,
+       "h": 652
       },
-      "kbInset": "0px",
+      "fullscreen": false,
+      "ta": {
+       "t": 278,
+       "b": 546,
+       "l": 25,
+       "r": 295,
+       "w": 270,
+       "h": 269
+      },
+      "save": {
+       "t": 440,
+       "b": 552,
+       "l": 8,
+       "r": 312,
+       "w": 304,
+       "h": 112
+      },
+      "close": {
+       "t": 60,
+       "b": 104,
+       "l": 25,
+       "r": 116,
+       "w": 91,
+       "h": 44
+      },
+      "fsToggle": {
+       "t": 60,
+       "b": 104,
+       "l": 244,
+       "r": 295,
+       "w": 51,
+       "h": 44
+      },
+      "closeTrigger": null,
+      "hScroll": 0,
+      "focusLabel": "",
+      "focusIsToggle": false,
+      "zoom": {
+       "vw": 320,
+       "vh": 568,
+       "hScroll": 0,
+       "headerH": 122,
+       "headerKids": [
+        {
+         "cls": "btn-ghost header-nav-btn shr",
+         "off": false
+        },
+        {
+         "cls": "header-title-wrap min-w-0",
+         "off": false
+        },
+        {
+         "cls": "header-scope-row",
+         "off": false
+        },
+        {
+         "cls": "text-xs shrink-0 header-fs-b",
+         "off": false
+        }
+       ],
+       "headerOff": 0,
+       "save": {
+        "l": 8,
+        "r": 312,
+        "t": 440,
+        "b": 552
+       },
+       "close": null,
+       "editor": {
+        "l": 25,
+        "r": 295,
+        "t": 278,
+        "b": 546
+       },
+       "kbInset": "0px"
+      },
       "errors": [],
       "shots": [
-       "s12-s15-min-320.png"
+       "s12-s15-editor-320.png"
       ]
      },
      {
-      "case": "min-width-390",
-      "vw": 390,
+      "case": "editor-390",
+      "opened": true,
+      "dirty": true,
       "vh": 844,
-      "hScroll": 0,
-      "headerH": 58,
-      "headerKids": [
-       {
-        "cls": "btn-ghost header-nav-btn shr",
-        "off": false
-       },
-       {
-        "cls": "header-title-wrap min-w-0",
-        "off": false
-       },
-       {
-        "cls": "header-scope-row",
-        "off": false
-       },
-       {
-        "cls": "text-xs shrink-0 header-fs-b",
-        "off": false
-       }
-      ],
-      "headerOff": 0,
-      "save": null,
-      "close": null,
       "editor": {
-       "l": 42,
-       "r": 348,
-       "t": 1725,
-       "b": 1873
+       "t": 204,
+       "b": 803,
+       "l": 8,
+       "r": 382,
+       "w": 374,
+       "h": 599
       },
-      "kbInset": "0px",
+      "fullscreen": false,
+      "ta": {
+       "t": 420,
+       "b": 688,
+       "l": 25,
+       "r": 365,
+       "w": 340,
+       "h": 269
+      },
+      "save": {
+       "t": 768,
+       "b": 828,
+       "l": 19,
+       "r": 382,
+       "w": 363,
+       "h": 60
+      },
+      "close": {
+       "t": 221,
+       "b": 265,
+       "l": 25,
+       "r": 116,
+       "w": 91,
+       "h": 44
+      },
+      "fsToggle": {
+       "t": 221,
+       "b": 265,
+       "l": 314,
+       "r": 365,
+       "w": 51,
+       "h": 44
+      },
+      "closeTrigger": null,
+      "hScroll": 0,
+      "focusLabel": "",
+      "focusIsToggle": false,
+      "zoom": {
+       "vw": 390,
+       "vh": 844,
+       "hScroll": 0,
+       "headerH": 94,
+       "headerKids": [
+        {
+         "cls": "btn-ghost header-nav-btn shr",
+         "off": false
+        },
+        {
+         "cls": "header-title-wrap min-w-0",
+         "off": false
+        },
+        {
+         "cls": "header-scope-row",
+         "off": false
+        },
+        {
+         "cls": "text-xs shrink-0 header-fs-b",
+         "off": false
+        }
+       ],
+       "headerOff": 0,
+       "save": {
+        "l": 19,
+        "r": 382,
+        "t": 768,
+        "b": 828
+       },
+       "close": null,
+       "editor": {
+        "l": 25,
+        "r": 365,
+        "t": 420,
+        "b": 688
+       },
+       "kbInset": "0px"
+      },
       "errors": [],
       "shots": [
-       "s12-s15-min-390.png"
+       "s12-s15-editor-390.png"
+      ]
+     },
+     {
+      "case": "fullscreen-kb-390",
+      "opened": true,
+      "vh": 520,
+      "editor": {
+       "t": 0,
+       "b": 844,
+       "l": 0,
+       "r": 390,
+       "w": 390,
+       "h": 844
+      },
+      "fullscreen": true,
+      "ta": {
+       "t": 210,
+       "b": 510,
+       "l": 9,
+       "r": 381,
+       "w": 372,
+       "h": 300
+      },
+      "save": {
+       "t": 444,
+       "b": 504,
+       "l": 19,
+       "r": 382,
+       "w": 363,
+       "h": 60
+      },
+      "close": {
+       "t": 11,
+       "b": 55,
+       "l": 9,
+       "r": 100,
+       "w": 91,
+       "h": 44
+      },
+      "fsToggle": {
+       "t": 14,
+       "b": 52,
+       "l": 330,
+       "r": 381,
+       "w": 51,
+       "h": 38
+      },
+      "closeTrigger": null,
+      "hScroll": 0,
+      "focusLabel": "",
+      "focusIsToggle": false,
+      "errors": [],
+      "shots": [
+       "s12-s15-fullscreen-kb-390.png"
+      ]
+     },
+     {
+      "case": "fullscreen-esc-390",
+      "vh": 520,
+      "editor": {
+       "t": 362,
+       "b": 961,
+       "l": 8,
+       "r": 382,
+       "w": 374,
+       "h": 599
+      },
+      "fullscreen": false,
+      "ta": {
+       "t": 578,
+       "b": 846,
+       "l": 25,
+       "r": 365,
+       "w": 340,
+       "h": 269
+      },
+      "save": {
+       "t": 444,
+       "b": 504,
+       "l": 19,
+       "r": 382,
+       "w": 363,
+       "h": 60
+      },
+      "close": {
+       "t": 379,
+       "b": 423,
+       "l": 25,
+       "r": 116,
+       "w": 91,
+       "h": 44
+      },
+      "fsToggle": {
+       "t": 379,
+       "b": 423,
+       "l": 314,
+       "r": 365,
+       "w": 51,
+       "h": 44
+      },
+      "closeTrigger": null,
+      "hScroll": 0,
+      "focusLabel": "Открыть полноэкранный редактор",
+      "focusIsToggle": true,
+      "shots": [
+       "s12-s15-fullscreen-esc-390.png"
+      ]
+     },
+     {
+      "case": "model-menu-kb-390",
+      "model": {
+       "t": 312,
+       "b": 356,
+       "options": 3,
+       "before": "",
+       "chosen": "gpt-4o-mini",
+       "applied": "gpt-4o-mini",
+       "focused": true,
+       "vh": 520,
+       "hScroll": 0
+      },
+      "errors": [],
+      "shots": [
+       "s12-s15-model-kb-390.png"
+      ]
+     },
+     {
+      "case": "search-kb-390",
+      "search": {
+       "panel": {
+        "t": 0,
+        "b": 196,
+        "l": 0,
+        "r": 390
+       },
+       "input": {
+        "t": 11,
+        "b": 55,
+        "l": 40,
+        "r": 323
+       },
+       "items": 21,
+       "empty": false,
+       "vh": 520,
+       "open": true,
+       "hScroll": 0
+      },
+      "errors": [],
+      "shots": [
+       "s12-s15-search-kb-390.png"
       ]
      },
      {
@@ -1734,7 +2063,7 @@
       "vw": 195,
       "vh": 422,
       "hScroll": 0,
-      "headerH": 58,
+      "headerH": 102,
       "headerKids": [
        {
         "cls": "btn-ghost header-nav-btn shr",
@@ -1746,66 +2075,40 @@
        },
        {
         "cls": "header-scope-row",
-        "off": true
+        "off": false
        },
        {
         "cls": "text-xs shrink-0 header-fs-b",
-        "off": true
+        "off": false
        }
       ],
-      "headerOff": 2,
+      "headerOff": 0,
       "save": null,
       "close": null,
-      "editor": {
-       "l": 42,
-       "r": 153,
-       "t": 2539,
-       "b": 2687
-      },
+      "editor": null,
       "kbInset": "0px",
       "errors": [],
       "shots": [
        "s12-s15-zoom200-195.png"
       ]
-     },
-     {
-      "case": "keyboard",
-      "ta": {
-       "t": 250,
-       "b": 398,
-       "l": 42,
-       "r": 348
-      },
-      "save": {
-       "t": 444,
-       "b": 504,
-       "l": 19,
-       "r": 382
-      },
-      "close": null,
-      "vh": 520,
-      "active": "TEXTAREA",
-      "kbOpen": true,
-      "hScroll": 0,
-      "errors": [],
-      "shots": [
-       "s12-s15-keyboard-390.png"
-      ]
      }
     ]
    },
    "shots": [
-    "s12-s15-min-320.png",
-    "s12-s15-min-390.png",
-    "s12-s15-zoom200-195.png",
-    "s12-s15-keyboard-390.png"
+    "s12-s15-editor-320.png",
+    "s12-s15-editor-390.png",
+    "s12-s15-fullscreen-kb-390.png",
+    "s12-s15-fullscreen-esc-390.png",
+    "s12-s15-model-kb-390.png",
+    "s12-s15-search-kb-390.png",
+    "s12-s15-zoom200-195.png"
    ],
    "failures": []
   },
   {
    "id": "§12.16",
    "title": "Поэкранные маршруты: Статус/Аналитика/Модули/ИИ/Речь/Память/Доступы и глубокие editor-маршруты не возвращаются к старому набору контролов",
-   "assertion": "на 12 маршрутах (включая глубокие #/modules/factcheck, #/ai/smart-cache): textLen>=40, имя раздела не дублируется, scrollWidth<=innerWidth, отсутствуют mobile-topnav/«⋯»-триггер и data-module-global-toggle",
+   "assertion": "на 12 маршрутах (включая глубокие #/modules/factcheck, #/ai/smart-cache): содержательный экран отдаёт >=200 символов (измеренный минимум по прогону приводится в probe; #/how в этом фикстуре пуст по данным и меряется отдельно), имя раздела не дублируется, scrollWidth<=innerWidth, отсутствуют mobile-topnav/«⋯»-триггер и data-module-global-toggle",
    "status": "PASS",
    "probe": {
     "rows": [
@@ -2025,7 +2328,22 @@
        "s12-s16-ai-smart-cache.png"
       ]
      }
-    ]
+    ],
+    "lengthByRoute": {
+     "#/": 3541,
+     "#/oversight": 464,
+     "#/modules": 3084,
+     "#/ai": 1182,
+     "#/ai/prompts": 7311,
+     "#/speech": 3541,
+     "#/memory": 328,
+     "#/memory/rag": 16848,
+     "#/access": 784,
+     "#/how": 90,
+     "#/modules/factcheck": 765,
+     "#/ai/smart-cache": 1182
+    },
+    "minRichLen": 328
    },
    "shots": [
     "s12-s16-root.png",
@@ -2052,10 +2370,10 @@
     "rows": [
      {
       "route": "#/",
-      "frames": 77,
-      "p50": 33,
+      "frames": 75,
+      "p50": 34,
       "p95": 36,
-      "max": 60,
+      "max": 64,
       "slowFrames": 0,
       "longTasks": 0,
       "longMax": 0,
@@ -2068,11 +2386,11 @@
      },
      {
       "route": "#/status/graph",
-      "frames": 45,
-      "p50": 57,
-      "p95": 61,
-      "max": 63,
-      "slowFrames": 0,
+      "frames": 43,
+      "p50": 58,
+      "p95": 64,
+      "max": 118,
+      "slowFrames": 1,
       "longTasks": 0,
       "longMax": 0,
       "canvases": 3,

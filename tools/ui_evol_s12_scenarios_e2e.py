@@ -742,9 +742,11 @@ def s4_scope(browser, out_dir, rec, fails):
                 or opened["panelRect"]["b"] > opened["stableH"] + 1) else "",
             "переход в другой чат сбросил маршрут (%s)"
             % afterVm["hash"] if afterVm["hash"] != "#/modules" else "",
-            "переход в другой чат не сменил активный чат"
-            if afterVm["chatId"] not in (TWO_CHATS[1]["chat_id"],
-                                         TWO_CHATS[0]["chat_id"]) else "",
+            "переход в другой чат не сменил активный чат на целевой %s "
+            "(получено %s)" % (TWO_CHATS[1]["chat_id"], afterVm["chatId"])
+            if afterVm["chatId"] != TWO_CHATS[1]["chat_id"] else "",
+            "переход в другой чат не перевёл область в chat (%s)"
+            % afterVm["scopeKind"] if afterVm["scopeKind"] != "chat" else "",
             "global-режим не включился (%s)" % afterGlobal
             if afterGlobal["scopeKind"] != "global" else "",
             "переход в global сбросил маршрут (%s)" % afterGlobal["hash"]
@@ -756,7 +758,8 @@ def s4_scope(browser, out_dir, rec, fails):
              "двух чатов + global, переход не сбрасывает контекст",
         "в панели ровно 3 опции (2 чата + global); полное имя в title; на "
         "телефоне имя занимает 2 полные строки без обрезки по вертикали; "
-        "выбор чата и global сохраняет маршрут #/modules и меняет scopeKind",
+        "выбор ВТОРОГО чата даёт именно его chat_id и scopeKind=chat, global "
+        "сохраняет маршрут #/modules",
         {"rows": rows}, fails, [s for r in rows for s in r["shots"]])
 
 
@@ -816,6 +819,98 @@ def s5_more(browser, out_dir, rec, fails):
 # ═══════════════════════════════════════════════════════════════════════════
 # §12.7 — overlay у краёв и возврат фокуса
 # ═══════════════════════════════════════════════════════════════════════════
+P_PNG_DIFF = r"""
+async ({a, b}) => {
+  const dec = async (b64) => {
+    const res = await fetch('data:image/png;base64,' + b64);
+    const bmp = await createImageBitmap(await res.blob());
+    const cv = new OffscreenCanvas(bmp.width, bmp.height);
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(bmp, 0, 0);
+    return ctx.getImageData(0, 0, bmp.width, bmp.height);
+  };
+  const A = await dec(a), B = await dec(b);
+  const w = A.width, h = A.height;
+  const d = new Uint8Array(w * h);
+  let max = 0;
+  let over8 = 0, over2 = 0;
+  for (let i = 0, p = 0; i < A.data.length; i += 4, p++) {
+    const v = Math.max(
+      Math.abs(A.data[i] - B.data[i]),
+      Math.abs(A.data[i + 1] - B.data[i + 1]),
+      Math.abs(A.data[i + 2] - B.data[i + 2]));
+    d[p] = v;
+    if (v > max) max = v;
+    if (v > 8) over8++;
+    if (v > 2) over2++;
+  }
+  // «Резкие» перепады карты разницы: именно они несут читаемые контуры
+  // текста заднего слоя. Плавный/слабый фон (blur или непрозрачная
+  // подложка) таких перепадов почти не даёт.
+  let sharp = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      const v = d[p];
+      if (v < 4) continue;
+      const rx = (x + 1 < w) ? Math.abs(v - d[p + 1]) : 0;
+      const dy = (y + 1 < h) ? Math.abs(v - d[p + w]) : 0;
+      if (rx > 12 || dy > 12) sharp++;
+    }
+  }
+  const n = w * h;
+  const sorted = Array.from(d).sort((x, y) => x - y);
+  return {w: w, h: h, max: max, p99: sorted[Math.floor(n * 0.99)] || 0,
+          shareOver8: over8 / n, shareOver2: over2 / n,
+          sharpShare: sharp / n};
+}
+"""
+
+
+def _leak(pg, clip):
+    """Насколько задний слой влияет на пиксели панели (реальный композитинг).
+
+    Снимок панели с контентом под ней сравнивается с тем же снимком, когда
+    контент под панелью скрыт. Непрозрачная подложка даёт ~0, прозрачная —
+    читаемые контуры текста заднего слоя.
+    """
+    import base64
+    shot_a = pg.screenshot(clip=clip)
+    pg.evaluate(r"""() => {
+      const m = document.querySelector('main.scroll-area');
+      if (m) m.style.visibility = 'hidden';
+    }""")
+    pg.wait_for_timeout(120)
+    shot_b = pg.screenshot(clip=clip)
+    pg.evaluate(r"""() => {
+      const m = document.querySelector('main.scroll-area');
+      if (m) m.style.visibility = '';
+    }""")
+    pg.wait_for_timeout(120)
+    return pg.evaluate(P_PNG_DIFF, {
+        "a": base64.b64encode(shot_a).decode("ascii"),
+        "b": base64.b64encode(shot_b).decode("ascii")})
+
+
+def _fails_leak(stats, label):
+    """Контракт §12.7: текст заднего слоя не читается через меню.
+
+    Допустимы оба принятых способа: фактически непрозрачная подложка
+    (утечка <= 10 уровней) ИЛИ реальный blur (утечка есть, но резких
+    контуров текста в карте разницы практически нет).
+    """
+    if not stats:
+        return ["%s: композитинг не измерен" % label]
+    if stats["max"] <= 10:
+        return []
+    if stats["max"] <= 60 and stats["sharpShare"] <= 0.002:
+        return []
+    return ["%s: задний слой просвечивает — утечка max=%d, p99=%d, "
+            "резких контуров %.3f%% пикселей"
+            % (label, stats["max"], stats["p99"],
+               stats["sharpShare"] * 100)]
+
+
 def s7_overlay(browser, out_dir, rec, fails):
     pid = "§12.7"
     rows = []
@@ -825,6 +920,18 @@ def s7_overlay(browser, out_dir, rec, fails):
         pg.wait_for_timeout(450)
         sc = pg.evaluate(P_SCOPE)
         shots = [_snap(pg, out_dir, "s12-s7-scope-%d.png" % w)]
+        # Просвечивание измеряется по РЕАЛЬНОМУ композитингу панели, а не по
+        # альфе в CSS: снимок панели с контентом под ней сравнивается с тем же
+        # снимком при скрытом контенте.
+        rect = sc["panelRect"]
+        # Клип вписываем внутрь панели (6 px): на скруглённых углах и границе
+        # в кадр попадает фон, и «просвечиванием» считался бы собственный
+        # бордюр панели, а не текст заднего слоя.
+        inset = 6
+        leak = _leak(pg, {"x": rect["l"] + inset, "y": rect["t"] + inset,
+                          "width": max(8, rect["w"] - 2 * inset),
+                          "height": max(8, rect["h"] - 2 * inset)}) \
+            if rect else None
         pg.click(".scope-trigger")
         pg.wait_for_timeout(350)
         focusScope = pg.evaluate("""() => {
@@ -840,6 +947,7 @@ def s7_overlay(browser, out_dir, rec, fails):
           const cs = getComputedStyle(p);
           return {l: Math.round(r.left), r: Math.round(r.right),
                   t: Math.round(r.top), b: Math.round(r.bottom),
+                  w: Math.round(r.width), h: Math.round(r.height),
                   bg: cs.backgroundColor,
                   filter: (cs.backdropFilter || cs.webkitBackdropFilter
                     || 'none'),
@@ -848,6 +956,10 @@ def s7_overlay(browser, out_dir, rec, fails):
                   trap: !!p.closest('[aria-modal="true"]')};
         }""")
         shots.append(_snap(pg, out_dir, "s12-s7-palette-%d.png" % w))
+        palLeak = _leak(pg, {"x": pal["l"] + 6, "y": pal["t"] + 6,
+                             "width": max(8, pal["w"] - 12),
+                             "height": max(8, pal["h"] - 12)}) \
+            if pal else None
         pg.keyboard.press("Escape")
         pg.wait_for_timeout(300)
         returnFocus = pg.evaluate("""() => {
@@ -856,49 +968,37 @@ def s7_overlay(browser, out_dir, rec, fails):
                   inBody: a === document.body,
                   label: a ? (a.getAttribute('aria-label') || '') : ''}; }""")
         rows.append({"viewport": w, "scope": sc, "palette": pal,
+                     "leak": leak, "paletteLeak": palLeak,
                      "focusScope": focusScope, "focusAfterEsc": returnFocus,
                      "errors": errs, "shots": shots})
 
-        def edge(rect, vw_, vh_):
-            if not rect:
+        def edge(rect_, vw_, vh_):
+            if not rect_:
                 return False
-            return (rect["l"] >= -1 and rect["r"] <= vw_ + 1
-                    and rect["b"] <= vh_ + 1 and rect["t"] >= -1)
-
-        def opaque(bg, filt):
-            # Текст заднего слоя не должен «просвечивать» сквозь меню.
-            try:
-                a = 1.0
-                if "rgba" in (bg or ""):
-                    a = float(bg.split(",")[-1].strip(" )"))
-                return a >= 0.75 or (filt and filt != "none")
-            except Exception:  # noqa: BLE001
-                return False
+            return (rect_["l"] >= -1 and rect_["r"] <= vw_ + 1
+                    and rect_["b"] <= vh_ + 1 and rect_["t"] >= -1)
 
         _fails_probe(pid, fails, [x for x in [
             "панель области обрезана у края: %s" % sc["panelRect"]
             if not edge(sc["panelRect"], w, h) else "",
-            "задний слой просвечивает через панель области (bg=%s, filter=%s)"
-            % (sc["panelBg"], sc["panelFilter"])
-            if not opaque(sc["panelBg"], sc["panelFilter"]) else "",
             "палитра обрезана: %s" % pal if pal and not edge(pal, w, h) else "",
             "палитра не телепортирована в <body> (inBody=%s)"
             % (pal or {}).get("inBody") if pal and not pal["inBody"] else "",
-            "задний слой просвечивает через палитру"
-            if pal and not opaque(pal["bg"], pal["filter"]) else "",
             "фокус не вернулся на триггер области после закрытия"
             if not focusScope["isTrigger"] else "",
             "фокус не вернулся на управляющий элемент после Esc палитры"
             if returnFocus["inBody"] and not returnFocus["label"] else "",
             "ошибки консоли: %s" % errs[:2] if errs else "",
-        ] if x])
+        ] + _fails_leak(leak, "панель области %d" % w)
+          + _fails_leak(palLeak, "палитра %d" % w) if x])
         ctx.close()
     rec(pid, "Overlay: dropdown у краёв не обрезается, текст заднего слоя не "
              "проходит через меню, фокус возвращается",
         "панель области и палитра целиком внутри вьюпорта на 320/390/1280; "
-        "фон панели непрозрачен (alpha>=0.75) или имеет backdrop-filter; "
-        "палитра телепортирована в body; после закрытия activeElement снова "
-        "на триггере области",
+        "ИЗМЕРЕННЫЙ композитинг: пиксели панели не зависят от контента под ней "
+        "(утечка max<=10) либо зависят только сглаженно (нет резких контуров "
+        "текста: sharpShare<=0.2 %); палитра телепортирована в body; после "
+        "закрытия activeElement снова на триггере области",
         {"rows": rows}, fails, [s for r in rows for s in r["shots"]])
 
 
@@ -1262,6 +1362,30 @@ def s13_health(browser, out_dir, rec, fails):
                     problems.append("%s/%s: тон не красный (%s)"
                                     % (state, c["sub"], c["bg"]))
     canvases = sorted({r["canvases"] for r in rows})
+    # W14-fix (§12.21, ревью 3.5): «запускается» и «остановлен» — не авария.
+    # Раньше карточка heartbeat оставалась красной в состоянии unknown
+    # (bot.state=starting) и disabled (bot.state=stopped): старт объявлялся
+    # поломкой, остановка — ложной тревогой.
+    hb_by_variant = {}
+    for r in rows:
+        hb = [c for c in r["cards"] if c["sub"] == "heartbeat"]
+        hb_by_variant[r["state"]] = hb[0] if hb else None
+    hb_prob = []
+    for variant, expect in (("unknown", "unknown"), ("disabled", "disabled"),
+                            ("failed", "failed"), ("normal", "normal")):
+        card = hb_by_variant.get(variant)
+        if not card:
+            hb_prob.append("%s: карточки heartbeat нет" % variant)
+            continue
+        if card["state"] != expect:
+            hb_prob.append("%s: heartbeat=%s, ожидалось %s"
+                           % (variant, card["state"], expect))
+        red = rgb(card["bg"])
+        tinted_red = red[0] > red[1] and red[0] > red[2] and red[0] > 60
+        if variant in ("unknown", "disabled") and tinted_red:
+            hb_prob.append("%s: heartbeat тонирован красным (%s) — ложная "
+                           "тревога для не-аварийного состояния"
+                           % (variant, card["bg"]))
     _fails_probe(pid, fails, [x for x in [
         "состояния health не различаются: %s" % observed
         if not {"normal", "failed", "unknown", "disabled"} <= set(observed)
@@ -1275,129 +1399,323 @@ def s13_health(browser, out_dir, rec, fails):
         "появилась ложная окраска обычной data-карточки (%d)"
         % max(r["tintedNonHealth"] for r in rows)
         if max(r["tintedNonHealth"] for r in rows) else "",
-    ] if x])
+    ] + hb_prob if x])
     rec(pid, "Health tint: normal/warning/degraded/failed/unknown/disabled "
              "различимы, красное стекло не ломает прозрачность/преломление/"
-             "фон, нет ложной окраски data-card",
+             "фон, нет ложной окраски data-card; transient/disabled не "
+             "объявляются аварией",
         "на #/ с шестью статусами в DOM присутствуют normal, warning (EMA "
         "нагрузки 75 %), failed, unknown, disabled; у каждой "
         "[data-health-state] альфа фона <=0.6 (стекло, не плашка), "
         "backdrop-filter и w/h совпадают с тем же subsystem в normal "
         "(±2 px); число canvas неизменно; ни одна карточка без "
-        "data-health-state не получила красный фон",
+        "data-health-state не получила красный фон; heartbeat при "
+        "bot.state=starting даёт unknown без красного tint-а, при "
+        "bot.state=stopped — disabled без красного, при polling_error — failed",
         {"rows": rows, "observed": observed, "problems": problems[:8],
-         "canvases": canvases}, fails,
+         "heartbeat": {k: (v or {}).get("state")
+                       for k, v in hb_by_variant.items()},
+         "heartbeatProblems": hb_prob, "canvases": canvases}, fails,
         [s for r in rows for s in r["shots"]])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # §12.15 — клавиатура и zoom 200 %
 # ═══════════════════════════════════════════════════════════════════════════
-def _open_prompt_editor(pg, settle=900):
-    """Открыть ОДИН промпт из библиотеки и его полноэкранный редактор.
+P_EDITOR = r"""
+() => {
+  const q = (s) => document.querySelector(s);
+  const rect = (n) => { if (!n) return null; const r = n.getBoundingClientRect();
+    return {t: Math.round(r.top), b: Math.round(r.bottom),
+            l: Math.round(r.left), r: Math.round(r.right),
+            w: Math.round(r.width), h: Math.round(r.height)}; };
+  const vh = parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue('--tg-viewport-stable-height')) || window.innerHeight;
+  const de = document.scrollingElement || document.documentElement;
+  const ed = q('[data-prompt-editor]');
+  return {
+    vh: Math.round(vh),
+    editor: rect(ed),
+    fullscreen: !!(ed && (ed.className || '').toString().indexOf('--full') >= 0),
+    ta: rect(q('[data-prompt-textarea]')),
+    save: rect(q('.sticky-save, [data-sticky-save]')),
+    close: rect(q('[data-prompt-back]')),
+    fsToggle: rect(q('[data-prompt-fullscreen]')),
+    closeTrigger: rect(q('.modal-close')),
+    hScroll: Math.max(0, (de ? de.scrollWidth : 0) - window.innerWidth),
+    focusLabel: document.activeElement
+      ? (document.activeElement.getAttribute('aria-label') || '') : '',
+    focusIsToggle: !!(document.activeElement
+      && document.activeElement.hasAttribute
+      && document.activeElement.hasAttribute('data-prompt-fullscreen')),
+  };
+}
+"""
 
-    Редактор существует только при выбранном `workspacePromptFocus`,
-    поэтому «просто нажать ⛶» на пустом экране недостаточно.
+EDITOR_ROUTE = "#/modules/direct/synthesizer"
+
+
+def _open_prompt_editor(pg, settle=900):
+    """Открыть ОДИН промпт модуля: дерево промптов → редактор.
+
+    Редактор существует только при выбранном `workspacePromptFocus`, поэтому
+    сначала выбирается промпт из дерева модуля (`[data-prompt-key]`), как это
+    делает пользователь. Раньше стенд искал дерево на `#/ai/prompts` (там его
+    нет) и молча работал без редактора — из-за этого Close «не находился».
     """
-    pg.evaluate(r"""() => {
+    ok = pg.evaluate(r"""() => {
       const it = document.querySelector('[data-prompt-key]');
-      if (it) { it.click(); return; }
-      const cat = document.querySelector('[data-prompt-library] button,'
-        + ' .prompt-list button, .prompt-tree-item');
-      if (cat) cat.click();
-    }""")
-    pg.wait_for_timeout(settle)
-    opened = pg.evaluate(r"""() => {
-      const b = document.querySelector('[data-prompt-fullscreen]');
-      if (!b) return false;
-      b.click();
+      if (!it) return false;
+      it.click();
       return true;
     }""")
     pg.wait_for_timeout(settle)
-    return opened
+    return ok and pg.evaluate(
+        "() => !!document.querySelector('[data-prompt-textarea]')")
+
+
+def _dirty_editor(pg):
+    """Сделать редактор изменённым: полоса сохранения живёт только при правках."""
+    ta = pg.query_selector("[data-prompt-textarea]")
+    if not ta:
+        return False
+    ta.click()
+    pg.wait_for_timeout(250)
+    ta.fill("Черновик правки длинного промпта: проверка доступности "
+            "сохранения и закрытия при открытой экранной клавиатуре.")
+    pg.wait_for_timeout(450)
+    return True
+
+
+def _kb_vars(pg, visible=520):
+    pg.evaluate(r"""(vh) => { const de = document.documentElement;
+      de.style.setProperty('--tg-viewport-stable-height', vh + 'px');
+      de.style.setProperty('--kb-offset', (window.innerHeight - vh) + 'px');
+      de.style.setProperty('--kb-inset', (window.innerHeight - vh) + 'px');
+      de.style.setProperty('--vv-h', vh + 'px');
+      de.classList.add('kb-open'); }""", visible)
+    pg.wait_for_timeout(150)
 
 
 def s15_keyboard_zoom(browser, out_dir, rec, fails):
     pid = "§12.15"
     rows = []
+
+    # ── (a) длинный промпт: Save и Close в обычном и полноэкранном редакторе
     for (w, h) in ((320, 568), (390, 844)):
-        ctx, pg, errs = _page(browser, w, h, route="#/ai/prompts", settle=1600)
-        _open_prompt_editor(pg)
-        p = pg.evaluate(P_ZOOM)
-        rows.append({"case": "min-width-%d" % w, **p, "errors": errs,
+        ctx, pg, errs = _page(browser, w, h, route=EDITOR_ROUTE, settle=1500)
+        opened = _open_prompt_editor(pg)
+        dirty = _dirty_editor(pg)
+        # Редактор живёт ниже дерева промптов: приводим его в видимую область,
+        # как это делает пользователь прокруткой (иначе «поле ниже вьюпорта»
+        # означало бы лишь «ещё не докрутили», а не обрезку контрола).
+        pg.locator("[data-prompt-editor]").scroll_into_view_if_needed()
+        pg.wait_for_timeout(350)
+        p = pg.evaluate(P_EDITOR)
+        z = pg.evaluate(P_ZOOM)
+        rows.append({"case": "editor-%d" % w, "opened": opened, "dirty": dirty,
+                     **p, "zoom": z, "errors": errs,
                      "shots": [_snap(pg, out_dir,
-                                     "s12-s15-min-%d.png" % w)]})
+                                     "s12-s15-editor-%d.png" % w)]})
         _fails_probe(pid, fails, [x for x in [
-            "%d: горизонтальный overflow %d px" % (w, p["hScroll"])
-            if p["hScroll"] > 0 else "",
-            "%d: элементы шапки за вьюпортом (%d)" % (w, p["headerOff"])
-            if p["headerOff"] else "",
+            "%d: редактор промпта не открылся (нет [data-prompt-textarea])"
+            % w if not p["ta"] else "",
+            "%d: редактор не удалось изменить — полоса сохранения не проверится"
+            % w if not dirty or not p["save"] else "",
+            "%d: Close (К списку) не найден в редакторе" % w
+            if not p["close"] else "",
+            "%d: Save ниже видимой области (%s)" % (w, p["save"])
+            if p["save"] and p["save"]["b"] > p["vh"] + 1 else "",
+            "%d: Close ниже видимой области (%s)" % (w, p["close"])
+            if p["close"] and p["close"]["b"] > p["vh"] + 1 else "",
+            "%d: поле промпта ниже видимой области (%s)" % (w, p["ta"])
+            if p["ta"] and p["ta"]["b"] > p["vh"] + 1 else "",
+            "%d: горизонтальный overflow %d px" % (w, z["hScroll"])
+            if z["hScroll"] > 0 else "",
+            "%d: элементы шапки за вьюпортом (%d)" % (w, z["headerOff"])
+            if z["headerOff"] else "",
             "ошибки консоли: %s" % errs[:2] if errs else "",
         ] if x])
         ctx.close()
-    # (b) zoom 200 % на телефоне: 390/2 = 195 CSS px
-    ctx, pg, errs = _page(browser, 195, 422, route="#/ai/prompts", settle=1400)
-    z = pg.evaluate(P_ZOOM)
-    shot = _snap(pg, out_dir, "s12-s15-zoom200-195.png")
-    rows.append({"case": "zoom200-195", **z, "errors": errs, "shots": [shot]})
-    ctx.close()
-    # (c) экранная клавиатура: имитируем реальные CSS-переменные клиента
-    ctx, pg, errs = _page(browser, 390, 844, route="#/ai/prompts", settle=1600)
-    pg.evaluate(r"""() => { const de = document.documentElement;
-      de.style.setProperty('--tg-viewport-stable-height', '520px');
-      de.style.setProperty('--kb-offset', '324px');
-      de.style.setProperty('--kb-inset', '324px');
-      de.style.setProperty('--vv-h', '520px');
-      de.classList.add('kb-open'); }""")
-    _open_prompt_editor(pg)
-    ta = pg.query_selector("textarea")
-    if ta:
-        ta.click()
-        pg.wait_for_timeout(300)
-        # Делаем редактор «грязным»: полоса сохранения появляется только при
-        # реальных правках, иначе «Save доступен» проверялось бы на пустом месте.
-        ta.fill("Черновик правки для проверки доступности сохранения "
-                "при открытой экранной клавиатуре.")
-        pg.wait_for_timeout(500)
-    kb = pg.evaluate(r"""() => {
-      const q = (s) => document.querySelector(s);
-      const rect = (n) => { if (!n) return null; const r = n.getBoundingClientRect();
-        return {t: Math.round(r.top), b: Math.round(r.bottom),
-                l: Math.round(r.left), r: Math.round(r.right)}; };
-      const ta = q('textarea');
-      const save = q('.sticky-save, [data-sticky-save]');
-      const close = q('.modal-close, [data-prompt-fullscreen-close]');
-      const vh = 520;
-      return {ta: rect(ta), save: rect(save), close: rect(close), vh: vh,
-              active: document.activeElement ? document.activeElement.tagName
-                : null,
-              kbOpen: document.documentElement.classList.contains('kb-open'),
-              hScroll: Math.max(0, (document.scrollingElement
-                || document.documentElement).scrollWidth - window.innerWidth)};
-    }""")
-    rows.append({"case": "keyboard", **kb, "errors": errs,
-                 "shots": [_snap(pg, out_dir, "s12-s15-keyboard-390.png")]})
+
+    # ── (b) полноэкранный редактор при открытой клавиатуре (stable = 520)
+    ctx, pg, errs = _page(browser, 390, 844, route=EDITOR_ROUTE, settle=1500)
+    opened = _open_prompt_editor(pg)
+    _kb_vars(pg, 520)
+    _dirty_editor(pg)
+    pg.evaluate("() => { const b = document.querySelector("
+                "'[data-prompt-fullscreen]'); if (b) b.click(); }")
+    pg.wait_for_timeout(700)
+    fs = pg.evaluate(P_EDITOR)
+    rows.append({"case": "fullscreen-kb-390", "opened": opened, **fs,
+                 "errors": errs,
+                 "shots": [_snap(pg, out_dir, "s12-s15-fullscreen-kb-390.png")]})
+    pg.keyboard.press("Escape")
+    pg.wait_for_timeout(500)
+    afterEsc = pg.evaluate(P_EDITOR)
+    rows.append({"case": "fullscreen-esc-390", **afterEsc,
+                 "shots": [_snap(pg, out_dir, "s12-s15-fullscreen-esc-390.png")]})
     _fails_probe(pid, fails, [x for x in [
-        "при открытой клавиатуре поле ниже видимой области (%s)" % kb["ta"]
-        if kb["ta"] and kb["ta"]["b"] > kb["vh"] + 1 else "",
-        "при открытой клавиатуре кнопка сохранения не найдена"
-        if not kb["save"] else "",
-        "при открытой клавиатуре кнопка сохранения недоступна (%s)"
-        % kb["save"] if kb["save"] and kb["save"]["b"] > kb["vh"] + 1 else "",
-        "при открытой клавиатуре закрытие недоступно (%s)" % kb["close"]
-        if kb["close"] and kb["close"]["b"] > kb["vh"] + 1 else "",
-        "клавиатура вызвала горизонтальный overflow %d" % kb["hScroll"]
-        if kb["hScroll"] > 0 else "",
+        "полноэкранный редактор не открылся" if not fs["fullscreen"] else "",
+        "полноэкранный редактор: Save не найден" if not fs["save"] else "",
+        "полноэкранный редактор: Close (К списку) не найден"
+        if not fs["close"] else "",
+        "полноэкранный редактор: Save ниже клавиатуры (%s)" % fs["save"]
+        if fs["save"] and fs["save"]["b"] > fs["vh"] + 1 else "",
+        "полноэкранный редактор: Close ниже клавиатуры (%s)" % fs["close"]
+        if fs["close"] and fs["close"]["b"] > fs["vh"] + 1 else "",
+        "полноэкранный редактор: поле ниже клавиатуры (%s)" % fs["ta"]
+        if fs["ta"] and fs["ta"]["b"] > fs["vh"] + 1 else "",
+        "полноэкранный редактор: горизонтальный overflow %d" % fs["hScroll"]
+        if fs["hScroll"] > 0 else "",
+        "Esc не вернул редактор из полноэкранного режима"
+        if afterEsc["fullscreen"] else "",
+        "после Esc фокус не вернулся на переключатель (%s)"
+        % afterEsc["focusLabel"] if not afterEsc["focusIsToggle"] else "",
         "ошибки консоли: %s" % errs[:2] if errs else "",
     ] if x])
     ctx.close()
-    rec(pid, "Клавиатура/zoom: длинный промпт, меню модели и поиск с открытой "
-             "клавиатурой; 200 % zoom; Save и Close доступны, overflow нет",
-        "на поддержанном минимуме 320 px и 390 px: scrollWidth<=innerWidth и "
-        "все элементы шапки внутри вьюпорта; при открытой клавиатуре "
-        "(stable=520) поле, Save и Close имеют bottom<=520; отдельно "
-        "измерен zoom 200 % (195 CSS px) — его результат вынесен владельцу, "
-        "контракт минимума 320 px им не меняется",
+
+    # ── (c) меню выбора модели при открытой клавиатуре.
+    # Реальный dropdown модели — фильтр «Все модели» на «Аналитике» →
+    # «Модели и расходы»; его опции строятся из фактической трассировки
+    # (`execModelOptions` ← steps[].model), поэтому стенд подаёт трассировку
+    # с двумя моделями: без данных контрол остаётся пустым, и «меню выбора
+    # модели» проверялось бы на пустом списке.
+    one_trace = {"correlation_id": "run-1",
+                 "generated_at": "2026-11-02T10:00:00",
+                 "steps": [
+                     {"model": "gpt-4o-mini", "stage": "summary",
+                      "module": "mod_summary", "kind": "llm",
+                      "latency_ms": 120},
+                     {"model": "claude-3-5-sonnet", "stage": "verbalizer",
+                      "module": "mod_direct", "kind": "llm",
+                      "latency_ms": 200}]}
+    ctx, pg, errs = _page(browser, 390, 844, route="#/oversight?tab=models",
+                          settle=2000,
+                          api=_api({"/api/analytics/usage/latest": one_trace}))
+    _kb_vars(pg, 520)
+    model_sel = None
+    for cand in pg.query_selector_all("select.field"):
+        txt = pg.evaluate("(n) => n.options.length ? n.options[0].text : ''",
+                          cand)
+        if "модели" in (txt or "").lower():
+            model_sel = cand
+            break
+    if model_sel is not None:
+        pg.evaluate("(n) => n.scrollIntoView({block: 'center'})", model_sel)
+        pg.wait_for_timeout(250)
+        model = pg.evaluate(r"""(n) => {
+          n.focus();
+          const focused = document.activeElement === n;
+          const r = n.getBoundingClientRect();
+          const before = n.value;
+          const next = Array.from(n.options).find((o) => o.value !== before);
+          if (next) {
+            n.value = next.value;
+            n.dispatchEvent(new Event('change', {bubbles: true}));
+          }
+          const vm = window.__adminbotVm;
+          return {t: Math.round(r.top), b: Math.round(r.bottom),
+                  options: n.options.length, before: before,
+                  chosen: next ? next.value : null,
+                  applied: vm ? vm.execFilterModel : null,
+                  focused: focused,
+                  vh: parseFloat(getComputedStyle(document.documentElement)
+                    .getPropertyValue('--tg-viewport-stable-height')),
+                  hScroll: Math.max(0, (document.scrollingElement
+                    || document.documentElement).scrollWidth
+                    - window.innerWidth)};
+        }""", model_sel)
+    else:
+        model = None
+    rows.append({"case": "model-menu-kb-390", "model": model, "errors": errs,
+                 "shots": [_snap(pg, out_dir, "s12-s15-model-kb-390.png")]})
+    _fails_probe(pid, fails, [x for x in [
+        "меню выбора модели не найдено на «Аналитика → Модели и расходы»"
+        if not model else "",
+        "модель: контрол вне видимой области (t=%s при видимой высоте %s)"
+        % ((model or {}).get("t"), (model or {}).get("vh"))
+        if model and (model["t"] < 0 or model["b"] > model["vh"] + 1) else "",
+        "модель: в списке меньше двух моделей (%s)"
+        % (model or {}).get("options") if model and model["options"] < 2 else "",
+        "модель: выбор не применился (chosen=%s, filter=%s)"
+        % ((model or {}).get("chosen"), (model or {}).get("applied"))
+        if model and model["applied"] != model["chosen"] else "",
+        "модель: фокус не удерживается на контроле" if model
+        and not model["focused"] else "",
+        "модель: горизонтальный overflow %s" % (model or {}).get("hScroll")
+        if model and model["hScroll"] > 0 else "",
+        "ошибки консоли: %s" % errs[:2] if errs else "",
+    ] if x])
+    ctx.close()
+
+    # ── (d) поиск (Ctrl+K) при открытой клавиатуре
+    ctx, pg, errs = _page(browser, 390, 844, route=EDITOR_ROUTE, settle=1500)
+    _kb_vars(pg, 520)
+    pg.keyboard.press("Control+k")
+    pg.wait_for_timeout(500)
+    pg.fill("[data-palette-input]", "промпт")
+    pg.wait_for_timeout(500)
+    search = pg.evaluate(r"""() => {
+      const q = (s) => document.querySelector(s);
+      const rect = (n) => { if (!n) return null;
+        const r = n.getBoundingClientRect();
+        return {t: Math.round(r.top), b: Math.round(r.bottom),
+                l: Math.round(r.left), r: Math.round(r.right)}; };
+      const panel = q('.palette-panel');
+      const vm = window.__adminbotVm;
+      return {panel: rect(panel), input: rect(q('[data-palette-input]')),
+              items: document.querySelectorAll('[data-palette-item]').length,
+              empty: !!q('[data-palette-empty]'),
+              vh: parseFloat(getComputedStyle(document.documentElement)
+                .getPropertyValue('--tg-viewport-stable-height')),
+              open: !!(vm && vm.paletteOpen),
+              hScroll: Math.max(0, (document.scrollingElement
+                || document.documentElement).scrollWidth - window.innerWidth)};
+    }""")
+    rows.append({"case": "search-kb-390", "search": search, "errors": errs,
+                 "shots": [_snap(pg, out_dir, "s12-s15-search-kb-390.png")]})
+    _fails_probe(pid, fails, [x for x in [
+        "Ctrl+K не открыл поиск" if not search["open"] else "",
+        "поиск: панель ниже клавиатуры (%s)" % search["panel"]
+        if search["panel"] and search["panel"]["b"] > search["vh"] + 1 else "",
+        "поиск: поле ввода ниже клавиатуры (%s)" % search["input"]
+        if search["input"] and search["input"]["b"] > search["vh"] + 1 else "",
+        "поиск: запрос «промпт» не дал ни одного результата и не объяснил пусто"
+        if not search["items"] and not search["empty"] else "",
+        "поиск: горизонтальный overflow %d" % search["hScroll"]
+        if search["hScroll"] > 0 else "",
+        "ошибки консоли: %s" % errs[:2] if errs else "",
+    ] if x])
+    ctx.close()
+
+    # ── (e) zoom 200 %: 390 / 2 = 195 CSS px — шапка не должна обрезаться
+    ctx, pg, errs = _page(browser, 195, 422, route="#/", settle=1400)
+    z = pg.evaluate(P_ZOOM)
+    rows.append({"case": "zoom200-195", **z, "errors": errs,
+                 "shots": [_snap(pg, out_dir, "s12-s15-zoom200-195.png")]})
+    _fails_probe(pid, fails, [x for x in [
+        "zoom 200 %% (195 CSS px): горизонтальный overflow %d" % z["hScroll"]
+        if z["hScroll"] > 0 else "",
+        "zoom 200 %% (195 CSS px): за вьюпорт выходят %d элементов шапки: %s"
+        % (z["headerOff"],
+           [k["cls"] for k in z["headerKids"] if k["off"]])
+        if z["headerOff"] else "",
+    ] if x])
+    ctx.close()
+
+    rec(pid, "Клавиатура/zoom: длинный промпт, меню выбора модели и поиск с "
+             "открытой клавиатурой; 200 % zoom; Save и Close доступны, "
+             "overflow нет",
+        "редактор промпта модуля (`#/modules/direct/synthesizer`) на 320 и 390: "
+        "поле, Save и Close (К списку) существуют и имеют bottom<=видимой "
+        "высоты; в полноэкранном режиме при клавиатуре (stable=520) Save и "
+        "Close тоже внутри, Esc выходит и возвращает фокус на переключатель; "
+        "меню выбора модели на #/ai/llm внутри видимой области, >=2 вариантов, "
+        "выбор применяется; поиск Ctrl+K открывается, панель и поле выше "
+        "клавиатуры; при zoom 200 % (195 CSS px) нет горизонтального overflow "
+        "и ни один элемент шапки не выходит за вьюпорт",
         {"rows": rows}, fails, [s for r in rows for s in r["shots"]])
 
 
@@ -1423,6 +1741,13 @@ def s16_routes(browser, out_dir, rec, fails):
         _fails_probe(pid, fails, [x for x in [
             "%s: экран пуст (textLen %d)" % (route, p["textLen"])
             if p["textLen"] < 40 else "",
+            # W14-ревью 3.3: «длина больше 40» проходит даже на фикстурно
+            # пустой справке. Для содержательных экранов порог выше; `#/how`
+            # в локальном фикстуре пуст по данным (`/api/info` отдаёт пусто)
+            # и честно измеряется отдельно, а не выдаётся за содержательный.
+            "%s: содержательный экран отдал %d символов (<200)"
+            % (route, p["textLen"])
+            if route != "#/how" and p["textLen"] < 200 else "",
             "%s: имя раздела продублировано (%s)" % (route, p["titles"])
             if p["titleDup"] > 0 else "",
             "%s: горизонтальный скролл %d" % (route, p["hScroll"])
@@ -1433,14 +1758,19 @@ def s16_routes(browser, out_dir, rec, fails):
             if (p["legacyNav"] or p["legacyGrid"] or p["masterToggles"]) else "",
         ] if x])
     ctx.close()
+    lengths = {r["route"]: r["textLen"] for r in rows}
     rec(pid, "Поэкранные маршруты: Статус/Аналитика/Модули/ИИ/Речь/Память/"
              "Доступы и глубокие editor-маршруты не возвращаются к старому "
              "набору контролов",
         "на 12 маршрутах (включая глубокие #/modules/factcheck, "
-        "#/ai/smart-cache): textLen>=40, имя раздела не дублируется, "
-        "scrollWidth<=innerWidth, отсутствуют mobile-topnav/«⋯»-триггер и "
-        "data-module-global-toggle",
-        {"rows": rows}, fails, [s for r in rows for s in r["shots"]])
+        "#/ai/smart-cache): содержательный экран отдаёт >=200 символов "
+        "(измеренный минимум по прогону приводится в probe; #/how в этом "
+        "фикстуре пуст по данным и меряется отдельно), имя раздела не "
+        "дублируется, scrollWidth<=innerWidth, отсутствуют mobile-topnav/"
+        "«⋯»-триггер и data-module-global-toggle",
+        {"rows": rows, "lengthByRoute": lengths,
+         "minRichLen": min(v for k, v in lengths.items() if k != "#/how")},
+        fails, [s for r in rows for s in r["shots"]])
 
 
 # ═══════════════════════════════════════════════════════════════════════════

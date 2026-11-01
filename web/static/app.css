@@ -3610,6 +3610,11 @@
      ellipsis, а не исчезают. */
   --header-title-min: 3.5rem;
   row-gap: 0;
+  /* W14-fix (ревью W14): `wrap` на САМОЙ шапке разрешал гибкому заголовку
+     расти и выталкивать ⛶ на вторую строку даже там, где всё помещалось
+     (замер 320/390 без черновика: высота 58 → 102). Здесь снова `nowrap`:
+     перенос делает СТРОКА ОБЛАСТИ (её собственный `flex-wrap`), а счётчик
+     черновика теперь живёт внутри этой строки, а не отнимает место у ⛶. */
   flex-wrap: nowrap;
   gap: .2rem;
   padding-left: .35rem; padding-right: .35rem;
@@ -3639,7 +3644,13 @@
      выезжать за правый край и наезжать на «⋯» (замер 320 #/ai/llm: user
      right = 328 при vw 320, когда ряд был `min-width: 0`). */
   flex: 0 1 auto;
-  flex-wrap: nowrap;
+  /* W14-fix (ревью W14): `nowrap` запрещал строке области переносить
+     собственные элементы. С появлением счётчика черновика (непустой
+     черновик) ряд физически не вмещался в 320/390 и выезжал за вьюпорт
+     (замер 320: 7 элементов за краем, hh=58). `wrap` переносит лишний
+     элемент ВНУТРИ строки области; без счётчика ничего не меняется
+     (замер 320/390: 58 px, один ряд). */
+  flex-wrap: wrap;
   min-width: min-content;
   gap: .25rem;
 }
@@ -6179,6 +6190,50 @@ html.cover-editor-open { overflow: hidden; }
   border: var(--overlay-border);
   box-shadow: var(--overlay-shadow);
   border-radius: var(--overlay-radius);
+}
+
+/* W14-fix (§12.15/§C, ревью W14): при 200 % zoom телефонного вьюпорта CSS-ширина
+   падает до 195 px, и одной строки физически не хватает: min-content шапки
+   ≈300 px, поэтому ряд области и ⛶ уезжали за край (замер 195 px:
+   header-scope-row right 266, header-fs-btn right 312 при vw 195 — 71 и 117 px
+   за вьюпорт). Ниже 320 px возвращается ЗАДУМАННАЯ двухстрочная compact-шапка
+   (строка 1 — навигация/заголовок/⛶, строка 2 — область и идентификация);
+   от 320 px и выше правило не действует: там один ряд укладывается, что
+   подтверждено замером (h-scroll 0, за край ничего не выходит). */
+@media (max-width: 319px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+    flex-wrap: wrap;
+    row-gap: .2rem;
+  }
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2
+    .header-scope-row {
+    order: 10; flex: 1 1 100%; flex-wrap: wrap;
+  }
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2
+    .header-fs-btn {
+    order: 5; margin-left: auto;
+  }
+}
+
+/* ── W14-fix (§12.7, W14-ревью 3.1): подложка плавающего overlay ──────────
+   Контракт: текст заднего слоя НЕ читается через открытое меню
+   (`plans/current_task.md` §12 п.7; EVOL-033 §A запрещает полупрозрачную
+   поверхность над текстом). `--overlay-bg` (alpha 0.94) давал утечку ~6 %:
+   в `s12-s7-scope-320.png` строки страницы читались сквозь панель.
+   Решение — тот же материал, что уже принят у палитры поиска: непрозрачная
+   рабочая поверхность `--surface-2` (палитра, `.palette-panel`, использует её
+   с ровно этим обоснованием). Оптика жидкого стекла остаётся на карточках и
+   стеклянных поверхностях; popover поверх движущегося контента — рабочая
+   поверхность, а не линза. Новых токенов не вводится. */
+.scope-panel,
+.scope-tech-body,
+.more-menu-panel,
+[data-glass-nested="1"].scope-panel,
+[data-glass-nested="1"].scope-tech-body,
+[data-glass-nested="1"].more-menu-panel {
+  background-color: var(--surface-2, #1C2537);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 /* Подпись управляющего элемента «Аналитики»: мелкая, но постоянная —
    контроль перестаёт выглядеть как второй селектор области. Строка
