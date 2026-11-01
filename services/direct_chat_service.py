@@ -3705,6 +3705,10 @@ class DirectChatService:
             # по существующему стем-матчеру). Writer по-прежнему получает
             # прозу `character_block`; планер — только данные профиля.
             _decision_ctx = None
+            # Граница хода: пин кадра предыдущего хода/чата снимается. Без этого
+            # при `persona_enabled=False` или сбое резолва планер прочитал бы
+            # характер другого чата (ревью W2/P1, F1).
+            bot_persona.reset_turn_frame()
             if persona_enabled:
                 if mca_gates.character_layers_enabled():
                     _char_ctx = await bot_persona.resolve_character_context(
@@ -5446,10 +5450,11 @@ class DirectChatService:
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
         # ASAP-FC-VOICE-01 / B: характер как данные для решения. Единственная
-        # точка сборки — `bot_persona.build_decision_profile_block`; тот же
-        # вызов (и тот же кадр хода) даёт байт-идентичный блок в Initiative L1.
+        # точка сборки — `bot_persona.build_decision_profile_block`; кадр
+        # принимается только если он пиннут для ЭТОГО чата и совпадает с
+        # версией из `character_ctx` (чужой ход/чат не переезжает).
         _decision_profile = bot_persona.build_decision_profile_block(
-            character_ctx)
+            character_ctx, chat_id=chat_id)
         meta["l1_profile_source"] = bot_persona.decision_profile_source(
             _decision_profile)
         meta["l1_profile_chars"] = int(len(_decision_profile))
@@ -11885,6 +11890,10 @@ class DirectChatService:
         нет. Один вызов L1 (без repair-лестницы — инициатива вторична:
         outage/невалидный JSON → None → SILENT, не повтор). Никогда не
         бросает."""
+        # Граница хода: пин кадра предыдущего чата снимается — инициативный
+        # цикл обходит несколько чатов, и кадр чата A не должен доехать до B
+        # (ревью W2/P1, F1).
+        bot_persona.reset_turn_frame()
         await self._refresh_turn_aliases(chat_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
@@ -11895,9 +11904,16 @@ class DirectChatService:
         except Exception:
             pass
         # Проза личности нужна Writer'у (`_initiative_persona_block`), планеру
-        # идёт только профиль решений; ctx берётся из того же резолва.
-        _persona_block, _initiative_ctx = await self._initiative_character(
-            chat_id)
+        # идёт только профиль решений; ctx берётся из того же резолва. Резолв
+        # fail-open: сбой (PG/флаги) не должен ломать ход и не должен
+        # наследовать характер чужого чата (ревью W2/P1, F1).
+        try:
+            _persona_block, _initiative_ctx = await self._initiative_character(
+                chat_id)
+        except Exception:
+            logger.warning("[direct] initiative character resolve failed — "
+                           "legacy | chat=%s", chat_id, exc_info=True)
+            _persona_block, _initiative_ctx = "", None
         # SPEECH-INIT-FIX R3: инициатива видит ответы бота в окне СВОЕГО
         # контекста (limits.summary_window_hours), а не в 600-секундном окне
         # анти-спама Direct (I-07). Direct-путь не изменён.
@@ -11974,11 +11990,13 @@ class DirectChatService:
             base_url=_init_base, model=_init_model,
             mandatory_tokens=count_tokens(_init_prompt))
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
-        # точка сборки, тот же кадр хода) — данные для оценки уместности
-        # инициативы, НЕ разрешение отвечать: молчание остаётся полноценным
-        # исходом (канон `ПРОФИЛЬ РЕШЕНИЙ` + существующие критерии silent).
+        # точка сборки); кадр принимается только для ЭТОГО чата и только с
+        # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
+        # данные для оценки уместности инициативы, НЕ разрешение отвечать:
+        # молчание остаётся полноценным исходом (канон `ПРОФИЛЬ РЕШЕНИЙ` +
+        # существующие критерии silent).
         _init_profile = bot_persona.build_decision_profile_block(
-            _initiative_ctx)
+            _initiative_ctx, chat_id=chat_id)
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,

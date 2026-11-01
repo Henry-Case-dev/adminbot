@@ -8,6 +8,62 @@
   с характером. Speech/Core/Expression, Evidence Routing, Social Context,
   фоновые Summary/Sleep/Memory не менялись.
 
+## 0. Правки по ревью W2/P1 (Needs Fixes → исправлено)
+
+### F1 (blocker) — кадр больше не ambient, а пин ЭТОГО хода/чата
+
+Что было: `build_decision_profile_block` читал `mca_self_model.current_run_frame()`
+— ambient `ContextVar`, который `set_run_frame` ставит, но НИКТО не сбрасывает.
+Инициативный цикл обходит несколько чатов; при `persona_enabled=False` или сбое
+резолва (`resolve_character_context` внутри try/except) пин оставался от
+предыдущего чата, и планер получал чужой характер. Ревьюер воспроизвёл: чат 222
+получал `frame_version`, `инициативность: 0.90`, `сарказм: 0.80` и пометку
+`(в этом чате)` чата 111 — нарушение §7 п.21 владельца.
+
+Как теперь (две независимые защиты, без нового движка/кеша):
+
+1. **Граница хода.** `bot_persona.reset_turn_frame()` → существующий
+   `mca_self_model.clear_run_frame()` вызывается ОДИН раз в начале хода:
+   Direct — до резолва характера (`handle`, перед `if persona_enabled:`),
+   Initiative — в начале `plan_initiative_decision`, до `_initiative_character`.
+2. **Проверка владельца.** Новая `mca_self_model.current_run_frame_pin()` отдаёт
+   пин ЦЕЛИКОМ (`frame` + `chat_id` хода). `bot_persona._pinned_frame_for_turn(
+   ctx, chat_id)` принимает кадр только при совпадении всех условий:
+   `ctx.frame_version` непустой (кадр резолвился в ЭТОМ ходе) · пин существует ·
+   `RunFrame.chat_id == chat_id` вызова · версия пиннутого кадра == версия из
+   `ctx`. Иначе — честный `legacy`/`absent`.
+3. Оба call site передают `chat_id` хода: `_plan_direct_l1(..., chat_id=chat_id)`
+   и `plan_initiative_decision(..., chat_id=chat_id)`.
+4. Резолв характера инициативы дополнительно обёрнут в fail-open: исключение
+   даёт `("", None)`, а не падение хода и не наследование чужого кадра.
+
+Воспроизведение ревьюера теперь закрыто тестом
+`test_initiative_of_chat_b_never_receives_chat_a_values`: сначала пин чата 111
+(кадр с `инициативность 0.90`, `сарказм 0.80`, version `111…`), затем ход
+инициативы чата 222 в двух деградированных вариантах — `persona_enabled=False`
+и сбой резолва. В payload чата 222: `источник: кадр поведения недоступен`, нет
+ни `0.90`, ни `0.80`, ни version, ни пометки `(в этом чате)`.
+
+### F2 (blocker) — провенанс больше не врёт в деградированном случае
+
+Было: `decision_profile_source` искал ПОДСТРОКУ `источник: кадр поведения`, а
+legacy-строка «источник: кадр поведения недоступен» содержит её целиком → трасса
+писала `frame` для legacy-блока. Стало: сравнение ЦЕЛОЙ строки
+`источник:` (структурный маркер); неизвестный/пустой блок → `legacy` (право
+называться `frame` нужно доказать). Тесты: `test_decision_profile_source_is_
+structural_not_substring` (обе ветви + пустой блок) и
+`test_profile_absent_is_honest_and_not_invented` (legacy → `legacy`).
+
+### F3 (docs) — описан реальный механизм активации/откат
+
+`§2.5` переписан: активация — метка+печать через
+`prompt_release_policy.apply_release` (вызов из `bot.py:1383-1384` через
+делегатор `migrate_prompt_canons`), активация возможна ПОВЕРХ ручной правки
+(EVOL-012), откат — `activate_revision` (журнал). `PROMPT_MIGRATIONS`/
+`ROLLBACK_MIGRATIONS` на старте не исполняются (`rollback_prompt_canons` —
+намеренный ERROR), поэтому соответствующие тесты помечены как проверяющие
+мёртвый на старте код, а не механизм релиза.
+
 ## 1. Что было сломано (причина по коду)
 
 `bot_persona.build_persona_prompt_block` рендерит Writer-прозу
@@ -100,13 +156,32 @@
 `_initiative_persona_block` разделён на `_initiative_character(chat_id) ->
 (проза Writer'а, ctx)`; сам `_initiative_persona_block` оставлен как обёртка
 (Writer-путь и существующие стенды не ломаются). Для одного chat/хода оба сайта
-читают ОДИН кадр (`current_run_frame`) и один builder, поэтому блок байт-идентичен;
+берут ОДИН кадр (`current_run_frame`) и один builder, поэтому блок байт-идентичен;
 повторного снапшота и модульного кеша нет — следующий ход читает новый кадр.
+
+**Изоляция хода/чата (правка ревью F1).** Ambient-кадр (`ContextVar`) переживает
+ход, а инициативный цикл обходит несколько чатов, поэтому одного
+`current_run_frame()` недостаточно. Теперь две независимые защиты:
+
+1. `bot_persona.reset_turn_frame()` вызывается ОДИН раз в начале хода (Direct —
+   до резолва характера, Initiative — в начале `plan_initiative_decision`) и
+   снимает пин предыдущего хода/чата (`mca_self_model.clear_run_frame()`);
+2. `_pinned_frame_for_turn(ctx, chat_id)` принимает кадр только при ОДНОВРЕМЕННОМ
+   совпадении: (а) `ctx.frame_version` непустой (кадр резолвился в ЭТОМ ходе),
+   (б) пин существует, (в) `RunFrame.chat_id == chat_id`, (г) версия пиннутого
+   кадра равна версии из `ctx`. Любое расхождение → честный `legacy/absent`
+   («кадр поведения недоступен»), а не чужой характер.
+
+Резолв характера инициативы обёрнут в fail-open: сбой (PG/флаги) даёт
+`("", None)`, ход не падает и чужой кадр не наследует.
 
 Провенанс в существующей трассе: `meta["l1_profile_source"]` (`frame`/`legacy`) и
 `l1_profile_chars` уходят в `record_l1_diagnostics` (Inspector, R17-safe: без
 текста профиля); в самом payload провенанс виден строкой `источник: кадр
-поведения <version>`.
+поведения <version>`. Код источника определяется СТРУКТУРНО — сравнением целой
+строки `источник:` блока, а не подстрокой (правка ревью F2: legacy-строка
+«источник: кадр поведения недоступен» содержит frame-строку целиком, и подстрочная
+проверка выдавала `frame` ровно в деградированном случае).
 
 ### 2.5 Канон L1: ревизия EVR3 (одно правило)
 
@@ -121,11 +196,35 @@
   (`prompt_registry.FACTORY_REVISION_LABELS/FACTORY_REVISION_SEALS`,
   `seal_integrity() == {}`);
 - `FACTORY_SET_SHA256_12`: было `f84baaf69559` → стало `b1c1ab5b3b68`
-  (changed = 1, только `direct.base.l1_planner`);
-- `prompt_migrations`: ступень вперёд `(PREV_..._EVR2 → активные)`, откат
-  `(активные → PREV_..._EVR2)` первым шагом, прежний стек цел (ADR-1013-3);
-- миграция срабатывает ТОЛЬКО на точное совпадение байт: кастомы владельца не
-  перезаписываются (проверено тестом на «байты + мой хвост»).
+  (changed = 1, только `direct.base.l1_planner`).
+
+**Как ревизия реально активируется и откатывается (исправлено по ревью F3).**
+Стартовая проводка промптов — НЕ строковая лестница канонов (EVOL-016, решение
+владельца 29.10.2026): `bot.py:1383-1384` вызывает
+`prompt_migrations.migrate_prompt_canons`, который является делегатором в
+`prompt_release_policy.apply_release`. Автомат смотрит на МЕТКУ заводской
+ревизии (`FACTORY_REVISION_LABELS`) и ПЕЧАТЬ содержимого
+(`FACTORY_REVISION_SEALS`), а не на равенство байтам:
+
+- смена метки при целой печати → заводской текст активируется автоматически,
+  в том числе ПОВЕРХ ручной правки владельца (прежний текст остаётся ревизией
+  журнала; EVOL-012). Барьер «кастом юзера не трогаем» снят;
+- рестарт без новой метки → no-op (активная ручная правка остаётся);
+- печать не цела → fail-closed: ERROR, пакет не записан;
+- откат редакции — `prompt_release_policy.activate_revision` (журнал версий,
+  история не удаляется), а не обратная ступень лестницы.
+
+`PROMPT_MIGRATIONS` / `ROLLBACK_MIGRATIONS` в `services/prompt_migrations.py`
+на старте БОЛЬШЕ НЕ ИСПОЛНЯЮТСЯ: `rollback_prompt_canons` — намеренный отказ
+(ERROR, записей нет). Поэтому пины лестницы (`test_prompt_migrations`,
+`test_direct_l1_l1d_contract::test_migration_ladder_leads_prod_109_to_new_canon`,
+`test_prompt_migrations::test_rollback_map_points_new_to_prev`,
+`test_asap_speech_r3b_canon::test_ladder_and_rollback_chain`,
+`test_evol_evidence_routing::test_wave6_canon_revision_seal_and_rollback_target`)
+проверяют ИСТОРИЧЕСКИЕ карты соответствия — то есть мёртвый на старте код, а не
+механизм релиза. Обновление ступени в этой правке сделано, чтобы историческая
+карта не расходилась с активными байтами, но НЕ является активатором: активацию
+решает метка+печать (`l1-planner-decision-profile` / `ef61a9dd6798`).
 
 ## 3. Фоновые стадии (негатив)
 
@@ -141,14 +240,17 @@ style_policy_hint` не рендерятся; в их байтах нет `<Expr
 
 ## 4. Тесты
 
-Новый файл `tests/test_asap_fc_voice_l1_decision_profile.py` (12 тестов,
+Новый файл `tests/test_asap_fc_voice_l1_decision_profile.py` (**17 тестов**,
 `CONTRACT`): детерминизм профиля, закрытый набор измерений и отсутствие
 выдуманных чисел, отсутствие речевых директив/примеров/уровней мата, честный
 `кадр недоступен` и legacy-имена, секция в payload вместо прозы `<Persona>`,
 выживание профиля под сжатием на живом бюджете (1600/400/150), реальный вызов
 `_plan_direct_l1` с провенансом в трассе, байт-идентичность профиля у Initiative
 и сохранность критериев silence, смена профиля следующим кадром без stale-кеша,
-негатив фона, ревизия канона и её откат на deployed-байты.
+негатив фона, ревизия канона и её откат на deployed-байты, **изоляция ходов и
+чатов** (чат A 111 → чат B 222 при persona OFF и при сбое резолва: ни версии, ни
+значений, ни пометки «(в этом чате)» чата A; отказ при чужом/устаревшем пине;
+сброс пина на границе хода) и **структурный провенанс** (`frame`/`legacy`).
 
 Mutation-проверки (каждая — красный прогон, затем возврат):
 
@@ -158,15 +260,19 @@ Mutation-проверки (каждая — красный прогон, зат�
 | убрать `L1_PROFILE_SECTION` из `protected` | `test_profile_survives_budget_compression_at_live_budget` |
 | снять правило EVR3 из канона | `test_canon_revision_keeps_deployed_bytes_as_rollback_target`, `test_migration_and_rollback_only_match_exact_deployed_bytes`, `test_initiative_payload_gets_same_profile_bytes` |
 | убрать `decision_profile=` у Initiative | `test_initiative_payload_gets_same_profile_bytes` |
+| вернуть ambient-чтение кадра (F1) | `test_profile_does_not_reuse_a_pinned_frame_of_another_chat`, `test_profile_rejects_a_stale_pin_of_the_same_chat` |
+| вернуть ambient-чтение И снять `reset_turn_frame` (состояние `1aa818c5`) | + `test_turn_reset_drops_the_previous_chat_frame`, `test_initiative_of_chat_b_never_receives_chat_a_values` (4 красных) |
+| вернуть подстрочный провенанс (F2) | `test_decision_profile_source_is_structural_not_substring`, `test_profile_absent_is_honest_and_not_invented`, `test_profile_does_not_reuse_a_pinned_frame_of_another_chat` |
 
 ### Прогоны
 
-- новый контрактный набор: **12 passed**;
+- новый контрактный набор: **17 passed**;
 - целевой набор L1/канон/миграции/реестр (26 файлов, включая
   `test_asap7_direct_l1`, `test_direct_l1_*`, `test_er08_limits_context`,
   `test_soul1_machine_profile_no_core`, `test_soul1_composer_parity_off`,
   `test_prompt_migrations`, `test_post_asap5_*`, `test_asap_speech_*`,
-  `test_evol_*`, `test_p0_prompts_core`): **423 passed**;
+  `test_evol_*`, `test_p0_prompts_core`): **423 passed** (до правок ревью) и
+  **247 passed** на затронутом подмножестве после них;
 - полный `pytest tests`: **17461 passed, 65 failed, 23 errors (20:56)**.
   Те же 88 узлов, прогнанные по отдельности на этой ветке и на базовом коммите
   `2317d26f` (чистый worktree через `git worktree add`), дают ОДИН И ТОТ ЖЕ
@@ -203,6 +309,12 @@ HEAD и в коммиты не попали.
 `sent-segments.md`. `--check` — ЗЕЛЁНЫЙ («снимок воспроизводится байт-в-байт,
 stages=27, segments=58, two isolated processes identical»); summary 27 стадий /
 58 сегментов / 229879 символов (было 225435).
+
+**После правок ревью F1/F2 снимок перегенерирован ещё раз: 0 сегментов
+сообщений изменено** (58/58 совпадают, chars/sha те же), поменялись только
+digests провенанса `services/bot_persona.py` и `services/direct_chat_service.py`
+— то есть поведение payload'а не изменилось, изменился только документируемый
+код. `--check` зелёный.
 
 Какие сегменты реально поменялись (сравнение с прежним артефактом; 4 стадии,
 8 сегментов, все — планеры L1):

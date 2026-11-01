@@ -432,7 +432,57 @@ def _profile_legacy_habits(ctx) -> list[str]:
     return [dimension for dimension in order if dimension in found]
 
 
-def build_decision_profile_block(ctx=None, *, frame=None) -> str:
+def _pinned_frame_for_turn(ctx, chat_id):
+    """Кадр ИМЕННО этого хода и ИМЕННО этого чата (или None).
+
+    Ambient ContextVar `mca_self_model` переживает ход: инициативный цикл
+    обходит несколько чатов, а упавший резолв (`persona_enabled=False`,
+    PG-сбой) пин не сбрасывает. Поэтому одного `current_run_frame()` мало —
+    кадр принимается только когда выполнены ВСЕ условия:
+
+    1. вызвавший передал `ctx` с непустым `frame_version` — значит в этом ходе
+       кадр реально резолвился (`resolve_character_context`), а не остался от
+       предыдущего;
+    2. пин существует;
+    3. пин принадлежит ЭТОМУ чату (`RunFrame.chat_id == chat_id`);
+    4. версия пиннутого кадра совпадает с версией из `ctx`.
+
+    Иначе — честный legacy/absent: чужой характер в решение не попадает, а
+    трасса не выдаёт чужой кадр за свой (ревью W2/P1, F1)."""
+    version = str(getattr(ctx, "frame_version", "") or "").strip()
+    if not version:
+        return None
+    try:
+        from services import mca_self_model as _msm
+        pin = _msm.current_run_frame_pin()
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+    if pin is None:
+        return None
+    if getattr(pin, "chat_id", "__missing__") != chat_id:
+        return None
+    frame = getattr(pin, "frame", None)
+    if frame is None:
+        return None
+    if str(getattr(frame, "version", "") or "").strip() != version:
+        return None
+    return frame
+
+
+def reset_turn_frame() -> None:
+    """Граница хода/чата: снять пин кадра предыдущего хода (fail-open).
+
+    Вызывается ОДИН раз в начале хода, до резолва характера: дальше
+    `resolve_character_context` ставит свой пин, а планер получает кадр только
+    через проверку владельца (`_pinned_frame_for_turn`)."""
+    try:
+        from services import mca_self_model as _msm
+        _msm.clear_run_frame()
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("[bot_persona] turn frame reset failed", exc_info=True)
+
+
+def build_decision_profile_block(ctx=None, *, frame=None, chat_id=None) -> str:
     """ASAP-FC-VOICE-01 / B: поведенческий профиль для decision-планеров.
 
     ОДНА сборка на весь продукт: тот же текст получают Direct L1 и Initiative
@@ -446,17 +496,18 @@ def build_decision_profile_block(ctx=None, *, frame=None) -> str:
     измерений по существующему стем-матчеру `infer_dimension`; совсем без
     данных — честная строка «кадр поведения недоступен».
 
+    `chat_id` — чат ЭТОГО хода: кадр из ambient-пина принимается только если
+    он принадлежит этому чату и совпадает с `ctx.frame_version`
+    (`_pinned_frame_for_turn`). Явный `frame=` — данные вызывающего (стенды/
+    тесты), проверка владельца не применяется.
+
     Детерминированность: фиксированный порядок строк, никаких множеств в
     выводе, времени, сети, LLM и второго снапшота. Никогда не бросает."""
     lines = [_PROFILE_ROLE_LINE]
     try:
         active = frame
         if active is None:
-            try:
-                from services import mca_self_model as _msm
-                active = _msm.current_run_frame()
-            except Exception:      # pragma: no cover - защитная ветка
-                active = None
+            active = _pinned_frame_for_turn(ctx, chat_id)
         if active is not None:
             scope = (_PROFILE_SCOPE_CHAT
                      if getattr(active, "scope_chat_id", None) is not None
@@ -481,11 +532,20 @@ def build_decision_profile_block(ctx=None, *, frame=None) -> str:
 
 def decision_profile_source(block) -> str:
     """Код источника УЖЕ собранного профиля (трасса/Inspector): ``frame`` |
-    ``legacy``. Резолва не делает и решения об источнике не принимает — читает
-    строку ``источник:`` из блока, чтобы не заводить вторую точку сборки."""
-    text = str(block or "")
-    if _PROFILE_SOURCE_FRAME in text:
-        return "frame"
+    ``legacy``. Резолва не делает и решения об источнике не принимает.
+
+    Проверка СТРУКТУРНАЯ: сравнивается целая строка ``источник:`` блока, а не
+    подстрока. Иначе legacy-блок («источник: кадр поведения недоступен»)
+    содержал бы текст frame-строки и трасса врала бы ровно в деградированном
+    случае (ревью W2/P1, F2). Нет строки источника (пустой/битый блок) →
+    ``legacy``: право называться ``frame`` нужно доказать."""
+    for line in str(block or "").splitlines():
+        text = line.strip()
+        if text == _PROFILE_SOURCE_LEGACY:
+            return "legacy"
+        if text == _PROFILE_SOURCE_FRAME or \
+                text.startswith(_PROFILE_SOURCE_FRAME + " "):
+            return "frame"
     return "legacy"
 
 

@@ -1048,6 +1048,28 @@ def current_run_frame_tag() -> str:
     return rf.applied_tag if rf is not None else ""
 
 
+def current_run_frame_pin() -> "RunFrame | None":
+    """Пин кадра ЦЕЛИКОМ: frame + chat_id хода, для которого он поставлен.
+
+    Нужен точкам, которым важно не прочитать ambient-кадр чужого хода/чата:
+    ContextVar переживает ход (инициативный цикл обходит несколько чатов,
+    упавший резолв не сбрасывает пин), поэтому `current_run_frame()` без
+    владельца недостаточен."""
+    return _RUN_FRAME.get()
+
+
+def clear_run_frame() -> None:
+    """Снять пин кадра (граница хода/чата). Fail-open.
+
+    Ambient-значение НЕ должно переезжать в следующий ход/чат: иначе при
+    `persona_enabled=False` или сбое резолва планер прочитал бы характер
+    предыдущего чата (дефект ревью W2/P1, F1)."""
+    try:
+        _RUN_FRAME.set(None)
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+
+
 # ═══ T-5079: lifecycle TraitObservation → BehaviorRule (D5) ═════════════════
 
 # 8 начальных dimensions (§28.4 `:1554`; закрытый набор; новое имя от LLM →

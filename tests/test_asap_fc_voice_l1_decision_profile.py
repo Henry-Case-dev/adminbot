@@ -71,16 +71,29 @@ def make_frame(*, scope_chat_id: int | None = 42, version_seed: str = "a",
 @pytest.fixture()
 def pinned_frame():
     """Кадр хода (holder mca-18) на время теста: прямой аналог того, что
-    ставит `resolve_character_context`, без PG."""
-    frame = make_frame()
+    ставит `resolve_character_context`, без PG. Пин принадлежит чату кадра."""
+    frame = make_frame(scope_chat_id=CHAT)
     _RUN_RESET = getattr(msm, "_RUN_FRAME", None)
     previous = _RUN_RESET.get() if _RUN_RESET is not None else None
-    msm.set_run_frame(frame, frame.scope_chat_id)
+    msm.set_run_frame(frame, CHAT)
     try:
         yield frame
     finally:
         if _RUN_RESET is not None:
             _RUN_RESET.set(previous)
+
+
+def turn_ctx(frame, *, traits=()):
+    """`CharacterReadContext` хода: с версией кадра — как после успешного
+    `resolve_character_context` (именно она подтверждает «кадр ЭТОГО хода»)."""
+    return bot_persona.CharacterReadContext(
+        persona=bot_persona.BotPersona.empty(), traits=tuple(traits),
+        frame_version=getattr(frame, "version", None))
+
+
+def clear_pin():
+    msm.clear_run_frame() if hasattr(msm, "clear_run_frame") else \
+        msm._RUN_FRAME.set(None)
 
 
 def profile_section(payload: str) -> str:
@@ -138,11 +151,12 @@ def test_profile_has_no_speech_directives_or_examples():
 
 
 def test_profile_absent_is_honest_and_not_invented():
-    block = bot_persona.build_decision_profile_block(None, frame=None)
+    block = bot_persona.build_decision_profile_block(None)
     assert "источник: кадр поведения недоступен" in block
     assert "привычки (без значений)" not in block
     assert not any(f"{dimension}:" in block for dimension in
                    msm.INITIAL_DIMENSIONS)
+    assert bot_persona.decision_profile_source(block) == "legacy"
     # legacy-фолбэк: только ИМЕНА измерений по существующему стем-матчеру
     legacy = bot_persona.build_decision_profile_block(
         bot_persona.CharacterReadContext(
@@ -152,10 +166,27 @@ def test_profile_absent_is_honest_and_not_invented():
     assert "0." not in legacy                       # чисел без правил нет
 
 
+def test_decision_profile_source_is_structural_not_substring():
+    """RED на 1aa818c5: legacy-блок («источник: кадр поведения недоступен»)
+    содержит текст frame-строки, и трасса врала `frame` ровно в деградированном
+    случае (ревью W2/P1, F2)."""
+    frame_block = bot_persona.build_decision_profile_block(
+        None, frame=make_frame())
+    legacy_block = bot_persona.build_decision_profile_block(None)
+    # ловушка подстроки: frame-строка целиком входит в legacy-строку
+    assert "источник: кадр поведения" in legacy_block
+    assert bot_persona.decision_profile_source(frame_block) == "frame"
+    assert bot_persona.decision_profile_source(legacy_block) == "legacy"
+    # неизвестный/пустой блок не имеет права называться frame
+    assert bot_persona.decision_profile_source("") == "legacy"
+    assert bot_persona.decision_profile_source("роль: участник чата") == "legacy"
+
+
 # ═══ 2. пейлоад Direct L1: секция есть, прозы/речи нет, сжатие не съедает ═══
 
 def test_l1_payload_carries_profile_instead_of_persona_prose(pinned_frame):
-    profile = bot_persona.build_decision_profile_block(None)
+    profile = bot_persona.build_decision_profile_block(
+        turn_ctx(pinned_frame), chat_id=pinned_frame.scope_chat_id)
     payload = _l1.build_l1_context(
         query="почему упал сервис", window=[], speaker="Аня",
         addressee="чат", capabilities=("web_search",), decision_profile=profile)
@@ -254,10 +285,13 @@ async def test_direct_service_l1_payload_gets_profile_from_turn_frame(
     pc.reset_state()
     try:
         llm = StubLLM()
+        # ctx хода — как из `resolve_character_context`: с версией кадра
+        # (ревью W2/P1 §6в: проба обязана покрывать именно этот путь).
         _plan, meta = await D._plan_direct_l1(
             Stub(llm), CHAT, message, "почему упал сервис", None,
             bundle=None, target_name="Аня", user_id=None,
-            character_block=CORE, character_ctx=None, lore_enabled=False,
+            character_block=CORE,
+            character_ctx=turn_ctx(pinned_frame), lore_enabled=False,
             image_enabled=False, force_required=False, reply_bot=False)
         captured = [c for c in llm.captured if c["step"] == "l1_planner"]
         assert captured, "L1-вызов не состоялся"
@@ -281,8 +315,142 @@ async def test_direct_service_l1_payload_gets_profile_from_turn_frame(
         pc.reset_state()
 
 
-# ═══ 3. профиль инициативы: те же байты, молчание не отменяется ════════════
+# ═══ 2b. изоляция ходов/чатов: чужой кадр не переезжает (ревью F1) ═════════
 
+CHAT_A = 111
+CHAT_B = 222
+
+
+def _frame_a():
+    """Кадр чата A с ЗАМЕТНЫМИ значениями (то, что ревьюер увидел в чате B)."""
+    return make_frame(scope_chat_id=CHAT_A, version_seed="a",
+                      rules=(("инициативность", 0.90), ("сарказм", 0.80)))
+
+
+def test_profile_does_not_reuse_a_pinned_frame_of_another_chat():
+    """RED на 1aa818c5: кадр читался из ambient ContextVar, не сбрасывался, и
+    чат B получал «инициативность: 0.90 (в этом чате)» от чата A."""
+    frame_a = _frame_a()
+    msm.set_run_frame(frame_a, CHAT_A)
+    try:
+        # B без своего ctx (persona OFF / сбой PG) — кадра ЭТОГО хода нет
+        block_b = bot_persona.build_decision_profile_block(None, chat_id=CHAT_B)
+        assert "0.90" not in block_b and "0.80" not in block_b
+        assert frame_a.version not in block_b
+        assert "(в этом чате)" not in block_b
+        assert "источник: кадр поведения недоступен" in block_b
+        assert bot_persona.decision_profile_source(block_b) == "legacy"
+        # ctx с версией, но ЧУЖОГО чата — тоже не источник профиля
+        ctx_foreign = bot_persona.CharacterReadContext(
+            persona=bot_persona.BotPersona.empty(),
+            frame_version=frame_a.version)
+        block_foreign = bot_persona.build_decision_profile_block(
+            ctx_foreign, chat_id=CHAT_B)
+        assert "0.90" not in block_foreign and frame_a.version not in block_foreign
+        # ctx своей версии, но chat_id не совпал с владельцем пина — отказ
+        assert "0.90" not in bot_persona.build_decision_profile_block(
+            turn_ctx(frame_a), chat_id=CHAT_B)
+        # а свой чат получает кадр как прежде
+        own = bot_persona.build_decision_profile_block(
+            turn_ctx(frame_a), chat_id=CHAT_A)
+        assert "инициативность: 0.90 (в этом чате)" in own
+        assert bot_persona.decision_profile_source(own) == "frame"
+    finally:
+        clear_pin()
+
+
+def test_profile_rejects_a_stale_pin_of_the_same_chat():
+    """Версия из ctx — подтверждение «кадр ЭТОГО хода»: пин со старой версией
+    (например, предыдущий ход после сбоя резолва) не принимается."""
+    old = _frame_a()
+    new = make_frame(scope_chat_id=CHAT_A, version_seed="c",
+                     rules=(("инициативность", 0.10),))
+    msm.set_run_frame(old, CHAT_A)          # пин остался от прежнего хода
+    try:
+        ctx_new = turn_ctx(new)             # ctx нового хода
+        block = bot_persona.build_decision_profile_block(ctx_new, chat_id=CHAT_A)
+        assert "0.10" not in block and "0.90" not in block
+        assert "источник: кадр поведения недоступен" in block
+    finally:
+        clear_pin()
+
+
+def test_turn_reset_drops_the_previous_chat_frame():
+    frame_a = _frame_a()
+    msm.set_run_frame(frame_a, CHAT_A)
+    bot_persona.reset_turn_frame()
+    assert msm.current_run_frame_pin() is None
+    assert "0.90" not in bot_persona.build_decision_profile_block(
+        turn_ctx(frame_a), chat_id=CHAT_A)
+
+
+@pytest.mark.asyncio
+async def test_initiative_of_chat_b_never_receives_chat_a_values(monkeypatch):
+    """Сценарий ревьюера: в одном процессе сначала ход чата A (кадр есть),
+    затем инициатива чата B, где персона OFF / резолв упал. В payload B не
+    должно быть ни версии, ни значений, ни пометки «(в этом чате)» чата A."""
+    from services import direct_chat_service as dcs
+    from services.direct_chat_service import DirectChatService as D
+
+    frame_a = _frame_a()
+    msm.set_run_frame(frame_a, CHAT_A)      # «предыдущий» ход чата A
+    payloads: list[str] = []
+
+    class StubLLM:
+        async def generate(self, messages, **kwargs):
+            payloads.append(messages[-1]["content"])
+            raise RuntimeError("stop-after-context")
+
+    class Mem:
+        async def get_window_messages(self, chat_id):
+            return [{"id": 5, "user_id": 7, "author_name": "Гоша",
+                     "text": "бот читает?"}]
+
+    def _service(character):
+        service = D.__new__(D)
+        service.llm = StubLLM()
+        service.memory = Mem()
+        service.db = None
+        service.aliases = type("A", (), {
+            "resolve": staticmethod(lambda *a, **k: None)})()
+
+        async def _no_aliases(_chat_id):
+            return None
+
+        async def _no_replies(_chat_id, **kwargs):
+            return ()
+
+        service._initiative_character = character
+        service._refresh_turn_aliases = _no_aliases
+        service._recent_bot_replies = _no_replies
+        return service
+
+    async def _persona_off(_chat_id):
+        return "", None                     # persona_enabled=False
+
+    async def _pg_failure(_chat_id):
+        raise RuntimeError("PG down")       # сбой резолва
+
+    monkeypatch.setattr(dcs, "reaction_mechanics_enabled", lambda: False)
+    try:
+        for character in (_persona_off, _pg_failure):
+            payloads.clear()
+            await D.plan_initiative_decision(
+                _service(character), CHAT_B,
+                {"goal": "уточнить статус", "kind": "follow_up"})
+            assert payloads, "инициативный L1-вызов не состоялся"
+            payload = payloads[-1]
+            assert frame_a.version not in payload
+            assert "инициативность: 0.90" not in payload
+            assert "сарказм: 0.80" not in payload
+            assert "0.90 (в этом чате)" not in payload
+            section = profile_section(payload)
+            assert "источник: кадр поведения недоступен" in section
+    finally:
+        clear_pin()
+
+
+# ═══ 3. профиль инициативы: те же байты, молчание не отменяется ════════════
 @pytest.mark.asyncio
 async def test_initiative_payload_gets_same_profile_bytes(pinned_frame,
                                                           monkeypatch):
@@ -309,8 +477,11 @@ async def test_initiative_payload_gets_same_profile_bytes(pinned_frame,
         "resolve": staticmethod(lambda *a, **k: None)})()
 
     async def _character(_chat_id):
-        # ctx не нужен: кадр хода уже пиннут (pinned_frame) — как в проде
-        return "", None
+        # ctx хода с версией кадра — как из `resolve_character_context`;
+        # сам кадр берётся из пина ТОЛЬКО при совпадении чата и версии.
+        # Стенд повторяет прод: резолв ставит пин (после reset_turn_frame).
+        msm.set_run_frame(pinned_frame, _chat_id)
+        return "", turn_ctx(pinned_frame)
 
     async def _no_aliases(_chat_id):
         return None
@@ -332,7 +503,8 @@ async def test_initiative_payload_gets_same_profile_bytes(pinned_frame,
     payload = captured[0][1]["content"]
     section = profile_section(payload)
     # 17/19: тот же профиль, что получил бы Direct для этого кадра
-    assert section == bot_persona.build_decision_profile_block(None)
+    assert section == bot_persona.build_decision_profile_block(
+        turn_ctx(pinned_frame), chat_id=CHAT)
     assert "инициативность: 0.70" in section
     assert pinned_frame.version in section
     # 18: профиль НЕ является разрешением отвечать — существующие критерии
