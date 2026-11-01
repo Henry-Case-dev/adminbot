@@ -159,6 +159,27 @@ Mutation-проверки (каждая — красный прогон, зат�
 | снять правило EVR3 из канона | `test_canon_revision_keeps_deployed_bytes_as_rollback_target`, `test_migration_and_rollback_only_match_exact_deployed_bytes`, `test_initiative_payload_gets_same_profile_bytes` |
 | убрать `decision_profile=` у Initiative | `test_initiative_payload_gets_same_profile_bytes` |
 
+### Прогоны
+
+- новый контрактный набор: **12 passed**;
+- целевой набор L1/канон/миграции/реестр (26 файлов, включая
+  `test_asap7_direct_l1`, `test_direct_l1_*`, `test_er08_limits_context`,
+  `test_soul1_machine_profile_no_core`, `test_soul1_composer_parity_off`,
+  `test_prompt_migrations`, `test_post_asap5_*`, `test_asap_speech_*`,
+  `test_evol_*`, `test_p0_prompts_core`): **423 passed**;
+- полный `pytest tests`: **17461 passed, 65 failed, 23 errors (20:56)**.
+  Те же 88 узлов, прогнанные по отдельности на этой ветке и на базовом коммите
+  `2317d26f` (чистый worktree через `git worktree add`), дают ОДИН И ТОТ ЖЕ
+  набор: 36 failed + 19 errors, списки совпадают побайтно (`Compare-Object` —
+  пусто). То есть падения предсуществующие (окружение/порядок: summary,
+  youtube-download, webapp/Node, outgoing-guard, чат-ключи без PG/сети) и
+  правкой не вызваны.
+- `tools/er65_prompt_segment_snapshot.py --check`: OK.
+
+Примечание по гигиене: полный прогон перезаписывает `plans/features/evol/audit/
+evidence/*` (скриншоты/json UI-e2e). Эти файлы восстановлены байт-в-байт из
+HEAD и в коммиты не попали.
+
 Обновлены пины, которые законно сдвинулись от правки канона/пакета:
 `test_p0_prompts_core`, `test_expression_isolation_followup`,
 `test_post_asap5_w1_writer_core`, `test_post_asap5_w2_tech_reasoning`,
@@ -219,3 +240,19 @@ L2-код в этой правке не тронут, разница — вну�
   как в артефактах: стенд читает их из hot-кэша/кода.
 - Фактический бюджет пакета конкретной модели на проде (`model_window`), а не
   только расчётные 1600/400/150.
+
+## 7. Попутные наблюдения (не блокеры этой правки)
+
+1. **ER-65 / L2 fallback (pre-existing).** На базовом `2317d26f` артефакт
+   ER-65 уже расходился с кодом по `direct.l2_writer.fallback_model_capacity`
+   (709 в артефакте против 745 в коде) — снимок после ER-08-RC не обновляли.
+   Новый артефакт снова 709, но стенд на текущей ветке режет `Response_Plan` на
+   36 символов раньше при идентичной system. Код L2 в этой правке не тронут;
+   владелец вопроса — ER-08-RC/Reviewer.
+2. **`_initiative_persona_block` → `_initiative_character`.** Резолв характера
+   для инициативы теперь возвращает и ctx; старый метод сохранён обёрткой, но
+   стенды, подменявшие именно `_initiative_persona_block` в решении L1, должны
+   целиться в `_initiative_character` (один тест обновлён).
+3. **Полный прогон не зелёный сам по себе** (65 failed / 23 errors) — это
+   предсуществующее состояние окружения, подтверждённое сравнением с базой;
+   к профилю решений отношения не имеет.
