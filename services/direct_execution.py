@@ -792,10 +792,18 @@ def _orchestrator_messages(*, query: str, allowlist, evidence_sources,
                     f"- {name}: {desc[:ORCHESTRATOR_TOOL_DESC_CHARS]}")
         evidence_lines = []
         for src in (evidence_sources or [])[-6:]:
+            # ER-08 (№31): планировщику нужен СТРУКТУРНЫЙ статус источника, а
+            # не только слепой головной срез текста: сколько доставлено из
+            # всего и был ли срез. Сниппет остаётся добавкой (числа в шапке
+            # токены не раздувают).
+            header = (
+                f"[{src.tool} | status={src.status or 'ok'} | "
+                f"delivered={int(src.delivered_chars or 0)}/"
+                f"{int(src.total_chars or 0)} | "
+                f"truncated={'yes' if src.truncated else 'no'}]")
             snippet = _UNTRUSTED_WRAPPING.format(
                 str(src.content or "")[:ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS])
-            evidence_lines.append(
-                f"[{src.tool} | {src.status}]\n{snippet}")
+            evidence_lines.append(f"{header}\n{snippet}")
         steps_lines = [
             f"{idx + 1}. {s.get('tool')} ({s.get('reason') or '-'})"
             for idx, s in enumerate(steps_done or [])]

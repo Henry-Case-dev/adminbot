@@ -283,6 +283,27 @@ class TestMeteredIsToolCounterNotMoney:
 
 # ── 3. Дедлайны ────────────────────────────────────────────────────────────
 
+
+class TestOrchestratorEvidenceHeader:
+    """№31: планировщику уходит структурный статус источника, а не только
+    слепой 400-символьный срез текста."""
+
+    def test_evidence_so_far_has_structural_status(self):
+        from services import direct_execution as de
+
+        src = de.EvidenceSource(
+            tool="fetch_article", status="ok", content="x" * 2000,
+            total_chars=2000, delivered_chars=400, truncated=True,
+            delivered=True)
+        messages = de._orchestrator_messages(
+            query="q", allowlist=[], evidence_sources=[src], steps_done=[])
+        body = messages[1]["content"]
+        assert "status=ok" in body
+        assert "delivered=400/2000" in body
+        assert "truncated=yes" in body
+        # Срез остаётся добавкой (untrusted-обёртка не сломана).
+        assert "ДАННЫЕ ИНСТРУМЕНТА" in body
+
 class TestDeadlines:
 
     def test_orchestrator_deadline_matches_tool_chain(self):
