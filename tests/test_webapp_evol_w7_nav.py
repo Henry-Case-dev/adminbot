@@ -458,11 +458,21 @@ class TestAsapUi02Navigation:
         assert 'drawerOpen ? \'drawer-open\' : \'\'' in INDEX
         trap = JS[JS.index("drawerOnKeydown: function"):]
         trap = trap[:trap.index("\n      },")]
-        assert "e.key !== 'Tab'" in trap
-        assert "preventDefault" in trap
-        assert "shiftKey" in trap
-        assert ".app-drawer" in trap and "offsetParent" in trap, \
-            "ловушка считает реально фокусируемые узлы панели"
+        # EVOL-033 (W13): ловушка одна на все оверлеи (`_trapTabKey`); у drawer
+        # остаётся его собственное условие — только ВИДИМЫЕ узлы открытой панели.
+        assert "_trapTabKey(e, panel, true)" in trap, \
+            "ловушка делегируется общему хелперу с фильтром видимости"
+        assert "currentTarget" in trap and "'.app-drawer'" in trap, \
+            "панель берётся из currentTarget (fallback — .app-drawer)"
+        helper = JS[JS.index("function _overlayFocusables("):
+                    JS.index("function _trapTabKey(")]
+        assert "offsetParent" in helper, \
+            "фильтр реально фокусируемых узлов живёт в общем хелпере"
+        trap_helper = JS[JS.index("function _trapTabKey("):]
+        trap_helper = trap_helper[:trap_helper.index("\n  }\n")]
+        assert "event.key !== 'Tab'" in trap_helper
+        assert "preventDefault" in trap_helper
+        assert "shiftKey" in trap_helper
         esc = JS[JS.index("escClose: function () {"):]
         esc = esc[:esc.index("\n      },")]
         # ASAP-UI-02 §4.2/§11 (L01958): порядок слоёв живёт в ОДНОМ месте —

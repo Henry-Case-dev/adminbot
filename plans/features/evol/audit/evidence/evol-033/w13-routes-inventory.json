@@ -1,0 +1,1853 @@
+{
+ "screens": [
+  {
+   "route": "#/",
+   "kind": "primary",
+   "tab": "status",
+   "canonicalHash": "#/",
+   "title": "Статус",
+   "textLen": 3541,
+   "sections": 6,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/status/graph",
+   "kind": "secondary",
+   "tab": "status",
+   "canonicalHash": "#/status/graph",
+   "title": "Граф связей",
+   "textLen": 3536,
+   "sections": 6,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/oversight",
+   "kind": "secondary",
+   "tab": "oversight",
+   "canonicalHash": "#/oversight",
+   "title": "Аналитика",
+   "textLen": 464,
+   "sections": 6,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/how",
+   "kind": "primary",
+   "tab": "info",
+   "canonicalHash": "#/how",
+   "title": "Справка",
+   "textLen": 90,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules",
+   "kind": "primary",
+   "tab": "modules",
+   "canonicalHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/budgets",
+   "kind": "secondary",
+   "tab": "mod_budgets",
+   "canonicalHash": "#/modules/budgets",
+   "title": "Бюджеты",
+   "textLen": 932,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/images",
+   "kind": "secondary",
+   "tab": "mod_images",
+   "canonicalHash": "#/modules/images",
+   "title": "Генерация изображений",
+   "textLen": 483,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/vision",
+   "kind": "secondary",
+   "tab": "mod_vision",
+   "canonicalHash": "#/modules/vision",
+   "title": "Распознавание изображений",
+   "textLen": 509,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/permsoc",
+   "kind": "primary",
+   "tab": "permsoc",
+   "canonicalHash": "#/permsoc",
+   "title": "PERMsoc",
+   "textLen": 10663,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai",
+   "kind": "primary",
+   "tab": "llm_providers",
+   "canonicalHash": "#/ai",
+   "title": "ИИ",
+   "textLen": 1182,
+   "sections": 6,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/llm",
+   "kind": "secondary",
+   "tab": "llm_providers",
+   "canonicalHash": "#/ai/llm",
+   "title": "Модели и подключения",
+   "textLen": 4337,
+   "sections": 14,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts",
+   "kind": "secondary",
+   "tab": "prompts",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/names",
+   "kind": "secondary",
+   "tab": "people_names",
+   "canonicalHash": "#/ai/names",
+   "title": "Имена и алиасы",
+   "textLen": 426,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/memory",
+   "kind": "primary",
+   "tab": "memory_rag",
+   "canonicalHash": "#/memory",
+   "title": "Память",
+   "textLen": 328,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/memory/rag",
+   "kind": "secondary",
+   "tab": "memory_rag",
+   "canonicalHash": "#/memory/rag",
+   "title": "Настройки памяти",
+   "textLen": 16848,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/memory/lore",
+   "kind": "secondary",
+   "tab": "chat_lore",
+   "canonicalHash": "#/memory/lore",
+   "title": "Лор чатов",
+   "textLen": 1165,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/memory/relations",
+   "kind": "secondary",
+   "tab": "relations",
+   "canonicalHash": "#/memory/relations",
+   "title": "Люди и связи",
+   "textLen": 1874,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/persona",
+   "kind": "secondary",
+   "tab": "speech",
+   "canonicalHash": "#/ai/persona",
+   "title": "Речь и характер",
+   "textLen": 289,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/speech",
+   "kind": "secondary",
+   "tab": "speech",
+   "canonicalHash": "#/ai/speech",
+   "title": "Речь и характер",
+   "textLen": 289,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/access",
+   "kind": "primary",
+   "tab": "access",
+   "canonicalHash": "#/access",
+   "title": "Доступы",
+   "textLen": 784,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/access/roles",
+   "kind": "secondary",
+   "tab": "access",
+   "canonicalHash": "#/access/roles",
+   "title": "Матрица ролей",
+   "textLen": 724,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/access/local",
+   "kind": "secondary",
+   "tab": "access",
+   "canonicalHash": "#/access/local",
+   "title": "Локальные админы",
+   "textLen": 416,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/access/admins",
+   "kind": "secondary",
+   "tab": "access",
+   "canonicalHash": "#/access/admins",
+   "title": "Роли",
+   "textLen": 285,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary",
+   "title": "Сводки чатов",
+   "textLen": 1016,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct",
+   "title": "Ответы в чате",
+   "textLen": 1056,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck",
+   "title": "Фактчек",
+   "textLen": 765,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search",
+   "title": "Поиск",
+   "textLen": 616,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/transcribe",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/modules/transcribe",
+   "title": "Транскрипт голосовых и видео",
+   "textLen": 639,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary",
+   "title": "Выжимка видео",
+   "textLen": 746,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/media_download",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_media_download",
+   "slug": "media_download",
+   "canonicalHash": "#/modules/media_download",
+   "title": "Скачивание медиа",
+   "textLen": 623,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web",
+   "title": "Веб-страницы",
+   "textLen": 627,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup",
+   "title": "Диагностика",
+   "textLen": 623,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/sleep",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_sleep",
+   "slug": "sleep",
+   "canonicalHash": "#/modules/sleep",
+   "title": "Сон",
+   "textLen": 515,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/nostalgia",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_nostalgia",
+   "slug": "nostalgia",
+   "canonicalHash": "#/modules/nostalgia",
+   "title": "Ностальгия",
+   "textLen": 550,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/initiative",
+   "kind": "module",
+   "tab": "overview",
+   "module": "mod_initiative",
+   "slug": "initiative",
+   "canonicalHash": "#/modules/initiative",
+   "title": "Инициатива",
+   "textLen": 635,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/settings",
+   "title": "Сводки чатов",
+   "textLen": 1406,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/clusterizer",
+   "kind": "module-tab",
+   "tab": "clusterizer",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/clusterizer",
+   "title": "Сводки чатов",
+   "textLen": 443,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/writer",
+   "kind": "module-tab",
+   "tab": "writer",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/writer",
+   "title": "Сводки чатов",
+   "textLen": 438,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/hybrid",
+   "kind": "module-tab",
+   "tab": "hybrid",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/hybrid",
+   "title": "Сводки чатов",
+   "textLen": 4322,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/legacy",
+   "kind": "module-tab",
+   "tab": "legacy",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/legacy",
+   "title": "Сводки чатов",
+   "textLen": 1560,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/models",
+   "title": "Сводки чатов",
+   "textLen": 633,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/limits",
+   "title": "Сводки чатов",
+   "textLen": 1946,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/testing",
+   "title": "Сводки чатов",
+   "textLen": 762,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/summary/styles",
+   "kind": "module-tab",
+   "tab": "styles",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/modules/summary/styles",
+   "title": "Сводки чатов",
+   "textLen": 640,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/settings",
+   "title": "Ответы в чате",
+   "textLen": 4932,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/synthesizer",
+   "kind": "module-tab",
+   "tab": "synthesizer",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/synthesizer",
+   "title": "Ответы в чате",
+   "textLen": 1440,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/verbalizer",
+   "kind": "module-tab",
+   "tab": "verbalizer",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/verbalizer",
+   "title": "Ответы в чате",
+   "textLen": 1416,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/models",
+   "title": "Ответы в чате",
+   "textLen": 2507,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/limits",
+   "title": "Ответы в чате",
+   "textLen": 9656,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/direct/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/modules/direct/testing",
+   "title": "Ответы в чате",
+   "textLen": 927,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/settings",
+   "title": "Фактчек",
+   "textLen": 2250,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/synthesizer",
+   "kind": "module-tab",
+   "tab": "synthesizer",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/synthesizer",
+   "title": "Фактчек",
+   "textLen": 970,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/verbalizer",
+   "kind": "module-tab",
+   "tab": "verbalizer",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/verbalizer",
+   "title": "Фактчек",
+   "textLen": 1013,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/models",
+   "title": "Фактчек",
+   "textLen": 613,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/limits",
+   "title": "Фактчек",
+   "textLen": 1210,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/factcheck/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/modules/factcheck/testing",
+   "title": "Фактчек",
+   "textLen": 516,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search/settings",
+   "title": "Поиск",
+   "textLen": 758,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search/prompts",
+   "kind": "module-tab",
+   "tab": "prompts",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search/prompts",
+   "title": "Поиск",
+   "textLen": 909,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search/models",
+   "title": "Поиск",
+   "textLen": 594,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search/limits",
+   "title": "Поиск",
+   "textLen": 968,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/search/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/modules/search/testing",
+   "title": "Поиск",
+   "textLen": 497,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/transcribe/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/modules/transcribe/settings",
+   "title": "Транскрипт голосовых и видео",
+   "textLen": 604,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/transcribe/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/modules/transcribe/models",
+   "title": "Транскрипт голосовых и видео",
+   "textLen": 638,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/transcribe/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/modules/transcribe/limits",
+   "title": "Транскрипт голосовых и видео",
+   "textLen": 1750,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/transcribe/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/modules/transcribe/testing",
+   "title": "Транскрипт голосовых и видео",
+   "textLen": 535,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary/settings",
+   "title": "Выжимка видео",
+   "textLen": 1703,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary/prompts",
+   "kind": "module-tab",
+   "tab": "prompts",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary/prompts",
+   "title": "Выжимка видео",
+   "textLen": 1117,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary/models",
+   "title": "Выжимка видео",
+   "textLen": 764,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary/limits",
+   "title": "Выжимка видео",
+   "textLen": 2635,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/video_summary/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/modules/video_summary/testing",
+   "title": "Выжимка видео",
+   "textLen": 649,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/media_download/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_media_download",
+   "slug": "media_download",
+   "canonicalHash": "#/modules/media_download/settings",
+   "title": "Скачивание медиа",
+   "textLen": 768,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/media_download/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_media_download",
+   "slug": "media_download",
+   "canonicalHash": "#/modules/media_download/limits",
+   "title": "Скачивание медиа",
+   "textLen": 536,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web/settings",
+   "title": "Веб-страницы",
+   "textLen": 591,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web/prompts",
+   "kind": "module-tab",
+   "tab": "prompts",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web/prompts",
+   "title": "Веб-страницы",
+   "textLen": 952,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web/models",
+   "title": "Веб-страницы",
+   "textLen": 603,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web/limits",
+   "title": "Веб-страницы",
+   "textLen": 745,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/web/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/modules/web/testing",
+   "title": "Веб-страницы",
+   "textLen": 506,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup/settings",
+   "title": "Диагностика",
+   "textLen": 1803,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup/prompts",
+   "kind": "module-tab",
+   "tab": "prompts",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup/prompts",
+   "title": "Диагностика",
+   "textLen": 907,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup/models",
+   "title": "Диагностика",
+   "textLen": 935,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup/limits",
+   "title": "Диагностика",
+   "textLen": 1324,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/checkup/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/modules/checkup",
+   "title": "Диагностика",
+   "textLen": 623,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/modules/sleep/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_sleep",
+   "slug": "sleep",
+   "canonicalHash": "#/modules/sleep/settings",
+   "title": "Сон",
+   "textLen": 5763,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/sleep/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_sleep",
+   "slug": "sleep",
+   "canonicalHash": "#/modules/sleep/limits",
+   "title": "Сон",
+   "textLen": 232,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/nostalgia/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_nostalgia",
+   "slug": "nostalgia",
+   "canonicalHash": "#/modules/nostalgia/settings",
+   "title": "Ностальгия",
+   "textLen": 4158,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/nostalgia/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_nostalgia",
+   "slug": "nostalgia",
+   "canonicalHash": "#/modules/nostalgia/limits",
+   "title": "Ностальгия",
+   "textLen": 253,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/budgets/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_budgets",
+   "slug": "budgets",
+   "canonicalHash": "#/modules/budgets/settings",
+   "title": "Бюджеты",
+   "textLen": 1033,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/budgets/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_budgets",
+   "slug": "budgets",
+   "canonicalHash": "#/modules/budgets/limits",
+   "title": "Бюджеты",
+   "textLen": 4397,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/images/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_images",
+   "slug": "images",
+   "canonicalHash": "#/modules/images/settings",
+   "title": "Генерация изображений",
+   "textLen": 3295,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/images/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_images",
+   "slug": "images",
+   "canonicalHash": "#/modules/images/limits",
+   "title": "Генерация изображений",
+   "textLen": 272,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/images/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_images",
+   "slug": "images",
+   "canonicalHash": "#/modules/images/models",
+   "title": "Генерация изображений",
+   "textLen": 674,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/images/testing",
+   "kind": "module-tab",
+   "tab": "testing",
+   "module": "mod_images",
+   "slug": "images",
+   "canonicalHash": "#/modules/images/testing",
+   "title": "Генерация изображений",
+   "textLen": 430,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/vision/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_vision",
+   "slug": "vision",
+   "canonicalHash": "#/modules/vision/settings",
+   "title": "Распознавание изображений",
+   "textLen": 1881,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/vision/models",
+   "kind": "module-tab",
+   "tab": "models",
+   "module": "mod_vision",
+   "slug": "vision",
+   "canonicalHash": "#/modules/vision/models",
+   "title": "Распознавание изображений",
+   "textLen": 1288,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/vision/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_vision",
+   "slug": "vision",
+   "canonicalHash": "#/modules/vision/limits",
+   "title": "Распознавание изображений",
+   "textLen": 4038,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/initiative/settings",
+   "kind": "module-tab",
+   "tab": "settings",
+   "module": "mod_initiative",
+   "slug": "initiative",
+   "canonicalHash": "#/modules/initiative/settings",
+   "title": "Инициатива",
+   "textLen": 3557,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/modules/initiative/limits",
+   "kind": "module-tab",
+   "tab": "limits",
+   "module": "mod_initiative",
+   "slug": "initiative",
+   "canonicalHash": "#/modules/initiative/limits",
+   "title": "Инициатива",
+   "textLen": 3729,
+   "sections": 2,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/summary",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_summary",
+   "slug": "summary",
+   "canonicalHash": "#/ai/prompts/summary",
+   "title": "Промпты",
+   "textLen": 1205,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/direct",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_direct",
+   "slug": "direct",
+   "canonicalHash": "#/ai/prompts/direct",
+   "title": "Промпты",
+   "textLen": 948,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/factcheck",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_factcheck",
+   "slug": "factcheck",
+   "canonicalHash": "#/ai/prompts/factcheck",
+   "title": "Промпты",
+   "textLen": 889,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/search",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_search",
+   "slug": "search",
+   "canonicalHash": "#/ai/prompts/search",
+   "title": "Промпты",
+   "textLen": 847,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/transcribe",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_transcribe",
+   "slug": "transcribe",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/video_summary",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_video_summary",
+   "slug": "video_summary",
+   "canonicalHash": "#/ai/prompts/video_summary",
+   "title": "Промпты",
+   "textLen": 925,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/media_download",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_media_download",
+   "slug": "media_download",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/web",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_web",
+   "slug": "web",
+   "canonicalHash": "#/ai/prompts/web",
+   "title": "Промпты",
+   "textLen": 881,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/checkup",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_checkup",
+   "slug": "checkup",
+   "canonicalHash": "#/ai/prompts/checkup",
+   "title": "Промпты",
+   "textLen": 845,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/sleep",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_sleep",
+   "slug": "sleep",
+   "canonicalHash": "#/ai/prompts/sleep",
+   "title": "Промпты",
+   "textLen": 899,
+   "sections": 3,
+   "rendered": true,
+   "redirected": false
+  },
+  {
+   "route": "#/ai/prompts/nostalgia",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_nostalgia",
+   "slug": "nostalgia",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/budgets",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_budgets",
+   "slug": "budgets",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/images",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_images",
+   "slug": "images",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/vision",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_vision",
+   "slug": "vision",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  },
+  {
+   "route": "#/ai/prompts/initiative",
+   "kind": "library-door",
+   "tab": "",
+   "module": "mod_initiative",
+   "slug": "initiative",
+   "canonicalHash": "#/ai/prompts",
+   "title": "Библиотека промптов",
+   "textLen": 7311,
+   "sections": 2,
+   "rendered": true,
+   "redirected": true
+  }
+ ],
+ "aliases": [
+  {
+   "route": "#/ai/limits",
+   "declaredTarget": "#/ai",
+   "actualHash": "#/ai",
+   "title": "ИИ",
+   "textLen": 1182
+  },
+  {
+   "route": "#/ai/sleep",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  },
+  {
+   "route": "#/ai/nostalgia",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  },
+  {
+   "route": "#/ai/smart-cache",
+   "declaredTarget": "#/ai",
+   "actualHash": "#/ai",
+   "title": "ИИ",
+   "textLen": 1182
+  },
+  {
+   "route": "#/ai/memory",
+   "declaredTarget": "#/memory",
+   "actualHash": "#/memory",
+   "title": "Память",
+   "textLen": 328
+  },
+  {
+   "route": "#/ai/lore",
+   "declaredTarget": "#/memory/lore",
+   "actualHash": "#/memory/lore",
+   "title": "Лор чатов",
+   "textLen": 1165
+  },
+  {
+   "route": "#/ai/relations",
+   "declaredTarget": "#/memory/relations",
+   "actualHash": "#/memory/relations",
+   "title": "Люди и связи",
+   "textLen": 1874
+  },
+  {
+   "route": "#/modules/features",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  },
+  {
+   "route": "#/modules/switches",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  },
+  {
+   "route": "#/modules/reactions",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  },
+  {
+   "route": "#/modules/custom",
+   "declaredTarget": "#/modules",
+   "actualHash": "#/modules",
+   "title": "Модули",
+   "textLen": 3084
+  }
+ ],
+ "meta": {
+  "routeToTab": [
+   [
+    "#/",
+    "status"
+   ],
+   [
+    "#/status/graph",
+    "status"
+   ],
+   [
+    "#/oversight",
+    "oversight"
+   ],
+   [
+    "#/how",
+    "info"
+   ],
+   [
+    "#/modules",
+    "modules"
+   ],
+   [
+    "#/modules/budgets",
+    "mod_budgets"
+   ],
+   [
+    "#/modules/images",
+    "mod_images"
+   ],
+   [
+    "#/modules/vision",
+    "mod_vision"
+   ],
+   [
+    "#/permsoc",
+    "permsoc"
+   ],
+   [
+    "#/ai",
+    "llm_providers"
+   ],
+   [
+    "#/ai/llm",
+    "llm_providers"
+   ],
+   [
+    "#/ai/prompts",
+    "prompts"
+   ],
+   [
+    "#/ai/names",
+    "people_names"
+   ],
+   [
+    "#/ai/memory",
+    "memory_rag"
+   ],
+   [
+    "#/ai/relations",
+    "relations"
+   ],
+   [
+    "#/ai/lore",
+    "chat_lore"
+   ],
+   [
+    "#/memory",
+    "memory_rag"
+   ],
+   [
+    "#/memory/rag",
+    "memory_rag"
+   ],
+   [
+    "#/memory/lore",
+    "chat_lore"
+   ],
+   [
+    "#/memory/relations",
+    "relations"
+   ],
+   [
+    "#/ai/persona",
+    "speech"
+   ],
+   [
+    "#/ai/speech",
+    "speech"
+   ],
+   [
+    "#/access",
+    "access"
+   ],
+   [
+    "#/access/roles",
+    "access"
+   ],
+   [
+    "#/access/local",
+    "access"
+   ],
+   [
+    "#/access/admins",
+    "access"
+   ],
+   [
+    "#/ai/limits",
+    "llm_providers"
+   ],
+   [
+    "#/ai/sleep",
+    "modules"
+   ],
+   [
+    "#/ai/nostalgia",
+    "modules"
+   ],
+   [
+    "#/modules/features",
+    "modules"
+   ],
+   [
+    "#/modules/switches",
+    "modules"
+   ],
+   [
+    "#/modules/reactions",
+    "modules"
+   ],
+   [
+    "#/modules/custom",
+    "modules"
+   ]
+  ],
+  "rootRoutes": [
+   "#/",
+   "#/how",
+   "#/modules",
+   "#/permsoc",
+   "#/ai",
+   "#/memory",
+   "#/access"
+  ],
+  "modules": [
+   {
+    "id": "mod_summary",
+    "slug": "summary",
+    "tabs": [
+     "overview",
+     "settings",
+     "clusterizer",
+     "writer",
+     "hybrid",
+     "legacy",
+     "models",
+     "limits",
+     "testing",
+     "styles"
+    ]
+   },
+   {
+    "id": "mod_direct",
+    "slug": "direct",
+    "tabs": [
+     "overview",
+     "settings",
+     "synthesizer",
+     "verbalizer",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_factcheck",
+    "slug": "factcheck",
+    "tabs": [
+     "overview",
+     "settings",
+     "synthesizer",
+     "verbalizer",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_search",
+    "slug": "search",
+    "tabs": [
+     "overview",
+     "settings",
+     "prompts",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_transcribe",
+    "slug": "transcribe",
+    "tabs": [
+     "overview",
+     "settings",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_video_summary",
+    "slug": "video_summary",
+    "tabs": [
+     "overview",
+     "settings",
+     "prompts",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_media_download",
+    "slug": "media_download",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits"
+    ]
+   },
+   {
+    "id": "mod_web",
+    "slug": "web",
+    "tabs": [
+     "overview",
+     "settings",
+     "prompts",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_checkup",
+    "slug": "checkup",
+    "tabs": [
+     "overview",
+     "settings",
+     "prompts",
+     "models",
+     "limits",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_sleep",
+    "slug": "sleep",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits"
+    ]
+   },
+   {
+    "id": "mod_nostalgia",
+    "slug": "nostalgia",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits"
+    ]
+   },
+   {
+    "id": "mod_budgets",
+    "slug": "budgets",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits"
+    ]
+   },
+   {
+    "id": "mod_images",
+    "slug": "images",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits",
+     "models",
+     "testing"
+    ]
+   },
+   {
+    "id": "mod_vision",
+    "slug": "vision",
+    "tabs": [
+     "overview",
+     "settings",
+     "models",
+     "limits"
+    ]
+   },
+   {
+    "id": "mod_initiative",
+    "slug": "initiative",
+    "tabs": [
+     "overview",
+     "settings",
+     "limits"
+    ]
+   }
+  ]
+ },
+ "summary": {
+  "screens": 112,
+  "sweepable": 104,
+  "primary": 7,
+  "secondary": 16,
+  "module": 12,
+  "moduleTabs": 62,
+  "libraryDoors": 15,
+  "aliases": 11,
+  "notRendered": [],
+  "redirected": [
+   {
+    "route": "#/modules/checkup/testing",
+    "to": "#/modules/checkup"
+   },
+   {
+    "route": "#/ai/prompts/transcribe",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/media_download",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/nostalgia",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/budgets",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/images",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/vision",
+    "to": "#/ai/prompts"
+   },
+   {
+    "route": "#/ai/prompts/initiative",
+    "to": "#/ai/prompts"
+   }
+  ],
+  "aliasMismatch": []
+ }
+}

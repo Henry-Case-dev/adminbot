@@ -1,0 +1,283 @@
+{
+ "shots": [
+  {
+   "shot": "w13-extra-landscape-root.jpg",
+   "route": "#/",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "sw": 667,
+    "hScroll": false,
+    "docH": 375,
+    "shellH": 375,
+    "vScroll": false,
+    "offCount": 0,
+    "offscreen": [],
+    "clippedCount": 0,
+    "clipped": [],
+    "smallCount": 0,
+    "small": [],
+    "smallLinkCount": 1,
+    "smallLinks": [
+     {
+      "el": "a.text-xs.underline.text-violet-300",
+      "w": 147,
+      "h": 16,
+      "txt": "Подробнее в Аналитике →"
+     }
+    ],
+    "headerH": 58,
+    "headerRows": 1,
+    "shellMode": "mobile",
+    "title": "Статус",
+    "mainTextLen": 3573,
+    "mainTop": 58,
+    "overlap": 0,
+    "cards": 18,
+    "hash": "#/"
+   }
+  },
+  {
+   "shot": "w13-extra-landscape-modules.jpg",
+   "route": "#/modules",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "sw": 667,
+    "hScroll": false,
+    "docH": 375,
+    "shellH": 375,
+    "vScroll": false,
+    "offCount": 0,
+    "offscreen": [],
+    "clippedCount": 0,
+    "clipped": [],
+    "smallCount": 0,
+    "small": [],
+    "smallLinkCount": 0,
+    "smallLinks": [],
+    "headerH": 58,
+    "headerRows": 1,
+    "shellMode": "mobile",
+    "title": "Модули",
+    "mainTextLen": 3084,
+    "mainTop": 58,
+    "overlap": 0,
+    "cards": 17,
+    "hash": "#/modules"
+   }
+  },
+  {
+   "shot": "w13-extra-zoom200-390.jpg",
+   "route": "#/",
+   "zoom": 200,
+   "probe": {
+    "vw": 195,
+    "vh": 422,
+    "sw": 195,
+    "hScroll": false,
+    "docH": 422,
+    "shellH": 422,
+    "vScroll": false,
+    "offCount": 6,
+    "offscreen": [
+     "div.header-scope-row@110..266",
+     "div.scope-wrap.shrink-0@110..198",
+     "button.scope-trigger.field.text-xs@110..198",
+     "div.header-user.ml-auto.flex@202..266",
+     "span.header-user-role.badge.badge-info@230..266",
+     "button.text-xs.shrink-0.header-fs-btn@268..312"
+    ],
+    "clippedCount": 0,
+    "clipped": [],
+    "smallCount": 0,
+    "small": [],
+    "smallLinkCount": 1,
+    "smallLinks": [
+     {
+      "el": "a.text-xs.underline.text-violet-300",
+      "w": 134,
+      "h": 40,
+      "txt": "Подробнее в Аналитике →"
+     }
+    ],
+    "headerH": 58,
+    "headerRows": 1,
+    "shellMode": "mobile",
+    "title": "Статус",
+    "mainTextLen": 2760,
+    "mainTop": 58,
+    "overlap": 0,
+    "cards": 18,
+    "hash": "#/"
+   }
+  },
+  {
+   "shot": "w13-extra-zoom200-1280.jpg",
+   "route": "#/",
+   "zoom": 200,
+   "probe": {
+    "vw": 640,
+    "vh": 400,
+    "sw": 640,
+    "hScroll": false,
+    "docH": 400,
+    "shellH": 400,
+    "vScroll": false,
+    "offCount": 0,
+    "offscreen": [],
+    "clippedCount": 0,
+    "clipped": [],
+    "smallCount": 4,
+    "small": [
+     {
+      "el": "button.btn-ghost.text-xs.ml-auto",
+      "w": 124,
+      "h": 34,
+      "txt": "⛶ Полный экран",
+      "disabled": false
+     },
+     {
+      "el": "button.btn-ghost.text-xs",
+      "w": 64,
+      "h": 34,
+      "txt": "Найти",
+      "disabled": false
+     },
+     {
+      "el": "button.btn-ghost.text-xs",
+      "w": 106,
+      "h": 34,
+      "txt": "Сбросить вид",
+      "disabled": false
+     },
+     {
+      "el": "button.btn-ghost.text-xs",
+      "w": 116,
+      "h": 34,
+      "txt": "Показать всё →",
+      "disabled": false
+     }
+    ],
+    "smallLinkCount": 1,
+    "smallLinks": [
+     {
+      "el": "a.text-xs.underline.text-violet-300",
+      "w": 147,
+      "h": 16,
+      "txt": "Подробнее в Аналитике →"
+     }
+    ],
+    "headerH": 58,
+    "headerRows": 1,
+    "shellMode": "mobile",
+    "title": "Статус",
+    "mainTextLen": 2728,
+    "mainTop": 58,
+    "overlap": 0,
+    "cards": 18,
+    "hash": "#/"
+   }
+  },
+  {
+   "shot": "w13-extra-safearea-on.jpg",
+   "route": "#/",
+   "probe": {
+    "safeTopVar": "44px",
+    "safeBottomVar": "34px",
+    "headerTop": 0,
+    "headerPadTop": "50.4px",
+    "mainTop": 102
+   }
+  },
+  {
+   "shot": "w13-extra-safearea-off.jpg",
+   "route": "#/",
+   "probe": {
+    "safeTopVar": "0px",
+    "safeBottomVar": "0px",
+    "headerTop": 0,
+    "headerPadTop": "6.4px",
+    "mainTop": 58
+   }
+  },
+  {
+   "shot": "w13-extra-fullscreen-390.jpg",
+   "route": "#/",
+   "probe": {
+    "fs": true,
+    "fsAttr": null,
+    "shell": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+    "hScroll": false
+   }
+  },
+  {
+   "shot": "w13-extra-fullscreen-1280.jpg",
+   "route": "#/",
+   "probe": {
+    "fs": true,
+    "fsAttr": null,
+    "shell": "app-shell fullscreen-mode shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+    "hScroll": false
+   }
+  }
+ ],
+ "checks": {
+  "zoom200.390": {
+   "cssViewport": "195x422",
+   "hScroll": false,
+   "sw": 195,
+   "vw": 195,
+   "headerH": 58,
+   "offCount": 6,
+   "off": [
+    "div.header-scope-row@110..266",
+    "div.scope-wrap.shrink-0@110..198",
+    "button.scope-trigger.field.text-xs@110..198"
+   ],
+   "clipped": [],
+   "tapSmall": 0
+  },
+  "zoom200.1280": {
+   "cssViewport": "640x400",
+   "hScroll": false,
+   "sw": 640,
+   "vw": 640,
+   "headerH": 58,
+   "offCount": 0,
+   "off": [],
+   "clipped": [],
+   "tapSmall": 4
+  },
+  "safeArea.on": {
+   "safeTopVar": "44px",
+   "safeBottomVar": "34px",
+   "headerTop": 0,
+   "headerPadTop": "50.4px",
+   "mainTop": 102
+  },
+  "safeArea.off": {
+   "safeTopVar": "0px",
+   "safeBottomVar": "0px",
+   "headerTop": 0,
+   "headerPadTop": "6.4px",
+   "mainTop": 58
+  },
+  "fullscreen.390": {
+   "fs": true,
+   "fsAttr": null,
+   "shell": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "hScroll": false
+  },
+  "fullscreen.1280": {
+   "fs": true,
+   "fsAttr": null,
+   "shell": "app-shell fullscreen-mode shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "hScroll": false
+  },
+  "videos": {
+   "w13-video-390.webm": 894212,
+   "w13-video-1280.webm": 997446
+  }
+ }
+}

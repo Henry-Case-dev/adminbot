@@ -1968,6 +1968,12 @@
     if (hash.indexOf('#/') !== 0) return null;
     var r = hash.split('?')[0];           // отбросить query после маршрута
     if (Object.prototype.hasOwnProperty.call(ROUTE_TO_TAB, r)) return r;
+    // EVOL-033 (W13): легаси-адрес, у которого НЕТ собственной записи в
+    // ROUTE_TO_TAB (`#/ai/smart-cache`), раньше отбрасывался здесь — и вместо
+    // объявленного в ROUTE_ALIAS дома «ИИ» попадал на текущий экран/«Статус».
+    // Алиас, объявленный в ROUTE_ALIAS, — валидный адрес (applyRoute сделает
+    // replaceState на канонический).
+    if (Object.prototype.hasOwnProperty.call(ROUTE_ALIAS, r)) return r;
     // F5: динамические workspace/prompt-library маршруты (без статической карты).
     if (isWorkspaceRoute(r)) return r;
     if (parsePromptLibraryRoute(r)) return r;
@@ -2046,6 +2052,72 @@
     _routeScroll[route] = top;
   }
 
+  // ═══ EVOL-033 (W13, P1): ОДНА ловушка фокуса для всех оверлеев ═══════════
+  // До этой правки жили три копии (палитра, лист записи, drawer), которые
+  // расходились в деталях: у палитры ловушки не было вовсе, у drawer не было
+  // случая «фокус на корне». Здесь ровно один контракт:
+  //   * пока оверлей открыт, Tab/Shift+Tab не выводят фокус за его корень;
+  //   * фокус на самом корне (`tabindex="-1"`) считается «внутри» и уходит на
+  //     первый/последний узел;
+  //   * возврат фокуса после закрытия — `_restoreOverlayFocus(invoker)`.
+  // `onlyVisible` нужен drawer'у: он живёт в DOM и закрытым (`inert`), поэтому
+  // скрытые узлы не должны попадать в цикл.
+  var OVERLAY_FOCUSABLE = 'button, [href], input, select, textarea, '
+    + '[tabindex]:not([tabindex="-1"])';
+
+  function _overlayFocusables(root, onlyVisible) {
+    if (!root || typeof root.querySelectorAll !== 'function') return [];
+    var nodes = root.querySelectorAll(OVERLAY_FOCUSABLE);
+    var out = [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n.disabled) continue;
+      if (onlyVisible && n.offsetParent === null) continue;
+      out.push(n);
+    }
+    return out;
+  }
+
+  function _trapTabKey(event, root, onlyVisible) {
+    if (!event || event.key !== 'Tab') return false;
+    var list = _overlayFocusables(root, onlyVisible);
+    if (!list.length) return false;
+    var first = list[0];
+    var last = list[list.length - 1];
+    var act = (typeof document !== 'undefined' && document)
+      ? document.activeElement : null;
+    var moveTo = null;
+    if (act === root || act === null) {
+      moveTo = event.shiftKey ? last : first;
+    } else if (event.shiftKey && act === first) {
+      moveTo = last;
+    } else if (!event.shiftKey && act === last) {
+      moveTo = first;
+    }
+    if (!moveTo) return false;
+    if (event.preventDefault) event.preventDefault();
+    try { moveTo.focus(); } catch (e) { /* узел мог исчезнуть */ }
+    return true;
+  }
+
+  function _restoreOverlayFocus(el) {
+    if (el && typeof el.focus === 'function') {
+      try { el.focus(); } catch (e) { /* элемент уже удалён */ }
+    }
+  }
+
+  // Первичный фокус внутрь оверлея: первый доступный узел, иначе сам корень
+  // (`tabindex="-1"`). Один список — `_overlayFocusables`, без копий.
+  function _focusFirstIn(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return null;
+    var list = _overlayFocusables(root, false);
+    var target = list.length ? list[0] : root;
+    if (target && typeof target.focus === 'function') {
+      try { target.focus(); } catch (e) { /* no-op */ }
+    }
+    return target;
+  }
+
   function _restoreRouteScroll(route) {
     var top = _routeScroll[route];
     if (typeof top !== 'number' || top <= 0) return;
@@ -2120,7 +2192,12 @@
     try {
       switch (stack[0]) {
       case 'palette': close('closePalette'); return true;
-      case 'prompt-editor': vm.promptEditorFull = false; return true;
+      case 'prompt-editor':
+        // EVOL-033 (W13, re-check 2 B2): выход по Esc/Back идёт через тот же
+        // метод, что и кнопка, — иначе после телепорта формы в `<body>` фокус
+        // оставался на BODY (кнопка возвращала его на переключатель).
+        if (typeof vm.togglePromptFullscreen !== 'function') return false;
+        vm.togglePromptFullscreen(false); return true;
       case 'record': close('closeStatusRecord'); return true;
       case 'speech-editor':
         if (typeof vm.closeSpeechEditorFull !== 'function') return false;
@@ -3234,6 +3311,9 @@
         paletteOpen: false,
         paletteQuery: '',
         paletteCursorId: '',
+        // EVOL-033 (W13): элемент, на который вернётся фокус после закрытия
+        // палитры (контракт возврата фокуса, как у листа записи).
+        paletteReturnFocus: null,
         // EVOL-038 (W12): поиск в каталоге промптов модуля + полноэкранный
         // редактор (не создаёт вторую форму — тот же item/история).
         promptTreeQuery: '',
@@ -5973,7 +6053,13 @@
         return {
           state: st, level: level, period: period,
           label: label || 'нет данных',
-          detail: this.hbReason || '', reason: this.hbReason || '',
+          // EVOL-033 (W13): причина ровно ОДИН раз — её показывает
+          // каноническая строка `data-health-inline="heartbeat"` (reason).
+          // Раньше `detail` отдавал ту же строку, и в разметке обе выводились
+          // рядом («нагрузка в норме 25% нагрузка в норме 25%»). Поле оставлено
+          // для legacy-пути (`heartbeatLegacy`), у которого СВОЙ текст.
+          detail: '',
+          reason: this.hbReason || '',
           badge: badge,
         };
       },
@@ -8092,8 +8178,13 @@
       memoryCatalogLabel: function () {
         var shown = this.memoryCatalogFiltered.length;
         var total = this.memoryCatalogItems.length;
-        if (!total) return 'записей пока нет';
-        return 'показано ' + shown + ' из ' + total;
+        // EVOL-033 (W13): сбой загрузки ленты фактов раньше выглядел как
+        // «записей пока нет» — сломанное неотличимо от пустого. Причина
+        // называется прямо в подписи каталога (на «Статусе» она уже есть).
+        var err = this.dossierFeedError
+          ? ('лента не загрузилась: ' + this.dossierFeedError) : '';
+        if (!total) return err || 'записей пока нет';
+        return 'показано ' + shown + ' из ' + total + (err ? ' · ' + err : '');
       },
       memorySearchAvailability: function () {
         var ep = this.embeddingsPanel;
@@ -12539,10 +12630,24 @@
       // Выбор открывает существующий маршрут и фокусирует конкретный элемент
       // через `?focus=<токен>` — общий deep-link контракт для меню/карточек.
       // ═══════════════════════════════════════════════════════════════════
-      openPalette: function (seed) {
+      openPalette: function (seed, invoker) {
         this.paletteOpen = true;
         this.paletteQuery = (typeof seed === 'string') ? seed : '';
         this.paletteCursorId = '';
+        // EVOL-033 (W13): точка возврата фокуса — тот же контракт, что у
+        // листа записи (`statusRecordReturnFocus`): закрытие возвращает
+        // фокус туда, откуда оверлей открыли. Явный `invoker` нужен потому,
+        // что клик мышью в Chrome/Windows НЕ фокусирует `<button>`:
+        // `document.activeElement` остаётся на body и возвращать фокус
+        // «некуда». Клавиатурный путь (Ctrl+K) по-прежнему берёт activeElement.
+        try {
+          var inv = (invoker && invoker.focus) ? invoker : null;
+          if (!inv && typeof document !== 'undefined' && document
+              && document.activeElement && document.activeElement !== document.body) {
+            inv = document.activeElement;
+          }
+          this.paletteReturnFocus = inv || null;
+        } catch (e) { this.paletteReturnFocus = null; }
         var self = this;
         var focusInput = function () {
           try {
@@ -12557,9 +12662,12 @@
         else focusInput();
       },
       closePalette: function () {
+        var back = this.paletteReturnFocus;
         this.paletteOpen = false;
         this.paletteQuery = '';
         this.paletteCursorId = '';
+        this.paletteReturnFocus = null;
+        _restoreOverlayFocus(back);
       },
       togglePalette: function () {
         if (this.paletteOpen) this.closePalette();
@@ -12604,6 +12712,11 @@
           if (event.preventDefault) event.preventDefault();
           if (event.stopPropagation) event.stopPropagation();
           this.closePalette();
+        } else if (event.key === 'Tab') {
+          // EVOL-033 (W13): одна общая ловушка (`_trapTabKey`) вместо
+          // собственной копии. До правки Tab уводил фокус в контент ПОД
+          // оверлеем (`aria-modal` при этом уже стоял).
+          _trapTabKey(event, event.currentTarget, false);
         }
       },
       // Ctrl+K / Cmd+K из любого места (не перехватывает обычный ввод:
@@ -12923,6 +13036,10 @@
         if (route === '#/status/graph') return 'Граф связей';
         // SOUL-1 W6 (§6): заголовок special-screen «Речь и характер».
         if (route === '#/ai/speech') return 'Речь и характер';
+        // EVOL-033 (W13): легаси-адрес того же единственного редактора
+        // (`#/ai/persona`, EVOL-028) показывал в шапке СЫРОЙ hash — вкладки
+        // `speech` в TABS нет, и подпись падала в fallback `String(route)`.
+        if (route === '#/ai/persona') return 'Речь и характер';
         var items = this.iaV2 ? NAV_ITEMS_V2 : NAV_ITEMS;
         for (var i = 0; i < items.length; i++) {
           if (items[i].route === route) return items[i].label;
@@ -12991,10 +13108,8 @@
         var wasOpen = this.drawerOpen;
         this.drawerOpen = false;
         if (wasOpen) {
-          try {
-            var btn = document.querySelector('[data-drawer-trigger]');
-            if (btn && typeof btn.focus === 'function') btn.focus();
-          } catch (e) { /* no-op */ }
+          _restoreOverlayFocus(
+            document.querySelector('[data-drawer-trigger]'));
         }
       },
       // ASAP-UI-02 §2.1 (ревью, блокер F3, 31.10.2026): Tab/Shift+Tab не
@@ -13004,25 +13119,13 @@
       // dev-диагностики (moreMenuOnKeydown): замыкание первого/последнего
       // фокусируемого узла.
       drawerOnKeydown: function (e) {
-        if (e.key !== 'Tab') return;
-        var panel = document.querySelector('.app-drawer');
-        if (!panel) return;
-        var focusables = Array.prototype.slice.call(
-          panel.querySelectorAll('button, [href], input,' +
-            ' [tabindex]:not([tabindex="-1"])')
-        ).filter(function (el) {
-          return !el.disabled && el.offsetParent !== null;
-        });
-        if (!focusables.length) return;
-        var first = focusables[0];
-        var last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+        // EVOL-033 (W13): единая ловушка (`_trapTabKey`), как у палитры и
+        // листа записи. `onlyVisible` сохранён: закрытый drawer живёт в DOM
+        // (`inert`), его скрытые узлы не должны попадать в цикл.
+        var panel = (e && e.currentTarget
+          && typeof e.currentTarget.querySelectorAll === 'function')
+          ? e.currentTarget : document.querySelector('.app-drawer');
+        _trapTabKey(e, panel, true);
       },
       // ═══ EVOL-023 §3: сворачивание постоянной панели (desktop ≥1200) ═══
       // Только иконки (rail 68 px) + title/aria-label; маршруты, RBAC и
@@ -13176,24 +13279,8 @@
           this.closeFsGeomDiag();
           return;
         }
-        if (e.key !== 'Tab') return;
-        var panel = this.$refs.fsGeomPanel;
-        if (!panel) return;
-        var focusables = Array.prototype.slice.call(
-          panel.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')
-        ).filter(function (el) {
-          return !el.disabled && el.offsetParent !== null;
-        });
-        if (!focusables.length) return;
-        var first = focusables[0];
-        var last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+        // EVOL-033 (W13): та же единая ловушка, четвёртой копии нет.
+        _trapTabKey(e, this.$refs.fsGeomPanel, true);
       },
       // §6.1 v2.1: dev-only путь для диагностики геометрии. В prod-UI входа
       // нет; флаг включается только явно (?fs_geom_dev=1 в URL или
@@ -13276,15 +13363,7 @@
         this.$nextTick(function () {
           try {
             var el = document.querySelector('[role="dialog"][tabindex="-1"]');
-            if (!el) return;
-            var target = el;
-            var nodes = el.querySelectorAll(
-              'button, [href], input, select, textarea,' +
-              ' [tabindex]:not([tabindex="-1"])');
-            for (var i = 0; i < nodes.length; i++) {
-              if (!nodes[i].disabled) { target = nodes[i]; break; }
-            }
-            if (target && typeof target.focus === 'function') target.focus();
+            if (el) _focusFirstIn(el);
           } catch (e) { /* no DOM */ }
         });
       },
@@ -14072,19 +14151,9 @@
             if (!el) return;
             // EVOL-003 (review-fix): фокус сразу на первом элементе управления,
             // а не на корне окна (`tabindex="-1"`): с корня Shift+Tab уводил
-            // фокус за пределы окна. Корень остаётся фолбэком, если элементов
-            // управления нет.
-            var target = el;
-            try {
-              var nodes = el.querySelectorAll(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-              for (var i = 0; i < nodes.length; i++) {
-                if (!nodes[i].disabled) { target = nodes[i]; break; }
-              }
-            } catch (e) { target = el; }
-            if (target && typeof target.focus === 'function') {
-              try { target.focus(); } catch (e) { /* no-op */ }
-            }
+            // фокус за пределы окна. Корень остаётся фолбэком.
+            // EVOL-033 (W13): список узлов — общий (`_focusFirstIn`).
+            _focusFirstIn(el);
           });
         }
       },
@@ -14095,9 +14164,7 @@
         this.statusRecordExtraError = '';
         this.statusRecordExtraBusy = false;
         this.statusRecordReturnFocus = null;
-        if (back && typeof back.focus === 'function') {
-          try { back.focus(); } catch (e) { /* элемент уже удалён */ }
-        }
+        _restoreOverlayFocus(back);
       },
       // Focus trap + Esc. Вне окна фокус не уходит (Tab по кругу).
       statusRecordKeydown: function (ev) {
@@ -14107,35 +14174,9 @@
           this.closeStatusRecord();
           return;
         }
-        if (ev.key !== 'Tab') return;
-        var root = ev.currentTarget;
-        if (!root || typeof root.querySelectorAll !== 'function') return;
-        var nodes = root.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        var list = [];
-        for (var i = 0; i < nodes.length; i++) {
-          var n = nodes[i];
-          if (n.disabled) continue;
-          list.push(n);
-        }
-        if (!list.length) return;
-        var first = list[0];
-        var last = list[list.length - 1];
-        // Корень окна (`tabindex="-1"`) — часть цикла: фокус мог остаться на
-        // нём (нет элементов управления/программный фокус), и тогда Tab /
-        // Shift+Tab не должны выпускать фокус наружу.
-        if (document.activeElement === root || document.activeElement === null) {
-          ev.preventDefault();
-          try { (ev.shiftKey ? last : first).focus(); } catch (e) { /* no-op */ }
-          return;
-        }
-        if (ev.shiftKey && document.activeElement === first) {
-          ev.preventDefault();
-          try { last.focus(); } catch (e) { /* no-op */ }
-        } else if (!ev.shiftKey && document.activeElement === last) {
-          ev.preventDefault();
-          try { first.focus(); } catch (e) { /* no-op */ }
-        }
+        // EVOL-033 (W13): единая ловушка (`_trapTabKey`) — та же, что у
+        // палитры и drawer. Семантика (края + фокус на корне) не изменилась.
+        _trapTabKey(ev, ev.currentTarget, false);
       },
       // EVOL-004: первоисточник записи.
       //  * belief/paradigm → /api/memory/dream/chain (парадигма → основания →
@@ -17533,6 +17574,31 @@
       // ASAP-2.1 (T-3981, Q6 фикс 1): URL строится ПО stage КЛИКНУТОГО item'а —
       // залипший `ws.stage` убран из цепочки (он имел приоритет и создавал
       // битые URL `…/verbalizer/<чужой-ключ>` → «ничего не происходит»).
+      // ═══ EVOL-033 (W13, P1): полноэкранный редактор — тот же портал ═══════
+      // `:disabled="!promptEditorFull"` в разметке переносит форму в <body>
+      // (единый механизм оверлеев). Перенос DOM снимает фокус, поэтому сразу
+      // после переключения возвращаем его внутрь редактора (на открытии) или
+      // на кнопку-переключатель (на выходе) — как у остальных оверлеев.
+      togglePromptFullscreen: function (force) {
+        var next = (typeof force === 'boolean') ? force : !this.promptEditorFull;
+        this.promptEditorFull = next;
+        var self = this;
+        var after = function () {
+          try {
+            if (next) {
+              var area = document.querySelector(
+                '.prompt-editor--full [data-prompt-textarea],'
+                + ' .prompt-editor--full textarea');
+              if (area && typeof area.focus === 'function') area.focus();
+            } else {
+              _restoreOverlayFocus(
+                document.querySelector('[data-prompt-fullscreen]'));
+            }
+          } catch (e) { /* узел мог не отрисоваться — не критично */ }
+        };
+        if (typeof this.$nextTick === 'function') this.$nextTick(after);
+        else after();
+      },
       openWorkspacePrompt: function (item, stage) {
         var ws = this.workspace;
         if (!ws || !item) return;

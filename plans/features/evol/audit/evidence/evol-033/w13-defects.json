@@ -1,0 +1,64 @@
+{
+ "checks": {
+  "heartbeat.390": {
+   "reason": "нет отметки времени",
+   "reasonCount": 1,
+   "headings": [],
+   "dialogTitle": ""
+  },
+  "heartbeat.1280": {
+   "reason": "нет отметки времени",
+   "reasonCount": 1,
+   "headings": [],
+   "dialogTitle": ""
+  },
+  "roles.390": {
+   "reason": "",
+   "reasonCount": 0,
+   "headings": [
+    "Роли и права"
+   ],
+   "dialogTitle": "Роли и права",
+   "openedViaVm": true
+  },
+  "roles.1440": {
+   "reason": "",
+   "reasonCount": 0,
+   "headings": [
+    "Роли и права"
+   ],
+   "dialogTitle": "Роли и права",
+   "openedViaVm": true
+  },
+  "degraded.390": {
+   "found": true,
+   "state": "degraded",
+   "inViewport": true,
+   "texts": [
+    "bot=normal",
+    "heartbeat=normal",
+    "sleep=unknown",
+    "experience=degraded"
+   ]
+  },
+  "degraded.1280": {
+   "found": true,
+   "state": "degraded",
+   "inViewport": true,
+   "texts": [
+    "bot=normal",
+    "heartbeat=normal",
+    "sleep=unknown",
+    "experience=degraded"
+   ]
+  }
+ },
+ "shots": [
+  "w13-defect-heartbeat-390.jpg",
+  "w13-defect-heartbeat-1280.jpg",
+  "w13-defect-roles-390.jpg",
+  "w13-defect-roles-1440.jpg",
+  "w13-state-status-degraded-390.jpg",
+  "w13-state-status-degraded-1280.jpg"
+ ]
+}
