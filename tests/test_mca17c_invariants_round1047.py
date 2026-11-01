@@ -37,7 +37,9 @@ def test_reason_280_single_delta():
     # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
     # пустой content ответа модели ≠ не-JSON; code_defect — честный код
     # детерминированной ошибки кода embeddings).
-    assert len(mca_events.REASON_CODES) == 311
+    # ASAP-EVIDENCE-ROUTING-01 v3 §1.4: 311→314 (+3 санкционированных кода
+    # evidence-политики).
+    assert len(mca_events.REASON_CODES) == 314
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)

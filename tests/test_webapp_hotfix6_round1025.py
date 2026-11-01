@@ -103,7 +103,9 @@ class TestAreaA:
         assert 'mobile-topnav' not in INDEX, \
             "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert 'data-glass="shell"\n' in INDEX  # header (многострочный тег)
-        assert 'data-glass="a"' in INDEX        # контентный A сохранён
+        # Контентный tier A сохранён: карточки контента — `.card` (§6.4 v2.1:
+        # единственная стеклянная поверхность блока здоровья — сам `.card`).
+        assert 'class="card p-4 status-block status-health sg-12"' in INDEX
 
     def test_panels_glass_and_fallback(self):
         """A2: панели получают blur; @supports-фолбэк переводит их в C.
@@ -261,7 +263,7 @@ class TestAreaD:
         assert "header-scope-row" in INDEX
         assert "header-fs-btn" in INDEX
         # селектор области — ОДИН экземпляр (F3-инвариант, без дублирования).
-        assert INDEX.count("{{ scopeLabel }}") == 1
+        assert INDEX.count('class="scope-trigger field text-xs"') == 1
         assert ".header-scope-row { display: contents; }" in APP_CSS
 
     def test_header_height_reserve(self):

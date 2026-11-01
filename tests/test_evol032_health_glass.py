@@ -80,9 +80,12 @@ def test_health_css_contract_and_tokens():
 
 def test_status_markup_isolates_aggregate_card():
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-    assert 'class="card p-4 status-block"' in html
-    assert 'data-health-material' not in html.split(
-        'class="card p-4 status-block"', 1)[1].split("</div>", 1)[0]
+    # §6.4 v2.1: единственная агрегатная поверхность блока здоровья; тонируется
+    # только конкретный сегмент, сама карточка остаётся нейтральной.
+    marker = 'class="card p-4 status-block status-health sg-12"'
+    assert marker in html
+    assert 'data-health-material' not in html.split(marker, 1)[1].split(
+        "</div>", 1)[0]
     assert 'subsystem="bot"' in html
     assert 'subsystem="experience"' in html
     assert 'data-health-inline="heartbeat"' in html

@@ -105,14 +105,43 @@ class _Handler(SimpleHTTPRequestHandler):
 def _routes(status=None):
     payload_status = STATUS_FIXTURE if status is None else status
 
+    # §5 v2.1: у карточки теперь ОДИН переключатель, поэтому «два визуально
+    # разных состояния» должны приходить из смешанных данных, а не из пары
+    # (global+chat). Смешиваем значения ТОЛЬКО в этом e2e-прогоне: в GLOBAL
+    # включено детерминированное подмножество флагов, в чате — каждый второй
+    # per_chat-override (общая матрица остаётся «всё выключено»).
+    mixed_keys = {"flags.summary_enabled", "flags.factcheck_enabled",
+                  "flags.search_enabled"}
+
+    def _with_mixed(payload, chat_scope):
+        try:
+            data = json.loads(json.dumps(payload))
+        except Exception:  # noqa: BLE001
+            return payload
+        items = data.get("items") or []
+        if chat_scope:
+            per = [it for it in items
+                   if it.get("per_chat") and it.get("type") == "bool"]
+            for i, it in enumerate(per):
+                it["chat_source"] = "chat"
+                it["global_value"] = False
+                it["value"] = (i % 2 == 1)
+        else:
+            for it in items:
+                if it.get("key") in mixed_keys and it.get("type") == "bool":
+                    it["value"] = True
+        return data
+
     def _route(route):
         url = route.request.url.split("?")[0]
         if url.endswith("/api/status"):
             payload = payload_status
         elif url.endswith("/api/config"):
             hdrs = route.request.headers or {}
-            payload = (M.CONFIG_STUB_CHAT if hdrs.get("x-chat-id")
-                       else M.CONFIG_STUB)
+            chat_scope = bool(hdrs.get("x-chat-id"))
+            payload = _with_mixed(
+                M.CONFIG_STUB_CHAT if chat_scope else M.CONFIG_STUB,
+                chat_scope)
         else:
             payload = M._stub_for(route.request.url)
         route.fulfill(status=200, content_type="application/json",
@@ -629,7 +658,7 @@ def run(out_dir, port=PORT):
         try:
             page.evaluate(
                 "() => { const t = document.querySelector"
-                "('[data-module-global-toggle]'); if (t) t.click(); }")
+                "('[data-module-scope-toggle]'); if (t) t.click(); }")
             page.wait_for_timeout(1200)
         except Exception as exc:  # noqa: BLE001
             fails.append("1280: клик по тумблеру модуля: %s" % str(exc)[:160])

@@ -94,7 +94,16 @@ class TestShellV3:
         assert 'mobile-topnav' not in INDEX, \
             "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert 'data-glass="shell"\n' in INDEX          # header (multiline)
-        assert 'data-glass="a"' in INDEX                # контентный A сохранён
+        # re-pin v2.1 §6.4 (ASAP-SUMMARY-COVER): контентный hero «Статуса»
+        # больше не несёт data-glass="a" — один общий блок здоровья
+        # (Бот | Сердцебиение | Сервер) на классах status-block status-health.
+        assert 'class="card p-4 status-block status-health sg-12"' in INDEX
+        assert "data-status-health" in INDEX
+        assert 'data-status-seg="bot"' in INDEX
+        assert 'data-status-seg="heartbeat"' in INDEX
+        assert 'data-status-seg="server"' in INDEX
+        assert 'data-glass="a"' not in INDEX, \
+            "ASAP-SUMMARY-COVER §6.4: старый A-hero удалён из разметки"
         # Цветная линза A остаётся только у контента.
         assert re.search(r'\[data-glass="a"\]::before\s*\{', APP_CSS)
 

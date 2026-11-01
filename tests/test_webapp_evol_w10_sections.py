@@ -440,16 +440,29 @@ class TestEvol027Catalog:
         assert "data-module-caption" in cat
         assert "filteredModules.length" in cat
 
-    def test_global_master_toggle_on_card(self):
+    def test_single_scoped_toggle_on_card(self):
+        # §5 v2.1 (ASAP-SUMMARY-COVER-INTEGRITY-01) ЗАМЕНЯЕТ прежний
+        # контракт EVOL-027 «глобальный master-toggle + отдельный чатовый»:
+        # на карточке РОВНО ОДИН переключатель, его область — верхний селектор.
         cat = self._catalog()
-        assert "data-module-global-toggle" in cat
-        assert "setModuleGlobalState(m, $event.target.checked)" in cat
-        assert ":aria-label=\"moduleGlobalToggleLabel(m)\"" in cat
-        # подпись области действия явная, рядом с тумблером
-        assert "Глобально" in cat
-        # чатовый override — отдельная, подписанная строка
-        assert "data-module-chat-toggle" in cat
-        assert "В этом чате" in cat
+        assert cat.count("data-module-scope-toggle") == 1
+        assert "setModuleScopeState(m, $event.target.checked)" in cat
+        assert ":aria-label=\"moduleScopeToggleAria(m)\"" in cat
+        assert ":data-module-scope=\"moduleScopeIsGlobal() ? 'global' : 'chat'\"" in cat
+        # Второго (global+chat) тумблера и «всегда глобального» контрола нет.
+        assert "data-module-global-toggle" not in cat
+        assert "data-module-chat-toggle" not in cat
+        assert "setModuleGlobalState(m, $event.target.checked)" not in cat
+        assert "toggleModule(m, $event.target.checked)" not in cat
+        # Одна подпись области + короткая подсказка источника.
+        assert "moduleScopeLabel()" in cat
+        assert "moduleScopeStateText(m)" in cat
+        # «Наследовать глобальное» — действие, не второй тумблер.
+        assert "data-module-override-reset" in cat
+        assert "resetModuleChatOverride(m)" in cat
+        # Модуль без chat-scope: честный read-only, не фиктивный override.
+        assert "data-module-scope-readonly" in cat
+        assert "управляется глобально" in cat
 
     def test_global_write_is_its_own_path(self):
         block = _block(APP_JS, "setModuleGlobalState: async function",
@@ -751,8 +764,8 @@ class TestEvolStatusOrderWave2:
     def test_order_health_map_widget_others(self):
         status = self._status()
         order = [
-            'class="card p-4 status-hero',
-            'class="card p-4 status-block"',
+            'class="card p-4 status-block status-health sg-12"',
+            'status-block__bot status-health__seg status-hero',
             'class="card p-4 status-graph',
             'class="card p-4 sg-12 intel-card"',
             'data-status-facts',
@@ -770,12 +783,14 @@ class TestEvolStatusOrderWave2:
 
     def test_no_other_big_widget_between_health_and_ribbons(self):
         status = self._status()
-        start = status.index('class="card p-4 status-block"')
+        start = status.index('class="card p-4 status-block status-health sg-12"')
         end = status.index('class="card p-4 sg-12 intel-card"')
         middle = status[start:end]
         # Между оперативным здоровьем и лентами — только карта (место
-        # EVOL-COG). Ни сна, ни превью, ни бюджетов там нет.
+        # EVOL-COG). Здоровье — ОДНА поверхность (§6.4), карта идёт сразу
+        # после неё, других больших виджетов нет.
         assert middle.count('class="card ') == 2, middle.count('class="card ')
+        assert 'status-graph' in middle
         assert 'status-sleep' not in middle
         assert 'exec-preview' not in middle
         assert 'status-budgets' not in middle
@@ -876,10 +891,11 @@ class TestEvolStatusOrderWave2:
         размытия/тени/оверлея не появляется.
         """
         status = self._status()
-        block = _block(status, 'class="card p-4 status-block"',
+        block = _block(status, 'class="card p-4 status-block status-health sg-12"',
                        'class="card p-4 status-graph')
         # поверхность секции — компонент единого механизма состояния
-        assert 'class="hb-surface"' in block, "у секции нет собственной поверхности"
+        assert 'status-block__pulse status-health__seg hb-surface' in block, \
+            "у секции нет собственного сегмента-поверхности"
         assert 'subsystem="heartbeat"' in block
         assert ':source="heartbeatHealthSource"' in block, \
             "источник поверхности — не адаптер сердебиения"

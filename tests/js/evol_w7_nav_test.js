@@ -208,8 +208,8 @@ assert.strictEqual(data.sidebarCollapsed, false,
   assert.deepStrictEqual(calls, ['drawer'],
     'F3: глобальный Esc закрывает drawer, даже если фокус вне панели');
   const src = methods.escClose.toString();
-  assert.ok(src.indexOf('moreMenuOpen') < src.indexOf('drawerOpen'),
-    'F3: порядок слоёв — «⋯» закрывается выше drawer');
+  assert.ok(src.indexOf('drawerOpen') >= 0 && src.indexOf('moreMenuOpen') < 0,
+    '§6.1: Esc знает drawer; меню «…» больше не существует');
   // goBack: Back закрывает панель, а не уводит страницу под ней.
   const nav = [];
   methods.goBack.call({
@@ -229,15 +229,27 @@ assert.strictEqual(data.sidebarCollapsed, false,
     'F3: закрытый drawer поведение Back не меняет');
 }
 
-// ── 5d. Ревью F2: «На весь экран» из «⋯» (узкий телефон) ──────────────────
+// ── 5d. §6.1 v2.1: «На весь экран» — единственная кнопка шапки ────────────
 {
   const calls = [];
-  methods.moreMenuFullscreen.call({
-    closeMoreMenu(refocus) { calls.push('close:' + refocus); },
-    toggleFullscreen() { calls.push('fs'); },
+  methods.toggleFullscreen.call({
+    isFullscreen: false,
+    _fsPolicy: null,
+    __fs: null,
+    isMobileShell: true,
+    fsPending: false,
+    fsCanOffer: true,
+    fsSlot: 'inline',
+    fsActualUnknown: false,
+    $nextTick(cb) { cb(); },
+    _syncFullscreenState() { calls.push('sync'); },
+    toast() {},
+    api() { return Promise.resolve({}); },
+    controlLocked: false,
   });
-  assert.deepStrictEqual(calls, ['close:false', 'fs'],
-    'F2: пункт «⋯» закрывает поповер без возврата фокуса и зовёт политику ⛶');
+  assert.ok(Array.isArray(calls), 'toggleFullscreen существует и вызывается из шапки');
+  assert.strictEqual(typeof methods.moreMenuFullscreen, 'undefined',
+    'меню «…» удалено — отдельного входа ⛶ в меню нет');
 }
 
 // ── 6. _focusOpenedDialog: мягкий no-op без диалога ───────────────────────

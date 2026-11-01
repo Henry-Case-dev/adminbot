@@ -65,8 +65,11 @@ class TestD1Grid:
         # на всю ширину (`sg-12`), превью — `sg-8` рядом с панелью сна
         # (`sg-4`), hero — `sg-5`. Спаны `sg-7`/`sg-8` из прежней композиции
         # §12 больше не используются.
-        for span in ("sg-5", "sg-8", "sg-4", "sg-12"):
+        for span in ("sg-8", "sg-4", "sg-12"):
             assert span in INDEX, span
+        # §6.4 v2.1: прежняя hero-карточка `sg-5` больше не отдельный блок —
+        # оперативное здоровье занимает всю ширину одной поверхностью.
+        assert 'class="card p-4 status-block status-health sg-12"' in INDEX
 
     def test_css_12_6_1(self):
         assert re.search(
@@ -98,7 +101,9 @@ class TestD1Grid:
         # ASAP-UI-02 §5 (wave 2): композиция «Статуса» — здоровье → карта
         # (место EVOL-COG) → ЕДИНЫЙ виджет четырёх лент (первая секция —
         # «Новые факты») → сон → превью → бюджеты → логи.
-        order = ["status-hero", 'class="card p-4 status-block"', "status-graph",
+        order = ['class="card p-4 status-block status-health sg-12"',
+                 "status-block__bot status-health__seg status-hero",
+                 "status-graph",
                  'class="card p-4 sg-12 intel-card"', "data-status-facts",
                  "status-sleep", "exec-preview", "status-budgets",
                  "card p-4 status-logs"]
@@ -122,12 +127,16 @@ class TestD1Grid:
 
 class TestD2HeroMetrics:
     def test_hero_and_metrics(self):
+        # §6.4 v2.1: hero — сегмент того же блока (одна поверхность здоровья).
         assert "status-hero" in INDEX
-        assert 'class="card p-4 status-block"' in INDEX
-        assert 'class="status-block__grid"' in INDEX
+        assert 'class="card p-4 status-block status-health sg-12"' in INDEX
+        assert 'class="status-block__grid status-health__segs"' in INDEX
         assert "status-block__pulse" in INDEX
         assert "status-block__bot" in INDEX
         assert "status-block__server" in INDEX
+        for seg in ('data-status-seg="bot"', 'data-status-seg="heartbeat"',
+                    'data-status-seg="server"'):
+            assert seg in INDEX, seg
 
     def test_null_is_not_zero(self):
         assert "statusSys: function" in JS

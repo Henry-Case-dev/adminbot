@@ -252,6 +252,11 @@ def open_speech(page):
     page.goto(BASE + "/#/ai/speech", wait_until="load")
     page.wait_for_selector("header.header-sticky", state="visible")
     page.wait_for_selector(".speech-screen", state="visible")
+    # §4.2 v2.1: по умолчанию открыта рабочая вкладка; витрина/карта сборки —
+    # по кнопке «← Назад» (тот же маршрут, второй витрины нет).
+    page.evaluate("() => { if (window.__adminbotVm"
+                  " && window.__adminbotVm.speechBack) window.__adminbotVm"
+                  ".speechBack(); }")
     page.wait_for_selector("[data-speech-layers]", state="visible")
     page.wait_for_timeout(400)
 

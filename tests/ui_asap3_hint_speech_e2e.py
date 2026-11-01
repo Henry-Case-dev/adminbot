@@ -527,7 +527,7 @@ def open_style(page):
     page.goto(BASE + "/#/ai/speech", wait_until="load")
     page.wait_for_selector(".speech-screen", state="visible")
     page.wait_for_timeout(500)
-    page.click("[data-speech-card='style']")
+    open_speech_section(page, "style")
     page.wait_for_selector("[data-speech-hint-limits]", state="visible")
     page.wait_for_timeout(300)
 
@@ -665,7 +665,7 @@ def run_inspector(browser, width, height, label, mode, shots):
         page.goto(BASE + "/#/ai/speech", wait_until="load")
         page.wait_for_selector(".speech-screen", state="visible")
         page.wait_for_timeout(500)
-        page.click("[data-speech-card='inspector']")
+        open_speech_section(page, "inspector")
         page.wait_for_selector("[data-speech-inspector-style]",
                                state="visible")
         page.wait_for_timeout(300)
@@ -715,6 +715,12 @@ def run_inspector(browser, width, height, label, mode, shots):
     finally:
         ctx.close()
 
+
+def open_speech_section(page, section_id):
+    """Открыть раздел «Речи и характера» ТЕМ ЖЕ продуктовым путём, что и
+    карточка витрины (§4.2 v2.1: витрина не является экраном по умолчанию)."""
+    page.evaluate("(s) => window.__adminbotVm.openSpeechSection(s)", section_id)
+    page.wait_for_timeout(400)
 
 def main() -> int:
     ap = argparse.ArgumentParser()

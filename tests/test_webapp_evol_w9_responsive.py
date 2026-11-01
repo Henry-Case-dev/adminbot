@@ -99,7 +99,10 @@ class TestNavigationSlot:
         trigger = INDEX[INDEX.find(DRAWER_TRIGGER) - 500:
                         INDEX.find(DRAWER_TRIGGER) + 200]
         assert 'aria-haspopup="menu"' in trigger, "кнопка — меню навигации"
-        assert MORE_TRIGGER in INDEX, "«⋯» — отдельная точка второстепенных"
+        # §6.1 v2.1: app-level «…» удалён — второстепенных меню в шапке нет,
+        # а единственная кнопка действия — ⛶.
+        assert MORE_TRIGGER not in INDEX, "«…» удалён владельцем"
+        assert INDEX.count("header-fs-btn") == 1
 
     def test_routes_registry_unchanged(self):
         # Один и тот же реестр разделов выводят sidebar и drawer.
@@ -140,13 +143,14 @@ class TestPortraitContract:
         # Имя раздела имеет резерв (микро-фикс F1): не схлопывается в 0 px.
         assert "min-width: var(--header-title-min" in seg, \
             "нет резерва имени раздела в мобильной шапке"
-        # Ширина 320–419: имя чата остаётся в триггере, ⛶ уходит в «⋯».
+        # Ширина 320–419: имя чата остаётся в триггере, ⛶ — в шапке
+        # (§6.1 v2.1: меню «…» удалено, второй точки входа нет).
         assert "@media (max-width: 419px) {" in seg
         assert ".scope-trigger .scope-name {\n    display: inline-block;" in seg, \
             "имя выбранного чата не должно скрываться на узком телефоне"
         assert ("header.header-sticky.header-compact-v2 .header-fs-btn {\n"
-                "    display: none;") in seg, \
-            "ghost-⛶ не убран из шапки на телефоне (место под имя раздела)"
+                "    display: none;") not in seg, \
+            "⛶ снова уезжает из шапки, хотя меню «…» удалено"
 
     def test_no_bottom_panel_rules(self):
         assert "mobile-topnav" not in W9_CSS, \

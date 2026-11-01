@@ -545,11 +545,18 @@ class TestMoreSheetClosedContract:
             "ASAP-UI-02 §2.1: постоянной нижней панели разделов нет"
         assert 'data-drawer-trigger' in html and 'iaV2 && hasDrawer' in html, \
             "ASAP-UI-02 §2.1: навигация открывается кнопкой drawer в шапке"
-        # U01.4: popover «Ещё» смонтирован только при открыт menu → unmount.
-        assert 'v-if="iaV2 && isMobileShell && moreMenuOpen"' in html, \
-            "U01.4: more-menu gated v-if (unmount при закрытии)"
-        assert 'class="more-menu-root"' in html, \
-            "U01.4: корень popover «Ещё» на месте"
+        # §6.1 v2.1 (решение владельца): app-level «…» удалён полностью —
+        # ни триггера, ни popover, ни дубля идентичности; единственная кнопка
+        # действия в шапке — ⛶.
+        assert 'data-more-trigger' not in html, \
+            "§6.1: меню «…» удалено"
+        assert 'class="more-menu-root"' not in html, \
+            "§6.1: корень popover «…» удалён"
+        assert 'data-fs-geom-diag-entry' not in html, \
+            "§6.1: «Диагностика геометрии» убрана из prod-UI"
+        assert 'more-menu-profile' not in html, \
+            "§6.1: дублирующий блок аватара/роли из меню убран"
+        assert html.count("header-fs-btn") == 1
 
 
 class TestStyleCardsCompact:

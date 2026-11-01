@@ -945,6 +945,12 @@ def open_speech(page):
     page.wait_for_selector("header.header-sticky", state="visible")
     page.wait_for_selector(".speech-screen", state="visible")
     page.wait_for_timeout(600)
+    # §4.2 v2.1: экран открывается на рабочей вкладке «Личность»; витрина
+    # разделов (карточки) доступна кнопкой «← Назад».
+    page.evaluate("() => { if (window.__adminbotVm"
+                  " && window.__adminbotVm.speechBack) window.__adminbotVm"
+                  ".speechBack(); }")
+    page.wait_for_timeout(500)
 
 
 def run_layout(browser, width, height, label, exp_cols, shots):
@@ -954,7 +960,7 @@ def run_layout(browser, width, height, label, exp_cols, shots):
         check_layout(page, label, width, exp_cols)
         snap(page, shots, "store_%s" % label)
         # Открываемся в раздел «Характер» — редактор и меню на месте.
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(300)
         data = page.evaluate(PROBE)
@@ -1012,7 +1018,7 @@ def run_save_flows(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(300)
         # §5.3: правка → dirty-рамка, «черновик — … редакция», savebar.
@@ -1109,7 +1115,7 @@ def run_save_flows(browser, shots):
         # черновик и форма на месте.
         page.click(".speech-back")
         page.wait_for_selector(".speech-grid", state="visible")
-        page.click("[data-speech-card='style']")
+        open_speech_section(page, "style")
         page.wait_for_selector(".speech-rule", state="visible")
         page.wait_for_timeout(300)
         page.click(".speech-rule input[type=checkbox]")
@@ -1140,7 +1146,7 @@ def run_scope_and_chat_isolation(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(400)
         # §6.3: при активном чате дефолт цели — «Только этот чат»; смена
@@ -1155,7 +1161,7 @@ def run_scope_and_chat_isolation(browser, shots):
             "global")
         page.click(".speech-back")
         page.wait_for_selector(".speech-grid", state="visible")
-        page.click("[data-speech-card='style']")
+        open_speech_section(page, "style")
         page.wait_for_selector(".speech-rule", state="visible")
         page.wait_for_timeout(300)
         style_scope = page.evaluate(
@@ -1182,7 +1188,7 @@ def run_scope_and_chat_isolation(browser, shots):
         # раздела, чужие данные не показываются/не отправляются.
         page.click(".speech-back")
         page.wait_for_selector(".speech-grid", state="visible")
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(300)
         editor = page.locator(".speech-section .speech-editor").first
@@ -1203,7 +1209,7 @@ def run_scope_and_chat_isolation(browser, shots):
             fail(label, "при смене чата ушёл POST: %s" % POSTS[posts_before:])
         if not page.locator(".speech-grid").count():
             fail(label, "после смены чата раздел не сброшен на витрину")
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(500)
         text_b = page.evaluate(
@@ -1229,7 +1235,7 @@ def run_core_extras(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(300)
         # §5.4: каждая редакция — свой черновик; ввод не теряется (§9.1 п.2).
@@ -1293,7 +1299,7 @@ def run_humor_and_learning(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='humor']")
+        open_speech_section(page, "humor")
         page.wait_for_selector("[data-speech-techniques]", state="visible")
         page.wait_for_timeout(400)
         before = len(POSTS)
@@ -1319,7 +1325,7 @@ def run_humor_and_learning(browser, shots):
         # Обучение: пауза сбора реакций и пауза урока.
         page.click(".speech-back")
         page.wait_for_selector(".speech-grid", state="visible")
-        page.click("[data-speech-card='learning']")
+        open_speech_section(page, "learning")
         page.wait_for_selector("[data-speech-humor-feedback]", state="visible")
         page.wait_for_timeout(500)
         before = len(POSTS)
@@ -1352,7 +1358,7 @@ def run_examples_crud(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='examples']")
+        open_speech_section(page, "examples")
         page.wait_for_selector("[data-speech-examples-list]", state="visible")
         page.wait_for_selector("[data-speech-samples]", state="visible")
         page.wait_for_timeout(400)
@@ -1510,7 +1516,7 @@ def run_expression_flow(browser, shots):
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='expression']")
+        open_speech_section(page, "expression")
         page.wait_for_selector("[data-speech-effective]", state="visible")
         page.wait_for_timeout(400)
         section_text = page.inner_text(".speech-section")
@@ -1528,7 +1534,13 @@ def run_expression_flow(browser, shots):
             "(() => Array.from(document.querySelectorAll('.speech-section "
             "select')).map((s) => [s.getAttribute('aria-label'), "
             "Array.from(s.options).map((o) => o.textContent.trim())]))()")
-        prof_options = next((o for (a, o) in opts if a == "Мат"), [])
+        # §4.2 v2.1: «Мат» — отдельная вкладка того же выражения.
+        open_speech_section(page, "profanity")
+        prof_opts = page.evaluate(
+            "(() => Array.from(document.querySelectorAll('.speech-section "
+            "select')).map((s) => [s.getAttribute('aria-label'), "
+            "Array.from(s.options).map((o) => o.textContent.trim())]))()")
+        prof_options = next((o for (a, o) in prof_opts if a == "Мат"), [])
         for want in ("Как в глобальных настройках (наследование)",
                      "Без мата", "Эпизодически", "Часто"):
             if not any(want in x for x in prof_options):
@@ -1537,10 +1549,14 @@ def run_expression_flow(browser, shots):
         if any("наследование" in x for x in other_options):
             fail(label, "у прочих контролов подпись наследования от мата: %s"
                  % other_options)
-        # предпросмотр строится из инструкций payload (без сырых кодов)
+        # предпросмотр строится из инструкций payload (без сырых кодов);
+        # значение мата живёт в том же документе выражения — проверяем его
+        # предпросмотром во вкладке «Речь и стиль».
         page.select_option(".speech-section select[aria-label='Мат']",
                            "frequent")
         page.wait_for_timeout(250)
+        open_speech_section(page, "expression")
+        page.wait_for_timeout(300)
         preview = page.inner_text("[data-speech-expression-preview]")
         if "- Мат:" not in preview or "регулярная часть твоего повседневного" \
                 not in preview:
@@ -1578,7 +1594,7 @@ def run_readonly(browser):
     ctx, page = new_page(browser, 390, 844, None, chat=CHAT_A)
     try:
         open_speech(page)
-        page.click("[data-speech-card='core']")
+        open_speech_section(page, "core")
         page.wait_for_selector(".speech-editor", state="visible")
         page.wait_for_timeout(400)
         ro = page.evaluate(
@@ -1593,7 +1609,7 @@ def run_readonly(browser):
             fail(label, "кнопка сохранения не disabled без can_edit (%s)" % dis)
         page.click(".speech-back")
         page.wait_for_selector(".speech-grid", state="visible")
-        page.click("[data-speech-card='style']")
+        open_speech_section(page, "style")
         page.wait_for_selector(".speech-section", state="visible")
         page.wait_for_timeout(400)
         dis_style = page.evaluate(
@@ -1606,6 +1622,12 @@ def run_readonly(browser):
         STATE["can_edit"] = True
         ctx.close()
 
+
+def open_speech_section(page, section_id):
+    """Открыть раздел «Речи и характера» ТЕМ ЖЕ продуктовым путём, что и
+    карточка витрины (§4.2 v2.1: витрина не является экраном по умолчанию)."""
+    page.evaluate("(s) => window.__adminbotVm.openSpeechSection(s)", section_id)
+    page.wait_for_timeout(400)
 
 def main() -> int:
     ap = argparse.ArgumentParser()

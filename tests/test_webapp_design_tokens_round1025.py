@@ -397,7 +397,19 @@ class TestLiquidGlassV2:
         # T-2585: перф-кап заменил min-240.
         assert "_lensMaxNodes" in APP_JS
         assert "data-glass-tier" in APP_JS and "data-glass-reason" in APP_JS
-        assert 'data-glass="a"' in INDEX
+        # re-pin v2.1 §6.4 (ASAP-SUMMARY-COVER): hero-поверхность «Статуса»
+        # больше не размечается атрибутом data-glass="a" — по решению владельца
+        # один общий блок оперативного здоровья (Бот | Сердцебиение | Сервер)
+        # живёт на классах status-block status-health. Tier A остаётся
+        # opt-in CSS-правилом (см. test_level_a_opt_in_only), поэтому здесь
+        # проверяем approved-разметку и отсутствие устаревшего атрибута.
+        assert 'class="card p-4 status-block status-health sg-12"' in INDEX
+        assert "data-status-health" in INDEX
+        assert 'data-status-seg="bot"' in INDEX
+        assert 'data-status-seg="heartbeat"' in INDEX
+        assert 'data-status-seg="server"' in INDEX
+        assert 'data-glass="a"' not in INDEX, \
+            "ASAP-SUMMARY-COVER §6.4: hero не размечен data-glass=\"a\""
         assert "getBoundingClientRect" in APP_JS
 
     def test_downgrade_reversible_and_transitive(self):

@@ -74,16 +74,14 @@ const methods = captured.methods || {};
   assert.ok(INDEX.indexOf('class="status-grid"') >= 0, '§12: .status-grid');
   assert.ok(INDEX.indexOf("'status-grid--legacy': !statusGridV2") >= 0,
     '§12: kill-switch класс');
-  for (const span of ['sg-5', 'sg-4', 'sg-12']) {
+  for (const span of ['sg-4', 'sg-12']) {
     assert.ok(INDEX.indexOf(span) >= 0, '§12: span ' + span);
   }
-  // DOM-порядок «Статуса» — ASAP-UI-02 §5 (wave 2, отменяет старую
-  // композицию §12 для этих блоков):
-  // Hero → метрики(`status-block`) → КАРТА (место EVOL-COG) → ЕДИНЫЙ виджет
-  // четырёх лент (первая секция — «Новые факты») → сон → превью → бюджеты →
-  // карточка-переход к логам. Между здоровьем и лентами других больших
-  // виджетов нет; сон и прочее — ПОСЛЕ лент.
-  const order = ['status-hero', 'class="card p-4 status-block"', 'status-graph',
+  // DOM-порядок «Статуса» — ASAP-UI-02 §5 (wave 2) + §6.4 v2.1: ОДИН блок
+  // здоровья (status-block status-health) → КАРТА (место EVOL-COG) → ЕДИНЫЙ
+  // виджет четырёх лент → сон → превью → бюджеты → карточка-переход к логам.
+  const order = ['class="card p-4 status-block status-health sg-12"',
+    'status-block__bot status-health__seg status-hero', 'status-graph',
     'class="card p-4 sg-12 intel-card"', 'data-status-facts', 'status-sleep',
     'exec-preview', 'status-budgets', 'card p-4 status-logs'];
   let prev = -1;
@@ -127,8 +125,8 @@ const methods = captured.methods || {};
 // ── §13/§14/D2: Hero + честные `null` ≠ 0 ──────────────────────────────────
 (function () {
   assert.ok(INDEX.indexOf('status-hero') >= 0, '§13: Hero');
-  assert.ok(/class="card p-4 status-block"/.test(INDEX),
-    '§14: `.status-block` контракт сохранён');
+  assert.ok(/class="card p-4 status-block status-health sg-12"/.test(INDEX),
+    '§14/§6.4: единый блок здоровья (`.status-block`) сохранён');
   // null → нет данных (не 0)
   let s = computed.statusSys.call({
     statusData: { server: { cpu_percent: null,

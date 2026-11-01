@@ -376,8 +376,12 @@ class TestJsMirror:
             "ASAP-UI-02 §2.1: постоянной мобильной панели разделов нет"
         assert 'data-drawer-trigger' in self.HTML and 'iaV2 && hasDrawer' in self.HTML, \
             "ASAP-UI-02 §2.1: навигация — drawer по кнопке в шапке"
-        assert 'class="more-menu-root"' in self.HTML, \
-            "U01.4: popover второстепенных действий на месте"
+        # §6.1 v2.1: app-level «…» удалён; единственная кнопка действия — ⛶
+        # (в разметке ровно один узел; остальные вхождения — CSS-правила).
+        assert 'class="more-menu-root"' not in self.HTML, \
+            "§6.1: popover второстепенных действий удалён"
+        assert open("web/index.html", encoding="utf-8").read().count(
+            "header-fs-btn") == 1
         assert 'class="app-drawer"' in self.HTML
         # OFF-режим (IA_V2_ENABLED=false) сохраняет navbar-полосу.
         assert 'class="navbar-band' in self.HTML

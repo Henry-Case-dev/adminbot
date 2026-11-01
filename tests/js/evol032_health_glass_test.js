@@ -80,10 +80,13 @@ assert.ok(CSS.includes('--btn-h:') && CSS.includes('--toggle-hit:'),
 
 /* ── Разметка: стекло только у отдельных корней, агрегат не красится ────── */
 assert.ok(INDEX.includes('subsystem="bot"'), 'bot hero is a health surface');
-assert.ok(INDEX.includes('class="card p-4 status-hero sg-5"'), 'hero class kept');
-assert.ok(INDEX.includes('class="card p-4 status-block"'), 'aggregate card kept');
-assert.ok(!/class="card p-4 status-block"[\s\S]{0,80}data-health-material/.test(INDEX),
-  'status-block root is not a tinted glass surface');
+// §6.4 v2.1: hero — сегмент внутри единственной поверхности блока здоровья.
+assert.ok(INDEX.includes('status-block__bot status-health__seg status-hero'),
+  'hero is the bot segment of the single health block');
+assert.ok(INDEX.includes('class="card p-4 status-block status-health sg-12"'),
+  'aggregate surface kept (one block)');
+assert.ok(!/class="card p-4 status-block status-health sg-12"[\s\S]{0,80}data-health-material/.test(INDEX),
+  'aggregate root is not itself a tinted glass surface');
 assert.ok(INDEX.includes('data-health-inline="heartbeat"'), 'heartbeat text inside aggregate');
 assert.ok(INDEX.includes('data-health-inline="memory"'), 'memory text inside aggregate');
 assert.ok(INDEX.includes('data-health-inline="vision"'), 'vision text, no new card');

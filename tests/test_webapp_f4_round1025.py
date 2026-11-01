@@ -137,14 +137,20 @@ def test_module_titles_renamed_only_in_watch_case():
     assert "label: 'Прямые ответы'" in APP_JS
 
 
-# ── D4: избранное — localStorage, не конфиг ─────────────────────────────────
-def test_quickpicks_localstorage():
-    assert "adminbot.modules_quickpicks.v1" in APP_JS
-    assert "initQuickpicks" in APP_JS
-    assert "toggleQuickpick" in APP_JS
-    # Избранное не ходит в /api/config (представление, §36).
-    block = _block("toggleQuickpick: function", "openModuleWorkspace: function")
-    assert "/api/config" not in block
+# ── §7 (v2.1 ASAP-SUMMARY-COVER-INTEGRITY-01): избранное удалено ────────────
+def test_favorites_removed_from_modules():
+    # Прежний контракт F4 D4 (localStorage-избранное) ОТМЕНЁН владельцем:
+    # «Избранное» удалено как концепция, замена другим именем запрещена.
+    assert "adminbot.modules_quickpicks.v1" not in APP_JS
+    for dead in ("initQuickpicks", "toggleQuickpick", "isQuickpick",
+                 "quickpickCandidates", "moduleQuickpicks"):
+        assert dead not in APP_JS, dead
+    # Категории/поиск/локальные фильтры остались (без «Избранные»).
+    assert "{ id: 'all', label: 'Все' }" in APP_JS
+    assert "{ id: 'on', label: 'Включённые' }" in APP_JS
+    assert "{ id: 'off', label: 'Выключенные' }" in APP_JS
+    assert "{ id: 'issues', label: 'Есть проблемы' }" in APP_JS
+    assert "id: 'picks'" not in APP_JS
 
 
 # ── D6: «Настроить» → шов, модалка сохранена ────────────────────────────────
@@ -158,7 +164,7 @@ def test_open_module_workspace_seam():
 
 # ── §45: счётчики и «неизвестное ≠ выключено» ───────────────────────────────
 def test_counters_present():
-    block = _block("moduleCounters: function", "quickpickCandidates: function")
+    block = _block("moduleCounters: function", "moduleFilterOptions: function")
     assert "runtime === 'on'" in block
     assert "runtime === 'off'" in block
     assert "runtime === 'unknown'" in block

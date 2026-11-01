@@ -77,10 +77,23 @@ PROBE_PAGE = r"""
     storiesFeed: qa('[data-stories-feed]').length,
     storiesAnalytics: qa('[data-stories-analytics]').length,
     moduleCards: qa('[data-mod]').length,
+    // §5 v2.1: на карточке РОВНО ОДИН scoped-переключатель.
+    moduleScopeToggles: qa('[data-module-scope-toggle]').length,
+    moduleScopeReadonly: qa('[data-module-scope-readonly]').length,
+    moduleControlRows: qa('.module-control-row').length,
+    moduleMaxTogglesPerCard: qa('.module-card').reduce((mx, c) => Math.max(
+      mx, c.querySelectorAll('[data-module-scope-toggle]').length), 0),
     moduleGlobalToggles: qa('[data-module-global-toggle]').length,
+    moduleChatToggles: qa('[data-module-chat-toggle]').length,
+    moduleResetActions: qa('[data-module-override-reset]').length,
     moduleKpi: qa('.module-counters').length,
     moduleCaption: qa('[data-module-caption]').length,
-    moduleDetailToggle: qa('.modal-card [data-module-global-toggle]').length,
+    moduleDetailToggle: qa('.modal-card [data-module-scope-toggle], '
+                          + '.modal-card [data-module-global-toggle]').length,
+    // §7 v2.1: «Избранное» отсутствует во всём интерфейсе.
+    favoritesAny: qa('.module-pin-btn, [data-favorites], [data-favorite-toggle], '
+                     + '[data-module-favorite]').length,
+    favoritesText: (document.body.innerText || '').includes('В избранно'),
     aiPanel: qa('[data-ai-hub]').length,
     aiModels: qa('[data-ai-modelss], [data-ai-models]').length,
     aiPersonaLink: qa('[data-ai-persona-link]').length,
@@ -370,14 +383,14 @@ def run(out_dir: str) -> int:
                         # ═══ ASAP-UI-02 §5.3 (wave 2): порядок «Статуса» ═══
                         # здоровье → карта (место EVOL-COG) → единый виджет
                         # четырёх лент → остальные виджеты.
-                        expected_order = ["hero", "health", "map", "intel",
+                        expected_order = ["health", "map", "intel",
                                           "sleep", "budgets", "activity",
                                           "dossier"]
                         got_order = [x for x in probe.get("statusOrder") or []
                                      if x in expected_order]
                         # `preview` идёт между сном и бюджетами — порядок
                         # проверяем по подпоследовательности.
-                        if got_order[:4] != expected_order[:4]:
+                        if got_order[:3] != expected_order[:3]:
                             fails.append("%s: порядок «Статуса» нарушен: "
                                          "здоровье→карта→ленты (%s)"
                                          % (label, probe.get("statusOrder")))
@@ -484,15 +497,34 @@ def run(out_dir: str) -> int:
                             fails.append("%s: heatmap-дубликат в «Аналитике»" % label)
                         if probe["dossier"]:
                             fails.append("%s: лента досье-дубликат в «Аналитике»" % label)
-                    # EVOL-027: глобальный тумблер на карточке, без KPI-строки.
+                    # §5 v2.1: ОДИН scoped-переключатель на карточку, второго
+                    # (global+chat) нет; KPI-строки нет.
                     if route == "#/modules":
                         if probe["moduleCards"] < 5:
                             fails.append("%s: каталог не отрисован (%d карточек)"
                                          % (label, probe["moduleCards"]))
-                        if probe["moduleGlobalToggles"] < probe["moduleCards"] - 1:
-                            fails.append("%s: не у всех карточек глобальный тумблер (%d/%d)"
-                                         % (label, probe["moduleGlobalToggles"],
+                        # У каждой карточки — ровно одна строка управления:
+                        # либо единственный scoped-переключатель, либо честный
+                        # read-only статус (модуль управляется глобально).
+                        if probe["moduleControlRows"] < probe["moduleCards"] - 1:
+                            fails.append("%s: не у всех карточек строка "
+                                         "управления (%d/%d)"
+                                         % (label, probe["moduleControlRows"],
                                             probe["moduleCards"]))
+                        if probe["moduleMaxTogglesPerCard"] > 1:
+                            fails.append("%s: на карточке больше одного "
+                                         "переключателя (%d)"
+                                         % (label,
+                                            probe["moduleMaxTogglesPerCard"]))
+                        if probe["moduleGlobalToggles"] or probe["moduleChatToggles"]:
+                            fails.append("%s: второй переключатель (global/chat) "
+                                         "вернулся (%d/%d)"
+                                         % (label, probe["moduleGlobalToggles"],
+                                            probe["moduleChatToggles"]))
+                        if probe["favoritesAny"] or probe["favoritesText"]:
+                            fails.append("%s: «Избранное» осталось в UI (%d/%s)"
+                                         % (label, probe["favoritesAny"],
+                                            probe["favoritesText"]))
                         if probe["moduleKpi"]:
                             fails.append("%s: KPI-строка модулей не убрана" % label)
                         if not probe["moduleCaption"]:
@@ -686,22 +718,24 @@ def run(out_dir: str) -> int:
                              "«Запусках» (%s)" % nav.get("meta"))
             _shot(pg, out_dir, "w10-sec-heat-events-1280x900.png")
 
-            # EVOL-027: глобальный тумблер в карточке → POST /api/config (global).
+            # §5 v2.1: единственный scoped-переключатель в GLOBAL-области
+            # выполняет глобальную серверную операцию (per_chat=false).
             global_posts = []
             pg.on("request", lambda r: global_posts.append(r.url)
                   if r.method == "POST" and "/api/config" in r.url else None)
             pg.goto(BASE + "/#/modules", wait_until="load")
             pg.wait_for_timeout(900)
-            tgl = pg.query_selector('[data-module-global-toggle]')
+            tgl = pg.query_selector('[data-module-scope-toggle]')
             if tgl:
                 # Клик по самому контролу (как клавиатурный пользователь):
                 # sr-only input не имеет видимой площади для pointer-клика.
                 pg.evaluate(
-                    "document.querySelector('[data-module-global-toggle]').click()")
+                    "document.querySelector('[data-module-scope-toggle]').click()")
                 pg.wait_for_timeout(900)
             report["summary"]["globalTogglePost"] = len(global_posts)
             if not global_posts:
-                fails.append("модули: глобальный тумблер не выполнил серверную операцию")
+                fails.append("модули: единственный scoped-переключатель не выполнил "
+                             "серверную операцию")
             _shot(pg, out_dir, "w10-sec-modules-toggle-1280x900.png")
 
             # EVOL-028: deep-link «Личность» ведёт в единый редактор.
@@ -1140,6 +1174,7 @@ def run(out_dir: str) -> int:
                   inlineReason: reason ? (reason.textContent || '').trim() : '',
                   heroState: hero ? hero.getAttribute('data-health-state') : null,
                   heroBg: bg(hero),
+                  blockBackdrop: backdrop(block),
                   heroRadius: hero ? cs(hero).borderRadius : null,
                   heroBackdrop: backdrop(hero),
                   blockBg: bg(block),
@@ -1155,9 +1190,15 @@ def run(out_dir: str) -> int:
                   },
                   pulseBox: box(pulse),
                   hbBox: box(hb),
-                  contentInset: (titleRow && block)
-                    ? +(titleRow.getBoundingClientRect().x
-                        - block.getBoundingClientRect().x).toFixed(1) : null,
+                  // §6.4 v2.1: сегмент — сам поверхность; inset считаем
+                  // относительно СВОЕГО сегмента (собственных отступов нет).
+                  contentInset: (() => {
+                    const seg = pulse || hb;
+                    const first = seg ? seg.querySelector('div') : null;
+                    if (!first || !seg) return null;
+                    return +(first.getBoundingClientRect().x
+                      - seg.getBoundingClientRect().x).toFixed(1);
+                  })(),
                   tabsDisplay: switcher ? cs(switcher).display : null,
                   tabs: tabs.map((el) => {
                     const r = el.getBoundingClientRect();
@@ -1246,11 +1287,16 @@ def run(out_dir: str) -> int:
                 fails.append("health tint: у секции появился второй blur (%s)"
                              % (warn.get("hbBackdrop"),))
             if not warn.get("heroBackdrop"):
-                fails.append("health tint: у hero пропал существующий blur")
-            # Соседние поверхности остаются нейтральными (EVOL-032).
-            if warn.get("heroBg") != NEUTRAL_BG:
-                fails.append("health tint: hero перекрашен чужим сигналом (%s)"
-                             % (warn.get("heroBg"),))
+                # §6.4 v2.1: blur даёт ЕДИНСТВЕННАЯ поверхность блока; у
+                # сегмента своего blur нет — это и есть требуемая экономия.
+                block_backdrop = warn.get("blockBackdrop")
+                if not block_backdrop:
+                    fails.append("health tint: общий блок потерял blur")
+            # Соседние сегменты остаются нейтральными (EVOL-032): у hero нет
+            # собственной заливки — он часть ОДНОЙ поверхности блока.
+            if _alpha(warn.get("heroBg")) != 0.0:
+                fails.append("health tint: hero-сегмент перекрашен чужим "
+                             "сигналом (%s)" % (warn.get("heroBg"),))
             if warn.get("blockBg") != NEUTRAL_BG:
                 fails.append("health tint: агрегатная карточка перекрашена "
                              "(EVOL-032) (%s)" % (warn.get("blockBg"),))
@@ -1312,13 +1358,16 @@ def run(out_dir: str) -> int:
                 fails.append("health tint: warning<degraded<failed не по "
                              "порядку (%s / %s / %s)" % (c_warn, c_deg, c_fail))
 
-            # 6) Поверхность не сдвигает содержимое и не зависит от состояния:
-            #    inset 17px — прежняя геометрия секции (border 1 + padding 16),
-            #    поверхность совпадает с секцией (padding/отступов не вводит).
+            # 6) §6.4 v2.1: сегмент — часть ОДНОЙ поверхности блока; собственных
+            #    рамок/отступов у него нет, поэтому inner inset = 0 и
+            #    поверхность совпадает с сегментом по геометрии.
             for name, data in tint.items():
-                if data.get("contentInset") != 17:
-                    fails.append("health tint %s: контент секции сместился "
-                                 "(inset=%s)" % (name, data.get("contentInset")))
+                # Внутренний отступ сегмента — токен (--space-3=12px + hairline),
+                # т.е. ≤17px и НЕ зависит от состояния (проверяется ниже).
+                inset = data.get("contentInset")
+                if inset is None or inset > 17:
+                    fails.append("health tint %s: контент сегмента сместился "
+                                 "(inset=%s)" % (name, inset))
                 hb_b = data.get("hbBox") or {}
                 pu_b = data.get("pulseBox") or {}
                 if (hb_b.get("x") is None or pu_b.get("x") is None

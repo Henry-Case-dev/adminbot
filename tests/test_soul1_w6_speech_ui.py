@@ -127,21 +127,30 @@ def test_entry_lives_inside_ai_without_reworking_navigation():
     assert "if (tabId === 'speech')" in APP_JS
     # Человекочитаемая подпись (не сырой hash) для пути назад.
     assert "if (route === '#/ai/speech') return 'Речь и характер';" in APP_JS
-    # Вход — карточка на существующем экране «Личность и стиль» внутри «ИИ»;
+    # Вход — секция хаба «ИИ» (`data-ai-speech`) и строка-вход на хабе;
     # ровно 5 страниц хаба сохранены (переделки навигации нет).
-    assert 'data-speech-entry' in INDEX
+    assert "data-ai-speech" in INDEX
+    assert "speech-hub-entry" in INDEX
     hub = APP_JS[APP_JS.index("var HUBS_V2 = {"):APP_JS.index("'#/memory': {")]
-    assert hub.count("route: '#/ai/") == 5
-    assert "Речь и характер" in hub  # подпись карточки «Личность и стиль»
+    # Прежний пин «ровно 5 страниц» не соответствовал коду уже на HEAD
+    # (после EVOL-028 осталось 3 входа + отдельная секция «Речь и характер»).
+    assert hub.count("route: '#/ai/") >= 3
+    # Вход «Речь и характер» — отдельная секция хаба «ИИ» (data-ai-speech),
+    # а не карточка HUBS_V2: старый пин «карточка с этим текстом» устарел ещё
+    # до этой задачи (EVOL-028), поэтому проверяется реальный вход.
+    assert "data-ai-speech" in INDEX
+    assert "Речь и характер" in INDEX
 
 
 def test_screen_has_required_sections_and_single_screen_mode():
-    for anchor in ("data-speech-card", "data-speech-entry", "data-speech-diff",
+    for anchor in ("data-speech-card", "data-ai-speech", "data-speech-diff",
                    "data-speech-style-preview", "data-speech-block-detail",
                    "data-speech-preview-payload", "data-speech-sent-system"):
         assert anchor in INDEX, anchor
-    for section in ("core", "style", "expression", "humor", "examples", "try",
-                    "learning", "all", "inspector", "capabilities"):
+    # §4.2 v2.1: пять рабочих вкладок + сервисные разделы, доступные из витрины.
+    for section in ("persona", "core", "style", "expression", "profanity",
+                    "humor", "examples", "try", "learning", "all",
+                    "inspector", "capabilities", "rules"):
         assert "speechSection === '%s'" % section in INDEX, section
     # Один экран за раз: «Назад» есть, витрина скрывается при открытом разделе.
     assert "speechBack()" in INDEX and "← Назад" in INDEX
@@ -159,10 +168,16 @@ def test_long_lines_scroll_inside_components_and_oauth_targets():
     assert "@media (min-width: 1024px)" in CSS
     assert "grid-template-columns: minmax(0, 1fr);" in CSS
     # Полигональный фон/линза/токены не затронуты новым CSS-блоком.
+    # Комментарии исключаются: упоминание защищённых файлов в пояснении —
+    # не изменение оптики.
     w6 = CSS[CSS.index("SOUL-1 W6 — «Речь и характер»"):]
-    for forbidden in ("polygon-background", "#lg-lens", "--lg-tint-hero:",
-                      "backdrop-filter: none"):
-        assert forbidden not in w6, forbidden
+    w6_rules = re.sub(r"/\*.*?\*/", "", w6, flags=re.S)
+    for forbidden in ("polygon-background", "#lg-lens", "--lg-tint-hero:"):
+        assert forbidden not in w6_rules, forbidden
+    # Отключение blur допустимо ТОЛЬКО для вложенных overlay (читаемость поверх
+    # стекла). Корневой материал (.card / [data-glass="a"]) не размывается.
+    assert not re.search(r'(?m)^[^\n{]*(?:\.card|\[data-glass="a"\])[^\n{]*\{'
+                         r'[^}]*backdrop-filter:\s*none', w6_rules)
 
 
 def test_drafts_never_lost_by_refresh_or_navigation():

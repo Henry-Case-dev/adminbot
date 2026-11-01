@@ -505,27 +505,27 @@ function ctx(extra) {
   const vm = ctx();
   const areas = computed.speechAreaNav.call(vm);
   assert.deepStrictEqual(areas.map((a) => a.id),
-    ['overview', 'character', 'speech', 'humor', 'experience', 'assembly'],
-    'шесть рабочих областей по задачам');
-  assert.strictEqual(areas.filter((a) => a.active).length, 1,
-    'ровно одна активная область');
-  assert.strictEqual(areas.filter((a) => a.active)[0].id, 'overview',
-    'пустая секция = обзор');
-
+    ['persona', 'style', 'profanity', 'examples', 'rules'],
+    '§4.2 v2.1: пять независимых рабочих вкладок');
+  assert.strictEqual(areas.filter((a) => a.active).length, 0,
+    '§4.2: пустая секция — витрина, ни одна рабочая вкладка не подсвечена');
   vm.speechSection = 'expression';
   const nav2 = computed.speechAreaNav.call(vm);
-  assert.strictEqual(nav2.filter((a) => a.active)[0].id, 'speech',
-    'Expression относится к «Манере речи», а не отдельному экрану');
+  assert.strictEqual(nav2.filter((a) => a.active)[0].id, 'style',
+    'Expression относится к «Речи и стилю», а не отдельному экрану');
   vm.speechSection = 'core';
   assert.strictEqual(computed.speechAreaNav.call(vm).filter((a) => a.active)[0].id,
-    'character', 'core = «Характер»');
+    'persona', 'core = «Личность»');
+  vm.speechSection = 'profanity';
+  assert.strictEqual(computed.speechAreaNav.call(vm).filter((a) => a.active)[0].id,
+    'profanity', 'у «Мата» своя вкладка');
 
   let opened = null;
   vm.openSpeechSection = function (id) { opened = id; };
-  vm.openSpeechArea('assembly');
-  assert.strictEqual(opened, 'inspector', '«Как собирается ответ» → инспектор');
-  vm.openSpeechArea('overview');
-  assert.strictEqual(vm.speechSection, '', '«Обзор» возвращает к витрине');
+  vm.openSpeechArea('rules');
+  assert.strictEqual(opened, 'rules', '«Правила и источники» → rules');
+  vm.openSpeechArea('profanity');
+  assert.strictEqual(opened, 'profanity', '«Мат» → profanity');
 
   // Режимы инспектора: по умолчанию реальный вызов; предпросмотр — отдельно.
   const vm2 = ctx();

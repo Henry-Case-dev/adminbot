@@ -16,14 +16,16 @@ STATUS_SRC = (ROOT / "services" / "status_service.py").read_text(encoding="utf-8
 
 class TestStatusSectionMerge:
     def test_single_status_block_with_three_sections(self):
-        assert 'class="card p-4 status-block"' in HTML
-        assert 'class="status-block__grid"' in HTML
+        # §6.4 v2.1: ОДНА общая поверхность здоровья (status-health) с
+        # внутренними сегментами Бот | Сердцебиение | Сервер.
+        assert 'class="card p-4 status-block status-health sg-12"' in HTML
+        assert 'class="status-block__grid status-health__segs"' in HTML
         for section in ("status-block__pulse", "status-block__bot",
                         "status-block__server"):
             assert section in HTML, section
-        # порядок подсекций: Сердцебиение → Бот → Сервер
-        assert HTML.index("status-block__pulse") < \
-            HTML.index("status-block__bot") < \
+        # порядок сегментов по ТЗ: Бот → Сердцебиение → Сервер
+        assert HTML.index("status-block__bot") < \
+            HTML.index("status-block__pulse") < \
             HTML.index("status-block__server")
 
     def test_mode_version_line_removed(self):
@@ -31,7 +33,7 @@ class TestStatusSectionMerge:
         # live-check экспрессии) появилась законная метка «Режим:» — проверка
         # по всей странице стала ложной. Контракт round1019 относится к карточке
         # «Статус»: сужаем область до неё, сила проверки сохраняется.
-        start = HTML.index('class="card p-4 status-block"')
+        start = HTML.index('class="card p-4 status-block status-health sg-12"')
         end = HTML.index("</section>",
                          HTML.index("status-block__server")) + len("</section>")
         status_html = HTML[start:end]

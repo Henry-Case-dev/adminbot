@@ -155,6 +155,12 @@ def serve(port):
     return httpd
 
 
+def open_speech_section(page, section_id):
+    """Открыть раздел «Речи и характера» ТЕМ ЖЕ продуктовым путём, что и
+    карточка витрины (§4.2 v2.1: витрина не является экраном по умолчанию)."""
+    page.evaluate("(s) => window.__adminbotVm.openSpeechSection(s)", section_id)
+    page.wait_for_timeout(400)
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dump", action="store_true")
@@ -201,7 +207,7 @@ def main() -> int:
                     page.goto(base + "/web/index.html?bgseed=1337#/ai/speech",
                               wait_until="load")
                     page.wait_for_timeout(950)
-                    page.click("[data-speech-card='inspector']")
+                    open_speech_section(page, "inspector")
                     page.wait_for_selector("[data-speech-exact]", timeout=15000)
                     page.wait_for_timeout(350)
 

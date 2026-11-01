@@ -390,39 +390,30 @@ class TestAsapUi02Navigation:
         # подсказок об одном чате на 320 px не хватает).
         assert (".scope-trigger > .scope-initial { display: none; }" in block), \
             "место освобождается не у аватара чата"
-        # Место берётся из второстепенного действия, а не из идентификации.
-        assert "data-fs-menu-item" in INDEX
-        assert '@click="moreMenuFullscreen()"' in INDEX
-        assert "moreMenuFullscreen: function" in JS
+        # §6.1 v2.1: место освобождает не второстепенное действие, а сам
+        # layout — ⛶ один и остаётся в шапке (меню «…» удалено владельцем).
+        assert INDEX.count("header-fs-btn") == 1
+        assert "data-more-trigger" not in INDEX
+        assert "moreMenuFullscreen" not in JS
         # Бейдж типа области (CHAT/GLOBAL) и ▾ по-прежнему не сжимаются.
         assert ".scope-trigger .badge," in CSS
         # Обрезка — только визуальная: полное имя в title и в опциях панели.
         assert ':title="scopeTriggerTitle"' in INDEX
         assert 'class="scope-name truncate"' in INDEX
 
-    def test_fullscreen_moves_to_more_until_520(self):
-        """Микро-фикс F1: ghost-⛶ уезжает в «⋯» до 519 px включительно.
+    def test_fullscreen_single_entry_on_narrow_phone(self):
+        """§6.1 v2.1 (владелец): ⛶ — ОДНА кнопка в шапке на любой ширине.
 
-        Было: кнопка возвращалась в шапку уже с 420 px (+44 px) и вместе с
-        именем чата выдавливала имя раздела в 0–10 px (замер Chromium:
-        420/430 — 0 px, 460 — 10 px). Действие остаётся РОВНО одно: в шапке
-        ⛶ скрыт, в «⋯» — единственный пункт (та же политика `fsSlot`).
+        Прежний контракт уводил ⛶ в «…» до 519 px; меню «…» удалено, поэтому
+        кнопка остаётся в шапке, а место уступает имя области.
         """
         block = _media_block(CSS, "@media (max-width: 519px)", ".header-fs-btn")
-        assert ("header.header-sticky.header-compact-v2 .header-fs-btn "
-                "{\n    display: none;") in block, \
-            "⛶ снова возвращается в шапку с 420 px и съедает имя раздела"
-        assert (".app-shell.shell-mobile .more-menu-action { display: flex; }"
-                in block), "у действия ⛶ нет входа в «⋯»"
-        # Один экземпляр действия ⛶ в разметке (шапка) + один пункт меню.
-        # EVOL-037 (W12): «⋯» содержит и другие второстепенные действия
-        # (поиск по приложению) — контракт держит именно ⛶.
-        assert INDEX.count('class="more-menu-action"') >= 1
-        assert INDEX.count('data-fs-menu-item') == 1
+        assert ".more-menu-action" not in block, \
+            "второй точки входа ⛶ (меню «…») больше нет"
+        # Ровно один экземпляр действия ⛶ в разметке.
         assert INDEX.count("header-fs-btn") == 1
-        # На ≤419 второстепенные правила (имя/аватар чата) остались в своём
-        # блоке — перенос ⛶ их не «переехал» и не отменил.
-        assert 'data-fs-menu-item' in INDEX
+        assert INDEX.count('class="more-menu-action"') == 0
+        assert INDEX.count('data-fs-menu-item') == 0
 
     def test_section_title_has_readable_reserve(self):
         """Микро-фикс F1: имя раздела читаемо в шапке на ЛЮБОЙ ширине.
@@ -475,8 +466,9 @@ class TestAsapUi02Navigation:
         esc = JS[JS.index("escClose: function () {"):]
         esc = esc[:esc.index("\n      },")]
         assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in esc
-        assert esc.index("moreMenuOpen") < esc.index("drawerOpen"), \
-            "порядок слоёв: «⋯» выше открытого drawer"
+        # §6.1 v2.1: меню «…» удалено — Esc обрабатывает оставшиеся слои
+        # (dev-диагностика геометрии → drawer → модалки).
+        assert "moreMenuOpen" not in esc
         back = JS[JS.index("goBack: function () {"):]
         back = back[:back.index("\n      },")]
         assert "if (this.drawerOpen) { this.closeDrawer(); return; }" in back, \
@@ -484,17 +476,20 @@ class TestAsapUi02Navigation:
         # Возврат фокуса — в кнопку «Навигация» (тот же паттерн closeDrawer).
         assert "document.querySelector('[data-drawer-trigger]')" in JS
 
-    def test_more_entry_is_ellipsis_not_grid(self):
-        assert 'data-more-trigger' in INDEX
-        i = INDEX.index("data-more-trigger")
+    def test_more_entry_removed(self):
+        """§6.1 v2.1: app-level «…» удалён; в шапке — одна кнопка ⛶."""
+        assert 'data-more-trigger' not in INDEX
+        assert 'class="more-menu-root"' not in INDEX
+        assert 'data-more-trigger' not in JS
+        # ⛶ остаётся единственной точкой входа (компактная иконка).
+        i = INDEX.index("header-fs-btn")
         seg = INDEX[i - 400:i + 900]
-        assert "grid_view" not in seg, "«Ещё» больше не четыре квадрата"
-        assert "ui-ic" in seg, "единый icon-контракт"
+        assert "ui-ic" in seg or "fs-ic" in seg, "единый icon-контракт"
         assert ".ui-ic {" in CSS and "width: 20px" in CSS
 
     def test_hit_areas(self):
-        assert re.search(r"\.header-nav-btn,\s*\n?\.header-more-btn \{[^}]*"
-                         r"min-width: 44px", CSS.replace("\r", ""))
+        assert re.search(r"\.header-fs-btn \{[^}]*min-width: 44px",
+                         CSS.replace("\r", ""))
         assert "min-height: 44px" in CSS
 
     def test_drawer_focus_and_esc(self):

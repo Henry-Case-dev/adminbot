@@ -141,8 +141,10 @@ class TestHeight:
 
 class TestStatusCard:
     def test_status_block_without_glass(self):
-        idx = INDEX.index('class="card p-4 status-block"')
-        head = INDEX[idx:idx + 200]
+        # §6.4 v2.1: единственный блок здоровья остаётся НЕ тонируемой
+        # стеклянной поверхностью (тоника — только у сегментов).
+        idx = INDEX.index('class="card p-4 status-block status-health sg-12"')
+        head = INDEX[idx:idx + 260]
         assert "data-glass" not in head
         assert ".status-block { max-width: 100%; overflow: hidden; }" in APP_CSS
 

@@ -57,10 +57,10 @@ assert.ok(/@media \(max-width: 640px\) \{[^@]*\.cognition-ribbons\[data-intel-ta
 assert.ok(/\.intel-tabs \{ display: none; \}/.test(CSS),
   'переключатель не тратит место на десктопе');
 
-/* ── B1 (review-fix2): у секции «Сердцебиение» — СВОЯ тонируемая поверхность,
- * тот же механизм и тот же сигнал, что у видимой строки состояния. ────────── */
-const hbIdx = INDEX.indexOf('class="hb-surface"');
-assert.ok(hbIdx > 0, 'у «Сердцебиения» есть собственная поверхность');
+/* ── B1 + §6.4 v2.1: секция «Сердцебиение» — тонируемый СЕГМЕНТ единой
+ * поверхности блока (свой механизм/сигнал), без второй рамки. ─────────── */
+const hbIdx = INDEX.indexOf('status-block__pulse status-health__seg hb-surface');
+assert.ok(hbIdx > 0, 'у «Сердцебиения» есть собственный сегмент-поверхность');
 const HB = INDEX.slice(hbIdx, hbIdx + 400);
 assert.ok(HB.indexOf('subsystem="heartbeat"') >= 0, 'поверхность — подсистема heartbeat');
 assert.ok(HB.indexOf(':source="heartbeatHealthSource"') >= 0,
@@ -69,7 +69,8 @@ assert.ok(HB.indexOf(':status-line="false"') >= 0,
   'собственный инлайн-статус компонента отключён — текста-дубля нет');
 assert.ok(INDEX.indexOf('data-health-inline="heartbeat"') >= 0,
   'каноническая строка состояния осталась');
-assert.ok(INDEX.indexOf('class="card p-4 status-block"') > 0);
+assert.ok(INDEX.indexOf(
+  'class="card p-4 status-block status-health sg-12"') > 0);
 
 /* ── B2 (EVOL-033 §A): тач-цель переключателя — 44×44 в СОБСТВЕННОМ правиле,
  * а не только через `@media (pointer: coarse)` (узкое окно без touch). ───── */
