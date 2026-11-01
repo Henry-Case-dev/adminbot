@@ -880,6 +880,11 @@
         "services/direct_chat_service.py",
         "services/agentic_events.py",
         "handlers/direct_chat.py",
+        "services/tool_schemas.py",
+        "config/settings.py",
+        "services/tool_loop.py",
+        "services/capability_registry.py",
+        "services/evidence_policy.py",
         "tests/test_evol_source_reader.py",
         "plans/features/evol/audit/w6-source-reader.md"
       ],
