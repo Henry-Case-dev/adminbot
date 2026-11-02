@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: EVOL epic + ASAP-FC-VOICE-01 (P0/P1 released) + ASAP-UI-02 remainder
-Task source: plans/current_task.md (user-owned, read-only) + plans/owner_inputs/2026-11-02-asap-fc-voice-01.md + 2026-11-02-limits-economics-decision.md
+Task: priority MEME-PIPELINE-REFactor-01 (P1/P3 merged, P2 in review, P4 blocked) + EVOL COG-MAP S3 + queued epics
+Task source: plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md, 2026-11-03-meme-command-autodelete.md, 2026-11-02-experience-learning-performance-help.md, 2026-11-02-anticliche-memory-admin-ux-spec.md
 Status: in_progress
 Primary phase: implementation
-Active feature: EVOL-SRC-READER (W6) + UI composition §D/§E.2
-Active lanes: Builder ses_e66ab4306ffeEtYUGyuw8DPeYP (SRC-READER, worktree -5d74b13a, branch feat/evol-src-reader); Builder ses_e66ab4306ffd4qLZmhk7T7Aw1g (UI composition, worktree -4dd70890, branch feat/evol-ui-composition)
-Join barriers: both lanes -> review -> merge -> release; then EVOL-COG-MAP (W7, depends on SRC) -> EVOL-RELEASE (DoD)
-Last verified: RELEASE 2.58.149 @ 40d615f1 VERIFIED (healthz 200 local+public, NRestarts 0, schema v40, media 66, assets byte-identical, journal 276 lines 0 Traceback/0 ERROR, FACTORY_SET 630ca46dff76, five canon blocks activated: verboso a124fc8074a9, analyst fd4fe7110feb, single aba72f127099, temporal c044cbccca7e, l1_planner bfb6c7eedfc4); P0 FactCheck voice + P1 L1 decision profile + S12 UI lane + ER-08-RC all merged and released; maps: EVOL 564/122/6 required, FC-VOICE 37 VERIFIED / 56 PENDING; ER-65 snapshot rebound @ a5581869; plan gates EXIT 0 both maps
-Next unlocks: (1) SRC-READER verdict -> merge -> later release; (2) UI composition verdict -> merge; (3) EVOL-COG-MAP implementation; (4) EVOL-RELEASE DoD + final epic acceptance; (5) live post-deploy checks on first natural turn (`l1_context_source`, `l1_reply_*`, profile provenance, factcheck voice tone)
+Active feature: MEME-PIPELINE P2 review + COG-MAP S3
+Active lanes: Reviewer ses_e62e973feffe1jAfmnyzPErUPR (P2 MEME-API-SCOPE, worktree -235bfbd9); Builder ses_e6417627affeh4YupJ9grhA7LA (COG-MAP S3, worktree -814456b9)
+Join barriers: P2 verdict -> merge -> P4 (needs web/app.js+index.html free from S3) -> P5 web labels -> 13-criteria review -> release; S3 -> S3 review -> S4 -> S12 rerun -> EVOL release
+Last verified: prod 2.58.150 @ 345a2ed7 (meme image-only fix, 11/11 rows); meme P1 approved and merged 242fbd38 (criteria 1,2,6,7,8,9 proven); P3 /meme approved and merged d3f168a6 (criteria 10,11 + 5 autodelete obligations proven, 21 rows bound); meme map 85/104 required rows VERIFIED; COG-MAP S1/S2 merged, S2 approved
+Next unlocks: (1) P2 verdict -> merge; (2) S3 verdict -> merge -> S4; (3) P4 UI fields + truthful caption + web labels (after web lock release); (4) meme 13-criteria acceptance -> release 2.58.151; (5) S12 rerun + EVOL DoD release; (6) FINAL v8 packages; (7) E/P epic with track H strictly last
 Next execution: awaiting_children
-Review: approved (released lines); pending (SRC-READER, UI composition)
-Deployment: verified (2.58.149 @ 40d615f1); rollback 6645ae8d
+Review: pending (P2); approved (P1, P3, S2, SRC-READER)
+Deployment: verified (2.58.150 @ 345a2ed7); rollback 40d615f1
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh
-Updated: 2026-11-02T11:20:00+13:00
+Updated: 2026-11-03T04:40:00+13:00
