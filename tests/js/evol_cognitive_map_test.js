@@ -411,3 +411,363 @@ function labelItems(count) {
 })();
 
 console.log('EVOL-COG-MAP-S1-OK checks=' + checks);
+
+/* ═══ W7-S2 (карта на новом payload): визуальная система, кластеры по
+ * реальным связям, честная полнота и клиентские состояния. Всё — чистые
+ * функции адаптера, поэтому проверяется в node без DOM и vis-network. */
+
+const S2 = (function () {
+  let s2 = 0;
+  function ok2(cond, message) {
+    assert.ok(cond, message);
+    s2 += 1;
+  }
+  function eq2(actual, expected, message) {
+    assert.deepStrictEqual(actual, expected, message);
+    s2 += 1;
+  }
+
+  // ── 8. легенда: слова владельца и различитель не только цветом ─────────
+  const model = CM.normalizePayload(payload(), { aliases: ALIASES });
+  const legend = CM.legendEntries(model);
+  const required = legend.filter((e) => e.required);
+  eq2(required.map((e) => e.label),
+    ['Факты', 'Убеждения', 'Парадигмы', 'Изменения'],
+    'легенда: четыре обязательных слова владельца (ТЗ 1285)');
+  eq2(required.map((e) => e.kind),
+    ['fact', 'belief', 'paradigm', 'evolution_event'],
+    'легенда: обязательные классы — четыре когнитивных');
+  ok2(required.every((e) => /^#[0-9a-f]{6}$/i.test(e.color)),
+    'легенда: у каждого класса свой цвет токена');
+  eq2(new Set(required.map((e) => e.color)).size, 4,
+    'легенда: цвета классов различаются');
+  eq2(required.map((e) => e.shape),
+    ['dot', 'rounded', 'hexagon', 'diamond'],
+    'легенда: различие не только цветом — своя форма');
+  ok2(legend.every((e) => e.label !== 'Эволюция характера'),
+    '«Эволюция характера» — заголовок лент, а не строка легенды');
+  // Вторичные классы показываются только если реально есть в модели.
+  ok2(legend.some((e) => e.kind === 'entity' && e.required === false),
+    'сущности — вторичная строка (есть в модели)');
+  ok2(!legend.some((e) => e.kind === 'observation'),
+    'наблюдения не выдумываются, если их нет в данных');
+
+  // ── 9. визуальный стиль узла детерминирован и не цвето-только ─────────
+  eq2(CM.nodeStyle('paradigm').size > CM.nodeStyle('fact').size, true,
+    'парадигма крупнее факта (центр кластера)');
+  eq2(CM.nodeStyle('fact').color, '#38bdf8', 'факты — прохладный голубой');
+  eq2(CM.nodeStyle('belief').color, '#a78bfa', 'убеждения — мягкий фиолетовый');
+  eq2(CM.nodeStyle('paradigm').color, '#818cf8', 'парадигмы — индиго');
+  eq2(CM.nodeStyle('evolution_event').color, '#f59e0b',
+    'изменения — янтарный акцент');
+  eq2(CM.nodeStyle('entity').shape !== CM.nodeStyle('fact').shape, true,
+    'сущности отличаются формой, а не только цветом');
+  eq2(CM.nodeStyle('неизвестный').color, CM.KIND_STYLE.other.color,
+    'незнакомый тип не бросает и не выдумывает цвет');
+
+  // ── 10. кластеры по РЕАЛЬНЫМ связям: детерминизм, изоляты, чаты ────────
+  const clusterFixture = CM.normalizePayload({
+    version: 'cog-map/1', state: 'ok',
+    nodes: [
+      { id: 'paradigm:1:1', kind: 'paradigm', title: 'Доверие', chat_id: 1 },
+      { id: 'belief:1:2', kind: 'belief', title: 'Верю словам', chat_id: 1 },
+      { id: 'fact:1:3', kind: 'fact', title: 'Обещал и сделал', chat_id: 1 },
+      { id: 'fact:1:4', kind: 'fact', title: 'Изолированный факт', chat_id: 1 },
+      { id: 'fact:2:5', kind: 'fact', title: 'Чужой чат', chat_id: 2 },
+    ],
+    edges: [
+      { id: 'e1', from: 'belief:1:2', to: 'fact:1:3',
+        relation: 'derived_from', derived: true },
+      { id: 'e2', from: 'paradigm:1:1', to: 'belief:1:2',
+        relation: 'derived_from', derived: true },
+    ],
+  });
+  const clusters = CM.computeClusters(clusterFixture);
+  eq2(clusters.length, 3, 'кластеры: компонента + два изолированных узла');
+  eq2(clusters[0].size, 3, 'кластеры: связная компонента из трёх узлов');
+  eq2(clusters[0].paradigmTitle, 'Доверие',
+    'кластер назван по реальной парадигме');
+  eq2(clusters[0].label, 'Парадигмы: Доверие',
+    'подпись кластера — парадигма, а не выдуманная тема');
+  eq2(clusters.filter((c) => c.size === 1).length, 2,
+    'изолированные узлы — честные кластеры из одного узла');
+  ok2(clusters.every((c) => c.nodeIds.length === 1
+    || c.nodeIds.indexOf('fact:2:5') < 0),
+  'кластеры не приписывают узлу чужого чата несуществующую связь');
+  eq2(CM.computeClusters(clusterFixture), clusters,
+    'кластеры детерминированы: повторный прогон идентичен');
+  ok2(JSON.stringify(CM.computeClusters(clusterFixture))
+    === JSON.stringify(clusters),
+  'кластеры: порядок не зависит от порядка объектов');
+  const bigFirst = CM.computeClusters(CM.normalizePayload({
+    version: 'cog-map/1',
+    nodes: [
+      { id: 'a:1', kind: 'fact', title: 'A' },
+      { id: 'b:2', kind: 'fact', title: 'B', chat_id: 1 },
+      { id: 'c:3', kind: 'fact', title: 'C', chat_id: 1 },
+    ],
+    edges: [{ id: 'x', from: 'b:2', to: 'c:3', relation: 'supports' }],
+  }));
+  eq2(bigFirst.map((c) => c.size), [2, 1], 'кластеры: крупные первыми');
+
+  // ── 11. фильтр по кластеру: рёбра не рвутся, счётчики честные ──────────
+  const clusterId = clusters[0].id;
+  const filtered = CM.applyFilters(clusterFixture, { cluster: clusterId });
+  eq2(filtered.counts.nodes, 3, 'фильтр кластера: только его узлы');
+  eq2(filtered.counts.edges, 2, 'фильтр кластера: только внутренние рёбра');
+  ok2(filtered.nodes.every((n) => n.id.indexOf(':1:') > 0),
+    'фильтр кластера: узлы чужого чата не подмешиваются');
+  const unknownCluster = CM.applyFilters(clusterFixture, { cluster: 'cl:нет' });
+  eq2(unknownCluster.counts.nodes, 0,
+    'неизвестный кластер даёт пустой вид, а не всю карту');
+  const noDerived = CM.applyFilters(clusterFixture, { hideDerived: true });
+  eq2(noDerived.counts.edges, 0,
+    'скрытие производных рёбер убирает только их');
+
+  // ── 12. «показано X из Y»: одно правило, нейтральный текст ─────────────
+  const short = CM.completeness(model.shownOf);
+  eq2(short.active, true, 'полнота: часть данных → строка включается');
+  eq2(short.nodes, { shown: 6, total: 900, truncated: true },
+    'полнота: X и Y — из payload, а не из state');
+  eq2(short.text, 'показано 6 из 900 узлов · 4 из 2400 связей',
+    'полнота: нейтральный текст «показано X из Y»');
+  ok2(!/ошибк|сбой|внимани|предупрежд/i.test(short.text),
+    'полнота подаётся нейтрально, а не как ошибка');
+  const complete = CM.completeness({ nodes: 5, edges: 3,
+    totals: { nodes: 5, edges: 3 } });
+  eq2(complete.active, false, 'полнота: полный набор → строки нет');
+  eq2(complete.text, '', 'полнота: нечего показывать — текста нет');
+  const edgesShortOnly = CM.completeness({ nodes: 5, edges: 3,
+    totals: { nodes: 5, edges: 9 } });
+  eq2(edgesShortOnly.text, 'показано 3 из 9 связей',
+    'полнота: обрезаны только связи — честная формулировка');
+  eq2(edgesShortOnly.nodes.truncated, false,
+    'полнота: узлы не помечены обрезанными');
+  const missing = CM.completeness(null);
+  eq2(missing.active, false, 'полнота: без `shown_of` не выдумывает числа');
+
+  // ── 13. клиентское состояние ≠ серверный `state` ──────────────────────
+  const fresh = 1762000000;
+  const nowMs = (fresh + 60) * 1000;
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs }).state,
+    'ready', 'partial + свежие данные + рендерер готов → ready (не «ошибка»)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs }).serverState,
+    'partial', 'серверный state сохраняется отдельно');
+  eq2(CM.mapClientState({ model: null, renderer: 'ready', now: nowMs }).state,
+    'loading', 'нет модели → loading');
+  eq2(CM.mapClientState({ model, renderer: 'missing', now: nowMs }).state,
+    'not_loaded', 'vis-network не загружен → not_loaded');
+  eq2(CM.mapClientState({ model, renderer: 'failed', now: nowMs }).state,
+    'renderer_failed', 'рендерер упал → renderer_failed');
+  eq2(CM.mapClientState({ model, renderer: 'ready',
+    now: (fresh + 16 * 60) * 1000 }).state, 'stale',
+  'старые данные → stale (порог считается на клиенте)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    staleMs: 0 }).state, 'ready', 'staleMs=0 отключает проверку устаревания');
+  const emptyModel = CM.normalizePayload({ version: 'cog-map/1',
+    state: 'empty', nodes: [], edges: [] });
+  eq2(CM.mapClientState({ model: emptyModel, renderer: 'ready', now: nowMs })
+    .state, 'empty', 'серверное empty → пустое состояние');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    visibleNodes: 0 }).state, 'ready',
+  'фильтр скрыл все узлы — это НЕ пустота данных (state остаётся ready)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    visibleNodes: 0 }).viewEmpty, true,
+  'фильтр скрыл все узлы → отдельный факт вида (viewEmpty)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs })
+    .viewEmpty, false, 'непустая витрина не помечена пустой');
+  eq2(CM.mapClientState({ model: emptyModel, renderer: 'ready', now: nowMs })
+    .viewEmpty, false, 'пустота данных — не «пустота по фильтру»');
+  ok2(CM.STATE_LABELS.not_loaded && CM.STATE_LABELS.renderer_failed,
+    'у клиентских состояний есть честные подписи');
+  ok2(!/ошибк/i.test(CM.STATE_LABELS.not_loaded),
+    'загрузка визуализации не подаётся как ошибка');
+
+  // ── 14. §9.1: видимая заметка по «худшему факту», `notice` рядом с `state` ─
+  // Модель с отказом источника и БЕЗ узлов — ровно то, что отдаёт сервер
+  // (`state='degraded'` + `degraded.active` при упавшей выборке).
+  const degradedEmpty = CM.normalizePayload({
+    version: 'cog-map/1', state: 'degraded', generated_at: fresh,
+    degraded: { active: true, not_loaded: ['memory_cycle'] },
+    nodes: [], edges: [], shown_of: { nodes: 0, edges: 0,
+                                       totals: { nodes: 0, edges: 0 } },
+  });
+  const degEmpty = CM.mapClientState({ model: degradedEmpty,
+    renderer: 'ready', now: nowMs });
+  eq2(degEmpty.notice.kind, 'degraded',
+    '§9.1: отказ источника — видимая заметка, а не «пусто»');
+  eq2(degEmpty.empty, false,
+    '§9.1: `empty` запрещён, пока degraded.active === true');
+  ok2(degEmpty.state !== 'empty',
+    '§9.1: клиентское `state` тоже не объявляет пустоту при отказе');
+  eq2(degEmpty.notice.text, 'часть источников не прочитана: memory_cycle',
+    '§9.1: заметка называет непрочитанный источник');
+  eq2(degEmpty.notice.sources, ['memory_cycle'],
+    '§9.1: список источников отдаётся отдельным полем');
+  ok2(degEmpty.notice.kind !== 'ready' && degEmpty.notice.degraded === true,
+    '§9.1: отказ не выглядит «всё хорошо»');
+
+  // Отказ источника ПРИ НАЛИЧИИ данных: клиентская ось — ready, видимая — degraded.
+  const degradedData = CM.normalizePayload({
+    version: 'cog-map/1', state: 'degraded', generated_at: fresh,
+    degraded: { active: true, not_loaded: ['edges'] },
+    nodes: [{ id: 'fact:1:1', kind: 'fact', title: 'Есть факт' }],
+    edges: [], shown_of: { nodes: 1, edges: 0,
+                           totals: { nodes: 1, edges: 0 } },
+  });
+  const degData = CM.mapClientState({ model: degradedData, renderer: 'ready',
+    now: nowMs });
+  eq2(degData.state, 'ready',
+    '§9.1: оси раздельные — рендерер в порядке, `state` = ready');
+  eq2(degData.notice.kind, 'degraded',
+    '§9.1: видимая строка всё равно сообщает об отказе');
+  // Приоритет «худшего факта» для остальных комбинаций.
+  eq2(CM.mapClientState({ model: degradedData, renderer: 'failed',
+    now: nowMs }).notice.kind, 'renderer_failed',
+  '§9.1: renderer_failed выше degraded');
+  eq2(CM.mapClientState({ model: null, renderer: 'missing',
+    now: nowMs }).notice.kind, 'not_loaded',
+  '§9.1: not_loaded выше degraded (модели ещё нет)');
+  const degradedStale = CM.mapClientState({ model: degradedData,
+    renderer: 'ready', now: (fresh + 3600) * 1000 });
+  eq2(degradedStale.notice.kind, 'degraded',
+    '§9.1: degraded выше stale');
+  // Без отказа источника пустота объявляется как обычно.
+  const plainEmpty = CM.mapClientState({ model: emptyModel, renderer: 'ready',
+    now: nowMs });
+  eq2(plainEmpty.notice.kind, 'empty',
+    'без отказа источника пустота — видимая заметка');
+  eq2(plainEmpty.empty, true, 'empty остаётся честным фактом данных');
+  // Полный набор: заметки нет, состояние ready.
+  const plainReady = CM.mapClientState({ model, renderer: 'ready', now: nowMs });
+  eq2(plainReady.notice.kind, 'ready', 'всё в порядке → заметки нет');
+  eq2(plainReady.notice.text, '', 'в порядке — пустой текст заметки');
+  // Свежесть/полнота независимы от заметки.
+  eq2(plainReady.notice.kind, degData.notice.kind === 'degraded'
+    ? 'ready' : 'degraded', 'полнота и статус — независимые поля');
+
+  // ── 15. §9.2: бюджет подписей из ГЕОМЕТРИИ кадра ───────────────────────
+  function labelItems(count, chars, extra) {
+    const out = [];
+    for (let i = 0; i < count; i += 1) {
+      out.push({
+        id: 'l' + i,
+        x: 40 + (i % 5) * 60,
+        y: 30 + Math.floor(i / 5) * 55,
+        kind: 'fact',
+        title: 'я'.repeat(chars),
+      });
+    }
+    return out.concat(extra || []);
+  }
+  function budgetOf(items, w, h, mobile, chars) {
+    return CM.labelBudget(items, {
+      maxLabels: CM.DEFAULTS.maxLabels,
+      mobileMaxLabels: CM.DEFAULTS.mobileMaxLabels,
+      fontSize: CM.DEFAULTS.fontSize,
+      padding: CM.DEFAULTS.padding,
+      charWidth: CM.DEFAULTS.charWidth,
+      maxLabelChars: chars || CM.DEFAULTS.maxLabelChars,
+    }, { mobile: mobile, viewport: { width: w, height: h }, scale: 1 });
+  }
+  const items12 = labelItems(12, 20);
+  const small = budgetOf(items12, 320, 300, true);
+  const mid = budgetOf(items12, 1000, 400, false);
+  const large = budgetOf(items12, 1440, 900, false);
+  ok2(small.budget >= 4, '§9.2: минимальный бюджет — 4 подписи');
+  ok2(small.budget <= CM.DEFAULTS.mobileMaxLabels,
+    '§9.2: мобильный бюджет ≤ потолка 12');
+  ok2(large.budget <= CM.DEFAULTS.maxLabels,
+    '§9.2: бюджет ≤ жёсткого потолка 26');
+  ok2(mid.budget < large.budget,
+    '§9.2: бюджет растёт с площадью кадра (1000×400 < 1440×900)');
+  ok2(small.budget < large.budget,
+    '§9.2: узкий мобильный кадр даёт меньший бюджет, чем большой десктоп');
+  eq2(small.fill, 0.04, '§9.2: мобильная заливка 0.04');
+  eq2(large.fill, 0.05, '§9.2: десктопная заливка 0.05');
+  // Длина подписи участвует: длиннее подпись — меньше подписей влезает.
+  const shortBudget = budgetOf(labelItems(12, 6), 1000, 400, false, 34);
+  const longBudget = budgetOf(labelItems(12, 34), 1000, 400, false, 34);
+  ok2(longBudget.budget < shortBudget.budget,
+    '§9.2: длина подписи уменьшает бюджет (геометрия, не константа)');
+  // Один и тот же кадр: мобильный fill < десктопного при равной площади.
+  const sameAreaMobile = budgetOf(items12, 800, 600, true);
+  const sameAreaDesktop = budgetOf(items12, 800, 600, false);
+  ok2(sameAreaMobile.budget < sameAreaDesktop.budget,
+    '§9.2: на одних данных mobile-бюджет меньше десктопного');
+  ok2(sameAreaMobile.budget <= CM.DEFAULTS.mobileMaxLabels
+    && sameAreaDesktop.budget <= CM.DEFAULTS.maxLabels,
+  '§9.2: оба бюджета под своими потолками');
+  // Обязательные подписи: выбранный узел и парадигма подписаны всегда.
+  const mandatoryItems = labelItems(6, 30, [
+    { id: 'sel', x: 60, y: 60, kind: 'fact', title: 'Выбранный', selected: true },
+    { id: 'par', x: 90, y: 90, kind: 'paradigm', title: 'Парадигма' },
+  ]);
+  const tiny = CM.allocateLabels(mandatoryItems, {
+    scale: 1, viewport: { width: 400, height: 300 },
+    maxLabelChars: 34, fontSize: 11,
+  });
+  ok2(tiny.mandatory >= 2, '§9.2: обязательные подписи посчитаны');
+  ok2(tiny.budget >= tiny.mandatory,
+    '§9.2: бюджет не меньше числа обязательных подписей');
+  ok2(tiny.labels.some((l) => l.id === 'sel'),
+    '§9.2: выбранный узел подписан даже в тесном кадре');
+  ok2(tiny.labels.some((l) => l.id === 'par'),
+    '§9.2: парадигма подписана даже в тесном кадре');
+  // Тесный кадр с ШЕСТЬЮ парадигмами: геометрический бюджет (< 6) поднимается
+  // до числа обязательных подписей — иначе «всегда подписаны» не выполнялось бы.
+  const manyParadigms = [];
+  for (let i = 0; i < 6; i += 1) {
+    manyParadigms.push({
+      id: 'p' + i, x: 20 + i * 18, y: 40, kind: 'paradigm',
+      title: 'Парадигма ' + i,
+    });
+  }
+  const crowded = CM.allocateLabels(manyParadigms, {
+    scale: 1, viewport: { width: 160, height: 80 }, fontSize: 11,
+  });
+  eq2(crowded.mandatory, 6, '§9.2: шесть обязательных подписей (парадигмы)');
+  ok2(crowded.budget >= 6,
+    '§9.2: бюджет поднят до числа обязательных подписей');
+  ok2(crowded.budget <= CM.DEFAULTS.maxLabels,
+    '§9.2: и при этом не выше жёсткого потолка');
+  // LOD — доля бюджета, а не отдельная константа.
+  const overview = CM.allocateLabels(items12, {
+    scale: CM.DEFAULTS.overviewScale - 0.1,
+    viewport: { width: 1440, height: 900 },
+  });
+  const normal = CM.allocateLabels(items12, {
+    scale: 0.9, viewport: { width: 1440, height: 900 },
+  });
+  const detail = CM.allocateLabels(items12, {
+    scale: 2, viewport: { width: 1440, height: 900 },
+  });
+  ok2(overview.maxLabels <= Math.min(normal.budget, 6),
+    '§9.2: overview — доля бюджета, не больше 6');
+  eq2(normal.maxLabels, Math.min(normal.budget, 16),
+    '§9.2: normal — доля бюджета, не больше 16');
+  eq2(detail.maxLabels, detail.budget,
+    '§9.2: detail — весь бюджет');
+  ok2(overview.labels.length <= normal.labels.length
+    && normal.labels.length <= detail.labels.length,
+  '§9.2: чем выше LOD, тем не меньше подписей');
+  // Подпись не прижимается к кромке кадра (у сцены скругление/рамка):
+  // бокс обязан лежать внутри с отступом `padding`.
+  const edgeItems = [
+    { id: 'top', x: 200, y: 3, kind: 'fact', title: 'У самой кромки' },
+    { id: 'mid', x: 200, y: 150, kind: 'fact', title: 'В центре' },
+  ];
+  const edge = CM.allocateLabels(edgeItems, {
+    scale: 1, viewport: { width: 400, height: 300 },
+  });
+  ok2(!edge.labels.some((l) => l.id === 'top'),
+    'подпись у самой кромки кадра не рисуется (обрезалась бы рамкой)');
+  ok2(edge.labels.every((l) => l.y - l.height / 2 >= CM.DEFAULTS.padding
+    && l.x - l.width / 2 >= CM.DEFAULTS.padding),
+  'все подписи внутри кадра с отступом');
+
+  return s2;
+})();
+
+checks += S2;
+console.log('EVOL-COG-MAP-S2-OK checks=' + S2);

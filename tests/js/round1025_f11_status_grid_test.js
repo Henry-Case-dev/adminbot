@@ -181,29 +181,53 @@ const methods = captured.methods || {};
     '§17: reuse бейджей');
 })();
 
-// ── §16/D4: граф — соседи, подробности, алиас-поиск, маршрут ───────────────
+// ── §16/D4 + EVOL-COG-MAP W7-S2: карта — соседи, подробности, тип-фильтр,
+//    маршрут полного экрана. Данные — НОРМАЛИЗОВАННАЯ модель адаптера
+//    (в браузере её строит `CognitiveMap.normalizePayload`), поэтому фикстура
+//    проходит через реальный адаптер, а не legacy-payload.
 (function () {
-  const data = {
-    nodes: [{ id: 1, label: 'Аня', group: 'user' },
-            { id: 2, label: 'Борис', group: 'user' },
-            { id: 3, label: 'Тема', group: 'topic' }],
-    edges: [{ from: 1, to: 2, weight: 5 }, { from: 1, to: 3, weight: 1 }],
-  };
-  const nb = methods.graphNeighborsOf.call({ cognitionGraphData: data }, 1);
-  assert.deepStrictEqual(nb.map(function (n) { return n.id; }).sort(), [2, 3],
-    '§16: ближайшие связи');
-  const ctx = { cognitionGraphData: data,
+  global.window.CognitiveMap = require(path.join(ROOT, 'web', 'static',
+    'cognitive-map.js'));
+  const model = global.window.CognitiveMap.normalizePayload({
+    version: 'cog-map/1', state: 'ok',
+    nodes: [
+      { id: 'ent:1:1', kind: 'entity', title: 'Аня', chat_id: 1 },
+      { id: 'ent:1:2', kind: 'entity', title: 'Борис', chat_id: 1 },
+      { id: 'fact:1:3', kind: 'fact', title: 'Тема', chat_id: 1 },
+    ],
+    edges: [
+      { id: 'e1', from: 'ent:1:1', to: 'ent:1:2', relation: 'supports' },
+      { id: 'e2', from: 'ent:1:1', to: 'fact:1:3', relation: 'derived_from' },
+    ],
+  });
+  const nb = methods.graphNeighborsOf.call({ cognitionGraphData: model },
+    'ent:1:1');
+  assert.deepStrictEqual(nb.map(function (n) { return n.id; }).sort(),
+    ['ent:1:2', 'fact:1:3'], '§16: ближайшие связи — по реальным рёбрам');
+  const ctx = { cognitionGraphData: model,
     graphNeighborsOf: methods.graphNeighborsOf };
-  methods.graphSelectNode.call(ctx, 2);
-  assert.strictEqual(ctx.graphDetail.label, 'Борис', '§16: подробности узла');
-  assert.strictEqual(ctx.graphDetail.group, 'user', '§16: группа узла (реальная)');
-  assert.strictEqual(ctx.graphDetail.degree, null, '§16: degree отсутствует → null');
-  assert.deepStrictEqual(ctx.graphNeighbors.map(function (n) { return n.id; }), [1]);
+  methods.graphSelectNode.call(ctx, 'ent:1:2');
+  assert.strictEqual(ctx.graphDetail.title, 'Борис', '§16: подробности узла');
+  assert.strictEqual(ctx.graphDetail.kindLabel, 'Сущности',
+    '§16: тип узла (реальная таксономия модели)');
+  assert.strictEqual(ctx.graphDetail.degree, 1, '§16: degree из принятых рёбер');
+  assert.deepStrictEqual(ctx.graphNeighbors.map(function (n) { return n.id; }),
+    ['ent:1:1']);
   methods.graphClearDetail.call(ctx);
   assert.strictEqual(ctx.graphDetail, null);
-  // витринный фильтр по group (клиентский, layout не меняется).
-  const groups = computed.graphGroupOptions.call({ cognitionGraphData: data });
-  assert.deepStrictEqual(groups.slice().sort(), ['topic', 'user']);
+  // Витринный фильтр по ТИПУ (клиентский; данные и layout не меняются).
+  const kinds = computed.graphGroupOptions.call({ cognitionGraphData: model });
+  assert.deepStrictEqual(kinds.map(function (k) { return k.id; }).sort(),
+    ['entity', 'fact'], '§16: фильтр типов — только реально показанные');
+  // Кластеры — по реальным связям (W7-S2), детерминированно.
+  const clusters = computed.cogClusters.call({ cognitionGraphData: model });
+  assert.strictEqual(clusters.length, 1, '§16: одна связная компонента');
+  assert.strictEqual(clusters[0].size, 3, '§16: кластер = все три узла');
+  // Легенда — слова владельца (ТЗ 1285), четыре обязательные строки.
+  const legend = computed.cogLegend.call({ cognitionGraphData: model });
+  assert.deepStrictEqual(legend.filter(function (e) { return e.required; })
+    .map(function (e) { return e.label; }),
+    ['Факты', 'Убеждения', 'Парадигмы', 'Изменения'], '§16: слова легенды');
   // маршрут полного экрана (аддитивный, владелец F1).
   assert.ok(JS.indexOf("'#/status/graph': 'status'") >= 0, '§16: ROUTE_TO_TAB');
   assert.ok(JS.indexOf("'#/status/graph': '#/'") >= 0, '§16: ROUTE_PARENT');
@@ -212,6 +236,7 @@ const methods = captured.methods || {};
   // Семантика веса/layout не переопределена.
   assert.ok(JS.indexOf('barnesHut') >= 0, '§16: layout сохранён');
   assert.ok(JS.indexOf('_graphSignature') >= 0, '§16: lazy/diff сохранены');
+  delete global.window.CognitiveMap;
 })();
 
 // ── §19/D5: «Новые факты» — стабильный ключ, время/тип только если есть ────

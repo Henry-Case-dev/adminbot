@@ -68,6 +68,40 @@
     charWidth: 0.55,      // доля fontSize на символ (кириллица, усреднённо)
     minScale: 0.15,
     maxScale: 4,
+    // W7-S2: «данные на HH:MM» — порог устаревания считается на клиенте от
+    // `generated_at` (контракт §4: `stale` — клиентское состояние, сервер его
+    // не отдаёт). 15 минут = ритм существующего cognition-polling.
+    staleMs: 15 * 60 * 1000,
+  };
+
+  /* ── визуальная система (§2.4 контракта) ─────────────────────────────── */
+  /* Токены — существующая палитра приложения (user/topic/event/indigo), новых
+   * цветов не вводится. Цвет НЕ единственный различитель: у каждого класса
+   * своя форма, размер и строка легенды. `legend: true` — только четыре
+   * класса, названные владельцем (Факты/Убеждения/Парадигмы/Изменения);
+   * сущности и наблюдения — контекст, их строки легенды вторичны. */
+  var KIND_STYLE = {
+    fact: { color: '#38bdf8', shape: 'dot', size: 13, legend: true },
+    belief: { color: '#a78bfa', shape: 'rounded', size: 15, legend: true },
+    paradigm: { color: '#818cf8', shape: 'hexagon', size: 22, legend: true },
+    evolution_event: { color: '#f59e0b', shape: 'diamond', size: 13,
+      legend: true },
+    observation: { color: '#d97706', shape: 'diamond', size: 10,
+      legend: false },
+    entity: { color: '#94a3b8', shape: 'box', size: 11, legend: false },
+    other: { color: '#64748b', shape: 'dot', size: 10, legend: false },
+  };
+  // Порядок строк легенды = порядок слов владельца (ТЗ 1285).
+  var LEGEND_ORDER = ['fact', 'belief', 'paradigm', 'evolution_event'];
+  // Вторичные классы: показываются в легенде только если реально есть.
+  var LEGEND_EXTRA = ['entity', 'observation'];
+
+  var STATE_LABELS = {
+    loading: 'загрузка карты…',
+    not_loaded: 'визуализация грузится — счётчики уже видны',
+    renderer_failed: 'визуализация недоступна — данные и счётчики сохранены',
+    empty: 'в этой области нет фактов и связей',
+    ready: '',
   };
 
   function numberOrNull(value) {
@@ -394,8 +428,11 @@
 
   /* applyFilters(model, filters) -> {nodes, edges, counts}
    * filters: {kinds: [], scopes: [], chats: [], statuses: [], search: '',
-   *          hideIsolated}
+   *          hideIsolated, cluster: 'cl:<id>', hideDerived}
    * Пустой список = «все». Чистая функция: никаких запросов и мутаций.
+   *
+   * `cluster` — тематический кластер (W7-S2): вычисляется по РЕАЛЬНЫМ рёбрам
+   * (`computeClusters`), не по совпадению имён и не по близости на экране.
    */
   function applyFilters(model, filters) {
     filters = filters || {};
@@ -412,11 +449,24 @@
     var query = normalizeQuery(filters.search);
     var words = query ? query.split(' ') : [];
     var hideIsolated = filters.hideIsolated === true;
+    var hideDerived = filters.hideDerived === true;
+    var clusterNodes = null;
+    if (typeof filters.cluster === 'string' && filters.cluster) {
+      var clusters = computeClusters(model);
+      for (var c = 0; c < clusters.length; c += 1) {
+        if (clusters[c].id === filters.cluster) {
+          clusterNodes = toSet(clusters[c].nodeIds);
+          break;
+        }
+      }
+      if (!clusterNodes) clusterNodes = {}; // неизвестный кластер — пустой вид
+    }
     var picked = {};
     var nodes = [];
     for (var i = 0; i < model.nodes.length; i += 1) {
       var node = model.nodes[i];
       if (!isEmptySet(kinds) && !kinds[node.kind]) continue;
+      if (clusterNodes && !clusterNodes[node.id]) continue;
       if (!isEmptySet(scopes) && !scopes[node.scope]) continue;
       if (!isEmptySet(chats) && !chats[String(node.chatId)]) continue;
       if (!isEmptySet(statuses) && !statuses[String(node.status)]) continue;
@@ -435,6 +485,7 @@
     var edges = [];
     for (var j = 0; j < model.edges.length; j += 1) {
       var edge = model.edges[j];
+      if (hideDerived && edge.derived) continue;
       if (picked[edge.from] && picked[edge.to]) edges.push(edge);
     }
     return {
@@ -448,6 +499,109 @@
       },
     };
   }
+
+  /* ── кластеры по реальным связям (W7-S2) ─────────────────────────────── */
+
+  /* computeClusters(model) -> [{id, nodeIds, size, kinds, dominantKind,
+   *                             label, paradigmTitle}]
+   *
+   * Кластер = связная компонента по ПРИНЯТЫМ рёбрам. Никакой близости на
+   * экране, похожести названий или LLM: только реально записанные отношения.
+   * Изолированный узел — кластер из одного узла (это правда, а не ошибка).
+   * Детерминизм: корень компоненты = минимальный id, порядок кластеров —
+   * размер (по убыванию), затем id; повторный прогон даёт тот же результат.
+   */
+  function computeClusters(model) {
+    var nodes = (model && Array.isArray(model.nodes)) ? model.nodes : [];
+    var edges = (model && Array.isArray(model.edges)) ? model.edges : [];
+    var parent = {};
+    var i;
+    for (i = 0; i < nodes.length; i += 1) parent[nodes[i].id] = nodes[i].id;
+    function find(x) {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      return x;
+    }
+    function union(a, b) {
+      var ra = find(a);
+      var rb = find(b);
+      if (ra === rb) return;
+      // Корень — минимальный id: результат не зависит от порядка рёбер.
+      if (ra < rb) parent[rb] = ra; else parent[ra] = rb;
+    }
+    for (i = 0; i < edges.length; i += 1) {
+      var edge = edges[i];
+      if (!parent[edge.from] || !parent[edge.to]) continue;
+      union(edge.from, edge.to);
+    }
+    var groups = {};
+    var order = [];
+    for (i = 0; i < nodes.length; i += 1) {
+      var node = nodes[i];
+      var root = find(node.id);
+      if (!groups[root]) {
+        groups[root] = { id: 'cl:' + root, root: root, nodeIds: [],
+          kinds: {}, size: 0, paradigmTitle: null };
+        order.push(root);
+      }
+      var group = groups[root];
+      group.nodeIds.push(node.id);
+      group.kinds[node.kind] = (group.kinds[node.kind] || 0) + 1;
+      group.size += 1;
+      if (node.kind === 'paradigm'
+          && (group.paradigmTitle === null
+            || node.title.length < group.paradigmTitle.length
+            || (node.title.length === group.paradigmTitle.length
+              && node.title < group.paradigmTitle))) {
+        group.paradigmTitle = node.title;
+      }
+    }
+    order.sort();
+    var out = [];
+    for (i = 0; i < order.length; i += 1) {
+      var item = groups[order[i]];
+      var dominantKind = null;
+      var best = -1;
+      var kindKeys = Object.keys(item.kinds).sort();
+      for (var k = 0; k < kindKeys.length; k += 1) {
+        var kind = kindKeys[k];
+        var count = item.kinds[kind];
+        var priority = KIND_PRIORITY[kind] === undefined
+          ? KIND_PRIORITY.other : KIND_PRIORITY[kind];
+        // Сначала частота, при равенстве — приоритет класса (парадигма выше).
+        if (count > best) {
+          best = count;
+          dominantKind = kind;
+        } else if (count === best) {
+          var curPriority = KIND_PRIORITY[dominantKind] === undefined
+            ? KIND_PRIORITY.other : KIND_PRIORITY[dominantKind];
+          if (priority < curPriority) dominantKind = kind;
+        }
+      }
+      item.nodeIds.sort();
+      item.dominantKind = dominantKind || 'other';
+      item.label = item.paradigmTitle
+        ? (KIND_LABELS.paradigm + ': ' + item.paradigmTitle)
+        : (KIND_LABELS[item.dominantKind] + ' · ' + item.size);
+      out.push({
+        id: item.id,
+        nodeIds: item.nodeIds,
+        size: item.size,
+        kinds: item.kinds,
+        dominantKind: item.dominantKind,
+        paradigmTitle: item.paradigmTitle,
+        label: item.label,
+      });
+    }
+    out.sort(function (a, b) {
+      return (b.size - a.size)
+        || (a.id < b.id ? -1 : (a.id > b.id ? 1 : 0));
+    });
+    return out;
+  }
+
 
   /* ── камера ──────────────────────────────────────────────────────────── */
 
@@ -541,6 +695,90 @@
    * наложение названий невозможно: бокс ставится только если не пересекается
    * с уже поставленными и целиком попадает во вьюпорт (§2.4 контракта).
    */
+  /* labelBudget(items, cfg, opts) -> {budget, raw, boxArea, cap, fill, limit,
+   *                                   mandatory, lod}
+   *
+   * Решение Architect §9.2: бюджет подписей выводится из ГЕОМЕТРИИ кадра, а не
+   * из LOD-константы:
+   *   budget = clamp(round(fill * W * H / boxArea), 4, cap)
+   * где boxArea — средняя по кандидатам подпись через `measureLabel()`
+   * (ширина `chars * 0.55 * fontSize`, высота `fontSize + padding`),
+   * fill = 0.05 desktop / 0.04 mobile, cap = 26/12 — ЖЁСТКИЕ потолки
+   * (`DEFAULTS.maxLabels`/`mobileMaxLabels` не меняются).
+   * LOD — доля бюджета: overview = min(budget, 6), normal = min(budget, 16),
+   * detail = budget. Выбранный узел и парадигмы подписываются всегда, поэтому
+   * бюджет не может быть меньше их числа (но не выше cap).
+   */
+  function labelBudget(items, cfg, opts) {
+    opts = opts || {};
+    var mobile = opts.mobile === true;
+    var cap = mobile
+      ? Math.min(numberOr(cfg.maxLabels, DEFAULTS.maxLabels),
+        DEFAULTS.mobileMaxLabels)
+      : numberOr(cfg.maxLabels, DEFAULTS.maxLabels);
+    var fontSize = numberOr(cfg.fontSize, DEFAULTS.fontSize);
+    var charWidth = numberOr(cfg.charWidth, DEFAULTS.charWidth);
+    var padding = numberOr(cfg.padding, DEFAULTS.padding);
+    var maxChars = numberOr(cfg.maxLabelChars, DEFAULTS.maxLabelChars);
+    var source = Array.isArray(items) ? items : [];
+    var totalChars = 0;
+    var counted = 0;
+    var mandatory = 0;
+    for (var i = 0; i < source.length; i += 1) {
+      var item = source[i];
+      if (!item || typeof item.id !== 'string') continue;
+      if (numberOrNull(item.x) === null || numberOrNull(item.y) === null) continue;
+      var text = labelText(item, maxChars);
+      if (text) {
+        totalChars += text.length;
+        counted += 1;
+      }
+      if (item.selected === true || item.kind === 'paradigm') mandatory += 1;
+    }
+    var fill = mobile ? 0.04 : 0.05;
+    var viewport = opts.viewport && typeof opts.viewport === 'object'
+      ? opts.viewport : null;
+    var width = viewport ? numberOr(viewport.width, 0) : 0;
+    var height = viewport ? numberOr(viewport.height, 0) : 0;
+    var boxArea = 0;
+    var raw = 0;
+    var budget;
+    if (width > 0 && height > 0 && counted > 0) {
+      var avgChars = totalChars / counted;
+      var boxW = Math.max(fontSize, avgChars * fontSize * charWidth) + 6;
+      var boxH = fontSize + padding;
+      boxArea = Math.max(1, boxW * boxH);
+      raw = Math.round((fill * width * height) / boxArea);
+      budget = Math.min(cap, Math.max(4, raw));
+    } else {
+      // Без вьюпорта/кандидатов геометрии нет — остаётся только потолок.
+      budget = Math.min(cap, 4);
+    }
+    if (mandatory) budget = Math.min(cap, Math.max(budget, mandatory));
+    var scale = numberOr(opts.scale, 1);
+    var overviewScale = numberOr(cfg.overviewScale, DEFAULTS.overviewScale);
+    var detailScale = numberOr(cfg.detailScale, DEFAULTS.detailScale);
+    var lod = scale < overviewScale ? 'overview'
+      : (scale >= detailScale ? 'detail' : 'normal');
+    var limit = lod === 'overview' ? Math.min(budget, 6)
+      : (lod === 'normal' ? Math.min(budget, 16) : budget);
+    return {
+      budget: budget, raw: raw, boxArea: boxArea, cap: cap, fill: fill,
+      limit: limit, mandatory: mandatory, lod: lod, counted: counted,
+    };
+  }
+
+  /* allocateLabels(items, opts) -> {labels, hidden, shown, lod, maxLabels}
+   * items: [{id, x, y, kind, title, degree, selected}]
+   * opts: {scale, viewport:{width,height}, mobile, maxLabels, fontSize,
+   *        padding, maxLabelChars}
+   *
+   * Детерминированно: порядок задан приоритетом, координаты входа не
+   * сортируются случайно, Math.random/Date не используются. Массовое
+   * наложение названий невозможно: бокс ставится только если не пересекается
+   * с уже поставленными и целиком попадает во вьюпорт (§2.4 контракта).
+   * Бюджет подписей — `labelBudget` (§9.2), LOD только ограничивает его долю.
+   */
   function allocateLabels(items, opts) {
     opts = opts || {};
     var cfg = {
@@ -556,12 +794,6 @@
     if (opts.mobile === true) {
       cfg.maxLabels = Math.min(cfg.maxLabels, DEFAULTS.mobileMaxLabels);
     }
-    var lod = scale < cfg.overviewScale ? 'overview'
-      : (scale >= cfg.detailScale ? 'detail' : 'normal');
-    // LOD по масштабу: на обзорном зуме подписываются только самые важные,
-    // иначе подписи конкурируют за место и превращаются в «массовый текст».
-    var budget = lod === 'overview' ? Math.min(cfg.maxLabels, 6)
-      : (lod === 'normal' ? Math.min(cfg.maxLabels, 16) : cfg.maxLabels);
 
     var viewport = opts.viewport && typeof opts.viewport === 'object'
       ? opts.viewport : null;
@@ -581,6 +813,12 @@
     }
     placeable.sort(comparePriority);
 
+    var plan = labelBudget(placeable, cfg, {
+      mobile: opts.mobile === true, viewport: viewport, scale: scale,
+    });
+    var lod = plan.lod;
+    var budget = plan.limit;
+
     var placed = [];
     var labels = [];
     for (var p = 0; p < placeable.length; p += 1) {
@@ -597,11 +835,14 @@
         text: text,
       };
       if (viewport) {
+        // Подпись должна целиком лежать в кадре с отступом: у сцены скруглённые
+        // края/рамка, и бокс, прижатый к самой кромке, визуально обрезается.
+        var inset = numberOr(opts.edgeInset, cfg.padding);
         var halfW = box.width / 2;
         var halfH = box.height / 2;
-        if (box.x - halfW < 0 || box.y - halfH < 0
-          || box.x + halfW > numberOr(viewport.width, 0)
-          || box.y + halfH > numberOr(viewport.height, 0)) {
+        if (box.x - halfW < inset || box.y - halfH < inset
+          || box.x + halfW > numberOr(viewport.width, 0) - inset
+          || box.y + halfH > numberOr(viewport.height, 0) - inset) {
           continue;                       // за пределами сцены — не рисуем
         }
       }
@@ -626,6 +867,13 @@
       shown: labels.length,
       lod: lod,
       maxLabels: budget,
+      // Диагностика §9.2 (приёмка в node-тесте): бюджет/потолок/заливка/
+      // площадь бокса и число обязательных подписей.
+      budget: plan.budget,
+      cap: plan.cap,
+      fill: plan.fill,
+      boxArea: plan.boxArea,
+      mandatory: plan.mandatory,
       scale: scale,
     };
   }
@@ -648,18 +896,194 @@
     return out;
   }
 
+  /* nodeStyle(kind) -> {color, shape, size, legend} — детерминированно. */
+  function nodeStyle(kind) {
+    return KIND_STYLE[KINDS.indexOf(kind) >= 0 ? kind : 'other']
+      || KIND_STYLE.other;
+  }
+
+  /* legendEntries(model) -> [{kind, label, color, shape, required}]
+   *
+   * Обязательные четыре строки — дословно слова владельца (ТЗ 1285):
+   * «Факты», «Убеждения», «Парадигмы», «Изменения». Показываются ВСЕГДА
+   * (легенда объясняет визуальную систему, а не только текущий кадр).
+   * «Сущности»/«Наблюдения» — вторичный контекст: строка появляется только
+   * если такие узлы реально есть в модели, и не подменяет четыре обязательных.
+   */
+  function legendEntries(model) {
+    var out = [];
+    var i;
+    for (i = 0; i < LEGEND_ORDER.length; i += 1) {
+      var kind = LEGEND_ORDER[i];
+      var style = KIND_STYLE[kind];
+      out.push({
+        kind: kind,
+        label: KIND_LABELS[kind],
+        color: style.color,
+        shape: style.shape,
+        required: true,
+      });
+    }
+    var present = {};
+    var nodes = (model && Array.isArray(model.nodes)) ? model.nodes : [];
+    for (i = 0; i < nodes.length; i += 1) present[nodes[i].kind] = true;
+    for (i = 0; i < LEGEND_EXTRA.length; i += 1) {
+      var extra = LEGEND_EXTRA[i];
+      if (!present[extra]) continue;
+      out.push({
+        kind: extra,
+        label: KIND_LABELS[extra],
+        color: KIND_STYLE[extra].color,
+        shape: KIND_STYLE[extra].shape,
+        required: false,
+      });
+    }
+    return out;
+  }
+
+  /* completeness(shownOf) -> {active, nodes:{shown,total}, edges:{...},
+   *                            text}
+   *
+   * ОДНО правило на узлы и рёбра: «показано X из Y» включается ТОЛЬКО когда
+   * `total > shown` (по S1-правке B1 таков любой реальный чат: снапшот берёт
+   * окрестность сидов). Это честная неполнота, а НЕ ошибка: текст нейтрален,
+   * никаких причин/статусов здесь нет. Полнота не обещается никогда, когда
+   * показана часть.
+   */
+  function completeness(shownOf) {
+    var src = shownOf && typeof shownOf === 'object' ? shownOf : {};
+    var nodes = numberOr(src.nodes, 0);
+    var edges = numberOr(src.edges, 0);
+    var totals = src.totals && typeof src.totals === 'object' ? src.totals : {};
+    var totalNodes = numberOr(totals.nodes, nodes);
+    var totalEdges = numberOr(totals.edges, edges);
+    var nodesShort = totalNodes > nodes;
+    var edgesShort = totalEdges > edges;
+    var parts = [];
+    if (nodesShort) parts.push(nodes + ' из ' + totalNodes + ' узлов');
+    if (edgesShort) parts.push(edges + ' из ' + totalEdges + ' связей');
+    return {
+      active: nodesShort || edgesShort,
+      nodes: { shown: nodes, total: totalNodes, truncated: nodesShort },
+      edges: { shown: edges, total: totalEdges, truncated: edgesShort },
+      // Одна нейтральная строка: «показано X из Y». Никаких оценок и
+      // предупреждений — это честная неполнота окрестности.
+      text: parts.length ? ('показано ' + parts.join(' · ')) : '',
+    };
+  }
+
+  /* mapClientState({model, renderer, failed, now, staleMs, visibleNodes})
+   *        -> {state, notice, serverState, note, stale, empty, degraded}
+   *
+   * Разделение осей (контракт §4, §7.2) СОХРАНЕНО: `state` — факт о рендерере
+   * (loading/not_loaded/stale/renderer_failed/ready + `empty`, когда данных
+   * действительно нет). Серверные факты (`degraded`) в `state` не подмешиваются.
+   *
+   * Решение Architect §9.1: ВИДИМАЯ строка статуса одна и складывается по
+   * «худшему факту»: `renderer_failed` → `loading`/`not_loaded` → `degraded` →
+   * `empty` → `stale` → `ready`. Она отдаётся ОТДЕЛЬНЫМ полем `notice` (не
+   * заменой `state`), чтобы отказ источника не прятался за «всё хорошо» и
+   * чтобы «пусто» не объявлялось при `degraded.active === true` (отказавший
+   * источник не имеет права выглядеть пустотой).
+   *
+   * `now` передаётся ВХОДОМ (чистая функция). `partial` — не состояние UI:
+   * полноту показывает `completeness()` нейтральной строкой.
+   */
+  function mapClientState(opts) {
+    opts = opts || {};
+    var model = opts.model || null;
+    var renderer = opts.renderer || 'ready';    // ready | missing | failed
+    var staleMs = numberOr(opts.staleMs, DEFAULTS.staleMs);
+    var serverState = model && typeof model.state === 'string'
+      ? model.state : null;
+    var nodeCount = model && Array.isArray(model.nodes) ? model.nodes.length : 0;
+    var visibleNodes = numberOr(opts.visibleNodes, nodeCount);
+    var generatedAt = model ? numberOrNull(model.generatedAt) : null;
+    var now = numberOrNull(opts.now);
+    var degradedActive = !!(model && model.degraded
+      && model.degraded.active === true);
+    var notLoaded = (model && model.degraded
+      && Array.isArray(model.degraded.notLoaded))
+      ? model.degraded.notLoaded.slice() : [];
+    var stale = false;
+    if (generatedAt !== null && now !== null && staleMs > 0) {
+      stale = (now - generatedAt * 1000) > staleMs;
+    }
+    // «Пусто» — факт об ОТСУТСТВИИ ДАННЫХ. Пока источник отказал, пустоту
+    // объявлять нельзя (§9.1): возможно, данные просто не прочитались.
+    var dataEmpty = degradedActive ? false
+      : (serverState === 'empty' || nodeCount === 0);
+    // Пустая ВИТРИНА (фильтр скрыл всё) — факт вида, а не данных: «нет фактов
+    // и связей» здесь было бы ложью, пользователю нужен сброс фильтра.
+    var viewEmpty = !dataEmpty && visibleNodes === 0 && nodeCount > 0;
+    var failed = opts.failed === true || renderer === 'failed';
+
+    // Ось рендерера — без серверных фактов.
+    var state;
+    if (failed) state = 'renderer_failed';
+    else if (renderer === 'missing') state = 'not_loaded';
+    else if (!model) state = 'loading';
+    else if (dataEmpty) state = 'empty';
+    else if (stale) state = 'stale';
+    else state = 'ready';
+
+    // Видимая строка — «худший факт» (§9.1), включая отказ источника.
+    var noticeKind;
+    if (failed) noticeKind = 'renderer_failed';
+    else if (renderer === 'missing') noticeKind = 'not_loaded';
+    else if (!model) noticeKind = 'loading';
+    else if (degradedActive) noticeKind = 'degraded';
+    else if (dataEmpty) noticeKind = 'empty';
+    else if (stale) noticeKind = 'stale';
+    else noticeKind = 'ready';
+
+    var noticeText;
+    if (noticeKind === 'degraded') {
+      noticeText = notLoaded.length
+        ? 'часть источников не прочитана: ' + notLoaded.join(', ')
+        : 'часть источников не прочитана';
+    } else {
+      noticeText = STATE_LABELS[noticeKind] || '';
+    }
+    return {
+      state: state,
+      notice: {
+        kind: noticeKind,
+        text: noticeText,
+        sources: notLoaded,
+        degraded: noticeKind === 'degraded',
+      },
+      serverState: serverState,
+      note: STATE_LABELS[state] || '',
+      noticeText: noticeText,
+      stale: stale,
+      empty: state === 'empty',
+      viewEmpty: viewEmpty,
+      degraded: degradedActive,
+      generatedAt: generatedAt,
+    };
+  }
+
   return {
     VERSION: VERSION,
     ACCEPTED_VERSIONS: ACCEPTED_VERSIONS.slice(),
     KINDS: KINDS.slice(),
     KIND_LABELS: KIND_LABELS,
+    KIND_STYLE: KIND_STYLE,
+    LEGEND_ORDER: LEGEND_ORDER.slice(),
+    STATE_LABELS: STATE_LABELS,
     DEFAULTS: DEFAULTS,
     normalizeQuery: normalizeQuery,
     normalizePayload: normalizePayload,
     normalizeShownOf: normalizeShownOf,
     searchNodes: searchNodes,
     applyFilters: applyFilters,
+    computeClusters: computeClusters,
     kindSummary: kindSummary,
+    nodeStyle: nodeStyle,
+    legendEntries: legendEntries,
+    completeness: completeness,
+    mapClientState: mapClientState,
     createCamera: createCamera,
     clampCamera: clampCamera,
     cameraFromNetwork: cameraFromNetwork,
@@ -669,6 +1093,7 @@
     measureLabel: measureLabel,
     boxesOverlap: boxesOverlap,
     labelPriority: labelPriority,
+    labelBudget: labelBudget,
     allocateLabels: allocateLabels,
   };
 });

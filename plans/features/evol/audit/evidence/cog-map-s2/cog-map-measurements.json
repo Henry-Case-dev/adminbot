@@ -1,0 +1,1335 @@
+{
+ "checks": 127,
+ "viewports": {
+  "390": {
+   "first": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 4,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 7,
+    "clusters": 5,
+    "view": {
+     "x": 9.22,
+     "y": -1.7
+    },
+    "scale": 0.602,
+    "cam": {
+     "x": 9.22185689651169,
+     "y": -1.6974154592932391,
+     "scale": 0.6024271064079719
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "zoomed": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 4,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 7,
+    "clusters": 5,
+    "view": {
+     "x": 9.22,
+     "y": -1.78
+    },
+    "scale": 0.663,
+    "cam": {
+     "x": 9.22185689651166,
+     "y": -1.782299361581894,
+     "scale": 0.6626698170487691
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "filtered": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 3,
+    "drawnLabels": 1,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 2,
+    "clusters": 5,
+    "view": {
+     "x": 9.22,
+     "y": -1.78
+    },
+    "scale": 0.663,
+    "cam": {
+     "x": 9.22185689651166,
+     "y": -1.782299361581894,
+     "scale": 0.6626698170487691
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "reset": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 3,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 8,
+    "clusters": 5,
+    "view": {
+     "x": 25.45,
+     "y": 7.8
+    },
+    "scale": 0.608,
+    "cam": {
+     "x": 25.450693855665946,
+     "y": 7.797267445945922,
+     "scale": 0.6083420540009686
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "full": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 364,
+     "h": 414
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 4,
+    "labelLod": "normal",
+    "labelMax": 5,
+    "hiddenLabels": 7,
+    "clusters": 5,
+    "view": {
+     "x": -62,
+     "y": 15
+    },
+    "scale": 1.1,
+    "cam": {
+     "x": -61.999999999999986,
+     "y": 14.999999999999998,
+     "scale": 1.1
+    },
+    "selected": "ent:-1001234567890:2",
+    "detail": true,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": true,
+    "route": "#/status/graph",
+    "hScroll": 0
+   },
+   "back": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 4,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 7,
+    "clusters": 5,
+    "view": {
+     "x": -62,
+     "y": 15
+    },
+    "scale": 1.1,
+    "cam": {
+     "x": -61.999999999999986,
+     "y": 14.999999999999998,
+     "scale": 1.1
+    },
+    "selected": "ent:-1001234567890:2",
+    "detail": true,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "fullset": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 338,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 4,
+    "labelLod": "normal",
+    "labelMax": 4,
+    "hiddenLabels": 7,
+    "clusters": 5,
+    "view": {
+     "x": -9.09,
+     "y": -4.39
+    },
+    "scale": 0.528,
+    "cam": {
+     "x": -9.094908727819625,
+     "y": -4.391613498212951,
+     "scale": 0.5277379765528207
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "errors": []
+  },
+  "1280": {
+   "first": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 10,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 1,
+    "clusters": 5,
+    "view": {
+     "x": 16.85,
+     "y": 14.88
+    },
+    "scale": 0.389,
+    "cam": {
+     "x": 16.846453158965463,
+     "y": 14.878090469891186,
+     "scale": 0.38868492686450146
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "zoomed": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 10,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 1,
+    "clusters": 5,
+    "view": {
+     "x": 16.85,
+     "y": 14.83
+    },
+    "scale": 0.428,
+    "cam": {
+     "x": 16.84645315896558,
+     "y": 14.834236300698262,
+     "scale": 0.42755341955095166
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "filtered": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 3,
+    "drawnLabels": 3,
+    "labelLod": "normal",
+    "labelMax": 7,
+    "hiddenLabels": 0,
+    "clusters": 5,
+    "view": {
+     "x": 16.85,
+     "y": 14.83
+    },
+    "scale": 0.428,
+    "cam": {
+     "x": 16.84645315896558,
+     "y": 14.834236300698262,
+     "scale": 0.42755341955095166
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "reset": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 3,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 8,
+    "clusters": 5,
+    "view": {
+     "x": 89.65,
+     "y": -98.2
+    },
+    "scale": 0.749,
+    "cam": {
+     "x": 89.65342640972,
+     "y": -98.20273255405408,
+     "scale": 0.7493444377574059
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "full": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 1254,
+     "h": 634
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 6,
+    "labelLod": "normal",
+    "labelMax": 16,
+    "hiddenLabels": 5,
+    "clusters": 5,
+    "view": {
+     "x": -62,
+     "y": 15
+    },
+    "scale": 1.1,
+    "cam": {
+     "x": -62.000000000000036,
+     "y": 14.999999999999998,
+     "scale": 1.1
+    },
+    "selected": "ent:-1001234567890:2",
+    "detail": true,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": true,
+    "route": "#/status/graph",
+    "hScroll": 0
+   },
+   "back": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 5,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 6,
+    "clusters": 5,
+    "view": {
+     "x": -62,
+     "y": 15
+    },
+    "scale": 1.1,
+    "cam": {
+     "x": -62.000000000000036,
+     "y": 14.999999999999998,
+     "scale": 1.1
+    },
+    "selected": "ent:-1001234567890:2",
+    "detail": true,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "fullset": {
+    "state": "ready",
+    "counters": "11 узлов · 6 связей",
+    "completeness": "",
+    "legend": [
+     {
+      "kind": "fact",
+      "text": "Факты",
+      "extra": false
+     },
+     {
+      "kind": "belief",
+      "text": "Убеждения",
+      "extra": false
+     },
+     {
+      "kind": "paradigm",
+      "text": "Парадигмы",
+      "extra": false
+     },
+     {
+      "kind": "evolution_event",
+      "text": "Изменения",
+      "extra": false
+     },
+     {
+      "kind": "entity",
+      "text": "Сущности",
+      "extra": true
+     },
+     {
+      "kind": "observation",
+      "text": "Наблюдения",
+      "extra": true
+     }
+    ],
+    "canvas": {
+     "w": 996,
+     "h": 318
+    },
+    "modelNodes": 11,
+    "modelEdges": 6,
+    "shownNodes": 11,
+    "drawnLabels": 9,
+    "labelLod": "normal",
+    "labelMax": 12,
+    "hiddenLabels": 2,
+    "clusters": 5,
+    "view": {
+     "x": 22.6,
+     "y": 2.44
+    },
+    "scale": 0.402,
+    "cam": {
+     "x": 22.60260488837306,
+     "y": 2.4415370677671935,
+     "scale": 0.4018282873233347
+    },
+    "selected": "",
+    "detail": false,
+    "degraded": false,
+    "stale": false,
+    "empty": false,
+    "fullscreen": false,
+    "route": "#/",
+    "hScroll": 0
+   },
+   "errors": []
+  }
+ },
+ "degraded": {
+  "state": "degraded",
+  "counters": "11 узлов · 6 связей",
+  "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+  "legend": [
+   {
+    "kind": "fact",
+    "text": "Факты",
+    "extra": false
+   },
+   {
+    "kind": "belief",
+    "text": "Убеждения",
+    "extra": false
+   },
+   {
+    "kind": "paradigm",
+    "text": "Парадигмы",
+    "extra": false
+   },
+   {
+    "kind": "evolution_event",
+    "text": "Изменения",
+    "extra": false
+   },
+   {
+    "kind": "entity",
+    "text": "Сущности",
+    "extra": true
+   },
+   {
+    "kind": "observation",
+    "text": "Наблюдения",
+    "extra": true
+   }
+  ],
+  "canvas": {
+   "w": 996,
+   "h": 318
+  },
+  "modelNodes": 11,
+  "modelEdges": 6,
+  "shownNodes": 11,
+  "drawnLabels": 9,
+  "labelLod": "normal",
+  "labelMax": 12,
+  "hiddenLabels": 2,
+  "clusters": 5,
+  "view": {
+   "x": 19.06,
+   "y": 19.01
+  },
+  "scale": 0.396,
+  "cam": {
+   "x": 19.05859674066207,
+   "y": 19.014984548508487,
+   "scale": 0.39551230286652206
+  },
+  "selected": "",
+  "detail": false,
+  "degraded": true,
+  "stale": false,
+  "empty": false,
+  "fullscreen": false,
+  "route": "#/",
+  "hScroll": 0
+ },
+ "empty": {
+  "state": "empty",
+  "counters": "0 узлов · 0 связей",
+  "completeness": "",
+  "legend": [
+   {
+    "kind": "fact",
+    "text": "Факты",
+    "extra": false
+   },
+   {
+    "kind": "belief",
+    "text": "Убеждения",
+    "extra": false
+   },
+   {
+    "kind": "paradigm",
+    "text": "Парадигмы",
+    "extra": false
+   },
+   {
+    "kind": "evolution_event",
+    "text": "Изменения",
+    "extra": false
+   }
+  ],
+  "canvas": {
+   "w": 0,
+   "h": 0
+  },
+  "modelNodes": 0,
+  "modelEdges": 0,
+  "shownNodes": 0,
+  "drawnLabels": 0,
+  "labelLod": "normal",
+  "labelMax": 4,
+  "hiddenLabels": 0,
+  "clusters": 0,
+  "view": {
+   "x": -498,
+   "y": -159
+  },
+  "scale": 1,
+  "cam": {
+   "x": 0,
+   "y": 0,
+   "scale": 1
+  },
+  "selected": "",
+  "detail": false,
+  "degraded": false,
+  "stale": false,
+  "empty": true,
+  "fullscreen": false,
+  "route": "#/",
+  "hScroll": 0
+ },
+ "stale": {
+  "state": "stale",
+  "counters": "11 узлов · 6 связей",
+  "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+  "legend": [
+   {
+    "kind": "fact",
+    "text": "Факты",
+    "extra": false
+   },
+   {
+    "kind": "belief",
+    "text": "Убеждения",
+    "extra": false
+   },
+   {
+    "kind": "paradigm",
+    "text": "Парадигмы",
+    "extra": false
+   },
+   {
+    "kind": "evolution_event",
+    "text": "Изменения",
+    "extra": false
+   },
+   {
+    "kind": "entity",
+    "text": "Сущности",
+    "extra": true
+   },
+   {
+    "kind": "observation",
+    "text": "Наблюдения",
+    "extra": true
+   }
+  ],
+  "canvas": {
+   "w": 996,
+   "h": 318
+  },
+  "modelNodes": 11,
+  "modelEdges": 6,
+  "shownNodes": 11,
+  "drawnLabels": 9,
+  "labelLod": "normal",
+  "labelMax": 12,
+  "hiddenLabels": 2,
+  "clusters": 5,
+  "view": {
+   "x": -79.83,
+   "y": 21.49
+  },
+  "scale": 0.349,
+  "cam": {
+   "x": -79.83086387020472,
+   "y": 21.49464718265351,
+   "scale": 0.3490803192914207
+  },
+  "selected": "",
+  "detail": false,
+  "degraded": false,
+  "stale": true,
+  "empty": false,
+  "fullscreen": false,
+  "route": "#/",
+  "hScroll": 0
+ },
+ "degraded_zero": {
+  "state": "degraded",
+  "counters": "0 узлов · 0 связей",
+  "completeness": "",
+  "legend": [
+   {
+    "kind": "fact",
+    "text": "Факты",
+    "extra": false
+   },
+   {
+    "kind": "belief",
+    "text": "Убеждения",
+    "extra": false
+   },
+   {
+    "kind": "paradigm",
+    "text": "Парадигмы",
+    "extra": false
+   },
+   {
+    "kind": "evolution_event",
+    "text": "Изменения",
+    "extra": false
+   }
+  ],
+  "canvas": {
+   "w": 996,
+   "h": 318
+  },
+  "modelNodes": 0,
+  "modelEdges": 0,
+  "shownNodes": 0,
+  "drawnLabels": 0,
+  "labelLod": "normal",
+  "labelMax": 4,
+  "hiddenLabels": 0,
+  "clusters": 0,
+  "view": {
+   "x": 0,
+   "y": 0
+  },
+  "scale": 1,
+  "cam": {
+   "x": 0,
+   "y": 0,
+   "scale": 1
+  },
+  "selected": "",
+  "detail": false,
+  "degraded": true,
+  "stale": false,
+  "empty": false,
+  "fullscreen": false,
+  "route": "#/",
+  "hScroll": 0
+ },
+ "empty_to_data": {
+  "before": {
+   "state": "empty",
+   "counters": "0 узлов · 0 связей",
+   "completeness": "",
+   "legend": [
+    {
+     "kind": "fact",
+     "text": "Факты",
+     "extra": false
+    },
+    {
+     "kind": "belief",
+     "text": "Убеждения",
+     "extra": false
+    },
+    {
+     "kind": "paradigm",
+     "text": "Парадигмы",
+     "extra": false
+    },
+    {
+     "kind": "evolution_event",
+     "text": "Изменения",
+     "extra": false
+    }
+   ],
+   "canvas": {
+    "w": 0,
+    "h": 0
+   },
+   "modelNodes": 0,
+   "modelEdges": 0,
+   "shownNodes": 0,
+   "drawnLabels": 0,
+   "labelLod": "normal",
+   "labelMax": 4,
+   "hiddenLabels": 0,
+   "clusters": 0,
+   "view": {
+    "x": -498,
+    "y": -159
+   },
+   "scale": 1,
+   "cam": {
+    "x": 0,
+    "y": 0,
+    "scale": 1
+   },
+   "selected": "",
+   "detail": false,
+   "degraded": false,
+   "stale": false,
+   "empty": true,
+   "fullscreen": false,
+   "route": "#/",
+   "hScroll": 0
+  },
+  "after": {
+   "state": "ready",
+   "counters": "11 узлов · 6 связей",
+   "completeness": "показано 11 из 320 узлов · 6 из 40 связей",
+   "legend": [
+    {
+     "kind": "fact",
+     "text": "Факты",
+     "extra": false
+    },
+    {
+     "kind": "belief",
+     "text": "Убеждения",
+     "extra": false
+    },
+    {
+     "kind": "paradigm",
+     "text": "Парадигмы",
+     "extra": false
+    },
+    {
+     "kind": "evolution_event",
+     "text": "Изменения",
+     "extra": false
+    },
+    {
+     "kind": "entity",
+     "text": "Сущности",
+     "extra": true
+    },
+    {
+     "kind": "observation",
+     "text": "Наблюдения",
+     "extra": true
+    }
+   ],
+   "canvas": {
+    "w": 996,
+    "h": 318
+   },
+   "modelNodes": 11,
+   "modelEdges": 6,
+   "shownNodes": 11,
+   "drawnLabels": 8,
+   "labelLod": "normal",
+   "labelMax": 12,
+   "hiddenLabels": 3,
+   "clusters": 5,
+   "view": {
+    "x": 15.71,
+    "y": 12.8
+   },
+   "scale": 0.372,
+   "cam": {
+    "x": 15.714916162317072,
+    "y": 12.7990270210195,
+    "scale": 0.3717995990809962
+   },
+   "selected": "",
+   "detail": false,
+   "degraded": false,
+   "stale": false,
+   "empty": false,
+   "fullscreen": false,
+   "route": "#/",
+   "hScroll": 0
+  },
+  "visible": {
+   "inside": 11,
+   "total": 11,
+   "w": 996,
+   "h": 318
+  }
+ },
+ "reduced_motion": {
+  "immediate": "-261.5:96.2",
+  "settled": "-261.5:96.2",
+  "animating": "-257.7:93.8",
+  "finished": "-72.5:-25.6"
+ }
+}

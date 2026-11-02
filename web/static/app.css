@@ -1578,6 +1578,55 @@
       height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
       border-radius: 10px; background: rgba(0,0,0,.18);
     }
+    /* ═══ EVOL-COG-MAP (W7-S2): легенда и честные состояния ═══════════════
+       Легенда обязательна (ТЗ 1285) и объясняет визуальную систему без
+       документации. На телефоне — компактная строка с переносом (не панель
+       поверх трети карты). «Показано X из Y» — нейтральный серый текст,
+       НЕ предупреждение: неполнота окрестности — нормальное состояние. */
+    .cog-legend {
+      display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center;
+      margin: 2px 0 6px; font-size: 10px; color: var(--tx-muted, #94a3b8);
+      line-height: 1.2;
+    }
+    .cog-legend__item {
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    }
+    .cog-legend__item--extra { opacity: .72; }
+    .cog-legend__swatch {
+      width: 10px; height: 10px; flex: 0 0 10px;
+      background: #94a3b8; box-shadow: 0 0 6px rgba(148,163,184,.35);
+    }
+    /* Форма — второй различитель помимо цвета (ТЗ 1280). */
+    .cog-legend__swatch--fact {
+      background: #38bdf8; border-radius: 50%;
+      box-shadow: 0 0 6px rgba(56,189,248,.45);
+    }
+    .cog-legend__swatch--belief {
+      background: #a78bfa; border-radius: 3px;
+      box-shadow: 0 0 6px rgba(167,139,250,.45);
+    }
+    .cog-legend__swatch--paradigm {
+      background: #818cf8; width: 12px; height: 12px; flex: 0 0 12px;
+      clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      box-shadow: 0 0 8px rgba(129,140,248,.55);
+    }
+    .cog-legend__swatch--evolution_event,
+    .cog-legend__swatch--observation {
+      background: #f59e0b; transform: rotate(45deg); border-radius: 1px;
+      box-shadow: 0 0 6px rgba(245,158,11,.45);
+    }
+    .cog-legend__swatch--observation { background: #d97706; }
+    .cog-legend__swatch--entity { background: #94a3b8; border-radius: 1px; }
+    .cog-legend__swatch--other { background: #64748b; border-radius: 50%; }
+    .cog-state { margin: 4px 0 6px; }
+    .cog-state .btn-ghost { margin-left: 6px; }
+    .cog-state .btn-ghost:first-child { margin-left: 0; }
+    .cog-completeness { font-variant-numeric: tabular-nums; }
+    @media (max-width: 479px) {
+      .cog-legend { gap: 3px 9px; font-size: 9.5px; }
+      .cog-legend__swatch { width: 9px; height: 9px; flex: 0 0 9px; }
+    }
+
     /* F2 (graph-frontend-physics-search-round1015): «Поиск по графу» —
        flex-wrap; на узких экранах переносится в столбик.
        F5 (T-1821, ТЗ п.4): мобила — компактный input (высота+шрифт),
@@ -1597,6 +1646,40 @@
     @media (min-width: 768px) {
       .graph-search { max-width: 460px; }        /* не на всю ширину */
       .graph-search .graph-search__input { flex: 1 1 220px; }
+    }
+    /* ═══ EVOL-COG-MAP (W7-S2): контролы «Когнитивной карты» ══════════════
+       У карты стало больше фильтров (тип/кластер) — строка занимает
+       доступную ширину и не превращается в столбик из пяти рядов. */
+    @media (min-width: 768px) {
+      .status-graph .graph-search { max-width: none; }
+      .status-graph .graph-search .graph-search__input {
+        flex: 1 1 260px; max-width: none;
+      }
+      .status-graph-full .graph-search { max-width: none; }
+      /* `.field` задаёт width:100%; у фильтров ширина фиксированная, иначе
+         каждый селект занимает отдельный ряд. */
+      .status-graph .graph-search select.field,
+      .status-graph-full .graph-search select.field {
+        flex: 0 0 auto; width: 9.5rem;
+      }
+    }
+    /* Телефон: компактные ряды контролов, а не столбик из пяти строк над
+       сценой (L01312: без громоздкой панели поверх трети карты). */
+    @media (max-width: 479px) {
+      .status-graph .graph-search,
+      .status-graph-full .graph-search {
+        flex-direction: row; flex-wrap: wrap; gap: 6px;
+      }
+      .status-graph .graph-search .graph-search__input,
+      .status-graph-full .graph-search .graph-search__input {
+        flex: 1 1 100%;
+      }
+      .status-graph .graph-search select.field,
+      .status-graph-full .graph-search select.field {
+        flex: 1 1 46%; width: auto; min-width: 0;
+      }
+      .status-graph .graph-search .btn-ghost,
+      .status-graph-full .graph-search .btn-ghost { flex: 0 0 auto; }
     }
     /* F5 (T-1819, ТЗ п.5) + §6.4 v2.1: ОДИН блок оперативного здоровья —
        сверху компактная строка ошибок/предупреждений, ниже три сегмента

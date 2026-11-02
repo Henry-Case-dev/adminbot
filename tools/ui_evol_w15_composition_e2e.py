@@ -36,6 +36,7 @@ import json
 import os
 import sys
 import threading
+import time
 from http.server import ThreadingHTTPServer
 
 try:
@@ -741,7 +742,120 @@ PROCESS_ACTIVITY = {
          "effective": "ok", "last_ts": 1761801000},
     ],
 }
-EXTRA_STUBS = (
+# ═══ EVOL-COG-MAP (W7-S2): «Когнитивная карта» на новом payload ════════════
+# Фикстура повторяет форму `GET /api/memory/cognitive-map` (`cog-map/1`):
+# типизированные узлы, ТОЛЬКО реальные рёбра (записанные + выведенные из
+# ссылок данных), честные `shown_of`/`truncated`. `partial` — нормальное
+# состояние реального чата (снапшот берёт окрестность сидов, сироты
+# отбрасываются), поэтому «показано X из Y» подаётся нейтрально, а не как
+# сбой. Числа фикстуры — счётчики самой фикстуры, не «красивые» проценты.
+COG_CHAT = -1001234567890
+COG_NODES_TOTAL = 320
+COG_EDGES_TOTAL = 40
+
+
+def cog_payload(state="partial", nodes_total=COG_NODES_TOTAL,
+                edges_total=COG_EDGES_TOTAL, with_nodes=True,
+                generated_at=None):
+    c = COG_CHAT
+    # `generated_at` по умолчанию — «сейчас»: карта на «Статусе» не должна
+    # быть устаревшей в обычном прогоне. Устаревание проверяется отдельным
+    # сценарием (старый timestamp), а не подменяется константой.
+    gen = int(time.time()) if generated_at is None else int(generated_at)
+
+    def node(nid, kind, title, status=None, isolated=False):
+        return {
+            "id": nid, "kind": kind, "scope": "chat", "chat_id": c,
+            "title": title, "text": title, "status": status,
+            "isolated": isolated,
+            "time": {"occurred_at": 1750000000, "observed_at": None,
+                     "saved_at": 1750000100, "confirmed_at": None,
+                     "updated_at": None},
+            "provenance": {"record": "graph_facts", "chat_id": c,
+                           "message_id": 555, "origin": "chat_history"},
+            "metrics": {"importance": 5, "weight": None, "degree": None},
+            "refs": {},
+        }
+
+    nodes = [
+        node("ent:%d:1" % c, "entity", "Аня"),
+        node("ent:%d:2" % c, "entity", "Костя"),
+        node("ent:%d:3" % c, "entity", "Дача"),
+        node("fact:%d:11" % c, "fact", "Аня любит утренний кофе", "confirmed"),
+        node("fact:%d:12" % c, "fact", "Костя играет в шахматы", "confirmed"),
+        node("fact:%d:13" % c, "fact", "Дача — место отдыха", "confirmed"),
+        node("belief:%d:21" % c, "belief", "Утро начинается с кофе"),
+        node("paradigm:%d:31" % c, "paradigm", "Бережёт утро"),
+        node("obs:%d:41" % c, "observation", "Любит сарказм"),
+        node("evt:%d:revision:51" % c, "evolution_event", "Факт уточнён"),
+        node("ent:%d:4" % c, "entity", "Одиночка", None, True),
+    ]
+    edges = [
+        {"id": "ce1", "from": "ent:%d:1" % c, "to": "fact:%d:11" % c,
+         "relation": "обсуждали", "derived": False, "chat_id": c,
+         "justification_recorded": True, "provenance": {"fact_id": 11}},
+        {"id": "ce2", "from": "ent:%d:2" % c, "to": "fact:%d:12" % c,
+         "relation": "обсуждали", "derived": False, "chat_id": c,
+         "justification_recorded": True, "provenance": {"fact_id": 12}},
+        {"id": "ce3", "from": "belief:%d:21" % c, "to": "fact:%d:11" % c,
+         "relation": "derived_from", "derived": True, "chat_id": c,
+         "justification_recorded": True, "provenance": {"fact_id": 11}},
+        {"id": "ce4", "from": "paradigm:%d:31" % c, "to": "belief:%d:21" % c,
+         "relation": "derived_from", "derived": True, "chat_id": c,
+         "justification_recorded": True, "provenance": {"fact_id": 11}},
+        {"id": "ce5", "from": "evt:%d:revision:51" % c,
+         "to": "fact:%d:13" % c, "relation": "revised_by", "derived": True,
+         "chat_id": c, "justification_recorded": True,
+         "provenance": {"fact_id": 13}},
+        # Ребро без `fact_id`: «обоснование не записано» (вид не притворяется
+        # подтверждённой причинной связью; текст — карточка S3).
+        {"id": "ce6", "from": "obs:%d:41" % c, "to": "paradigm:%d:31" % c,
+         "relation": "derived_from", "derived": True, "chat_id": c,
+         "justification_recorded": False, "provenance": {}},
+    ]
+    if not with_nodes:
+        nodes, edges = [], []
+    return {
+        "version": "cog-map/1", "generated_at": gen,
+        "state": state,
+        "scope": {"mode": "chat", "chat_id": c},
+        "degraded": {"active": state == "degraded",
+                     "not_loaded": ["memory_cycle"] if state == "degraded"
+                     else []},
+        "sources": {"facts": "loaded", "graph": "loaded"},
+        "caps": {"nodes": 800, "edges": 2400, "per_class": 150,
+                 "classes": 4, "entity_nodes": 796},
+        "shown_of": {
+            "nodes": len(nodes), "edges": len(edges),
+            "totals": {"nodes": nodes_total if with_nodes else 0,
+                       "edges": edges_total if with_nodes else 0},
+            "unresolved_refs": 0,
+            "by_kind": {
+                "fact": {"shown": 3, "total": 300, "truncated": True},
+                "belief": {"shown": 1, "total": 1, "truncated": False},
+                "paradigm": {"shown": 1, "total": 1, "truncated": False},
+                "entity": {"shown": 4, "total": 40, "truncated": True},
+            } if with_nodes else {},
+        },
+        "truncated": {"nodes": True, "edges": True,
+                      "by_class": {"fact": True, "belief": False,
+                                   "paradigm": False, "evolution": False,
+                                   "entity": True}},
+        "nodes": nodes, "edges": edges,
+    }
+
+
+def set_cog_payload(payload):
+    """Подменить ответ карты (варианты partial/degraded/empty) без второго
+    сервера: `_routes()` читает список в момент запроса."""
+    for i, (marker, _p) in enumerate(EXTRA_STUBS):
+        if marker == "/api/memory/cognitive-map":
+            EXTRA_STUBS[i] = (marker, payload)
+            return
+    EXTRA_STUBS.append(("/api/memory/cognitive-map", payload))
+
+
+EXTRA_STUBS = [
     ("/api/speech/overview", SPEECH_OVERVIEW),
     ("/api/speech/core", SPEECH_CORE),
     ("/api/speech/style", SPEECH_STYLE),
@@ -760,7 +874,8 @@ EXTRA_STUBS = (
     ("/api/analytics/pipeline/inspector", PIPELINE_RUN),
     ("/api/analytics/pipeline/runs/latest", PIPELINE_RUN),
     ("/api/analytics/viz/process-activity", PROCESS_ACTIVITY),
-)
+    ("/api/memory/cognitive-map", cog_payload()),
+]
 
 
 def _routes(me=None):
@@ -786,11 +901,13 @@ def _routes(me=None):
     return _route
 
 
-def _ctx(browser, w, h):
+def _ctx(browser, w, h, reduced_motion=False):
     phone = w <= 430
     ctx = browser.new_context(viewport={"width": w, "height": h},
                               device_scale_factor=2 if phone else 1,
-                              is_mobile=phone, has_touch=phone)
+                              is_mobile=phone, has_touch=phone,
+                              reduced_motion="reduce" if reduced_motion
+                              else "no-preference")
     ctx.add_init_script(M.TMA_STUB)
     ctx.route("**/api/**", _routes())
     return ctx
@@ -1186,6 +1303,636 @@ def run_adaptive(report, fails, out_dir, port):
     return cells
 
 
+COG_VIEWPORTS = ((390, 844), (1280, 900))
+# Слова легенды — из ТЗ (строка 1285) дословно; «Эволюция характера» — заголовок
+# секции лент, в легенду не попадает.
+COG_REQUIRED_LEGEND = ["Факты", "Убеждения", "Парадигмы", "Изменения"]
+# Рендер карты не имеет права ходить в LLM/эмбеддинги и пересобирать память.
+COG_BANNED_REQUESTS = ("/api/llm", "/api/memory/embeddings", "/api/summary",
+                       "/api/oversight/dossier_rebuild")
+
+PROBE_COG = r"""
+() => {
+  const vm = window.__adminbotVm || null;
+  const qa = (s) => Array.from(document.querySelectorAll(s));
+  const card = document.querySelector('[data-cog-map]') ||
+               document.querySelector('.status-graph-full');
+  const legend = qa('[data-cog-legend] [data-cog-legend-kind]')
+    .map((el) => ({kind: el.getAttribute('data-cog-legend-kind'),
+                   text: (el.textContent || '').trim(),
+                   extra: el.classList.contains('cog-legend__item--extra')}));
+  const compEl = card ? card.querySelector('[data-cog-completeness]') : null;
+  const cs = compEl ? getComputedStyle(compEl) : null;
+  const rgb = cs ? String(cs.color).match(/\d+/g) : null;
+  const canvas = card ? card.querySelector('canvas') : null;
+  const labels = vm ? (vm._cogLabels || null) : null;
+  const net = vm ? vm.cognitionNetwork : null;
+  let view = null;
+  let scale = null;
+  if (net && net.getViewPosition) {
+    try {
+      const p = net.getViewPosition();
+      view = {x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100};
+      scale = Math.round(net.getScale() * 1000) / 1000;
+    } catch (e) { view = null; }
+  }
+  return {
+    hasVm: !!vm,
+    state: card ? (card.getAttribute('data-cog-state') || '') : '',
+    counters: (qa('[data-cog-counters]')[0] || {}).textContent || '',
+    completeness: compEl ? (compEl.textContent || '').trim() : '',
+    completenessRgb: rgb ? rgb.slice(0, 3).map(Number) : null,
+    legend: legend,
+    canvas: canvas ? {w: Math.round(canvas.clientWidth),
+                      h: Math.round(canvas.clientHeight)} : null,
+    modelNodes: vm && vm.cognitionGraphData
+      ? vm.cognitionGraphData.nodes.length : 0,
+    modelEdges: vm && vm.cognitionGraphData
+      ? vm.cognitionGraphData.edges.length : 0,
+    shownNodes: vm && vm._cogView ? vm._cogView.nodes.length : 0,
+    viewNodes: vm ? (vm.cogViewNodes || 0) : 0,
+    drawnLabels: labels ? labels.labels.length : -1,
+    labelLod: labels ? labels.lod : '',
+    labelMax: labels ? labels.maxLabels : -1,
+    hiddenLabels: labels ? labels.hidden : -1,
+    clusters: vm ? (vm.cogClusters || []).length : 0,
+    view: view, scale: scale,
+    cam: vm ? (vm._cogCamera || null) : null,
+    selected: vm ? (vm._cogSelectedId || '') : '',
+    detail: !!document.querySelector('[data-cog-detail]'),
+    degraded: !!document.querySelector('[data-cog-degraded]'),
+    stale: !!document.querySelector('[data-cog-stale]'),
+    empty: !!document.querySelector('[data-cog-state="empty"]'),
+    fullscreen: !!document.querySelector('.status-graph-full'),
+    route: location.hash,
+    hScroll: document.documentElement.scrollWidth - window.innerWidth,
+  };
+}
+"""
+
+
+def run_cog_map(browser, base, report, fails, out_dir):
+    """Живая приёмка «Когнитивной карты» (EVOL-COG-MAP W7-S2).
+
+    Проверяется РЕАЛЬНЫЙ рендерер (`web/app.js` + self-host vis-network) на
+    детерминированной фикстуре payload `GET /api/memory/cognitive-map`:
+      * виджет на «Статусе» читает новый payload и рисует типизированные узлы;
+      * легенда — слова владельца, «показано X из Y» — нейтральная строка;
+      * подписи: слой LOD реально рисует ограниченное число подписей
+        (≤26 desktop / ≤12 mobile), зум меняет LOD, а не данные;
+      * смена фильтра (тип/кластер) НЕ сбрасывает камеру и масштаб;
+      * полный экран открывается/закрывается как существующий слой, камера
+        и выбор сохраняются, ошибок консоли нет;
+      * `degraded` ≠ `partial` (отказ источника виден) и `empty` честен.
+    """
+    section = report.setdefault("cog_map", {"viewports": {}, "checks": 0})
+    checks = 0
+
+    def ok(cond, message):
+        nonlocal checks
+        checks += 1
+        if not cond:
+            fails.append("cog-map: " + message)
+        return bool(cond)
+
+    def shot(pg, name, selector=None):
+        path = os.path.join(out_dir, name + ".png")
+        try:
+            # Кадр — сам виджет карты (он ниже первого экрана «Статуса»);
+            # иначе на снимке нечего проверять визуально.
+            if selector:
+                pg.locator(selector).first.screenshot(path=path)
+            else:
+                pg.screenshot(path=path, full_page=False)
+            report.setdefault("screenshots", []).append(name + ".png")
+        except Exception:  # noqa: BLE001
+            pass
+
+    def cam(data):
+        return data.get("view"), data.get("scale")
+
+    def settled_view(pg, timeout_ms=3000):
+        """Установившийся кадр: анимация `focus()/moveTo()` длится ~600 мс.
+
+        Снимок «до перехода» обязан быть установившимся, иначе проверка камеры
+        сравнивает середину анимации с концом (именно эта гонка дала B4).
+        """
+        prev = None
+        waited = 0
+        while waited < timeout_ms:
+            cur = pg.evaluate(
+                "() => { const vm = window.__adminbotVm;"
+                " const n = vm && vm.cognitionNetwork;"
+                " if (!n) return null;"
+                " const p = n.getViewPosition();"
+                " return [Math.round(p.x * 100) / 100,"
+                "         Math.round(p.y * 100) / 100,"
+                "         Math.round(n.getScale() * 1000) / 1000]; }")
+            if cur is not None and cur == prev:
+                return cur
+            prev = cur
+            pg.wait_for_timeout(250)
+            waited += 250
+        return prev
+
+    def same_camera(left, right, pos_tol=1.5, scale_tol=0.04):
+        if not left[0] or not right[0]:
+            return False
+        return (abs(left[0]["x"] - right[0]["x"]) <= pos_tol
+                and abs(left[0]["y"] - right[0]["y"]) <= pos_tol
+                and abs((left[1] or 0) - (right[1] or 0)) <= scale_tol)
+
+    def open_status(pg, tag):
+        pg.goto(base + "?cog=%s#/" % tag, wait_until="load")
+        pg.wait_for_selector(".app-shell", timeout=25000)
+        pg.wait_for_selector("[data-cog-map]", timeout=25000)
+        pg.wait_for_timeout(2600)          # стабилизация физики + слой подписей
+
+    for (w, h) in COG_VIEWPORTS:
+        label = "cog-map@%d" % w
+        set_cog_payload(cog_payload())
+        ctx = _ctx(browser, w, h)
+        pg = ctx.new_page()
+        errs = []
+        requests = []
+        pg.on("console", lambda m: errs.append(m.text[:160])
+              if m.type == "error" else None)
+        pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+        pg.on("request", lambda r: requests.append(r.url))
+        open_status(pg, "1-%d" % w)
+        pg.wait_for_selector("[data-cog-map] canvas", timeout=25000)
+        pg.wait_for_timeout(1200)
+        first = pg.evaluate(PROBE_COG)
+        requests_at_start = len(requests)
+        shot(pg, "w15-cog-390" if w == 390 else "w15-cog-1280",
+             ".status-graph")
+
+        ok(first["hasVm"], "%s: приложение не смонтировано" % label)
+        ok(first["modelNodes"] == 11,
+           "%s: модель содержит %d узлов вместо 11 (payload не прочитан)"
+           % (label, first["modelNodes"]))
+        ok(first["state"] == "ready",
+           "%s: состояние рендерера %r вместо ready (partial — не ошибка)"
+           % (label, first["state"]))
+        ok(first["canvas"] and first["canvas"]["w"] > 200
+           and first["canvas"]["h"] > 150,
+           "%s: холст карты не отрисован (%s)" % (label, first["canvas"]))
+        ok(first["hScroll"] <= 1,
+           "%s: горизонтальный скролл страницы %d px"
+           % (label, first["hScroll"]))
+
+        # Легенда: четыре слова владельца, различие формой/цветом.
+        required = [lg for lg in first["legend"] if not lg["extra"]]
+        ok([lg["text"] for lg in required] == COG_REQUIRED_LEGEND,
+           "%s: слова легенды %s != %s"
+           % (label, [lg["text"] for lg in required], COG_REQUIRED_LEGEND))
+        ok(all(lg["text"] != "Эволюция характера" for lg in first["legend"]),
+           "%s: «Эволюция характера» попала в легенду" % label)
+        ok(len({lg["kind"] for lg in first["legend"]}) >= 4,
+           "%s: легенда не различает классы" % label)
+
+        # Счётчики и нейтральная полнота.
+        ok("11 узлов" in first["counters"],
+           "%s: счётчики не показывают реальное число узлов (%r)"
+           % (label, first["counters"]))
+        ok(first["completeness"].startswith(
+            "показано 11 из %d узлов" % COG_NODES_TOTAL),
+           "%s: «показано X из Y» %r" % (label, first["completeness"]))
+        ok(_cog_grayish(first["completenessRgb"]),
+           "%s: «показано X из Y» не нейтрально (цвет %s)"
+           % (label, first["completenessRgb"]))
+        ok(not first["degraded"],
+           "%s: частичный ответ подан как отказ источника" % label)
+        ok(not first["stale"], "%s: свежие данные помечены устаревшими" % label)
+
+        # Подписи: LOD-потолки и реальное отсутствие «стены текста».
+        budget = 12 if w <= 430 else 26
+        ok(first["drawnLabels"] > 0,
+           "%s: слой подписей не нарисовал ни одной подписи" % label)
+        ok(first["drawnLabels"] <= budget,
+           "%s: подписей %d > потолка %d"
+           % (label, first["drawnLabels"], budget))
+        ok(first["labelMax"] <= budget,
+           "%s: потолок LOD %d > %d" % (label, first["labelMax"], budget))
+        ok(first["hiddenLabels"] >= 0,
+           "%s: аллокатор не сообщает скрытые подписи" % label)
+
+        # Кластеры — по реальным связям (не «одна куча» и не по именам).
+        ok(first["clusters"] >= 2,
+           "%s: кластеров %d — связи не сгруппированы"
+           % (label, first["clusters"]))
+
+        # Зум: LOD пересчитывается, данные не режутся. Карта живёт ниже
+        # первого экрана — сначала прокручиваем её в вид (иначе колесо уходит
+        # в пустоту, а не в сцену).
+        pg.locator(".status-graph").first.scroll_into_view_if_needed()
+        pg.wait_for_timeout(400)
+        pg.hover(".cognition-graph")
+        box = pg.locator(".cognition-graph").first.bounding_box()
+        pg.mouse.move(box["x"] + box["width"] / 2,
+                      box["y"] + box["height"] / 2)
+        pg.mouse.wheel(0, -420)
+        pg.wait_for_timeout(1100)
+        zoomed = pg.evaluate(PROBE_COG)
+        ok((zoomed["scale"] or 0) > (first["scale"] or 0),
+           "%s: колесо не приблизило карту (%s → %s)"
+           % (label, first["scale"], zoomed["scale"]))
+        ok(zoomed["modelNodes"] == first["modelNodes"],
+           "%s: зум изменил данные модели" % label)
+        ok(zoomed["labelLod"] in ("normal", "detail"),
+           "%s: LOD после приближения %r" % (label, zoomed["labelLod"]))
+
+        # Фильтр по типу: меняет витрину, камера/масштаб сохраняются.
+        before_filter = cam(zoomed)
+        pg.select_option('select[aria-label="Фильтр по типу узла"]', "fact")
+        pg.wait_for_timeout(1000)
+        filtered = pg.evaluate(PROBE_COG)
+        ok(0 < filtered["shownNodes"] < first["modelNodes"],
+           "%s: фильтр по типу не сузил витрину (%d из %d)"
+           % (label, filtered["shownNodes"], first["modelNodes"]))
+        ok(same_camera(before_filter, cam(filtered)),
+           "%s: фильтр сбросил камеру %s → %s"
+           % (label, before_filter, cam(filtered)))
+        ok(filtered["drawnLabels"] > 0,
+           "%s: после фильтра подписи пропали" % label)
+
+        # Фильтр по кластеру: только реальные компоненты, камера цела.
+        before_cluster = cam(filtered)
+        extra = pg.evaluate(
+            "(sel) => { const s = document.querySelector(sel);"
+            " return s && s.options ? s.options[1].value : ''; }",
+            'select[aria-label="Кластер"], [data-cog-cluster]')
+        if extra:
+            pg.select_option('[data-cog-cluster]', extra)
+            pg.wait_for_timeout(1000)
+            clustered = pg.evaluate(PROBE_COG)
+            ok(0 < clustered["shownNodes"] < first["modelNodes"],
+               "%s: фильтр кластера не сузил витрину (%d)"
+               % (label, clustered["shownNodes"]))
+            ok(same_camera(before_cluster, cam(clustered)),
+               "%s: фильтр кластера сбросил камеру" % label)
+            pg.select_option('[data-cog-cluster]', "")
+            pg.wait_for_timeout(700)
+        else:
+            ok(False, "%s: фильтр кластера отсутствует" % label)
+
+        # Паритет контролов: сброс вида возвращает полную витрину.
+        pg.click("text=Сбросить вид")
+        pg.wait_for_timeout(1100)
+        reset = pg.evaluate(PROBE_COG)
+        ok(reset["shownNodes"] == first["modelNodes"],
+           "%s: сброс вида не вернул все узлы (%d)"
+           % (label, reset["shownNodes"]))
+
+        # Поиск по имени/алиасу: фокус на конкретном узле.
+        pg.fill('input[aria-label="Поиск узла по имени или алиасу"]',
+                "Костя")
+        pg.click("text=Найти")
+        pg.wait_for_timeout(1200)
+        found = pg.evaluate(PROBE_COG)
+        ok(found["selected"].startswith("ent:"),
+           "%s: поиск не выбрал узел (%r)" % (label, found["selected"]))
+        ok("Найден" in pg.evaluate(
+            "() => (document.body.textContent.match(/Найден[^\\n]{0,60}/) ||"
+            " [''])[0]"), "%s: нет строки результата поиска" % label)
+
+        # Полный экран: тот же слой/маршрут, камера и выбор сохраняются.
+        # «До» — УСТАНОВИВШИЙСЯ кадр (анимация поиска уже завершилась), и
+        # сохранённая приложением камера обязана ему соответствовать: кадр
+        # отрисовки отставал на один кадр (B4), допуски не ослабляются.
+        settled = settled_view(pg)
+        found = pg.evaluate(PROBE_COG)
+        ok(settled is not None,
+           "%s: камера не читается перед полным экраном" % label)
+        saved = found.get("cam") or {}
+        ok(abs((saved.get("x") or 0) - settled[0]) <= 1.0
+           and abs((saved.get("y") or 0) - settled[1]) <= 1.0
+           and abs((saved.get("scale") or 0) - settled[2]) <= 0.02,
+           "%s: сохранённая камера отстаёт от установившейся (%s vs %s)"
+           % (label, saved, settled))
+        camera_before_fs = ({"x": settled[0], "y": settled[1]}, settled[2])
+        selected_before_fs = found["selected"]
+        pg.click("text=Полный экран")
+        pg.wait_for_timeout(2000)
+        settled_full = settled_view(pg)
+        full = pg.evaluate(PROBE_COG)
+        ok(full["fullscreen"] and full["route"] == "#/status/graph",
+           "%s: полный экран не открылся (%r / %r)"
+           % (label, full["fullscreen"], full["route"]))
+        ok(full["canvas"] and full["canvas"]["w"] > 200,
+           "%s: в полном экране нет холста карты" % label)
+        ok(full["drawnLabels"] > 0,
+           "%s: в полном экране нет подписей" % label)
+        ok(full["selected"] == selected_before_fs,
+           "%s: полный экран потерял выбранный узел (%r → %r)"
+           % (label, selected_before_fs, full["selected"]))
+        ok(settled_full is not None
+           and same_camera(camera_before_fs,
+                           ({"x": settled_full[0], "y": settled_full[1]},
+                            settled_full[2]), pos_tol=3.0, scale_tol=0.08),
+           "%s: полный экран сбросил камеру %s → %s"
+           % (label, camera_before_fs, settled_full))
+        shot(pg, "w15-cog-full-%d" % w,
+             ".status-graph-full")
+
+        pg.click("text=Закрыть")
+        pg.wait_for_timeout(1600)
+        settled_back = settled_view(pg)
+        back = pg.evaluate(PROBE_COG)
+        ok(not back["fullscreen"] and back["route"] in ("#/", ""),
+           "%s: выход из полного экрана не вернул на «Статус» (%r)"
+           % (label, back["route"]))
+        ok(back["selected"] == selected_before_fs,
+           "%s: выход из полного экрана потерял выбранный узел" % label)
+        ok(settled_back is not None
+           and same_camera(camera_before_fs,
+                           ({"x": settled_back[0], "y": settled_back[1]},
+                            settled_back[2]), pos_tol=3.0, scale_tol=0.08),
+           "%s: выход из полного экрана не сохранил камеру (%s → %s)"
+           % (label, camera_before_fs, settled_back))
+
+        # Ни одного LLM/эмбеддинг-вызова при показе/зуме/фильтрах/полном экране.
+        # Считается ДЕЛЬТА запросов за взаимодействия с картой: фоновая
+        # диагностика памяти других виджетов к рендеру карты не относится.
+        banned = [u for u in requests[requests_at_start:]
+                  if any(bad in u for bad in COG_BANNED_REQUESTS)]
+        ok(not banned, "%s: рендер карты вызвал %s" % (label, banned[:3]))
+        ok(not errs, "%s: ошибки консоли: %s" % (label, errs[:2]))
+
+        # «Показано X из Y» не должно появляться, когда данные полные.
+        set_cog_payload(cog_payload(nodes_total=11, edges_total=6))
+        open_status(pg, "2-%d" % w)
+        pg.wait_for_timeout(1500)
+        fullset = pg.evaluate(PROBE_COG)
+        ok(not fullset["completeness"],
+           "%s: строка полноты показана при полном наборе (%r)"
+           % (label, fullset["completeness"]))
+
+        section["viewports"][str(w)] = {
+            "first": first, "zoomed": zoomed, "filtered": filtered,
+            "reset": reset, "full": full, "back": back, "fullset": fullset,
+            "errors": errs[:5],
+        }
+        ctx.close()
+
+    # Отказ источника и пустота — отдельные живой проверки (1280).
+    ctx = _ctx(browser, 1280, 900)
+    pg = ctx.new_page()
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text[:160])
+          if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+
+    set_cog_payload(cog_payload(state="degraded"))
+    open_status(pg, "deg")
+    degraded = pg.evaluate(PROBE_COG)
+    ok(degraded["degraded"],
+       "degraded: отказ источника не показан пользователю")
+    ok("memory_cycle" in pg.evaluate(
+        "() => (document.querySelector('[data-cog-degraded]') || {}).textContent"
+        " || ''"), "degraded: не назван упавший источник")
+    ok(degraded["completeness"].startswith("показано"),
+       "degraded: полнота не показана (%r)" % degraded["completeness"])
+    shot(pg, "w15-cog-degraded-1280", ".status-graph")
+
+    set_cog_payload(cog_payload(state="empty", nodes_total=0, edges_total=0,
+                                with_nodes=False))
+    open_status(pg, "empty")
+    empty = pg.evaluate(PROBE_COG)
+    ok(empty["empty"], "empty: пустое состояние не показано")
+    ok(not empty["completeness"],
+       "empty: пустая область выдаёт долю данных (%r)"
+       % empty["completeness"])
+    ok(empty["state"] == "empty",
+       "empty: клиентское состояние %r" % empty["state"])
+    shot(pg, "w15-cog-empty-1280", ".status-graph")
+
+    # Устаревшие данные не выдаются за текущие: «данные на HH:MM» + кнопка.
+    set_cog_payload(cog_payload(generated_at=time.time() - 3600))
+    open_status(pg, "stale")
+    stale = pg.evaluate(PROBE_COG)
+    ok(stale["stale"], "stale: старые данные не помечены пользователю")
+    ok(stale["state"] == "stale",
+       "stale: клиентское состояние %r" % stale["state"])
+    ok(stale["drawnLabels"] > 0,
+       "stale: устаревшая карта не рисуется (данные не пропадают)")
+    shot(pg, "w15-cog-stale-1280", ".status-graph")
+
+    ok(not errs, "cog-map(пусто/отказ): ошибки консоли: %s" % errs[:2])
+    ctx.close()
+
+    # ── B2 (§9.1): отказ источника при НУЛЕ узлов не превращается в «пусто» ──
+    set_cog_payload(cog_payload(state="degraded", nodes_total=0,
+                                edges_total=0, with_nodes=False))
+    ctx = _ctx(browser, 1280, 900)
+    pg = ctx.new_page()
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text[:160])
+          if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+    open_status(pg, "deg0")
+    deg0 = pg.evaluate(PROBE_COG)
+    deg0_text = pg.evaluate(
+        "() => { const el = document.querySelector('[data-cog-state]');"
+        " return el ? el.textContent.replace(/\\s+/g, ' ').trim() : ''; }")
+    ok(deg0["degraded"], "degraded+0: отказ источника не показан")
+    ok(not deg0["empty"],
+       "degraded+0: одновременно объявлена пустота (два противоречащих факта)")
+    ok(deg0["state"] == "degraded",
+       "degraded+0: видимый статус %r вместо degraded" % deg0["state"])
+    ok("нет фактов" not in deg0_text and "фактов и связей" not in deg0_text,
+       "degraded+0: текст пустоты вместо отказа (%r)" % deg0_text[:80])
+    ok("memory_cycle" in pg.evaluate(
+        "() => (document.querySelector('[data-cog-degraded]') || {}).textContent"
+        " || ''"), "degraded+0: не назван упавший источник")
+    ok(pg.evaluate(
+        "() => document.querySelectorAll('.cog-state[data-cog-state]').length") == 1,
+       "degraded+0: показано больше одной строки статуса")
+    shot(pg, "w15-cog-degraded-empty-1280", ".status-graph")
+    ok(not errs, "cog-map(degraded+0): ошибки консоли: %s" % errs[:2])
+    ctx.close()
+
+    # ── B1: фильтр, скрывший ВСЁ, — «нет фактов» здесь было бы ложью ────────
+    set_cog_payload(cog_payload())
+    ctx = _ctx(browser, 1280, 900)
+    pg = ctx.new_page()
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text[:160])
+          if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+    open_status(pg, "fempty")
+    pg.evaluate("""async () => {
+      const vm = window.__adminbotVm;
+      vm.graphFilterGroup = 'observation';
+      await vm.renderCognitionGraph();
+      const cl = (vm.cogClusters || []).find(
+        (c) => !(c.kinds && c.kinds.observation));
+      if (cl) { vm.cognitionMapCluster = cl.id; await vm.renderCognitionGraph(); }
+    }""")
+    pg.wait_for_timeout(900)
+    pruned = pg.evaluate(PROBE_COG)
+    pruned_text = pg.evaluate(
+        "() => { const el = document.querySelector('[data-cog-state]');"
+        " return el ? el.textContent.replace(/\\s+/g, ' ').trim() : ''; }")
+    ok(pruned["viewNodes"] == 0,
+       "фильтр-пусто: витрина не опустела (%d)" % pruned["viewNodes"])
+    ok(pruned["state"] == "ready",
+       "фильтр-пусто: состояние %r вместо ready (это вид, а не данные)"
+       % pruned["state"])
+    ok(not pruned["empty"],
+       "фильтр-пусто: объявлено «нет фактов и связей» при живых данных")
+    ok("фильтру узлов нет" in pruned_text,
+       "фильтр-пусто: нет объяснения про фильтр (%r)" % pruned_text[:80])
+    ok(not pg.evaluate(
+        "() => !!document.querySelector('[data-cog-state=\\'empty\\']')"),
+       "фильтр-пусто: показан блок пустоты данных")
+    view_counters = pg.evaluate(
+        "() => { const el = document.querySelector('[data-cog-view-counters]');"
+        " return el ? el.textContent.replace(/\\s+/g, ' ').trim() : ''; }")
+    ok("видно 0 из 11" in view_counters,
+       "фильтр-пусто: счётчики витрины не согласованы (%r)" % view_counters)
+    ok(pruned["counters"].startswith("11 узлов"),
+       "фильтр-пусто: счётчики данных неверны (%r)" % pruned["counters"])
+    shot(pg, "w15-cog-filter-empty-1280", ".status-graph")
+    pg.evaluate("() => window.__adminbotVm.graphResetView()")
+    pg.wait_for_timeout(1000)
+    restored = pg.evaluate(PROBE_COG)
+    ok(restored["viewNodes"] == 11 and not restored["empty"],
+       "фильтр-пусто: сброс не вернул витрину (%d)" % restored["viewNodes"])
+    ok(not errs, "cog-map(фильтр-пусто): ошибки консоли: %s" % errs[:2])
+    ctx.close()
+
+    # ── B1: переход 0 -> N на ОДНОМ экране (без перезагрузки) ──────────────
+    set_cog_payload(cog_payload(state="empty", nodes_total=0, edges_total=0,
+                                with_nodes=False))
+    ctx = _ctx(browser, 1280, 900)
+    pg = ctx.new_page()
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text[:160])
+          if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+    open_status(pg, "0n")
+    before = pg.evaluate(PROBE_COG)
+    ok(before["empty"] and before["modelNodes"] == 0,
+       "0→N: стартовое пустое состояние не показано (%r/%d)"
+       % (before["state"], before["modelNodes"]))
+    set_cog_payload(cog_payload())          # данные «пришли» в тот же экран
+    pg.evaluate("() => window.__adminbotVm.loadCognitionGraph()")
+    pg.wait_for_timeout(3000)
+    after = pg.evaluate(PROBE_COG)
+    visible = pg.evaluate("""() => {
+      const vm = window.__adminbotVm;
+      const el = vm._cogEl || document.querySelector('.cognition-graph');
+      const c = el ? el.querySelector('canvas') : null;
+      if (!c || !vm.cognitionNetwork) return {inside: 0, total: 0};
+      const r = c.getBoundingClientRect();
+      const pos = vm.cognitionNetwork.getPositions();
+      let inside = 0;
+      const total = Object.keys(pos).length;
+      for (const k of Object.keys(pos)) {
+        const d = vm.cognitionNetwork.canvasToDOM(pos[k]);
+        if (d.x > 0 && d.y > 0 && d.x < r.width && d.y < r.height) inside += 1;
+      }
+      return {inside: inside, total: total, w: Math.round(r.width),
+              h: Math.round(r.height)};
+    }""")
+    ok(after["modelNodes"] == 11,
+       "0→N: данные не доехали до модели (%d)" % after["modelNodes"])
+    ok(after["state"] == "ready",
+       "0→N: видимый статус %r вместо ready" % after["state"])
+    ok(not after["empty"], "0→N: сообщение о пустоте осталось после данных")
+    ok(not pg.evaluate(
+        "() => !!document.querySelector('[data-cog-state=\\'filtered\\']')"),
+       "0→N: «по фильтру узлов нет» при пустых фильтрах")
+    ok(after["counters"].startswith("11 узлов"),
+       "0→N: счётчики не показывают данные (%r)" % after["counters"])
+    ok(visible["total"] == 11,
+       "0→N: в сцене %d узлов из 11" % visible["total"])
+    ok(visible["inside"] >= 9,
+       "0→N: видимых узлов %d из 11 (fit не выполнен)" % visible["inside"])
+    ok(after["shownNodes"] == 11,
+       "0→N: витрина %d из 11" % after["shownNodes"])
+    ok(after["drawnLabels"] >= 5,
+       "0→N: подписей %d (ожидалось не меньше 5)" % after["drawnLabels"])
+    shot(pg, "w15-cog-0-to-n-1280", ".status-graph")
+    ok(not errs, "cog-map(0→N): ошибки консоли: %s" % errs[:2])
+    ctx.close()
+
+    # ── prefers-reduced-motion: без движения, информативность сохранена ────
+    ctx = _ctx(browser, 1280, 900, reduced_motion=True)
+    pg = ctx.new_page()
+    errs = []
+    pg.on("console", lambda m: errs.append(m.text[:160])
+          if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+    open_status(pg, "rm")
+    rm = pg.evaluate(PROBE_COG)
+    ok(rm["hasVm"] and pg.evaluate("() => window.__adminbotVm.reducedMotion"),
+       "reduced-motion: режим не применён")
+    ok(rm["drawnLabels"] > 0 and rm["canvas"],
+       "reduced-motion: карта/подписи не отрисованы")
+    ok(rm["legend"] and rm["counters"],
+       "reduced-motion: легенда/счётчики пропали (информативность)")
+    motion = pg.evaluate("""async () => {
+      const vm = window.__adminbotVm;
+      const net = vm.cognitionNetwork;
+      const probe = () => {
+        const p = net.getViewPosition();
+        return Math.round(p.x * 10) / 10 + ':' + Math.round(p.y * 10) / 10;
+      };
+      const id = (vm._cogView && vm._cogView.nodes[0]) ? vm._cogView.nodes[0].id : null;
+      if (!id) return {immediate: 'n/a', settled: 'n/a', control: 'n/a'};
+      // 1) reduced-motion: фокус ставит камеру сразу (анимации нет).
+      vm.focusGraphNode(id);
+      await new Promise((r) => setTimeout(r, 30));
+      const immediate = probe();
+      await new Promise((r) => setTimeout(r, 500));
+      const settled = probe();
+      // 2) контроль: с выключенным reduced-motion тот же вызов анимируется,
+      //    поэтому промежуточная камера отличается от установившейся.
+      vm.reducedMotion = false;
+      const other = vm._cogView.nodes[vm._cogView.nodes.length - 1].id;
+      vm.focusGraphNode(other);
+      await new Promise((r) => setTimeout(r, 30));
+      const animating = probe();
+      await new Promise((r) => setTimeout(r, 900));
+      const finished = probe();
+      vm.reducedMotion = true;
+      return {immediate: immediate, settled: settled,
+              animating: animating, finished: finished};
+    }""")
+    ok(motion["immediate"] == motion["settled"],
+       "reduced-motion: камера догоняла анимацию (%r → %r)"
+       % (motion["immediate"], motion["settled"]))
+    ok(motion["animating"] != motion["finished"],
+       "контроль: без reduced-motion анимация не наблюдалась — проверка "
+       "нечувствительна (%r → %r)"
+       % (motion["animating"], motion["finished"]))
+    shot(pg, "w15-cog-reduced-motion-1280", ".status-graph")
+    ok(not errs, "cog-map(reduced-motion): ошибки консоли: %s" % errs[:2])
+    ctx.close()
+    set_cog_payload(cog_payload())
+
+    section["degraded"] = degraded
+    section["empty"] = empty
+    section["stale"] = stale
+    section["degraded_zero"] = deg0
+    section["empty_to_data"] = {"before": before, "after": after,
+                                "visible": visible}
+    section["reduced_motion"] = {"probe": rm, "motion": motion}
+    section["checks"] = checks
+    set_cog_payload(cog_payload())
+    report["cog_map"] = section
+    print("COG-MAP checks=%d" % checks)
+
+
+def _cog_grayish(rgb):
+    """Нейтральный серый текст: каналы близки (это не amber/red-предупреждение)."""
+    if not rgb or len(rgb) != 3:
+        return False
+    return (max(rgb) - min(rgb)) <= 45
+
+
 def run(out_dir, baseline=False, port=PORT):
     from playwright.sync_api import sync_playwright
 
@@ -1331,6 +2078,10 @@ def run(out_dir, baseline=False, port=PORT):
                 measure(pg, label, name, route, None, w, h, "coverage", errs,
                         shot_prefix=("w15-cov-%s" % name) if w >= 1280 else None)
             ctx.close()
+        # ── EVOL-COG-MAP (W7-S2): живая приёмка «Когнитивной карты» ─────────
+        # (типизированные узлы, легенда словами владельца, нейтральная
+        # полнота, LOD-подписи, сохранение камеры, полный экран; 390 и 1280).
+        run_cog_map(browser, base, report, fails, out_dir)
         browser.close()
     httpd.shutdown()
 
