@@ -952,8 +952,9 @@ class TestBounds:
         # A6 (ADR-1026-18 D1): 11 → 12 (+get_user_context, в хвост).
         # MCA-19 (10.43): 12 → 13 (+recognize_image).
         # MCA-20 (10.44, ADR-1028-20 §7.5): 13 → 14 (+fact_check).
-        # ASAP5 §20 (edit-route): 14 → 15 (+edit_image).
-        assert len(TOOL_CALLING_TOOLS) == 15
+        # ASAP5 §20 (edit-route): 14 → 15 (+edit_image);
+        # EVOL-SRC-READER (W6): 15 → 16 (+read_source_code).
+        assert len(TOOL_CALLING_TOOLS) == 16
 
     def test_kill_switch_not_in_catalog(self):
         assert "DIRECT_COORDINATOR_ENABLED" not in pc.REGISTRY

@@ -2227,7 +2227,7 @@
   "identical": true,
   "isolated_processes": true,
   "runs": 2,
-  "snapshot_core_sha256": "26cb3fafcea222736f2ebcb28f2c7bbe8331172107baec4483888832c7a959a0"
+  "snapshot_core_sha256": "d299a082087f7758b66f458d42478f26366ffffd0b99a92952e1410dc276cc7d"
  },
  "environment": {
   "app_version": "2.58.144",
@@ -2422,10 +2422,10 @@
    "sha256": "3ef55672e7b0d62c4dec9ba38dd1f997fdb766e6eb414f450334f53702131974"
   },
   "services/direct_chat_service.py": {
-   "bytes": 811321,
-   "bytes_utf8": 811321,
-   "lines": 13362,
-   "sha256": "47eba166441c9d4adce274fac9a2d94c40cefc7144f6e776c979a61f16480d91"
+   "bytes": 811415,
+   "bytes_utf8": 811415,
+   "lines": 13363,
+   "sha256": "ba6f02ecfd30abf1ba8a2008bde74e2ec725d1550c0575138500f71ced960829"
   },
   "services/direct_execution.py": {
    "bytes": 73775,
@@ -2506,10 +2506,10 @@
    "sha256": "97f2a8c06819122893cbf3aa941b11afbd381a7ade7a48e4438e26d84403c2cf"
   },
   "services/tool_loop.py": {
-   "bytes": 64909,
-   "bytes_utf8": 64909,
-   "lines": 1123,
-   "sha256": "ce297a0aa8f39bc8def7a5e7958fc857d14b150b9d946ea506c9aff9c1d237c9"
+   "bytes": 65554,
+   "bytes_utf8": 65554,
+   "lines": 1131,
+   "sha256": "3d1cc648e4115a90759e4b1282f3adc716651a435e51d6688156f46fce18228b"
   }
  },
  "stages": [
@@ -5443,7 +5443,7 @@
    "system_chars": 8490,
    "title": "Tool-фаза (model-driven): первый запрос цикла + схемы инструментов",
    "tools": {
-    "count": 15,
+    "count": 16,
     "names": [
      "query_chat_memory",
      "dig_into_lore",
@@ -5459,9 +5459,10 @@
      "get_user_context",
      "recognize_image",
      "fact_check",
-     "edit_image"
+     "edit_image",
+     "read_source_code"
     ],
-    "schemas_sha256": "6d67cd42dbd2ec550c9b5a587c8184352d1ffc0abaf782babb64399519d72b0f"
+    "schemas_sha256": "0d5ab0d1ed724995de53c0ae983989ccf24b4d8f3e57884ac0bf1f1b1f657b10"
    },
    "total_bytes_utf8": 16246,
    "total_chars": 9257,
@@ -6199,7 +6200,7 @@
    "system_chars": 8490,
    "title": "Tool-фаза (model-driven): второй запрос цикла — assistant.tool_calls + роль tool с результатом",
    "tools": {
-    "count": 15,
+    "count": 16,
     "names": [
      "query_chat_memory",
      "dig_into_lore",
@@ -6215,9 +6216,10 @@
      "get_user_context",
      "recognize_image",
      "fact_check",
-     "edit_image"
+     "edit_image",
+     "read_source_code"
     ],
-    "schemas_sha256": "6d67cd42dbd2ec550c9b5a587c8184352d1ffc0abaf782babb64399519d72b0f"
+    "schemas_sha256": "0d5ab0d1ed724995de53c0ae983989ccf24b4d8f3e57884ac0bf1f1b1f657b10"
    },
    "total_bytes_utf8": 16328,
    "total_chars": 9314,
@@ -12229,7 +12231,7 @@
    "system_chars": 5961,
    "title": "Tool-фаза (model-driven): первый запрос цикла + схемы инструментов",
    "tools": {
-    "count": 15,
+    "count": 16,
     "names": [
      "query_chat_memory",
      "dig_into_lore",
@@ -12245,9 +12247,10 @@
      "get_user_context",
      "recognize_image",
      "fact_check",
-     "edit_image"
+     "edit_image",
+     "read_source_code"
     ],
-    "schemas_sha256": "6d67cd42dbd2ec550c9b5a587c8184352d1ffc0abaf782babb64399519d72b0f"
+    "schemas_sha256": "0d5ab0d1ed724995de53c0ae983989ccf24b4d8f3e57884ac0bf1f1b1f657b10"
    },
    "total_bytes_utf8": 11671,
    "total_chars": 6728,
@@ -12772,7 +12775,7 @@
    "system_chars": 5961,
    "title": "Tool-фаза (model-driven): второй запрос цикла — assistant.tool_calls + роль tool с результатом",
    "tools": {
-    "count": 15,
+    "count": 16,
     "names": [
      "query_chat_memory",
      "dig_into_lore",
@@ -12788,9 +12791,10 @@
      "get_user_context",
      "recognize_image",
      "fact_check",
-     "edit_image"
+     "edit_image",
+     "read_source_code"
     ],
-    "schemas_sha256": "6d67cd42dbd2ec550c9b5a587c8184352d1ffc0abaf782babb64399519d72b0f"
+    "schemas_sha256": "0d5ab0d1ed724995de53c0ae983989ccf24b4d8f3e57884ac0bf1f1b1f657b10"
    },
    "total_bytes_utf8": 11753,
    "total_chars": 6785,

@@ -845,6 +845,120 @@ TOOL_EDIT_IMAGE = {
     },
 }
 
+# EVOL-SRC-READER (W6, `source-reader-contract.md` §1): канон 15→**16** —
+# `read_source_code` в КОНЕЦ («новое — в хвост», ADR-1020-4), первые 15 —
+# байт-в-байт. Один инструмент, три операции внутри (`discover|locate|read`):
+# отдельные LLM-tools под discovery/locator/fetch НЕ создаются (§1.2 ТЗ).
+# Исполнитель — `services/source_reader.py` (GitHub-адаптер) поверх
+# существующего `SafeFetcher`; второго транспорта/секретов нет.
+TOOL_READ_SOURCE_CODE = {
+    "type": "function",
+    "function": {
+        "name": "read_source_code",
+        "description": (
+            "Read the ACTUAL source code of a public repository (GitHub) and "
+            "return a verified, commit-pinned fragment. Call when the user "
+            "asks what code does something, names a class/method/file, or "
+            "shares a repository/blob link - do NOT answer a code question "
+            "from search snippets. operation: discover (find the repository by "
+            "name or by a plain description), locate (find the file/symbol "
+            "inside a known repository), read (read the file, optionally "
+            "around a symbol, with a bounded follow-up through related "
+            "classes). Arguments, all optional except operation: url (github "
+            "link: /blob/, /tree/, raw or api form - url is enough, no repo "
+            "needed), repo ('owner/name'), query (what to find, in natural "
+            "language), ref (branch/tag/commit as a SEPARATE field, slashes "
+            "are allowed), path (file path inside the repository), symbol "
+            "(class/method/field), line_start/line_end (read window), follow "
+            "(default true for read: read up to a bounded number of related "
+            "files), language (hint, ranking signal only). HOW TO INTERPRET "
+            "THE RESULT: JSON with status ok|ambiguous|not_found|unsupported|"
+            "error. verified=true means the bytes of that exact file at that "
+            "exact commit were really fetched - only then may you say you "
+            "read the code; verified=false means the file was NOT confirmed "
+            "(snippet/README/search hit) - say so. snippet is the code, "
+            "line_range gives its line numbers, verified_url is the "
+            "commit-pinned link to cite, files[] holds the related files when "
+            "follow-up ran. status=ambiguous means several really different "
+            "repositories: ask the user exactly ONE question with the given "
+            "candidates, never pick silently. status=not_found/error carries "
+            "the technical reason (source_missing=404, rate_limit, "
+            "auth_failed, provider_unavailable, safe_fetch_timeout, "
+            "parse_error, provider_unconfigured, disabled) - report that "
+            "reason, never invent a different one. not_checked tells you what "
+            "was NOT examined; do not claim behaviour that only sets a "
+            "parameter."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["discover", "locate", "read"],
+                    "description": ("discover = find the repository; "
+                                    "locate = find the file/symbol in a known "
+                                    "repository; read = verified read of the "
+                                    "file (default behaviour of the tool)."),
+                },
+                "url": {
+                    "type": "string",
+                    "description": ("GitHub link (github.com/*/blob/… or "
+                                    "/tree/…, raw.githubusercontent.com, "
+                                    "api.github.com). Omit when the link is "
+                                    "already in the context."),
+                },
+                "repo": {
+                    "type": "string",
+                    "description": ("Repository as 'owner/name' when there is "
+                                    "no link."),
+                },
+                "query": {
+                    "type": "string",
+                    "description": ("What to find, in natural language: "
+                                    "class/method/mechanism name or a plain "
+                                    "description of the behaviour."),
+                },
+                "ref": {
+                    "type": "string",
+                    "description": ("Branch, tag or commit as a SEPARATE "
+                                    "field (slashes allowed: 'feature/x')."),
+                },
+                "path": {
+                    "type": "string",
+                    "description": ("File path inside the repository "
+                                    "('src/main/Foo.java')."),
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": ("Identifier to locate inside the file: "
+                                    "class, method or field name."),
+                },
+                "line_start": {
+                    "type": "integer", "minimum": 1,
+                    "description": "First line of the read window (1-based).",
+                },
+                "line_end": {
+                    "type": "integer", "minimum": 1,
+                    "description": "Last line of the read window (1-based).",
+                },
+                "follow": {
+                    "type": "boolean",
+                    "description": ("Allow a bounded follow-up through related "
+                                    "classes/calls (default true for read). "
+                                    "Follow-up limits and what was NOT "
+                                    "examined are reported in not_checked."),
+                },
+                "language": {
+                    "type": "string",
+                    "description": ("Optional language hint (java, python, go…) "
+                                    "- used only to rank candidates."),
+                },
+            },
+            "required": ["operation"],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -861,6 +975,7 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_RECOGNIZE_IMAGE,
     TOOL_FACT_CHECK,
     TOOL_EDIT_IMAGE,
+    TOOL_READ_SOURCE_CODE,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
@@ -882,6 +997,9 @@ FACT_CHECK_TOOL_NAME = "fact_check"
 # ASAP5 §20 (edit-route): имя инструмента редактирования изображений
 # (гейт — тот же модуль изображений, что у generate_image).
 EDIT_IMAGE_TOOL_NAME = "edit_image"
+# EVOL-SRC-READER (W6): имя инструмента проверенного чтения исходников
+# (env-only гейт `SOURCE_READ_ENABLED`; сетевой модуль, НЕ owner-настройка).
+SOURCE_READ_TOOL_NAME = "read_source_code"
 
 
 def _transcribe_tool_enabled() -> bool:
@@ -900,6 +1018,22 @@ def _article_tool_enabled() -> bool:
     объявляется (эффективный канон 10). Наличие схемы ``TOOL_FETCH_ARTICLE``
     и канон ``TOOL_CALLING_TOOLS == 11`` — безусловны (Δ каталога = 0)."""
     return bool(getattr(settings, "ARTICLE_TOOL_ENABLED", True))
+
+
+def read_source_code_enabled() -> bool:
+    """env-only kill-switch ``SOURCE_READ_ENABLED`` (EVOL-SRC-READER; ON).
+
+    Гейтит ТОЛЬКО LLM-доступность ``read_source_code``: OFF → инструмент не
+    объявлен в наборе (эффективный канон 15), сетевой lookup не выполняется.
+    Устаревшие вызовы получают честный ``disabled`` от диспетчера
+    (`ToolRouter._read_source_code`, defence in depth). Наличие схемы
+    ``TOOL_READ_SOURCE_CODE`` и канон ``TOOL_CALLING_TOOLS == 16`` —
+    безусловны (Δ каталога настроек = 0: сетевой модуль, не owner-настройка).
+    """
+    try:
+        return bool(getattr(settings, "SOURCE_READ_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
 
 
 def _memory_lookup_enabled() -> bool:
@@ -982,6 +1116,9 @@ def active_tools(lore_compiler_enabled: bool = True,
     ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED``/``TEMPORAL_TOOL_ENABLED`` OFF →
     fact_check исключён (первые 13 имён — байт-в-байт; MCA-20 D4, server-side
     проверка OFF остаётся в диспетчере).
+    ``SOURCE_READ_ENABLED`` OFF (env) → read_source_code исключён (первые 15
+    имён — байт-в-байт; EVOL-SRC-READER, server-side ``disabled`` остаётся в
+    диспетчере).
     Возвращается новый список — TOOL_CALLING_TOOLS (снапшот) не мутируется.
     """
     disabled: set[str] = set()
@@ -1005,6 +1142,8 @@ def active_tools(lore_compiler_enabled: bool = True,
         disabled.add(VISION_TOOL_NAME)
     if not _fact_check_tool_enabled():
         disabled.add(FACT_CHECK_TOOL_NAME)
+    if not read_source_code_enabled():
+        disabled.add(SOURCE_READ_TOOL_NAME)
     if not disabled:
         return list(TOOL_CALLING_TOOLS)
     return [tool for tool in TOOL_CALLING_TOOLS

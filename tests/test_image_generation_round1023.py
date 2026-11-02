@@ -77,7 +77,7 @@ class TestToolSchema:
         assert names == _FIRST_EIGHT + [
             "generate_image", "transcribe_video", "fetch_article",
             "get_user_context", "recognize_image", "fact_check",
-            "edit_image"]
+            "edit_image", "read_source_code"]
         assert names[8] == "generate_image"
         assert IMAGE_GENERATION_TOOL_NAME == "generate_image"
 
@@ -99,12 +99,13 @@ class TestToolSchema:
         assert [t["function"]["name"] for t in active_tools()] == \
             _FIRST_EIGHT + ["transcribe_video", "fetch_article",
                             "get_user_context", "recognize_image",
-                            "fact_check"]
+                            "fact_check", "read_source_code"]
         assert [t["function"]["name"]
                 for t in active_tools(image_generation_enabled=True)] == \
             _FIRST_EIGHT + ["generate_image", "transcribe_video",
                             "fetch_article", "get_user_context",
-                            "recognize_image", "fact_check", "edit_image"]
+                            "recognize_image", "fact_check", "edit_image",
+                            "read_source_code"]
 
     def test_factcheck_tools_unchanged(self):
         from services.tool_schemas import factcheck_tools
@@ -276,7 +277,7 @@ class TestPreGateIntegration:
         # F19: transcribe_video (default ON); A2: fetch_article (default ON);
         # A6: get_user_context (default ON) → 8 базовых + 4 хвостовых
         # (MCA-19, ADR-1028-19 §8.6: +recognize_image).
-        assert len(names) == 13
+        assert len(names) == 14
         assert "generate_image" not in names
 
     @pytest.mark.asyncio

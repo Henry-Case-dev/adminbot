@@ -175,10 +175,12 @@ REASON_EVIDENCE_CLAIM_REMOVED = "evidence_unverified_claim_removed"
 #: Имя стадии для событий политики (R17-safe).
 EVIDENCE_STAGE = "evidence_policy"
 
-#: Capability чтения исходников (EVOL-SRC-READER, `PENDING`): до реализации
-#: `allowed()` честно отвечает `capability_not_ready`, а не «пропускаем».
+#: Capability чтения исходников (EVOL-SRC-READER, W6): инструмент
+#: `read_source_code` реализован, поэтому слот больше не «заглушка» —
+#: `allowed()` отвечает по реальному состоянию capability-реестра
+#: (`capability_registry.resolve("source_read")` → анонсирован ли инструмент и
+#: не выключен ли его env-рубильник), а не безусловным `capability_not_ready`.
 CAPABILITY_SOURCE_READ = "source_read"
-_SOURCE_READER_READY = False
 
 
 def skip_reason_code(reason, *, found: bool = True) -> str:

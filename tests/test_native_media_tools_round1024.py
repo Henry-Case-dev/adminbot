@@ -489,7 +489,7 @@ class TestSchemasContract:
         assert names == _FIRST_NINE + ["transcribe_video", "fetch_article",
                                        "get_user_context",
                                        "recognize_image", "fact_check",
-                                       "edit_image"]
+                                       "edit_image", "read_source_code"]
         assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
         assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"

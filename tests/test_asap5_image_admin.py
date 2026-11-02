@@ -507,10 +507,12 @@ async def test_word_intent_create_does_not_override_plan_edit(monkeypatch):
 
 
 def test_tool_canon_15_edit_image_at_tail():
-    """Канон R9 = 15: edit_image в КОНЦЕ; первые 14 имён не меняются."""
+    """Канон R9 = 16 (W6: +read_source_code в хвост); первые 15 имён
+    не меняются, edit_image остаётся 15-м."""
     names = [t["function"]["name"] for t in tool_schemas.TOOL_CALLING_TOOLS]
-    assert len(names) == 15
-    assert names[-1] == "edit_image"
+    assert len(names) == 16
+    assert names[-2] == "edit_image"
+    assert names[-1] == "read_source_code"
     assert names[:14] == ["query_chat_memory", "dig_into_lore",
                           "execute_web_search", "summarize_video",
                           "download_media", "get_bot_health",

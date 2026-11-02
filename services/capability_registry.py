@@ -869,6 +869,15 @@ async def resolve(capability_id: str, chat_id: int | None = None, *,
                 cap, "Разбор страницы по ссылке", "fetch_article",
                 "services.tool_router", ("fetch_article",), ("url",),
                 now=now)
+        elif cap == "source_read":
+            # EVOL-SRC-READER (W6): готовность = инструмент `read_source_code`
+            # реально анонсирован (канон + env-рубильник SOURCE_READ_ENABLED).
+            # Отдельного «провайдерского ключа» нет: без токена GitHub тоже
+            # читается (анонимная квота), поэтому ключ не является гейтом.
+            state = await _build_from_announced(
+                cap, "Чтение исходного кода", "read_source_code",
+                "services.source_reader", ("read_source_code",),
+                ("url", "repo", "query", "path", "symbol"), now=now)
         else:
             state = CapabilityState(
                 capability_id=cap, status=STATUS_UNKNOWN,
