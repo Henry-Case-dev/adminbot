@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "",
+  "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -15,8 +15,45 @@
       "reason": "прозаическое объявление трёх этапов (заголовок §1 вводной части)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PIPE-THREE-STAGES",
+          "observation": "Приёмочный лист: `consider_chat` проходит три этапа - выжимка (:1399), прикол (:1425), картинка (:1488); проба a1 даёт два последовательных LLM-шага, проба c1 - подстановку прикола в image prompt; мутация M3 (этап C на выжимке) роняет 5 тестов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat` (:1239) - единственная точка входа: `_default_summarize` (:1399) -> `_default_joke` (:1425) -> бронь квоты (:1464) -> `_default_image` (:1488).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "18 контрактных тестов этапов (CONTRACT), включая `test_stage_c_image_prompt_uses_joke_not_summary`; подменены только внешние границы (LLM, image-провайдер, Telegram).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-PIPE-THREE-STAGES",
       "slice": "MEME-PIPE-CORE",
@@ -42,8 +79,45 @@
       "reason": "требование переработать текущий пайплайн, а не добавить параллельный",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROHIB-NO-DUP-PIPELINE",
+          "observation": "Единственная точка запуска `consider_chat` (:1239) и авто-путь `on_initiative_cycle` (:1657); второй параллельной ветки генерации нет, `manual=True` использует тот же код.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Пайплайн переработан внутри существующей инициативы; отдельного пути генерации мемов не создано.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактные тесты идут через тот же `consider_chat`, `manual=True` проверен на том же пути.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-PROHIB-NO-DUP-PIPELINE",
       "slice": "MEME-PIPE-CORE",
@@ -57,8 +131,45 @@
       "reason": "обязательность нового LLM-этапа прикола",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-B-JOKE-CALL",
+          "observation": "`_default_joke` (:1619), шаг `meme_joke`; проба a1 фиксирует отдельный LLM-вызов, получающий выжимку; далее идёт текст прикола, а не сообщения окна.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_joke` (:1619) вызывается из `consider_chat` (:1425); результат этапа B передаётся в этап C.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Живой пайплайн-тест в `tests/test_evol014_meme_initiative.py` плюс контрактные тесты этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-STAGE-B-JOKE-CALL",
       "slice": "MEME-PIPE-CORE",
@@ -72,8 +183,54 @@
       "reason": "дословный заводской текст промпта прикола",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROMPT-JOKE-DEFAULT",
+          "observation": "`MEME_JOKE_PROMPT` (:57) совпадает с требованием дословно; отдельный блок реестра `initiative.meme.joke`; `seal_integrity() == {}`; набор заводских текстов изменён ровно на два блока, остальные 109 побайтово идентичны, перепин `FACTORY_SET_SHA256_12` законен.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Реестр промптов объявляет блок `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_factory_prompts_are_exact_and_registered` + 62 passed по реестру и каталогу (audit/completeness/API).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/prompt_registry.py",
+          "observation": "Блок реестра `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "ff4f934b14f725050ef0c8f2de0b139390c925f817a9ab5e51a6260e8023acf8",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-PROMPT-JOKE-DEFAULT",
       "slice": "MEME-PIPE-CORE",
@@ -87,8 +244,45 @@
       "reason": "потолок больше не относится к выжимке",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TARGET-FINAL-PROMPT",
+          "observation": "Потолок L применяется только к итоговому prompt (T + длина прикола <= L, пробы f1, f2); выжимка не ограничена (проба a3); M4 подтверждает, что вернуть обрезку выжимки нельзя.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "L участвует только в сборке итогового prompt; параметр «Потолок длины промпта, симв.» больше не влияет на выжимку.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Проверка `T + len(joke) <= L` для шаблона с `{joke}` и без него.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-TARGET-FINAL-PROMPT",
       "slice": "MEME-PIPE-CORE",
@@ -102,8 +296,45 @@
       "reason": "потолок относится к итоговому image prompt",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TARGET-FINAL-PROMPT",
+          "observation": "Потолок L применяется только к итоговому prompt (T + длина прикола <= L, пробы f1, f2); выжимка не ограничена (проба a3); M4 подтверждает, что вернуть обрезку выжимки нельзя.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "L участвует только в сборке итогового prompt; параметр «Потолок длины промпта, симв.» больше не влияет на выжимку.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Проверка `T + len(joke) <= L` для шаблона с `{joke}` и без него.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-TARGET-FINAL-PROMPT",
       "slice": "MEME-PIPE-CORE",
@@ -117,8 +348,45 @@
       "reason": "бюджет прикола считается автоматически",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-J-BUDGET",
       "slice": "MEME-PIPE-CORE",
@@ -132,8 +400,45 @@
       "reason": "модель получает явную инструкцию с лимитом",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-INSTRUCTION",
+          "observation": "`joke_instruction` (:497) с директивой `JOKE_LENGTH_DIRECTIVE` (:74) кладёт в промпт «не более N символов» с N = J до генерации; проба b1 фиксирует N=871 при L=900; мутация M1 роняет 2 теста, включая `test_stage_b_instruction_carries_exact_j_budget`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`joke_instruction` (:497) и `JOKE_LENGTH_DIRECTIVE` (:74) передают модели точный N = J.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_stage_b_instruction_carries_exact_j_budget` читает дословный N = J в инструкции этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-INSTRUCTION",
       "slice": "MEME-PIPE-CORE",
@@ -147,8 +452,45 @@
       "reason": "формулировка инструкции «не более N символов»",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-INSTRUCTION",
+          "observation": "`joke_instruction` (:497) с директивой `JOKE_LENGTH_DIRECTIVE` (:74) кладёт в промпт «не более N символов» с N = J до генерации; проба b1 фиксирует N=871 при L=900; мутация M1 роняет 2 теста, включая `test_stage_b_instruction_carries_exact_j_budget`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`joke_instruction` (:497) и `JOKE_LENGTH_DIRECTIVE` (:74) передают модели точный N = J.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_stage_b_instruction_carries_exact_j_budget` читает дословный N = J в инструкции этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-INSTRUCTION",
       "slice": "MEME-PIPE-CORE",
@@ -162,8 +504,45 @@
       "reason": "N вычисляется автоматически",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-INSTRUCTION",
+          "observation": "`joke_instruction` (:497) с директивой `JOKE_LENGTH_DIRECTIVE` (:74) кладёт в промпт «не более N символов» с N = J до генерации; проба b1 фиксирует N=871 при L=900; мутация M1 роняет 2 теста, включая `test_stage_b_instruction_carries_exact_j_budget`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`joke_instruction` (:497) и `JOKE_LENGTH_DIRECTIVE` (:74) передают модели точный N = J.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_stage_b_instruction_carries_exact_j_budget` читает дословный N = J в инструкции этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-LEN-INSTRUCTION",
       "slice": "MEME-PIPE-CORE",
@@ -178,7 +557,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
+          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-CMD-MANUAL-RUN",
       "slice": "MEME-MANUAL-CMD",
@@ -193,7 +600,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
+          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-CMD-MANUAL-RUN",
       "slice": "MEME-MANUAL-CMD",
@@ -208,7 +643,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
+          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-CMD-MANUAL-RUN",
       "slice": "MEME-MANUAL-CMD",
@@ -223,7 +686,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
+          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-CMD-MANUAL-RUN",
       "slice": "MEME-MANUAL-CMD",
@@ -237,8 +728,45 @@
       "reason": "без слива лишнего мусора в пользовательский чат",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-NO-LEAK",
+          "observation": "Пробы nl1-nl2: уникальные маркеры выжимки и прикола отсутствуют в журнале, в `as_dict()` и в видимых исходящих данных.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Тексты этапов остаются внутренними: журнал и `as_dict()` не содержат выжимку и прикол.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_analytics_snapshot_exposes_joke_stage_without_texts`, `test_image_only_delivery_keeps_joke_and_prompt_internal`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ],
       "disposition": "required",
       "req_id": "MEME-ANALYTICS-NO-LEAK",
       "slice": "MEME-ANALYTICS-STAGES",
@@ -501,8 +1029,45 @@
       "acceptance": "Мем-инициатива исполняет три последовательных этапа в одном проходе: выжимка -> прикол -> картинка; текст прикола этапа B подставляется в image prompt этапа C, а не сырая выжимка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PIPE-THREE-STAGES",
+          "observation": "Приёмочный лист: `consider_chat` проходит три этапа - выжимка (:1399), прикол (:1425), картинка (:1488); проба a1 даёт два последовательных LLM-шага, проба c1 - подстановку прикола в image prompt; мутация M3 (этап C на выжимке) роняет 5 тестов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat` (:1239) - единственная точка входа: `_default_summarize` (:1399) -> `_default_joke` (:1425) -> бронь квоты (:1464) -> `_default_image` (:1488).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "18 контрактных тестов этапов (CONTRACT), включая `test_stage_c_image_prompt_uses_joke_not_summary`; подменены только внешние границы (LLM, image-провайдер, Telegram).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00019",
@@ -516,8 +1081,45 @@
       "acceptance": "Мем-инициатива исполняет три последовательных этапа в одном проходе: выжимка -> прикол -> картинка; текст прикола этапа B подставляется в image prompt этапа C, а не сырая выжимка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PIPE-THREE-STAGES",
+          "observation": "Приёмочный лист: `consider_chat` проходит три этапа - выжимка (:1399), прикол (:1425), картинка (:1488); проба a1 даёт два последовательных LLM-шага, проба c1 - подстановку прикола в image prompt; мутация M3 (этап C на выжимке) роняет 5 тестов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat` (:1239) - единственная точка входа: `_default_summarize` (:1399) -> `_default_joke` (:1425) -> бронь квоты (:1464) -> `_default_image` (:1488).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "18 контрактных тестов этапов (CONTRACT), включая `test_stage_c_image_prompt_uses_joke_not_summary`; подменены только внешние границы (LLM, image-провайдер, Telegram).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00020",
@@ -531,8 +1133,45 @@
       "acceptance": "Мем-инициатива исполняет три последовательных этапа в одном проходе: выжимка -> прикол -> картинка; текст прикола этапа B подставляется в image prompt этапа C, а не сырая выжимка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PIPE-THREE-STAGES",
+          "observation": "Приёмочный лист: `consider_chat` проходит три этапа - выжимка (:1399), прикол (:1425), картинка (:1488); проба a1 даёт два последовательных LLM-шага, проба c1 - подстановку прикола в image prompt; мутация M3 (этап C на выжимке) роняет 5 тестов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`consider_chat` (:1239) - единственная точка входа: `_default_summarize` (:1399) -> `_default_joke` (:1425) -> бронь квоты (:1464) -> `_default_image` (:1488).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "18 контрактных тестов этапов (CONTRACT), включая `test_stage_c_image_prompt_uses_joke_not_summary`; подменены только внешние границы (LLM, image-провайдер, Telegram).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00026",
@@ -591,8 +1230,45 @@
       "acceptance": "Выжимка этапа A формируется без потолка длины: числовой лимит больше не передаётся суммаризатору как целевой размер и выжимка не обрезается по прежнему лимиту пайплайна; выжимка остаётся внутренним артефактом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-A-NO-CEILING",
+          "observation": "Сигнатура `_default_summarize` (:1577) без числового target, payload (:1598) без `target_chars`, промпт (:61-67) без требования уложиться в лимит; мутация M4 (вернуть обрезку выжимки) роняет `test_stage_a_summary_has_no_length_ceiling` и `test_long_summary_is_not_truncated_and_feeds_joke_whole`; проба a2: выжимка 9000 символов доходит до B целиком.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_summarize` (:1577) не принимает целевой размер; выжимка остаётся внутренним артефактом и целиком уходит в этап B.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест читает реальный payload выжимки и проверяет отсутствие `target_chars`; отдельный тест на длинную выжимку без обрезки.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00034",
@@ -606,8 +1282,45 @@
       "acceptance": "Выжимка этапа A формируется без потолка длины: числовой лимит больше не передаётся суммаризатору как целевой размер и выжимка не обрезается по прежнему лимиту пайплайна; выжимка остаётся внутренним артефактом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-A-NO-CEILING",
+          "observation": "Сигнатура `_default_summarize` (:1577) без числового target, payload (:1598) без `target_chars`, промпт (:61-67) без требования уложиться в лимит; мутация M4 (вернуть обрезку выжимки) роняет `test_stage_a_summary_has_no_length_ceiling` и `test_long_summary_is_not_truncated_and_feeds_joke_whole`; проба a2: выжимка 9000 символов доходит до B целиком.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_summarize` (:1577) не принимает целевой размер; выжимка остаётся внутренним артефактом и целиком уходит в этап B.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест читает реальный payload выжимки и проверяет отсутствие `target_chars`; отдельный тест на длинную выжимку без обрезки.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00035",
@@ -621,8 +1334,45 @@
       "acceptance": "Выжимка этапа A формируется без потолка длины: числовой лимит больше не передаётся суммаризатору как целевой размер и выжимка не обрезается по прежнему лимиту пайплайна; выжимка остаётся внутренним артефактом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-A-NO-CEILING",
+          "observation": "Сигнатура `_default_summarize` (:1577) без числового target, payload (:1598) без `target_chars`, промпт (:61-67) без требования уложиться в лимит; мутация M4 (вернуть обрезку выжимки) роняет `test_stage_a_summary_has_no_length_ceiling` и `test_long_summary_is_not_truncated_and_feeds_joke_whole`; проба a2: выжимка 9000 символов доходит до B целиком.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_summarize` (:1577) не принимает целевой размер; выжимка остаётся внутренним артефактом и целиком уходит в этап B.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест читает реальный payload выжимки и проверяет отсутствие `target_chars`; отдельный тест на длинную выжимку без обрезки.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00036",
@@ -636,8 +1386,45 @@
       "acceptance": "Выжимка этапа A формируется без потолка длины: числовой лимит больше не передаётся суммаризатору как целевой размер и выжимка не обрезается по прежнему лимиту пайплайна; выжимка остаётся внутренним артефактом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-A-NO-CEILING",
+          "observation": "Сигнатура `_default_summarize` (:1577) без числового target, payload (:1598) без `target_chars`, промпт (:61-67) без требования уложиться в лимит; мутация M4 (вернуть обрезку выжимки) роняет `test_stage_a_summary_has_no_length_ceiling` и `test_long_summary_is_not_truncated_and_feeds_joke_whole`; проба a2: выжимка 9000 символов доходит до B целиком.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_summarize` (:1577) не принимает целевой размер; выжимка остаётся внутренним артефактом и целиком уходит в этап B.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест читает реальный payload выжимки и проверяет отсутствие `target_chars`; отдельный тест на длинную выжимку без обрезки.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00038",
@@ -681,8 +1468,45 @@
       "acceptance": "Этап C собирает image prompt из действующего шаблона картинки и текста прикола этапа B и передаёт его в существующий image-провайдер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-C-IMAGE-PROMPT",
+          "observation": "`render_image_prompt` (:448) и вызов (:1451) собирают prompt из действующего шаблона и прикола; пробы c1, c2, f1, f3; мутация M3 роняет 5 тестов, включая `test_stage_c_image_prompt_uses_joke_not_summary`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`render_image_prompt` (:448) подставляет текст прикола в шаблон; готовый prompt уходит в существующий image-провайдер через `_default_image` (:1645).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактный тест подстановки прикола (не выжимки) и проверка шаблона с двумя `{joke}` -> отказ.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -696,8 +1520,45 @@
       "acceptance": "Доступный бюджет прикола считается автоматически как J = max(0, L - T), где L — эффективный потолок итогового промпта, T — длина шаблона картинки без прикола; при отрицательной разности бюджет равен нулю и это видно в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00049",
@@ -726,8 +1587,45 @@
       "acceptance": "Этап C собирает image prompt из действующего шаблона картинки и текста прикола этапа B и передаёт его в существующий image-провайдер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-C-IMAGE-PROMPT",
+          "observation": "`render_image_prompt` (:448) и вызов (:1451) собирают prompt из действующего шаблона и прикола; пробы c1, c2, f1, f3; мутация M3 роняет 5 тестов, включая `test_stage_c_image_prompt_uses_joke_not_summary`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`render_image_prompt` (:448) подставляет текст прикола в шаблон; готовый prompt уходит в существующий image-провайдер через `_default_image` (:1645).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактный тест подстановки прикола (не выжимки) и проверка шаблона с двумя `{joke}` -> отказ.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00051",
@@ -756,8 +1654,45 @@
       "acceptance": "Этап C собирает image prompt из действующего шаблона картинки и текста прикола этапа B и передаёт его в существующий image-провайдер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-C-IMAGE-PROMPT",
+          "observation": "`render_image_prompt` (:448) и вызов (:1451) собирают prompt из действующего шаблона и прикола; пробы c1, c2, f1, f3; мутация M3 роняет 5 тестов, включая `test_stage_c_image_prompt_uses_joke_not_summary`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`render_image_prompt` (:448) подставляет текст прикола в шаблон; готовый prompt уходит в существующий image-провайдер через `_default_image` (:1645).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактный тест подстановки прикола (не выжимки) и проверка шаблона с двумя `{joke}` -> отказ.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -831,8 +1766,54 @@
       "acceptance": "Заводской промпт этапа B равен дословно «Придумай короткий абсурдный прикол из этой выжимки.» и объявлен отдельным блоком реестра промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROMPT-JOKE-DEFAULT",
+          "observation": "`MEME_JOKE_PROMPT` (:57) совпадает с требованием дословно; отдельный блок реестра `initiative.meme.joke`; `seal_integrity() == {}`; набор заводских текстов изменён ровно на два блока, остальные 109 побайтово идентичны, перепин `FACTORY_SET_SHA256_12` законен.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Реестр промптов объявляет блок `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_factory_prompts_are_exact_and_registered` + 62 passed по реестру и каталогу (audit/completeness/API).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/prompt_registry.py",
+          "observation": "Блок реестра `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "ff4f934b14f725050ef0c8f2de0b139390c925f817a9ab5e51a6260e8023acf8",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -846,8 +1827,54 @@
       "acceptance": "Заводской промпт этапа B равен дословно «Придумай короткий абсурдный прикол из этой выжимки.» и объявлен отдельным блоком реестра промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROMPT-JOKE-DEFAULT",
+          "observation": "`MEME_JOKE_PROMPT` (:57) совпадает с требованием дословно; отдельный блок реестра `initiative.meme.joke`; `seal_integrity() == {}`; набор заводских текстов изменён ровно на два блока, остальные 109 побайтово идентичны, перепин `FACTORY_SET_SHA256_12` законен.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Реестр промптов объявляет блок `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_factory_prompts_are_exact_and_registered` + 62 passed по реестру и каталогу (audit/completeness/API).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/prompt_registry.py",
+          "observation": "Блок реестра `initiative.meme.joke` с дословным заводским текстом.",
+          "type": "code",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "ff4f934b14f725050ef0c8f2de0b139390c925f817a9ab5e51a6260e8023acf8",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -861,8 +1888,45 @@
       "acceptance": "Этап B делает отдельный LLM-вызов, который получает выжимку и возвращает текст прикола; именно этот текст, а не сообщения окна, идёт дальше.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-B-JOKE-CALL",
+          "observation": "`_default_joke` (:1619), шаг `meme_joke`; проба a1 фиксирует отдельный LLM-вызов, получающий выжимку; далее идёт текст прикола, а не сообщения окна.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`_default_joke` (:1619) вызывается из `consider_chat` (:1425); результат этапа B передаётся в этап C.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Живой пайплайн-тест в `tests/test_evol014_meme_initiative.py` плюс контрактные тесты этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -921,8 +1985,45 @@
       "acceptance": "Этап C собирает image prompt из действующего шаблона картинки и текста прикола этапа B и передаёт его в существующий image-провайдер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-STAGE-C-IMAGE-PROMPT",
+          "observation": "`render_image_prompt` (:448) и вызов (:1451) собирают prompt из действующего шаблона и прикола; пробы c1, c2, f1, f3; мутация M3 роняет 5 тестов, включая `test_stage_c_image_prompt_uses_joke_not_summary`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`render_image_prompt` (:448) подставляет текст прикола в шаблон; готовый prompt уходит в существующий image-провайдер через `_default_image` (:1645).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактный тест подстановки прикола (не выжимки) и проверка шаблона с двумя `{joke}` -> отказ.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00073",
@@ -1011,8 +2112,45 @@
       "acceptance": "Потолок длины применяется к итоговому image prompt (шаблон + прикол), а не к выжимке; параметр «Потолок длины промпта, симв.» больше не влияет на длину выжимки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TARGET-FINAL-PROMPT",
+          "observation": "Потолок L применяется только к итоговому prompt (T + длина прикола <= L, пробы f1, f2); выжимка не ограничена (проба a3); M4 подтверждает, что вернуть обрезку выжимки нельзя.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "L участвует только в сборке итогового prompt; параметр «Потолок длины промпта, симв.» больше не влияет на выжимку.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Проверка `T + len(joke) <= L` для шаблона с `{joke}` и без него.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -1026,8 +2164,45 @@
       "acceptance": "Потолок длины применяется к итоговому image prompt (шаблон + прикол), а не к выжимке; параметр «Потолок длины промпта, симв.» больше не влияет на длину выжимки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TARGET-FINAL-PROMPT",
+          "observation": "Потолок L применяется только к итоговому prompt (T + длина прикола <= L, пробы f1, f2); выжимка не ограничена (проба a3); M4 подтверждает, что вернуть обрезку выжимки нельзя.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "L участвует только в сборке итогового prompt; параметр «Потолок длины промпта, симв.» больше не влияет на выжимку.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Проверка `T + len(joke) <= L` для шаблона с `{joke}` и без него.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00089",
@@ -1056,8 +2231,45 @@
       "acceptance": "Доступный бюджет прикола считается автоматически как J = max(0, L - T), где L — эффективный потолок итогового промпта, T — длина шаблона картинки без прикола; при отрицательной разности бюджет равен нулю и это видно в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00094",
@@ -1071,8 +2283,45 @@
       "acceptance": "Доступный бюджет прикола считается автоматически как J = max(0, L - T), где L — эффективный потолок итогового промпта, T — длина шаблона картинки без прикола; при отрицательной разности бюджет равен нулю и это видно в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -1086,8 +2335,45 @@
       "acceptance": "Доступный бюджет прикола считается автоматически как J = max(0, L - T), где L — эффективный потолок итогового промпта, T — длина шаблона картинки без прикола; при отрицательной разности бюджет равен нулю и это видно в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00098",
@@ -1101,8 +2387,45 @@
       "acceptance": "Доступный бюджет прикола считается автоматически как J = max(0, L - T), где L — эффективный потолок итогового промпта, T — длина шаблона картинки без прикола; при отрицательной разности бюджет равен нулю и это видно в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-J-BUDGET",
+          "observation": "Единственная функция `resolve_meme_budget` (:461), J = max(0, L - T); пробы b2, e1, e2, f2, f4 и матричный тест дают J=871 при L=900; при отрицательной разности J=0 и код `no_joke_budget` без вызова LLM.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`resolve_meme_budget` (:461) считает J = max(0, L - T) от эффективных настроек; других расчётов бюджета нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_budget_matrix_is_one_computation` - матрица J = max(0, L - T); кейсы J=0 и J=1.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00107",
@@ -1131,8 +2454,45 @@
       "acceptance": "Защитная финальная обрезка/отказ применяется только как страховка при превышении J и отмечается в диагностике отдельно; основным механизмом остаётся инструкция модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TRUNCATION-GUARD",
+          "observation": "`trim_joke` (:503) срабатывает только после генерации, ставит флаг `trimmed`; пробы d1-d6 (в т.ч. обрезка без пробелов ровно до J); мутация M2 роняет `test_protective_trim_only_when_model_overshoots`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`trim_joke` (:503) - страховка после генерации с отдельным флагом `trimmed`; основным механизмом остаётся инструкция.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест перелёта: `trimmed` только при превышении J, при нормальном ответе флаг не ставится.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00109",
@@ -1146,8 +2506,45 @@
       "acceptance": "Промпт этапа B получает явную инструкцию «не более N символов», где N — вычисленный J; ограничение передаётся модели до генерации, а не применяется к готовому тексту.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-INSTRUCTION",
+          "observation": "`joke_instruction` (:497) с директивой `JOKE_LENGTH_DIRECTIVE` (:74) кладёт в промпт «не более N символов» с N = J до генерации; проба b1 фиксирует N=871 при L=900; мутация M1 роняет 2 теста, включая `test_stage_b_instruction_carries_exact_j_budget`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`joke_instruction` (:497) и `JOKE_LENGTH_DIRECTIVE` (:74) передают модели точный N = J.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_stage_b_instruction_carries_exact_j_budget` читает дословный N = J в инструкции этапа B.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1161,8 +2558,45 @@
       "acceptance": "Защитная финальная обрезка/отказ применяется только как страховка при превышении J и отмечается в диагностике отдельно; основным механизмом остаётся инструкция модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-LEN-TRUNCATION-GUARD",
+          "observation": "`trim_joke` (:503) срабатывает только после генерации, ставит флаг `trimmed`; пробы d1-d6 (в т.ч. обрезка без пробелов ровно до J); мутация M2 роняет `test_protective_trim_only_when_model_overshoots`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`trim_joke` (:503) - страховка после генерации с отдельным флагом `trimmed`; основным механизмом остаётся инструкция.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тест перелёта: `trimmed` только при превышении J, при нормальном ответе флаг не ставится.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -1551,8 +2985,63 @@
       "acceptance": "После успешной генерации бот отправляет только изображение: без текстовой подписи, без промпта, без пересказа прикола и без служебного follow-up.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-IMAGE-ONLY",
+          "observation": "`_meme_sender` (`services/initiative_observer.py:1147-1171`) отправляет ровно одно фото без caption; пробы dl2-dl5 подтверждают отсутствие подписи, промпта, пересказа и follow-up.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Успешный исход пайплайна доходит до отправки ровно одного изображения, служебные тексты не попадают в исходящие.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_image_only_delivery_keeps_joke_and_prompt_internal` + существующий `tests/test_p0_meme_image_only.py`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "`_meme_sender` (:1147-1171) отправляет ровно одно фото без caption.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "2ca58fc42e1fbee41edac2c66b9a80f3631902bb"
+        },
+        {
+          "ref": "tests/test_p0_meme_image_only.py",
+          "observation": "Существующий тест image-only доставки остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "c52f1aa49fd9d520b4d5648c2beab9a5f5c00fd950390ca59414f3d369ce33be",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -1566,8 +3055,63 @@
       "acceptance": "После успешной генерации бот отправляет только изображение: без текстовой подписи, без промпта, без пересказа прикола и без служебного follow-up.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-IMAGE-ONLY",
+          "observation": "`_meme_sender` (`services/initiative_observer.py:1147-1171`) отправляет ровно одно фото без caption; пробы dl2-dl5 подтверждают отсутствие подписи, промпта, пересказа и follow-up.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Успешный исход пайплайна доходит до отправки ровно одного изображения, служебные тексты не попадают в исходящие.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_image_only_delivery_keeps_joke_and_prompt_internal` + существующий `tests/test_p0_meme_image_only.py`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "`_meme_sender` (:1147-1171) отправляет ровно одно фото без caption.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "2ca58fc42e1fbee41edac2c66b9a80f3631902bb"
+        },
+        {
+          "ref": "tests/test_p0_meme_image_only.py",
+          "observation": "Существующий тест image-only доставки остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "c52f1aa49fd9d520b4d5648c2beab9a5f5c00fd950390ca59414f3d369ce33be",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00167",
@@ -1581,8 +3125,63 @@
       "acceptance": "После успешной генерации бот отправляет только изображение: без текстовой подписи, без промпта, без пересказа прикола и без служебного follow-up.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-IMAGE-ONLY",
+          "observation": "`_meme_sender` (`services/initiative_observer.py:1147-1171`) отправляет ровно одно фото без caption; пробы dl2-dl5 подтверждают отсутствие подписи, промпта, пересказа и follow-up.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Успешный исход пайплайна доходит до отправки ровно одного изображения, служебные тексты не попадают в исходящие.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_image_only_delivery_keeps_joke_and_prompt_internal` + существующий `tests/test_p0_meme_image_only.py`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "`_meme_sender` (:1147-1171) отправляет ровно одно фото без caption.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "2ca58fc42e1fbee41edac2c66b9a80f3631902bb"
+        },
+        {
+          "ref": "tests/test_p0_meme_image_only.py",
+          "observation": "Существующий тест image-only доставки остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "c52f1aa49fd9d520b4d5648c2beab9a5f5c00fd950390ca59414f3d369ce33be",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00168",
@@ -1596,8 +3195,63 @@
       "acceptance": "После успешной генерации бот отправляет только изображение: без текстовой подписи, без промпта, без пересказа прикола и без служебного follow-up.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-IMAGE-ONLY",
+          "observation": "`_meme_sender` (`services/initiative_observer.py:1147-1171`) отправляет ровно одно фото без caption; пробы dl2-dl5 подтверждают отсутствие подписи, промпта, пересказа и follow-up.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Успешный исход пайплайна доходит до отправки ровно одного изображения, служебные тексты не попадают в исходящие.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_image_only_delivery_keeps_joke_and_prompt_internal` + существующий `tests/test_p0_meme_image_only.py`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "`_meme_sender` (:1147-1171) отправляет ровно одно фото без caption.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "2ca58fc42e1fbee41edac2c66b9a80f3631902bb"
+        },
+        {
+          "ref": "tests/test_p0_meme_image_only.py",
+          "observation": "Существующий тест image-only доставки остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "c52f1aa49fd9d520b4d5648c2beab9a5f5c00fd950390ca59414f3d369ce33be",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00169",
@@ -1611,8 +3265,63 @@
       "acceptance": "После успешной генерации бот отправляет только изображение: без текстовой подписи, без промпта, без пересказа прикола и без служебного follow-up.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-IMAGE-ONLY",
+          "observation": "`_meme_sender` (`services/initiative_observer.py:1147-1171`) отправляет ровно одно фото без caption; пробы dl2-dl5 подтверждают отсутствие подписи, промпта, пересказа и follow-up.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Успешный исход пайплайна доходит до отправки ровно одного изображения, служебные тексты не попадают в исходящие.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_image_only_delivery_keeps_joke_and_prompt_internal` + существующий `tests/test_p0_meme_image_only.py`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "`_meme_sender` (:1147-1171) отправляет ровно одно фото без caption.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "2ca58fc42e1fbee41edac2c66b9a80f3631902bb"
+        },
+        {
+          "ref": "tests/test_p0_meme_image_only.py",
+          "observation": "Существующий тест image-only доставки остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "c52f1aa49fd9d520b4d5648c2beab9a5f5c00fd950390ca59414f3d369ce33be",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00172",
@@ -1626,8 +3335,45 @@
       "acceptance": "При неуспехе допускается короткое сообщение об ошибке; служебные детали этапов в пользовательский чат не уходят.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-DELIVERY-ERROR-ONLY",
+          "observation": "Провалы этапов A, B и C не отправляют в чат ничего (пробы s1-s3); служебные детали этапов в пользовательский чат не уходят.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Провал любого этапа завершает попытку без пользовательской отправки; короткая ошибка допустима, детали - нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Тесты провалов этапов проверяют отсутствие исходящих сообщений и корректный код причины.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00176",
@@ -1656,8 +3402,45 @@
       "acceptance": "Поведение не захардкожено под конкретный чат или конкретный мем: в коде нет привязки логики пайплайна к идентификатору чата или мема.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROHIB-NO-HARDCODE",
+          "observation": "В изменённом коде нет привязки логики к chat_id, конкретному пользователю или конкретному мему (проверено по диффу `services/meme_initiative.py`).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Логика пайплайна не содержит идентификаторов чата, пользователя или мема.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Пробы и тесты используют разные chat_id/фикстуры без специальных ветвей в коде.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00179",
@@ -1671,8 +3454,45 @@
       "acceptance": "Поведение не захардкожено под конкретный чат или конкретный мем: в коде нет привязки логики пайплайна к идентификатору чата или мема.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROHIB-NO-HARDCODE",
+          "observation": "В изменённом коде нет привязки логики к chat_id, конкретному пользователю или конкретному мему (проверено по диффу `services/meme_initiative.py`).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Логика пайплайна не содержит идентификаторов чата, пользователя или мема.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Пробы и тесты используют разные chat_id/фикстуры без специальных ветвей в коде.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00180",
@@ -1686,8 +3506,45 @@
       "acceptance": "Новых искусственных бюджетов, конфликтующих с настроенным лимитом, не вводится: длина прикола управляется только посчитанным J.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROHIB-NO-EXTRA-BUDGET",
+          "observation": "Единственный лимит длины - J; новых квот и капов инструкций не введено (проверено по диффу и по отсутствию срезов текста в payload).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Длина прикола управляется только посчитанным J; дополнительных квот на инструкции нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Матричный тест бюджета - единственный источник ограничения длины.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00181",
@@ -1701,8 +3558,45 @@
       "acceptance": "Пайплайн переработан внутри существующей инициативы: отдельная параллельная ветка генерации мемов не создаётся, авто-путь идёт через тот же код.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-PROHIB-NO-DUP-PIPELINE",
+          "observation": "Единственная точка запуска `consider_chat` (:1239) и авто-путь `on_initiative_cycle` (:1657); второй параллельной ветки генерации нет, `manual=True` использует тот же код.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Пайплайн переработан внутри существующей инициативы; отдельного пути генерации мемов не создано.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контрактные тесты идут через тот же `consider_chat`, `manual=True` проверен на том же пути.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00182",
@@ -1716,8 +3610,45 @@
       "acceptance": "Существующие настройки инициативы, аналитика мемов и глобальные/локальные переопределения продолжают работать без регрессии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-NOREGRESSION-SETTINGS",
+          "observation": "Настройки инициативы, день, квота и публикация не изменены; реестр и каталог промптов - 62 passed; широкий прогон `pytest tests -k \"meme or initiative or prompt or registry\"` - 1253 passed, 3 failed, причём те же три падают на базе 609a3c33 (вне P1).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Изменения ограничены пайплайном; существующие настройки, аналитика мемов и слои переопределений сохранены.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Нерегрессионный прогон против базовой линии 609a3c33: те же три падения, кандидат их не вызывает.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00183",
@@ -1731,8 +3662,45 @@
       "acceptance": "Существующие настройки инициативы, аналитика мемов и глобальные/локальные переопределения продолжают работать без регрессии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-NOREGRESSION-SETTINGS",
+          "observation": "Настройки инициативы, день, квота и публикация не изменены; реестр и каталог промптов - 62 passed; широкий прогон `pytest tests -k \"meme or initiative or prompt or registry\"` - 1253 passed, 3 failed, причём те же три падают на базе 609a3c33 (вне P1).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Изменения ограничены пайплайном; существующие настройки, аналитика мемов и слои переопределений сохранены.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Нерегрессионный прогон против базовой линии 609a3c33: те же три падения, кандидат их не вызывает.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00184",
@@ -1746,8 +3714,45 @@
       "acceptance": "Существующие настройки инициативы, аналитика мемов и глобальные/локальные переопределения продолжают работать без регрессии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-NOREGRESSION-SETTINGS",
+          "observation": "Настройки инициативы, день, квота и публикация не изменены; реестр и каталог промптов - 62 passed; широкий прогон `pytest tests -k \"meme or initiative or prompt or registry\"` - 1253 passed, 3 failed, причём те же три падают на базе 609a3c33 (вне P1).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Изменения ограничены пайплайном; существующие настройки, аналитика мемов и слои переопределений сохранены.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Нерегрессионный прогон против базовой линии 609a3c33: те же три падения, кандидат их не вызывает.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00188",
@@ -1776,8 +3781,45 @@
       "acceptance": "Журнал попыток и логи различают четыре этапа (выжимка, генерация прикола, генерация картинки, публикация) отдельными записями; пропущенный этап виден как пропуск, упавший — как ошибка со своим кодом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-STAGE-TAXONOMY",
+          "observation": "Серверная часть §7 подтверждена: `STAGE_JOKE` (:146), `compact_facts` (:1145), `parse_attempt_facts` (:1156), `_finish` (:1173), `analytics_snapshot` (:1729); пробы an1-an3; миграций нет. Ярлыки стадии в вебе - отдельная строка слайса MEME-UI-FIELDS.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Журнал попыток пишет отдельную запись для выжимки, прикола, картинки и публикации; пропуск и ошибка различимы по коду этапа.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`, `test_compact_facts_roundtrip_and_parse_guard`, `test_analytics_snapshot_exposes_joke_stage_without_texts`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00193",
@@ -1791,8 +3833,45 @@
       "acceptance": "Журнал попыток и логи различают четыре этапа (выжимка, генерация прикола, генерация картинки, публикация) отдельными записями; пропущенный этап виден как пропуск, упавший — как ошибка со своим кодом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-STAGE-TAXONOMY",
+          "observation": "Серверная часть §7 подтверждена: `STAGE_JOKE` (:146), `compact_facts` (:1145), `parse_attempt_facts` (:1156), `_finish` (:1173), `analytics_snapshot` (:1729); пробы an1-an3; миграций нет. Ярлыки стадии в вебе - отдельная строка слайса MEME-UI-FIELDS.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Журнал попыток пишет отдельную запись для выжимки, прикола, картинки и публикации; пропуск и ошибка различимы по коду этапа.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`, `test_compact_facts_roundtrip_and_parse_guard`, `test_analytics_snapshot_exposes_joke_stage_without_texts`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00194",
@@ -1806,8 +3885,45 @@
       "acceptance": "Журнал попыток и логи различают четыре этапа (выжимка, генерация прикола, генерация картинки, публикация) отдельными записями; пропущенный этап виден как пропуск, упавший — как ошибка со своим кодом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-STAGE-TAXONOMY",
+          "observation": "Серверная часть §7 подтверждена: `STAGE_JOKE` (:146), `compact_facts` (:1145), `parse_attempt_facts` (:1156), `_finish` (:1173), `analytics_snapshot` (:1729); пробы an1-an3; миграций нет. Ярлыки стадии в вебе - отдельная строка слайса MEME-UI-FIELDS.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Журнал попыток пишет отдельную запись для выжимки, прикола, картинки и публикации; пропуск и ошибка различимы по коду этапа.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`, `test_compact_facts_roundtrip_and_parse_guard`, `test_analytics_snapshot_exposes_joke_stage_without_texts`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00195",
@@ -1821,8 +3937,45 @@
       "acceptance": "Журнал попыток и логи различают четыре этапа (выжимка, генерация прикола, генерация картинки, публикация) отдельными записями; пропущенный этап виден как пропуск, упавший — как ошибка со своим кодом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-STAGE-TAXONOMY",
+          "observation": "Серверная часть §7 подтверждена: `STAGE_JOKE` (:146), `compact_facts` (:1145), `parse_attempt_facts` (:1156), `_finish` (:1173), `analytics_snapshot` (:1729); пробы an1-an3; миграций нет. Ярлыки стадии в вебе - отдельная строка слайса MEME-UI-FIELDS.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Журнал попыток пишет отдельную запись для выжимки, прикола, картинки и публикации; пропуск и ошибка различимы по коду этапа.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`, `test_compact_facts_roundtrip_and_parse_guard`, `test_analytics_snapshot_exposes_joke_stage_without_texts`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00198",
@@ -1836,8 +3989,45 @@
       "acceptance": "По журналу и логам видно, какой именно этап упал и какой был пропущен, без смешивания с причинами пропуска всей инициативы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-FAIL-SKIP",
+          "observation": "Упавший этап фиксируется собственным кодом (`joke_generation_failed`, `joke_empty`, `no_joke_budget`, `template_empty`), пропущенный - отдельной записью; смешивания с причинами пропуска всей инициативы нет (пробы an1-an3).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Коды `SKIP_*`/стадии разделяют падение этапа и пропуск инициативы.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_joke_failure_is_its_own_stage_and_costs_no_slot`, `test_zero_budget_and_empty_joke_are_distinct_skips`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00199",
@@ -1851,8 +4041,45 @@
       "acceptance": "По журналу и логам видно, какой именно этап упал и какой был пропущен, без смешивания с причинами пропуска всей инициативы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-FAIL-SKIP",
+          "observation": "Упавший этап фиксируется собственным кодом (`joke_generation_failed`, `joke_empty`, `no_joke_budget`, `template_empty`), пропущенный - отдельной записью; смешивания с причинами пропуска всей инициативы нет (пробы an1-an3).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "Коды `SKIP_*`/стадии разделяют падение этапа и пропуск инициативы.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_joke_failure_is_its_own_stage_and_costs_no_slot`, `test_zero_budget_and_empty_joke_are_distinct_skips`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00200",
@@ -1866,8 +4093,45 @@
       "acceptance": "Для попытки видно, какой итоговый шаблон использовался, какой лимит был посчитан для прикола и какой фактический размер прикола получился.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-TEMPLATE-BUDGET",
+          "observation": "В фактах попытки есть использованный шаблон, посчитанный J и фактическая длина прикола (пробы an1-an3); проверено через `routes._meme_settings_payload` и журнал без текстов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`compact_facts`/`parse_attempt_facts` несут шаблон, J и длину прикола без текста прикола.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00201",
@@ -1881,8 +4145,45 @@
       "acceptance": "Для попытки видно, какой итоговый шаблон использовался, какой лимит был посчитан для прикола и какой фактический размер прикола получился.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-TEMPLATE-BUDGET",
+          "observation": "В фактах попытки есть использованный шаблон, посчитанный J и фактическая длина прикола (пробы an1-an3); проверено через `routes._meme_settings_payload` и журнал без текстов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`compact_facts`/`parse_attempt_facts` несут шаблон, J и длину прикола без текста прикола.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00202",
@@ -1896,8 +4197,45 @@
       "acceptance": "Для попытки видно, какой итоговый шаблон использовался, какой лимит был посчитан для прикола и какой фактический размер прикола получился.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ANALYTICS-TEMPLATE-BUDGET",
+          "observation": "В фактах попытки есть использованный шаблон, посчитанный J и фактическая длина прикола (пробы an1-an3); проверено через `routes._meme_settings_payload` и журнал без текстов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`compact_facts`/`parse_attempt_facts` несут шаблон, J и длину прикола без текста прикола.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "`test_four_stage_rows_carry_template_budget_and_joke_length`.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00208",
@@ -1926,8 +4264,27 @@
       "acceptance": "Приёмка 1: мем-инициатива работает через три этапа — выжимка -> прикол -> картинка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-01",
+          "observation": "Приёмка 1 подтверждена: три этапа в одном проходе (пробы a1, c1; тест живого пайплайна); мутация M3 (этап C на выжимке) ловится тестами.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00211",
@@ -1941,8 +4298,27 @@
       "acceptance": "Приёмка 2: выжимка больше не режется потолком длины.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-02",
+          "observation": "Приёмка 2 подтверждена: выжимка без потолка - payload без `target_chars` (проба a2), мутация M4 ловится двумя тестами.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00212",
@@ -2001,8 +4377,27 @@
       "acceptance": "Приёмка 6: потолок длины применяется к итоговому image prompt, а не к выжимке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-06",
+          "observation": "Приёмка 6 подтверждена: потолок L применяется к итоговому prompt, `T + len(joke) <= L` (пробы f1, f2), выжимка не ограничена (проба a3).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00216",
@@ -2016,8 +4411,27 @@
       "acceptance": "Приёмка 7: для прикола автоматически рассчитывается допустимая длина.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-07",
+          "observation": "Приёмка 7 подтверждена: J = max(0, L - T) считается автоматически (матричный тест), при отрицательной разности J=0 и код `no_joke_budget`.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00217",
@@ -2031,8 +4445,27 @@
       "acceptance": "Приёмка 8: модель генерации прикола получает явное ограничение по длине.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-08",
+          "observation": "Приёмка 8 подтверждена: инструкция «не более N символов» с N = J уходит модели до генерации (проба b1, мутация M1).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00218",
@@ -2046,8 +4479,27 @@
       "acceptance": "Приёмка 9: после успешной генерации бот отправляет только изображение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-09",
+          "observation": "Приёмка 9 подтверждена: после успеха уходит ровно одно изображение без caption и служебных текстов (пробы dl2-dl5).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00219",
@@ -2092,7 +4544,26 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-ACC-12 (строка остаётся PENDING)",
+          "observation": "ЧАСТИЧНО: серверная часть §7 (журнал и логи по четырём этапам) подтверждена на b272a63b; видимая в админке аналитика получает метку стадии «прикол» только в P4/P5 (слайс MEME-UI-FIELDS), поэтому приёмка 12 не закрывается.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "services/meme_initiative.py",
+          "observation": "`analytics_snapshot()` (:1729) отдаёт стадию `joke`; веб-ярлык этой стадии ещё не добавлен.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     },
     {
       "source_id": "L00222",
@@ -2106,13 +4577,32 @@
       "acceptance": "Приёмка 13: существующие механизмы инициативы и публикации не сломаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p1-review.md - приёмочный лист, строка MEME-ACC-13",
+          "observation": "Приёмка 13 подтверждена нерегрессионным прогоном: 1253 passed, 3 failed, и те же три теста падают на базовой линии 609a3c33 - это предсуществующие дефекты вне P1, настройки и публикация не изменены.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
+          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+        },
+        {
+          "ref": "reports/w-p1-core.md - отчёт Builder P1",
+          "observation": "Отчёт Builder по слайсу MEME-PIPE-CORE: изменения пайплайна, реестра промптов и тестов, прогоны 69/1253/62.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-core.md",
+          "artifact_sha256": "57bd72d6c98b87a469e4436ef94b316d9a93eb3811ef3655fa720efe3e22594a",
+          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        }
+      ]
     }
   ],
   "owner_input_id": "OI-2026-11-03-MEME-PIPELINE-REFACTOR",
   "task_id": "meme-pipeline-refactor-01",
-  "source_note": "Дословный снимок приоритетной задачи владельца (plans/current_task.md:4368-4577). Строки 210-222 — 13 критериев приёмки §8, каждый отдельным req_id (MEME-ACC-01..13). Строки 18-204 — реализационные клаузы §1-§7; ни одна не сведена к «остаточному бэклогу». Заголовки и метаданные снимка помечены context с конкретной причиной и указанием строк, где лежит самое обязательство. Прозаические строки без маркера списка, содержащие обязательства (17, 22, 30, 39, 42, 82, 84, 91, 100, 103, 105, 132, 142, 150, 151, 204), вынесены в additional_requirements с точной строкой и хешем. Строки-подводки 163-164 («Сохраняем ранее зафиксированное правило:») и 197 («Нужно видеть:») самостоятельных обязательств не несут — их содержание разобрано строками 165-172 и 198-202.",
+  "source_note": "Дословный снимок приоритетной задачи владельца (plans/current_task.md:4368-4577). Строки 210-222 — 13 критериев приёмки §8, каждый отдельным req_id (MEME-ACC-01..13). Строки 18-204 — реализационные клаузы §1-§7; ни одна не сведена к «остаточному бэклогу». Заголовки и метаданные снимка помечены context с конкретной причиной и указанием строк, где лежит самое обязательство. Прозаические строки без маркера списка, содержащие обязательства (17, 22, 30, 39, 42, 82, 84, 91, 100, 103, 105, 132, 142, 150, 151, 204), вынесены в additional_requirements с точной строкой и хешем. Строки-подводки 163-164 («Сохраняем ранее зафиксированное правило:») и 197 («Нужно видеть:») самостоятельных обязательств не несут — их содержание разобрано строками 165-172 и 198-202. Статус 03.11.2026: P1 MEME-PIPE-CORE слит в evol/impl коммитом 242fbd38 (кандидат b272a63b, независимое ревью Approved - reports/w-p1-review.md); строки, целиком подтверждённые на этом кандидате, помечены VERIFIED с candidate-bound доказательствами. P2 и P3 в работе (витрина и карточка web, админская команда /meme включая автоудаление сообщения команды). P4 заблокирован web-локом линии COG-MAP S3: файлы web/index.html и web/app.js заняты другим worktree. Известный дефект P4: устаревшая подпись в web/index.html:1789 («считается ДО выжимки, без последующей обрезки») больше не описывает поведение, `summary_target` всегда «-»; при правке карточки показываются три числа: эффективный потолок L, длина шаблона T и бюджет прикола J. Остаются PENDING строки слайсов MEME-UI-FIELDS (редактируемые промпты, диагностика L/T/J, веб-ярлыки стадий), MEME-API-SCOPE, MEME-MANUAL-CMD (включая автоудаление) и приёмки 3, 4, 5, 10, 11, 12.",
   "evidence_convention": "Strict: evidence[].artifact_path — реальный файл репозитория, evidence[].candidate_commit — проверяемый кандидат; для устойчивых отчётов добавляется artifact_sha256. PENDING-строки не получают VERIFIED без candidate-bound доказательства.",
   "live_policy_note": "PET_PROJECT (AGENTS.md проекта): агентские проверки обязательны; реальный показ мема в живом чате — добровольное наблюдение владельца, не блокирует релиз. live_required=false для всех строк.",
   "amendments": [
