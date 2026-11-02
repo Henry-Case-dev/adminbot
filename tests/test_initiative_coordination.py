@@ -14,10 +14,14 @@ TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-03-INITIATIVE-INDEPENDENCE
 from __future__ import annotations
 
 import asyncio
+import ast
 import inspect
+import json
 import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -1591,3 +1595,650 @@ def test_claim_table_absent_is_honest_for_both_mechanisms(tmp_path):
         CHAT, pub.KIND_TEXT_INITIATIVE, now=NOW_TS, interval_seconds=1800))
     assert decision.granted is True
     assert decision.coordination == pub.COORDINATION_DEGRADED
+
+
+# ═══ 6. остальные sender'ы текста: один порядок координации (T1–T5) ═════════
+#
+# FINDING (review P8, 03.11.2026): `handle_initiative` — единственный шов
+# отправки текста, но координация стояла у вызывающего, и четыре вызова шли
+# мимо брони: делегированный кандидат nostalgia, legacy-отправка nostalgia
+# (K1/K3 OFF), heartbeat намерений и реальный прогон админской диагностики.
+# Обе стороны спам-пары были живыми. Ниже — доказательство, что каждый из них
+# идёт тем же порядком: precheck → acquire → publish_guard → release.
+
+#: Имена, под которыми шов отправки текста вызывается в продакшн-коде.
+#: `initiative_entry` — DI-параметр `_run_initiative_candidate`
+#: (memory_maintenance.py): фактически это тот же `handle_initiative`.
+SEAM_NAMES = frozenset({"handle_initiative", "initiative_entry"})
+
+#: Каталоги вне продакшн-кода (тесты, планы, вендоры, снимки).
+_SEAM_SKIP_DIRS = frozenset({
+    "tests", "plans", "docs", "node_modules", ".git", ".venv", "venv",
+    ".pytest_cache", "backups", "probes_full",
+})
+
+
+def _claim_store(db) -> pub.SqliteClaimStore:
+    """Бронь публикации ТОГО ЖЕ файла, что у DatabaseService."""
+    return pub.SqliteClaimStore(str(db.db_path))
+
+
+def _callee_name(func) -> str:
+    if isinstance(func, ast.Attribute):
+        return str(func.attr)
+    if isinstance(func, ast.Name):
+        return str(func.id)
+    return ""
+
+
+def _read_source(path) -> str:
+    """Чтение модуля для AST (BOM в начале файла — не ошибка разбора)."""
+    return Path(path).read_text(encoding="utf-8-sig")
+
+
+def _seam_call_sites(paths) -> list[str]:
+    """Все вызовы шва отправки в перечисленных файлах (path:line)."""
+    sites: list[str] = []
+    for path in paths:
+        tree = ast.parse(_read_source(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and \
+                    _callee_name(node.func) in SEAM_NAMES:
+                sites.append("%s:%d" % (Path(path).as_posix(), node.lineno))
+    return sites
+
+
+def _unguarded_seam_calls(paths) -> list[str]:
+    """Вызовы шва БЕЗ `publish_guard=` — публикация прошла бы мимо брони.
+
+    `**kwargs` в вызове тоже нарушение: аргумент невозможно проверить, значит
+    новая точка отправки может тихо обойти координацию.
+    """
+    offenders: list[str] = []
+    for path in paths:
+        tree = ast.parse(_read_source(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if _callee_name(node.func) not in SEAM_NAMES:
+                continue
+            if "publish_guard" in {kw.arg for kw in node.keywords}:
+                continue
+            offenders.append("%s:%d" % (Path(path).as_posix(), node.lineno))
+    return offenders
+
+
+def _production_python_files() -> list[str]:
+    root = Path(__file__).resolve().parent.parent
+    files: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        parts = set(path.relative_to(root).parts[:-1])
+        if parts & _SEAM_SKIP_DIRS:
+            continue
+        files.append(str(path))
+    return files
+
+
+def _nostalgia_worker(db, bot, monkeypatch, *, text="кстати, помню концерт"):
+    from services import nostalgia_worker as nw
+    from tests import test_nostalgia_worker as nwt
+    worker = nwt._worker(db, nwt._FakeLLM(text),
+                         values={"memory.nostalgia_enabled": True},
+                         monkeypatch=monkeypatch, bot=bot)
+    return nw, nwt, worker
+
+
+def _nostalgia_clock(monkeypatch, nwt) -> int:
+    """Время nostalgia и координатора — одно (иначе зазор не сравнить)."""
+    from services import nostalgia_worker as nw
+    monkeypatch.setattr(nw, "_now_ts", lambda: nwt.NOW)
+    monkeypatch.setattr(nw, "_local_hour", lambda ts, tz=None: 12)
+    monkeypatch.setattr(pub, "now_ts", lambda: nwt.NOW)
+    return int(nwt.NOW)
+
+
+def test_t1_nostalgia_delegated_takes_claim_and_hands_guard(tmp_path,
+                                                            monkeypatch):
+    """T1: делегированный кандидат nostalgia берёт бронь и отдаёт guard.
+
+    Без этого он отправлял мимо брони: мем не видел текст, текст не видел мем.
+    """
+    from services import direct_chat_service as dcs
+    from services.database import DatabaseService
+
+    seen: dict = {}
+    probe: dict = {}
+    store_holder: dict = {}
+
+    async def _fake_handle(*, publish_guard=None, **_kwargs):
+        seen["guard"] = publish_guard
+        seen["refusal"] = (await publish_guard()
+                           if publish_guard is not None else "no-guard")
+        # Состояние брони В МОМЕНТ отправки: без guard аренда осталась бы
+        # `claimed`, то есть отправка прошла бы без разрешения.
+        probe.update(store_holder["store"].snapshot(CHAT))
+        if seen["refusal"] is not None:
+            return {"status": "cancelled", "reason_code": seen["refusal"]}
+        return {"status": "sent", "delivery_kind": "text"}
+
+    monkeypatch.setattr(dcs, "handle_initiative", _fake_handle)
+
+    async def scenario():
+        db = DatabaseService(str(tmp_path / "t1_delegated.db"))
+        await db.initialize()
+        try:
+            store = _claim_store(db)
+            store_holder["store"] = store
+            assert store.table_present()      # миграция v41 применилась
+            bot = SimpleNamespace(id=1)
+            _nw, _nwt, worker = _nostalgia_worker(db, bot, monkeypatch)
+            result = await worker._delegate_initiative(
+                CHAT, "текст", {"kind": "year_back", "fact_id": None})
+            return result, store.snapshot(CHAT)
+        finally:
+            await db.close()
+
+    result, snapshot = asyncio.run(scenario())
+    assert seen.get("guard") is not None         # guard передан в шов
+    assert seen["refusal"] is None               # бронь разрешила отправку
+    assert probe["state"] == "sending"           # `claimed → sending` до send
+    assert probe["holder_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert result["status"] == "sent"
+    assert snapshot["state"] == "released"
+    assert snapshot["last_publish_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert snapshot["last_publish_ts"] is not None
+
+
+def test_t1_nostalgia_delegated_refusal_sends_nothing(tmp_path, monkeypatch):
+    """T1 (отказ): бронь занята другим механизмом → шов не вызывается."""
+    from services import direct_chat_service as dcs
+    from services.database import DatabaseService
+
+    calls: list = []
+
+    async def _boom(**_kwargs):
+        calls.append(1)
+        raise AssertionError("handle_initiative при отказе брони не зовётся")
+
+    monkeypatch.setattr(dcs, "handle_initiative", _boom)
+
+    async def scenario():
+        db = DatabaseService(str(tmp_path / "t1_refused.db"))
+        await db.initialize()
+        try:
+            store = _claim_store(db)
+            other = store.acquire(chat_id=CHAT,
+                                  holder_kind=pub.KIND_MEME_INITIATIVE,
+                                  now=NOW_TS)
+            assert other.granted
+            assert store.begin_sending(chat_id=CHAT, claim_id=other.claim_id,
+                                       now=NOW_TS).granted
+            _nw, _nwt, worker = _nostalgia_worker(
+                db, SimpleNamespace(id=1), monkeypatch)
+            result = await worker._delegate_initiative(
+                CHAT, "текст", {"kind": "year_back", "fact_id": None})
+            return result, store.snapshot(CHAT)
+        finally:
+            await db.close()
+
+    result, snapshot = asyncio.run(scenario())
+    assert calls == []                            # отправки не было
+    assert result["status"] == "cancelled"
+    assert result["reason_code"] == pub.REASON_CONFLICT
+    assert snapshot["state"] == "sending"         # чужая бронь не тронута
+    assert snapshot["holder_kind"] == pub.KIND_MEME_INITIATIVE
+
+
+def test_t1_degraded_without_claim_table_still_sends(tmp_path, monkeypatch):
+    """T1 (деградация §3.6): нет таблицы брони → текст всё равно публикуется."""
+    from services import direct_chat_service as dcs
+    from services.database import DatabaseService
+
+    seen: dict = {}
+
+    async def _fake_handle(*, publish_guard=None, **_kwargs):
+        seen["guard"] = publish_guard
+        seen["refusal"] = (await publish_guard()
+                           if publish_guard is not None else "no-guard")
+        return {"status": "sent", "delivery_kind": "text"}
+
+    monkeypatch.setattr(dcs, "handle_initiative", _fake_handle)
+
+    async def scenario():
+        db = DatabaseService(str(tmp_path / "t1_degraded.db"))
+        await db.initialize()
+        try:
+            store = _claim_store(db)
+            await db.db.execute("DROP TABLE %s" % pub.CLAIM_TABLE)
+            await db.db.commit()
+            assert store.table_present() is False
+            _nw, _nwt, worker = _nostalgia_worker(
+                db, SimpleNamespace(id=1), monkeypatch)
+            view = await pub.open_text_publication(
+                db, CHAT, holder_ref="degraded-probe")
+            result = await worker._delegate_initiative(
+                CHAT, "текст", {"kind": "year_back", "fact_id": None})
+            return result, view
+        finally:
+            await db.close()
+
+    result, view = asyncio.run(scenario())
+    assert view.coordination == pub.COORDINATION_DEGRADED
+    assert view.granted is True          # основной механизм не выключен
+    assert seen.get("guard") is not None
+    assert seen["refusal"] is None
+    assert result["status"] == "sent"
+
+
+def test_t2_nostalgia_legacy_writes_watermark_visible_to_meme(tmp_path,
+                                                             monkeypatch):
+    """T2 (направление «мем после nostalgia»): legacy-отправка пишет watermark.
+
+    K1/K3 OFF — отправка идёт напрямую `bot.send_message`; без брони она была
+    невидима мему, и тот публиковал сразу после неё.
+    """
+    from services import nostalgia_worker as nw
+    from services.database import DatabaseService
+
+    async def scenario():
+        from tests import test_nostalgia_worker as nwt
+        db = DatabaseService(str(tmp_path / "t2_legacy.db"))
+        await db.initialize()
+        try:
+            now = _nostalgia_clock(monkeypatch, nwt)
+            monkeypatch.setattr(nw, "_intent_delegation_enabled",
+                                lambda: False)
+            store = _claim_store(db)
+
+            class _ProbeBot(nwt._FakeBot):
+                """Фиксирует состояние брони В МОМЕНТ `send_message`."""
+
+                def __init__(self):
+                    super().__init__()
+                    self.probe: dict = {}
+
+                async def send_message(self, chat_id, text):
+                    self.probe = store.snapshot(int(chat_id))
+                    return await super().send_message(chat_id, text)
+
+            await nwt._add_user_msg(db, "живая беседа", ts=now - 300)
+            await nwt._add_user_msg(db, "год назад был концерт",
+                                    ts=now - 365 * 86400 + 4000)
+            bot = _ProbeBot()
+            _nw, _nwt, worker = _nostalgia_worker(db, bot, monkeypatch)
+            out = await worker._process_chat(nwt.CHAT_ID, now, manual=True)
+            row = store.snapshot(nwt.CHAT_ID)
+            # «Мем после nostalgia»: мем спрашивает бронь через 60 секунд.
+            meme = await pub.PublicationCoordinator(db, store=store).acquire(
+                nwt.CHAT_ID, pub.KIND_MEME_INITIATIVE, now=now + 60)
+            return out, bot, row, meme
+        finally:
+            await db.close()
+
+    out, bot, row, meme = asyncio.run(scenario())
+    assert out["sent"] == 1
+    assert len(bot.calls) == 1                     # legacy-отправка состоялась
+    assert bot.probe["state"] == "sending"         # отправка под бронью
+    assert bot.probe["holder_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert row["state"] == "released"
+    assert row["last_publish_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert row["last_publish_ts"] is not None
+    # Интервал берётся из строки брони, а не только из журнала выводов.
+    assert meme.granted is False
+    assert meme.detail == pub.DETAIL_CROSS_TYPE
+    assert meme.other_kind == pub.KIND_TEXT_INITIATIVE
+
+
+def test_t2_nostalgia_legacy_blocked_right_after_meme(tmp_path, monkeypatch):
+    """T2 (направление «nostalgia после мема»): бронь останавливает отправку."""
+    from services import nostalgia_worker as nw
+    from services.database import DatabaseService
+
+    async def scenario():
+        from tests import test_nostalgia_worker as nwt
+        db = DatabaseService(str(tmp_path / "t2_meme_first.db"))
+        await db.initialize()
+        try:
+            now = _nostalgia_clock(monkeypatch, nwt)
+            monkeypatch.setattr(nw, "_intent_delegation_enabled",
+                                lambda: False)
+            store = _claim_store(db)
+            # Мем только что опубликовал (release пишет watermark строки).
+            claim = store.acquire(chat_id=nwt.CHAT_ID,
+                                  holder_kind=pub.KIND_MEME_INITIATIVE,
+                                  now=now)
+            assert claim.granted
+            assert store.begin_sending(chat_id=nwt.CHAT_ID,
+                                       claim_id=claim.claim_id,
+                                       now=now).granted
+            assert store.release(chat_id=nwt.CHAT_ID,
+                                 claim_id=claim.claim_id, now=now,
+                                 published=True,
+                                 holder_kind=pub.KIND_MEME_INITIATIVE)
+            await nwt._add_user_msg(db, "живая беседа", ts=now - 300)
+            await nwt._add_user_msg(db, "год назад был концерт",
+                                    ts=now - 365 * 86400 + 4000)
+            bot = nwt._FakeBot()
+            _nw, _nwt, worker = _nostalgia_worker(db, bot, monkeypatch)
+            out = await worker._process_chat(nwt.CHAT_ID, now + 60,
+                                             manual=True)
+            skip = [r for r in await nwt._log_rows(db, "skipped")]
+            return out, bot, skip
+        finally:
+            await db.close()
+
+    out, bot, skipped = asyncio.run(scenario())
+    assert out["sent"] == 0 and out["skipped"] == 1
+    assert bot.calls == []                        # сообщения в чат нет
+    assert skipped and json.loads(skipped[-1]["meta"])["reason"] == \
+        "publication_conflict"
+
+
+def test_t3_heartbeat_refusal_keeps_intent_and_budget(tmp_path, monkeypatch):
+    """T3: heartbeat на отказе — без отправки, intent pending, бюджет цел.
+
+    Затем, когда интервал прошёл, ровно одна отправка и освобождение брони.
+    """
+    from services import worker_budget
+    from services.memory_maintenance import MemoryMaintenanceService
+    from tests.test_asap8_f6_initiative import (
+        _FakeBot, _FakeWriter, _db, _intent_row, _make_intent)
+    from tests import test_asap8_f6_initiative as f6
+
+    # Намерение живёт в чате heartbeat-набора: чужая бронь — ДОЛЖНА быть в нём.
+    chat = int(f6.CHAT)
+
+    sent: list = []
+    budget: list = []
+    probes: list = []
+    store_holder: dict = {}
+
+    async def _send_text(bot, chat_id, text, **kwargs):
+        sent.append((chat_id, text))
+        if store_holder.get("store") is not None:
+            probes.append(store_holder["store"].snapshot(int(chat_id)))
+        return SimpleNamespace(message_id=9001)
+
+    async def _consume(_db_arg, scope, key, amount=1):
+        budget.append((scope, key))
+        return True
+
+    async def _exploration_off(_db_arg, _purpose, _chat_id):
+        return False, "test_disabled"
+
+    monkeypatch.setattr("services.telegram_send.send_text", _send_text)
+    monkeypatch.setattr(worker_budget, "consume", _consume)
+    import services.mca_exploration as expl
+    monkeypatch.setattr(expl, "exploration_allowed", _exploration_off)
+
+    async def scenario():
+        db = await _db(tmp_path, "t3_heartbeat.db")
+        try:
+            clock = {"now": int(time.time())}
+            monkeypatch.setattr(pub, "now_ts", lambda: clock["now"])
+            store = _claim_store(db)
+            store_holder["store"] = store
+            assert store.table_present()
+            intent_id, _created = await _make_intent(db)
+            # Чужой механизм (мем) сейчас отправляет в этом чате.
+            other = store.acquire(chat_id=chat,
+                                  holder_kind=pub.KIND_MEME_INITIATIVE,
+                                  now=clock["now"])
+            assert other.granted
+            assert store.begin_sending(chat_id=chat,
+                                       claim_id=other.claim_id,
+                                       now=clock["now"]).granted
+            maint = MemoryMaintenanceService(db, memory=None, llm=None,
+                                             bot=_FakeBot())
+            monkeypatch.setattr(
+                "services.memory_maintenance._direct_chat_service_singleton",
+                lambda: _FakeWriter(text="инициативная реплика"))
+            await maint._tick_intent_heartbeat()
+            row_after_refusal = await _intent_row(db, intent_id)
+            refused = {"status": row_after_refusal["status"],
+                       "attempts": int(row_after_refusal["attempts"] or 0),
+                       "sent": list(sent), "budget": list(budget),
+                       "claim": store.snapshot(chat)}
+            # Мем закончил публикацию; интервал между типами прошёл.
+            assert store.release(chat_id=chat, claim_id=other.claim_id,
+                                 now=clock["now"], published=True,
+                                 holder_kind=pub.KIND_MEME_INITIATIVE)
+            clock["now"] += 1801
+            await maint._tick_intent_heartbeat()
+            planted = store.snapshot(chat)
+            return (refused, sent, budget, planted,
+                    await _intent_row(db, intent_id),
+                    probes[0] if probes else {})
+        finally:
+            await db.close()
+
+    refused, sent_after, budget_after, planted, row, at_send = asyncio.run(
+        scenario())
+    # ── отказ: сообщения нет, намерение живо, LLM-бюджет не потрачен
+    assert refused["sent"] == []
+    assert refused["status"] == "pending"
+    assert refused["attempts"] == 0
+    assert refused["budget"] == []
+    # ── после интервала: ровно одна отправка и watermark брони
+    assert len(sent_after) == 1
+    assert sent_after[0][0] == chat
+    assert at_send["state"] == "sending"           # отправка под бронью
+    assert at_send["holder_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert [key for _scope, key in budget_after] == ["llm_calls", "llm_calls"]
+    assert planted["state"] == "released"
+    assert planted["last_publish_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert planted["last_publish_ts"] is not None
+    assert int(row["attempts"] or 0) >= 1
+
+
+def test_t4_diagnostics_publish_mode_is_coordinated(tmp_path, monkeypatch):
+    """T4: реальный прогон «Проверить инициативу» идёт через бронь."""
+    from services import initiative_diagnostics as diag
+    from services import mca_gates
+    from services.database import DatabaseService
+
+    sent: list = []
+    probes: list = []
+    store_holder: dict = {}
+
+    async def _send_text(bot, chat_id, text, **kwargs):
+        sent.append((int(chat_id), str(text)))
+        if store_holder.get("store") is not None:
+            probes.append(store_holder["store"].snapshot(int(chat_id)))
+        return SimpleNamespace(message_id=9100)
+
+    monkeypatch.setattr("services.telegram_send.send_text", _send_text)
+    monkeypatch.setattr(mca_gates, "initiative_diagnostics_publish_enabled",
+                        lambda: True)
+
+    async def scenario():
+        from tests.test_soul1_w5_initiative_vitality import (
+            _FakeLLM, _FakeWriter, _caches, _msg)
+        db = DatabaseService(str(tmp_path / "t4_diag.db"))
+        await db.initialize()
+        try:
+            _caches({CHAT: {"initiative.frequency_profile": "active",
+                            "initiative.eval_min_messages": 4,
+                            "initiative.eval_min_interval_seconds": 0,
+                            "initiative.min_gap_seconds": 0,
+                            "initiative.eval_llm_budget_per_day": 10}})
+            for index in range(6):
+                await _msg(db, chat_id=CHAT,
+                           text="живой повод %d" % index,
+                           ts_ago=300 - index)
+            store = _claim_store(db)
+            store_holder["store"] = store
+            bot = SimpleNamespace(id=7)
+            result = await diag.run_check(
+                db, chat_id=CHAT, writer_service=_FakeWriter(),
+                llm=_FakeLLM(), bot=bot, publish=True, confirm_publish=True)
+            snapshot = store.snapshot(CHAT)
+            return result, sent, snapshot
+        finally:
+            from services import chat_params as _cp
+            from services import hot_config as _hot
+            _cp.set_chat_params_cache(None)
+            _hot.set_config_cache(None)
+            await db.close()
+
+    result, sent_texts, snapshot = asyncio.run(scenario())
+    assert result["publish_mode"] == "real"
+    assert result["published"] is True
+    assert len(sent_texts) == 1
+    assert sent_texts[0][0] == CHAT
+    # Реальная отправка прошла под бронью (`claimed → sending` до сети).
+    assert probes and probes[0]["state"] == "sending"
+    assert probes[0]["holder_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert snapshot["state"] == "released"
+    assert snapshot["last_publish_kind"] == pub.KIND_TEXT_INITIATIVE
+    assert snapshot["last_publish_ts"] is not None
+    assert result["publication"]["granted"] is True
+
+
+def test_t4_diagnostics_publish_mode_refuses_on_foreign_claim(tmp_path,
+                                                             monkeypatch):
+    """T4 (деградация спам-пары): чужой `sending` → реальной отправки нет."""
+    from services import initiative_diagnostics as diag
+    from services import mca_gates
+    from services.database import DatabaseService
+
+    sent: list = []
+
+    async def _send_text(bot, chat_id, text, **kwargs):
+        sent.append((int(chat_id), str(text)))
+        return SimpleNamespace(message_id=9101)
+
+    monkeypatch.setattr("services.telegram_send.send_text", _send_text)
+    monkeypatch.setattr(mca_gates, "initiative_diagnostics_publish_enabled",
+                        lambda: True)
+
+    async def scenario():
+        from tests.test_soul1_w5_initiative_vitality import (
+            _FakeLLM, _FakeWriter, _caches, _msg)
+        db = DatabaseService(str(tmp_path / "t4_diag_conflict.db"))
+        await db.initialize()
+        try:
+            _caches({CHAT: {"initiative.frequency_profile": "active",
+                            "initiative.eval_min_messages": 4,
+                            "initiative.eval_min_interval_seconds": 0,
+                            "initiative.min_gap_seconds": 0,
+                            "initiative.eval_llm_budget_per_day": 10}})
+            for index in range(6):
+                await _msg(db, chat_id=CHAT,
+                           text="живой повод %d" % index,
+                           ts_ago=300 - index)
+            store = _claim_store(db)
+            other = store.acquire(chat_id=CHAT,
+                                  holder_kind=pub.KIND_MEME_INITIATIVE,
+                                  now=pub.now_ts())
+            assert other.granted
+            assert store.begin_sending(chat_id=CHAT,
+                                       claim_id=other.claim_id,
+                                       now=pub.now_ts()).granted
+            result = await diag.run_check(
+                db, chat_id=CHAT, writer_service=_FakeWriter(),
+                llm=_FakeLLM(), bot=SimpleNamespace(id=7), publish=True,
+                confirm_publish=True)
+            return result, sent, store.snapshot(CHAT)
+        finally:
+            from services import chat_params as _cp
+            from services import hot_config as _hot
+            _cp.set_chat_params_cache(None)
+            _hot.set_config_cache(None)
+            await db.close()
+
+    result, sent_texts, snapshot = asyncio.run(scenario())
+    assert sent_texts == []                       # сообщения в чат нет
+    assert result["published"] is False
+    assert result["decision"]["status"] == "cancelled"
+    assert result["decision"]["reason_code"] == pub.REASON_CONFLICT
+    assert snapshot["state"] == "sending"          # чужая бронь не тронута
+    assert snapshot["holder_kind"] == pub.KIND_MEME_INITIATIVE
+
+
+def test_t4_diagnostics_dry_run_takes_no_claim(tmp_path, monkeypatch):
+    """T4 (dry-run): проверка ничего не публикует — и бронь не занимает."""
+    from services import initiative_diagnostics as diag
+    from services.database import DatabaseService
+
+    async def scenario():
+        from tests.test_soul1_w5_initiative_vitality import (
+            _FakeLLM, _FakeWriter, _caches, _msg)
+        db = DatabaseService(str(tmp_path / "t4_diag_dry.db"))
+        await db.initialize()
+        try:
+            _caches({CHAT: {"initiative.frequency_profile": "active",
+                            "initiative.eval_min_messages": 4,
+                            "initiative.eval_min_interval_seconds": 0,
+                            "initiative.min_gap_seconds": 0,
+                            "initiative.eval_llm_budget_per_day": 10}})
+            for index in range(6):
+                await _msg(db, chat_id=CHAT,
+                           text="живой повод %d" % index,
+                           ts_ago=300 - index)
+            store = _claim_store(db)
+            result = await diag.run_check(db, chat_id=CHAT,
+                                          writer_service=_FakeWriter(),
+                                          llm=_FakeLLM())
+            return result, store.snapshot(CHAT)
+        finally:
+            from services import chat_params as _cp
+            from services import hot_config as _hot
+            _cp.set_chat_params_cache(None)
+            _hot.set_config_cache(None)
+            await db.close()
+
+    result, snapshot = asyncio.run(scenario())
+    assert result["publish_mode"] == "mock"
+    assert result["mock_send"]["attempted"] is True
+    assert result["publication"]["claim"] is None    # бронь не занималась
+    assert snapshot == {}                            # состояние чата не тронуто
+
+
+def test_t5_every_text_send_site_passes_publish_guard():
+    """T5: структурная проверка — новый sender без `publish_guard` ломает сборку."""
+    files = _production_python_files()
+    assert len(files) > 50, "продакшн-модули не найдены — проверка была бы пустой"
+    sites = _seam_call_sites(files)
+    expected_files = ("services/initiative_observer.py",
+                      "services/initiative_diagnostics.py",
+                      "services/memory_maintenance.py",
+                      "services/nostalgia_worker.py")
+    for expected in expected_files:
+        assert any(("/" + expected + ":") in site for site in sites), \
+            (expected, sites)
+    # Четыре вызова шва: наблюдатель-повод, админская диагностика, heartbeat-
+    # намерение и делегированный кандидат nostalgia. Пятая точка отправки
+    # (legacy nostalgia, K1/K3 OFF) идёт мимо шва и координируется напрямую —
+    # её покрывает T2.
+    assert len(sites) >= 4, sites
+    assert _unguarded_seam_calls(files) == []
+
+
+def test_t5_guard_flags_a_new_unguarded_call(tmp_path):
+    """T5 (фальсификация самой проверки): новый незащищённый вызов ловится."""
+    missing = tmp_path / "new_uncoordinated_sender.py"
+    missing.write_text(
+        "async def run(*, bot, chat_id, cand, db):\n"
+        "    from services.direct_chat_service import handle_initiative\n"
+        "    return await handle_initiative(\n"
+        "        bot=bot, chat_id=chat_id, candidates=[cand], db=db)\n",
+        encoding="utf-8")
+    guarded = tmp_path / "coordinated_sender.py"
+    guarded.write_text(
+        "async def run(*, bot, chat_id, cand, db, guard):\n"
+        "    from services.direct_chat_service import handle_initiative\n"
+        "    return await handle_initiative(\n"
+        "        bot=bot, chat_id=chat_id, candidates=[cand], db=db,\n"
+        "        publish_guard=guard)\n",
+        encoding="utf-8")
+    splat = tmp_path / "splat_sender.py"
+    splat.write_text(
+        "async def run(*, payload):\n"
+        "    from services.direct_chat_service import handle_initiative\n"
+        "    return await handle_initiative(**payload)\n",
+        encoding="utf-8")
+    offenders = [Path(item.rsplit(":", 1)[0]).name
+                 for item in _unguarded_seam_calls(
+                     [str(missing), str(guarded), str(splat)])]
+    assert offenders == [missing.name, splat.name]

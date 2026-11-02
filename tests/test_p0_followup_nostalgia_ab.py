@@ -332,7 +332,7 @@ class TestSingleDecisionDelegation:
 
         async def _spy(*, bot, chat_id, situation, candidates,
                        prepared_text=None, db=None, correlation_id=None,
-                       writer_service=None):
+                       writer_service=None, publish_guard=None):
             captured["chat_id"] = chat_id
             captured["source"] = candidates[0].source
             captured["trigger"] = situation.trigger_kind

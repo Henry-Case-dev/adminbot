@@ -549,8 +549,15 @@ class MemoryMaintenanceService:
         инициативы с writer_service (генерация + recheck + send). Бюджет
         LLM-вызовов — существующий worker-budget (`llm_calls`, global+chat);
         исчерпан → кандидат остаётся due без решения (без LLM-расхода).
-        Никогда не бросает (один кандидат не рвёт тик)."""
+        Никогда не бросает (один кандидат не рвёт тик).
+
+        INIT-COORD (03.11.2026): координация публикации идёт ДО траты
+        LLM-бюджета — порядок precheck → бронь → `claimed→sending`
+        (`publish_guard`) → release. Отказ = намерение остаётся
+        `pending`/`deferred` (существующее планирование перепроверит его на
+        свежем контексте), LLM-вызов не оплачен, второго текста нет."""
         try:
+            from services import publication_coordination as _pubmod
             from services import worker_budget
             from services.direct_chat_service import (
                 build_fresh_recheck_context)
@@ -577,25 +584,40 @@ class MemoryMaintenanceService:
                     "[f6] intent answered meanwhile — closed | chat=%s",
                     chat_id)
                 return
-            if not await worker_budget.consume(None, "global", "llm_calls",
-                                               1):
+            publication = await _pubmod.open_text_publication(
+                self.db, chat_id,
+                holder_ref=str(candidate.intent_id or "chat:%s" % chat_id))
+            if not publication.granted:
                 logger.info(
-                    "[f6] worker budget exhausted — initiative deferred | "
-                    "chat=%s", chat_id)
+                    "[f6] publication conflict — initiative deferred | "
+                    "chat=%s | reason=%s | detail=%s", chat_id,
+                    publication.reason, publication.detail or "-")
                 return
-            if not await worker_budget.consume(None, f"chat:{chat_id}",
-                                               "llm_calls", 1):
+            status = "error"
+            try:
+                if not await worker_budget.consume(None, "global",
+                                                   "llm_calls", 1):
+                    logger.info(
+                        "[f6] worker budget exhausted — initiative deferred "
+                        "| chat=%s", chat_id)
+                    return
+                if not await worker_budget.consume(None, f"chat:{chat_id}",
+                                                   "llm_calls", 1):
+                    logger.info(
+                        "[f6] chat budget exhausted — initiative deferred | "
+                        "chat=%s", chat_id)
+                    return
+                situation = await situation_builder(self.db, chat_id, row)
+                result = await initiative_entry(
+                    bot=self.bot, chat_id=chat_id, situation=situation,
+                    candidates=[candidate], db=self.db, writer_service=service,
+                    publish_guard=publication.guard)
+                status = str((result or {}).get("status") or "error")
                 logger.info(
-                    "[f6] chat budget exhausted — initiative deferred | "
-                    "chat=%s", chat_id)
-                return
-            situation = await situation_builder(self.db, chat_id, row)
-            result = await initiative_entry(
-                bot=self.bot, chat_id=chat_id, situation=situation,
-                candidates=[candidate], db=self.db, writer_service=service)
-            logger.info(
-                "[mca09] initiative candidate | chat=%s | status=%s",
-                chat_id, result.get("status"))
+                    "[mca09] initiative candidate | chat=%s | status=%s",
+                    chat_id, status)
+            finally:
+                await publication.close(published=(status == "sent"))
         except Exception:
             logger.warning("[f6] initiative candidate failed — skipped",
                            exc_info=True)

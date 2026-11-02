@@ -1048,10 +1048,39 @@ class NostalgiaWorker:
                     "[nostalgia] initiative path | chat=%s | status=%s",
                     chat_id, status)
             return
+        # ── INIT-COORD (03.11.2026): legacy-отправка (K1/K3 OFF) идёт через ТУ
+        # ЖЕ бронь публикации, что текст/callback-путь и мем: иначе она была
+        # невидима для мема, а мем — для неё (спам-пара). Пречек объясняет,
+        # бронь решает, `claimed→sending` — ровно перед `send_message`.
+        from services import publication_coordination as _pubmod
+        publication = await _pubmod.open_text_publication(
+            self.db, int(chat_id),
+            holder_ref="nostalgia:%s" % (candidate.get("fact_id")
+                                         or candidate.get("kind") or "none"))
+        refusal = (None if publication.granted
+                   else (publication.reason or _pubmod.REASON_CONFLICT))
+        if refusal is None:
+            refusal = await publication.guard()
+        if refusal:
+            await publication.close(published=False)
+            await self._log(chat_id, now, candidate["kind"],
+                            candidate.get("fact_id"), _STATUS_SKIPPED,
+                            {**self._candidate_meta(candidate),
+                             "reason": "publication_conflict",
+                             "detail": str(publication.detail or ""),
+                             "coordination": publication.coordination})
+            out["skipped"] += 1
+            logger.info(
+                "[nostalgia] publication conflict — skip | chat=%s | "
+                "reason=%s | detail=%s", chat_id, refusal,
+                publication.detail or "-")
+            return
+        published = False
         try:
             if self.bot is None:
                 raise RuntimeError("nostalgia: bot instance missing (Q13)")
             await self.bot.send_message(chat_id, text)
+            published = True
         except Exception as exc:
             logger.warning(
                 "[nostalgia] send failed — error logged | chat=%s | error=%s",
@@ -1063,8 +1092,11 @@ class NostalgiaWorker:
                  "reason": "bot_api"})
             out["errors"] += 1
             return
+        finally:
+            await publication.close(published=published)
         await self._log(chat_id, now, candidate["kind"],
-                        candidate.get("fact_id"), _STATUS_SENT, meta)
+                        candidate.get("fact_id"), _STATUS_SENT,
+                        {**meta, "coordination": publication.coordination})
         out["sent"] += 1
         logger.info(
             "[nostalgia] sent | chat=%s | kind=%s | chars=%d",
@@ -1075,13 +1107,31 @@ class NostalgiaWorker:
         """T-5038: кандидат nostalgia → единый вход инициативы (тот же
         Decision/транспорт; второго контура/пути отправки нет).
 
+        INIT-COORD (03.11.2026): координация публикаций — ТОТ ЖЕ порядок, что у
+        наблюдателя: precheck → бронь → `claimed→sending` (`publish_guard`) →
+        release. Без него текстовая инициатива и мем видели друг друга только
+        по одному журналу и слали парой. Отказ брони = реплики нет; кандидат
+        остаётся в пуле (годовщина/тема не «рассказана»).
+
         Ошибка делегирования → честный `error` (без legacy-фолбэка, чтобы не
         создать второй send-path и не задвоить отправку)."""
+        from services import publication_coordination as _pubmod
+        ref = "nostalgia:%s" % (candidate.get("fact_id")
+                                or candidate.get("kind") or "none")
+        publication = await _pubmod.open_text_publication(
+            self.db, int(chat_id), holder_ref=ref)
+        if not publication.granted:
+            logger.info(
+                "[nostalgia] publication conflict — no send | chat=%s | "
+                "reason=%s | detail=%s", chat_id, publication.reason,
+                publication.detail or "-")
+            return {"status": "cancelled", "reason_code": publication.reason,
+                    "detail": publication.detail,
+                    "coordination": publication.coordination}
+        status = "error"
         try:
             from services import mca_intents as _mi
             from services.direct_chat_service import handle_initiative
-            ref = "nostalgia:%s" % (candidate.get("fact_id")
-                                    or candidate.get("kind") or "none")
             cand = _mi.candidate_from_trigger(
                 trigger_kind="nostalgia_due", chat_id=chat_id,
                 source="nostalgia", prepared_text_ref=ref,
@@ -1090,13 +1140,18 @@ class NostalgiaWorker:
                 return {"status": "disabled"}
             situation = _mi.InitiativeSituation(
                 trigger_kind="nostalgia_due", chat_id=chat_id)
-            return await handle_initiative(
+            result = await handle_initiative(
                 bot=self.bot, chat_id=chat_id, situation=situation,
-                candidates=[cand], prepared_text=text, db=self.db)
+                candidates=[cand], prepared_text=text, db=self.db,
+                publish_guard=publication.guard)
+            status = str((result or {}).get("status") or "error")
+            return result
         except Exception:
             logger.warning("[nostalgia] initiative delegation failed",
                            exc_info=True)
             return {"status": "error"}
+        finally:
+            await publication.close(published=(status == "sent"))
 
 
     @staticmethod

@@ -31,7 +31,13 @@
   зазор = ``max(свой кулдаун, интервал)`` (:func:`resolve_gap_seconds`);
 * деградация без таблицы не выключает молча основной механизм текстовой
   инициативы (``coordination="degraded"`` + один WARN), но мем остаётся на
-  своём честном ``schema_absent``.
+  своём честном ``schema_absent``;
+* порядок ``precheck → acquire → publish_guard → release`` ОДИН у всех
+  sender'ов текста инициативы: наблюдатель-повод, heartbeat-намерение,
+  делегированный кандидат nostalgia, legacy-отправка nostalgia и реальный
+  прогон админской диагностики. Новая точка отправки без ``publish_guard``
+  запрещена структурной проверкой `tests/test_initiative_coordination.py`
+  (:class:`TextPublication` — общий шов).
 
 Состояние отправки живёт в операционной SQLite рядом с `mca_bot_outputs`;
 PG-копии нет (бронь — не долговременное знание, а 90–120-секундная аренда).
@@ -873,6 +879,158 @@ class PublicationCoordinator:
         }
 
 
+class TextPublication:
+    """Одна текстовая публикация инициативы в чате (§3.5) — общий шов.
+
+    Порядок ровно один для ВСЕХ sender'ов текста инициативы (повод
+    наблюдателя, отложенное намерение heartbeat, делегированный кандидат
+    nostalgia, legacy-отправка nostalgia, реальный прогон админской
+    диагностики):
+
+        precheck  → ОБЪЯСНЯЕТ (журнал выводов + строка брони), ничего не пишет;
+        acquire   → РЕШАЕТ (CAS-бронь), ``granted=False`` = реплики нет;
+        guard     → `claimed → sending` ровно перед отправкой;
+        release   → освобождение с watermark публикации.
+
+    Интервал между типами берётся ОДИН на оба механизма
+    (:func:`resolve_cross_type_interval`); последняя публикация другого типа —
+    watermark строки брони, а для путей без брони/до первой брони — журнал
+    выводов (`precheck`).
+
+    Таблицы брони нет → ``coordination="degraded"`` и текст публикуется
+    (§3.6): служебная таблица не выключает основной механизм молча.
+
+    ``claim=False`` — путь БЕЗ брони (dry-run админской диагностики): он
+    ничего не публикует, поэтому и состояние чата не трогает, но интервал
+    объясняется тем же `precheck`-ом, а ``guard()`` возвращает ту же причину
+    отказа, какую увидел бы боевой путь.
+    """
+
+    def __init__(self, coordinator: PublicationCoordinator, chat_id: int, *,
+                 holder_kind: str = KIND_TEXT_INITIATIVE,
+                 holder_ref: str = "", now: int | None = None,
+                 interval_seconds: int | None = None, manual: bool = False,
+                 claim: bool = True) -> None:
+        self._coordinator = coordinator
+        self.chat_id = int(chat_id)
+        self.holder_kind = str(holder_kind)
+        self.holder_ref = str(holder_ref or "")
+        self._now = None if now is None else int(now)
+        self._interval = interval_seconds
+        self._manual = bool(manual)
+        self._want_claim = bool(claim)
+        self.precheck: dict = {}
+        self.claim: ClaimDecision | None = None
+        self._closed = False
+
+    # ── открытие: precheck → acquire ──────────────────────────────────────
+    async def open(self) -> "TextPublication":
+        self.precheck = await self._coordinator.precheck(
+            self.chat_id, self.holder_kind, now=self._now,
+            interval_seconds=self._interval, manual=self._manual)
+        if not self.precheck.get("ok") or not self._want_claim:
+            return self
+        self.claim = await self._coordinator.acquire(
+            self.chat_id, self.holder_kind, holder_ref=self.holder_ref,
+            now=self._now, interval_seconds=self._interval,
+            manual=self._manual)
+        return self
+
+    # ── состояние ─────────────────────────────────────────────────────────
+    @property
+    def granted(self) -> bool:
+        """Можно идти к отправке (в режиме без брони решает precheck)."""
+        if self.claim is not None:
+            return bool(self.claim.granted)
+        return bool(self.precheck.get("ok", True))
+
+    @property
+    def reason(self) -> str:
+        if self.claim is not None and not self.claim.granted:
+            return str(self.claim.reason or REASON_CONFLICT)
+        if self.claim is None and not self.granted:
+            return str(self.precheck.get("reason") or REASON_CONFLICT)
+        return REASON_NONE
+
+    @property
+    def detail(self) -> str:
+        if self.claim is not None:
+            return str(self.claim.detail or "")
+        return str(self.precheck.get("detail") or "")
+
+    @property
+    def coordination(self) -> str:
+        if self.claim is not None:
+            return str(self.claim.coordination or COORDINATION_OK)
+        return str(self.precheck.get("coordination") or COORDINATION_OK)
+
+    @property
+    def claim_id(self) -> str:
+        return str((self.claim.claim_id if self.claim is not None else "")
+                   or self.precheck.get("claim_id") or "")
+
+    # ── отправка ──────────────────────────────────────────────────────────
+    async def guard(self) -> str | None:
+        """`claimed → sending` перед отправкой; ``None`` — публиковать можно."""
+        if self.claim is not None:
+            # Бронь не наша: `begin_sending` бросается только со СВОИМ
+            # claim_id — иначе он перевёл бы чужую бронь в `sending`.
+            if not self.claim.granted:
+                return str(self.claim.reason or REASON_CONFLICT)
+            decision = await self._coordinator.begin_sending(
+                self.chat_id, self.claim.claim_id, now=self._now,
+                manual=self._manual)
+            if decision.granted:
+                return None
+            return str(decision.reason or REASON_EXPIRED)
+        # Путь без брони (dry-run): решает precheck, состояние не пишется.
+        return self.reason or None
+
+    async def close(self, *, published: bool) -> bool:
+        """Освобождение аренды; ``published=True`` пишет watermark публикации."""
+        # Освобождается ТОЛЬКО своя бронь: у проигравшего `claim_id` — чужой
+        # (из строки), и release по нему освободил бы чужую аренду.
+        if self._closed or self.claim is None or not self.claim.granted:
+            return False
+        self._closed = True
+        return await self._coordinator.release(
+            self.chat_id, self.claim.claim_id, published=bool(published),
+            holder_kind=self.holder_kind, holder_ref=self.holder_ref,
+            now=self._now)
+
+    def as_dict(self) -> dict:
+        """Диагностика аренды (payload/лог); без «сырых» текстов."""
+        return {
+            "granted": bool(self.granted),
+            "reason": self.reason,
+            "detail": self.detail,
+            "coordination": self.coordination,
+            "claim_id": self.claim_id,
+            "holder_kind": self.holder_kind,
+            "holder_ref": self.holder_ref,
+            "precheck": dict(self.precheck or {}),
+            "claim": (self.claim.as_dict() if self.claim is not None
+                      else None),
+        }
+
+
+async def open_text_publication(db, chat_id: int, *,
+                                holder_kind: str = KIND_TEXT_INITIATIVE,
+                                holder_ref: str = "",
+                                now: int | None = None,
+                                interval_seconds: int | None = None,
+                                manual: bool = False, claim: bool = True,
+                                coordinator: PublicationCoordinator | None = None
+                                ) -> TextPublication:
+    """Открыть аренду текстовой публикации чата (precheck → acquire)."""
+    return await TextPublication(
+        coordinator if coordinator is not None
+        else PublicationCoordinator(db),
+        int(chat_id), holder_kind=holder_kind, holder_ref=holder_ref,
+        now=now, interval_seconds=interval_seconds, manual=manual,
+        claim=claim).open()
+
+
 def compact_json(payload: dict | None) -> str:
     """Компактный JSON для полей ``detail``/payload (без переводов строк)."""
     if not payload:
@@ -905,7 +1063,8 @@ __all__ = [
     "MANUAL_IN_FLIGHT_WAIT_SECONDS", "PUBLICATION_KINDS",
     "PublicationCoordinator", "REASON_CONFLICT", "REASON_EXPIRED",
     "REASON_IN_FLIGHT", "SENDING_TTL_SECONDS", "SqliteClaimStore",
-    "compact_json", "default_interval_seconds", "open_store",
+    "TextPublication", "compact_json", "default_interval_seconds",
+    "open_store", "open_text_publication",
     "publication_claim_store_present", "resolve_cross_type_interval",
     "resolve_gap_seconds", "reset_release_events",
 ]

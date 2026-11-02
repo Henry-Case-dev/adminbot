@@ -808,7 +808,7 @@ class TestAsap5W1Delegation:
 
         async def _spy(*, bot, chat_id, situation, candidates,
                        prepared_text=None, db=None, correlation_id=None,
-                       writer_service=None):
+                       writer_service=None, publish_guard=None):
             captured["text"] = prepared_text
             captured["ref"] = candidates[0].prepared_text_ref
             return {"status": "sent", "delivery_kind": "text"}

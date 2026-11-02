@@ -688,7 +688,8 @@ class TestDecisionRouting:
         calls = {"initiative": 0, "bot": 0}
 
         async def _fake_handle_initiative(*, bot, chat_id, situation,
-                                          candidates, prepared_text, db):
+                                          candidates, prepared_text, db,
+                                          publish_guard=None):
             calls["initiative"] += 1
             return {"status": "sent"}
 
