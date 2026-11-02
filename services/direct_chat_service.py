@@ -3450,10 +3450,17 @@ class DirectChatService:
             # SOUL-1 W10: регекс остаётся БЫСТРЫМ путём очевидных команд;
             # смысловые формулировки без «бот, нарисуй» доходят до той же
             # генерации через проверку согласованности после L1 (§5.10).
+            _image_delivery: dict = {}
             image_block = await self._image_pre_gate_block(
                 chat_id, query, bot, message, user_id,
-                correlation_id=correlation_id, intent=_image_intent)
+                correlation_id=correlation_id, intent=_image_intent,
+                delivered_out=_image_delivery)
             image_pre_gate_fired = bool(image_block)
+            # P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка, реально
+            # доставленная на этом ходу, — ЕДИНСТВЕННОЕ исходящее сообщение
+            # хода. Текстовая доставка ниже в этом случае не выполняется
+            # (промпт/описание/панели остаются внутренними).
+            image_delivered_this_turn = bool(_image_delivery.get("delivered"))
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
             # A7 (round 10.26, ADR-1026-20 D2/D3/D4): Фаза P — программное
@@ -4058,7 +4065,7 @@ class DirectChatService:
             # единственным путём в этом же ходу; недоступное — не обещается
             # (правдивая пометка Writer'у). Ошибка проверки → обычный ход.
             try:
-                _cap_block, _cap_fired, _cap_denied = \
+                _cap_block, _cap_fired, _cap_delivered, _cap_denied = \
                     await self._l1_capability_consistency(
                         chat_id, query, message, bot, l1_plan,
                         intent=_image_intent,
@@ -4067,7 +4074,8 @@ class DirectChatService:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                _cap_block, _cap_fired, _cap_denied = "", False, ()
+                _cap_block, _cap_fired, _cap_delivered, _cap_denied = \
+                    "", False, False, ()
                 logger.warning("direct: capability consistency — обычный ход | "
                                "chat=%s", chat_id, exc_info=True)
             if _cap_block:
@@ -4077,6 +4085,10 @@ class DirectChatService:
                 # объявляется, маркер прогона ставится (дубль исключён).
                 image_pre_gate_fired = True
                 image_enabled = False
+            if _cap_delivered:
+                # P0 MEME-IMAGE-ONLY: смысловой путь тоже ответил картинкой —
+                # текст хода не отправляется (см. гейт перед доставкой).
+                image_delivered_this_turn = True
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -5051,6 +5063,24 @@ class DirectChatService:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
                     style=response_mode, chars=len(answer))
+            # ── P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка УЖЕ доставлена
+            # в чат на этом же ходу → она и есть ответ. Второго (текстового)
+            # сообщения нет: ни промпта, ни описания сгенерированного, ни
+            # списка панелей, ни служебной ремарки. Промпт и служебный текст
+            # остаются внутренними (логи/аналитика/журнал попытки), в Telegram
+            # не уходят. Флаг ставит ТОЛЬКО успешная доставка: при отказе
+            # генератора/провайдера/отправки он не выставлен, и пользователь
+            # получает ровно один короткий текст ошибки ниже обычным путём.
+            if image_delivered_this_turn or getattr(
+                    tool_ctx, "image_delivered", False):
+                logger.info(
+                    "[direct] image delivered — text reply suppressed | "
+                    "chat=%s | chars=%d", chat_id, len(answer or ""))
+                # Ход состоялся (пользователь получил ответ-картинку):
+                # отложенное возобновление закрывается, чтобы не сработать
+                # позже вторым ответом на уже отвеченный запрос.
+                await self._complete_resume_intent(_resume_intent)
+                return
             # ── SOUL-1 (W3, SOUL-16.4.1 + design §6): ЕДИНЫЙ проход формы —
             # `extent check (в т.ч. one_word) -> style policy validation/
             # targeted repair`, ровно один раз, детерминированно (0 LLM).
@@ -9730,11 +9760,12 @@ class DirectChatService:
                                          message, bot, l1_plan, *,
                                          intent, image_pre_gate_fired: bool,
                                          correlation_id: str | None = None
-                                         ) -> tuple[str, bool, tuple]:
+                                         ) -> tuple[str, bool, bool, tuple]:
         """SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности решения
         L1 с РЕАЛЬНЫМ состоянием capability (0 LLM; TTL-кеш реестра).
 
-        Возврат ``(блок_для_инъекции, генерация_выполнена, denied)``:
+        Возврат ``(блок_для_инъекции, генерация_выполнена, доставлено,
+        denied)``:
 
         * L1 запросил capability, которой в этом чате нет → capability
           отбрасывается (``denied``: инструмент не анонсируется, отказ с
@@ -9746,11 +9777,18 @@ class DirectChatService:
           (наблюдаемый случай «доступное действие не было выбрано L1», §6.5);
         * capability не готова → инъекция правдивого состояния, без вызова.
 
-        Никогда не бросает (любая ошибка → ``("", False, ())``)."""
+        ``доставлено`` (P0 MEME-IMAGE-ONLY) — картинка РЕАЛЬНО ушла в чат:
+        отдельно от ``генерация_выполнена``, потому что отказ провайдера тоже
+        даёт непустой блок и маркер «инструмент больше не анонсируем».
+
+        Никогда не бросает (любая ошибка → ``("", False, False, ())``)."""
         from services import capability_registry as _capreg
         block = ""
         fired = False
+        delivered = False
         denied: list[str] = []
+        # P0 MEME-IMAGE-ONLY: наблюдаемый исход доставки картинки (см. ниже).
+        _delivered_state: dict = {}
         try:
             plan = l1_plan or _l1.L1Plan()
             requested = tuple(str(c) for c in
@@ -9811,10 +9849,11 @@ class DirectChatService:
                     chat_id, query, bot, message,
                     getattr(getattr(message, "from_user", None), "id", 0) or 0,
                     correlation_id=correlation_id, intent=intent,
-                    intent_confirms=True)
+                    intent_confirms=True, delivered_out=_delivered_state)
                 if fired_block:
                     block = fired_block
                     fired = True
+                    delivered = bool(_delivered_state.get("delivered"))
                     blockers = _caps.intent_blockers(
                         intent, capability_status=state.status)
                     logger.info(
@@ -9856,19 +9895,20 @@ class DirectChatService:
                         _capreg.emit_capability_event(
                             s, outcome="failed", chat_id=chat_id,
                             trace_id=correlation_id or "")
-            return block, fired, tuple(denied)
+            return block, fired, delivered, tuple(denied)
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.warning("direct: capability consistency check failed | "
                            "chat=%s", chat_id, exc_info=True)
-            return "", False, ()
+            return "", False, False, ()
 
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
                                     message, user_id,
                                     correlation_id: str | None = None,
                                     intent=None,
-                                    intent_confirms: bool = False) -> str:
+                                    intent_confirms: bool = False,
+                                    delivered_out: dict | None = None) -> str:
         """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
         изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
         ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
@@ -9880,7 +9920,12 @@ class DirectChatService:
         цитата/«я сам»/пересылка) подавляет быстрый путь. Дверь открывает
         регекс ИЛИ ``intent_confirms=True`` (подтверждённое смысловое
         поручение — путь согласованности §5.10, где L1 не выбрал доступное
-        действие: наблюдаемый случай §6.5 остаётся живым)."""
+        действие: наблюдаемый случай §6.5 остаётся живым).
+
+        P0 MEME-IMAGE-ONLY (owner 02.11.2026): ``delivered_out`` — словарь
+        наблюдаемого исхода для вызывающего: ``{"delivered": bool}``. True —
+        изображение РЕАЛЬНО доставлено в чат (не просто сработал регекс: при
+        отказе провайдера блок тоже строится, но картинки нет)."""
         from services import image_generation
         # Смысловой вердикт главнее регекса: отрицание не может проиграть
         # быстрому пути («Бот, нарисуй мем, но не рисуй» → генерации нет).
@@ -9910,11 +9955,17 @@ class DirectChatService:
                 value = getattr(self, name, None)
                 if value is not None:
                     deps[name] = value
-            return await image_generation.maybe_handle_keyword(
+            block = await image_generation.maybe_handle_keyword(
                 tool_ctx, query, **deps,
                 intent_confirmed=bool(intent is not None
                                       and getattr(intent, "actionable",
                                                   False)))
+            # P0 MEME-IMAGE-ONLY: вызывающему нужен именно ФАКТ доставки
+            # картинки (при отказе провайдера блок тоже непустой).
+            if delivered_out is not None:
+                delivered_out["delivered"] = bool(
+                    getattr(tool_ctx, "image_delivered", False))
+            return block
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -1252,6 +1252,14 @@ class ToolContext:
         # direct_chat_service прокидывает image_pre_gate_fired). Читается
         # _generate_image ПЕРВЫМ делом → skipped/already_handled не сгенерирует.
         self.image_request_handled = bool(image_request_handled)
+        # P0 MEME-IMAGE-ONLY (owner 02.11.2026): «изображение уже доставлено в
+        # чат на этом ходу» — отличает УСПЕШНУЮ доставку от простого
+        # срабатывания пре-гейта (тот ставится и при отказе провайдера).
+        # Ставится единственной точкой доставки: `_generate_image` (tool) и
+        # `image_generation.maybe_handle_keyword` (пре-гейт). Читается
+        # `DirectChatService.handle` ПОСЛЕ цикла инструментов: ход, который
+        # ответил картинкой, не добавляет к ней текстовое сообщение.
+        self.image_delivered = False
         # Раунд 10.26 (A2, ADR-1026-15 D1): out-of-band envelope-журнал
         # прогона (структурные результаты/ошибки/лимиты) — программный
         # A→B-handoff для инструментов и Синтезатора. В модельный ввод НЕ
@@ -4672,6 +4680,14 @@ class ToolRouter:
                                      ok=True, code=str(result.reason or ""))
             except Exception:      # pragma: no cover
                 pass
+            # P0 MEME-IMAGE-ONLY (owner 02.11.2026): успешная НОВАЯ отправка
+            # изображения — единственный ответ хода; повтор («already») новой
+            # доставки не делал и ответом хода не является.
+            if str(getattr(result, "reason", "") or "") != "already":
+                try:
+                    ctx.image_delivered = True
+                except Exception:      # pragma: no cover
+                    pass
             payload = {"status": "success",
                        "message": "Изображение сгенерировано и отправлено в чат"}
             note = _image_memory_note(request)
