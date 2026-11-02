@@ -1,0 +1,201 @@
+{
+ "run": "py tools/ui_evol_w15_composition_e2e.py",
+ "viewport_checks": 293,
+ "fails": [],
+ "cog_section": {
+  "390": {
+   "filtered_shown": 3,
+   "filtered_labels_drawn": 2,
+   "filtered_labels_hidden": 1,
+   "console_errors": [],
+   "request_failed": []
+  },
+  "1280": {
+   "filtered_shown": 3,
+   "filtered_labels_drawn": 1,
+   "filtered_labels_hidden": 2,
+   "console_errors": [],
+   "request_failed": []
+  }
+ },
+ "cards": {
+  "390": {
+   "card_rect": {
+    "left": 0,
+    "right": 390,
+    "top": 405,
+    "bottom": 844,
+    "width": 390,
+    "height": 439
+   },
+   "card_vw_vh": [
+    390,
+    844
+   ],
+   "node_scope": "чат: Audit Chat",
+   "node_times": [
+    "occurredAt",
+    "savedAt"
+   ],
+   "node_times_labels": [
+    "Когда произошло16.06",
+    "Когда сохранено16.06"
+   ],
+   "node_metrics": [
+    "importance",
+    "degree"
+   ],
+   "node_metrics_note": "уверенность, сила и свежесть не рассчитываются",
+   "node_actions": [
+    "source",
+    "history",
+    "memory",
+    "links"
+   ],
+   "source_target": [
+    11,
+    555
+   ],
+   "history_target": [
+    "evt:-1001234567890:revision:51",
+    "evt:-1001234567890:revision:51"
+   ],
+   "links_edge_focus": [
+    "ce1",
+    "ce3"
+   ],
+   "links_expanded": true,
+   "edge_id": "ce3",
+   "edge_recorded": "1",
+   "edge_justification": "Почему связь показанаобоснование записано: связь создана фактом №11",
+   "edge_endpoints": [
+    "belief:-1001234567890:21",
+    "fact:-1001234567890:11"
+   ],
+   "edge_absent_id": "ce6",
+   "edge_absent_recorded": "0",
+   "edge_absent_justification": "Почему связь показанаобоснование не записано",
+   "edge_absent_selected": "obs:-1001234567890:41",
+   "edge_absent_highlight": [
+    "obs:-1001234567890:41",
+    "paradigm:-1001234567890:31"
+   ],
+   "memory_query": "Аня",
+   "memory_note": "",
+   "memory_catalog_first": [
+    "Аня",
+    "Аня → Аня любит утренний кофе",
+    "Утро начинается с кофе → Аня любит утренний кофе"
+   ],
+   "memory_miss_query": "Дача — место отдыха",
+   "memory_miss_note": "записи «Дача — место отдыха» в каталоге «Памяти» сейчас нет",
+   "honest_reasons": [
+    "Открыть источник: у сущности нет сообщения-источника",
+    "История изменений: версий этой записи не записано",
+    "Показать связи: связей не записано: узел изолирован"
+   ],
+   "honest_actions": [
+    "source",
+    "history",
+    "links"
+   ],
+   "back_route": "#/",
+   "back_selected": "fact:-1001234567890:11",
+   "fullscreen_after_back_route": "#/status/graph",
+   "keyboard_after_esc": [
+    "cognition-graph",
+    false
+   ],
+   "console_errors": []
+  },
+  "1280": {
+   "card_rect": {
+    "left": 924,
+    "right": 1268,
+    "top": 74,
+    "bottom": 634,
+    "width": 344,
+    "height": 560
+   },
+   "card_vw_vh": [
+    1280,
+    900
+   ],
+   "node_scope": "чат: Audit Chat",
+   "node_times": [
+    "occurredAt",
+    "savedAt"
+   ],
+   "node_times_labels": [
+    "Когда произошло16.06",
+    "Когда сохранено16.06"
+   ],
+   "node_metrics": [
+    "importance",
+    "degree"
+   ],
+   "node_metrics_note": "уверенность, сила и свежесть не рассчитываются",
+   "node_actions": [
+    "source",
+    "history",
+    "memory",
+    "links"
+   ],
+   "source_target": [
+    11,
+    555
+   ],
+   "history_target": [
+    "evt:-1001234567890:revision:51",
+    "evt:-1001234567890:revision:51"
+   ],
+   "links_edge_focus": [
+    "ce1",
+    "ce3"
+   ],
+   "links_expanded": true,
+   "edge_id": "ce4",
+   "edge_recorded": "1",
+   "edge_justification": "Почему связь показанаобоснование записано: связь создана фактом №11",
+   "edge_endpoints": [
+    "paradigm:-1001234567890:31",
+    "belief:-1001234567890:21"
+   ],
+   "edge_absent_id": "ce6",
+   "edge_absent_recorded": "0",
+   "edge_absent_justification": "Почему связь показанаобоснование не записано",
+   "edge_absent_selected": "obs:-1001234567890:41",
+   "edge_absent_highlight": [
+    "obs:-1001234567890:41",
+    "paradigm:-1001234567890:31"
+   ],
+   "memory_query": "Аня",
+   "memory_note": "",
+   "memory_catalog_first": [
+    "Аня",
+    "Аня → Аня любит утренний кофе",
+    "Утро начинается с кофе → Аня любит утренний кофе"
+   ],
+   "memory_miss_query": "Дача — место отдыха",
+   "memory_miss_note": "записи «Дача — место отдыха» в каталоге «Памяти» сейчас нет",
+   "honest_reasons": [
+    "Открыть источник: у сущности нет сообщения-источника",
+    "История изменений: версий этой записи не записано",
+    "Показать связи: связей не записано: узел изолирован"
+   ],
+   "honest_actions": [
+    "source",
+    "history",
+    "links"
+   ],
+   "back_route": "#/",
+   "back_selected": "fact:-1001234567890:11",
+   "fullscreen_after_back_route": "#/status/graph",
+   "keyboard_after_esc": [
+    "cognition-graph",
+    false
+   ],
+   "console_errors": []
+  }
+ }
+}
