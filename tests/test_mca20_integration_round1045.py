@@ -662,12 +662,14 @@ class TestSanctions:
         from services import tool_loop, tool_schemas
         names = [t["function"]["name"] for t in
                  tool_schemas.TOOL_CALLING_TOOLS]
-        # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост).
-        assert len(names) == len(set(names)) == 15
-        assert names[-1] == "edit_image"
-        assert names[-2] == "fact_check"
-        # ASAP5 §20 (edit-route): +edit_image (метка — платный вызов).
-        assert len(tool_loop.METERED_TOOLS) == 10
+        # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост);
+        # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост).
+        assert len(names) == len(set(names)) == 16
+        assert names[-1] == "read_source_code"
+        assert names[-2] == "edit_image"
+        assert names[-3] == "fact_check"
+        # ASAP5 §20: +edit_image; W6: +read_source_code (сетевой инструмент).
+        assert len(tool_loop.METERED_TOOLS) == 11
         assert "fact_check" in tool_loop.METERED_TOOLS
 
     def test_tool_hidden_when_owner_toggle_off(self, monkeypatch):

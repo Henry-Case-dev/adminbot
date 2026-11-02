@@ -14,7 +14,7 @@
 * Канон: Registry `soul1-w3-1`, заводской набор `630ca46dff76`, нарушения печатей: нет
 * Сеть: blocked (socket.connect/connect_ex бросают); PG: PG-стенд (ConfigLayer): присутствует слой с флагами гейтов; документы владельца character.core/expression/persona отсутствуют намеренно (PG недоступен)
 * Стадий: **27** (боевых 18 + вторичных OFF 9), сегментов сообщений: **58** (system 27 / user 27 / assistant 2 / tool 2)
-* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `26cb3fafcea22273…`
+* Детерминированность: два независимых процесса, совпадение `True`, ядро снимка `d299a082087f7758…`
 
 ## Боевая карта гейтов
 
@@ -486,7 +486,7 @@ _(один неразмеченный блок)_
 | --- | --- | --- |
 | `services/bot_persona.py` | 921 | `f73977782a415abd…` |
 | `services/chat_prompts.py` | 1641 | `3ef55672e7b0d62c…` |
-| `services/direct_chat_service.py` | 13362 | `47eba166441c9d4a…` |
+| `services/direct_chat_service.py` | 13363 | `ba6f02ecfd30abf1…` |
 | `services/direct_execution.py` | 1429 | `5c789feba2f284e9…` |
 | `services/direct_l1.py` | 2202 | `7f30653a74629596…` |
 | `services/factcheck_prompts.py` | 831 | `4cd1e893d8c5fed8…` |
@@ -500,7 +500,7 @@ _(один неразмеченный блок)_
 | `services/prompt_style_blocks.py` | 951 | `36636496f08d685f…` |
 | `services/response_extent.py` | 768 | `851befe528339388…` |
 | `services/summary_xml.py` | 182 | `97f2a8c068191228…` |
-| `services/tool_loop.py` | 1123 | `ce297a0aa8f39bc8…` |
+| `services/tool_loop.py` | 1131 | `3d1cc648e4115a90…` |
 
 ## Откуда берётся неатрибутированный остаток
 

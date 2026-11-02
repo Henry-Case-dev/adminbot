@@ -410,7 +410,7 @@ class TestToolDescriptionU21:
         assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
                                         "fetch_article", "get_user_context",
                                         "recognize_image", "fact_check",
-                                        "edit_image"]
+                                        "edit_image", "read_source_code"]
         assert names[8] == "generate_image"
 
     def test_schema_structure_identical_in_variants(self):

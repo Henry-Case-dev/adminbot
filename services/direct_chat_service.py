@@ -2384,14 +2384,15 @@ def _mark_rag_fact(item, ranks: dict):
 # (чистые функции). Новых словарей фраз не заводится.
 
 #: capability политики → id в `capability_registry` (источник реального
-#: состояния провайдера/ключа/квоты). `source_read` отсутствует по
-#: конструкции (EVOL-SRC-READER `PENDING`).
+#: состояния провайдера/ключа/квоты). `source_read` присутствует с W6
+#: (EVOL-SRC-READER): состояние приходит из реестра, а не из константы.
 _EVIDENCE_CAP_REGISTRY = {
     "web_search": "web_search",
     "fetch_url": "fetch_url",
     "fact_check": "fact_check",
     "chat_history": "chat_history",
     "chat_memory": "chat_memory",
+    "source_read": "source_read",
 }
 
 #: Статус capability-реестра → код отказа `allowed()` (§1.5, шаги 3–4).

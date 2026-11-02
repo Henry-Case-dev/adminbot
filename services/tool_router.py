@@ -1172,7 +1172,7 @@ class ToolDeps:
     def __init__(self, search, memory, aliases=None, *, video=None,
                  downloader=None, health=None, db=None,
                  download_cooldown=None, llm=None, transcriber=None,
-                 extractor=None) -> None:
+                 extractor=None, source_reader=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
@@ -1196,6 +1196,10 @@ class ToolDeps:
         # (reuse `WebContentExtractor`; тот же инстанс, что у web-модуля).
         # None → инструмент честно вернёт структурный error.
         self.extractor = extractor      # WebContentExtractor | None
+        # EVOL-SRC-READER (W6): SourceReader для `read_source_code`. None →
+        # роутер собирает штатный (SafeFetcher + GitHubProvider) лениво; тесты
+        # передают подменный провайдер (детерминизм, без сети).
+        self.source_reader = source_reader
 
 
 class ToolContext:
@@ -1350,6 +1354,9 @@ class ToolRouter:
             # ASAP5 §20 (edit-route): существующий submit_edit-маршрут
             # (media_execution → cover_style_edit) из Direct Chat.
             "edit_image": self._edit_image,
+            # EVOL-SRC-READER (W6): проверенное чтение исходников
+            # (discover|locate|read) поверх существующего SafeFetcher.
+            "read_source_code": self._read_source_code,
         }
         method = registry.get(name)
         if method is None:
@@ -2893,6 +2900,366 @@ class ToolRouter:
                 if title:
                     return title[:200]
         return ""
+
+    # ── read_source_code (EVOL-SRC-READER, W6) ───────────────────────────
+
+    async def _read_source_code(self, arguments: dict,
+                                ctx: ToolContext) -> str:
+        """Проверенное чтение исходников → JSON Evidence Contract (§1.1).
+
+        Инструмент делает сетевую работу через существующий `SafeFetcher`
+        (`services/source_reader.py`), поэтому здесь только проводка
+        существующих контуров:
+
+        * env-рубильник `SOURCE_READ_ENABLED` OFF → честный `disabled`
+          (инструмент при этом не объявляется — гейт анонса в tool_schemas);
+        * динамическое окно evidence (`_evidence_window("code")`) — БЕЗ нового
+          потолка 4000/8000: неизвестный вид использует существующий legacy;
+        * qualified reuse (`source_reuse`): тот же claim + та же идентичность
+          источника (repo/ref/commit/path) → 0 сетевых вызовов; смена
+          ref/commit инвалидирует запись (§3.3); приватный доступ (токен) —
+          scope=chat, поэтому между чатами не переиспользуется;
+        * `truncation`/`not_checked` пишутся в существующий out-of-band
+          журнал `evidence_limits` (`_record_limit`).
+
+        НИКОГДА не бросает (контракт dispatch). R17: в логи — только коды и
+        числа, без URL/текста кода/токенов."""
+        from services import source_reader as _sr
+
+        args = arguments if isinstance(arguments, dict) else {}
+        if not _sr.source_read_enabled():
+            logger.info("[tools] read_source_code disabled (env kill-switch)")
+            # Форма отказа как у существующих выключенных инструментов
+            # (`vision/fact_check`): status=disabled → ToolResult `denied`
+            # с кодом `disabled`. Сетевой lookup не выполняется.
+            return json.dumps({"status": "disabled", "error": "disabled",
+                               "reason": "disabled", "retryable": False,
+                               "stage": _sr.STAGE_DISCOVER},
+                              ensure_ascii=False)
+        operation = str(args.get("operation") or _sr.OPERATION_READ).strip() \
+            .lower()
+        if operation not in _sr.OPERATIONS:
+            return json.dumps(
+                {"status": "error", "error": "invalid_arguments",
+                 "reason": "invalid_operation", "retryable": False,
+                 "stage": _sr.STAGE_DISCOVER}, ensure_ascii=False)
+        url = str(args.get("url") or "").strip()
+        if not url:
+            # Существующий резолв ссылки хода (`fetch_article` берёт так же).
+            url = str(getattr(ctx, "resolved_url", "") or "").strip()
+        query = str(args.get("query") or "").strip()
+        if not query:
+            query = str(getattr(ctx, "query", "") or "").strip()
+        repo = str(args.get("repo") or "").strip()
+        if not url and not repo and not query:
+            return json.dumps({"status": "error", "error": "invalid_url",
+                               "reason": "no_url_no_repo_no_query",
+                               "retryable": False,
+                               "stage": _sr.STAGE_DISCOVER},
+                              ensure_ascii=False)
+        ref = str(args.get("ref") or "").strip()
+        path = str(args.get("path") or "").strip()
+        symbol = str(args.get("symbol") or "").strip()
+        line_start = args.get("line_start")
+        line_end = args.get("line_end")
+        for value in (line_start, line_end):
+            if value is not None and (not isinstance(value, int)
+                                      or isinstance(value, bool) or value < 1):
+                return json.dumps(
+                    {"status": "error", "error": "invalid_arguments",
+                     "reason": "invalid_line_range", "retryable": False,
+                     "stage": _sr.STAGE_DISCOVER}, ensure_ascii=False)
+        window = self._evidence_window("code", ctx)
+        reader = self._source_reader()
+        claim_keys = self._claim_keys(ctx, args)
+        chat_id = getattr(ctx, "chat_id", None)
+        scope = "chat" if _sr.github_token() else "public"
+        identity = self._source_identity(url=url, repo=repo, ref=ref,
+                                         path=path, symbol=symbol)
+        bypass = self._reuse_bypass(args, ctx)
+        # Reuse — про ПРОЧИТАННЫЙ источник: discovery всегда ищет заново
+        # (дешёвый вызов, а «найденный ранее репозиторий» может устареть).
+        reuse_allowed = operation in (_sr.OPERATION_READ, _sr.OPERATION_LOCATE)
+        if claim_keys and not bypass and reuse_allowed:
+            reused = self._source_reuse_payload(
+                reader, claim_keys, identity=identity, scope=scope,
+                chat_id=chat_id, operation=operation)
+            if reused is not None:
+                bucket = getattr(ctx, "evidence_limits", None)
+                if isinstance(bucket, list):
+                    bucket.append({
+                        "tool": "read_source_code", "stage": "retrieve",
+                        "reused": True, "network_calls": 0,
+                        "source_read_level": reused.get("read_level") or "",
+                        "limit_source": "reuse", "effective_limit": 0,
+                        "used": int(reused.get("snippet_chars") or 0),
+                        "total": int(reused.get("file_total_lines") or 0),
+                        "truncated": False, "why": "",
+                        "retrievable_remainder": 0, "unit": "chars"})
+                logger.info("[tools] read_source_code reuse | read=%s | "
+                            "chars=%d", reused.get("read_level"),
+                            int(reused.get("snippet_chars") or 0))
+                return json.dumps(reused, ensure_ascii=False)
+        payload = await reader.run(
+            operation=operation, url=url, repo=repo, query=query, ref=ref,
+            path=path, symbol=symbol, line_start=line_start,
+            line_end=line_end, follow=args.get("follow"),
+            language=str(args.get("language") or ""),
+            budget_chars=int(window.effective_limit or 0),
+            context_query=str(getattr(ctx, "query", "") or ""))
+        truncation = payload.get("truncation") or {}
+        if isinstance(truncation, dict) and truncation:
+            # Источник лимита — существующее окно (`call_budget|window|legacy`),
+            # а не «своя» константа инструмента.
+            truncation["limit_source"] = window.source
+            truncation["effective_limit"] = int(window.effective_limit or 0)
+            payload["truncation"] = truncation
+        self._record_limit(
+            ctx, "read_source_code",
+            Truncation(
+                text=str(payload.get("snippet") or ""),
+                effective_limit=int(truncation.get("effective_limit")
+                                    or window.effective_limit or 0),
+                source=str(truncation.get("limit_source") or window.source),
+                used=int(payload.get("snippet_chars") or 0),
+                total=int(payload.get("file_total_lines") or 0),
+                truncated=bool(truncation.get("truncated")),
+                why=str(truncation.get("why") or ""),
+                retrievable_remainder=int(
+                    truncation.get("retrievable_remainder_lines") or 0),
+                unit="lines"),
+            stage=str(payload.get("stage") or "fetch"),
+            extra={"window_source": window.window_source,
+                   "capacity_source": window.capacity_source,
+                   "turn_capped": window.turn_capped,
+                   "source_read_level": payload.get("read_level") or "",
+                   "verified": bool(payload.get("verified")),
+                   "network_calls": int(payload.get("network_calls") or 0)})
+        # §3.3/§3.5: запомнить ПРОЧИТАННЫЙ источник под claim-key. Повторный
+        # read той же идентичности = reuse (0 сетевых вызовов); изменённый
+        # ref/commit/path → другой указатель → запись не подходит.
+        if claim_keys and payload.get("status") == _sr.STATUS_OK \
+                and payload.get("verified"):
+            for key in claim_keys:
+                # Хранится ровно доставленный фрагмент (без среза): иначе reuse
+                # отдавал бы меньше текста, чем первый ответ, и не мог бы
+                # честно сообщить обрезку (§1.1, прецедент `fetch_article`).
+                source_reuse.store(
+                    key, url=str(payload.get("verified_url") or ""),
+                    source_id=str(payload.get("source_id") or ""),
+                    snippet=str(payload.get("snippet") or ""),
+                    read_level=str(payload.get("read_level")
+                                   or source_reuse.READ_LEVEL_SELECTED),
+                    source_kind=str(payload.get("source_kind") or ""),
+                    scope=scope, chat_id=chat_id,
+                    full_source_pointer=self._source_pointer(payload))
+        # MCA-11 (M-MCA02-3, контракт §2): SafeFetchError-код/стадия/retryable →
+        # out-of-band сигнал ToolResult. Полная запись лежит в `error_detail`
+        # (`error` — строкой-кодом ради `tool_result`), поэтому читаем её;
+        # dict-форма поддержана для совместимости.
+        error = payload.get("error_detail")
+        if not isinstance(error, dict):
+            candidate = payload.get("error")
+            error = candidate if isinstance(candidate, dict) else {}
+        if error.get("code"):
+            _tool_result.set_signal(ctx, {
+                "error_code": str(error.get("code") or ""),
+                "stage": str(error.get("stage") or ""),
+                "reason": str(error.get("detail") or ""),
+                "retryable": bool(error.get("retryable")),
+            })
+        logger.info("[tools] read_source_code | op=%s | status=%s | stage=%s "
+                    "| verified=%s | lines=%s | files=%s | calls=%s",
+                    operation, payload.get("status"), payload.get("stage"),
+                    bool(payload.get("verified")),
+                    payload.get("line_range"), len(payload.get("files") or ()),
+                    payload.get("network_calls"))
+        return json.dumps(payload, ensure_ascii=False)
+
+    def _source_reader(self):
+        """Инстанс `SourceReader` (DI из ToolDeps либо один штатный на deps).
+
+        Собранный инстанс кэшируется на контейнере зависимостей: иначе каждый
+        вызов создавал бы новый `httpx.AsyncClient` (утечка соединений), а
+        транспорт проекта единственный — `SafeFetcher`."""
+        from services import source_reader as _sr
+        reader = getattr(self.deps, "source_reader", None)
+        if reader is not None:
+            return reader
+        reader = _sr.SourceReader(search=getattr(self.deps, "search", None))
+        try:
+            self.deps.source_reader = reader
+        except Exception:      # pragma: no cover - защита от frozen-контейнера
+            pass
+        return reader
+
+    @staticmethod
+    def _source_pointer(payload: dict) -> dict:
+        """Указатель источника для reuse (без текста кода — identity/строки)."""
+        truncation = payload.get("truncation") or {}
+        return {
+            "provider": "github",
+            "repo": str(payload.get("repo") or ""),
+            "ref": str(payload.get("ref") or ""),
+            "commit": str(payload.get("commit") or ""),
+            "path": str(payload.get("path") or ""),
+            "line_range": list(payload.get("line_range") or []),
+            "file_total_lines": int(payload.get("file_total_lines") or 0),
+            "source_kind": str(payload.get("source_kind") or ""),
+            "sha256": str((payload.get("provenance") or {}).get("sha256") or ""),
+            # Метаданные ДОСТАВЛЕННОГО фрагмента: без них reuse-ответ врал бы
+            # «truncated=false, остаток 0» (§1.1 «объём/обрезка»).
+            "delivered_chars": int(payload.get("snippet_chars") or 0),
+            "truncated": bool(truncation.get("truncated")),
+            "why": str(truncation.get("why") or ""),
+            "effective_limit": int(truncation.get("effective_limit") or 0),
+            "remainder_lines": int(
+                truncation.get("retrievable_remainder_lines") or 0),
+            "language": str(payload.get("language") or ""),
+            "symbol": str(payload.get("symbol") or ""),
+            "symbol_found": bool(payload.get("symbol_found")),
+            "parameter_only": bool(payload.get("parameter_only")),
+            "stage": str(payload.get("stage") or ""),
+        }
+
+    @staticmethod
+    def _source_identity(*, url: str, repo: str, ref: str, path: str,
+                         symbol: str) -> dict:
+        """Идентичность запроса для qualified reuse (B2).
+
+        Считается из ФАКТИЧЕСКОГО адреса поверх явных аргументов: ссылка сама
+        несёт repo/ref/path (`url is enough, no repo needed`), поэтому сверка
+        по сырым аргументам пропускала бы смену версии и файла и отдавала бы
+        чужой commit как `verified` (§3.3 контракта).
+
+        ``pairs`` — все допустимые пары (ref, path) из ссылки («короткий ref
+        первым», как в провайдере) и из аргументов: указатель совпадает, если
+        попал хотя бы в одну из них (ветка со слэшем разрешается однозначно)."""
+        from services import source_reader as _sr
+        parsed = _sr.parse_source_url(url) if str(url or "").strip() else None
+        repo_full = ""
+        if parsed is not None and parsed.owner and parsed.repo:
+            repo_full = f"{parsed.owner}/{parsed.repo}"
+        if not repo_full:
+            spec = _sr.parse_repo_spec(repo)
+            if spec is not None:
+                repo_full = f"{spec[0]}/{spec[1]}"
+        ref = str(ref or "").strip()
+        path = str(path or "").strip()
+        pairs: list[tuple[str, str]] = []
+        if ref and path:
+            pairs.append((ref, path))
+        if parsed is not None:
+            for pair in parsed.ref_path_candidates or ():
+                if pair not in pairs:
+                    pairs.append(pair)
+        return {"repo": repo_full, "pairs": tuple(pairs[:4]), "ref": ref,
+                "path": path, "symbol": str(symbol or "")}
+
+    @staticmethod
+    def _source_pointer_matches(pointer: dict, identity: dict) -> bool:
+        """Совпадает ли указатель записи с запрошенной идентичностью (B2/R-1)."""
+        repo = str(identity.get("repo") or "").lower()
+        if repo and str(pointer.get("repo") or "").lower() != repo:
+            return False
+        # R-1: фрагмент окна относится к конкретному СИМВОЛУ. Если запрошен
+        # другой символ, отдавать прежний файл как `verified` (с прежним
+        # `symbol_found`) нельзя — пусть будет честный fetch/несовпадение.
+        symbol = str(identity.get("symbol") or "").strip()
+        if symbol and str(pointer.get("symbol") or "").strip() != symbol:
+            return False
+        pairs = tuple(identity.get("pairs") or ())
+        stored = (str(pointer.get("ref") or ""), str(pointer.get("path") or ""))
+        if pairs:
+            return stored in pairs
+        # Явных (ref, path) нет (запрос «найди реализацию X»): reuse допустим
+        # только внутри того же репозитория и только на уже найденный файл —
+        # иначе это была бы подмена адреса.
+        return bool(repo and stored[1])
+
+    def _source_reuse_payload(self, reader, claim_keys, *, identity: dict,
+                              scope: str, chat_id, operation: str):
+        """Готовый payload из свежей записи `source_reuse` (0 сетевых вызовов).
+
+        Запись принимается, только если её указатель совпадает с запрошенной
+        идентичностью (repo/ref/path/operation): изменённая версия/ветка/
+        commit обязана привести к новому fetch (§3.3), а не к старому
+        доказательству. `verified` НЕ выдумывается: он берётся из реального
+        указателя прочитанных байт (`sha256` + line_range), записанного после
+        успешного чтения."""
+        try:
+            for key in claim_keys:
+                record = source_reuse.lookup(key, scope=scope, chat_id=chat_id)
+                if record is None:
+                    continue
+                pointer = dict(record.full_source_pointer or {})
+                if not pointer.get("commit") or not pointer.get("path"):
+                    continue
+                if not pointer.get("sha256"):
+                    continue
+                if not self._source_pointer_matches(pointer, identity):
+                    continue
+                # Запись и доставленный текст обязаны быть согласованы: если
+                # сохранённый фрагмент короче записанного объёма, честнее
+                # перечитать файл, чем отдавать усечённое как полное.
+                if int(pointer.get("delivered_chars") or 0) != \
+                        len(record.snippet):
+                    continue
+                return {
+                    "status": "ok", "stage": "fetch", "verified": True,
+                    "host": "github.com",
+                    "repo": str(pointer.get("repo") or ""),
+                    "ref": str(pointer.get("ref") or ""),
+                    "commit": str(pointer.get("commit") or ""),
+                    "path": str(pointer.get("path") or ""),
+                    "source_kind": str(pointer.get("source_kind") or "file"),
+                    "verified_url": record.url,
+                    "line_range": list(pointer.get("line_range") or []),
+                    "snippet": record.snippet,
+                    "snippet_chars": len(record.snippet),
+                    "file_total_lines": int(pointer.get("file_total_lines")
+                                            or 0),
+                    "language": str(pointer.get("language") or ""),
+                    "symbol": str(pointer.get("symbol")
+                                  or identity.get("symbol") or ""),
+                    "symbol_found": bool(pointer.get("symbol_found")),
+                    "parameter_only": bool(pointer.get("parameter_only")),
+                    # Честная обрезка ДОСТАВЛЕННОГО фрагмента: те же числа, что
+                    # были в первом ответе (§1.1 «объём/обрезка»).
+                    "truncation": {
+                        "truncated": bool(pointer.get("truncated")),
+                        "why": str(pointer.get("why") or ""),
+                        "effective_limit": int(pointer.get("effective_limit")
+                                               or 0),
+                        "limit_source": "reuse",
+                        "retrievable_remainder_lines": int(
+                            pointer.get("remainder_lines") or 0)},
+                    "not_checked": {
+                        "files_considered": 0, "files_read": 0,
+                        "depth_left": 0, "reason": "reuse"},
+                    "followup_incomplete": False,
+                    "files": [],
+                    "read_level": record.read_level,
+                    "reused": True,
+                    "reuse": source_reuse.reuse_line(record),
+                    "source_id": record.source_id,
+                    "network_calls": 0,
+                    "latency_ms": 0,
+                    "operation": operation,
+                    "provenance": {
+                        "provider": str(pointer.get("provider") or "github"),
+                        "endpoint": "reuse",
+                        "fetched_at": int(record.retrieved_at or 0),
+                        "bytes": 0,
+                        "sha256": str(pointer.get("sha256") or ""),
+                        "read_level": record.read_level,
+                        "network_calls": 0,
+                    },
+                }
+        except Exception:      # pragma: no cover - reuse не рвёт инструмент
+            logger.warning("[tools] read_source_code reuse lookup failed",
+                           exc_info=True)
+        return None
 
     # ── get_user_context (A6, раунд 10.26, ADR-1026-18 D1–D8) ───────────
 

@@ -105,18 +105,22 @@ class TestContract:
         # ASAP5 §20 (edit-route): канон 14→15 (+edit_image) — тот же
         # прецедент: edit_image — неизвестный тул → external_read (метка —
         # METERED_TOOLS/MEDIA_DELIVERY_TOOLS).
+        # EVOL-SRC-READER (W6): канон 15→16 (+read_source_code) — тот же
+        # прецедент: read_source_code — неизвестный тул → external_read
+        # (метка характера вызова — METERED_TOOLS).
         names = {t["function"]["name"] for t in TOOL_CALLING_TOOLS}
-        assert len(names) == 15
+        assert len(names) == 16
         assert set(tool_result.TOOL_CATEGORIES) == names - {
-            "recognize_image", "fact_check", "edit_image"}
+            "recognize_image", "fact_check", "edit_image", "read_source_code"}
         assert tool_result.category_for("recognize_image") == "external_read"
         assert tool_result.category_for("fact_check") == "external_read"
         assert tool_result.category_for("edit_image") == "external_read"
+        assert tool_result.category_for("read_source_code") == "external_read"
         counts = {}
         for name in names:
             counts[tool_result.category_for(name)] = \
                 counts.get(tool_result.category_for(name), 0) + 1
-        assert counts == {"memory_read": 4, "external_read": 8,
+        assert counts == {"memory_read": 4, "external_read": 9,
                           "paid_media": 2, "admin": 1}
 
     def test_unknown_tool_conservative_never_admin(self):

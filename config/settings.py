@@ -1434,6 +1434,30 @@ class Settings:
         "TOOL_CHAIN_LIMITS_ENABLED", True)
     ARTICLE_TOOL_ENABLED: ClassVar[bool] = _env_bool(
         "ARTICLE_TOOL_ENABLED", True)
+    # ── EVOL-SRC-READER (W6, `arch/source-reader-contract.md` §4/§6):
+    # env-only ClassVar'ы проверенного чтения исходников. Δ каталога = 0
+    # (в param_catalog НЕ входят: сетевой модуль, не owner-настройка).
+    #   * SOURCE_READ_ENABLED (default ON) — kill-switch инструмента
+    #     `read_source_code`: OFF → инструмент не объявлен, lookup не идёт.
+    #   * SOURCE_READ_MAX_FILES — файлов за одно исследование (3, потолок 6);
+    #   * SOURCE_READ_MAX_DEPTH — глубина обхода смежных классов (1, потолок 2);
+    #   * SOURCE_READ_MAX_REQUESTS — жёсткий предохранитель сетевых вызовов
+    #     против ретрай-петли (8, потолок 16);
+    #   * SOURCE_READ_MAX_FILE_BYTES — предел байтов одного файла (2 МБ);
+    #   * SOURCE_READ_GITHUB_TOKEN — опциональная авторизация (пусто =
+    #     анонимно; значение никогда не логируется/не попадает в payload).
+    SOURCE_READ_ENABLED: ClassVar[bool] = _env_bool(
+        "SOURCE_READ_ENABLED", True)
+    SOURCE_READ_MAX_FILES: ClassVar[int] = _env_int_min(
+        "SOURCE_READ_MAX_FILES", 3, 1)
+    SOURCE_READ_MAX_DEPTH: ClassVar[int] = _env_int_min(
+        "SOURCE_READ_MAX_DEPTH", 1, 0)
+    SOURCE_READ_MAX_REQUESTS: ClassVar[int] = _env_int_min(
+        "SOURCE_READ_MAX_REQUESTS", 8, 1)
+    SOURCE_READ_MAX_FILE_BYTES: ClassVar[int] = _env_int_min(
+        "SOURCE_READ_MAX_FILE_BYTES", 2_000_000, 1_024)
+    SOURCE_READ_GITHUB_TOKEN: ClassVar[str] = _env_str(
+        "SOURCE_READ_GITHUB_TOKEN", "")
     # ── Раунд 10.37 (MCA-11, ADR-1028-13 D2/D7): env-only ClassVar'ы
     # ToolResult-контракта и лимитов исполнения. Δ каталога = 0 (в
     # param_catalog НЕ входят; F8 NOT_APPLICABLE).

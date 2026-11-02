@@ -62,6 +62,9 @@ METERED_TOOLS = frozenset({
     "execute_web_search", "fetch_article", "summarize_video", "download_media",
     "compile_lore_story", "generate_image", "edit_image", "transcribe_video",
     "recognize_image", "fact_check",
+    # EVOL-SRC-READER (W6): инструмент делает сетевую работу (внешние
+    # source-эндпоинты), поэтому «метрированный» по факту характера вызова.
+    "read_source_code",
 })
 
 #: ER-08 (решение владельца 02.11.2026): read-only проверка фактов — счётчик
@@ -72,6 +75,11 @@ METERED_TOOLS = frozenset({
 #: вызов ≤2), реальные квоты и перегрузка провайдера (tool_router/quota).
 METERED_EVIDENCE_READ_ONLY = frozenset({
     "execute_web_search", "fetch_article", "fact_check",
+    # EVOL-SRC-READER (W6): чтение исходника — такая же read-only проверка
+    # (HTTP к source-эндпоинту, 0 LLM-токенов на само чтение): «денежный»
+    # счётчик её не режет, анти-петлевые гварды и SOURCE_READ_MAX_REQUESTS
+    # остаются (ER-08).
+    "read_source_code",
 })
 
 
