@@ -2,11 +2,13 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+  "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
   "slice_candidate_pins": {
     "MEME-PIPE-CORE": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
     "MEME-MANUAL-CMD": "d58537496cc129987e8eb045019909b794c11533",
-    "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899"
+    "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+    "MEME-JOKE-SPEECH": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+    "MEME-INITIATIVE-LAYERS": "76608fad3296389b2617ebde3d3df2a55d7aae27"
   },
   "deployed_commit": "",
   "strict_evidence": true,
@@ -1052,8 +1054,37 @@
       "acceptance": "Этап B собирает system через существующий `prompt_composer.compose_speech_system` (writer=`meme_joke`, `profile=PROFILE_SPEECH_PLAIN`, `base_prompt`=задание, `base_source`=происхождение эффективного промпта): тест с записью composer фиксирует ровно один вызов на этап B, а в отправленном payload лежит результат этого вызова, а не только текст задания. `prompt_composer.py` при этом не правится.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2 - захваченный реальный payload этапа B",
+          "observation": "Независимый пробник Reviewer на боевом пути consider_chat -> _default_joke -> _joke_system_prompt: system 2924 симв. собран начальным compose_speech_system, system_sha12=86f7b450c114 совпадает с журналом speech; порядок блоков задание(0) -> Core(130) -> Persona(155) -> Speech_Base(467) -> Humor Craft(2142) -> Style hint(2313) - задание первым, слои после него.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::_joke_system_prompt (:1746)",
+          "observation": "Единственная точка сборки system этапа B: `pc.compose_speech_system(writer=JOKE_SPEECH_WRITER, profile=PROFILE_SPEECH_PLAIN, base_prompt=<задание+J-директива>, base_source=<chat|global|default>)`; возвращает (system, диагностика). Своего сборщика в модуле нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_joke_payload_inherits_speech_layers (:222)",
+          "observation": "Проверяется РЕАЛЬНЫЙ payload модели (system/user из llm.messages): system начинается с задания, содержит Core/Persona/Expression/<Speech_Base>/HUMOR_TEXT/hint стиля, приём Humor Craft, speech['system_sha12'] == sha256(system)[:12]; выжимка только в user.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1075,8 +1106,37 @@
       "acceptance": "При включённом Personality Core собранный system этапа B содержит Core и Identity/SelfModel с их фактическими ревизиями из манифеста; при выключенном Core слой отсутствует с честной причиной пропуска в манифесте (`core_absent`/`core_disabled`), а не молчанием. Проверка — по реальному собранному payload, а не по факту вызова функции.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2 - Core/Identity в payload",
+          "observation": "В захваченном system реальные ревизии: core=r41.8a959786a60e (core_detail=compact:document_default, чатовая редакция), identity=58c1f361ea087b62; блоки Core и <Persona> присутствуют по одному разу.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::_joke_system_prompt (:1746) + services/bot_persona.py::resolve_character_block (:326)",
+          "observation": "Личность для этапа B берётся единым резолвом bot_persona.resolve_character_block(chat_id) (Persona + Character_Rules при K1), persona gate per-chat; Core отдаёт сам композер через resolve_gates; причины пропуска (core_disabled / persona_disabled / identity_absent) уходят в манифест.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_disabled_axis_removes_layer_and_names_reason[core] (:412)",
+          "observation": "Выключенный Core: speech['skipped']['core']=='core_disabled', CORE_TEXT отсутствует, PERSONA остаётся; задание и <Speech_Base> живы.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1098,8 +1158,28 @@
       "acceptance": "Expression («Речь и характер») доезжает до payload этапа B с учётом глобальных и чатовых настроек: изменение глобального значения меняет собранный system, чатовое переопределение перекрывает глобальное ровно по действующей модели конфигурации; при выключенном Expression слой пропущен с причиной в манифесте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2 - Expression в payload",
+          "observation": "expression=c40a7b39520f - чатовая заметка «Речи и характера»; чатовый оверрайд перекрывает глобальный (глобальной заметки в system нет), слой помечен rendered в манифесте.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_joke_payload_inherits_speech_layers (:222) и ::test_disabled_axis_removes_layer_and_names_reason[expression] (:412)",
+          "observation": "EXPRESSION_NOTE в system и speech['expression'] == manifest.versions['expression']; выключенный Expression: skipped['expression']=='expression_disabled', заметка исчезает, Core остаётся.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1121,8 +1201,28 @@
       "acceptance": "При включённом Humor Craft payload этапа B содержит humor-слой с фактической ревизией; при выключенном Humor Craft слой отсутствует по причине `humor_disabled`, и этап B не подставляет вместо него собственный юмор/шаблон.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2/§4 - humor-слой и приём",
+          "observation": "humor=b2444d2932e0 (ревизия слоя humor_craft), technique=deadpan, humor_status=rendered; текст приёма (359 симв.) в payload; при выключенной оси humor_craft техники нет и слоя нет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_joke_payload_inherits_speech_layers (:222) и ::test_disabled_axis_removes_layer_and_names_reason[humor] (:412)",
+          "observation": "Приём рендерится: craft.technique_text(technique) в system, speech['humor'] == sha12(craft.render_layer(...)); выключенный Humor Craft: skipped['humor_craft']=='humor_disabled', technique=='', ни один текст техники не подставлен (в т.ч. собственный юмор этапа B отсутствует).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1144,8 +1244,28 @@
       "acceptance": "Редактируемый промпт «Придумай короткий абсурдный прикол из этой выжимки» передаётся как задание (task/instruction) и не заменяет личность: при чатовом переопределении текста задания Core/Identity/Expression/Humor остаются в payload с теми же ревизиями, а смена задания не меняет ни один речевой слой; задание не подаётся как system-замена всех слоёв.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2/§9 - задание как слой channel_contract",
+          "observation": "Задание стоит первым блоком (позиция 0) и слои после него не вытеснены: при правке задания 1620 симв. Core 23, персона 68, приём 359 симв. - те же размеры, что в базовом прогоне; аддитивного бюджета инструкций нет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_edited_joke_prompt_is_task_not_persona (:447)",
+          "observation": "Правка промпта из админки (global): system.startswith(edited) и при этом CORE_TEXT, PERSONA, EXPRESSION_NOTE, HUMOR_TEXT присутствуют, humor_status=='rendered'.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1167,8 +1287,28 @@
       "acceptance": "В дереве нет второго композера, дублирующего Core/Expression для мемов: единственный путь сборки — `prompt_composer`, `meme_initiative` не содержит собственной склейки Core-блоков и не вызывает `compose_prompt` напрямую в обход `compose_speech_system`.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §6 - целостность контрактов",
+          "observation": "`services/prompt_composer.py` в кандидате не тронут (пустой diff), миграций и SQL нет; вторичного сборщика Core в meme_initiative нет - сборка только через compose_speech_system.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py - diff кандидата (только этап B, диагностика, ротация)",
+          "observation": "Изменены три сервиса и три теста; _joke_system_prompt не склеивает Core/Expression вручную и не вызывает compose_prompt в обход compose_speech_system; _default_summarize (:1597) и этап C не менялись.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1190,8 +1330,28 @@
       "acceptance": "Этап B не вводит нового агента/роли и отдельного цикла исполнения: он остаётся стадией существующего `consider_chat`, а ручной запуск `/meme` использует тот же код; новых реестров/агентских конфигураций не появляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §3 - один вызов на этап",
+          "observation": "Этап B остаётся стадией существующего consider_chat (шаги ['meme_summary','meme_joke']); новых агентов/реестров/циклов исполнения не появилось, /meme использует тот же код.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::consider_chat -> _default_joke (:1807)",
+          "observation": "_default_joke по-прежнему стадия пайплайна (вызывается из consider_chat, не из нового исполнителя); возврат расширен до (текст, диагностика), порядок этапов не изменился.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1213,8 +1373,37 @@
       "acceptance": "Этап B делает ровно один LLM-вызов: тест с записью вызовов показывает 1 генерацию на этап B при включённых Core/Expression и при включённом Humor Craft; humor-слой и сборка слоёв не порождают дополнительных вызовов модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §3 - счётчик generate",
+          "observation": "На попытку ровно 2 вызова ['meme_summary','meme_joke'], meme_joke=1; повторный прямой вызов compose_speech_system счётчик не увеличил (2 -> 2); mca_humor_craft.layer_calls(technique)==0.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_joke_step_is_one_call_and_composer_calls_no_llm (:324)",
+          "observation": "llm.steps()==['meme_summary','meme_joke'], len(calls)==2, meme_joke один раз; повторная сборка композером не добавляет вызовов (before == after), craft.layer_calls(technique)==0.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "services/meme_initiative.py::_joke_system_prompt (:1746)",
+          "observation": "Композер вызывается без клиента модели вообще (в аргументах нет llm/generate), поэтому второй LLM-вызов конструктивно невозможен.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1236,8 +1425,37 @@
       "acceptance": "В этапе B нет хардкода юмористических шаблонов: ни списка готовых шуток, ни фиксированного приёма, ни подстановки текста вместо модели; текст прикола формируется моделью из задания и речевых слоёв, что подтверждается отсутствием таких литералов в модуле и тестом, где смена настроек меняет результат, а не константа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2/§4 - источник юмора",
+          "observation": "Юмор в payload - HUMOR_TEXT и текст приёма из документа владельца humor.craft (359 симв.); список техник из mca_humor_craft.TECHNIQUES, готовых шуток в модуле нет; смена настроек меняет слой.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::joke_technique (:1669) и JokeAdvice (:1640)",
+          "observation": "Приём берётся из craft.TECHNIQUES по настройкам владельца (cfg.technique_enabled), индекс sha256(job_id) % len(enabled); фиксированной строки-техники нет, альтернативного текста шутки нет.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_technique_rotation_stays_within_owner_enabled (:372)",
+          "observation": "Поведение меняется настройками, а не константой: при выключенных deadpan/literalism эти техники не выбираются ни на 60 job_id; при одной включённой выбирается только она.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1259,8 +1477,37 @@
       "acceptance": "Humor Craft не привязан принудительно к одному приёму: этап B не передаёт фиксированный `comic_strategy` и не переопределяет выбор владельца; при разных настройках (стратегия, вес из фидбека) собранный humor-слой называет разные приёмы из существующего набора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §4 - ротация по включённым техникам",
+          "observation": "Владелец выключил 2 из 5 техник: на 60 job_id получены только absurd_escalation/deadpan/literalism, ни одной выключенной; тот же job_id даёт ту же технику (детерминизм, без LLM и без случайности).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_technique_rotation_stays_within_owner_enabled (:372) и ::test_journalled_technique_matches_rotation_and_payload (:396)",
+          "observation": "Ротация не выходит за включённые техники, даёт больше одной техники, детерминирована по job_id; журнальный technique совпадает с ротацией и с текстом в payload.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "services/meme_initiative.py::joke_technique (:1669)",
+          "observation": "Нет фиксированного comic_strategy: приём вычисляется на каждом прогоне из настроек чата и job_id; при выключенной оси приём пустой (слой не форсируется).",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1282,8 +1529,37 @@
       "acceptance": "Диагностика попытки мема содержит фактически использованные ревизии Core, Expression, Humor (включая честные причины пропуска каждого слоя) и итоговый prompt manifest: в существующем поле `detail` строки журнала появляется подобъект `speech` (`composer`, `system_sha12`, `manifest`, ревизии, `technique`/`humor_status`, `layers`, `skipped`, `off_axes`), `analytics_snapshot` отдаёт аддитивный `last_joke`; при отсутствии попытки — явное «нет данных», а не выдуманные ревизии. Тексты выжимки и прикола в диагностику и в чат не попадают.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §6 - состав диагностики",
+          "observation": "facts.joke.speech содержит 14 ключей (composer, system_sha12, manifest, core, core_detail, identity, expression, style_policy, humor, technique, humor_status, layers, skipped, off_axes); versions['humor'] не добавлялся, сырые тексты (Core, персона, выжимка, прикол, HUMOR_TEXT) в журнал не попадают.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::_speech_facts (:1696) и :: _last_joke (:1926)",
+          "observation": "_speech_facts пишет ревизии из manifest.versions, humor из трассы слоя humor_craft, layers/skipped/off_axes; _last_joke отдаёт факты свежего joke-ряда в аддитивный analytics.last_joke через единственный parse_attempt_facts; при composer=None только composer='failed' + system_sha12.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_meme_joke_speech_layers.py::test_analytics_snapshot_exposes_last_joke (:310)",
+          "observation": "last_joke.speech.system_sha12 равен журнальному, layers непусты, текста прикола в snapshot нет.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_joke_speech_layers.py",
+          "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1305,8 +1581,29 @@
       "acceptance": "Отчёт Reviewer содержит проверку реального payload модели этапа B (собранные system и user, чек-сумма или структурный дамп): Core/Identity/Expression/Humor присутствуют с ревизиями, задание идёт отдельным блоком, число вызовов равно одному. Наличие функций в коде само по себе приёмкой не считается — при отсутствии проверки payload строка остаётся PENDING.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2,§9 - проверка реального payload",
+          "observation": "Reviewer сам собрал боевой путь с фейковым транспортом: system 2924 симв., порядок блоков, system_sha12 совпадает с журналом, ровно один вызов прикола, слои/пропуски сверены с манифестом; отдельные контрпримеры - длинная правка задания, выключенные оси, fail-open, ротация на 60 job_id.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "reports/w-joke-speech-review.md §7 - границы приёмки",
+          "observation": "APPROVED по поведению сервисного слайса; блокирующим было только отсутствие строк/пина в карте (этим коммитом закрыто), витринная часть остаётся за P4.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1328,8 +1625,37 @@
       "acceptance": "Выжимка остаётся аналитическим этапом без речевых слоёв личности: в payload выжимки нет Core/Expression/Humor (причина видна в манифесте или в коде выжимки), а image prompt остаётся техническим — Core и Humor применяются только к тексту прикола.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §2 - этап A",
+          "observation": "system этапа A равен MEME_SUMMARY_SYSTEM_PROMPT: в нём нет Core, персоны, Speech_Base и HUMOR_TEXT; выжимка остаётся аналитической.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/meme_initiative.py::_default_summarize (:1597)",
+          "observation": "Этап A кандидатом не изменён (diff только этапа B, диагностики и ротации): композер не вызывается, речевые слои в system выжимки не добавляются; image prompt этапа C по-прежнему технический.",
+          "type": "code",
+          "artifact_path": "services/meme_initiative.py",
+          "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_meme_pipeline_stages.py",
+          "observation": "Контракт этапов P1 (подмена прикола в image prompt, технический этап C) остаётся зелёным на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_pipeline_stages.py",
+          "artifact_sha256": "9f2e67ed69a591fd239e023cb8c85bdb662f60df6fe87714bf7c3ea6223300ed",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1351,8 +1677,37 @@
       "acceptance": "Обычная текстовая инициатива фактически проходит Core: в payload Writer'а инициативы (`initiative_writer`/существующий Direct L2-путь) присутствует текст Core и Identity с ревизиями, изменение глобального и чатового значения Core меняет собранный system; отчёт фиксирует чек-сумму реального payload, а не факт импорта модуля.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §5 - реальная инициатива",
+          "observation": "Боевые методы generate_initiative_reply -> _initiative_persona_block -> _l2_write_answer -> _compose_speech_system: 1 Writer-вызов, чатовый Core r41.8d5cb11776a4 в payload (глобального нет); manifest.versions совпадают с резолверами; выключение оси Core даёт core_disabled, личность жива.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression (:177)",
+          "observation": "Чатовая редакция Core (rev 11) в manifest.versions и в payload; GLOBAL_CORE отсутствует; слой core помечен rendered; один Writer-вызов.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+          "observation": "Core/writer-ревизия инициативы совпадают с Direct-писателем того же чата (существующий тест SOUL-05.8, не правился).",
+          "type": "test",
+          "artifact_path": "tests/test_soul1_w5_observer_gates.py",
+          "artifact_sha256": "aacf7a47b26b0efa9277c991cc68fb9086f48c135188eb710009130e27952f67",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1383,7 +1738,8 @@
       "amendment_source_sha256": "8941c8d1e2fc0848fdba4d48e849777863a5626b464cae17bda7f9d2f45faaef",
       "amendment_source_line": 20,
       "amendment_line_sha256": "2fde982b2b8d22a05f0e1cd252860763831134a5343610878f8d231a922d2453",
-      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо"
+      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо",
+      "pending_note": "PENDING: чатовое переопределение Expression доказано (test_initiative_speech_layers_chat_overrides.py:177 - чатовая заметка в payload, глобальной нет, ревизия совпадает), но случай ВЫКЛЮЧЕННОЙ оси Expression на пути инициативы не проверен: в test_...chat_overrides.py параметризованы только оси core и style, а expression_disabled проверяется лишь на этапе прикола (test_meme_joke_speech_layers.py:430) и на уровне композера (test_add_exp_expression.py:563). Нужен один параметризованный случай axis='expression' на payload Writer'а инициативы (skipped reason expression_disabled + остальные слои живы)."
     },
     {
       "source_id": "MAN-MEME-INIT-STYLE-POLICY",
@@ -1397,8 +1753,37 @@
       "acceptance": "Style Policy применяется к тексту инициативы существующим механизмом: тест показывает срабатывание правила, заданного в глобальных и в чатовых настройках, отсутствие срабатывания при выключенном правиле и сохранение поведения при пустых настройках; проверка идёт на реальном ответе Writer'а, а не на наличии вызова в коде.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §5 - Style Policy",
+          "observation": "Чатовый hint стиля в payload, глобального нет; чатовое выключение оси стиля -> style_policy_hint пропущен с style_policy_disabled, остальные слои живы; пустое чатовое значение откатывается на глобал.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression (:177)",
+          "observation": "chat_policy.hint в system, global_policy.hint нет, manifest.versions['style_policy'] == chat-ревизии (rev 9); документы строятся штатным style_policy.build_document.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[style] (:225)",
+          "observation": "Выключенная ось стиля: слой style_policy_hint не отрендерен, skip_reason=='style_policy_disabled' из закрытого SKIP_REASONS, остальные слои (Core, персона) на месте.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1420,8 +1805,37 @@
       "acceptance": "Архитектура Direct Writer не переделана: проверка идёт существующим путём `generate_initiative_reply` -> `_l2_write_answer(writer=\"initiative_writer\")` -> `_compose_speech_system`, обычный Direct-ответ остаётся байт-паритетным (существующие паритет-тесты зелёные и не правятся). Мелкий хунк переноса `_initiative_character` в `bot_persona.resolve_character_block` принадлежит пакету MEME-JOKE-SPEECH; этот пакет `services/direct_chat_service.py` не меняет, а паритет подтверждает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-joke-speech-review.md §5 - байт-паритет тела личности",
+          "observation": "bot_persona.resolve_character_block == DirectChatService._initiative_character == _initiative_persona_block (305 симв., персона + Character_Rules), ctx возвращается тем же; Writer не переделывался, OFF-ветка и _l2_write_answer прежние.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
+          "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "services/direct_chat_service.py::_initiative_character",
+          "observation": "Тело резолва вынесено в bot_persona, метод стал делегатом в одну строку; других правок Writer'а нет.",
+          "type": "code",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "3bf3c96fcc7d0feaf1ccb7cbfa1fdaac1f6bd310543c97451a08004e1b20042a",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        },
+        {
+          "ref": "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona + tests/test_initiative_speech_layers_chat_overrides.py",
+          "observation": "Существующий паритет-тест инициативы/Direct зелёный без правок; новый файл проверяет тот же Writer, а не его копию (в _StubService вызываются реальные методы DirectChatService).",
+          "type": "test",
+          "artifact_path": "tests/test_soul1_w5_observer_gates.py",
+          "artifact_sha256": "aacf7a47b26b0efa9277c991cc68fb9086f48c135188eb710009130e27952f67",
+          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1452,7 +1866,8 @@
       "amendment_source_sha256": "8941c8d1e2fc0848fdba4d48e849777863a5626b464cae17bda7f9d2f45faaef",
       "amendment_source_line": 18,
       "amendment_line_sha256": "6d6d41b6018ae3cb27d9807265478520ca648412b3df35b93e279741f54139a8",
-      "amendment_excerpt": "> В диагностике мемов показать фактически использованные ревизии Core, Expression, Humor и итогового prompt manifest. Reviewer обязан проверить реальный payload"
+      "amendment_excerpt": "> В диагностике мемов показать фактически использованные ревизии Core, Expression, Humor и итогового prompt manifest. Reviewer обязан проверить реальный payload",
+      "pending_note": "PENDING: показ ревизий/манифеста в карточке «Инициатива -> Мемы» - обязательство пакета P4 MEME-UI-FIELDS (web/index.html, web/app.js). Серверная часть (analytics.last_joke.speech) готова; пакет требует web/** и ждёт освобождения полосы."
     },
     {
       "source_id": "MAN-MEME-IIC-INDEP-SCHEDULE",
@@ -6745,7 +7160,20 @@
       ],
       "order_note": "Пакет идёт ДО закрытия 13 критериев приёмки §8 (MEME-ACC-*): критерии 1-3 и 7-12 фиксируют существование этапов и промптов, а это дополнение задаёт, ЧЕМ именно является этап прикола. Проверка обычной текстовой инициативы (MEME-INITIATIVE-LAYERS) не зависит от web/** и может идти параллельно.",
       "split_note": "Веб-часть дополнения ограничена показом диагностики (ревизии + manifest) и живёт в MEME-UI-FIELDS (P4) вместе с web/api/routes.py; серверная сборка слоёв и запись диагностических полей остаются в MEME-JOKE-SPEECH без web/**.",
-      "arch_note": "arch/joke-speech-layers.md (Architect, 03.11.2026) — замороженное решение: точка сборки `compose_speech_system`, набор слоёв, механика выбора приёма Humor Craft, поля `detail.speech`, критерии «реального payload» для Reviewer и швы обычной инициативы. Пакет в этом документе назван MEME-JOKE-VOICE-LAYERS — это тот же пакет MEME-JOKE-SPEECH."
+      "arch_note": "arch/joke-speech-layers.md (Architect, 03.11.2026) — замороженное решение: точка сборки `compose_speech_system`, набор слоёв, механика выбора приёма Humor Craft, поля `detail.speech`, критерии «реального payload» для Reviewer и швы обычной инициативы. Пакет в этом документе назван MEME-JOKE-VOICE-LAYERS — это тот же пакет MEME-JOKE-SPEECH.",
+      "source_line": 8,
+      "source_text_sha256": "26415b66403fa323bbb1d060e5cacd3cf55be0055cd3933bad4de696da588e44",
+      "source_excerpt": "> **Дополнение к текущей реализации мем-пайплайна.**",
+      "source_lines": [
+        10,
+        12,
+        14,
+        16,
+        18,
+        20
+      ],
+      "source_pointer_note": "Вербатим-текст дополнения - plans/owner_inputs/2026-11-03-meme-joke-speech-layers.md (sha256 файла выше). Строки 10-20 - пять абзацев требования владельца (композер и слои, задание вместо личности, запреты и приём Humor Craft, выжимка/картинка, диагностика и проверка реального payload, проверка обычной инициативы). Строка 8 - заголовок дополнения; на неё же ссылаются другие дополнения этой задачи.",
+      "binding_note": "Привязка 03.11.2026 (PM): сервисная часть дополнения реализована кандидатом a1f0f9a0 (код) + ae72735b (отчёт Builder), независимо принята Reviewer (reports/w-joke-speech-review.md, APPROVED по поведению) и объединена в evol/impl merge-коммитом 76608fad (дерево кода = a1f0f9a0). Строки P6 MEME-JOKE-SPEECH (13) - VERIFIED на кандидате 76608fad; P7 MEME-INITIATIVE-LAYERS - 3 из 4 VERIFIED, MEME-INIT-EXPRESSION-PASS остаётся PENDING (нет случая выключенной оси Expression на пути инициативы); показ диагностики в админке остаётся PENDING в P4 (MEME-JOKE-DIAG-UI)."
     },
     {
       "id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
@@ -6843,6 +7271,6 @@
       "arch_decision": "plans/features/meme-pipeline-refactor-01/arch/initiative-coordination.md"
     }
   ],
-  "slice_candidate_pins_note": "candidate_commit - объединённый кандидат полосы P2 (ceb49b56 = код e99218af + доки 69edaccc): именно на нём перепроверены все привязанные артефакты. MEME-API-SCOPE привязан к нему напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этого мёржа, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату.",
-  "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются."
+  "slice_candidate_pins_note": "MEME-JOKE-SPEECH / MEME-INITIATIVE-LAYERS: кандидат 76608fad - merge-коммит feat/meme-joke-speech в evol/impl; дерево сервисов/тестов идентично проверенному коду a1f0f9a0 (git diff a1f0f9a0 76608fad по этим файлам пуст), отчёт Builder - ae72735b. Остальные пины (P1 b272a63b, P2 ceb49b56, P3 d5853749) не менялись: их доказательства привязаны к своим кандидатам и на новых требованиях не перепроверялись. candidate_commit - объединённый кандидат полосы P2 (ceb49b56 = код e99218af + доки 69edaccc): именно на нём перепроверены все привязанные артефакты. MEME-API-SCOPE привязан к нему напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этого мёржа, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату.",
+  "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются. | 03.11.2026 binding: OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS получил якорные строки источника и привязку - 13 строк P6 MEME-JOKE-SPEECH VERIFIED, 3 из 4 строк P7 MEME-INITIATIVE-LAYERS VERIFIED, MEME-INIT-EXPRESSION-PASS PENDING (нет случая выключенной оси Expression на пути инициативы), MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**). Кандидат 76608fad (= код a1f0f9a0), ревью reports/w-joke-speech-review.md."
 }

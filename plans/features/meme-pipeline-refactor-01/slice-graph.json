@@ -97,11 +97,14 @@
     {
       "id": "MEME-INITIATIVE-LAYERS",
       "title": "Проверка обычной текстовой инициативы: Core, Expression, Style Policy",
-      "depends_on": [],
+      "depends_on": [
+        "MEME-JOKE-SPEECH"
+      ],
       "write_scope": [
         "tests/test_initiative_speech_layers_chat_overrides.py"
       ],
-      "acceptance": "Обычная текстовая инициатива фактически проходит Core, Expression и Style Policy с учётом глобальных и чатовых настроек: новый чат-оверрайд-тест захватывает реальные сообщения `_l2_write_answer(writer=\"initiative_writer\")` и показывает текст чатового Core, hint Style Policy, ревизии слоёв в `manifest.versions`, а также пропуск слоя с причиной при выключенной оси; `services/direct_chat_service.py` этим пакетом не меняется, байт-паритет обычного Direct-ответа подтверждают существующие тесты."
+      "acceptance": "Обычная текстовая инициатива фактически проходит Core, Expression и Style Policy с учётом глобальных и чатовых настроек: новый чат-оверрайд-тест захватывает реальные сообщения `_l2_write_answer(writer=\"initiative_writer\")` и показывает текст чатового Core, hint Style Policy, ревизии слоёв в `manifest.versions`, а также пропуск слоя с причиной при выключенной оси; `services/direct_chat_service.py` этим пакетом не меняется, байт-паритет обычного Direct-ответа подтверждают существующие тесты.",
+      "note": "Проверка обычной текстовой инициативы не переделывает Writer, но её доказательство (tests/test_initiative_speech_layers_chat_overrides.py) поставляется тем же коммитом-кандидатом, что и P6 MEME-JOKE-SPEECH, поэтому полоса подключена к нему зависимостью, а не независимым писателем того же файла."
     },
     {
       "id": "MEME-INIT-COORDINATION",

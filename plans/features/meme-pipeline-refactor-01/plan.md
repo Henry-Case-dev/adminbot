@@ -269,6 +269,23 @@ Humor Craft при его включении. Редактируемый про�
 | **P7 `MEME-INITIATIVE-LAYERS`** (4) | `MEME-INIT-CORE-PASS`, `-EXPRESSION-PASS`, `-STYLE-POLICY`, `-NO-DIRECT-REWORK` | обычная текстовая инициатива фактически проходит Core/Expression/Style Policy с глобальными и чатовыми настройками; Direct Writer не переделан (`tests/test_initiative_speech_layers_chat_overrides.py`) |
 | **P4 `MEME-UI-FIELDS`** (+1) | `MEME-JOKE-DIAG-UI` | показ в админке фактических ревизий Core/Expression/Humor с причинами пропуска и итогового manifest; «нет данных», если попытки не было |
 
+### 9.3.1 Статус привязки (03.11.2026)
+
+Сервисная часть дополнения реализована и принята независимым Reviewer: код `a1f0f9a0`,
+документы `ae72735b`, вердикт `reports/w-joke-speech-review.md` (APPROVED по поведению,
+единственным блокером была эта карта). Полоса объединена в `evol/impl` merge-коммитом
+`76608fad` (дерево сервисов и тестов идентично `a1f0f9a0`), он же — кандидат привязки.
+
+| Пакет | Итог | Что осталось |
+|---|---|---|
+| P6 `MEME-JOKE-SPEECH` | 13 / 13 `VERIFIED` | ничего: гейт `--stage review --slice MEME-JOKE-SPEECH --candidate 76608fad` = 0 ошибок |
+| P7 `MEME-INITIATIVE-LAYERS` | 3 / 4 `VERIFIED` | `MEME-INIT-EXPRESSION-PASS` — PENDING: нет случая выключенной оси Expression на пути инициативы (на этапе прикола он есть) |
+| P4 `MEME-UI-FIELDS` | `MEME-JOKE-DIAG-UI` PENDING | показ ревизий/manifest в карточке: нужен `web/**`, полоса ждёт освобождения |
+
+Остаток эпика не изменился: P4 (`MEME-UI-FIELDS`) и пакеты координации инициативы
+(`MEME-INIT-COORDINATION`, `MEME-INIT-DIAG`) остаются `PENDING`; деплой этого слайса в
+одиночку не закрывает эпик.
+
 ### 9.4 Архитектурная классификация
 
 `ARCH_REUSE_CONFIRMED` — публичный интерфейс `compose_speech_system` уже принимает `base_prompt`
