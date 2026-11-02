@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "meme-pipeline-refactor-01",
-  "note": "Пакеты разрезаны по реальным write-scope. services/meme_initiative.py — одна горячая точка: MEME-PIPE-CORE и MEME-ANALYTICS-STAGES сериализованы зависимостью. web/index.html + web/app.js держит линия COG-MAP S3 (worktree evol-71536a366a11-814456b9, branch feat/cog-map-s3): MEME-UI-FIELDS стартует только после освобождения этих файлов.",
+  "note": "Пакеты разрезаны по реальным write-scope. services/meme_initiative.py — одна горячая точка: MEME-PIPE-CORE и MEME-ANALYTICS-STAGES сериализованы зависимостью. web/index.html + web/app.js держит линия COG-MAP S3 (worktree evol-71536a366a11-814456b9, branch feat/cog-map-s3): MEME-UI-FIELDS стартует только после освобождения этих файлов. Дополнение OI-2026-11-03-MEME-CMD-AUTODELETE добавлено внутрь MEME-MANUAL-CMD (отдельного пакета не создаём): удаление сообщения команды не меняет write scope, verify-тест живёт в tests/test_admin_meme_command.py.",
   "slices": [
     {
       "id": "MEME-PIPE-CORE",
@@ -38,7 +38,14 @@
         "services/bot_commands.py",
         "tests/test_admin_meme_command.py"
       ],
-      "acceptance": "В группе /meme от не-админа не порождает генерации; от админа запускает пайплайн вручную при исчерпанной квоте, активном кулдауне и малом числе сообщений; при недоступном image backend возвращает честную ошибку; в меню команд бота команда не появляется."
+      "acceptance": "В группе /meme от не-админа не порождает генерации; от админа запускает пайплайн вручную при исчерпанной квоте, активном кулдауне и малом числе сообщений; при недоступном image backend возвращает честную ошибку; в меню команд бота команда не появляется. Автоудаление сообщения команды (дополнение к §4, OI-2026-11-03-MEME-CMD-AUTODELETE): тест, который записывает Telegram-вызовы, подтверждает - delete_message по сообщению `/meme` вызывается ровно один раз; пайплайн после удаления всё равно отрабатывает и выдаёт результат по прежнему правилу (успех - только изображение, при неуспехе одно короткое сообщение); смоделированный отказ удаления (нет прав / слишком старое сообщение / сетевой сбой) не меняет исход пайплайна и не порождает ни одного лишнего сообщения в чат - только WARNING в лог без traceback; удаление доступно только на админском вызове, не обходит права и не содержит хардкода чата/пользователя.",
+      "acceptance_refs": [
+        "MEME-CMD-DELETE-ADMIN",
+        "MEME-CMD-DELETE-FAILOPEN",
+        "MEME-CMD-DELETE-NO-BYPASS",
+        "MEME-CMD-DELETE-NO-NOISE",
+        "MEME-CMD-DELETE-ON-RECEIPT"
+      ]
     },
     {
       "id": "MEME-UI-FIELDS",
