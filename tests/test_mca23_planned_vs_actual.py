@@ -57,7 +57,12 @@ ROUTES_SHA256_F11 = (
     # P0 admin-toggle-save (28.10.2026): починка chat-пути POST /api/config
     # (ограниченный ретрай на ChatParamsConflict; Δ routes=0) — re-pin
     # синхронно с каноном (L-F11S-1).
-    "b63dab2a47117c6805886d7a412f8f1659fd1b9d1d8f8c0700937dce0c60c085")
+    # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): контентная Δ в СУЩЕСТВУЮЩИХ
+    # POST /api/config и GET/POST /api/initiative/meme-settings (два
+    # редактируемых мем-промпта, единый гейт шаблона, витрина бюджета от
+    # эффективного шаблона, `extra="forbid"` в MemeSettingsUpdate; Δ routes=0) —
+    # re-pin синхронно с каноном (L-F11S-1).
+    "7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9")
 
 
 @pytest.fixture(autouse=True)

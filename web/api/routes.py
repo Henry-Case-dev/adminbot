@@ -752,6 +752,7 @@ async def post_config(
                 raise HTTPException(
                     status_code=422,
                     detail=f"{item.key}: промпт не может быть пустым")
+        _meme_template_guard(item.key, value)
         patch_overrides[item.key] = value
     if not patch_overrides:
         raise HTTPException(status_code=422, detail="items пуст")
@@ -1298,6 +1299,7 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
                 raise HTTPException(
                     status_code=422,
                     detail=f"{item.key}: промпт не может быть пустым")
+        _meme_template_guard(item.key, value)
         prepared.append({"key": item.key, "value": value,
                          "category": spec.category,
                          "token": getattr(item, "updated_at", None)})
@@ -3904,7 +3906,15 @@ class MemeSettingsUpdate(BaseModel):
     квота `0` = выключено, окно ≥ 1, вероятность 0..1, тихие часы
     `HH:MM-HH:MM` (пусто = не заданы). `summarizer_model` пустой = наследовать
     общий суммаризатор. Мастер модуля здесь отсутствует намеренно.
+
+    `extra="forbid"`: неизвестное имя поля — ошибка запроса (422), а не
+    молчаливый no-op. Иначе клиент, собранный по другому имени (например
+    `joke_prompt`/`image_prompt` вместо `prompt_joke`/`prompt_image`), получал
+    бы 422 «нет изменений» или 200 без сохранения и искренне считал правку
+    сохранённой. Цена — ровно один честный отказ на опечатку в имени поля.
     """
+    model_config = {"extra": "forbid"}
+
     enabled: bool | None = None
     window_messages: int | None = Field(default=None, ge=1, le=5000)
     daily_limit: int | None = Field(default=None, ge=0, le=50)
@@ -3915,11 +3925,23 @@ class MemeSettingsUpdate(BaseModel):
     quiet_hours: str | None = Field(default=None, max_length=11)
     length_limit: int | None = Field(default=None, ge=0, le=8000)
     length_override: int | None = Field(default=None, ge=0, le=8000)
+    # MEME-PIPELINE-REFactor-01 (§3 ТЗ, P2): два РЕДАКТИРУЕМЫХ промпта мемов.
+    # Это чатовое переопределение ключей каталога `prompts.meme_joke` /
+    # `prompts.meme_image` (уровень чата). Пустая строка = снять
+    # переопределение (действует глобальный слой → заводской текст).
+    # Длины здесь НЕ ограничиваем: инструкции модели не режем искусственно.
+    prompt_joke: str | None = None
+    prompt_image: str | None = None
     updated_at: str | None = None
 
 
 def _meme_payload_field_map() -> dict[str, str]:
-    """Поле API → ключ параметра чата (единый источник соответствия)."""
+    """Поле API → ключ параметра чата (единый источник соответствия).
+
+    Промпты мемов — штатные ключи каталога (`prompts.meme_joke` /
+    `prompts.meme_image`); их pg_key берётся у блоков реестра, литералов здесь
+    нет (иначе второй источник правды для того же ключа).
+    """
     from services import meme_initiative as mi
     return {
         "enabled": mi.KEY_ENABLED,
@@ -3932,16 +3954,36 @@ def _meme_payload_field_map() -> dict[str, str]:
         "quiet_hours": mi.KEY_QUIET_HOURS,
         "length_limit": mi.KEY_LENGTH_ADMIN,
         "length_override": mi.KEY_LENGTH_OVERRIDE,
+        "prompt_joke": mi.prompt_setting_key(mi.JOKE_PROMPT_BLOCK_ID),
+        "prompt_image": mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID),
     }
+
+
+def _meme_template_guard(key: str, value: Any) -> None:
+    """422 на невалидный шаблон картинки (≥2 `{joke}`), иначе — no-op.
+
+    Один и тот же гейт на ВСЕХ путях записи шаблона (карточка мемов и
+    `POST /api/config`): конфигурация с двумя приклолами не сохраняется молча.
+    """
+    from services import meme_initiative as mi
+    if key != mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID):
+        return
+    reason = mi.template_validation_error(str(value))
+    if reason:
+        raise HTTPException(status_code=422, detail=f"{key}: {reason}")
 
 
 async def _meme_settings_payload(chat_id: int, db) -> dict:
     """Полный срез настроек мемов для витрины модуля «Инициатива».
 
     Всё читается существующими функциями сервиса; витрина не считает
-    собственных квот/счётчиков. `availability.reason` — конкретная причина
-    недоступности (инициатива выключена / мемы выключены / image-провайдер не
-    настроен / схема квоты отсутствует), а не общее «не работает».
+    собственных квот/счётчиков и НЕ подставляет заводской шаблон вместо
+    действующего: числа бюджета считаются от ЭФФЕКТИВНОГО шаблона картинки
+    (чат → глобальный → заводской), той же функцией `resolve_meme_budget`,
+    что и в рантайме. Иначе витрина показывала бы один J, а пайплайн работал
+    с другим. `availability.reason` — конкретная причина недоступности
+    (инициатива выключена / мемы выключены / image-провайдер не настроен /
+    схема квоты отсутствует), а не общее «не работает».
     """
     from services import meme_initiative as mi
     cfg = await mi.load_settings(chat_id)
@@ -3956,21 +3998,29 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
         model_chars = await mi.model_prompt_chars()
     except Exception:
         model_chars = None
-    length = mi.resolve_length_limit(
-        model_chars=model_chars, admin=cfg.length_admin,
-        explicit=cfg.length_override, prefix=mi.MEME_IMAGE_PROMPT)
     prompts: dict[str, Any] = {}
-    for name, block_id in (("image", mi.IMAGE_PROMPT_BLOCK_ID),
-                           ("summary", mi.SUMMARY_PROMPT_BLOCK_ID)):
+    prompt_specs = (
+        ("image", mi.IMAGE_PROMPT_BLOCK_ID, mi.MEME_IMAGE_PROMPT),
+        ("joke", mi.JOKE_PROMPT_BLOCK_ID, mi.MEME_JOKE_PROMPT),
+        ("summary", mi.SUMMARY_PROMPT_BLOCK_ID, mi.MEME_SUMMARY_SYSTEM_PROMPT),
+    )
+    for name, block_id, factory in prompt_specs:
         try:
-            prompts[name] = mi.active_prompt_view(block_id)
+            prompts[name] = await mi.effective_meme_prompt(
+                chat_id, block_id, factory=factory)
         except Exception:
             logger.debug("[api] meme prompt view failed | block=%s", block_id,
                          exc_info=True)
             prompts[name] = {"block_id": block_id, "text": "",
                              "source": "unavailable",
                              "differs_from_factory": False,
-                             "factory_revision": "", "revision": 0}
+                             "factory_revision": "", "revision": 0,
+                             "setting_key": mi.prompt_setting_key(block_id)}
+    template = str((prompts.get("image") or {}).get("text") or "")
+    budget = mi.resolve_meme_budget(
+        model_chars=model_chars, admin=cfg.length_admin,
+        explicit=cfg.length_override, template=template)
+    template_error = mi.template_validation_error(template)
     skip_reasons = dict(analytics.get("skip_reasons") or {})
     return {
         "chat_id": int(chat_id),
@@ -3983,7 +4033,21 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
                 "timezone_name": day.timezone_name,
                 "timezone_source": day.timezone_source,
                 "next_reset": day.next_reset_iso},
-        "length_limit": length.as_dict(),
+        # Три числа §3 ТЗ одной структурой: потолок итогового промпта (L),
+        # длина шаблона (T) и бюджет прикола (J = max(0, L - T)).
+        # `value`/`prefix_chars`/`summary_target` — совместимость с текущей
+        # карточкой (правка UI — полоса P4); значения те же, не дубликат счёта.
+        "length_limit": dict(budget.as_dict(),
+                             value=budget.ceiling,
+                             prefix_chars=budget.template_chars,
+                             summary_target=None),
+        "template": {
+            "text": template,
+            "source": str((prompts.get("image") or {}).get("source") or ""),
+            "placeholders": mi.joke_placeholder_count(template),
+            "valid": not template_error,
+            "error": template_error,
+        },
         "image_prefix": mi.MEME_IMAGE_PROMPT,
         "prompts": prompts,
         "delivery": {
@@ -4065,12 +4129,24 @@ async def post_meme_settings(
                 detail="тихие часы: формат HH:MM-HH:MM или пусто")
     field_map = _meme_payload_field_map()
     patch: dict[str, Any] = {}
+    removals: list[str] = []
     for field, key in field_map.items():
         value = getattr(payload, field)
         if value is None:
             continue
         if field in ("summarizer_model", "quiet_hours"):
             patch[key] = str(value).strip()
+        elif field in ("prompt_joke", "prompt_image"):
+            # Пусто/пробельно = снять чатовое переопределение: действует
+            # глобальный слой, затем заводской текст. Пустота НЕ обнуляет
+            # промпт (иначе мем остался бы без инструкции).
+            text = str(value)
+            if not text.strip():
+                removals.append(key)
+                continue
+            if field == "prompt_image":
+                _meme_template_guard(key, text)
+            patch[key] = text
         elif field == "enabled":
             patch[key] = bool(value)
         elif field in ("length_limit", "length_override"):
@@ -4078,12 +4154,19 @@ async def post_meme_settings(
             patch[key] = int(value) if int(value) > 0 else None
         else:
             patch[key] = value
-    if not patch:
+    if not patch and not removals:
+        raise HTTPException(status_code=422, detail="нет изменений")
+    root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+    overrides = dict(root.get("overrides") or {})
+    # Пустая строка = снять переопределение. Если снимать нечего и менять
+    # нечего — это не «успешное сохранение», а отсутствие изменений (422).
+    removals = [key for key in removals if key in overrides]
+    if not patch and not removals:
         raise HTTPException(status_code=422, detail="нет изменений")
     if ctx.is_dm_owner:
         await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
-    root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
-    overrides = dict(root.get("overrides") or {})
+    for key in removals:
+        overrides.pop(key, None)
     overrides.update(patch)
     meta = dict(root.get("meta") or {})
     meta["updated_by"] = user.id

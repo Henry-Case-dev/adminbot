@@ -46,9 +46,9 @@ def test_catalog_counts_sanctioned():
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
     # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
-    assert len(pc.REGISTRY) == 595          # 510 → 519 (+9) → 586 → 581
-    assert len(pc.GROUPS) == 120            # 108 → 112 (+4) → 121 → 119
-    assert len(pc._TAB_BY_GROUP) == 118     # 106 → 110 → 119 → 117
+    assert len(pc.REGISTRY) == 597          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.GROUPS) == 121            # 108 → 112 (+4) → 121 → 119
+    assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110 → 119 → 117
     assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
     # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23);
     # EVOL-031: tab smart_cache удалён → 22.
@@ -124,7 +124,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # EVOL §5 W5 (31.10.2026): +2 → 583+header=584.
     # ASAP-VISION-SYNC-01 wave2 (31.10.2026): +12 PG-only ключей
     # распознавания → 595+header=596.
-    assert len(tsv) == 596
+    # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 промпт-ключа мемов
+    # (prompts.meme_joke / prompts.meme_image) → 597+header=598.
+    assert len(tsv) == 598
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
@@ -132,7 +134,7 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # EVOL-031: 581/175 (снятые ключи исторические — delta-набор не менялся).
     # EVOL §5 W5 review-fix B1 (31.10.2026): reissue под 595/189 (+2 ключа
     # подачи фактчека: флаг раздела + директива «Критического разноса»).
-    assert "595" in meta and "411" in meta and "189" in meta
+    assert "597" in meta and "411" in meta and "191" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

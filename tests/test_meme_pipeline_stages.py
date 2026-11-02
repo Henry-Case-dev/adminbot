@@ -491,22 +491,18 @@ def test_manual_keeps_image_and_schema_gates(tmp_path):
     ("{joke} мем {joke}", 2),
 ])
 def test_budget_matrix_is_one_computation(template, placeholders):
-    """L/T/J считает одна функция; витрина получает те же числа."""
+    """L/T/J считает ОДНА функция; второго арифметического входа нет."""
     budget = meme.resolve_meme_budget(model_chars=400, admin=None,
                                       explicit=None, template=template)
-    facade = meme.resolve_length_limit(model_chars=400, admin=None,
-                                       explicit=None, prefix=template)
     assert budget.placeholder == ("slot" if placeholders == 1 else
                                  ("append" if placeholders == 0 else "invalid"))
     assert budget.ceiling == 400
     assert budget.joke_budget == max(0, 400 - budget.template_chars)
     # Печать «шаблон без прикола» совпадает с фактической подстановкой пустого.
     assert len(meme.render_image_prompt(template, "")) == budget.template_chars
-    # Витрина считает те же числа, а не собственную арифметику.
-    assert facade.value == budget.ceiling
-    assert facade.template_chars == budget.template_chars
-    assert facade.joke_budget == budget.joke_budget
-    assert facade.summary_target is None       # у выжимки потолка нет
+    # Второго имени для тех же чисел больше нет (обёртка витрины удалена в P2):
+    # витрина зовёт resolve_meme_budget напрямую.
+    assert not hasattr(meme, "resolve_length_limit")
 
 
 def test_factory_prompts_are_exact_and_registered():
@@ -536,18 +532,24 @@ def test_prompt_layers_use_registry_pg_key(monkeypatch):
                         lambda block_id: SimpleNamespace(
                             block_id=block_id, pg_key="prompts.test_meme_joke"))
     chats: dict = {-100: "  чатовый прикол  "}
+    global_layer: dict = {}
 
-    async def _chat_param(chat_id, key, default=None):
+    async def _sourced(chat_id, key, default=None):
+        """Штатный резолвер слоёв: override чата → глобальный слой."""
         assert key == "prompts.test_meme_joke"
-        return chats.get(int(chat_id), default)
+        if int(chat_id) in chats:
+            return chats[int(chat_id)], "chat"
+        if key in global_layer:
+            return global_layer[key], "global"
+        return default, "factory"
 
-    monkeypatch.setattr("services.chat_params.get_chat_param", _chat_param)
+    monkeypatch.setattr("services.chat_params.get_chat_param_sourced", _sourced)
     monkeypatch.setattr(hot_config, "get", lambda key, default=None: default)
 
     chat_view = _run(meme.effective_meme_prompt(
         -100, meme.JOKE_PROMPT_BLOCK_ID, factory=meme.MEME_JOKE_PROMPT))
     assert chat_view["text"] == "  чатовый прикол  "
-    assert chat_view["source"] == "setting_override"
+    assert chat_view["source"] == "chat"
 
     # Пустой/пробельный чатовый слой не обнуляет промпт: дальше hot, затем заводской.
     chats[-100] = "   "
@@ -556,11 +558,12 @@ def test_prompt_layers_use_registry_pg_key(monkeypatch):
     assert hot_view["text"] == JOKE_PROMPT
     assert hot_view["source"] == "factory"
 
-    monkeypatch.setattr(hot_config, "get",
-                        lambda key, default=None: "глобальный прикол")
+    del chats[-100]
+    global_layer["prompts.test_meme_joke"] = "глобальный прикол"
     global_view = _run(meme.effective_meme_prompt(
         -100, meme.JOKE_PROMPT_BLOCK_ID, factory=meme.MEME_JOKE_PROMPT))
     assert global_view["text"] == "глобальный прикол"
+    assert global_view["source"] == "global"      # слой различим, не «setting»
     assert global_view["differs_from_factory"] is True
 
     # Блок без pg_key каталога ничего не выдумывает — действует заводской текст.

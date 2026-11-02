@@ -80,9 +80,9 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 595
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+        assert len(pc.REGISTRY) == 597
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
 
     def test_new_group_bound_to_prompts_tab(self):
@@ -112,7 +112,9 @@ class TestCatalogDelta:
         # system_prompt (читался рантаймом без записи каталога) = 25.
         # EVOL §5 W5 review-fix B1 (31.10.2026): +1 — prompts.factcheck_
         # critique_directive (директива «Критического разноса») = 26.
-        assert len(prompts) == 26
+        # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 — prompts.meme_joke и
+        # prompts.meme_image (промпты мем-пайплайна) = 28.
+        assert len(prompts) == 28
         for spec in prompts:
             assert spec.code_source
             assert spec.stage in (None, "synthesizer", "verbalizer", "mode")

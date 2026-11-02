@@ -5,9 +5,9 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 595,
-    "GROUPS": 120,
-    "_TAB_BY_GROUP": 118,
+    "REGISTRY": 597,
+    "GROUPS": 121,
+    "_TAB_BY_GROUP": 119,
     "TAB_RULES": 22
   },
   "group_ids": [
@@ -109,6 +109,7 @@
     "prompts_checkup",
     "prompts_direct_chat",
     "prompts_factcheck",
+    "prompts_initiative_meme",
     "prompts_memory",
     "prompts_search",
     "prompts_summary",
@@ -231,6 +232,7 @@
     "prompts_checkup": "prompts",
     "prompts_direct_chat": "prompts",
     "prompts_factcheck": "prompts",
+    "prompts_initiative_meme": "prompts",
     "prompts_memory": "prompts",
     "prompts_search": "prompts",
     "prompts_summary": "prompts",
@@ -847,6 +849,8 @@
     "prompts.factcheck_critique_directive",
     "prompts.factcheck_system_prompt",
     "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.meme_image",
+    "prompts.meme_joke",
     "prompts.search_system_prompt",
     "prompts.summary_cover_style",
     "prompts.summary_cover_style_id",
