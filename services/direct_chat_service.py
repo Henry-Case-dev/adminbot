@@ -12820,7 +12820,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
                             writer_service=None,
-                            opportunity_row: dict | None = None) -> dict:
+                            opportunity_row: dict | None = None,
+                            publish_guard=None) -> dict:
     """Аддитивный координатор-вход для решений БЕЗ входящего сообщения
     (heartbeat / nostalgia / significant event / search completion).
 
@@ -12828,6 +12829,12 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
     наблюдателя (goal/kind/origin/created_at) для случая, когда durable
     намерения нет — Writer/L1 и SendRecheck получают реальный повод, а не
     пустую строку. Для путей с `decision.intent_id` аргумент игнорируется.
+
+    ``publish_guard`` (INIT-COORD, 03.11.2026): необязательный предикат
+    ``Callable[[], Awaitable[str | None]]``, вызываемый МЕЖДУ прохождением
+    recheck и фактической отправкой. Возвращает код причины, если публиковать
+    нельзя (атомарная бронь публикации уже не наша), либо ``None``.
+    ``None`` вместо callable — ровно прежнее поведение Direct-пути.
 
     Возвращает R17-safe статус (без сырого текста):
       disabled / silent / candidate_ready / cancelled / writer_failed /
@@ -13173,6 +13180,31 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         if decision.intent_id:
             _mca_intents.note_recheck_passed(chat_id=chat_id,
                                              intent_id=decision.intent_id)
+        # ── INIT-COORD §3.5: бронь публикации `claimed → sending` РОВНО перед
+        # отправкой (после recheck, до первого сетевого вызова). Отказ =
+        # отмена реплики: durable intent остаётся жив и будет перепроверен
+        # существующим планированием (`_f6_plan_next_check`), второй
+        # публикации нет. `publish_guard is None` — поведение Direct прежнее.
+        if publish_guard is not None:
+            try:
+                guard_code = await publish_guard()
+            except Exception:
+                logger.warning("[mca09] publish guard failed — cancel | "
+                               "chat=%s", chat_id, exc_info=True)
+                guard_code = "publication_guard_unavailable"
+            if guard_code:
+                await _f6_plan_next_check(db, decision)
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="cancelled",
+                    reason_code=str(guard_code), action="reply",
+                    delivery=chosen_delivery, delivery_kind="text",
+                    target_message_id=plan_target_id,
+                    correlation_id=correlation_id)
+                logger.info("[mca09] initiative publication conflict | "
+                            "chat=%s | reason=%s", chat_id, guard_code)
+                return {"status": "cancelled",
+                        "reason_code": str(guard_code),
+                        "delivery_kind": kind, "decision": decision}
         sent_id = None
         sent = 0
         # ── L1D (директива 22.10 §2/§4/§6): привязка reply — ТОЛЬКО из

@@ -81,7 +81,11 @@ def test_no_ddl_catalog_ks_tools_delta():
         # EVOL-014 (30.10.2026): v40 (meme_quota_journal_v40) — счётчик квоты
         # мемов (аддитивно, PG no-op по GEN-R4). Санкционированный хвост = 40;
         # Δ каталога/KS/тулов остаётся нулевым (проверки ниже).
-        assert int(row[0]) == 40
+        # MEME-PIPELINE-REFactor-01 / INIT-COORD (03.11.2026): v41
+        # (chat_publish_claim_v41) — бронь публикации (аддитивная таблица,
+        # PG no-op). Санкционированный хвост = 41; Δ каталога/KS/тулов
+        # по-прежнему нулевой.
+        assert int(row[0]) == 41
     finally:
         loop.run_until_complete(d.close())
         loop.close()

@@ -55,6 +55,7 @@ user-контенте LLM-вызова, в события/ payload/логи не
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import re
@@ -69,6 +70,9 @@ from services.task_supervisor import (
     JOB_RUNNING,
     TaskJobStore,
 )
+#: INIT-COORD: координатор публикаций. Модуль не импортирует этот файл на
+#: уровне модуля (только внутри функций), поэтому цикла импорта нет.
+from services import publication_coordination as _pubmod
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +153,25 @@ SKIP_CONTEXT_DUP = "context_duplicate"
 SKIP_NO_OPPORTUNITY = "no_opportunity"
 SKIP_PARSE_ERROR = "semantic_parse_error"
 SKIP_EVAL_UNAVAILABLE = "semantic_eval_unavailable"
+# ── MEME-PIPELINE-REFactor-01 / INIT-COORD (03.11.2026) ─────────────────────
+# Координация публикаций и независимое случайное решение текстовой инициативы.
+# Коды отдельные: «мы не опубликовали, потому что сейчас публикуется/публиковался
+# ДРУГОЙ механизм» — не «пауза после себя» (min_gap) и не «нет повода».
+SKIP_PUBLICATION_CONFLICT = "publication_conflict"
+SKIP_RANDOM_MISS = "random_miss"
+SKIP_RANDOM_UNAVAILABLE = "random_unavailable"
+
+#: Purpose независимого draw текстовой инициативы (санкционированное
+#: расширение закрытого набора `mca_random_source`; второй клиент не создаётся).
+PURPOSE_INITIATIVE_TRIGGER = "initiative_trigger"
+#: Вероятность попытки инициативы. Дефолт **1.0** ⇒ draw не выполняется,
+#: поведение прежнее (байт-паритет); шов тестируется при p < 1.
+KEY_TRIGGER_PROBABILITY = "initiative.trigger_probability"
+DEFAULT_TRIGGER_PROBABILITY = 1.0
+#: Причина «draw не понадобился/невозможен» — честная метка в трассировке.
+DRAW_PROBABILITY_ONE = "probability_one"
+DRAW_PROBABILITY_ZERO = "probability_zero"
+DRAW_EXECUTED = "ok"
 
 #: Поводы (закрытый перечень B01.1; из вердикта LLM, whitelist).
 OPPORTUNITY_KINDS = frozenset({
@@ -288,6 +311,13 @@ REASON_LABELS: dict[str, str] = {
     "joke_empty": "модель вернула пустой прикол",
     "no_joke_budget": "шаблон картинки не оставил места для прикола",
     "template_empty": "шаблон промпта картинки пуст",
+    # INIT-COORD (03.11.2026): координация публикаций двух механизмов.
+    "publication_conflict": ("публикация другого механизма в этом чате "
+                             "(интервал, бронь или приоритет /meme)"),
+    "random_miss": "случайное решение отложило инициативу",
+    "publication_stale": "окно чата изменилось — реплика не отправлена",
+    "publication_in_flight": "отправка в этом чате уже идёт",
+    "publication_expired": "бронь публикации больше не принадлежит нам",
 }
 
 #: Человекочитаемые названия стадий мем-пайплайна — единый service-слой для
@@ -580,6 +610,166 @@ def _sent_in_window_static(entry: dict, now: int, window: int) -> int:
     stamps = [int(ts) for ts in (entry.get("sent_stamps") or [])
               if now - int(ts) < max(600, int(window))]
     return len(stamps)
+
+
+# ── случайность: ОДИН сервис, ДВА независимых draw (INIT-COORD §2) ──────────
+
+#: Поля трассировки — ОДИН формат на оба механизма (`RandomSourceService` один,
+#: потребители разные). Наружу идут только коды/числа/ID (R17).
+DRAW_TRACE_FIELDS = (
+    "purpose", "probability", "value", "hit", "draw_id", "source",
+    "source_impl", "provider", "selected_source", "fallback_reason",
+    "policy_version", "attempts", "deferred", "reason", "ts",
+)
+
+
+def build_draw_trace(result=None, *, purpose: str, probability: float | None,
+                     hit: bool | None = None, reason: str = "",
+                     ts: int | None = None) -> dict:
+    """Единый JSON трассировки случайного решения (фактический источник).
+
+    `fallback_reason` НЕ трактуется как отказ: контур сам уважает настройку
+    владельца ``memory.random_fallback_to_pseudorandom`` — значение из PRNG
+    является ДЕЙСТВИТЕЛЬНЫМ решением, а фактически использованный источник
+    честно попадает в трассировку (`source`/`provider`/`source_impl`).
+    """
+    trace = {
+        "purpose": str(purpose or ""),
+        "probability": probability,
+        "value": None,
+        "hit": bool(hit) if hit is not None else False,
+        "draw_id": "",
+        "source": "",
+        "source_impl": "",
+        "provider": None,
+        "selected_source": "",
+        "fallback_reason": None,
+        "policy_version": "",
+        "attempts": 0,
+        "deferred": False,
+        "reason": str(reason or ""),
+        "ts": int(ts if ts is not None else time.time()),
+    }
+    if result is not None:
+        value = getattr(result, "value", None)
+        trace.update({
+            "value": (float(value) if value is not None else None),
+            "draw_id": str(getattr(result, "draw_id", "") or ""),
+            "source": str(getattr(result, "source", "") or ""),
+            "source_impl": str(getattr(result, "source_impl", "") or ""),
+            "provider": getattr(result, "provider", None),
+            "selected_source": str(
+                getattr(result, "selected_source", "") or ""),
+            "fallback_reason": getattr(result, "fallback_reason", None),
+            "policy_version": str(
+                getattr(result, "policy_version", "") or ""),
+            "attempts": int(getattr(result, "attempts", 1) or 0),
+            "deferred": bool(getattr(result, "deferred", False)),
+        })
+    if not trace["reason"]:
+        trace["reason"] = DRAW_EXECUTED if result is not None else ""
+    return trace
+
+
+def trigger_trace_hit(trace: dict | None) -> bool:
+    """Попал ли триггер (для диагностики: одна правда о решении)."""
+    return bool((trace or {}).get("hit"))
+
+
+@dataclasses.dataclass
+class TriggerDraw:
+    """Решение вероятностного триггера: `ok` + код причины + трассировка."""
+
+    ok: bool
+    reason: str
+    trace: dict = dataclasses.field(default_factory=dict)
+
+    @property
+    def value(self):
+        return (self.trace or {}).get("value")
+
+    def as_dict(self) -> dict:
+        return dict(self.trace or {})
+
+
+async def trigger_probability(chat_id: int | None) -> float:
+    """Порог вероятности попытки (0..1). Дефолт 1.0 — поведение прежнее."""
+    try:
+        value = float(await _param(
+            int(chat_id) if chat_id is not None else None,
+            KEY_TRIGGER_PROBABILITY, DEFAULT_TRIGGER_PROBABILITY))
+    except (TypeError, ValueError):
+        return DEFAULT_TRIGGER_PROBABILITY
+    return min(1.0, max(0.0, value))
+
+
+async def random_trigger(source, *, chat_id: int | None, purpose: str,
+                         probability: float, now: int | None = None,
+                         shortcut: bool = True) -> TriggerDraw:
+    """Один независимый draw своего purpose. Второго клиента/генератора нет.
+
+    Правило фактического источника (одно на оба механизма):
+    `deferred`/значения нет → ``random_unavailable`` без действия; значение
+    есть (в т.ч. из fallback-пути) → решение действительно, в трассировку идёт
+    РЕАЛЬНО использованный источник.
+
+    ``shortcut=False`` — не сокращать крайние пороги: draw выполняется даже при
+    ``p >= 1`` (поведение мема до этого пакета: недоступность контура остаётся
+    видимой, `random_unavailable` не маскируется порогом).
+    """
+    stamp = _now(now)
+    p = min(1.0, max(0.0, float(probability)))
+    if shortcut and p >= 1.0:
+        # Байт-паритет прежнего поведения текстовой инициативы: draw не нужен.
+        return TriggerDraw(True, DRAW_PROBABILITY_ONE, build_draw_trace(
+            None, purpose=purpose, probability=p, hit=True,
+            reason=DRAW_PROBABILITY_ONE, ts=stamp))
+    if shortcut and p <= 0.0:
+        return TriggerDraw(False, SKIP_RANDOM_MISS, build_draw_trace(
+            None, purpose=purpose, probability=p, hit=False,
+            reason=DRAW_PROBABILITY_ZERO, ts=stamp))
+    try:
+        from services import mca_random_source as mrs
+        if not mrs.purpose_sanctioned(purpose):
+            return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE,
+                               build_draw_trace(
+                                   None, purpose=purpose, probability=p,
+                                   reason="purpose_not_sanctioned", ts=stamp))
+    except Exception:
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            None, purpose=purpose, probability=p,
+            reason="random_service_unavailable", ts=stamp))
+    if source is None:
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            None, purpose=purpose, probability=p, reason="source_unbound",
+            ts=stamp))
+    try:
+        result = await source.draw_probability(
+            chat_id=int(chat_id) if chat_id is not None else None,
+            purpose=purpose, probability=p)
+    except Exception:
+        logger.warning("[init] random draw failed | chat=%s | purpose=%s",
+                       chat_id, purpose, exc_info=True)
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            None, purpose=purpose, probability=p, reason="draw_exception",
+            ts=stamp))
+    if result is None or getattr(result, "deferred", False) or \
+            getattr(result, "value", None) is None:
+        reason = str(getattr(result, "reason", "") or "") if result else ""
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            result, purpose=purpose, probability=p,
+            reason=reason or "deferred", ts=stamp))
+    try:
+        value = float(result.value)
+    except (TypeError, ValueError):
+        return TriggerDraw(False, SKIP_RANDOM_UNAVAILABLE, build_draw_trace(
+            result, purpose=purpose, probability=p, reason="value_invalid",
+            ts=stamp))
+    hit = value < p
+    trace = build_draw_trace(result, purpose=purpose, probability=p, hit=hit,
+                             reason=DRAW_EXECUTED if hit else SKIP_RANDOM_MISS,
+                             ts=stamp)
+    return TriggerDraw(hit, "ok" if hit else SKIP_RANDOM_MISS, trace)
 
 
 def resolve_window_messages(backlog: int = 0) -> int:
@@ -975,6 +1165,90 @@ class InitiativeObserverRunner:
         # P0 corrective 25.10.2026 (F2): optional единый резолвер; None —
         # прежнее поведение (author_name из БД как есть, байт-в-байт).
         self._aliases = alias_resolver
+        # INIT-COORD: координатор публикаций этого прохода (таблица брони та
+        # же, что у мемов; создаётся лениво — тесты зовут фазы на __new__).
+        self._publication = None
+
+    # ── координация публикаций (INIT-COORD §3) ────────────────────────────
+
+    def _pub(self):
+        """Координатор брони публикации для этого прохода (ленивый)."""
+        coordinator = getattr(self, "_publication", None)
+        if coordinator is None:
+            from services import publication_coordination as pub
+            coordinator = pub.PublicationCoordinator(self._db)
+            self._publication = coordinator
+        return coordinator
+
+    def _meme_pub(self):
+        """Координатор публикаций для мем-фазы (та же таблица, что у текста)."""
+        return self._pub()
+
+    async def _cross_type_interval(self, chat_id: int) -> int:
+        """Межтиповой интервал чата — ОДНА функция на оба механизма."""
+        from services import publication_coordination as pub
+        return await pub.resolve_cross_type_interval(int(chat_id))
+
+    async def _random_source(self):
+        """Единственный контур случайности (`RandomSourceService`). Второго нет.
+
+        Тест/DI может подставить источник через ``self._random``; сервис здесь
+        тот же, что у мемов — отдельный клиент/генератор не создаётся.
+        """
+        injected = getattr(self, "_random", None)
+        if injected is not None:
+            return injected
+        try:
+            from services import meme_initiative as meme
+            return await meme.default_random_source(self._db)
+        except Exception:
+            return None
+
+    def _note_decision(self, payload: dict, chat_id: int, *,
+                       now: int | None = None, skip_reason: str | None = None,
+                       random_trace: dict | None = None,
+                       publication: dict | None = None,
+                       conditions: dict | None = None,
+                       cooldown: dict | None = None,
+                       extra: dict | None = None) -> dict:
+        """Диагностика механизма в СУЩЕСТВУЮЩЕМ payload (новых таблиц нет).
+
+        Поля (INIT-COORD §7): последняя/следующая проверка, случайное решение
+        с фактическим источником, выполненные условия, причина пропуска,
+        собственный кулдаун, конфликт публикаций. Пишется в
+        ``chats[chat].last_decision`` рядом с уже существующим ``last_eval_ts``.
+        """
+        stamp = int(now if now is not None else time.time())
+        chats = payload.setdefault("chats", {})
+        entry = chats.setdefault(str(int(chat_id)), {})
+        decision = entry.get("last_decision")
+        if not isinstance(decision, dict):
+            decision = {}
+        decision["ts"] = stamp
+        if skip_reason is not None:
+            decision["skip_reason"] = str(skip_reason or "")
+            decision["skip_label"] = (reason_label(skip_reason)
+                                      if skip_reason else "")
+        if random_trace is not None:
+            decision["random"] = dict(random_trace or {})
+        if publication is not None:
+            decision["publication"] = dict(publication or {})
+        if conditions is not None:
+            decision["conditions"] = dict(conditions or {})
+        if cooldown is not None:
+            decision["cooldown"] = dict(cooldown or {})
+        if extra:
+            decision.update(extra)
+        entry["last_decision"] = decision
+        return decision
+
+    def _next_check_ts(self, entry: dict, profile: dict, now: int) -> int:
+        """Когда механизм проверит чат снова (диагностика, не обещание)."""
+        last = int(entry.get("last_eval_ts") or 0)
+        interval = int(profile.get("eval_min_interval_seconds") or 0)
+        if not last:
+            return now
+        return last + max(0, interval)
 
     # ── payload/checkpoint ────────────────────────────────────────────────
 
@@ -1036,6 +1310,24 @@ class InitiativeObserverRunner:
                 data["day"] = prev_day
             data["last_diag_ts"] = max(int(data.get("last_diag_ts") or 0),
                                        int(prev.get("last_diag_ts") or 0))
+            # INIT-COORD: диагностика мем-механизма (последняя/следующая
+            # проверка по чату) переживает тик — roster выбирает чаты по
+            # «дольше всех не проверяли», а не с нуля каждый проход.
+            prev_meme = prev.get("meme_chats")
+            if isinstance(prev_meme, dict):
+                meme_chats = data.setdefault("meme_chats", {})
+                if not isinstance(meme_chats, dict):
+                    meme_chats = {}
+                    data["meme_chats"] = meme_chats
+                for key, entry in prev_meme.items():
+                    if key not in meme_chats and isinstance(entry, dict):
+                        meme_chats[key] = entry
+                while len(meme_chats) > CHATS_TRACKED_MAX:
+                    oldest = min(
+                        meme_chats,
+                        key=lambda k: int((meme_chats[k] or {}).get(
+                            "last_check_ts") or 0))
+                    meme_chats.pop(oldest, None)
             prev_counters = prev.get("counters")
             if isinstance(prev_counters, dict):
                 counters = data["counters"]
@@ -1104,14 +1396,35 @@ class InitiativeObserverRunner:
             row = await self._store.get(job_id)
             return str((row or {}).get("status") or JOB_RUNNING)
         counters = payload["counters"]
+        text_failed = False
         try:
             await self._store.heartbeat(job_id)
-            await self._scan_phase(payload)
-            await self._evaluate_phase(payload, job_id)
-            await self._diagnose_phase(payload)
+            # INIT-COORD §1 (V2): текстовая часть и мем-фаза — РАЗНЫЕ try.
+            # Падение scan/evaluate/diagnose больше не отменяет проверку мемов:
+            # механизмы независимы, и «простой одного» не должен молча
+            # выключать другой. Честность статуса при этом сохраняется —
+            # провал текстовой части виден в статусе задачи и счётчике ошибок.
+            try:
+                await self._scan_phase(payload)
+                await self._evaluate_phase(payload, job_id)
+                await self._diagnose_phase(payload)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                text_failed = True
+                counters["errors"] = int(counters.get("errors") or 0) + 1
+                counters["text_phase_errors"] = int(
+                    counters.get("text_phase_errors") or 0) + 1
+                payload["counters"] = counters
+                logger.warning("[b01] text phase failed — meme phase still runs",
+                               exc_info=True)
             await self._meme_phase(payload)
             counters["passes"] = int(counters.get("passes") or 0) + 1
             payload["counters"] = counters
+            if text_failed:
+                await self._finish(job_id, status=JOB_FAILED,
+                                   reason_code="task_failed", payload=payload)
+                return JOB_FAILED
             await self._finish(job_id, status=JOB_COMPLETED, payload=payload)
             return JOB_COMPLETED
         except asyncio.CancelledError:
@@ -1133,26 +1446,36 @@ class InitiativeObserverRunner:
         (заводской OFF) — ранний выход внутри capability, не отмена job.
         Реальный LLM-клиент передаётся внутрь: лёгкая выжимка идёт тем же
         клиентом, что и соседние лёгкие вызовы инициативы.
+
+        INIT-COORD §1 (V1/V4): чаты мемов берутся из СВОЕГО ростера
+        (`meme_initiative.meme_chat_roster`), а не из результата текстового
+        скана: тихий чат не вытесняется и продолжает рассматриваться. Чат-гейт
+        (`initiative.enabled`) передаётся внутрь явно — выключение инициативы
+        в чате реально останавливает мемы.
         """
         try:
             from services import meme_initiative as meme
-            chat_ids = []
-            chats = payload.get("chats") or {}
-            if isinstance(chats, dict):
-                for key in chats:
-                    try:
-                        chat_ids.append(int(key))
-                    except (TypeError, ValueError):
-                        continue
+            roster, roster_source = await self._meme_roster(meme, payload)
+            state = payload.setdefault("meme_chats", {})
+            if not isinstance(state, dict):
+                state = {}
+                payload["meme_chats"] = state
             results = await meme.on_initiative_cycle(
-                self._db, chat_ids, llm=self._llm,
+                self._db, roster, state=state, llm=self._llm,
                 ledger=meme.open_ledger(self._db),
                 sender=self._meme_sender(),
-                publish_gate=self._meme_publish_gate())
+                publish_gate=self._meme_publish_gate(),
+                chat_enabled=chat_observer_enabled,
+                claim_store=self._meme_claim_store(meme),
+                publication=self._meme_pub())
             payload["meme"] = {
                 "output_kind": meme.OUTPUT_KIND,
                 "separate_from_initiative": True,
+                "roster": [int(chat_id) for chat_id in roster],
+                "roster_source": roster_source,
                 "attempts": [item.as_dict() for item in results],
+                "chats": {key: dict(value) for key, value in state.items()
+                          if isinstance(value, dict)},
             }
         except Exception as exc:
             # Не выдаём поломку моста за провал выжимки: причина отдельная
@@ -1172,6 +1495,39 @@ class InitiativeObserverRunner:
                 logger.warning("[meme] phase status not recorded",
                                exc_info=True)
 
+    async def _meme_roster(self, meme, payload: dict) -> tuple[list[int], str]:
+        """Свой ростер чатов мема; при недоступном источнике — известные чаты.
+
+        Ростер — не «результат текстового скана», а durable список чатов с
+        перепиской (PG `chat_profiles` либо `smart_messages`) с фильтрами
+        «групповой чат» + «инициатива разрешена» + «мемы включены». Падение
+        источника не выдумывает чаты, но и не глушит уже известные: причина
+        видна в payload (`roster_source`).
+        """
+        try:
+            roster = await meme.meme_chat_roster(
+                self._db, state=payload.get("meme_chats") or {})
+            return roster, "roster"
+        except Exception:
+            logger.warning("[meme] roster unavailable — known chats only",
+                           exc_info=True)
+        chat_ids: list[int] = []
+        chats = payload.get("chats") or {}
+        if isinstance(chats, dict):
+            for key in chats:
+                try:
+                    chat_ids.append(int(key))
+                except (TypeError, ValueError):
+                    continue
+        return chat_ids, "payload_fallback"
+
+    def _meme_claim_store(self, meme):
+        """Бронь публикации живёт в том же файле, что журнал квоты мемов."""
+        ledger = meme.open_ledger(self._db)
+        path = meme.sqlite_path_of(self._db) or getattr(ledger, "path", None)
+        from services import publication_coordination as pub
+        return pub.open_store(self._db, path=path)
+
     def _meme_sender(self):
         bot = self._bot
         if bot is None:
@@ -1185,6 +1541,10 @@ class InitiativeObserverRunner:
             (caption в Telegram виден как подпись под картинкой — та же утечка
             служебного текста). Третий аргумент `prompt` остаётся в контракте
             доставки (журнал попытки/аналитика), в Telegram не отправляется.
+
+            Возвращает отправленное сообщение: `message_id` нужен журналу
+            выводов (`output_kind="meme_initiative"`), иначе общий антифлуд
+            не видит публикацию мема.
             """
             from services import telegram_send
             photo = content
@@ -1193,8 +1553,7 @@ class InitiativeObserverRunner:
                 photo = BufferedInputFile(content, filename="meme.png")
             except Exception:
                 photo = content
-            await telegram_send.send_photo(bot, int(chat_id), photo)
-            return True
+            return await telegram_send.send_photo(bot, int(chat_id), photo)
 
         return _send
 
@@ -1354,7 +1713,11 @@ class InitiativeObserverRunner:
         ``eval_due=False`` — «окно ещё не готово» (мало сообщений, интервал не
         прошёл): НИ порог, НИ штамп интервала не трогаем, иначе тихий чат
         никогда не накопит порог и не будет оценён (W5, SOUL-18.3: «не
-        задушить возможности»)."""
+        задушить возможности»).
+
+        INIT-COORD §7: та же причина попадает в диагностику механизма
+        (``chats[chat].last_decision.skip_reason``) — это существующий payload,
+        новых таблиц диагностики нет."""
         counters = payload["counters"]
         skips = counters.setdefault("eval_skips", {})
         skips[reason] = int(skips.get(reason) or 0) + 1
@@ -1363,6 +1726,16 @@ class InitiativeObserverRunner:
             entry = chats.setdefault(str(chat_id), {})
             entry["last_eval_ts"] = int(time.time())
             entry["pending"] = 0
+        entry = payload["chats"].setdefault(str(chat_id), {})
+        decision = entry.get("last_decision")
+        if not isinstance(decision, dict):
+            decision = {}
+        decision["skip_reason"] = str(reason)
+        decision["skip_label"] = reason_label(reason)
+        decision["ts"] = int(time.time())
+        if eval_due:
+            decision["next_check_ts"] = int(entry.get("last_eval_ts") or 0)
+        entry["last_decision"] = decision
 
     async def _last_bot_output_age(self, chat_id: int, *,
                                    kinds: tuple[str, ...] | None = None
@@ -1559,6 +1932,34 @@ class InitiativeObserverRunner:
                     any_age < ANTI_FLOOD_AFTER_BOT_OUTPUT_SECONDS:
                 self._skip_eval(payload, chat_id, SKIP_ANTI_FLOOD)
                 continue
+            # ── INIT-COORD §3.1: дешёвая ПРОВЕРКА координации публикаций —
+            # рядом с антифлудом и ДО дорогой оценки. Она только объясняет:
+            # решение принимает атомарная бронь перед отправкой.
+            publication_view = await self._pub().precheck(
+                chat_id, _pubmod.KIND_TEXT_INITIATIVE, now=now,
+                interval_seconds=await self._cross_type_interval(chat_id))
+            self._note_decision(
+                payload, chat_id, now=now, publication=publication_view,
+                skip_reason=(SKIP_PUBLICATION_CONFLICT
+                             if not publication_view.get("ok") else None),
+                conditions={
+                    "anti_flood": True, "min_gap": True,
+                    "day_cap": None, "eval_budget": None,
+                    "publication": bool(publication_view.get("ok")),
+                },
+                cooldown={"min_gap_seconds": int(profile["min_gap_seconds"]),
+                          "last_initiative_age_seconds": init_age,
+                          "last_any_age_seconds": any_age})
+            if not publication_view.get("ok"):
+                counters["publication_conflict"] = int(
+                    counters.get("publication_conflict") or 0) + 1
+                self._emit("initiative_publication_conflict",
+                           outcome="skipped", stage="precheck", chat_id=chat_id,
+                           other_kind=str(publication_view.get("other_kind")
+                                          or ""))
+                self._skip_eval(payload, chat_id, SKIP_PUBLICATION_CONFLICT,
+                                eval_due=False)
+                continue
             # no-spam: дневной лимит инициатив чата
             sent_day = self._sent_in_window(entry, now,
                                             profile["day_window_seconds"])
@@ -1573,6 +1974,21 @@ class InitiativeObserverRunner:
             if int(entry.get("eval_day_count") or 0) >= \
                     int(profile["eval_llm_budget_per_day"]):
                 self._skip_eval(payload, chat_id, SKIP_EVAL_BUDGET)
+                continue
+            # ── INIT-COORD §2: НЕЗАВИСИМОЕ случайное решение текстовой
+            # инициативы. Тот же `RandomSourceService`, свой purpose и своя
+            # трассировка; дефолт p=1.0 ⇒ draw не выполняется (паритет).
+            trigger = await random_trigger(
+                await self._random_source(), chat_id=chat_id,
+                purpose=PURPOSE_INITIATIVE_TRIGGER,
+                probability=await trigger_probability(chat_id), now=now)
+            self._note_decision(payload, chat_id, now=now,
+                                random_trace=trigger.trace)
+            if not trigger.ok:
+                counters["random_skips"] = int(
+                    counters.get("random_skips") or 0) + 1
+                self._skip_eval(payload, chat_id, trigger.reason,
+                                eval_due=False)
                 continue
             if self._llm is None:
                 if not eval_reported:
@@ -1606,14 +2022,31 @@ class InitiativeObserverRunner:
                 counters_skips = counters.setdefault("eval_skips", {})
                 counters_skips[SKIP_EVAL_UNAVAILABLE] = int(
                     counters_skips.get(SKIP_EVAL_UNAVAILABLE) or 0) + 1
+                self._note_decision(payload, chat_id, now=now,
+                                    skip_reason=SKIP_EVAL_UNAVAILABLE,
+                                    extra={"next_check_ts": self._next_check_ts(
+                                        entry, profile, now)})
                 continue
             if not verdict.get("opportunity"):
                 skips = counters.setdefault("eval_skips", {})
                 skips[SKIP_NO_OPPORTUNITY] = int(
                     skips.get(SKIP_NO_OPPORTUNITY) or 0) + 1
+                self._note_decision(
+                    payload, chat_id, now=now, skip_reason=SKIP_NO_OPPORTUNITY,
+                    conditions={"evaluated": True,
+                                "opportunity": False},
+                    extra={"next_check_ts": self._next_check_ts(
+                        entry, profile, now)})
                 self._emit("initiative_opportunity", outcome="skipped",
                            stage="opportunity:none", chat_id=chat_id)
                 continue
+            self._note_decision(
+                payload, chat_id, now=now, skip_reason="",
+                conditions={"evaluated": True, "opportunity": True,
+                            "kind": str(verdict.get("kind") or ""),
+                            "action": str(verdict.get("action") or "")},
+                extra={"next_check_ts": self._next_check_ts(
+                    entry, profile, now)})
             counters["opportunities"] = int(
                 counters.get("opportunities") or 0) + 1
             day = payload["day"]
@@ -1825,12 +2258,76 @@ class InitiativeObserverRunner:
             rows=rows, now=now,
             addressee_user_id=verdict.get("addressee_user_id"),
             rationale=verdict.get("rationale"))
-        result = await handle_initiative(
-            bot=self._bot, chat_id=chat_id, situation=situation,
-            candidates=[candidate], db=self._db,
-            writer_service=self._writer, correlation_id=correlation_id,
-            opportunity_row=opportunity_row)
-        status = str((result or {}).get("status") or "error")
+        # ── INIT-COORD §3.5: атомарная бронь публикации ПЕРЕД единым входом.
+        # Интервал/бронь/чужой приоритет `/meme` проверяются здесь, а не только
+        # дешёвым pre-check: между проверкой и отправкой контекст меняется.
+        publication = self._pub()
+        claim = await publication.acquire(
+            chat_id, _pubmod.KIND_TEXT_INITIATIVE,
+            holder_ref=str(correlation_id), now=now,
+            interval_seconds=await self._cross_type_interval(chat_id))
+        self._note_decision(payload, chat_id, now=now,
+                            publication=claim.as_dict(),
+                            skip_reason=("" if claim.granted
+                                         else SKIP_PUBLICATION_CONFLICT))
+        if not claim.granted:
+            # Проигравший: реплика НЕ отправляется, повод не теряется —
+            # durable intent остаётся/создаётся и существующее планирование
+            # перепроверит его на свежем контексте (нового планировщика нет).
+            counters["publication_conflict"] = int(
+                counters.get("publication_conflict") or 0) + 1
+            self._emit("initiative_publication_conflict", outcome="skipped",
+                       stage="claim:held", chat_id=chat_id,
+                       reason_code=claim.reason,
+                       other_kind=str(claim.other_kind or ""))
+            self._emit("initiative_publication_claim", outcome="skipped",
+                       stage="claim:held", chat_id=chat_id,
+                       reason_code=claim.reason, entity_id=claim.claim_id)
+            await self._create_durable_intent(chat_id, kind, goal, rows, now)
+            return
+        self._emit("initiative_publication_claim", outcome="success",
+                   stage="claim:granted", chat_id=chat_id,
+                   reason_code=claim.detail or "", entity_id=claim.claim_id)
+
+        async def publish_guard() -> str | None:
+            """`claimed → sending` ровно перед отправкой (решает, не объясняет).
+
+            Возвращает код причины при отказе; ``None`` — разрешено отправлять.
+            """
+            decision = await publication.begin_sending(
+                chat_id, claim.claim_id, now=int(time.time()))
+            if decision.granted:
+                return None
+            counters["publication_conflict"] = int(
+                counters.get("publication_conflict") or 0) + 1
+            self._emit("initiative_publication_claim", outcome="skipped",
+                       stage="claim:expired", chat_id=chat_id,
+                       reason_code=decision.reason,
+                       entity_id=str(claim.claim_id or ""))
+            return decision.reason or _pubmod.REASON_EXPIRED
+
+        status = "error"
+        result: dict | None = None
+        try:
+            result = await handle_initiative(
+                bot=self._bot, chat_id=chat_id, situation=situation,
+                candidates=[candidate], db=self._db,
+                writer_service=self._writer, correlation_id=correlation_id,
+                opportunity_row=opportunity_row,
+                publish_guard=publish_guard)
+            status = str((result or {}).get("status") or "error")
+        finally:
+            # Освобождение брони в finally: упавший вход не должен оставлять
+            # аренду занятой до истечения TTL.
+            published = status == "sent"
+            await publication.release(
+                chat_id, claim.claim_id, published=published,
+                holder_kind=_pubmod.KIND_TEXT_INITIATIVE,
+                holder_ref=str(correlation_id), now=int(time.time()))
+            self._emit("initiative_publication_claim", outcome="success",
+                       stage=("claim:published" if published
+                              else "claim:released"),
+                       chat_id=chat_id, entity_id=str(claim.claim_id or ""))
         if status == "sent":
             counters["sent"] = int(counters.get("sent") or 0) + 1
             self._emit("initiative_sent", outcome="success",
@@ -2089,6 +2586,32 @@ async def chat_block_state(db, chat_id, *, now: int | None = None,
         label=("Инициатив бот ещё не отправлял" if init_gap_value is None
                else "С последней инициативы бота: %s с (пауза %s с)"
                     % (init_gap_value, gap_limit))))
+    # 7b) INIT-COORD §7: конфликт публикаций (бронь + межтиповой интервал).
+    # Читается ТЕМ ЖЕ координатором, что и боевой путь: диагностика не
+    # выдумывает своё мнение о занятости чата.
+    publication_view: dict = {}
+    try:
+        coordinator = _pubmod.PublicationCoordinator(db)
+        publication_view = await coordinator.precheck(
+            chat_id, _pubmod.KIND_TEXT_INITIATIVE, now=now_ts,
+            interval_seconds=await _pubmod.resolve_cross_type_interval(
+                chat_id))
+    except Exception:
+        publication_view = {"ok": True, "coordination": "degraded"}
+    publication_ok = bool(publication_view.get("ok", True))
+    other_age = publication_view.get("other_age_seconds")
+    items.append(_gate(
+        "publication",
+        "pass" if publication_ok else "block",
+        "" if publication_ok else str(publication_view.get("reason")
+                                      or SKIP_PUBLICATION_CONFLICT),
+        value=other_age,
+        limit=int(publication_view.get("interval_seconds") or 0), unit="s",
+        label=("Публикаций другого типа не было или интервал прошёл"
+               if publication_ok else
+               "Публикация другого механизма: %s с назад (интервал %s с)"
+               % (other_age if other_age is not None else "?",
+                  publication_view.get("interval_seconds") or 0))))
     # 8) дневной лимит инициатив
     window = int(profile.get("day_window_seconds") or 86400)
     sent_window = _sent_in_window_static(entry, now_ts, window)
@@ -2149,12 +2672,17 @@ async def chat_block_state(db, chat_id, *, now: int | None = None,
     state = {
         "pending": pending,
         "last_eval_age_seconds": age_eval,
+        "next_eval_ts": (last_eval + interval) if last_eval else now_ts,
         "sent_in_window": sent_window,
         "eval_used_today": used,
         "last_bot_output_age_seconds": gap_value,
         "last_initiative_output_age_seconds": init_gap_value,
         "cursor_lag_messages": await _cursor_lag(db, payload, entry),
         "live_messages_24h": live_24h,
+        "publication": publication_view,
+        "last_decision": dict(entry.get("last_decision") or {}),
+        "random": dict((entry.get("last_decision") or {}).get("random") or {}),
+        "cooldown_seconds": gap_limit,
     }
     return {"blocked_now": bool(blocked or not master),
             "blocked_count": len(blocked), "warn_count": len(warned),

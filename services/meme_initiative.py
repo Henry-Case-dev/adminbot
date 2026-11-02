@@ -128,6 +128,11 @@ SKIP_QUIET = "quiet_hours"
 SKIP_CYCLE_EXCEPTION = "cycle_exception"
 #: Retry уже снятой брони (вызов провайдера достоверно не начинался).
 SKIP_SLOT_RELEASED = "slot_released"
+#: INIT-COORD (03.11.2026): координация публикаций двух механизмов.
+SKIP_PUBLICATION_CONFLICT = "publication_conflict"
+SKIP_PUBLICATION_IN_FLIGHT = "publication_in_flight"
+SKIP_PUBLICATION_STALE = "publication_stale"
+SKIP_PUBLICATION_EXPIRED = "publication_expired"
 
 SKIP_REASONS = (
     SKIP_DISABLED, SKIP_INITIATIVE_DISABLED, SKIP_IMAGE_MODULE_OFF,
@@ -136,7 +141,9 @@ SKIP_REASONS = (
     SKIP_JOKE_EMPTY, SKIP_NO_JOKE_BUDGET, SKIP_TEMPLATE_EMPTY,
     SKIP_IMAGE_FAILED, SKIP_PUBLISH, SKIP_QUOTA, SKIP_ACTIVITY, SKIP_SCHEMA,
     SKIP_LENGTH_UNKNOWN, SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION,
-    SKIP_SLOT_RELEASED,
+    SKIP_SLOT_RELEASED, SKIP_PUBLICATION_CONFLICT,
+    SKIP_PUBLICATION_IN_FLIGHT, SKIP_PUBLICATION_STALE,
+    SKIP_PUBLICATION_EXPIRED,
 )
 
 STAGE_CONSIDERED = "considered"
@@ -267,6 +274,91 @@ def open_ledger(db) -> SqliteQuotaLedger | None:
 def blocks_text_initiative() -> bool:
     """Мемы никогда не отключают текстовые инициативные реплики."""
     return False
+
+
+# ── свой ростер чатов (INIT-COORD §1, V1) ──────────────────────────────────
+#: Предел сканирования кандидатов (граница чтения, не «лимит попыток»: сама
+#: попытка за проход ограничена существующей ``MAX_CHATS_PER_PASS``).
+ROSTER_SCAN_MAX = 32
+
+
+async def _candidate_chat_ids(db) -> list[int]:
+    """Чаты, где вообще есть переписка: PG `chat_profiles` либо SQLite.
+
+    PG — прецедент `summary_scheduler` (durable список профилей чатов);
+    любой сбой PG → durable SQLite-список `smart_messages`, а не пустой
+    ростер: недоступность одного источника не должна выключать механизм.
+    """
+    try:
+        from services import pg_db
+        pool = getattr(pg_db, "pool", None)
+        if pool is not None:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("SELECT chat_id FROM chat_profiles")
+            ids = [int(row["chat_id"]) for row in rows or ()
+                   if row["chat_id"] is not None]
+            if ids:
+                return ids
+    except Exception:
+        logger.debug("[meme] pg chat roster unavailable", exc_info=True)
+    get_ids = getattr(db, "get_smart_chat_ids", None)
+    if get_ids is None:
+        raise RuntimeError("chat_roster_unavailable")
+    return [int(chat_id) for chat_id in (await get_ids()) or ()]
+
+
+async def meme_chat_roster(db, *, state: dict | None = None,
+                           limit: int | None = None) -> list[int]:
+    """СВОЙ список чатов мема: не производная от текстового скана.
+
+    Порядок отбора (INIT-COORD §1): все групповые чаты с перепиской → гейт
+    чата ``initiative.enabled`` (``chat_observer_enabled``) → тумблер мемов
+    чата. Тихий чат без новых сообщений в ростер попадает: планирование мемов
+    не зависит от того, что увидел текстовый сканер. За проход берётся не
+    больше ``MAX_CHATS_PER_PASS`` чатов, начиная с тех, кого дольше не
+    проверяли (``state`` — durable per-chat состояние payload), чтобы
+    маленький лимит не морил один и тот же чат.
+    """
+    from services.initiative_observer import MAX_CHATS_PER_PASS, \
+        chat_observer_enabled
+
+    cap = int(limit if limit is not None else MAX_CHATS_PER_PASS)
+    cap = max(1, cap)
+    ids = await _candidate_chat_ids(db)
+    candidates: list[int] = []
+    for chat_id in ids:
+        if int(chat_id) >= 0:            # инициатива работает в группах
+            continue
+        if int(chat_id) not in candidates:
+            candidates.append(int(chat_id))
+    candidates = candidates[:ROSTER_SCAN_MAX]
+    enabled: list[int] = []
+    for chat_id in candidates:
+        try:
+            if not await chat_observer_enabled(int(chat_id)):
+                continue
+        except Exception:
+            continue
+        try:
+            cfg = await load_settings(int(chat_id))
+        except Exception:
+            continue
+        if not cfg.enabled:
+            continue
+        enabled.append(int(chat_id))
+    buckets = state if isinstance(state, dict) else {}
+
+    def _last(chat_id: int) -> int:
+        entry = buckets.get(str(int(chat_id)))
+        if not isinstance(entry, dict):
+            return 0
+        try:
+            return int(entry.get("last_check_ts") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    enabled.sort(key=lambda cid: (_last(cid), -int(cid)))
+    return enabled[:cap]
 
 
 def schema_integration_note() -> str:
@@ -763,10 +855,24 @@ class SqliteQuotaLedger:
         self.path = str(path)
 
     def apply_schema(self) -> None:
+        """Применить DDL журнала (тест/миграция v40 + бронь публикации v41).
+
+        Бронь публикации живёт в ТОМ ЖЕ файле (arch §3.2) и нужна мему так же
+        обязательно, как журнал: `apply_schema` — единая точка «схема мем-
+        пайплайна готова» для тестов и миграций, поэтому применяет оба набора.
+        Горячий путь таблицу сам не создаёт.
+        """
         conn = _connect(self.path)
         try:
             for statement in SCHEMA_DDL_SQLITE:
                 conn.execute(statement)
+            try:
+                from services import publication_coordination as pubmod
+                for statement in pubmod.CLAIM_DDL_SQLITE:
+                    conn.execute(statement)
+            except Exception:
+                logger.warning("[meme] claim schema not applied",
+                               exc_info=True)
         finally:
             conn.close()
 
@@ -1049,39 +1155,45 @@ class DrawHit:
     reason: str
     value: float | None = None
     draw_id: str = ""
+    #: Единая трассировка решения (§2): те же поля, что у текстовой
+    #: инициативы. Фактический источник (`source`/`provider`/`source_impl`/
+    #: `fallback_reason`) — из `RandomSourceService`, без выдумывания.
+    trace: dict = field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        return dict(self.trace or {})
 
 
 async def draw_trigger(source, *, chat_id: int, probability: float) -> DrawHit:
-    """Один draw санкционированного purpose. Свой fallback не подставляется."""
+    """Один draw санкционированного purpose ``meme_trigger``.
+
+    Решение принимает ОБЩИЙ контур (`initiative_observer.random_trigger`):
+    второй клиент/генератор не создаётся, формат трассировки один на оба
+    механизма. Значение из fallback-пути (владелец разрешил
+    ``memory.random_fallback_to_pseudorandom``) — ДЕЙСТВИТЕЛЬНОЕ решение:
+    отказом считается только ``deferred``/отсутствие значения.
+    """
+    from services import initiative_observer as obs
     from services import mca_random_source as mrs
     if not mrs.purpose_sanctioned(mrs.PURPOSE_MEME_TRIGGER):
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    if source is None:
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    try:
-        result = await source.draw_probability(
-            chat_id=chat_id, purpose=mrs.PURPOSE_MEME_TRIGGER,
-            probability=probability)
-    except Exception:
-        logger.warning("[meme] random draw failed", exc_info=True)
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    if result is None or getattr(result, "deferred", False):
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    if getattr(result, "fallback_reason", None):
-        # Контур подменил quantum на PRNG сам. Для мема это недоступность,
-        # а не тихое согласие владельца.
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    if getattr(result, "value", None) is None:
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    try:
-        value = float(result.value)
-    except (TypeError, ValueError):
-        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE)
-    if value >= float(probability):
-        return DrawHit(False, SKIP_RANDOM_MISS, value=value,
-                       draw_id=str(getattr(result, "draw_id", "") or ""))
-    return DrawHit(True, "ok", value=value,
-                   draw_id=str(getattr(result, "draw_id", "") or ""))
+        return DrawHit(False, SKIP_RANDOM_UNAVAILABLE,
+                       trace=obs.build_draw_trace(
+                           None, purpose=mrs.PURPOSE_MEME_TRIGGER,
+                           probability=probability,
+                           reason="purpose_not_sanctioned"))
+    decision = await obs.random_trigger(
+        source, chat_id=chat_id, purpose=mrs.PURPOSE_MEME_TRIGGER,
+        probability=probability, shortcut=False)
+    # Код причины у мема свой (исторический закрытый набор `SKIP_REASONS`),
+    # решение — общее: `random_miss` текстовой инициативы = `no_random_hit`.
+    reason = decision.reason
+    if not decision.ok:
+        reason = (SKIP_RANDOM_MISS if reason == obs.SKIP_RANDOM_MISS
+                  else SKIP_RANDOM_UNAVAILABLE)
+    return DrawHit(decision.ok, reason,
+                   value=decision.value if decision.ok else None,
+                   draw_id=str((decision.trace or {}).get("draw_id") or ""),
+                   trace=decision.trace)
 
 
 async def default_random_source(db):
@@ -1217,6 +1329,29 @@ async def _default_messages(db, chat_id: int, limit: int) -> list[dict]:
     return out
 
 
+async def _default_watermark(db, chat_id: int) -> int | None:
+    """Watermark живого окна чата (`MAX(id)`), None — прочитать не удалось.
+
+    Используется ровно одной проверкой: «окно изменилось, пока мем
+    генерировался» (INIT-COORD §3.4). Ошибка чтения → None: свежесть не
+    выдумывается ни в одну сторону.
+    """
+    if db is None:
+        return None
+    try:
+        raw = getattr(db, "db", db)
+        cursor = await raw.execute(
+            "SELECT COALESCE(MAX(id), 0) AS m FROM smart_messages "
+            "WHERE chat_id = ? AND import_key IS NULL", (int(chat_id),))
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        value = row["m"] if not isinstance(row, dict) else row.get("m")
+        return int(value or 0)
+    except Exception:
+        return None
+
+
 async def _default_publish_gate(db, chat_id: int, now_ts: int):
     try:
         from services.direct_chat_service import build_fresh_recheck_context
@@ -1259,6 +1394,9 @@ async def consider_chat(
         prompt_override: str | None = None,
         model_chars: int | None = None,
         manual: bool = False,
+        claim_store=None,
+        publication=None,
+        watermark_reader: Callable[[int], Awaitable[int | None]] | None = None,
 ) -> AttemptResult:
     """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов.
 
@@ -1269,6 +1407,11 @@ async def consider_chat(
     минимум сообщений, случайный триггер, тихие часы, in-flight и гейт
     публикации не применяются; права проверяет вызывающий слой, а готовность
     image-модуля, наличие журнала и разрешимость бюджета остаются гейтами.
+
+    ``claim_store``/``publication`` (INIT-COORD §3): бронь публикации. Без
+    явной брони она открывается по тому же файлу, что и журнал квоты; таблицы
+    нет → честный ``schema_absent`` (мем не отправляется без координации).
+    ``watermark_reader`` — шов чтения watermark окна для проверки свежести.
     """
     stamp = now or datetime.now(timezone.utc)
     if stamp.tzinfo is None:
@@ -1331,6 +1474,32 @@ async def consider_chat(
         if quiet_hours_block(cfg.quiet_hours, stamp, day.timezone_name):
             return skipped(SKIP_QUIET)
 
+    # ── INIT-COORD §3.1: дешёвая ПРОВЕРКА координации публикаций. Стоит после
+    # своих кулдаунов/квоты (свои гейты первичны и честны) и ДО чтения окна и
+    # LLM-вызовов: если в чате только что публиковался другой механизм или
+    # действует приоритет `/meme`, платить за генерацию незачем.
+    coordinator = publication
+    if coordinator is None:
+        from services import publication_coordination as pubmod
+        coordinator = pubmod.PublicationCoordinator(
+            db, store=claim_store if claim_store is not None else
+            pubmod.open_store(db, path=(ledger.path if ledger is not None
+                                        else None)))
+    # Таблица брони обязательна для мема (arch §3.6): без неё нет «ровно одной
+    # публикации», а тихая отправка «на удачу» запрещена. Текстовая инициатива
+    # в этом же состоянии деградирует и публикует — мем останавливается.
+    if coordinator.store() is not None and not coordinator.available():
+        return skipped(SKIP_SCHEMA, detail="publish_claim_absent", jid=jid)
+    precheck = await coordinator.precheck(
+        int(chat_id), OUTPUT_KIND, now=ts, manual=bool(manual))
+    facts["publication"] = dict(precheck)
+    if not precheck.get("ok"):
+        reason = str(precheck.get("reason") or SKIP_PUBLICATION_CONFLICT)
+        code = (SKIP_PUBLICATION_IN_FLIGHT
+                if reason == "publication_in_flight"
+                else SKIP_PUBLICATION_CONFLICT)
+        return skipped(code, detail=str(precheck.get("detail") or ""), jid=jid)
+
     if message_reader is not None:
         rows = await message_reader(int(chat_id), cfg.window_messages)
     elif messages is not None:
@@ -1356,8 +1525,13 @@ async def consider_chat(
             source = await default_random_source(db)
         draw = await draw_trigger(source, chat_id=int(chat_id),
                                   probability=cfg.trigger_probability)
+        # Трассировка случайного решения (§2) — в факты этапа eligible и, при
+        # промахе, тем же JSON в detail строки пропуска: одна правда о draw.
+        facts[STAGE_ELIGIBLE] = {"random": dict(draw.trace or {})}
         if not draw.ok:
-            return skipped(draw.reason, detail=draw.draw_id, jid=jid)
+            return skipped(draw.reason,
+                           detail=compact_facts({"random": draw.trace})
+                           or draw.draw_id, jid=jid)
 
 
     counters[STAGE_ELIGIBLE] = 1
@@ -1390,6 +1564,12 @@ async def consider_chat(
     summary_prompt = await effective_meme_prompt(
         chat_id, SUMMARY_PROMPT_BLOCK_ID, factory=MEME_SUMMARY_SYSTEM_PROMPT)
     summary_system = str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT)
+    # ── INIT-COORD §3.4: watermark окна НА СТАРТЕ генерации. После получения
+    # брони он перечитывается: если чат успел поговорить, готовая картинка про
+    # устаревший контекст НЕ отправляется (`publication_stale`).
+    read_watermark = watermark_reader or (
+        lambda cid: _default_watermark(db, int(cid)))
+    window_watermark = await read_watermark(int(chat_id))
 
     # ── этап A — выжимка: БЕЗ потолка длины (ни цели, ни обрезки) ───────────
     try:
@@ -1516,6 +1696,66 @@ async def consider_chat(
         ledger.mark(jid, "provider_called", "")
     counters[STAGE_IMAGE] = 1
 
+    # ── INIT-COORD §3.3/§3.5: атомарная бронь публикации ПЕРЕД гейтом и
+    # отправкой. Проигравший не отправляет уже сгенерированную картинку ни
+    # сейчас, ни позже; собственный кулдаун/квота при этом не сбрасываются.
+    claim = await coordinator.acquire(
+        int(chat_id), OUTPUT_KIND, holder_ref=jid, now=ts,
+        manual=bool(manual))
+    # Диагностика координации — в отдельный (не этапный) слот фактов: строка
+    # этапа publish остаётся ровно своим контрактом (gate/manual).
+    pub_facts = facts.setdefault("publication", {})
+    if not isinstance(pub_facts, dict):
+        pub_facts = {}
+        facts["publication"] = pub_facts
+    pub_facts["manual"] = bool(manual)
+    pub_facts["claim"] = claim.as_dict()
+    if not claim.granted:
+        counters[STAGE_PUBLISH] = 1
+        counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
+        code = (SKIP_PUBLICATION_IN_FLIGHT
+                if claim.reason == "publication_in_flight"
+                else SKIP_PUBLICATION_CONFLICT)
+        result = AttemptResult(
+            chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="skipped",
+            reason=code, detail=str(claim.detail or claim.reason or ""),
+            job_id=jid, prompt=prompt, published=False, generated=True,
+            limit=budget, prompt_origin=origin, counters=dict(counters),
+            stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
+        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+
+    async def _drop_claim(reason_code: str, *, detail: str = "",
+                          stage: str = STAGE_PUBLISH) -> AttemptResult:
+        """Отмена после брони: аренда освобождается, watermark публикации НЕ
+        пишется (публикации не было), причина честная."""
+        await coordinator.release(int(chat_id), claim.claim_id, published=False,
+                                  holder_kind=OUTPUT_KIND, holder_ref=jid,
+                                  now=ts)
+        counters[STAGE_PUBLISH] = 1
+        counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
+        result = AttemptResult(
+            chat_id=int(chat_id), stage=stage, outcome="skipped",
+            reason=reason_code, detail=detail, job_id=jid, prompt=prompt,
+            published=False, generated=True, limit=budget,
+            prompt_origin=origin, counters=dict(counters),
+            stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
+        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+
+    # ── свежесть: окно чата изменилось, пока генерировали? ─────────────────
+    if window_watermark is not None:
+        current_watermark = await read_watermark(int(chat_id))
+        pub_facts["watermark"] = {
+            "at_generation": int(window_watermark),
+            "at_publish": (int(current_watermark)
+                           if current_watermark is not None else None),
+        }
+        if current_watermark is not None and \
+                int(current_watermark) != int(window_watermark):
+            return await _drop_claim(SKIP_PUBLICATION_STALE,
+                                     detail="window_changed")
+
     if manual:
         # Диагностика не соревнуется с авто-инициативой и не ждёт гейта.
         allowed, gate_reason = True, "manual_bypass"
@@ -1523,30 +1763,34 @@ async def consider_chat(
         allowed, gate_reason = await _default_publish_gate(db, int(chat_id), ts)
     else:
         allowed, gate_reason = await publish_gate(int(chat_id))
-    facts[STAGE_PUBLISH] = {"gate": str(gate_reason or ""),
-                            "manual": bool(manual)}
+    facts.setdefault(STAGE_PUBLISH, {})["gate"] = str(gate_reason or "")
+    facts[STAGE_PUBLISH]["manual"] = bool(manual)
     if not allowed or sender is None:
-        counters[STAGE_PUBLISH] = 1
-        counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
         # Честная причина: гейт мог быть открыт, а отправителя нет вообще.
         detail = (str(gate_reason or SKIP_PUBLISH) if not allowed
                   else "publisher_not_bound")
-        result = AttemptResult(
-            chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="blocked",
-            reason=SKIP_PUBLISH,
-            detail=detail,
-            job_id=jid, prompt=prompt, published=False, generated=True,
-            limit=budget, prompt_origin=origin, counters=dict(counters),
-            stage_facts=dict(facts), joke=joke,
-            manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        blocked = await _drop_claim(SKIP_PUBLISH, detail=detail)
+        blocked.outcome = "blocked"
+        return blocked
+    # ── `claimed → sending` — единственное разрешение звать sender ─────────
+    sending = await coordinator.begin_sending(int(chat_id), claim.claim_id,
+                                              now=ts, manual=bool(manual))
+    pub_facts["sending"] = sending.as_dict()
+    if not sending.granted:
+        code = (SKIP_PUBLICATION_IN_FLIGHT
+                if sending.reason == "publication_in_flight"
+                else SKIP_PUBLICATION_EXPIRED)
+        return await _drop_claim(code, detail=str(sending.detail or ""))
     try:
         # Доставка не меняется: sender получает ТОЛЬКО изображение; prompt и
         # прикол остаются внутренними (никогда не caption и не сообщение).
-        await sender(int(chat_id), content, prompt)
+        message = await sender(int(chat_id), content, prompt)
     except Exception:
         logger.warning("[meme] publish failed", exc_info=True)
         counters[STAGE_FAILED] = 1
+        await coordinator.release(int(chat_id), claim.claim_id,
+                                  published=False, holder_kind=OUTPUT_KIND,
+                                  holder_ref=jid, now=ts)
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="blocked",
             reason=SKIP_PUBLISH, detail="send_failed", job_id=jid,
@@ -1556,6 +1800,14 @@ async def consider_chat(
             manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
     counters[STAGE_PUBLISH] = 1
+    tg_message_id = getattr(message, "message_id", None)
+    ledger_output_id = await _record_meme_output(
+        db, chat_id=int(chat_id), tg_message_id=tg_message_id, sent_at=ts,
+        correlation_id=jid, manual=bool(manual))
+    pub_facts["output"] = {"ledger_id": ledger_output_id,
+                           "tg_message_id": tg_message_id}
+    await coordinator.release(int(chat_id), claim.claim_id, published=True,
+                              holder_kind=OUTPUT_KIND, holder_ref=jid, now=ts)
     result = AttemptResult(
         chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="published",
         reason="sent", job_id=jid, prompt=prompt, published=True,
@@ -1563,6 +1815,31 @@ async def consider_chat(
         counters=dict(counters), stage_facts=dict(facts), joke=joke,
         manually_triggered=bool(manual))
     return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+
+
+async def _record_meme_output(db, *, chat_id: int, tg_message_id, sent_at: int,
+                              correlation_id: str, manual: bool) -> int | None:
+    """Записать доставленный мем в СУЩЕСТВУЮЩИЙ журнал выводов (INIT-COORD §1 V3).
+
+    Свой kind `meme_initiative` делает вывод мема видимым общим антифлуд/
+    cooldown-хелперам: без этой записи `_last_bot_output_age` не видел картинку,
+    и текстовая инициатива могла ответить сразу после мема. Запись — только по
+    факту доставки (недоставленное не является словами бота). Ошибка записи не
+    рвёт успешную публикацию: она видна в логе.
+    """
+    if db is None:
+        return None
+    try:
+        from services import bot_output_ledger as ledger_mod
+        return await ledger_mod.record_delivered_output(
+            db, chat_id=int(chat_id), tg_message_id=tg_message_id, text=None,
+            caption=None, output_kind=OUTPUT_KIND, sent_at=int(sent_at),
+            correlation_id=str(correlation_id or ""),
+            source_feature="evol014_meme_initiative")
+    except Exception:
+        logger.warning("[meme] output ledger record failed | chat=%s",
+                       chat_id, exc_info=True)
+        return None
 
 
 #: Предел ожидания лёгкого LLM-вызова выжимки в этом же проходе инициативы.
@@ -1652,24 +1929,104 @@ async def _default_image(prompt: str, chat_id: int, job_id: str):
     })()
 
 
-async def on_initiative_cycle(db, chat_ids, **kwargs) -> list[AttemptResult]:
+async def on_initiative_cycle(db, chat_ids, *, state: dict | None = None,
+                              **kwargs) -> list[AttemptResult]:
     """Точка вызова из прохода Initiative. Пустой список чатов — no-op.
 
     Падение одной попытки не валит ни остальные чаты, ни текстовую
     инициативу, но и не выдаётся за провал выжимки: пишется отдельная
     причина ``cycle_exception`` и строка журнала попыток.
+
+    ``state`` — durable per-chat состояние механизма (payload прохода): туда
+    пишется диагностика §7 (последняя/следующая проверка, причина, конфликт
+    публикаций, собственный кулдаун). Новых таблиц диагностики нет.
     """
     results = []
     for chat_id in chat_ids or ():
         try:
-            results.append(await consider_chat(db, int(chat_id), **kwargs))
+            result = await consider_chat(db, int(chat_id), **kwargs)
+            results.append(result)
+            await _note_state(state, result, kwargs)
         except Exception as exc:
             logger.warning("[meme] chat attempt raised — initiative continues "
                            "| chat=%s | error=%s", chat_id,
                            type(exc).__name__, exc_info=True)
-            results.append(
-                _bridge_failure(int(chat_id), exc, **kwargs))
+            failure = _bridge_failure(int(chat_id), exc, **kwargs)
+            results.append(failure)
+            await _note_state(state, failure, kwargs)
     return results
+
+
+async def _note_state(state: dict | None, result: AttemptResult,
+                      kwargs: dict) -> None:
+    """Диагностика попытки в payload прохода (по каждому механизму отдельно).
+
+    Поля: последняя проверка, следующая проверка, случайное решение и его
+    фактический источник, выполненные условия, причина пропуска, собственный
+    кулдаун, конфликт публикаций. Источник чисел — уже существующие журнал
+    попыток/настройки, ничего не пересчитывается заново.
+    """
+    if not isinstance(state, dict):
+        return
+    cfg = kwargs.get("settings")
+    if not isinstance(cfg, MemeSettings):
+        cfg = None
+    now_ts = kwargs.get("now_ts")
+    if now_ts is None:
+        stamp = kwargs.get("now")
+        now_ts = int(stamp.timestamp()) if isinstance(stamp, datetime) \
+            else int(datetime.now(timezone.utc).timestamp())
+    facts = dict(result.stage_facts or {})
+    random_trace = dict((facts.get(STAGE_ELIGIBLE) or {}).get("random") or {})
+    publication = dict(facts.get("publication") or {})
+    ledger = kwargs.get("ledger")
+    last_provider_ts = 0
+    try:
+        if ledger is not None:
+            last_provider_ts = int(ledger.last_provider_ts(int(result.chat_id)))
+    except Exception:
+        last_provider_ts = 0
+    cooldown = int(cfg.cooldown_seconds) if cfg is not None else 0
+    next_check = max(int(now_ts), last_provider_ts + max(0, cooldown))
+    if str(result.reason or "") == SKIP_QUOTA:
+        # Квота суток: следующая реальная возможность — начало нового дня.
+        try:
+            window = day_window(int(result.chat_id), None)
+            next_check = max(next_check, int(datetime.fromisoformat(
+                window.next_reset_iso).timestamp()))
+        except Exception:
+            pass
+    state[str(int(result.chat_id))] = {
+        "output_kind": OUTPUT_KIND,
+        "last_check_ts": int(now_ts),
+        "next_check_ts": int(next_check),
+        "random": random_trace,
+        "reason": str(result.reason or ""),
+        "reason_label": _reason_label(result.reason),
+        "stage": str(result.stage or ""),
+        "conditions": {
+            "considered": int((result.counters or {}).get(STAGE_CONSIDERED)
+                              or 0),
+            "eligible": int((result.counters or {}).get(STAGE_ELIGIBLE) or 0),
+            "summary": int((result.counters or {}).get(STAGE_SUMMARY) or 0),
+            "joke": int((result.counters or {}).get(STAGE_JOKE) or 0),
+            "image": int((result.counters or {}).get(STAGE_IMAGE) or 0),
+            "publish": int((result.counters or {}).get(STAGE_PUBLISH) or 0),
+        },
+        "cooldown_seconds": cooldown,
+        "publication": publication,
+        "job_id": str(result.job_id or ""),
+        "published": bool(result.published),
+    }
+
+
+def _reason_label(reason_code) -> str:
+    """Ярлык причины через общий словарь инициативы (не выдумываем текст)."""
+    try:
+        from services.initiative_observer import reason_label
+        return reason_label(reason_code)
+    except Exception:
+        return str(reason_code or "")
 
 
 def _bridge_failure(chat_id: int, exc: BaseException,
@@ -1768,7 +2125,17 @@ async def availability(chat_id: int | None, *,
                        settings: MemeSettings | None = None,
                        ledger: SqliteQuotaLedger | None = None,
                        image_health: Any = None,
-                       initiative_on: bool | None = None) -> dict:
+                       initiative_on: bool | None = None,
+                       publication: Any = None,
+                       now: int | None = None) -> dict:
+    """Готовность мем-механизма + его собственная диагностика (§7).
+
+    Диагностика отдельная от текстовой инициативы: последняя/следующая
+    проверка, результат случайного решения с фактическим источником,
+    выполненные условия, причина пропуска, СВОЙ кулдаун и признак конфликта
+    публикаций. Источники — только существующие журнал попыток/ledger/бронь;
+    новых таблиц нет.
+    """
     cfg = settings if settings is not None else await load_settings(chat_id)
     if initiative_on is None:
         try:
@@ -1787,6 +2154,11 @@ async def availability(chat_id: int | None, *,
         reason = str(image.get("reason") or SKIP_IMAGE_NOT_CONFIGURED)
     elif not schema_ok:
         reason = SKIP_SCHEMA
+    stamp = int(now if now is not None else datetime.now(timezone.utc)
+                .timestamp())
+    diagnostics = _availability_diagnostics(
+        cfg, ledger=ledger, chat_id=chat_id, reason=reason, now=stamp,
+        publication=publication)
     return {
         "available": reason == "ok",
         "reason": reason,
@@ -1796,4 +2168,81 @@ async def availability(chat_id: int | None, *,
         "schema_present": schema_ok,
         "settings": cfg.as_dict(),
         "blocks_text_initiative": False,
+        # INIT-COORD §7: восемь полей диагностики механизма — отдельно от
+        # текстовой инициативы, в существующем ответе сервиса.
+        "diagnostics": diagnostics,
+    }
+
+
+def _availability_diagnostics(cfg: MemeSettings, *, ledger, chat_id,
+                              reason: str, now: int,
+                              publication: Any = None) -> dict:
+    """Диагностика мем-механизма из существующих источников (без новых таблиц)."""
+    last_check = 0
+    last_reason = ""
+    last_facts: dict = {}
+    try:
+        if ledger is not None and chat_id is not None:
+            last_check = int(ledger.last_provider_ts(int(chat_id)) or 0)
+        rows = ledger.attempts(chat_id, limit=1) if ledger is not None else []
+        if rows:
+            row = rows[0]
+            last_reason = str(row.get("reason_code") or "")
+            last_facts = parse_attempt_facts(row)
+    except Exception:
+        last_check, last_reason, last_facts = 0, "", {}
+    cooldown = int(cfg.cooldown_seconds or 0)
+    remaining = 0
+    if cooldown and last_check:
+        remaining = max(0, cooldown - max(0, now - last_check))
+    next_check = max(now, last_check + cooldown) if cooldown else now
+    random_trace = dict(last_facts.get("random") or {})
+    publish_view: dict = {}
+    if publication is not None:
+        try:
+            publish_view = dict(publication)
+        except Exception:
+            publish_view = {}
+    elif chat_id is not None:
+        try:
+            from services import publication_coordination as pubmod
+            store = pubmod.open_store(None, path=getattr(ledger, "path", None))
+            if store is not None and store.table_present():
+                row = store.snapshot(int(chat_id)) or {}
+                interval = pubmod.default_interval_seconds()
+                last_pub = row.get("last_publish_ts")
+                age = (max(0, now - int(last_pub)) if last_pub else None)
+                publish_view = {
+                    "available": True,
+                    "state": str(row.get("state") or ""),
+                    "holder_kind": str(row.get("holder_kind") or ""),
+                    "last_publish_kind": str(row.get("last_publish_kind")
+                                             or ""),
+                    "other_age_seconds": age,
+                    "interval_seconds": interval,
+                    "manual_priority_until": row.get("manual_priority_until"),
+                    "conflict": bool(
+                        age is not None and interval > 0
+                        and str(row.get("last_publish_kind") or "")
+                        != OUTPUT_KIND and age < interval),
+                }
+        except Exception:
+            publish_view = {"available": False}
+    return {
+        "last_check_ts": last_check,
+        "next_check_ts": int(next_check),
+        "random": random_trace,
+        "conditions": {
+            "initiative_enabled": reason != SKIP_INITIATIVE_DISABLED,
+            "meme_enabled": bool(cfg.enabled),
+            "image_ready": reason not in (SKIP_IMAGE_MODULE_OFF,
+                                          SKIP_IMAGE_NOT_CONFIGURED,
+                                          SKIP_IMAGE_UNHEALTHY),
+            "schema_present": reason != SKIP_SCHEMA,
+            "cooldown_ready": remaining <= 0,
+        },
+        "skip_reason": (last_reason if reason == "ok" else reason),
+        "cooldown_seconds": cooldown,
+        "cooldown_remaining_seconds": int(remaining),
+        "publication": publish_view,
     }

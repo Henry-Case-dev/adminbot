@@ -13,8 +13,11 @@
 3. Удаление сообщения команды — ПЕРВОЕ сетевое действие обработчика, до
    любого этапа пайплайна: след исчезает сразу, даже если пайплайн идёт
    десятки секунд или падает (дополнение владельца 03.11.2026).
-4. Пайплайн: ``consider_chat(db, chat_id, manual=True, ...)``.
-5. Доставка: успех — только изображение (путь ``sender`` не меняется), сбой —
+4. Маркер приоритета ``manual_priority_until`` ОДНИМ стейтментом — ДО
+   генерации (INIT-COORD §6): с этого момента автоматический путь не может
+   перейти в ``sending``, приоритет заявлен атомарно, а не «после отправки».
+5. Пайплайн: ``consider_chat(db, chat_id, manual=True, ...)``.
+6. Доставка: успех — только изображение (путь ``sender`` не меняется), сбой —
    ровно одно короткое сообщение без кодов, промпта, выжимки и прикола.
 
 Автоудаление best-effort: ровно ОДИН ``message.delete()`` с ограниченным
@@ -58,6 +61,14 @@ _FAILURE_TEXT = {
     "schema_absent": "Журнал мемов ещё не инициализирован.",
     "length_limit_unknown": "Не удалось определить лимит длины промпта.",
     "publish_blocked": "Отправка мема не удалась.",
+    # INIT-COORD: координация с автоматическими публикациями.
+    "publication_in_flight": ("В этом чате уже идёт отправка — "
+                              "попробуйте через минуту."),
+    "publication_conflict": ("Публикация не сделана: в чате одновременно "
+                             "идёт другой инициативный пост."),
+    "publication_expired": ("Бронь публикации истекла — попробуйте ещё раз."),
+    "publication_stale": ("Переписка в чате изменилась за время генерации — "
+                          "мем не отправлен, попробуйте ещё раз."),
 }
 #: Ничего конкретного сказать нельзя — общая короткая фраза без внутренностей.
 _GENERIC_FAILURE = "Мем не получился. Попробуйте позже."
@@ -136,6 +147,26 @@ def _sender(bot):
     return InitiativeObserverRunner(None, bot=bot)._meme_sender()
 
 
+async def claim_manual_priority(chat_id: int) -> int:
+    """Маркер приоритета ручного запуска ДО генерации (INIT-COORD §6).
+
+    Один стейтмент по таблице брони: автоматический путь в этом чате не сможет
+    перейти ``claimed → sending``, пока маркер жив (``MANUAL_PRIORITY_SECONDS``).
+    Нет БД/таблицы → 0: приоритет не заявлен, и это видно в логе, а не
+    превращается в тихую блокировку ручной команды.
+    """
+    if _db is None:
+        return 0
+    try:
+        from services import publication_coordination as pub
+        coordinator = pub.PublicationCoordinator(_db)
+        return await coordinator.claim_manual_priority(int(chat_id))
+    except Exception:
+        logger.warning("[/meme] manual priority marker failed | chat=%s",
+                       chat_id, exc_info=True)
+        return 0
+
+
 async def run_manual_pipeline(chat_id: int, bot):
     """Один ручной проход существующего пайплайна (``manual=True``).
 
@@ -188,6 +219,10 @@ async def cmd_meme(message: types.Message) -> None:
 
     # Первое сетевое действие: след команды исчезает до любого этапа.
     await delete_command_message(message)
+
+    # Приоритет заявлен ДО генерации: автоматический путь уже не сможет
+    # перейти в `sending`, пока маркер жив (INIT-COORD §6).
+    await claim_manual_priority(chat_id)
 
     bot = _bot if _bot is not None else getattr(message, "bot", None)
     try:
