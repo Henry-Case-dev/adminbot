@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from services import initiative_observer as obs
@@ -1163,3 +1164,720 @@ def _step(stage: str, status: str, reason_code: str, label: str,
     return {"stage": str(stage), "status": str(status),
             "reason_code": str(reason_code or ""),
             "label": str(label or ""), "value": value, "limit": limit}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MEME-INIT-DIAG (P9): диагностика ПО КАЖДОМУ МЕХАНИЗМУ — одна точка для UI
+# ═════════════════════════════════════════════════════════════════════════════
+#: Версия формы ответа: потребитель (P4) читает её, чтобы не угадывать.
+DIAG_SCHEMA_VERSION = 1
+MECHANISM_TEXT = "text_initiative"
+MECHANISM_MEME = "meme"
+
+DATA_OK = "ok"
+DATA_NO_DATA = "no_data"
+
+#: Машинные коды «чего не хватает» в ЭТОМ ответе. Это НЕ `reason_code`
+#: пайплайна: они не пишутся в события/`mca_events`/payload и не входят в
+#: общий словарь `initiative_observer.REASON_LABELS`. Назначение — объяснить
+#: пустое поле, а не изобрести новую причину поведения механизма.
+NO_DATA_READ_FAILED = "read_failed"
+NO_DATA_NO_OBSERVER_PAYLOAD = "no_observer_payload"
+NO_DATA_NEVER_CHECKED = "never_checked"
+NO_DATA_NO_DECISION = "no_decision_recorded"
+NO_DATA_NO_RANDOM = "no_random_trace"
+NO_DATA_NO_MEME_STATE = "no_meme_state"
+NO_DATA_NO_ATTEMPTS = "no_attempts_journal"
+NO_DATA_CHAT_REQUIRED = "chat_not_selected"
+
+#: Остаток кулдауна считается ТОЛЬКО по собственному кулдауну механизма.
+#: TTL брони (90/120/600 с) — аренда отправки, а не пауза механизма.
+COOLDOWN_SCOPE = "mechanism_own"
+
+#: Рассуждение о конфликте публикаций — единственный источник `publication`.
+CONFLICT_CLEAR = "clear"
+CONFLICT_ACTIVE = "conflict"
+CONFLICT_UNKNOWN = "unknown"
+
+#: КОНТРАКТ ДЛЯ P4 (админка): набор ключей блока механизма.
+#: Все ключи присутствуют ВСЕГДА; «нет данных» — это ``null``/``None``,
+#: ``available=false`` и код в ``no_data_reasons``, а не 0.
+MECHANISM_BLOCK_FIELDS = (
+    "mechanism", "output_kind", "source", "available", "data_state",
+    "no_data_reasons", "ready", "ready_reason", "last_check_ts",
+    "next_check_ts", "next_check_basis", "random", "conditions", "stages",
+    "skip", "skip_recorded", "cooldown", "quota", "publication", "blocking",
+)
+#: Поля вложенных объектов (их нет, если объект ``null``).
+DRAW_FIELDS = (
+    "performed", "outcome", "value", "hit", "probability", "purpose",
+    "draw_id", "source", "source_impl", "provider", "selected_source",
+    "fallback", "fallback_reason", "policy_version", "attempts", "reason",
+    "reason_label", "no_draw_reason", "ts",
+)
+PUBLICATION_FIELDS = (
+    "available", "coordination", "degraded", "degraded_reason", "conflict",
+    "conflict_state", "ok", "reason", "reason_label", "detail", "state",
+    "holder_kind", "claimed_by", "other_kind", "other_age_seconds",
+    "interval_seconds", "manual_priority_until", "checked_at",
+)
+COOLDOWN_FIELDS = ("scope", "own_seconds", "remaining_seconds", "basis",
+                   "basis_ts")
+QUOTA_FIELDS = ("scope", "limit", "used", "remaining", "unlimited",
+                "limit_reached", "available", "next_reset")
+SKIP_FIELDS = ("code", "label", "origin")
+
+
+def _int_or_none(value) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _float_or_none(value) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _stamp_or_none(value) -> int | None:
+    """Метка времени: ``0``/пусто → ``None`` («никогда»), а не 1970-01-01."""
+    stamp = _int_or_none(value)
+    return stamp if stamp is not None and stamp > 0 else None
+
+
+def _scalar_dict(value) -> dict | None:
+    """Только плоские скаляры: тексты/промпты/вложенные блобы не проходят.
+
+    Условия механизма — это флаги/счётчики/коды; всё остальное в диагностику
+    не попадает даже если механизм записал это в свой payload.
+    """
+    if not isinstance(value, dict) or not value:
+        return None
+    out: dict = {}
+    for key, item in value.items():
+        if item is None or isinstance(item, (bool, int, float, str)):
+            out[str(key)] = item
+    return out or None
+
+
+def _unique(codes: list[str]) -> list[str]:
+    seen: list[str] = []
+    for code in codes:
+        text = str(code or "")
+        if text and text not in seen:
+            seen.append(text)
+    return seen
+
+
+def draw_block(trace) -> dict | None:
+    """Разложить трассировку случайного решения. Пусто → ``None``.
+
+    Честные правила (§8 P8, п.4): `reason="probability_one"` значит, что draw
+    НЕ выполнялся — это не «выигранный случай», поэтому `hit` не выдаётся.
+    В ответ идут только поля ``DRAW_TRACE_FIELDS`` (R17-safe: коды/числа/ID).
+    """
+    if not isinstance(trace, dict) or not trace:
+        return None
+    data = {key: trace.get(key) for key in obs.DRAW_TRACE_FIELDS}
+    reason = str(data.get("reason") or "")
+    value = _float_or_none(data.get("value"))
+    no_draw_reason = ""
+    if reason == obs.DRAW_PROBABILITY_ONE:
+        no_draw_reason = obs.DRAW_PROBABILITY_ONE
+    elif data.get("deferred"):
+        no_draw_reason = reason
+    elif value is None:
+        no_draw_reason = reason
+    performed = not no_draw_reason
+    return {
+        "performed": performed,
+        "outcome": "draw" if performed else "no_draw",
+        "value": (value if performed else None),
+        "hit": (bool(data.get("hit")) if performed else None),
+        "probability": _float_or_none(data.get("probability")),
+        "purpose": str(data.get("purpose") or ""),
+        "draw_id": (str(data.get("draw_id") or "") or None),
+        # Фактически использованный источник (выбранный — отдельным полем).
+        "source": (str(data.get("source") or "") or None),
+        "source_impl": (str(data.get("source_impl") or "") or None),
+        "provider": (str(data["provider"]) if data.get("provider") else None),
+        "selected_source": (str(data.get("selected_source") or "") or None),
+        "fallback": bool(data.get("fallback_reason")),
+        "fallback_reason": (str(data["fallback_reason"])
+                            if data.get("fallback_reason") else None),
+        "policy_version": (str(data.get("policy_version") or "") or None),
+        "attempts": _int_or_none(data.get("attempts")) or 0,
+        "reason": reason,
+        "reason_label": (obs.reason_label(reason) if reason else ""),
+        "no_draw_reason": no_draw_reason,
+        "ts": _stamp_or_none(data.get("ts")),
+    }
+
+
+def publication_block(view, *, checked_at=None) -> dict | None:
+    """Единственная правда о конфликте публикаций.
+
+    Источник — снимок `PublicationCoordinator.precheck` (та же бронь, что у
+    боевого пути). ``coordination="degraded"`` — это ДЕГРАДАЦИЯ, а не «всё
+    хорошо»: брони нет, конфликт НЕИЗВЕСТЕН (``conflict: null``), а не «нет».
+    """
+    if not isinstance(view, dict) or not view:
+        return None
+    coordination = str(view.get("coordination") or "ok")
+    degraded = coordination == "degraded"
+    ok = view.get("ok")
+    ok_bool = None if ok is None else bool(ok)
+    if degraded:
+        conflict = None
+    elif ok_bool is None:
+        conflict = None
+    else:
+        conflict = not ok_bool
+    if conflict is None:
+        conflict_state = CONFLICT_UNKNOWN
+    else:
+        conflict_state = CONFLICT_ACTIVE if conflict else CONFLICT_CLEAR
+    reason = str(view.get("reason") or "")
+    return {
+        "available": not degraded,
+        "coordination": coordination,
+        "degraded": degraded,
+        # precheck помечает degraded ровно одним случаем — отсутствием таблицы.
+        "degraded_reason": (str(view.get("degraded_reason") or "")
+                            or ("claim_table_absent" if degraded else "")),
+        "conflict": conflict,
+        "conflict_state": conflict_state,
+        "ok": (None if degraded else ok_bool),
+        "reason": reason,
+        "reason_label": (obs.reason_label(reason) if reason else ""),
+        "detail": str(view.get("detail") or ""),
+        "state": str(view.get("state") or ""),
+        "holder_kind": str(view.get("holder_kind")
+                           or view.get("holder") or ""),
+        "claimed_by": str(view.get("holder") or ""),
+        "other_kind": str(view.get("other_kind") or ""),
+        "other_age_seconds": _int_or_none(view.get("other_age_seconds")),
+        "interval_seconds": _int_or_none(view.get("interval_seconds")),
+        "manual_priority_until": _stamp_or_none(
+            view.get("manual_priority_until")),
+        "checked_at": _stamp_or_none(view.get("checked_at") or checked_at),
+    }
+
+
+def cooldown_block(own_seconds, *, now: int, basis_ts=None,
+                   basis: str = "") -> dict:
+    """Собственный остаток кулдауна механизма (НЕ TTL брони).
+
+    ``remaining_seconds == 0`` — законный ноль (пауза истекла либо публикаций
+    ещё не было, см. `basis`), а не «нет данных»: «никогда не проверяли»
+    видно по ``last_check_ts is None``, это разные поля.
+    """
+    own = _int_or_none(own_seconds)
+    stamp = _stamp_or_none(basis_ts)
+    remaining: int | None = None
+    if own is None:
+        remaining = None
+    elif own <= 0:
+        remaining = 0
+    elif stamp is None:
+        remaining = 0
+        basis = basis or "no_prior_publication"
+    else:
+        remaining = max(0, int(own) - max(0, int(now) - int(stamp)))
+    return {
+        "scope": COOLDOWN_SCOPE,
+        "own_seconds": own,
+        "remaining_seconds": remaining,
+        "basis": basis,
+        "basis_ts": stamp,
+    }
+
+
+def quota_block(*, limit, used, available: bool | None = None,
+                next_reset=None, zero_means_unlimited: bool = True) -> dict:
+    """Собственная квота механизма (сутки): лимит/использовано/остаток.
+
+    ``zero_means_unlimited=True`` (текстовая инициатива: ``day_cap <= 0`` —
+    «без дневного капа»), ``False`` (мемы: ``daily_limit <= 0`` — механизм
+    фактически остановлен, боевой гейт отдаёт ``daily_quota_reached``).
+    Нет данных → соответствующие поля ``null``, а не нули.
+    """
+    cap = _int_or_none(limit)
+    spent = _int_or_none(used)
+    unlimited = bool(cap is not None and cap <= 0 and zero_means_unlimited)
+    limit_reached = bool(
+        cap is not None and spent is not None and (
+            spent >= cap if cap > 0 else not zero_means_unlimited))
+    remaining: int | None = None
+    if cap is not None and spent is not None:
+        remaining = max(0, cap - spent) if cap > 0 else 0
+    return {
+        "scope": COOLDOWN_SCOPE,
+        "limit": cap,
+        "used": spent,
+        "remaining": remaining,
+        "unlimited": unlimited,
+        "limit_reached": limit_reached,
+        "available": available,
+        "next_reset": next_reset,
+    }
+
+
+def skip_block(code, origin: str, label=None) -> dict | None:
+    """Причина пропуска — ТОЛЬКО существующий код механизма (не выдуманный).
+
+    ``origin`` говорит, откуда взята причина: ``gate``/``availability``/
+    ``quota``/``cooldown``/``quiet_hours``/``publication`` — «почему не
+    сработает сейчас», ``payload_state``/``journal`` — что записал последний
+    проход. Пустой код → ``None`` («причины нет», а не «причина неизвестна»).
+    """
+    text = str(code or "")
+    if not text:
+        return None
+    return {"code": text, "label": str(label or obs.reason_label(text)),
+            "origin": str(origin or "")}
+
+
+def _blocking_block(items) -> dict | None:
+    """Что мешает механизму СЕЙЧАС (коды ворот, без смешивания механизмов)."""
+    if not isinstance(items, list) or not items:
+        return None
+    blocked: list[dict] = []
+    warned: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "")
+        if status not in ("block", "warn"):
+            continue
+        row = {"gate": str(item.get("gate") or ""), "status": status,
+               "reason_code": str(item.get("reason_code") or ""),
+               "label": str(item.get("label") or "")}
+        (blocked if status == "block" else warned).append(row)
+    return {"blocked": blocked, "warned": warned}
+
+
+async def text_mechanism_diagnostics(db, chat_id, *,
+                                     now: int | None = None) -> dict:
+    """Диагностика ТЕКСТОВОЙ инициативы (существующие payload/бронь).
+
+    Числа берутся у того же read-model, что показывает ворота чата
+    (`initiative_observer.chat_block_state`), поэтому диагностика не выводит
+    своё мнение о состоянии механизма. Порядок причин «сейчас мешает» — тот
+    же порядок ворот, что у боевого пути. Никогда не бросает.
+    """
+    now_ts = _now(now)
+    cid = _int_or_none(chat_id)
+    if cid is None:
+        return _no_chat_block(MECHANISM_TEXT, obs.INITIATIVE_OUTPUT_KINDS[0])
+    reasons: list[str] = []
+    try:
+        view = await obs.chat_block_state(db, cid, now=now_ts)
+    except Exception:
+        logger.warning("[diag] text mechanism state failed", exc_info=True)
+        view = {}
+    if not isinstance(view, dict):
+        view = {}
+    state = view.get("state") if isinstance(view.get("state"), dict) else {}
+    effective = (view.get("effective")
+                 if isinstance(view.get("effective"), dict) else {})
+    if not state:
+        reasons.append(NO_DATA_READ_FAILED)
+    decision = (state.get("last_decision")
+                if isinstance(state.get("last_decision"), dict) else {})
+    age_eval = _int_or_none(state.get("last_eval_age_seconds"))
+
+    last_check = _stamp_or_none(decision.get("ts"))
+    if last_check is None and age_eval is not None:
+        last_check = now_ts - max(0, age_eval)
+    if last_check is None:
+        # «Никогда»: проверок и решений не было — это не 01.01.1970 и не 0.
+        reasons.append(NO_DATA_NEVER_CHECKED)
+    if not decision:
+        reasons.append(NO_DATA_NO_DECISION)
+    available = last_check is not None
+
+    interval = _int(effective.get("eval_min_interval_seconds"), 0)
+    if last_check is None:
+        # Проверки ещё не было → и «следующей» даты нет (None, не now).
+        next_check, next_basis = None, NO_DATA_NEVER_CHECKED
+    else:
+        next_check = _stamp_or_none(state.get("next_eval_ts"))
+        next_basis = "eval_interval" if interval > 0 else "every_pass"
+        if next_check is None:
+            next_basis = "unknown"
+
+    draw = draw_block(decision.get("random"))
+    if draw is None:
+        reasons.append(NO_DATA_NO_RANDOM)
+
+    age_out = _int_or_none(state.get("last_initiative_output_age_seconds"))
+    cooldown = cooldown_block(
+        effective.get("min_gap_seconds"), now=now_ts,
+        basis_ts=((now_ts - max(0, age_out)) if age_out is not None else None),
+        basis=("last_initiative_publication" if age_out is not None
+               else "no_prior_publication"))
+    quota = quota_block(limit=effective.get("max_replies_per_day"),
+                        used=state.get("sent_in_window"),
+                        zero_means_unlimited=True)
+
+    blocking = _blocking_block(view.get("items"))
+    skip_recorded = skip_block(decision.get("skip_reason"), "payload_state",
+                               label=decision.get("skip_label"))
+    # «Сейчас мешает» — первый заблокированный гейт боевого порядка; иначе
+    # остаётся записанная причина последнего прохода (она может быть старой и
+    # потому лежит отдельным полем `skip_recorded`).
+    skip = None
+    for item in (blocking or {}).get("blocked") or ():
+        if item.get("reason_code"):
+            skip = skip_block(item["reason_code"], "gate",
+                              label=item.get("label"))
+            break
+    ready = None if blocking is None else not blocking.get("blocked")
+
+    return {
+        "mechanism": MECHANISM_TEXT,
+        "output_kind": obs.INITIATIVE_OUTPUT_KINDS[0],
+        "source": "initiative_observer.chat_block_state",
+        "available": available,
+        "data_state": DATA_OK if available else DATA_NO_DATA,
+        "no_data_reasons": _unique(reasons),
+        "ready": ready,
+        "ready_reason": str((skip or {}).get("code") or ""),
+        "last_check_ts": last_check,
+        "next_check_ts": next_check,
+        "next_check_basis": next_basis,
+        "random": draw,
+        "conditions": _scalar_dict(decision.get("conditions")),
+        "stages": None,
+        "skip": skip,
+        "skip_recorded": skip_recorded,
+        "cooldown": cooldown,
+        "quota": quota,
+        "publication": publication_block(state.get("publication"),
+                                         checked_at=now_ts),
+        "blocking": blocking,
+    }
+
+
+def _no_chat_block(mechanism: str, output_kind: str) -> dict:
+    """Блок-заглушка «чат не выбран»: полная форма, ни одного выдуманного 0."""
+    return {
+        "mechanism": mechanism,
+        "output_kind": output_kind,
+        "source": "",
+        "available": False,
+        "data_state": DATA_NO_DATA,
+        "no_data_reasons": [NO_DATA_CHAT_REQUIRED],
+        "ready": None,
+        "ready_reason": "",
+        "last_check_ts": None,
+        "next_check_ts": None,
+        "next_check_basis": NO_DATA_CHAT_REQUIRED,
+        "random": None,
+        "conditions": None,
+        "stages": None,
+        "skip": None,
+        "skip_recorded": None,
+        "cooldown": cooldown_block(None, now=0),
+        "quota": quota_block(limit=None, used=None),
+        "publication": None,
+        "blocking": None,
+    }
+
+
+async def _meme_precheck(db, chat_id: int, ledger, now_ts: int) -> dict:
+    """Снимок брони публикации глазами МЕМ-механизма (та же координация)."""
+    from services import publication_coordination as pubmod
+    coordinator = pubmod.PublicationCoordinator(
+        db, store=pubmod.open_store(db, path=getattr(ledger, "path", None)))
+    return await coordinator.precheck(
+        int(chat_id), pubmod.KIND_MEME_INITIATIVE, now=now_ts,
+        interval_seconds=await pubmod.resolve_cross_type_interval(chat_id))
+
+
+async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
+                                     settings=None, ledger=None,
+                                     image_health=None,
+                                     publication=None) -> dict:
+    """Диагностика МЕМ-механизма (журнал попыток + payload прохода + бронь).
+
+    Отдельный блок: ничего не берётся из блока текстовой инициативы и ничего
+    в него не подмешивается. Порядок причин «сейчас мешает» — тот же порядок
+    гейтов, что у боевого `consider_chat`. Никогда не бросает.
+    """
+    from services import meme_initiative as meme
+    now_ts = _now(now)
+    cid = _int_or_none(chat_id)
+    if cid is None:
+        return _no_chat_block(MECHANISM_MEME, meme.OUTPUT_KIND)
+    reasons: list[str] = []
+    ledger = ledger if ledger is not None else meme.open_ledger(db)
+    if ledger is None:
+        reasons.append(NO_DATA_NO_ATTEMPTS)
+
+    payload = await obs.latest_observe_payload(db)
+    if not payload:
+        reasons.append(NO_DATA_NO_OBSERVER_PAYLOAD)
+    meme_state = (payload.get("meme")
+                  if isinstance(payload.get("meme"), dict) else {})
+    if not meme_state:
+        reasons.append(NO_DATA_NO_MEME_STATE)
+    chats = (meme_state.get("chats")
+             if isinstance(meme_state.get("chats"), dict) else {})
+    entry = chats.get(str(cid)) if isinstance(chats, dict) else None
+    entry = dict(entry) if isinstance(entry, dict) else {}
+
+    if isinstance(publication, dict) and publication:
+        pub_view: dict = dict(publication)
+    else:
+        try:
+            pub_view = await _meme_precheck(db, cid, ledger, now_ts)
+        except Exception:
+            logger.warning("[diag] meme publication precheck failed",
+                           exc_info=True)
+            pub_view = {"ok": True, "coordination": "degraded"}
+
+    try:
+        cfg = (settings if settings is not None
+               else await meme.load_settings(chat_id))
+    except Exception:
+        cfg = None
+    try:
+        avail = await meme.availability(
+            cid, settings=cfg, ledger=ledger, image_health=image_health,
+            publication=pub_view, now=now_ts)
+    except Exception:
+        logger.warning("[diag] meme availability failed", exc_info=True)
+        avail = {}
+    diag = (avail.get("diagnostics")
+            if isinstance(avail.get("diagnostics"), dict) else {})
+
+    last_attempt: dict = {}
+    eligible_facts: dict = {}
+    if ledger is not None:
+        try:
+            rows = ledger.attempts(cid, limit=len(meme.STAGES))
+        except Exception:
+            rows = []
+        rows = [row for row in rows or () if isinstance(row, dict)]
+        if rows:
+            last_attempt = dict(rows[0])
+        else:
+            reasons.append(NO_DATA_NO_ATTEMPTS)
+        for row in rows:
+            if str(row.get("stage") or "") == meme.STAGE_ELIGIBLE:
+                eligible_facts = meme.parse_attempt_facts(row)
+                break
+    last_attempt_ts = _stamp_or_none(last_attempt.get("ts"))
+    last_attempt_reason = str(last_attempt.get("reason_code") or "")
+    last_facts = meme.parse_attempt_facts(last_attempt) if last_attempt else {}
+
+    last_check = _stamp_or_none(entry.get("last_check_ts")) or last_attempt_ts
+    if last_check is None:
+        reasons.append(NO_DATA_NEVER_CHECKED)
+    available = last_check is not None
+
+    own_cooldown = _int_or_none(getattr(cfg, "cooldown_seconds", None))
+    basis_ts = None
+    if ledger is not None:
+        try:
+            basis_ts = _stamp_or_none(ledger.last_provider_ts(cid))
+        except Exception:
+            basis_ts = None
+    cooldown = cooldown_block(
+        own_cooldown, now=now_ts, basis_ts=basis_ts,
+        basis=("last_provider_call" if basis_ts
+               else "no_prior_provider_call"))
+    cooldown_active = bool(
+        own_cooldown is not None and own_cooldown > 0 and basis_ts is not None
+        and (now_ts - int(basis_ts)) < int(own_cooldown))
+
+    next_check = _stamp_or_none(entry.get("next_check_ts"))
+    if next_check is not None:
+        next_basis = "payload_state"
+    elif own_cooldown is not None and basis_ts:
+        # Пауза истекла или ещё идёт — дата считается от последнего вызова
+        # провайдера (тот же базис, что у боевого гейта), а не от брони.
+        next_check = int(basis_ts) + int(own_cooldown)
+        next_basis = "cooldown"
+    else:
+        next_check, next_basis = None, "unknown"
+
+    trace = (entry.get("random") or diag.get("random")
+             or eligible_facts.get("random") or last_facts.get("random"))
+    draw = draw_block(trace)
+    if draw is None:
+        reasons.append(NO_DATA_NO_RANDOM)
+
+    # ── собственная квота (сутки чата; тот же расчёт, что у боевого гейта) ──
+    quota = quota_block(limit=None, used=None)
+    quiet_active = False
+    try:
+        stamp = datetime.fromtimestamp(int(now_ts), timezone.utc)
+        day = meme.day_window(cid, stamp)
+        limit = (_int_or_none(getattr(cfg, "daily_limit", None))
+                 if cfg is not None else None)
+        if limit is not None:
+            view = meme.quota_view(ledger, chat_id=cid, day=day, limit=limit)
+            quota = quota_block(
+                limit=view.get("limit"), used=view.get("spent"),
+                available=bool(view.get("available")),
+                next_reset=view.get("next_reset"), zero_means_unlimited=False)
+        quiet_active = bool(cfg is not None and meme.quiet_hours_block(
+            getattr(cfg, "quiet_hours", ""), stamp,
+            str(getattr(day, "timezone_name", "UTC"))))
+    except Exception:
+        logger.warning("[diag] meme quota/quiet read failed", exc_info=True)
+
+    # ── причина пропуска: ТЕКУЩЕЕ состояние в порядке боевых гейтов ─────────
+    avail_reason = str(avail.get("reason") or "")
+    skip = None
+    if avail_reason and avail_reason != "ok":
+        skip = skip_block(avail_reason, "availability")
+    elif quota.get("limit_reached"):
+        skip = skip_block(meme.SKIP_QUOTA, "quota")
+    elif cooldown_active:
+        skip = skip_block(meme.SKIP_COOLDOWN, "cooldown")
+    elif quiet_active:
+        skip = skip_block(meme.SKIP_QUIET, "quiet_hours")
+    elif pub_view.get("ok") is False:
+        # Код берётся из причины брони (боевая карта), не из нового словаря.
+        pub_reason = str(pub_view.get("reason") or "")
+        skip = skip_block(
+            meme.SKIP_PUBLICATION_IN_FLIGHT
+            if pub_reason == "publication_in_flight"
+            else meme.SKIP_PUBLICATION_CONFLICT, "publication")
+    skip_recorded = None
+    if str(entry.get("reason") or "") in meme.SKIP_REASONS:
+        skip_recorded = skip_block(entry.get("reason"), "payload_state")
+    elif last_attempt_reason in meme.SKIP_REASONS:
+        skip_recorded = skip_block(last_attempt_reason, "journal")
+
+    return {
+        "mechanism": MECHANISM_MEME,
+        "output_kind": meme.OUTPUT_KIND,
+        "source": "meme_initiative attempt journal + meme.chats + claim",
+        "available": available,
+        "data_state": DATA_OK if available else DATA_NO_DATA,
+        "no_data_reasons": _unique(reasons),
+        "ready": (bool(avail.get("available")) if avail else None),
+        "ready_reason": avail_reason,
+        "last_check_ts": last_check,
+        "next_check_ts": next_check,
+        "next_check_basis": next_basis,
+        "random": draw,
+        "conditions": _scalar_dict(diag.get("conditions")),
+        "stages": _scalar_dict(entry.get("conditions")),
+        "skip": skip,
+        "skip_recorded": skip_recorded,
+        "cooldown": cooldown,
+        "quota": quota,
+        "publication": publication_block(pub_view, checked_at=now_ts),
+        "blocking": None,
+    }
+
+
+async def collect_mechanism_diagnostics(db, chat_id, *,
+                                        now: int | None = None,
+                                        meme_settings=None, ledger=None,
+                                        image_health=None,
+                                        publication=None) -> dict:
+    """P9: ДВА отдельных блока диагностики для админки (P4) — одна точка.
+
+    Форма ответа (``schema_version = 1``)::
+
+        {
+          "schema_version": 1,
+          "generated_at": <int>,
+          "chat_id": <int>,
+          "text_initiative": {...},   # блок текстовой инициативы
+          "meme": {...},              # блок мемов (независимый)
+          "degraded": ["meme", ...],  # у кого coordination="degraded"
+        }
+
+    Честные правила (их нельзя нарушать потребителю):
+    * ``available = false`` / ``data_state = "no_data"`` и ``null`` в полях —
+      это «НЕТ ДАННЫХ», а не нули и не «всё хорошо»;
+    * ``last_check_ts = null`` значит «проверок не было НИКОГДА»
+      (в журнале это ``0``); ``cooldown.remaining_seconds = 0`` — законный
+      ноль, см. ``cooldown.basis``;
+    * ``publication`` — единственная правда о конфликте публикаций;
+      ``conflict = null`` при ``coordination = "degraded"`` = неизвестно;
+    * ``random.performed = false`` + ``no_draw_reason = "probability_one"``
+      значит, что draw НЕ выполнялся (а не «случай сработал»);
+    * ``cooldown`` считается только по собственному кулдауну механизма
+      (``scope = "mechanism_own"``), TTL брони 90/120/600 с — не кулдаун.
+
+    Карта полей блока механизма (``MECHANISM_BLOCK_FIELDS``; все ключи есть
+    всегда, «нет данных» = ``null``)::
+
+        mechanism            "text_initiative" | "meme" — блоки не смешиваются
+        output_kind          "initiative_reply" | "meme_initiative"
+        source               откуда прочитано (строка-источник)
+        available            есть ли данные о механизме (не «работает ли»)
+        data_state           "ok" | "no_data"
+        no_data_reasons      коды отсутствующих данных (см. NO_DATA_*)
+        ready                может ли механизм сработать сейчас; null=N/A
+        ready_reason         код причины, почему нет ("" если нечего сказать)
+        last_check_ts        int | null  — null = НИКОГДА (не 0 и не 1970)
+        next_check_ts        int | null  — null = нет рассчитанной даты
+        next_check_basis     "payload_state"|"cooldown"|"eval_interval"|
+                             "every_pass"|"unknown"|"never_checked"|
+                             "chat_not_selected"
+        random               объект DRAW_FIELDS | null (draw не записан)
+        conditions           плоские скаляры выполненных условий | null
+        stages               счётчики стадий мема | null (у текста стадий нет)
+        skip                 причина «сейчас не сработает» (SKIP_FIELDS)|null
+        skip_recorded        что записал последний проход | null
+        cooldown             COOLDOWN_FIELDS (always) — свой остаток
+        quota                QUOTA_FIELDS (always) — своя квота суток
+        publication          PUBLICATION_FIELDS | null (не проверялась)
+        blocking             {"blocked":[...], "warned":[...]} | null
+
+    ``skip.origin``: ``gate``/``availability``/``quota``/``cooldown``/
+    ``quiet_hours``/``publication`` — текущее состояние; ``payload_state``/
+    ``journal`` — запись прошлого прохода (может быть устаревшей, поэтому
+    текущая причина и запись разведены в разные поля).
+
+    ``publication`` (``PUBLICATION_FIELDS``): ``coordination`` = "ok"|
+    "degraded" (деградация ⇒ ``available=false``, ``conflict=null``,
+    ``conflict_state="unknown"``); ``conflict`` — единственный признак
+    конфликта; ``holder_kind`` — механизм, ДЛЯ которого спросили бронь,
+    ``claimed_by`` — кто реально держит бронь сейчас; ``other_kind``/
+    ``other_age_seconds``/``interval_seconds`` — кто публиковал и сколько
+    ещё действует межтиповой интервал; ``manual_priority_until`` — до какого
+    момента действует приоритет ручного `/meme` (это НЕ кулдаун механизма).
+
+    ``quota`` (``QUOTA_FIELDS``): ``limit_reached`` — упёрлись в предел
+    (у мемов ``limit<=0`` тоже предел: механизм выключен лимитом; у текста
+    ``cap<=0`` — «без капа», поэтому ``unlimited=true``).
+
+    Никогда не бросает: сбой чтения даёт честный ``no_data``-блок.
+    Ничего не пишет, ничего не отправляет, LLM не вызывает.
+    """
+    now_ts = _now(now)
+    text_block = await text_mechanism_diagnostics(db, chat_id, now=now_ts)
+    meme_block = await meme_mechanism_diagnostics(
+        db, chat_id, now=now_ts, settings=meme_settings, ledger=ledger,
+        image_health=image_health, publication=publication)
+    degraded = []
+    for block in (text_block, meme_block):
+        pub = block.get("publication") or {}
+        if pub.get("degraded"):
+            degraded.append(str(block.get("mechanism") or ""))
+    return {
+        "schema_version": DIAG_SCHEMA_VERSION,
+        "generated_at": now_ts,
+        "chat_id": _int_or_none(chat_id),
+        "text_initiative": text_block,
+        "meme": meme_block,
+        "degraded": _unique(degraded),
+    }
