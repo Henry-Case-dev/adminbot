@@ -735,8 +735,12 @@
     .module-list {
       grid-column: 1 / -1; display: grid; gap: .75rem;
       /* 10.20 (БЛОК 3.5/T-1899): auto-fit + minmax(300px) + строгая центровка;
-         треки не разъезжаются к левому краю на широких экранах. */
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+         треки не разъезжаются к левому краю на широких экранах.
+         W16 (контракт владельца §2): пол трека не больше доступной ширины —
+         `min(100%, 300px)`, иначе при эффективной ширине <300 px (page zoom
+         200 %, системный шрифт) сетка выезжает за вьюпорт. На широких экранах
+         100 % > 300 px, поэтому поведение не меняется. */
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
       justify-content: center; width: 100%; max-width: 1100px;
       justify-self: center; margin-inline: auto;
     }
@@ -804,8 +808,9 @@
     .hub-grid {
       grid-column: 1 / -1; display: grid; gap: .75rem;
       width: 100%; max-width: 64rem; justify-self: center;
-      /* 10.20 (БЛОК 3.5/T-1899): auto-fit + minmax(300px) + центровка. */
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      /* 10.20 (БЛОК 3.5/T-1899): auto-fit + minmax(300px) + центровка.
+         W16: пол трека — не больше доступной ширины (`min(100%, 300px)`). */
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
       justify-content: center; margin-inline: auto;
     }
     .hub-card {
@@ -2052,7 +2057,10 @@
     .module-list,
     .hub-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      /* W16 (контракт владельца §2): на эффективной ширине <320 px жёсткий
+         пол 320px давал горизонтальный overflow — пол ограничен доступной
+         шириной. На широких экранах разницы нет (100 % > 320 px). */
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
       gap: 1rem;
       width: 100%;
       align-content: start;
@@ -2620,6 +2628,11 @@
     .dossier-ticker__track--y .dossier-ticker__item {
       display: flex;
       align-items: baseline;
+      /* W16: на узком эффективном вьюпорте (page zoom 200 %) строка досье
+         переносится внутри себя, а не выезжает за правый край (замер 180 px:
+         .dossier-ticker__meta right=193 при vw 180). */
+      flex-wrap: wrap;
+      min-width: 0;
       gap: .4rem;
       /* W15 (§B: «стиль движущейся ленты досье согласован с ними»): тот же
          радиус/шрифт, что у строк лент «Статуса». Рамки нет намеренно —
@@ -3810,6 +3823,131 @@
   order: 5; margin-left: 0;
 }
 .app-shell.shell-mobile .header-more-btn { order: 6; }
+
+.oversight-sort {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; min-width: 0; max-width: 100%;
+}
+
+/* ═══ W16 (контракт владельца 02.11.2026 §2): узкий эффективный вьюпорт —
+   контент переносится, а не выезжает за край ═══════════════════════════════
+   Замеры до правки: на 160 CSS px (page zoom 200 % с экрана 320) колонка
+   `.speech-screen` была 151 px в контейнере 144 px — грид-трек получал
+   min-content самого широкого ребёнка; кнопка счётчиков на «Статусе» —
+   289 px в 288 px. Причина одна: `min-width: auto` у грид/флекс-элементов.
+   Правила ниже — обычное адаптивное поведение (работают на любой ширине),
+   шрифты и тач-цели не уменьшаются. */
+.speech-screen { grid-template-columns: minmax(0, 1fr); }
+.speech-screen > * { min-width: 0; }
+.status-counts .btn-ghost,
+.status-logs .btn-ghost {
+  max-width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow-wrap: anywhere;
+}
+/* Поля с утилитарной шириной (`w-36`/`w-40` = 144/160 px в 19 местах) не
+   должны выезжать за контейнер, когда он уже их: это адаптивное поведение
+   контрола, а не особый случай 195 px. На широких экранах max-width не
+   срабатывает — ширина остаётся прежней. */
+.field { max-width: 100%; min-width: 0; }
+/* Длинные технические значения (ключ промпта) переносятся, а не выезжают. */
+.prompt-editor-meta code { overflow-wrap: anywhere; }
+/* Сегментированный переключатель переносит кнопки на узком вьюпорте. */
+.ctl-seg { max-width: 100%; flex-wrap: wrap; }
+.ctl-seg__btn { white-space: normal; }
+/* Совсем узкий эффективный вьюпорт: плотнее внутренние отступы кнопок и
+   перенос длинных подписей. min-height (тач-цель) не трогается. */
+@media (max-width: 359px) {
+  .status-counts .btn-ghost,
+  .status-logs .btn-ghost {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+  .speech-area-nav__btn { white-space: normal; max-width: 100%; }
+}
+
+/* ═══ W16 (контракт владельца 02.11.2026 §2/§3): адаптивный reflow шапки ══
+   Триггер — НЕ ширина окна, а фактическое переполнение содержимого шапки
+   (`header.scrollWidth > header.clientWidth`, ставит `_syncHeaderFit()` в
+   app.js). Поэтому режим включается и при page zoom 200 %, и при системном
+   шрифте 200 %, где CSS-ширина окна не меняется и media-запросы молчат.
+   Уровни:
+     data-header-fit="tight"  — второстепенное уходит, обязательное остаётся:
+        бейдж роли и имя пользователя (они есть в профиле drawer),
+        имя области в триггере (остаются аватар чата + бейдж ЧАТ/GLOBAL + ▾
+        и полное имя в title/панели), подпись счётчика черновика (цифра
+        остаётся).
+     data-header-fit="stack"  — крайний случай (эффективная ширина < ~200 px):
+        строка области переносится на вторую линию. Это НЕ постоянная
+        двухрядная шапка: на 320/360/390 при обычном масштабе режим не
+        включается (шапка 58 px, один ряд).
+   Шрифты и тач-цели не уменьшаются: 44 px у иконочных кнопок сохраняются. */
+/* Специфичность: правила мобильной шапки (`.app-shell.shell-mobile …`)
+   задают `display: inline-block` бейджу роли и `flex-wrap: nowrap` самой
+   шапке — поэтому здесь тот же префикс и та же форма селектора, но позже по
+   файлу: иначе режим плотности молча проигрывал бы каскад (проверено
+   замером: на 360 px при 200 % шрифта роль оставалась видимой). */
+header.main-header[data-header-fit="tight"] .header-user-name,
+.app-shell header.main-header[data-header-fit="tight"] .header-user-name,
+.app-shell.shell-mobile header.main-header[data-header-fit="tight"] .header-user-name,
+header.main-header[data-header-fit="tight"] .header-user-role,
+.app-shell header.main-header[data-header-fit="tight"] .header-user-role,
+.app-shell.shell-mobile header.main-header[data-header-fit="tight"] .header-user-role {
+  display: none;
+}
+header.main-header[data-header-fit="tight"] .scope-trigger .scope-name,
+.app-shell header.main-header[data-header-fit="tight"] .scope-trigger .scope-name,
+.app-shell.shell-mobile header.main-header[data-header-fit="tight"] .scope-trigger .scope-name {
+  display: none;
+}
+header.main-header[data-header-fit="tight"] .header-save-chip__label,
+header.main-header[data-header-fit="tight"] .header-save-chip > span[aria-hidden="true"] {
+  display: none;
+}
+/* Каретка раскрытия области — декоративная подсказка: при нехватке места она
+   уходит первой (сам триггер, бейдж области и полное имя в title остаются).
+   Это дешевле, чем переносить строку области на вторую линию. */
+header.main-header[data-header-fit="tight"] .scope-trigger > span[aria-hidden="true"],
+.app-shell header.main-header[data-header-fit="tight"] .scope-trigger > span[aria-hidden="true"],
+.app-shell.shell-mobile header.main-header[data-header-fit="tight"] .scope-trigger > span[aria-hidden="true"] {
+  display: none;
+}
+/* Заголовок сохраняет читаемый минимум, но он не должен съедать всю строку
+   при увеличенном шрифте (3.5rem при 32px = 112px). */
+.app-shell header.main-header[data-header-fit="tight"] .header-title-wrap,
+header.main-header[data-header-fit="tight"] .header-title-wrap {
+  min-width: min(var(--header-title-min, 3.5rem), 34vw);
+}
+header.main-header[data-header-fit="stack"],
+.app-shell header.main-header[data-header-fit="stack"],
+.app-shell.shell-mobile header.main-header[data-header-fit="stack"] {
+  flex-wrap: wrap;
+  row-gap: .15rem;
+}
+/* Крайний случай: строка области — самостоятельная линия (перенос, а не
+   выдавливание ⛶ за экран); внутри неё тоже разрешён перенос. */
+.app-shell header.main-header[data-header-fit="stack"] .header-scope-row,
+header.main-header[data-header-fit="stack"] .header-scope-row {
+  flex: 1 1 100%;
+  order: 2;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+/* Профиль в СУЩЕСТВУЮЩЕМ drawer: имя и фактическая роль остаются доступны,
+   когда в шапке их место занял контент (перенос второстепенного, §3). */
+.sidebar-profile {
+  display: flex; align-items: center; gap: .5rem;
+  margin-top: .5rem; padding: .5rem .55rem;
+  border-top: 1px solid var(--surface-border);
+  min-width: 0;
+}
+.sidebar-profile__meta { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.sidebar-profile__name {
+  font-size: .82rem; font-weight: 600; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sidebar-profile__role { align-self: flex-start; }
 
 /* ── FS-HOTFIX FOLLOW-UP §8 (18.10): временная админ-диагностика геометрии ⛶
    Панель открывается только из меню «Ещё» (admin-гейт), закрыта по
@@ -6095,7 +6233,8 @@ html.cover-editor-open { overflow: hidden; }
 /* EVOL-020: компактная воронка цепочки опыта (8 стадий). */
 .exp-funnel {
   display: grid; gap: var(--space-2, 8px);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* W16: пол трека — не больше доступной ширины (узкий вьюпорт). */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
 }
 .exp-stage {
   border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
@@ -6154,7 +6293,8 @@ html.cover-editor-open { overflow: hidden; }
 /* EVOL-014: настройки мемов (вкладка «Основные настройки» Инициативы). */
 .meme-grid {
   display: grid; gap: var(--space-2, 8px);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* W16: пол трека — не больше доступной ширины (узкий вьюпорт). */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 .meme-row {
   display: flex; align-items: center; gap: var(--space-2, 8px);
@@ -6765,6 +6905,8 @@ html.w9-sheet-bottom .modal-close {
    бесконечный тикер; полная история досье — в «Аналитике». */
 .status-dossier__track { max-height: 132px; --dossier-h: 132px; }
 .dossier-ticker__excerpt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* W16: подпись источника/даты в строке досье переносится, а не выезжает. */
+.dossier-ticker__meta { min-width: 0; overflow-wrap: anywhere; }
 .dossier-ticker__meta { display: block; width: 100%; }
 
 /* ── W10-3. «Статус»: строго ограниченное превью историй памяти ────────── */

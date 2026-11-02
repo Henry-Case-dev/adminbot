@@ -796,6 +796,396 @@ def _ctx(browser, w, h):
     return ctx
 
 
+# ═══ W16 (контракт владельца 02.11.2026): адаптивность узкого вьюпорта ═══════
+# Три РАЗНЫХ режима масштаба измеряются отдельно, как требует §6 контракта:
+#   normal       — обычный масштаб (опорные 320/360/390);
+#   pagezoom200  — browser page zoom 200 %: CSS-вьюпорт = экран/2; ширина НЕ
+#                  вычисляется делением — она читается из window.innerWidth и
+#                  сверяется с rect'ами реальных элементов;
+#   font200      — увеличенный СИСТЕМНЫЙ шрифт (root font-size 32 px, rem-
+#                  масштаб): CSS-ширина окна не меняется, поэтому media-запросы
+#                  по ширине молчат — проверяется фактический reflow;
+#   telegram_kb  — Telegram WebView: открытая клавиатура уменьшает ВИДИМУЮ
+#                  область (в приложении это существующий `--kb-offset`),
+#                  проверяется доступность save/cancel в редакторе.
+ADAPTIVE_MODES = (
+    ("normal", "обычный масштаб"),
+    ("pagezoom200", "browser page zoom 200 %"),
+    ("font200", "системный шрифт 200 %"),
+    ("telegram_kb", "Telegram WebView + клавиатура"),
+)
+ADAPTIVE_WIDTHS = (390, 360, 320)
+
+# Экраны и их критические действия. Набор объявлен явно: «нет действия» —
+# это факт экрана (на корне нечего «назад»), а не пропущенная проверка.
+ADAPTIVE_SCREENS = (
+    {
+        "name": "status", "route": "#/",
+        "need": ("nav", "scope", "fullscreen", "palette_via_drawer", "refresh"),
+    },
+    {
+        "name": "modules", "route": "#/modules",
+        "need": ("nav", "scope", "fullscreen", "palette_via_drawer"),
+    },
+    {
+        "name": "oversight", "route": "#/oversight",
+        "need": ("nav", "scope", "fullscreen", "palette_via_drawer", "refresh"),
+    },
+    {
+        "name": "speech", "route": "#/ai/speech",
+        "need": ("nav", "scope", "fullscreen", "palette_via_drawer", "back",
+                 "save"),
+    },
+    {
+        "name": "prompt-editor", "route": "#/ai/prompts/summary",
+        "driver": ("prompt-key", None),
+        "need": ("nav", "scope", "fullscreen", "palette_via_drawer", "back"),
+    },
+)
+
+PROBE_ADAPTIVE = r"""
+() => {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const de = document.documentElement;
+  const qa = (s) => Array.from(document.querySelectorAll(s));
+  const vis = (el) => {
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const inScroller = (el) => {
+    let p = el.parentElement;
+    while (p && p !== document.body) {
+      const cs = getComputedStyle(p);
+      if (cs.overflowX === 'auto' || cs.overflowX === 'scroll') return true;
+      p = p.parentElement;
+    }
+    return false;
+  };
+  const outside = [];
+  for (const el of qa('#app *')) {
+    if (!vis(el) || inScroller(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.right > vw + 1 || r.left < -1) {
+      outside.push({cls: (el.className || el.tagName).toString().slice(0, 50),
+                    right: Math.round(r.right), left: Math.round(r.left)});
+    }
+  }
+  const hdr = document.querySelector('header.header-sticky');
+  // Прямые дети шапки: считаем РЯДЫ по их top (а не по всем потомкам).
+  const direct = hdr ? Array.from(hdr.children).filter(vis) : [];
+  // Ряд = группа элементов, чьи вертикальные диапазоны пересекаются.
+  const boxes = direct.map((el) => el.getBoundingClientRect())
+    .sort((a, b) => a.top - b.top);
+  let lines = 0;
+  let bottom = -1e9;
+  for (const r of boxes) {
+    if (r.top > bottom - 1) { lines += 1; bottom = r.bottom; }
+    else { bottom = Math.max(bottom, r.bottom); }
+  }
+  let overlaps = 0;
+  const rects = direct.map((el) => el.getBoundingClientRect());
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      const ox = Math.min(rects[i].right, rects[j].right)
+        - Math.max(rects[i].left, rects[j].left);
+      const oy = Math.min(rects[i].bottom, rects[j].bottom)
+        - Math.max(rects[i].top, rects[j].top);
+      if (ox > 1 && oy > 1) overlaps += 1;
+    }
+  }
+  // Видимая область: клавиатура в Telegram уменьшает именно её.
+  const kb = parseFloat(getComputedStyle(de).getPropertyValue('--kb-offset')) || 0;
+  const visibleBottom = Math.min(vh, vh - kb);
+  const hit = (el) => {
+    if (!el) return {found: false};
+    el.scrollIntoView({block: 'center'});
+    let r = el.getBoundingClientRect();
+    // Если элемент оказался ниже видимой области (клавиатура уменьшила её),
+    // пользователь докручивает — повторяем это и пересчитываем (§3: элемент
+    // обязан быть ДОСТИЖИМ, а не «виден без прокрутки»).
+    if (r.bottom > visibleBottom) {
+      window.scrollBy(0, r.bottom - visibleBottom + 8);
+      const sc = el.closest('.scroll-area, .modal-body, [class*="scroll"]');
+      if (sc && sc.scrollBy) sc.scrollBy(0, r.bottom - visibleBottom + 8);
+      r = el.getBoundingClientRect();
+    }
+    const cx = Math.min(Math.max(r.left + r.width / 2, 0), vw - 1);
+    const cy = Math.min(Math.max(r.top + r.height / 2, 0), visibleBottom - 1);
+    const top = document.elementFromPoint(cx, cy);
+    return {
+      found: true,
+      cls: (el.className || el.tagName).toString().slice(0, 40),
+      w: Math.round(r.width), h: Math.round(r.height),
+      inside: r.left >= -1 && r.right <= vw + 1,
+      inVisible: r.top >= -1 && r.bottom <= visibleBottom + 1,
+      hittable: !!(top && (top === el || el.contains(top) || top.contains(el))),
+    };
+  };
+  const pick = (sel) => qa(sel).find(vis) || null;
+  const actions = {
+    nav: hit(pick('[data-drawer-trigger]')),
+    scope: hit(pick('.scope-trigger')),
+    fullscreen: hit(pick('[data-fs-toggle]')),
+    refresh: hit(pick('button[aria-label="Обновить"],'
+                      + ' button[aria-label="Обновить данные"]')),
+    back: hit(pick('.speech-back, [data-prompt-back], .breadcrumb-link')),
+    save: hit(pick('[data-speech-save-primary], .speech-actions .btn-accent,'
+                   + ' .sticky-save .btn-accent, .sticky-save button')
+              || (qa('button').filter(vis)
+                    .find((b) => /Сохранить/.test(b.textContent || '')) || null)),
+  };
+  // Тап-цели и шрифты: контракт §5 запрещает уменьшать их ради теста.
+  const iconBtns = qa('[data-drawer-trigger], [data-fs-toggle], .breadcrumb-link,'
+                      + ' .scope-trigger, .speech-area-nav__btn')
+    .filter(vis).map((el) => {
+      const r = el.getBoundingClientRect();
+      return {cls: (el.className || '').toString().slice(0, 30),
+              w: Math.round(r.width), h: Math.round(r.height),
+              font: parseFloat(getComputedStyle(el).fontSize)};
+    });
+  // Доказательство reflow (а не сжатия): меняется состав/строки шапки,
+  // профиль появляется в drawer, колонки контента перестраиваются.
+  const moduleList = document.querySelector('.module-list');
+  return {
+    vw, vh, kb, visibleBottom,
+    dpr: window.devicePixelRatio,
+    rootFont: parseFloat(getComputedStyle(de).fontSize),
+    docWidth: de.scrollWidth,
+    hScroll: de.scrollWidth - vw,
+    outsideCount: outside.length,
+    outside: outside.slice(0, 6),
+    fit: hdr ? hdr.getAttribute('data-header-fit') : null,
+    headerHeight: hdr ? Math.round(hdr.getBoundingClientRect().height) : 0,
+    headerLines: lines,
+    headerOverlaps: overlaps,
+    headerItems: direct.map((el) => (el.className || el.tagName).toString()
+      .slice(0, 34)),
+    scopeNameVisible: (() => {
+      const el = document.querySelector('.scope-trigger .scope-name');
+      return !!(el && vis(el));
+    })(),
+    roleVisible: (() => {
+      const el = document.querySelector('.header-user-role');
+      return !!(el && vis(el));
+    })(),
+    drawerProfile: qa('[data-drawer-profile]').length,
+    actionHeights: iconBtns,
+    moduleCols: moduleList
+      ? getComputedStyle(moduleList).gridTemplateColumns.split(' ').length : null,
+    actions,
+    bottomNav: qa('.navbar-band, .bottom-nav, [data-bottom-nav]').filter(vis).length,
+  };
+}
+"""
+
+# Открыть drawer и проверить точку входа в поиск/палитру (реальный путь §2.3).
+DRIVE_DRAWER = r"""
+() => {
+  const t = document.querySelector('[data-drawer-trigger]');
+  if (!t) return {opened: false};
+  t.click();
+  return {opened: true};
+}
+"""
+PROBE_DRAWER = r"""
+() => {
+  const qa = (s) => Array.from(document.querySelectorAll(s));
+  const vis = (el) => {
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const drawer = document.querySelector('.app-drawer');
+  const entry = qa('[data-palette-open-drawer]').find(vis);
+  const profile = qa('[data-drawer-profile]').find(vis);
+  const result = {drawerOpen: !!(drawer && drawer.classList.contains('open')),
+                  entry: false, profile: false, drawerW: 0};
+  if (!drawer) return result;
+  result.drawerW = Math.round(drawer.getBoundingClientRect().width);
+  const check = (el) => {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(
+      Math.min(Math.max(r.left + r.width / 2, 0), window.innerWidth - 1),
+      Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
+    return !!(top && (top === el || el.contains(top)));
+  };
+  result.entry = check(entry);
+  result.profile = !!(profile && check(profile));
+  const close = document.querySelector('.drawer-backdrop');
+  if (close) close.click();
+  return result;
+}
+"""
+
+
+def run_adaptive(report, fails, out_dir, port):
+    """W16: адаптивность по контракту владельца (три режима масштаба).
+
+    Возвращает словарь «режим/экран@ширина → измерение». Каждое утверждение
+    привязано к пункту контракта (см. `clause` в отчёте и §1 контракта).
+    """
+    from playwright.sync_api import sync_playwright
+
+    cells = {}
+    httpd = ThreadingHTTPServer(("127.0.0.1", port), W9._Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d/web/index.html" % port
+
+    def screen_ctx(browser, css_w, css_h, mode):
+        ctx = browser.new_context(viewport={"width": css_w, "height": css_h},
+                                  device_scale_factor=2,
+                                  is_mobile=True, has_touch=True)
+        ctx.add_init_script(M.TMA_STUB)
+        if mode == "font200":
+            # Системное увеличение шрифта: rem-масштаб, ширина окна НЕ меняется.
+            ctx.add_init_script(
+                "document.addEventListener('DOMContentLoaded', () => {"
+                " document.documentElement.style.fontSize = '32px'; });")
+        ctx.route("**/api/**", _routes())
+        return ctx
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        for mode, mode_note in ADAPTIVE_MODES:
+            for screen_w in ADAPTIVE_WIDTHS:
+                # page zoom 200 % не вычисляется «делением» — это фактический
+                # CSS-вьюпорт, который браузер отдаёт раскладке; ниже он
+                # измеряется через window.innerWidth.
+                css_w = screen_w // 2 if mode == "pagezoom200" else screen_w
+                css_h = 640 if mode == "telegram_kb" else 800
+                for screen in ADAPTIVE_SCREENS:
+                    label = "adapt:%s/%s@%d" % (mode, screen["name"], css_w)
+                    ctx = screen_ctx(browser, css_w, css_h, mode)
+                    pg = ctx.new_page()
+                    errs = []
+                    pg.on("pageerror", lambda e: errs.append(str(e)[:160]))
+                    pg.goto(base + "?ad=%s%d" % (mode, css_w) + screen["route"],
+                            wait_until="load")
+                    pg.wait_for_selector(".app-shell", timeout=25000)
+                    pg.wait_for_timeout(1300)
+                    if screen.get("driver"):
+                        pg.evaluate(DRIVE, list(screen["driver"]))
+                        pg.wait_for_timeout(1200)
+                    if mode == "telegram_kb":
+                        # Клавиатура Telegram уменьшает ВИДИМУЮ область: тот же
+                        # существующий `--kb-offset`, что ставит
+                        # `_syncKeyboardOffset` при реальной клавиатуре.
+                        pg.evaluate("() => document.documentElement.style"
+                                    ".setProperty('--kb-offset', '280px')")
+                        pg.wait_for_timeout(250)
+                    data = pg.evaluate(PROBE_ADAPTIVE)
+                    # Палитра: реальный путь на телефоне — вход в drawer.
+                    opened = pg.evaluate(DRIVE_DRAWER)
+                    pg.wait_for_timeout(400)
+                    drawer = pg.evaluate(PROBE_DRAWER)
+                    pg.wait_for_timeout(200)
+                    shot_name = "w16-adapt-%s-%s-%d.png" % (
+                        mode, screen["name"], css_w)
+                    try:
+                        pg.screenshot(path=os.path.join(out_dir, shot_name))
+                    except Exception:  # noqa: BLE001
+                        shot_name = ""
+                    cell = {"mode": mode, "modeNote": mode_note,
+                            "screen": screen["name"], "screenWidth": screen_w,
+                            "cssWidth": css_w, "cssHeight": css_h,
+                            "need": list(screen["need"]),
+                            "probe": data, "drawer": drawer,
+                            "drawerOpened": opened,
+                            "shot": shot_name,
+                            "console": errs[-2:]}
+                    cells[label] = cell
+
+                    # ── §1/§2: нет обрезаний/overflow/наложений ────────────
+                    if data["hScroll"] > 1:
+                        fails.append("%s: горизонтальный overflow %d px"
+                                     % (label, data["hScroll"]))
+                    if data["outsideCount"] > 0:
+                        fails.append("%s: за вьюпорт выходит %d элементов (%s)"
+                                     % (label, data["outsideCount"],
+                                        [o["cls"] for o in data["outside"][:3]]))
+                    if data["headerOverlaps"]:
+                        fails.append("%s: элементы шапки наложены (%d пар)"
+                                     % (label, data["headerOverlaps"]))
+                    # Измеренная ширина должна совпасть с заявленной (§6:
+                    # никаких «рассчитали делением»).
+                    if abs(data["vw"] - css_w) > 1:
+                        fails.append("%s: измеренная ширина %d != ожидаемой %d"
+                                     % (label, data["vw"], css_w))
+                    if mode == "font200" and data["rootFont"] < 31:
+                        fails.append("%s: системный шрифт не применён (%s)"
+                                     % (label, data["rootFont"]))
+                    # ── §4: никакого нижнего навбара ──────────────────────
+                    if data["bottomNav"]:
+                        fails.append("%s: появился нижний навбар" % label)
+                    # ── §3: критические действия доступны ──────────────────
+                    for act in screen["need"]:
+                        if act == "palette_via_drawer":
+                            if not (drawer.get("entry")
+                                    or (opened and drawer.get("entry"))):
+                                fails.append(
+                                    "%s: вход в поиск/палитру недоступен через "
+                                    "drawer (drawer=%s entry=%s)"
+                                    % (label, drawer.get("drawerOpen"),
+                                       drawer.get("entry")))
+                            continue
+                        info = data["actions"].get(act) or {}
+                        if not info.get("found"):
+                            fails.append("%s: критическое действие «%s» "
+                                         "отсутствует" % (label, act))
+                        elif not info.get("hittable"):
+                            fails.append("%s: действие «%s» не нажимается"
+                                         % (label, act))
+                        elif not info.get("inside"):
+                            fails.append("%s: действие «%s» вне вьюпорта"
+                                         % (label, act))
+                        elif mode == "telegram_kb" and not info.get("inVisible"):
+                            fails.append("%s: действие «%s» скрыто клавиатурой"
+                                         % (label, act))
+                    # ── §5: тач-цели и шрифты не уменьшены ─────────────────
+                    for el in data["actionHeights"]:
+                        if el["h"] < 44:
+                            fails.append("%s: тач-цель %s = %d px < 44"
+                                         % (label, el["cls"], el["h"]))
+                        if el["font"] < 11:
+                            fails.append("%s: шрифт %s = %.1f px < 11 (не "
+                                         "уменьшаем ради теста)"
+                                         % (label, el["cls"], el["font"]))
+                    # ── §2/§4: reflow реально произошёл, и на обычных
+                    # мобильных размерах шапка остаётся ОДНОРЯДНОЙ ────────
+                    if mode == "normal":
+                        if (data["headerLines"] > 1
+                                or (data["fit"] or "") == "stack"):
+                            fails.append("%s: на обычном мобильном размере "
+                                         "шапка стала многорядной (lines=%d "
+                                         "fit=%s)" % (label, data["headerLines"],
+                                                      data["fit"]))
+                    if mode in ("pagezoom200", "font200"):
+                        reflow = bool(data["fit"]) or data["headerLines"] > 1
+                        if not reflow:
+                            fails.append("%s: нет признаков reflow (fit=%s, "
+                                         "рядов=%d) — проверка «сжатия»"
+                                         % (label, data["fit"],
+                                            data["headerLines"]))
+                        if not data["drawerProfile"] and not data["roleVisible"]:
+                            fails.append("%s: идентичность (имя/роль) недоступна "
+                                         "ни в шапке, ни в drawer" % label)
+                    if errs:
+                        fails.append("%s: ошибка страницы: %s"
+                                     % (label, errs[-1]))
+                    ctx.close()
+        browser.close()
+    httpd.shutdown()
+    report["adaptive"] = cells
+    return cells
+
+
 def run(out_dir, baseline=False, port=PORT):
     from playwright.sync_api import sync_playwright
 
@@ -943,6 +1333,9 @@ def run(out_dir, baseline=False, port=PORT):
             ctx.close()
         browser.close()
     httpd.shutdown()
+
+    # ── W16: адаптивность узкого вьюпорта (контракт владельца 02.11.2026) ───
+    run_adaptive(report, fails, out_dir, port + 9)
 
     # ── 0. Ни один объявленный класс не имеет права «молча» отсутствовать ───
     for sel, n in sorted(rendered.items()):
@@ -1305,6 +1698,9 @@ def run(out_dir, baseline=False, port=PORT):
         "instances": sum(rendered.values()),
         "chart_selectors": len(CHART_SEL),
         "table_selectors": len(TABLE_SEL),
+        "adaptive_cells": len(report.get("adaptive") or {}),
+        "adaptive_modes": len(ADAPTIVE_MODES),
+        "adaptive_widths": len(ADAPTIVE_WIDTHS),
     }
     out_json = os.path.join(
         out_dir, "w15-composition%s.json" % ("-before" if baseline else ""))

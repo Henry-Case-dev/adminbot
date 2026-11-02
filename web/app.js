@@ -7956,6 +7956,7 @@
         if (_appVm) {
           _appVm._preserveOnViewportChange();
           _appVm.reconcileLiquidGlass();
+          if (typeof _appVm._syncHeaderFit === 'function') _appVm._syncHeaderFit();
           if (typeof _appVm._hbResize === 'function') _appVm._hbResize();
         }
         // HOTFIX10 (ADR-1025-18 D5, T-2857): пересчёт геометрии OGL-фона по
@@ -7969,6 +7970,9 @@
       if (window.visualViewport
           && typeof window.visualViewport.addEventListener === 'function') {
         _onVV = function () {
+          if (_appVm && typeof _appVm._syncHeaderFit === 'function') {
+            _appVm._syncHeaderFit();
+          }
           if (_appVm && typeof _appVm._hbResize === 'function') _appVm._hbResize();
           _auroraResize();
           if (_appVm && typeof _appVm._syncKeyboardOffset === 'function') {
@@ -8054,6 +8058,7 @@
         // loader активной вкладки (loadStatus+loadLogs+polling для 'status').
         self.setTab(self.activeTab);
         self.applyRoute(self.route);   // T-1099: персист + syncBackButton
+        self.$nextTick(function () { self._syncHeaderFit(); });
         // U04.2 (v6.3): холодный старт с каноном `#/?scroll=logs` (или
         // легаси `#/oversight?scroll=logs`) — raw hash нормализуется к '#/',
         // скролл к блоку логов после mount Статуса ($nextTick — после
@@ -28776,7 +28781,12 @@
       // и scroll-padding без «магических» ширинозависимых отступов.
       _initHeaderHeight: function () {
         if (typeof document === 'undefined') return;
+        var vm = this;
         var apply = function () {
+          // W16: плотность шапки пересчитывается ТЕМ ЖЕ наблюдателем, что и её
+          // высота — отдельного механизма не заводим (шрифт/зум меняют размер
+          // шапки, значит observer срабатывает и без resize окна).
+          try { if (vm && vm._syncHeaderFit) vm._syncHeaderFit(); } catch (e) { /* no-op */ }
           try {
             var hdr = document.querySelector('header.header-sticky');
             if (!hdr) return;
@@ -28796,6 +28806,44 @@
             }
           } catch (e) { /* no-op */ }
         }
+      },
+      // W16 (контракт владельца 02.11.2026 §2/§3): адаптивный reflow шапки по
+      // ФАКТИЧЕСКОМУ переполнению содержимого, а не по ширине окна. Поэтому
+      // работает и при page zoom 200 %, и при увеличенном системном шрифте,
+      // где CSS-ширина окна не меняется (media-запросы молчат).
+      //   (нет атрибута) — обязательная однорядная шапка (320/360/390);
+      //   "tight"        — скрываются второстепенные подписи (роль/имя юзера,
+      //                    имя области, подпись счётчика): они доступны в
+      //                    профиле drawer и в title/панели области;
+      //   "stack"        — крайний случай: строка области переносится.
+      // Шрифты и тач-цели не уменьшаются (§5 контракта).
+      _syncHeaderFit: function () {
+        try {
+          var hdr = document.querySelector('header.header-sticky');
+          if (!hdr) return;
+          var prev = hdr.getAttribute('data-header-fit') || '';
+          // Измеряем без собственного атрибута: он влияет на компоновку.
+          if (prev) hdr.removeAttribute('data-header-fit');
+          var vw = window.innerWidth || 0;
+          var overflow = hdr.scrollWidth - hdr.clientWidth > 1;
+          // Второй признак: эффективная ширина ниже 320 CSS px (page zoom 200 %,
+          // Telegram WebView с уменьшенным viewport). Здесь перенос уже
+          // случился («шапка в 2–3 строки»), но место всё равно дефицитное —
+          // сначала снимаем второстепенные подписи, а не растягиваем шапку.
+          if (!overflow && vw < 320) overflow = true;
+          var mode = '';
+          if (overflow) {
+            hdr.setAttribute('data-header-fit', 'tight');
+            mode = (hdr.scrollWidth - hdr.clientWidth > 1) ? 'stack' : 'tight';
+          }
+          if (mode) hdr.setAttribute('data-header-fit', mode);
+          if (mode !== prev) {
+            var h = Math.round(hdr.getBoundingClientRect().height);
+            if (h > 0) {
+              document.documentElement.style.setProperty('--header-h', h + 'px');
+            }
+          }
+        } catch (e) { /* no-op: без DOM/ResizeObserver раскладка остаётся базовой */ }
       },
       // §10/T-2547: пауза дорогих фоновых эффектов при скрытии TMA.
       setBgPaused: function (paused) {

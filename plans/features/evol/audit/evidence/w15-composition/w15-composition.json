@@ -337,7 +337,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -350,7 +350,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -363,7 +363,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -376,7 +376,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -389,7 +389,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 68
+       "h": 52
       },
       {
        "state": false,
@@ -402,7 +402,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -415,7 +415,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -428,7 +428,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -441,7 +441,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -454,7 +454,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -467,7 +467,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -480,7 +480,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -493,7 +493,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 68
+       "h": 52
       },
       {
        "state": false,
@@ -506,7 +506,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -519,7 +519,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -532,7 +532,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       }
      ],
      ".speech-layer-card": [],
@@ -744,7 +744,7 @@
        "padLeft": 16,
        "gap": 0,
        "w": 374,
-       "h": 455
+       "h": 479
       },
       {
        "state": false,
@@ -8760,7 +8760,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8773,7 +8773,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8786,7 +8786,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8799,7 +8799,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8812,7 +8812,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 68
+       "h": 52
       },
       {
        "state": false,
@@ -8825,7 +8825,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8838,7 +8838,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8851,7 +8851,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8864,7 +8864,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8877,7 +8877,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8890,7 +8890,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8903,7 +8903,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8916,7 +8916,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 68
+       "h": 52
       },
       {
        "state": false,
@@ -8929,7 +8929,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8942,7 +8942,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -8955,7 +8955,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 340,
-       "h": 49
+       "h": 52
       }
      ],
      ".speech-layer-card": [],
@@ -18951,7 +18951,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -18964,7 +18964,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -18977,7 +18977,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -18990,7 +18990,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19003,7 +19003,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19016,7 +19016,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19029,7 +19029,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19042,7 +19042,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19055,7 +19055,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19068,7 +19068,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19081,7 +19081,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19094,7 +19094,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19107,7 +19107,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19120,7 +19120,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19133,7 +19133,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -19146,7 +19146,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       }
      ],
      ".speech-layer-card": [],
@@ -27426,7 +27426,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27439,7 +27439,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27452,7 +27452,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27465,7 +27465,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27478,7 +27478,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27491,7 +27491,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27504,7 +27504,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27517,7 +27517,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27530,7 +27530,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27543,7 +27543,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27556,7 +27556,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27569,7 +27569,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27582,7 +27582,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27595,7 +27595,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27608,7 +27608,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       },
       {
        "state": false,
@@ -27621,7 +27621,7 @@
        "padLeft": 12,
        "gap": 6.4,
        "w": 998,
-       "h": 49
+       "h": 52
       }
      ],
      ".speech-layer-card": [],
@@ -37513,6 +37513,7532 @@
    1280
   ]
  },
+ "adaptive": {
+  "adapt:normal/status@390": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "status",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-status-390.png",
+   "console": []
+  },
+  "adapt:normal/modules@390": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "modules",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-modules-390.png",
+   "console": []
+  },
+  "adapt:normal/oversight@390": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "oversight",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-oversight-390.png",
+   "console": []
+  },
+  "adapt:normal/speech@390": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "speech",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-speech-390.png",
+   "console": []
+  },
+  "adapt:normal/prompt-editor@390": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "prompt-editor",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-prompt-editor-390.png",
+   "console": []
+  },
+  "adapt:normal/status@360": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "status",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-status-360.png",
+   "console": []
+  },
+  "adapt:normal/modules@360": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "modules",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-modules-360.png",
+   "console": []
+  },
+  "adapt:normal/oversight@360": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "oversight",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-oversight-360.png",
+   "console": []
+  },
+  "adapt:normal/speech@360": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "speech",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-speech-360.png",
+   "console": []
+  },
+  "adapt:normal/prompt-editor@360": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "prompt-editor",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-prompt-editor-360.png",
+   "console": []
+  },
+  "adapt:normal/status@320": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "status",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-status-320.png",
+   "console": []
+  },
+  "adapt:normal/modules@320": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "modules",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-modules-320.png",
+   "console": []
+  },
+  "adapt:normal/oversight@320": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "oversight",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-oversight-320.png",
+   "console": []
+  },
+  "adapt:normal/speech@320": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "speech",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-speech-320.png",
+   "console": []
+  },
+  "adapt:normal/prompt-editor@320": {
+   "mode": "normal",
+   "modeNote": "обычный масштаб",
+   "screen": "prompt-editor",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-normal-prompt-editor-320.png",
+   "console": []
+  },
+  "adapt:pagezoom200/status@195": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "status",
+   "screenWidth": 390,
+   "cssWidth": 195,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 195,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 195,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 164
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-status-195.png",
+   "console": []
+  },
+  "adapt:pagezoom200/modules@195": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "modules",
+   "screenWidth": 390,
+   "cssWidth": 195,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 195,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 195,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 164
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-modules-195.png",
+   "console": []
+  },
+  "adapt:pagezoom200/oversight@195": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "oversight",
+   "screenWidth": 390,
+   "cssWidth": 195,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 195,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 195,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 164
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-oversight-195.png",
+   "console": []
+  },
+  "adapt:pagezoom200/speech@195": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "speech",
+   "screenWidth": 390,
+   "cssWidth": 195,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 195,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 195,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 146,
+    "headerLines": 3,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 164
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-speech-195.png",
+   "console": []
+  },
+  "adapt:pagezoom200/prompt-editor@195": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 390,
+   "cssWidth": 195,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 195,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 195,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 164
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-prompt-editor-195.png",
+   "console": []
+  },
+  "adapt:pagezoom200/status@180": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "status",
+   "screenWidth": 360,
+   "cssWidth": 180,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 180,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 180,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 151
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-status-180.png",
+   "console": []
+  },
+  "adapt:pagezoom200/modules@180": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "modules",
+   "screenWidth": 360,
+   "cssWidth": 180,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 180,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 180,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 151
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-modules-180.png",
+   "console": []
+  },
+  "adapt:pagezoom200/oversight@180": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "oversight",
+   "screenWidth": 360,
+   "cssWidth": 180,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 180,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 180,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 151
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-oversight-180.png",
+   "console": []
+  },
+  "adapt:pagezoom200/speech@180": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "speech",
+   "screenWidth": 360,
+   "cssWidth": 180,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 180,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 180,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 146,
+    "headerLines": 3,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 126,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 151
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-speech-180.png",
+   "console": []
+  },
+  "adapt:pagezoom200/prompt-editor@180": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 360,
+   "cssWidth": 180,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 180,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 180,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 151
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-prompt-editor-180.png",
+   "console": []
+  },
+  "adapt:pagezoom200/status@160": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "status",
+   "screenWidth": 320,
+   "cssWidth": 160,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 160,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 160,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 134
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-status-160.png",
+   "console": []
+  },
+  "adapt:pagezoom200/modules@160": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "modules",
+   "screenWidth": 320,
+   "cssWidth": 160,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 160,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 160,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 2,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 134
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-modules-160.png",
+   "console": []
+  },
+  "adapt:pagezoom200/oversight@160": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "oversight",
+   "screenWidth": 320,
+   "cssWidth": 160,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 160,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 160,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 146,
+    "headerLines": 3,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 134
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-oversight-160.png",
+   "console": []
+  },
+  "adapt:pagezoom200/speech@160": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "speech",
+   "screenWidth": 320,
+   "cssWidth": 160,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 160,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 160,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 163,
+    "headerLines": 4,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 106,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 134
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-speech-160.png",
+   "console": []
+  },
+  "adapt:pagezoom200/prompt-editor@160": {
+   "mode": "pagezoom200",
+   "modeNote": "browser page zoom 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 320,
+   "cssWidth": 160,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 160,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 160,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 146,
+    "headerLines": 3,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 48,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 134
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-pagezoom200-prompt-editor-160.png",
+   "console": []
+  },
+  "adapt:font200/status@390": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "status",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 82,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-status-390.png",
+   "console": []
+  },
+  "adapt:font200/modules@390": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "modules",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-modules-390.png",
+   "console": []
+  },
+  "adapt:font200/oversight@390": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "oversight",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 86,
+      "h": 74,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-oversight-390.png",
+   "console": []
+  },
+  "adapt:font200/speech@390": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "speech",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 123,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 156,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 62,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 124,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 256,
+      "h": 46,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 84,
+      "h": 58,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 183,
+      "h": 82,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 203,
+      "h": 75,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-speech-390.png",
+   "console": []
+  },
+  "adapt:font200/prompt-editor@390": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 102,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 181,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 183,
+      "h": 67,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-prompt-editor-390.png",
+   "console": []
+  },
+  "adapt:font200/status@360": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "status",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 82,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-status-360.png",
+   "console": []
+  },
+  "adapt:font200/modules@360": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "modules",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-modules-360.png",
+   "console": []
+  },
+  "adapt:font200/oversight@360": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "oversight",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 86,
+      "h": 74,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-oversight-360.png",
+   "console": []
+  },
+  "adapt:font200/speech@360": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "speech",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 123,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 156,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 62,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 124,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 256,
+      "h": 46,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 84,
+      "h": 58,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 183,
+      "h": 82,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 203,
+      "h": 75,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-speech-360.png",
+   "console": []
+  },
+  "adapt:font200/prompt-editor@360": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 104,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 181,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 183,
+      "h": 67,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-prompt-editor-360.png",
+   "console": []
+  },
+  "adapt:font200/status@320": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "status",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 82,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-status-320.png",
+   "console": []
+  },
+  "adapt:font200/modules@320": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "modules",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-modules-320.png",
+   "console": []
+  },
+  "adapt:font200/oversight@320": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "oversight",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 86,
+      "h": 74,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-oversight-320.png",
+   "console": []
+  },
+  "adapt:font200/speech@320": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "speech",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 123,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 156,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 62,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 124,
+      "h": 46,
+      "font": 24
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 250,
+      "h": 46,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 84,
+      "h": 58,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 183,
+      "h": 82,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 203,
+      "h": 75,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-speech-320.png",
+   "console": []
+  },
+  "adapt:font200/prompt-editor@320": {
+   "mode": "font200",
+   "modeNote": "системный шрифт 200 %",
+   "screen": "prompt-editor",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 800,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 800,
+    "kb": 0,
+    "visibleBottom": 800,
+    "dpr": 2,
+    "rootFont": 32,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": "tight",
+    "headerHeight": 134,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": false,
+    "roleVisible": false,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 32
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "font": 28.8
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 24
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 94,
+      "h": 76,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 181,
+      "h": 66,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 183,
+      "h": 67,
+      "inside": true,
+      "inVisible": false,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": false,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-font200-prompt-editor-320.png",
+   "console": []
+  },
+  "adapt:telegram_kb/status@390": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "status",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-status-390.png",
+   "console": []
+  },
+  "adapt:telegram_kb/modules@390": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "modules",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-modules-390.png",
+   "console": []
+  },
+  "adapt:telegram_kb/oversight@390": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "oversight",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-oversight-390.png",
+   "console": []
+  },
+  "adapt:telegram_kb/speech@390": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "speech",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-speech-390.png",
+   "console": []
+  },
+  "adapt:telegram_kb/prompt-editor@390": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "prompt-editor",
+   "screenWidth": 390,
+   "cssWidth": 390,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 390,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 390,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 125,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-prompt-editor-390.png",
+   "console": []
+  },
+  "adapt:telegram_kb/status@360": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "status",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-status-360.png",
+   "console": []
+  },
+  "adapt:telegram_kb/modules@360": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "modules",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-modules-360.png",
+   "console": []
+  },
+  "adapt:telegram_kb/oversight@360": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "oversight",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-oversight-360.png",
+   "console": []
+  },
+  "adapt:telegram_kb/speech@360": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "speech",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-speech-360.png",
+   "console": []
+  },
+  "adapt:telegram_kb/prompt-editor@360": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "prompt-editor",
+   "screenWidth": 360,
+   "cssWidth": 360,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 360,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 360,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 121,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 280
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-prompt-editor-360.png",
+   "console": []
+  },
+  "adapt:telegram_kb/status@320": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "status",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-xs ml-auto",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-status-320.png",
+   "console": []
+  },
+  "adapt:telegram_kb/modules@320": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "modules",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 58,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": 1,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-modules-320.png",
+   "console": []
+  },
+  "adapt:telegram_kb/oversight@320": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "oversight",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "refresh"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost text-sm",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": false
+     },
+     "save": {
+      "found": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-oversight-320.png",
+   "console": []
+  },
+  "adapt:telegram_kb/speech@320": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "speech",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back",
+    "save"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 70,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 87,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 71,
+      "h": 44,
+      "font": 12
+     },
+     {
+      "cls": "speech-area-nav__btn",
+      "w": 137,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": true,
+      "cls": "btn-ghost speech-refresh",
+      "w": 55,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost speech-back",
+      "w": 93,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-sm",
+      "w": 102,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-speech-320.png",
+   "console": []
+  },
+  "adapt:telegram_kb/prompt-editor@320": {
+   "mode": "telegram_kb",
+   "modeNote": "Telegram WebView + клавиатура",
+   "screen": "prompt-editor",
+   "screenWidth": 320,
+   "cssWidth": 320,
+   "cssHeight": 640,
+   "need": [
+    "nav",
+    "scope",
+    "fullscreen",
+    "palette_via_drawer",
+    "back"
+   ],
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "kb": 280,
+    "visibleBottom": 360,
+    "dpr": 2,
+    "rootFont": 16,
+    "docWidth": 320,
+    "hScroll": 0,
+    "outsideCount": 0,
+    "outside": [],
+    "fit": null,
+    "headerHeight": 86,
+    "headerLines": 1,
+    "headerOverlaps": 0,
+    "headerItems": [
+     "btn-ghost header-nav-btn shrink-0",
+     "header-title-wrap min-w-0",
+     "header-scope-row",
+     "text-xs shrink-0 header-fs-btn"
+    ],
+    "scopeNameVisible": true,
+    "roleVisible": true,
+    "drawerProfile": 1,
+    "actionHeights": [
+     {
+      "cls": "btn-ghost header-nav-btn shrin",
+      "w": 44,
+      "h": 44,
+      "font": 16
+     },
+     {
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "font": 14.4
+     },
+     {
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "font": 12
+     }
+    ],
+    "moduleCols": null,
+    "actions": {
+     "nav": {
+      "found": true,
+      "cls": "btn-ghost header-nav-btn shrink-0",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "scope": {
+      "found": true,
+      "cls": "scope-trigger field text-xs",
+      "w": 88,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "fullscreen": {
+      "found": true,
+      "cls": "text-xs shrink-0 header-fs-btn",
+      "w": 44,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "refresh": {
+      "found": false
+     },
+     "back": {
+      "found": true,
+      "cls": "btn-ghost text-xs prompt-back-btn",
+      "w": 91,
+      "h": 44,
+      "inside": true,
+      "inVisible": true,
+      "hittable": true
+     },
+     "save": {
+      "found": true,
+      "cls": "btn-accent text-xs",
+      "w": 92,
+      "h": 44,
+      "inside": true,
+      "inVisible": false,
+      "hittable": false
+     }
+    },
+    "bottomNav": 0
+   },
+   "drawer": {
+    "drawerOpen": true,
+    "entry": true,
+    "profile": true,
+    "drawerW": 269
+   },
+   "drawerOpened": {
+    "opened": true
+   },
+   "shot": "w16-adapt-telegram_kb-prompt-editor-320.png",
+   "console": []
+  }
+ },
  "rendered_counts": {
   ".card": 1190,
   ".module-card": 240,
@@ -37554,6 +45080,9 @@
   "selectors_rendered": 30,
   "instances": 1722,
   "chart_selectors": 4,
-  "table_selectors": 3
+  "table_selectors": 3,
+  "adaptive_cells": 60,
+  "adaptive_modes": 4,
+  "adaptive_widths": 3
  }
 }
