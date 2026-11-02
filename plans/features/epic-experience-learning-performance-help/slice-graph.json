@@ -1,0 +1,224 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "epic-experience-learning-performance-help",
+  "source": "plans/owner_inputs/2026-11-02-experience-learning-performance-help.md",
+  "notes": "E и P могут идти параллельно только при непересекающихся write_scope. Внутри эпика пересечения сняты рёбрами зависимостей; пересечения с очередью (COG-MAP, FINAL v8) — в plan.md, вне этого графа. H — единственная финальная зависимость.",
+  "slices": [
+    {
+      "id": "EP-GUARD",
+      "track": "E+P",
+      "depends_on": [],
+      "write_scope": [],
+      "risk": "R1",
+      "writer_mode": "read-only",
+      "acceptance": "Диф всех слайсов E/P не содержит второго хранилища/retrieval-стека/очереди/агента-судьи, смысловых решений по имени/regex/словарю фраз, нового LLM-вызова в горячем пути и искусственных отсекающих бюджетов; проверяется Reviewer по диффу."
+    },
+    {
+      "id": "EP-E-EXTRACT",
+      "track": "E",
+      "depends_on": [],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/database.py",
+        "tests/test_ep_e_extract.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-extract/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Существующий semantic batch отдаёт версионированный кандидат с refs/old_claim/revision/epistemic и честно отклоняет несуществующие refs; окно покрывает reply/участников/время; сбой не двигает cursor и не создаёт дублей (тесты + прогон на длинной беседе)."
+    },
+    {
+      "id": "EP-E-GATE",
+      "track": "E",
+      "depends_on": ["EP-E-EXTRACT"],
+      "write_scope": [
+        "services/mca_experience_jobs.py",
+        "services/mca_experience.py",
+        "services/mca_retrieval_context.py",
+        "tests/test_ep_e_gate.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-gate/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Грубая содержательная поправка не теряется из-за маркеров агрессии/юмора; буквальное совпадение слова при другой теме не внедряет урок; отбор использует существующие retrieval-примитивы и embeddings-провайдера без второго retrieval-стека."
+    },
+    {
+      "id": "EP-E-LESSON",
+      "track": "E",
+      "depends_on": ["EP-E-GATE"],
+      "write_scope": [
+        "services/mca_experience.py",
+        "services/database.py",
+        "web/api/memory_agi.py",
+        "web/index.html",
+        "web/app.js",
+        "tests/test_ep_e_lesson.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-lesson/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Смысловой урок создаётся без записи в Python-каталог, хранит principle/applies_when/do_not_apply_when/evidence/version в mca_lessons, операции ADD/REVISE/MERGE/SUSPEND/SUPERSEDE/NOOP работают поверх версий, инъекция не становится уроком, история и manual suspend доступны в панели."
+    },
+    {
+      "id": "EP-E-OUTCOME",
+      "track": "E",
+      "depends_on": ["EP-E-LESSON"],
+      "write_scope": [
+        "web/api/oversight_router.py",
+        "web/api/memory_agi.py",
+        "web/index.html",
+        "web/app.js",
+        "services/mca_events.py",
+        "services/mca_experience.py",
+        "tests/test_ep_e_outcome.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-outcome/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Стадии selected/delivered/used/outcome_known различимы, outcome приходит из независимого сигнала, витрина раскрывает событие→утверждение→поправку→ревизию→применения→исходы, при отсутствии причинного доказательства показано «недостаточно данных»."
+    },
+    {
+      "id": "EP-E-DIALOGUE",
+      "track": "E",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "handlers/direct_chat.py",
+        "services/prompt_composer.py",
+        "services/bot_output_ledger.py",
+        "tests/test_ep_e_dialogue.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-dialogue/"
+      ],
+      "risk": "R3",
+      "writer_mode": "writer",
+      "acceptance": "На новый вопрос о собственном недавнем утверждении бот восстанавливает свой output/ref, признаёт ошибку или обозначает сомнение в текущем ответе без дополнительного LLM-вызова; поправка третьего лица не приписывается боту; смежные контуры не регрессировали."
+    },
+    {
+      "id": "EP-E-ACCEPT",
+      "track": "E",
+      "depends_on": ["EP-E-EXTRACT", "EP-E-GATE", "EP-E-LESSON", "EP-E-OUTCOME", "EP-E-DIALOGUE"],
+      "write_scope": [
+        "tests/test_ep_e_accept.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/e-accept/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Все 26 сценариев E-01..E-26 воспроизведены независимыми вариациями (другие имена/темы/чат/после restart), сквозной результат E наблюдаем на новых примерах, журнал версий и негативные кейсы приложены."
+    },
+    {
+      "id": "EP-P-MEASURE",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "tools/ui_ep_perf_baseline.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/perf/"
+      ],
+      "risk": "R1",
+      "writer_mode": "writer",
+      "acceptance": "Baseline и «после» сняты на одном SHA в идентичном окружении существующим инструментарием (Playwright + curl + EXPLAIN), сохранены сырые прогоны, p50/p95 и разделение network/server/JS/render; отсутствие Android WebView отмечено как «не проверено»."
+    },
+    {
+      "id": "EP-P-CACHE",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "web/app.py",
+        "config/settings.py",
+        "tests/test_ep_p_cache.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-cache/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Версионированные JS/CSS/vendor реально переиспользуются (304/memory, без no-store), HTML и приватные API не кешируются, версия в URL соответствует байтам, сжатие подтверждено на реальном proxy, CSP сохранён."
+    },
+    {
+      "id": "EP-P-SCRIPTS",
+      "track": "P",
+      "depends_on": ["EP-E-OUTCOME"],
+      "write_scope": [
+        "web/index.html",
+        "tests/js/ep_p_scripts_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-scripts/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Порядок и способ подключения vendor-скриптов сохранён по зависимостям (Vue/DOMPurify/Telegram bridge/Chart/canvas), обязательный bootstrap краток, необязательное для первого экрана отложено, отказ необязательного не ломает вход."
+    },
+    {
+      "id": "EP-P-BOOT",
+      "track": "P",
+      "depends_on": ["EP-P-SCRIPTS"],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/js/ep_p_boot_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-boot/"
+      ],
+      "risk": "R3",
+      "writer_mode": "writer",
+      "acceptance": "Первый экран «Статус» не монтирует скрытые вкладки/графики/редакторы; deep link открывает нужную вкладку напрямую; стадии загрузки конечны (loaded/empty/error-retry/degraded); смена чата не даёт stale overwrite; визуальный контракт и мобильная геометрия не изменены."
+    },
+    {
+      "id": "EP-P-ANIM",
+      "track": "P",
+      "depends_on": [],
+      "write_scope": [
+        "web/static/polygon-background.js",
+        "web/static/aurora-flow.js",
+        "web/static/glass.js",
+        "web/static/glass-probe.js",
+        "web/static/glass-refraction.js",
+        "tests/test_ep_p_anim.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-anim/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "На document.hidden/закрытой модалке/внеэкранных блоках непрерывной работы нет, при возврате геометрия восстанавливается без скачка, чтения геометрии сгруппированы с записями стилей, внешний вид идентичен на скриншотах при включённых эффектах."
+    },
+    {
+      "id": "EP-P-API",
+      "track": "P",
+      "depends_on": ["EP-E-OUTCOME", "EP-E-LESSON"],
+      "write_scope": [
+        "web/api/routes.py",
+        "web/api/oversight_router.py",
+        "services/database.py",
+        "services/status_service.py",
+        "tests/test_ep_p_api.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-api/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "/config и тяжёлые read-path измерены и ускорены на доказанных участках (EXPLAIN + baseline), списки отдаются keyset/страницами, event loop остаётся отзывчивым, RBAC и единый param_catalog не нарушены."
+    },
+    {
+      "id": "EP-P-ACCEPT",
+      "track": "P",
+      "depends_on": ["EP-P-MEASURE", "EP-P-CACHE", "EP-P-SCRIPTS", "EP-P-BOOT", "EP-P-ANIM", "EP-P-API"],
+      "write_scope": [
+        "tests/test_ep_p_accept.py",
+        "tests/js/ep_p_accept_test.js",
+        "plans/features/epic-experience-learning-performance-help/evidence/p-accept/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "P-01..P-16 проверены независимо: сопоставимые cold/warm traces до/после, реальный выигрыш медианы и отклика, функциональный regression, эквивалентные скриншоты при включённом стекле, отсутствие утечек/RBAC-обходов."
+    },
+    {
+      "id": "EP-H-HELP",
+      "track": "H",
+      "depends_on": ["EP-E-ACCEPT", "EP-P-ACCEPT", "EP-GUARD"],
+      "write_scope": [
+        "services/info_service.py",
+        "info_text.md",
+        "plans/docs/intelligence_user_guide.md",
+        "tests/test_ep_h_help.py",
+        "plans/features/epic-experience-learning-performance-help/evidence/h-help/"
+      ],
+      "risk": "R2",
+      "writer_mode": "writer",
+      "acceptance": "Оба гайда пересмотрены по фактически deployed системе и доставлены в PG/UI с версиями, backup и датой реального сохранения; в тексте нет pending-функций как существующих, запрещённых обещаний безошибочности и XSS; стиль и оба уровня читателя сохранены. Открывается только после PASS+deploy+live ВСЕХ предыдущих задач очереди."
+    }
+  ]
+}
