@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-02-meme-image-only-fix.md",
   "source_sha256": "d1afecc6962dc24b749893182e2727bdec493823e87a4c898317ccf1c7e49c19",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+  "deployed_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -18,8 +18,75 @@
       "acceptance": "Мем по инициативе: в чат приходит только изображение, второго текстового сообщения нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Критерий владельца 1 (мем по инициативе -> только изображение): PROVEN в Re-review 2 независимой пробой - ровно один исходящий вызов photo, caption отсутствует, промпт-маркер не найден в payload.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "MAN-MEME-02",
@@ -32,8 +99,66 @@
       "acceptance": "Мем по явному запросу: в чат приходит только изображение, второго текстового сообщения нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Критерий владельца 2 (мем по явному запросу -> только изображение): PROVEN - ровно ['photo'], текстовых отправок нет, Writer реально отработал и его текст подавлен.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "MAN-MEME-03",
@@ -46,8 +171,66 @@
       "acceptance": "После отправки изображения отсутствует второе текстовое сообщение с промптом/описанием/панелями/служебным текстом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        }
+      ],
+      "verification_note": "Критерий владельца 3 (нет второго текстового сообщения с промптом/описанием): PROVEN для промпта, описания, caption и аварийной фразы; отложенный follow-up через unanswered_question закрыт пометкой хода (B1, мутация M1 красная).",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "MAN-MEME-04",
@@ -60,8 +243,57 @@
       "acceptance": "Событие успешной генерации по-прежнему записывается в логи/аналитику с прежними полями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Критерий владельца 4 (логи и аналитика генерации как раньше): PROVEN - стадии summary/image_generation/publish, outcome=published, слот provider_called, spent=1; код аналитики не менялся.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "MAN-MEME-05",
@@ -74,8 +306,57 @@
       "acceptance": "При ошибке изображение не отправляется, бот пишет одно короткое сообщение об ошибке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Критерий владельца 5 (при ошибке генерации картинки нет, одно короткое сообщение): PROVEN для явного запроса и для не-мемной инициативы (там молчание).",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     }
   ],
   "items": [
@@ -121,8 +402,75 @@
       "acceptance": "Успешная генерация: единственное исходящее сообщение - изображение; любой текстовый follow-up запрещён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        }
+      ],
+      "verification_note": "Успех = единственное исходящее сообщение изображение; доказано пробами на инициативном и явном путях, подавление текста, гейт аварийной фразы, пометка хода (B1) и сброс breaker (B3) закрыты в Re-review 2.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "L00039",
@@ -136,8 +484,57 @@
       "acceptance": "Неуспешная генерация: изображение не отправляется, допускается одно короткое сообщение об ошибке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Неуспех: no_bot/send_failed -> ok=False, фото не отправляется, допустима одна короткая фраза; на пробах Reviewer ровно одно текстовое сообщение из CHAT_ERROR_PHRASES, контроль без картинки не затронут.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "L00040",
@@ -151,8 +548,57 @@
       "acceptance": "Внутренний текст (промпт и т.п.) остаётся внутренним: логи/аналитика допустимы, публикация в чат - нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Внутренний текст остаётся внутренним: промпт уходит провайдеру и остаётся в результате генерации, но не встречается ни в одном исходящем payload; caption отсутствует; логи/аналитика сохранены.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "L00041",
@@ -166,8 +612,75 @@
       "acceptance": "Никаких хардкодов под чат, пользователя или тип мема.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        }
+      ],
+      "verification_note": "Хардкодов под чат/пользователя/тип мема нет: логика опирается на переданный chat_id и флаг доставки; в пробе Reviewer адресат приводится к int и фото уходит в тот же чат.",
+      "live_observation": "NOT_REQUIRED",
+      "live_note": "Отдельного живого события не требуется: свойство проверяется статически по коду (отсутствие хардкодов под чат/пользователя/тип мема)."
     },
     {
       "source_id": "L00042",
@@ -181,8 +694,66 @@
       "acceptance": "Логика инициативы, лимитов, аналитики и логирования не меняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        }
+      ],
+      "verification_note": "Инициатива, лимиты, аналитика и логирование не менялись: диф с базой e11394be касается только путей доставки; журнал пробы сохраняет стадии summary/image_generation/publish, outcome=published, spent=1.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     },
     {
       "source_id": "L00043",
@@ -196,9 +767,85 @@
       "acceptance": "Приёмка: сценарии по инициативе и по явному запросу, отсутствие второго сообщения, сохранность аналитики, поведение при ошибке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "ref": "Независимое ревью P0-мема: первичный вердикт Needs Fixes, затем Re-review 2 (кандидат 0651b766) - Approved по поведению",
+          "observation": "Reviewer лично проследил изменённые пути и провёл собственные пробы: инициативный мем -> ровно один исходящий вызов send_photo без caption, промпт не встречается ни в одном payload; явный запрос -> ['photo'] без текста; send_failed/no_bot/replay already -> флаг доставки False, успех -> True; закрытие B1/B2/B3 подтверждено пробами и мутациями M1-M3 (снятие правки делает тесты и пробы красными). Все пять критериев владельца - PROVEN.",
+          "artifact_path": "plans/features/p0-meme-image-only/reports/review.md",
+          "artifact_sha256": "3e85256f05ad9f537b112e468c9ab2f9fc0018cc0fd9c086824bbe9babe2a510",
+          "artifact_commit": "a654c351",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "deploy",
+          "ref": "Отчёт о выкладке 2.58.150 на прод 192.255.209.205 (кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта)",
+          "observation": "Выложен иммутабельный коммит 345a2ed7 (ветка release/2.58.150), SHA совпал локально/на remote/на сервере; /healthz 200 «2.58.150» локально и публично, NRestarts=0, user_version=40 без миграций, media 66, фронтенд-ассеты байт-в-байт как в 2.58.149; журнал 310 строк, 0 Traceback/0 ERROR; маркеры фикса подтверждены в выложенном дереве (§4.2). Живое мем-событие НЕ наблюдалось (NOT_OBSERVED): тестовые сообщения в чаты не отправлялись, естественного мема за окно наблюдения не было.",
+          "artifact_path": "plans/features/p0-meme-image-only/deploy-2.58.150.md",
+          "artifact_sha256": "05e73f7e6d413b134a89228baeeb96d35c756c644ca6b2c04fa45e0514e00d2b",
+          "artifact_commit": "f4da5b2d",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "test",
+          "ref": "Контрактный тест-набор P0-мема (11 тестов), входит в выложенное дерево",
+          "observation": "tests/test_p0_meme_image_only.py: 11 passed на кандидате 0651b766 (review §5) и в составе мемных/инициативных наборов на релизном кандидате (109 passed, отчёт §2). Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 11a161e6). Мутации M1-M3 из review §2 делают соответствующие тесты красными, то есть проверки не вакуумные.",
+          "artifact_path": "tests/test_p0_meme_image_only.py",
+          "artifact_sha256": "7f7dfbff4b047f498944d8ca718b3569758ecbc612ca94656b1e11522aaee8fb",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_direct",
+          "ref": "Подавление текста после доставленной картинки, пометка хода, сброс breaker, гейт аварийной фразы",
+          "observation": "services/direct_chat_service.py: единый читатель _image_delivered_this_turn (:3144) и 5 упоминаний; подавляющая ветка :5097 со сбросом breaker on_success() :5108; пометка _mark_turn_text_replied в finally по доставленной картинке :5323-5324; аварийная фраза под гейтом not self._image_delivered_this_turn (:5287, :5304). Счётчики маркеров в выложенном 345a2ed7 и проревьюенном 0651b766 идентичны (5/2/11/2); единственная разница двух версий - комментарий и запись реестра «source_read» (не относится к мему).",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "9eba975dd0a5f39491325e018e940b6377db58fb20b48cee89817545de149f78",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_router",
+          "ref": "Tool-путь запроса мема ставит признак доставки только при успехе и не на replay «already»",
+          "observation": "services/tool_router.py: ctx.image_delivered выставляется только при успешной генерации (1 вхождение, присутствует и в выложенном дереве). Разница с проревьюенной версией - исключительно блок EVOL-SRC-READER read_source_code (368 удалённых строк, 0 строк, связанных с изображением), то есть дельта мема перенесена полностью.",
+          "artifact_path": "services/tool_router.py",
+          "artifact_sha256": "3a6569c5ea9330b1faf9a5167ba7a72169ee0fd9df04550897859e10ff52bf6f",
+          "artifact_commit": "0651b766",
+          "candidate_commit": "0651b766"
+        },
+        {
+          "type": "code_imagegen",
+          "ref": "Признак «картинка доставлена» ставится только при result.ok и не на replay",
+          "observation": "services/image_generation.py: флаг доставки поднимается только при result.ok; ветки no_bot/send_failed возвращают ok=False, повтор «already» флаг не ставит. Файл в 345a2ed7 побайтово совпадает с проревьюенной версией (blob 9e8203b8, разница 0 строк).",
+          "artifact_path": "services/image_generation.py",
+          "artifact_sha256": "cf23a51e9d520e1ef5ba9335310f8abdeeb164815f8cb1f13bff6f4567f147d0",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        },
+        {
+          "type": "code_initiative",
+          "ref": "Инициативный мем: send_photo без caption, промпт остаётся в контракте вызова",
+          "observation": "services/initiative_observer.py (мем-сендер, строка 1168 на проде): один вызов send_photo(bot, int(chat_id), photo); аргумент caption в отправке фото отсутствует (0 вхождений). Файл в выложенном дереве 345a2ed7 побайтово идентичен проревьюенной версии (blob 9c09ead4, разница с 0651b766 = 0 строк).",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "b0fb4591ec2775cd4da68b60990da7691fd09bfc7ceebd18417e950ae2d779f5",
+          "artifact_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+          "candidate_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a"
+        }
+      ],
+      "verification_note": "Пункт приёмки покрыт сценариями: по инициативе и по явному запросу, отсутствие второго сообщения (включая отложенный follow-up), сохранность событий аналитики, поведение при ошибке генерации.",
+      "live_observation": "NOT_OBSERVED",
+      "live_note": "ЖИВОЕ НАБЛЮДЕНИЕ НЕ ПОЛУЧЕНО (NOT_OBSERVED): код-поведение доказано независимыми пробами Reviewer и тестами, выложенное дерево содержит маркеры фикса (§4.2 отчёта), но естественного мем-события в окне выкладки не было; тестовые сообщения в реальные чаты не отправлялись. Живое подтверждение «в чате только картинка, второго сообщения нет» остаётся открытым до первого естественного мема."
     }
   ],
-  "source_note": "Срочная P0-правка фичи мемов: успех = только изображение без текстового follow-up; ошибка = без изображения и одно короткое сообщение; логи/аналитика/лимиты/инициатива не меняются."
+  "source_note": "Срочная P0-правка фичи мемов: успех = только изображение без текстового follow-up; ошибка = без изображения и одно короткое сообщение; логи/аналитика/лимиты/инициатива не меняются. ВЫКЛАДКА: прод 2.58.150 @ 345a2ed7 (ветка release/2.58.150), кандидат = прод-базлайн 2.58.149 @ 40d615f1 + только проревьюенная дельта мема. ИЗОЛЯЦИЯ РЕЛИЗА: 2.58.150 несёт ТОЛЬКО дельту мема; остальное содержимое evol/impl (source_reader, cognitive map, UI composition/W15-W16) в прод НЕ выложено и требует отдельного решения о релизе. ЖИВОЕ НАБЛЮДЕНИЕ: мем-событие на проде NOT_OBSERVED (естественного трафика не было, тестовые сообщения в чаты не отправлялись) - строки VERIFIED опираются на код-поведение (независимые пробы Reviewer + тесты) и маркеры фикса в выложенном дереве, живое подтверждение остаётся открытым до первого естественного мема.",
+  "evidence_convention": "evidence[].artifact_commit = коммит, в котором лежит именно эта версия артефакта; evidence[].candidate_commit = кандидат, к которому привязано доказательство (здесь 345a2ed7 - проревьюенная дельта на прод-базлайне 2.58.149; файлы, побайтово совпадающие с проревьюенной версией 0651b766, привязаны прямо к 345a2ed7).",
+  "deployment_isolation": {
+    "deployed_commit": "345a2ed7cff5df4ea8d4b2a4940d9e70e32a177a",
+    "branch": "release/2.58.150",
+    "base": "40d615f1 (2.58.149) - ровно то, что работало до выкладки",
+    "included": "только дельта P0-мема: cherry-pick 2ca58fc4 + 0651b766 (5 файлов / +148/-22: settings.py - строка версии, direct_chat_service.py, image_generation.py, initiative_observer.py, tool_router.py) + bump 2.58.150",
+    "excluded_not_deployed": "остальное содержимое evol/impl (a654c351) в прод НЕ выложено и требует отдельного решения о релизе: services/source_reader.py (+2113), web/api/cognitive_map.py (+916), web/static/cognitive-map.js (+1099), web/app.js, web/index.html, web/static/app.css, services/tool_router.py (блок read_source_code), services/tool_schemas.py, services/tool_loop.py, services/capability_registry.py, services/evidence_policy.py, config/settings.py (флаги SOURCE_READ_*)",
+    "verified_equivalence": "две версии direct_chat_service.py (проревьюенная 0651b766 и выложенная 345a2ed7) различаются только комментарием и записью реестра «source_read» - 0 строк дельты мема; tool_router.py различается только блоком read_source_code (368 строк, 0 связанных с изображением)."
+  }
 }
