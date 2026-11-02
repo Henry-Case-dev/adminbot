@@ -392,6 +392,103 @@ def test_chat_scope_stops_memes(tmp_path, monkeypatch):
     assert result.published is False
 
 
+def _bare_runner() -> obs.InitiativeObserverRunner:
+    """Фазы прохода на `__new__`: подменяются внешние швы, не сам предмет."""
+    runner = obs.InitiativeObserverRunner.__new__(obs.InitiativeObserverRunner)
+    runner._db = None
+    runner._llm = None
+    runner._bot = None
+    runner._writer = None
+    runner._cancel_cb = None
+    runner._aliases = None
+    runner._publication = None
+    return runner
+
+
+def test_meme_phase_roster_comes_from_own_source(monkeypatch):
+    """Проводка ростера в `_meme_phase`: чаты мема — из своего источника (V1).
+
+    Текстовый скан в payload содержит только «разговорчивый» чат; мем обязан
+    рассматривать СВОЙ ростер, иначе тихий чат молча вытесняется из механизма.
+    """
+    roster_calls: list[dict] = []
+    captured: dict = {}
+
+    async def _roster(db, *, state=None, limit=None):
+        roster_calls.append({"db": db, "state": state, "limit": limit})
+        return [CHAT]
+
+    async def _cycle(db, chat_ids, **_kwargs):
+        captured["chat_ids"] = [int(chat_id) for chat_id in chat_ids]
+        return []
+
+    monkeypatch.setattr(meme, "meme_chat_roster", _roster)
+    monkeypatch.setattr(meme, "on_initiative_cycle", _cycle)
+
+    runner = _bare_runner()
+    payload = {"chats": {str(OTHER_CHAT): {"last_decision": {}}},
+               "counters": obs.default_counters(), "day": {}}
+    asyncio.run(runner._meme_phase(payload))
+
+    # Ростер спрошен у своего источника, а не собран из результата скана.
+    assert len(roster_calls) == 1
+    assert captured["chat_ids"] == [CHAT]
+    assert int(OTHER_CHAT) not in captured["chat_ids"]
+    assert payload["meme"]["roster"] == [CHAT]
+    assert payload["meme"]["roster_source"] == "roster"
+    assert payload["meme"]["separate_from_initiative"] is True
+
+
+def test_meme_phase_passes_chat_gate_to_meme(monkeypatch):
+    """Проводка чат-гейта в `_meme_phase`: `initiative.enabled=false` стопорит мем (V4).
+
+    Гейт передаётся внутрь явно и работает: выключенный чат получает
+    `initiative_disabled` и ничего не отправляет.
+    """
+    disabled_chat = -777
+    seen: dict = {}
+
+    async def _gate(chat_id):
+        return int(chat_id) != disabled_chat
+
+    async def _roster(db, *, state=None, limit=None):
+        return [disabled_chat]
+
+    async def _settings_loader(chat_id=None):
+        return _settings()
+
+    real_cycle = meme.on_initiative_cycle
+
+    async def _cycle(db, chat_ids, *, state=None, **kwargs):
+        seen["chat_ids"] = [int(chat_id) for chat_id in chat_ids]
+        seen["chat_enabled"] = kwargs.get("chat_enabled")
+        if not callable(seen["chat_enabled"]):
+            # Фаза не передала гейт — дальше поведение не проверяем (мутация).
+            return []
+        seen["results"] = await real_cycle(db, chat_ids, state=state, **kwargs)
+        return seen["results"]
+
+    monkeypatch.setattr(obs, "chat_observer_enabled", _gate)
+    monkeypatch.setattr(meme, "meme_chat_roster", _roster)
+    monkeypatch.setattr(meme, "load_settings", _settings_loader)
+    monkeypatch.setattr(meme, "on_initiative_cycle", _cycle)
+
+    runner = _bare_runner()
+    payload = {"chats": {}, "counters": obs.default_counters(), "day": {}}
+    asyncio.run(runner._meme_phase(payload))
+
+    assert seen["chat_ids"] == [disabled_chat]
+    assert callable(seen["chat_enabled"])
+    assert asyncio.run(seen["chat_enabled"](disabled_chat)) is False
+    # Реальная проверка в механизме: именно этот гейт остановил мем.
+    result = seen["results"][0]
+    assert result.reason == meme.SKIP_INITIATIVE_DISABLED
+    assert result.published is False
+    assert payload["meme_chats"][str(disabled_chat)]["reason"] == \
+        meme.SKIP_INITIATIVE_DISABLED
+    assert payload["meme_chats"][str(disabled_chat)]["published"] is False
+
+
 # ═══ 2. единый контур случайности, независимые решения (R8) ═════════════════
 
 def test_two_purposes_one_service_and_one_trace_format():
@@ -738,6 +835,41 @@ def test_manual_priority_preempts_claimed_but_not_sending(tmp_path):
     assert manual.granted is True          # чужой `claimed` забран
     assert store.begin_sending(chat_id=CHAT, claim_id=claimed.claim_id,
                                now=NOW_TS + 2).granted is False
+
+
+def test_automatic_path_cannot_begin_sending_after_manual_priority(tmp_path):
+    """Уже взятая авто-бронь не уходит в `sending` при живом маркере `/meme`.
+
+    Окно реальное: генерация идёт десятки секунд, и маркер появляется ПОСЛЕ
+    того, как автоматический путь уже взял `claimed`. Единственное разрешение
+    звать sender — переход `claimed → sending` — обязано этого не пропустить;
+    ручной запрос тем же предикатом не глушится.
+    """
+    store = _store(tmp_path)
+    auto = store.acquire(chat_id=CHAT, holder_kind=pub.KIND_MEME_INITIATIVE,
+                         now=NOW_TS)
+    assert auto.granted is True
+    store.claim_manual_priority(chat_id=CHAT, now=NOW_TS)
+
+    denied = store.begin_sending(chat_id=CHAT, claim_id=auto.claim_id,
+                                 now=NOW_TS + 1)
+    assert denied.granted is False
+    assert denied.reason == pub.REASON_CONFLICT
+    assert denied.detail == pub.DETAIL_MANUAL_PRIORITY
+    assert denied.state == "claimed"
+    snapshot = store.snapshot(CHAT)
+    assert snapshot["state"] == "claimed"          # в sending не перешла
+    assert snapshot["claim_id"] == auto.claim_id   # маркер не стёр бронь
+
+    # /meme забирает бронь и отправляет: маркер ограничивает только авто-путь.
+    manual = store.acquire(chat_id=CHAT, holder_kind=pub.KIND_MEME_INITIATIVE,
+                           now=NOW_TS + 2, interval_seconds=1800, manual=True)
+    assert manual.granted is True
+    assert store.begin_sending(chat_id=CHAT, claim_id=manual.claim_id,
+                               now=NOW_TS + 2, manual=True).granted is True
+    # Автоматическая бронь после этого отправить уже не может.
+    assert store.begin_sending(chat_id=CHAT, claim_id=auto.claim_id,
+                               now=NOW_TS + 3).granted is False
 
 
 def test_foreign_sending_yields_publication_in_flight(tmp_path):
