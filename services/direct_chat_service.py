@@ -3140,6 +3140,19 @@ class DirectChatService:
         if replied is not None:
             replied.add(int(chat_id))
 
+    @staticmethod
+    def _image_delivered_this_turn(_image_delivery, tool_ctx) -> bool:
+        """P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка РЕАЛЬНО доставлена
+        в этом ходу. Единый источник для трёх решений: подавление текста
+        ответа, тишина в обработчиках ошибок (B2) и учёт CB (B3).
+
+        `_image_delivery` — словарь пре-гейта (`delivered_out`), заполняется
+        ТОЛЬКО при фактической доставке; `tool_ctx` может быть ещё не создан
+        (ошибка до основного пути) — тогда его вклад = False."""
+        if isinstance(_image_delivery, dict) and _image_delivery.get("delivered"):
+            return True
+        return bool(getattr(tool_ctx, "image_delivered", False))
+
     async def _refresh_turn_aliases(self, chat_id: int) -> None:
         """ASAP 3 Corrective §4.4: per-turn резолвер (global+chat merge).
 
@@ -3315,6 +3328,15 @@ class DirectChatService:
         # по (chat_id, tg_message_id) — отдельный механизм идентичности
         # mca-03/MCA-22, сохранён (выше). Требование MCA-07 «No-replay»
         # теперь безусловно.
+        # ── P0 MEME-IMAGE-ONLY (owner 02.11.2026) ────────────────────────────
+        # Признак «картинка РЕАЛЬНО доставлена в этом ходу» нужен и на
+        # подавляющем пути ответа, и в обработчиках ошибок, где локальные
+        # переменные `try` могут быть ещё не связаны (пре-гейт доставил фото,
+        # а Writer упал ДО создания ToolContext). Поэтому хранилище флага —
+        # вне `try`, а `tool_ctx` инициализируется пустым (реальный объект
+        # присваивается ниже, в основном пути).
+        _image_delivery: dict = {}
+        tool_ctx = None
         try:
             # MCA-07 (T-3852): исключённые бюджетом блоки → EvidenceBundle.
             _excluded_blocks: list = []
@@ -3450,7 +3472,6 @@ class DirectChatService:
             # SOUL-1 W10: регекс остаётся БЫСТРЫМ путём очевидных команд;
             # смысловые формулировки без «бот, нарисуй» доходят до той же
             # генерации через проверку согласованности после L1 (§5.10).
-            _image_delivery: dict = {}
             image_block = await self._image_pre_gate_block(
                 chat_id, query, bot, message, user_id,
                 correlation_id=correlation_id, intent=_image_intent,
@@ -3459,8 +3480,9 @@ class DirectChatService:
             # P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка, реально
             # доставленная на этом ходу, — ЕДИНСТВЕННОЕ исходящее сообщение
             # хода. Текстовая доставка ниже в этом случае не выполняется
-            # (промпт/описание/панели остаются внутренними).
-            image_delivered_this_turn = bool(_image_delivery.get("delivered"))
+            # (промпт/описание/панели остаются внутренними). Флаг живёт в
+            # `_image_delivery`, созданном ДО `try` (его читают и обработчики
+            # ошибок, когда пре-гейт вообще не дошёл до присваивания).
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
             # A7 (round 10.26, ADR-1026-20 D2/D3/D4): Фаза P — программное
@@ -4088,7 +4110,8 @@ class DirectChatService:
             if _cap_delivered:
                 # P0 MEME-IMAGE-ONLY: смысловой путь тоже ответил картинкой —
                 # текст хода не отправляется (см. гейт перед доставкой).
-                image_delivered_this_turn = True
+                # Единый признак хода: его читают и обработчики ошибок (B2).
+                _image_delivery["delivered"] = True
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -5071,13 +5094,19 @@ class DirectChatService:
             # не уходят. Флаг ставит ТОЛЬКО успешная доставка: при отказе
             # генератора/провайдера/отправки он не выставлен, и пользователь
             # получает ровно один короткий текст ошибки ниже обычным путём.
-            if image_delivered_this_turn or getattr(
-                    tool_ctx, "image_delivered", False):
+            if self._image_delivered_this_turn(_image_delivery, tool_ctx):
                 logger.info(
                     "[direct] image delivered — text reply suppressed | "
                     "chat=%s | chars=%d", chat_id, len(answer or ""))
-                # Ход состоялся (пользователь получил ответ-картинку):
-                # отложенное возобновление закрывается, чтобы не сработать
+                # B1 (ход отвечен) закрыт в `finally` `_handle_turn` — единая
+                # точка на все выходы; здесь она бы дублировалась.
+                # B3: успешный ход (в т.ч. ответ картинкой) — полный сброс CB.
+                # Пропуск оставляет breaker в HALF_OPEN навсегда, а
+                # `allow_request()` в HALF_OPEN = False → все чаты начали бы
+                # получать аварийную фразу до перезапуска процесса.
+                if self._breaker is not None:
+                    self._breaker.on_success()
+                # Отложенное возобновление закрывается, чтобы не сработать
                 # позже вторым ответом на уже отвеченный запрос.
                 await self._complete_resume_intent(_resume_intent)
                 return
@@ -5251,9 +5280,14 @@ class DirectChatService:
                 return
             logger.warning("[direct] LLM failed | chat=%s | user=%s | error=%s",
                            chat_id, target_name, exc)
-            await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
-                         message.message_id)
-            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
+            # P0 MEME-IMAGE-ONLY (B2): картинка уже доставлена в этом ходу →
+            # единственное сообщение хода — она. Аварийная фраза НЕ уходит
+            # (ошибка остаётся в логе); ход при этом отвечен — иначе F6 создал
+            # бы follow_up на отвеченный запрос.
+            if not self._image_delivered_this_turn(_image_delivery, tool_ctx):
+                await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
+                             message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: ход отвечен
             # Epic 53 (62.3.3): транзиентные классы → инкремент CB. Если CB в
             # HALF_OPEN — текущий вызов и есть пробная генерация: ЛЮБОЙ LLMError
             # пробы (в т.ч. не-транзиентный: апстрим ответил 4xx/auth) снова
@@ -5265,9 +5299,12 @@ class DirectChatService:
                     self._breaker.on_failure()
         except Exception:
             logger.exception("[direct] unexpected | chat=%s", chat_id)
-            await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
-                         message.message_id)
-            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
+            # P0 MEME-IMAGE-ONLY (B2): та же логика, что и для LLMError —
+            # после доставленной картинки второго сообщения нет.
+            if not self._image_delivered_this_turn(_image_delivery, tool_ctx):
+                await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
+                             message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: ход отвечен
             # H1: пробная генерация в HALF_OPEN, упавшая НЕ-LLMError (БД в
             # _build_user_content, TelegramRetryAfter и пр.), снова открывает
             # CB — иначе CB залипнет в HALF_OPEN навсегда (allow_request в
@@ -5276,6 +5313,15 @@ class DirectChatService:
                 self._breaker.on_failure()
         finally:
             permit.release()   # раунд N (T-840): слот пула возвращён
+            # ── P0 MEME-IMAGE-ONLY (owner 02.11.2026), блокер B1 ───────────
+            # Картинка РЕАЛЬНО доставлена в этом ходу → пользователь уже
+            # получил ответ, значит ход отвечен. Единая точка на ВСЕ выходы из
+            # `try` (подавление текста, пустой ответ, numeric-guard, LLM-сбой,
+            # decision-fallback): иначе F6-производитель сочтёт сообщение с '?'
+            # неотвеченным и создаст durable follow_up, который через 15 минут
+            # пришлёт ВТОРОЕ (уже текстовое) сообщение по отвеченному запросу.
+            if self._image_delivered_this_turn(_image_delivery, tool_ctx):
+                self._mark_turn_text_replied(chat_id)     # F6: ход отвечен
             # EVOL-031: запись исхода попытки в дедуп-кэш удалена вместе
             # с replay-веткой — ни ответы, ни маркеры «молчания» не
             # сохраняются для воспроизведения.

@@ -412,3 +412,171 @@ async def test_e2_plain_text_turn_still_answers_with_text(monkeypatch):
     assert bot.send_photo.await_count == 0
     assert bot.send_message.await_count >= 1
     assert "Нормальный ответ" in str(bot.send_message.await_args.args)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Регрессы по блокерам ревью кандидата 2ca58fc4 (B1/B2/B3). Каждый тест
+# падает, если снять соответствующую правку (мутация указана в docstring).
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _counting_bot():
+    """Фейковый бот с РЕАЛЬНЫМ (не AsyncMock) учётом исходящих вызовов."""
+    from tests.test_direct_chat import _bot
+
+    bot = _bot()
+    calls: list[str] = []
+
+    async def _send_photo(*args, **kwargs):
+        calls.append("photo")
+        return SimpleNamespace(message_id=601)
+
+    async def _send_message(*args, **kwargs):
+        calls.append("text")
+        return SimpleNamespace(message_id=602)
+
+    bot.send_photo = AsyncMock(side_effect=_send_photo)
+    bot.send_message = AsyncMock(side_effect=_send_message)
+    return bot, calls
+
+
+async def _real_db(tmp_path, name: str):
+    from services.database import DatabaseService
+
+    db = DatabaseService(str(tmp_path / name))
+    await db.initialize()
+    return db
+
+
+async def _follow_up_intents(db, chat_id: int) -> list[dict]:
+    """Durable follow_up-намерения чата (та же таблица, что читает F6)."""
+    from services import mca_intents as mi
+
+    return await mi.get_service(db).store.list_active(int(chat_id))
+
+
+@pytest.mark.asyncio
+async def test_f1_image_answered_turn_creates_no_follow_up_intent(
+        tmp_path, monkeypatch):
+    """(B1) Ход, отвеченный КАРТИНКОЙ, считается отвеченным: F6-производитель
+    не создаёт durable follow_up (иначе через 15 мин ушло бы ВТОРОЕ, уже
+    текстовое сообщение по отвеченному запросу).
+
+    Мутация: снять пометку хода в `finally` `_handle_turn`
+    (`if self._image_delivered_this_turn(...): self._mark_turn_text_replied`)
+    — на реальной БД появляется intent `origin=unanswered_question` для
+    отвеченного картинкой вопроса, тест падает. Позитивный контроль ниже
+    доказывает, что производитель в этом же фикстуре ЖИВ (иначе проверка
+    была бы пустой)."""
+    from services.summary_aliases import AliasResolver
+    from tests.test_direct_chat import FakeLLM, FakeMemory, _message, _user
+    from services.direct_chat_service import DirectChatService
+
+    hot = _patch_image_env(monkeypatch)
+    db = await _real_db(tmp_path, "p0_b1.db")
+    bot, calls = _counting_bot()
+    monkeypatch.setattr("services.image_generation.generate_and_send",
+                        _fake_generator(bot))
+    service = DirectChatService(FakeMemory(), db, FakeLLM(text="внутренний текст"),
+                                AliasResolver("{}"), bot_id=12345,
+                                tool_router=MagicMock())
+    user = _user()
+
+    # ── проверяемый ход: вопрос + генерация картинки (доставлена) ──────────
+    answered = _message(text="Бот, нарисуй мем про дедлайн?",
+                        message_id=31, user=user, chat_id=-100900)
+    try:
+        await service.handle(bot, answered, user)
+        assert calls == ["photo"], calls        # ответ — только картинка
+        assert await _follow_up_intents(db, -100900) == []
+
+        # ── позитивный контроль: тот же производитель ЖИВ на этой БД ──────
+        # Вопрос без ответа бота (пустой ответ → молчание) обязан создать
+        # follow_up, иначе проверка выше была бы пустой.
+        calls.clear()
+        silent_service = DirectChatService(
+            FakeMemory(), db, FakeLLM(text=""), AliasResolver("{}"),
+            bot_id=12345, tool_router=MagicMock())
+        silent = _message(text="А что там по дедлайну?",
+                          message_id=32, user=user, chat_id=-100901)
+        await silent_service.handle(bot, silent, user)
+        assert calls == [], calls               # текста в чате нет
+        intents = await _follow_up_intents(db, -100901)
+        assert [row.get("origin") for row in intents] == ["unanswered_question"]
+    finally:
+        hot.set_config_cache(None)
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_f2_llm_error_after_delivered_image_adds_no_text(monkeypatch):
+    """(B2) Картинка уже доставлена, Writer упал с LLMError → в чате остаётся
+    РОВНО одно сообщение (картинка). Аварийная фраза не отправляется; ошибка
+    остаётся в логах.
+
+    Мутация: вернуть безусловный `await _reply(..., CHAT_ERROR_PHRASES)` в
+    обработчике `except LLMError` — последовательность становится
+    `['photo', 'text']` и тест падает."""
+    from services.llm_client import LLMError
+    from tests.test_direct_chat import FakeLLM, _message, _make_service, _user
+
+    hot = _patch_image_env(monkeypatch)
+    bot, calls = _counting_bot()
+    monkeypatch.setattr("services.image_generation.generate_and_send",
+                        _fake_generator(bot))
+    service = _make_service(llm=FakeLLM(error=LLMError("upstream down")),
+                            tool_router=MagicMock())
+    user = _user()
+    try:
+        await service.handle(
+            bot, _message(text="Бот, нарисуй мем про дедлайн",
+                          message_id=33, user=user), user)
+    finally:
+        hot.set_config_cache(None)
+
+    assert calls == ["photo"], calls
+    assert bot.send_message.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_f3_breaker_closes_after_image_only_turn(monkeypatch):
+    """(B3) Успешный ход с картинкой — это и есть успех LLM-контура: breaker
+    полностью сбрасывается в CLOSED, следующий ход допускается. Без сброса
+    breaker залипает в HALF_OPEN и `allow_request()` отказывает ВСЕМ чатам до
+    перезапуска процесса.
+
+    Мутация: убрать `self._breaker.on_success()` из подавляющей ветки —
+    состояние остаётся HALF_OPEN, а следующий ход получает аварийную фразу
+    вместо обычного ответа."""
+    from services.llm_circuit_breaker import (
+        STATE_CLOSED, STATE_OPEN, LLMCircuitBreaker)
+    from tests.test_direct_chat import FakeLLM, _message, _make_service, _user
+
+    hot = _patch_image_env(monkeypatch)
+    breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=0.0)
+    breaker.on_failure()                      # OPEN (кулдаун уже истёк)
+    assert breaker.state == STATE_OPEN
+
+    bot, calls = _counting_bot()
+    monkeypatch.setattr("services.image_generation.generate_and_send",
+                        _fake_generator(bot))
+    service = _make_service(llm=FakeLLM(text="Нормальный ответ"),
+                            tool_router=MagicMock(), breaker=breaker)
+    user = _user()
+    try:
+        # Первый ход = та самая пробная генерация (allow_request внутри
+        # handle переводит OPEN → HALF_OPEN), и она отвечена картинкой.
+        await service.handle(
+            bot, _message(text="Бот, нарисуй мем про дедлайн",
+                          message_id=34, user=user), user)
+        assert calls == ["photo"], calls
+        assert breaker.state == STATE_CLOSED, breaker.state
+        assert breaker.allow_request() is True
+
+        # следующий обычный ход обслуживается, а не блокируется breaker'ом
+        calls.clear()
+        await service.handle(bot, _message(text="как дела?", message_id=35,
+                                           user=user), user)
+        assert calls == ["text"], calls
+        assert "Нормальный ответ" in str(bot.send_message.await_args.args)
+    finally:
+        hot.set_config_cache(None)
