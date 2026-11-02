@@ -1,6 +1,7 @@
 # P2 `MEME-API-SCOPE` — два редактируемых промпта мемов и диагностика L/T/J
 
-- Ветка: `feat/meme-api-scope`, база `242fbd38` (P1 `MEME-PIPE-CORE`), HEAD — см. коммит ниже.
+- Ветка: `feat/meme-api-scope`, база `242fbd38` (P1 `MEME-PIPE-CORE`),
+  код-кандидат **`07627068`** (этот отчёт — отдельный docs-коммит поверх него).
 - Пакет карты: `MEME-API-SCOPE` (строки `MEME-PROMPT-THREE-LAYER` L73–L75) +
   серверная часть `MEME-LEN-UI-DIAG` (L114–L121, UI-витрина — полоса `MEME-UI-FIELDS`/P4).
 - Решения: `arch/integration-decisions.md` §2–§3; замечания P1-ревью №1, №2, №4.
