@@ -71,7 +71,8 @@ def _core_doc(text: str, revision: int) -> dict:
             "compact_text": text}
 
 
-def _configure(monkeypatch, *, core_enabled=True, style_enabled=True):
+def _configure(monkeypatch, *, core_enabled=True, style_enabled=True,
+               expression_enabled=True):
     """Глобальный документ ≠ чатовый оверрайд (те же ключи, что в проде)."""
     monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
     hot_config.set_config_cache(_FakeHot({
@@ -80,14 +81,16 @@ def _configure(monkeypatch, *, core_enabled=True, style_enabled=True):
         "flags.speech_style_policy_enabled": style_enabled,
         "flags.persona_enabled": True,
         "character.core": _core_doc(GLOBAL_CORE, 7),
-        "character.expression": {"enabled": True, "note": GLOBAL_EXPR_NOTE},
+        "character.expression": {"enabled": expression_enabled,
+                                 "note": GLOBAL_EXPR_NOTE},
         "style.policy": sp.build_document(presets=("no_quotes",), revision=3,
                                           owner=1, reason="test-global"),
     }))
     chat_params.set_chat_params_cache(_FakeChatParams({
         CHAT: {
             "character.core": _core_doc(CHAT_CORE, 11),
-            "character.expression": {"enabled": True, "note": CHAT_EXPR_NOTE,
+            "character.expression": {"enabled": expression_enabled,
+                                     "note": CHAT_EXPR_NOTE,
                                      "profanity": "occasional"},
             "style.policy": sp.build_document(
                 presets=("no_trailing_period",), revision=9, owner=1,
@@ -218,20 +221,28 @@ def test_initiative_uses_chat_level_core_style_and_expression(monkeypatch):
 
 # ── 2. Выключенная ось: слоя нет, причина названа, остальное живо ──────────
 
+_AXIS_LAYER = {"core": "core",
+               "style": "style_policy_hint",
+               "expression": "expression"}
+
 @pytest.mark.parametrize("axis,reason,absent,present", [
     ("core", "core_disabled", (CHAT_CORE, GLOBAL_CORE), (PERSONA, CHAT_EXPR_NOTE)),
     ("style", "style_policy_disabled", (None,), (CHAT_CORE, PERSONA)),
+    ("expression", "expression_disabled",
+     (CHAT_EXPR_NOTE, GLOBAL_EXPR_NOTE, mca_expression.EXPRESSION_HEADER),
+     (CHAT_CORE, PERSONA)),
 ])
 def test_initiative_disabled_axis_skips_layer_with_reason(monkeypatch, axis,
                                                           reason, absent,
                                                           present):
     if axis == "core":
         _configure(monkeypatch, core_enabled=False)
-    else:
+    elif axis == "style":
         _configure(monkeypatch, style_enabled=False)
+    else:
+        _configure(monkeypatch, expression_enabled=False)
     _llm, manifest, system = _run_initiative()
-    target = _layer(manifest,
-                    "style_policy_hint" if axis == "style" else "core")
+    target = _layer(manifest, _AXIS_LAYER[axis])
     assert target.rendered is False
     assert target.skip_reason == reason
     assert reason in pc.SKIP_REASONS
@@ -240,3 +251,10 @@ def test_initiative_disabled_axis_skips_layer_with_reason(monkeypatch, axis,
             assert marker not in system
     for marker in present:
         assert marker in system
+    if axis == "expression":
+        # Core и Style Policy живут: чатовые редакции по-прежнему в payload.
+        chat_policy = asyncio.run(sp.resolve_style_policy_ref(CHAT))
+        assert manifest.versions["style_policy"] == chat_policy.revision
+        assert chat_policy.hint in system
+        assert _layer(manifest, "core").rendered is True
+        assert _layer(manifest, "style_policy_hint").rendered is True
