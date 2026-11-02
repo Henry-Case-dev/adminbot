@@ -47,6 +47,12 @@
   * неограниченных выборок и N+1-запросов нет: по одному запросу на класс
     (``COUNT(*) OVER ()`` даёт полный размер класса без второго прохода).
 
+Полнота (B1 ревью W7-S1): ``truncated`` для ВСЕХ шести классов (и для рёбер)
+означает ровно одно — «показано меньше, чем всего» (``total > shown``).
+``truncated.nodes``/``truncated.edges`` — сводка тех же значений, поэтому
+``state="ok"`` невозможно при неполной карте: снапшот, вернувший окрестность
+150 сидов из 850 сущностей, даёт ``shown=152, total=850`` → ``partial``.
+
 Состояния (§4 контракта): ``ok`` / ``partial`` (обрезано) / ``empty``
 (источники прочитаны, данных нет) / ``degraded`` (часть источников НЕ
 загружена — имена перечислены в ``degraded.not_loaded``, состояния
@@ -137,11 +143,13 @@ def _float_or_none(value: Any) -> float | None:
 
 
 def _scope_key(chat_id: Any) -> str:
-    """Компонент ключа узла: chat_id либо ``?`` (чатовый ключ неизвестен)."""
+    """Компонент ключа узла: chat_id либо ``global`` (чатовый ключ неизвестен
+    или запись системная — см. `memory_dream_log.chat_id = 0`)."""
     try:
-        return str(int(chat_id))
+        number = int(chat_id)
     except (TypeError, ValueError):
-        return "?"
+        return "global"
+    return str(number) if number != 0 else "global"
 
 
 def _title(text: Any, limit: int = _TITLE_LIMIT) -> str:
@@ -407,6 +415,7 @@ def _observation_node(row: dict) -> dict:
         f"obs:{_scope_key(chat_id)}:{row_id}",
         "observation",
         chat_id=chat_id,
+        scope="chat" if chat_id is not None else "global",
         title=_title(row.get("raw_text")),
         text=str(row.get("raw_text") or ""),
         status=str(row.get("subject_status") or "") or None,
@@ -449,13 +458,17 @@ def _revision_node(chat_id: int, row: dict) -> dict:
 
 
 def _dream_node(row: dict) -> dict:
-    chat_id = _int_or_none(row.get("chat_id"))
+    raw_chat_id = _int_or_none(row.get("chat_id"))
+    # `memory_dream_log.chat_id = 0` — системный прогон (глобальный decay),
+    # а не «чат 0»: в payload он честно глобальный, без выдуманного chat_id.
+    chat_id = raw_chat_id if raw_chat_id not in (None, 0) else None
     row_id = int(row["id"])
     kind = str(row.get("kind") or "")
     return _node(
         f"evt:{_scope_key(chat_id)}:dream:{row_id}",
         "evolution_event",
         chat_id=chat_id,
+        scope="chat" if chat_id is not None else "global",
         title=_title("Цикл памяти: " + kind),
         text=None,
         status=str(row.get("status") or "") or None,
@@ -786,14 +799,7 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
     for node in nodes:
         node["isolated"] = node["id"] not in linked
 
-    truncated_nodes = bool(fact_cut or belief_cut or paradigm_cut
-                           or evolution_cut
-                           or bool(snapshot.get("truncated")))
-    truncated_edges = bool(recorded_cut or derived_cut)
-
     used_edges = edges[:GRAPH_MAX_EDGES]
-    if len(edges) > GRAPH_MAX_EDGES:
-        truncated_edges = True
 
     entity_total = await _source(
         "node_totals",
@@ -804,10 +810,46 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
             + _node_scope_sql(chat)[0],
             _node_scope_sql(chat)[1]),
         0)
-    entity_total = max(int(entity_total or 0),
-                       sum(1 for n in nodes if n["kind"] == "entity"))
+    shown_entities = sum(1 for n in nodes if n["kind"] == "entity")
+    entity_total = max(int(entity_total or 0), shown_entities)
     node_total = (fact_total + belief_total + paradigm_total
                   + evolution_total + entity_total)
+    edge_total = max(int(edge_total or 0), len(used_edges))
+
+    obs_shown = sum(1 for n in evolution_nodes if n["kind"] == "observation")
+    evt_shown = sum(1 for n in evolution_nodes
+                    if n["kind"] == "evolution_event")
+    evt_total = dream_total + int(revision_total or 0)
+
+    # ОДНО правило полноты для всех шести классов: «показано меньше, чем
+    # всего» — единственное, что означает `truncated`. Флаги cap-ов снизу
+    # добавляются только как страховка (потеря строк без счётчика).
+    by_kind = {
+        "fact": {"shown": len(fact_shown), "total": fact_total,
+                 "truncated": fact_cut or fact_total > len(fact_shown)},
+        "belief": {"shown": len(belief_shown), "total": belief_total,
+                   "truncated": belief_cut or belief_total
+                   > len(belief_shown)},
+        "paradigm": {"shown": len(paradigm_shown), "total": paradigm_total,
+                     "truncated": paradigm_cut or paradigm_total
+                     > len(paradigm_shown)},
+        "observation": {"shown": obs_shown, "total": obs_total,
+                        "truncated": obs_total > obs_shown},
+        "evolution_event": {"shown": evt_shown, "total": evt_total,
+                            "truncated": evt_total > evt_shown},
+        "entity": {
+            "shown": shown_entities,
+            "total": entity_total,
+            "truncated": (entity_total > shown_entities
+                          or bool(snapshot.get("truncated")))},
+    }
+
+    # `truncated` верхнего уровня — сводка тех же значений, не отдельное
+    # мнение: узлы обрезаны, если это верно хотя бы для одного класса.
+    truncated_nodes = any(entry["truncated"] for entry in by_kind.values())
+    truncated_edges = bool(recorded_cut or derived_cut
+                           or len(edges) > GRAPH_MAX_EDGES
+                           or edge_total > len(used_edges))
 
     if unavailable:
         state = "degraded"
@@ -817,28 +859,6 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
         state = "partial"
     else:
         state = "ok"
-
-    obs_shown = sum(1 for n in evolution_nodes if n["kind"] == "observation")
-    evt_shown = sum(1 for n in evolution_nodes
-                    if n["kind"] == "evolution_event")
-    evt_total = dream_total + int(revision_total or 0)
-
-    by_kind = {
-        "fact": {"shown": len(fact_shown), "total": fact_total,
-                 "truncated": fact_cut},
-        "belief": {"shown": len(belief_shown), "total": belief_total,
-                   "truncated": belief_cut},
-        "paradigm": {"shown": len(paradigm_shown), "total": paradigm_total,
-                     "truncated": paradigm_cut},
-        "observation": {"shown": obs_shown, "total": obs_total,
-                        "truncated": obs_total > obs_shown},
-        "evolution_event": {"shown": evt_shown, "total": evt_total,
-                            "truncated": evt_total > evt_shown},
-        "entity": {
-            "shown": sum(1 for n in nodes if n["kind"] == "entity"),
-            "total": entity_total,
-            "truncated": bool(snapshot.get("truncated"))},
-    }
 
     return {
         "version": PAYLOAD_VERSION,
@@ -856,17 +876,21 @@ async def build_cognitive_map(db, chat_id: int | None = None, *,
             "nodes": len(nodes),
             "edges": len(used_edges),
             "by_kind": by_kind,
-            "totals": {"nodes": max(node_total, len(nodes)),
-                       "edges": max(int(edge_total or 0), len(used_edges))},
+            "totals": {"nodes": node_total, "edges": edge_total},
             "unresolved_refs": unresolved_refs,
         },
         "truncated": {
             "nodes": truncated_nodes,
             "edges": truncated_edges,
-            "by_class": {"fact": fact_cut, "belief": belief_cut,
-                         "paradigm": paradigm_cut,
-                         "evolution": evolution_cut,
-                         "entity": bool(snapshot.get("truncated"))},
+            "by_class": {
+                "fact": by_kind["fact"]["truncated"],
+                "belief": by_kind["belief"]["truncated"],
+                "paradigm": by_kind["paradigm"]["truncated"],
+                "evolution": (evolution_cut
+                              or by_kind["observation"]["truncated"]
+                              or by_kind["evolution_event"]["truncated"]),
+                "entity": by_kind["entity"]["truncated"],
+            },
         },
         "nodes": nodes,
         "edges": used_edges,

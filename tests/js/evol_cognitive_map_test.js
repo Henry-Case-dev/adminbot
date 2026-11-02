@@ -276,6 +276,24 @@ function codeOnly(source) {
   ok(noIsolated.nodes.every((n) => n.isolated === false),
     'в выборке не осталось изолированных');
 
+  // явный фильтр области: глобальные/системные записи не выдают себя за чат
+  const scoped = CM.normalizePayload({
+    version: 'cog-map/1',
+    nodes: [
+      { id: 'fact:-1001:1', kind: 'fact', title: 'Факт чата', chat_id: -1001,
+        scope: 'chat' },
+      { id: 'evt:global:dream:1', kind: 'evolution_event',
+        title: 'Системный decay', chat_id: null, scope: 'global' },
+    ],
+    edges: [],
+  });
+  eq(CM.applyFilters(scoped, { scopes: ['global'] }).nodes.map((n) => n.id),
+    ['evt:global:dream:1'], 'фильтр scopes=global оставляет системную запись');
+  eq(CM.applyFilters(scoped, { scopes: ['chat'] }).counts.nodes, 1,
+    'фильтр scopes=chat не тащит глобальную запись');
+  eq(CM.applyFilters(scoped, { chats: [null] }).nodes.map((n) => n.id),
+    ['evt:global:dream:1'], 'совместимость: chats:[null] = глобальная область');
+
   // фильтры не мутируют модель (чистая функция)
   eq(model.nodes.length, 6, 'модель не изменилась после фильтрации');
 })();

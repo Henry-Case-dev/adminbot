@@ -393,7 +393,8 @@
   }
 
   /* applyFilters(model, filters) -> {nodes, edges, counts}
-   * filters: {kinds: [], chats: [], statuses: [], search: '', hideIsolated}
+   * filters: {kinds: [], scopes: [], chats: [], statuses: [], search: '',
+   *          hideIsolated}
    * Пустой список = «все». Чистая функция: никаких запросов и мутаций.
    */
   function applyFilters(model, filters) {
@@ -403,6 +404,9 @@
         totalNodes: 0, hiddenNodes: 0 } };
     }
     var kinds = toSet(filters.kinds);
+    // `scope` — global против chat (системные/глобальные записи не выдают
+    // себя за чатовые); `chats: [null]` остаётся совместимым способом.
+    var scopes = toSet(filters.scopes);
     var chats = toSet(filters.chats);
     var statuses = toSet(filters.statuses);
     var query = normalizeQuery(filters.search);
@@ -413,6 +417,7 @@
     for (var i = 0; i < model.nodes.length; i += 1) {
       var node = model.nodes[i];
       if (!isEmptySet(kinds) && !kinds[node.kind]) continue;
+      if (!isEmptySet(scopes) && !scopes[node.scope]) continue;
       if (!isEmptySet(chats) && !chats[String(node.chatId)]) continue;
       if (!isEmptySet(statuses) && !statuses[String(node.status)]) continue;
       if (hideIsolated && node.isolated) continue;

@@ -6,18 +6,19 @@
 `plans/current_task.md` §2.3 (строки 1263–1274), строки `EVOL-COG-MAP` в
 `plans/features/evol/requirements-map.json`.
 
-Ветка `feat/cog-map-s1`, база `2ed8966e`. Коммит: `770f53c1` (код + тесты),
-отчёт — отдельным коммитом.
+Ветка `feat/cog-map-s1`, база `2ed8966e`. Коммиты: `770f53c1` (код + тесты),
+`f49dd125` (отчёт), `48b21ace` (ревью — Needs Fixes, B1), далее — правка B1
+(см. §9).
 
 ## 1. Что добавлено (и чего не тронуто)
 
 | Файл | Статус | Роль |
 |---|---|---|
 | `web/api/cognitive_map.py` | новый | `GET /api/memory/cognitive-map` + `build_cognitive_map(db, chat_id)` |
-| `web/app.py` | +5 строк | одна регистрация `include_router(cognitive_map_router, prefix="/api")` |
 | `web/static/cognitive-map.js` | новый | чистый адаптер (нормализация/фильтры/камера/подписи) |
-| `tests/test_evol_cog_map_api.py` | новый | 20 pytest-тестов эндпоинта и модели |
-| `tests/js/evol_cognitive_map_test.js` | новый | 404 node-проверки адаптера |
+| `web/app.py` | +5 строк | одна регистрация `include_router(cognitive_map_router, prefix="/api")` |
+| `tests/test_evol_cog_map_api.py` | новый | 23 pytest-теста эндпоинта и модели |
+| `tests/js/evol_cognitive_map_test.js` | новый | 407 node-проверок адаптера |
 
 Не тронуто: `web/index.html`, `web/app.js`, `web/static/app.css`,
 `services/database.py`, `web/api/memory_agi.py`, `web/api/routes.py`
@@ -63,7 +64,8 @@ admin (та же зависимость, что у остального Memory-A
 {
   "id": "fact:<chat>:<id>" | "belief:<chat>:<id>" | "paradigm:<chat>:<id>"
       | "obs:<chat>:<id>"
-      | "evt:<chat>:revision:<id>" | "evt:<chat>:dream:<id>"
+      | "evt:<chat>:revision:<id>"
+      | "evt:<chat|global>:dream:<id>"   // chat_id=0 → system → global
       | "ent:<chat>:<nodes.id>",
   "kind": "entity"|"fact"|"belief"|"paradigm"|"observation"|"evolution_event",
   "scope": "chat"|"global", "chat_id": <int|null>,
@@ -114,6 +116,13 @@ payload отсутствуют.
 Неограниченных выборок, N+1 и запросов на раскрытие узла нет. LLM/эмбеддингов
 нет (§2 контракта).
 
+**Правило полноты (одно на все шесть классов и на рёбра):**
+`by_kind[kind].truncated == (total > shown)`; `truncated.nodes` — сводка
+`any(...)` по классам, `truncated.edges == (edge_total > shown_edges)` (или
+упор в cap). Поэтому `state="ok"` невозможен, когда показана часть данных:
+снапшот, вернувший окрестность 150 сидов из 850 сущностей, даёт
+`shown=152, total=850`, `truncated=true`, `state="partial"`.
+
 ## 4. Изоляция, scope, права, деградация
 
 * **Изоляция чатов** — доказано тестами: при `chat_id=A` в payload нет ни
@@ -124,6 +133,9 @@ payload отсутствуют.
   чатов дают два узла с разными id — тест `test_same_names_do_not_merge_in_global`.
 * **Глобальная область** — только явным отсутствием `chat_id`, помечена
   `scope.mode="global"`; тот же RBAC (глобальный admin).
+* **Системные записи** — `memory_dream_log.chat_id = 0` (глобальный `decay_run`)
+  не выдаётся за «чат 0»: узел `evt:global:dream:<id>` со `scope="global"` и
+  `chat_id=null`; в карту конкретного чата он не попадает.
 * **Права** — 401 без initData, 403 не-админу (HTTP-проверки через TestClient)
   и 403 при прямом вызове с не-админом.
 * **Деградация** — падение источника не роняет ответ: `state="degraded"`,
@@ -146,9 +158,10 @@ Zero-build, CSP `self`, без inline/CDN, по образцу `execution_graph.
 * `searchNodes(model, query)` — по названию и алиасу (`aliases` из
   `summaryAliasesMap`), нормализация регистра/`ё→е`/пробелов, многословный
   запрос, детерминированная сортировка;
-* `applyFilters(model, {kinds, chats, statuses, search, hideIsolated})` —
+* `applyFilters(model, {kinds, scopes, chats, statuses, search, hideIsolated})` —
   ребро остаётся только если оба конца прошли фильтр (иначе связь не
-  рисуется вообще), возвращает честные счётчики;
+  рисуется вообще), возвращает честные счётчики; `scopes: ['global']` отделяет
+  системные/глобальные записи от чатовых (`chats: [null]` — совместимый алиас);
 * камера: `createCamera/clampCamera/cameraFromNetwork/cameraToNetwork/
   cameraEquals` (сохранение/восстановление позиции и масштаба в пределах сессии);
 * `allocateLabels(items, opts)` — экранное разрешение коллизий: приоритет
@@ -163,7 +176,7 @@ Zero-build, CSP `self`, без inline/CDN, по образцу `execution_graph.
 
 ## 6. Тесты
 
-`tests/test_evol_cog_map_api.py` — **20 passed** (реальная in-memory SQLite, без
+`tests/test_evol_cog_map_api.py` — **23 passed** (реальная in-memory SQLite, без
 сети/Telegram/LLM; HTTP-часть — TestClient со стабом БД, чтобы aiosqlite не
 переезжал между event-loop'ами):
 
@@ -172,8 +185,12 @@ Zero-build, CSP `self`, без inline/CDN, по образцу `execution_graph.
   отсутствие псевдо-метрик), рёбра с provenance и без выдуманных связей,
   только реальные записи эволюции (4);
 * caps/truncation: 160 фактов → 150 показано, `total=160`, порядок обрезки,
-  `state="partial"`; отсутствие ложного `truncated` на маленьком наборе (3);
-* `empty` ≠ `degraded`, падение конкретного источника (3);
+  `state="partial"`; **300 сущностей цепочкой → снапшот отдаёт окрестность
+  152 → `partial` с честным `by_kind.entity{shown:152,total:300,truncated}`;
+  маленький полностью загруженный чат → `ok`; сирота-сущность → честный
+  `partial`** (5);
+* `empty` ≠ `degraded`, падение конкретного источника, системный `decay_run`
+  с `chat_id=0` не выдан за «чат 0» (4);
 * RBAC 401/403/200, проброс `chat_id`, 403 в самом эндпоинте (4);
 * пин-тест: `/api/memory/graph` (ключи `nodes/edges/truncated/limits`, форма
   узлов/рёбер) и `/api/memory/stats` (10 ключей, реальные счётчики) не
@@ -182,8 +199,8 @@ Zero-build, CSP `self`, без inline/CDN, по образцу `execution_graph.
   `CREATE TABLE/INSERT/UPDATE/DELETE`, эмбеддингов и LLM, топология — из
   `graph_snapshot`, cap-константы на месте (2).
 
-`tests/js/evol_cognitive_map_test.js` — **404 проверки**, маркер
-`EVOL-COG-MAP-S1-OK checks=404`: отсутствие DOM/сети/vis-network в модуле;
+`tests/js/evol_cognitive_map_test.js` — **407 проверок**, маркер
+`EVOL-COG-MAP-S1-OK checks=407`: отсутствие DOM/сети/vis-network в модуле;
 нормализация (включая битый payload, незнакомый kind, `not_loaded`);
 поиск по названию и алиасу; фильтры с разрывом рёбер и счётчиками; камера;
 аллокатор (детерминизм, попарное отсутствие пересечений, LOD-пороги, потолки
@@ -236,3 +253,77 @@ S2/S4, контракт §6 «живой read-only»).
 6. **Полный текст в payload.** Узлы отдают `text` целиком (карточке S3 он
    нужен). Если на проде это тяжёлый ответ, нужно решение: оставить как есть
    или догружать текст карточки отдельно — это уже контракт, а не деталь.
+
+## 9. Правка после ревью W7-S1 (B1) — честность полноты
+
+Ревью: `plans/features/evol/reports/w7-s1-review.md` §5 (B1). Замечание
+подтверждено: до правки в чате с 850 сущностями снапшот возвращал окрестность
+150 сидов, и ответ объявлял `state="ok"`, `truncated.nodes=false`,
+`by_kind.entity={"shown":152,"total":850,"truncated":false}` при
+`shown_of.totals.nodes=850`. Пять остальных классов считали полноту по
+`total > shown`, то есть одно и то же поле означало разное, а S2 по контракту
+§4 включает «показано X из Y» только при `partial/truncated` — карта была бы
+подана как полная.
+
+**Новое правило (одно на все шесть классов и на рёбра):**
+
+| Поле | Значение |
+|---|---|
+| `by_kind[kind].truncated` | `total > shown` (для `entity` — `entity_total > shown_entities`, страховка `snapshot.truncated`) |
+| `truncated.nodes` | `any(by_kind[*].truncated)` — сводка, а не отдельное мнение |
+| `truncated.edges` | `edge_total > shown_edges` ИЛИ упор в `GRAPH_MAX_EDGES` |
+| `truncated.by_class.*` | значения `by_kind` (`evolution` — класс целиком: `evolution_cut` или любой из двух видов) |
+| `state` | `degraded` → `empty` → `partial` (если `truncated.nodes/edges`) → `ok` |
+
+Следствие: `state="ok"` теперь означает «показано всё, что есть в области».
+Сирота-сущность (снапшот её отбрасывает) тоже даёт `partial` — это правда:
+узел есть в БД и не показан. Форма payload и `version="cog-map/1"` не менялись:
+изменились только значения (и это ровно то, что требовалось).
+
+**Воспроизведение (300 сущностей в цепочке, чат `-3003`):**
+
+| | до правки | после |
+|---|---|---|
+| `by_kind.entity` | `{shown:152,total:300,truncated:false}` | `{shown:152,total:300,truncated:true}` |
+| `truncated.nodes` / `by_class.entity` | `false` / `false` | `true` / `true` |
+| `truncated.edges` (151 из 299) | `false` | `true` |
+| `state` | `ok` | `partial` |
+
+**Маленькая фикстура остаётся `ok`** (обратная сторона правила, чтобы
+`partial` не превратился в «всегда»): чат из двух связанных сущностей и одного
+факта → `state="ok"`, `by_kind.entity={shown:2,total:2,truncated:false}`,
+`totals.nodes == len(nodes)`, `totals.edges == len(edges)`.
+
+**Тесты, закрепляющие B1** (все падают при откате правки — проверено мутацией
+`by_kind.entity.truncated = bool(snapshot.truncated)`: краснеют
+`test_entity_neighbourhood_is_reported_partial` и
+`test_orphan_entity_is_reported_honestly`):
+
+* `test_entity_neighbourhood_is_reported_partial` — 300 цепочкой: `shown < total`,
+  `truncated` по классу/узлам/рёбрам, `state="partial"`;
+* `test_fully_loaded_small_chat_is_ok` — маленький полный чат остаётся `ok`;
+* `test_orphan_entity_is_reported_honestly` — сирота-сущность не выдаётся за
+  полную карту.
+
+**`evt:0:dream:*` (мелкое замечание ревью, исправлено — дешево):**
+`memory_dream_log.chat_id = 0` — системный прогон (`decay_run`), а не «чат 0».
+Теперь такой узел: `id = evt:global:dream:<id>`, `scope="global"`,
+`chat_id=null`, `provenance.chat_id=null`; в карту конкретного чата он не
+попадает. Новых полей и reason-кодов нет. Тест
+`test_global_decay_run_is_not_chat_zero`. Заодно `_scope_key(None)` даёт
+`global` вместо `?` (наблюдения без чата).
+
+**Фильтр области в адаптере (то же замечание):** добавлен явный
+`applyFilters(model, {scopes: ['chat'|'global']})`; `chats: [null]` сохранён
+как совместимый алиас. Проверено в node-тесте (3 проверки).
+
+**Прогоны после правки** (кандидат — коммит этой правки на `feat/cog-map-s1`):
+
+| Команда | Результат |
+|---|---|
+| `pytest tests/test_evol_cog_map_api.py -q` | 23 passed |
+| `pytest tests/test_webapp_api.py tests/test_webapp_memory_overview_api.py tests/test_webapp_round1015_graph.py tests/test_smoke_round1016_graph.py -q` | 218 passed (вместе с новыми) |
+| `node tests/js/evol_cognitive_map_test.js` | `EVOL-COG-MAP-S1-OK checks=407` |
+
+Не изменилось и остаётся `UNVERIFIED` (как в §6): живой ответ прода, размер
+payload, `EXPLAIN QUERY PLAN`, рендер (S2+).

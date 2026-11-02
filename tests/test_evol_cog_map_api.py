@@ -33,6 +33,8 @@ from web.api import cognitive_map as cm
 
 CHAT_A = -1001
 CHAT_B = -2002
+CHAT_C = -3003
+CHAT_D = -3004
 TEST_TOKEN = "123456:TEST_TOKEN_COGMAP"
 ADMIN_ID = 5885953495
 MODERATOR_ID = 1313107079
@@ -399,17 +401,90 @@ class TestCaps:
             assert counts.get(kind, 0) <= cm.GRAPH_SEED_NODES
 
     @pytest.mark.asyncio
-    async def test_small_dataset_is_not_marked_truncated(self, db):
-        await _seed_two_chats(db)
-        payload = await cm.build_cognitive_map(db, CHAT_A)
+    async def test_entity_neighbourhood_is_reported_partial(self, db):
+        """B1: снапшот отдаёт окрестность 150 сидов из 300 сущностей цепочки —
+        ответ обязан быть `partial` с честным `by_kind.entity`, а не `ok`."""
+        nodes = []
+        for i in range(300):
+            nodes.append(await _node(db, CHAT_C, f"Узел {i}", "topic"))
+        for i in range(len(nodes) - 1):
+            await _edge(db, nodes[i], nodes[i + 1], "связь")
+
+        payload = await cm.build_cognitive_map(db, CHAT_C)
+        entity = payload["shown_of"]["by_kind"]["entity"]
+        assert entity["total"] == 300
+        assert 0 < entity["shown"] < entity["total"], \
+            "снапшот вернул всю цепочку — фикстура не воспроизводит дефект"
+        assert entity["truncated"] is True
+        assert payload["truncated"]["nodes"] is True
+        assert payload["truncated"]["by_class"]["entity"] is True
+        assert payload["shown_of"]["totals"]["nodes"] >= 300
+        # рёбра — то же правило: показано меньше, чем записано
+        assert payload["shown_of"]["totals"]["edges"] > payload["shown_of"]["edges"]
+        assert payload["truncated"]["edges"] is True
+        assert payload["state"] == "partial", \
+            "неполная карта не имеет права называться ok"
+
+    @pytest.mark.asyncio
+    async def test_fully_loaded_small_chat_is_ok(self, db):
+        """Обратная сторона правила: маленький полностью загруженный чат —
+        по-прежнему `ok` (иначе «partial» перестал бы что-либо значить)."""
+        hub = await _node(db, CHAT_D, "Хаб")
+        topic = await _node(db, CHAT_D, "Тема", "topic")
+        await _edge(db, hub, topic, "обсуждали")
+        fact = await _fact(db, CHAT_D, "Единственный факт", importance=5)
+        assert fact
+
+        payload = await cm.build_cognitive_map(db, CHAT_D)
+        assert payload["state"] == "ok"
         assert payload["truncated"]["nodes"] is False
         assert payload["truncated"]["edges"] is False
-        assert payload["state"] == "ok"
+        assert payload["shown_of"]["by_kind"]["entity"] == {
+            "shown": 2, "total": 2, "truncated": False}
+        assert payload["shown_of"]["totals"]["nodes"] == len(payload["nodes"])
+        assert payload["shown_of"]["totals"]["edges"] == len(payload["edges"])
+
+    @pytest.mark.asyncio
+    async def test_orphan_entity_is_reported_honestly(self, db):
+        """Узел без рёбер снапшот отбрасывает — это тоже неполнота, и она
+        обязана попадать в `truncated`, а не выдаваться за полную карту."""
+        await _seed_two_chats(db)   # в чате A есть сущность «Одиночка» без рёбер
+        payload = await cm.build_cognitive_map(db, CHAT_A)
+
+        entity = payload["shown_of"]["by_kind"]["entity"]
+        assert entity["shown"] == 2 and entity["total"] == 3
+        assert entity["truncated"] is True
+        assert payload["truncated"]["by_class"]["entity"] is True
+        assert payload["state"] == "partial"
 
 
 # ── empty vs degraded ─────────────────────────────────────────────────────
 
 class TestStates:
+    @pytest.mark.asyncio
+    async def test_global_decay_run_is_not_chat_zero(self, db):
+        """`memory_dream_log.chat_id = 0` — системный прогон decay, не «чат 0»."""
+        hub = await _node(db, CHAT_A, "Хаб")
+        topic = await _node(db, CHAT_A, "Тема", "topic")
+        await _edge(db, hub, topic, "обсуждали")
+        await _dream(db, 0, 1750000700, "decay_run")
+
+        chat_payload = await cm.build_cognitive_map(db, CHAT_A)
+        assert not [n for n in chat_payload["nodes"]
+                    if n["kind"] == "evolution_event"], \
+            "системный прогон попал в карту конкретного чата"
+
+        global_payload = await cm.build_cognitive_map(db, None)
+        events = [n for n in global_payload["nodes"]
+                  if n["kind"] == "evolution_event"]
+        assert len(events) == 1
+        node = events[0]
+        assert node["id"].startswith("evt:global:dream:")
+        assert "evt:0:" not in node["id"], "служебная запись выдана за «чат 0»"
+        assert node["scope"] == "global"
+        assert node["chat_id"] is None
+        assert node["provenance"]["chat_id"] is None
+
     @pytest.mark.asyncio
     async def test_empty_is_not_degraded(self, db):
         payload = await cm.build_cognitive_map(db, CHAT_A)
