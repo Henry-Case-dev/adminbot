@@ -139,8 +139,13 @@ class _Sender:
 
 
 async def _meme_pass(state: dict, *, ledger, settings=None, sender=None,
-                     summary="хук", joke="прикол"):
-    """Один проход мема на реальном журнале (payload через `_note_state`)."""
+                     summary="хук", joke="прикол", chat_enabled=None):
+    """Один проход мема на реальном журнале (payload через `_note_state`).
+
+    ``chat_enabled`` — тот же шов, что у боевого прохода
+    (`InitiativeObserverRunner._meme_phase` передаёт
+    `initiative_observer.chat_observer_enabled`).
+    """
     async def summarizer(_cid, _rows_arg, _system):
         return summary
 
@@ -155,6 +160,7 @@ async def _meme_pass(state: dict, *, ledger, settings=None, sender=None,
         settings=settings if settings is not None else _settings(),
         ledger=ledger, now=NOW, now_ts=NOW_TS, tz_name="UTC",
         tz_source="utc_fallback", initiative_enabled=lambda: True,
+        chat_enabled=chat_enabled,
         image_status=IMAGE_OK, random_source=_Hit(), messages=_rows(CHAT),
         model_chars=200, claim_store=None, summarizer=summarizer,
         joke_generator=joke_generator, image_provider=_Provider(),
@@ -166,6 +172,21 @@ def _image_ok(monkeypatch):
         return dict(IMAGE_OK)
 
     monkeypatch.setattr(meme, "image_dependency", _image)
+
+
+def _gates_on(monkeypatch):
+    """Мастер-флаг и тумблер чата ВКЛЮЧЕНЫ (сценарии без этих гейтов).
+
+    Это внешние швы (`initiative_observer`), а не предмет проверки: тест про
+    отсутствие таблицы брони или про кулдаун не должен зависеть от глобального
+    hot-конфига, оставленного соседним тестом.
+    """
+    monkeypatch.setattr(obs, "observer_enabled", lambda: True)
+
+    async def _chat_on(_chat_id):
+        return True
+
+    monkeypatch.setattr(obs, "chat_observer_enabled", _chat_on)
 
 
 def _keys_of(value, out: set | None = None, *,
@@ -766,3 +787,200 @@ def test_missing_chat_yields_no_data_blocks(tmp_path):
         assert block["quota"]["limit"] is None
     assert result["text_initiative"]["output_kind"] != \
         result["meme"]["output_kind"]
+
+
+# ═══ 15. F1(a): тумблер инициативы в чате выключен ═════════════════════════
+
+def test_chat_toggle_off_is_reported_as_initiative_disabled(tmp_path,
+                                                           monkeypatch):
+    """Живой проход отказывает `initiative_disabled` — блок говорит то же.
+
+    Гейт спрашивается через ТОТ ЖЕ шов, что у боевого прохода
+    (`InitiativeObserverRunner._meme_phase` передаёт
+    `initiative_observer.chat_observer_enabled`), поэтому обе стороны видят
+    одно состояние чата.
+    """
+    _image_ok(monkeypatch)
+
+    async def chat_off(_chat_id):
+        return False
+
+    monkeypatch.setattr(obs, "chat_observer_enabled", chat_off)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="chat_off.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            live = (await _meme_pass(
+                state, ledger=ledger,
+                chat_enabled=obs.chat_observer_enabled))[0]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True,
+                         "chats": state}})
+            return live, await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS, meme_settings=_settings())
+        finally:
+            await svc.close()
+
+    live, result = asyncio.run(scenario())
+    # Живой путь: публикации нет, причина — выключенная инициатива.
+    assert live.stage == meme.STAGE_SKIPPED
+    assert live.reason == meme.SKIP_INITIATIVE_DISABLED
+
+    meme_block = result["meme"]
+    # Диагностика в ТОМ ЖЕ состоянии не выдаёт «готов».
+    assert meme_block["ready"] is False
+    assert meme_block["skip"]["code"] == meme.SKIP_INITIATIVE_DISABLED
+    assert meme_block["skip"]["code"] == live.reason
+    assert meme_block["skip"]["origin"] == "availability"
+    assert meme_block["conditions"]["initiative_enabled"] is False
+    assert meme_block["ready_reason"] == meme.SKIP_INITIATIVE_DISABLED
+    # Записанная причина прошедшего прохода — тот же код, что и текущая.
+    assert meme_block["skip_recorded"]["code"] == meme.SKIP_INITIATIVE_DISABLED
+    # Текстовая инициатива в этом же чате тоже не готова (оба блока честны).
+    assert result["text_initiative"]["ready"] is False
+    assert result["text_initiative"]["skip"] is not None
+
+
+# ═══ 16. F1(b): таблицы брони нет — боевой `schema_absent` ══════════════════
+
+def test_missing_claim_table_is_reported_as_schema_absent(tmp_path,
+                                                         monkeypatch):
+    """Нет таблицы брони: мем физически не публикуется — блок не пишет «готов»."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="no_claim.db")
+        try:
+            await _schema(svc)
+            await _drop_claim_table(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            live = (await _meme_pass(state, ledger=ledger,
+                                     settings=_settings()))[0]
+            return live, await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS, meme_settings=_settings())
+        finally:
+            await svc.close()
+
+    live, result = asyncio.run(scenario())
+    # Живой проход останавливается на отсутствии брони (не «на удачу»).
+    assert live.stage == meme.STAGE_SKIPPED
+    assert live.reason == meme.SKIP_SCHEMA
+    assert live.detail == "publish_claim_absent"
+
+    meme_block = result["meme"]
+    assert meme_block["ready"] is False
+    assert meme_block["skip"]["code"] == meme.SKIP_SCHEMA
+    assert meme_block["skip"]["code"] == live.reason
+    assert meme_block["skip"]["origin"] == "publication"
+    # Деградация остаётся деградацией: конфликт НЕИЗВЕСТЕН, а не «нет».
+    assert meme_block["publication"]["degraded"] is True
+    assert meme_block["publication"]["conflict"] is None
+    assert meme_block["publication"]["conflict_state"] == diag.CONFLICT_UNKNOWN
+    # И ни один блок не заявляет готовность рядом с причиной пропуска.
+    for name in ("text_initiative", "meme"):
+        assert not (result[name]["ready"] is True
+                    and result[name]["skip"] is not None), name
+
+
+# ═══ 17. F1(c): кулдаун — `ready=false`, а не «готов И причина пропуска» ═══
+
+def test_cooldown_state_never_claims_ready_and_skip_together(tmp_path,
+                                                             monkeypatch):
+    """Два поля одного блока не противоречат: `ready` считается ПОСЛЕ `skip`."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    own = 3600
+
+    async def scenario():
+        svc = await _db(tmp_path, name="cooldown_only.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            # Свободный чат: ни кулдауна, ни квоты — механизм реально готов.
+            free = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS,
+                meme_settings=_settings(cooldown_seconds=own), ledger=ledger)
+            # Тот же чат, но вызов провайдера был минуту назад → своя пауза.
+            await svc.db.execute(
+                "INSERT INTO meme_initiative_reservation (job_id, chat_id, "
+                "day_bucket, timezone_name, timezone_source, status, "
+                "error_code, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                ("job-ready", CHAT, "2026-11-03", "UTC", "utc_fallback",
+                 "provider_called", "", NOW_TS - 60))
+            await svc.db.commit()
+            cooling = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS,
+                meme_settings=_settings(cooldown_seconds=own), ledger=ledger)
+            return free["meme"], cooling["meme"]
+        finally:
+            await svc.close()
+
+    free, cooling = asyncio.run(scenario())
+    # Свободное состояние: готовность правда, причины пропуска нет.
+    assert free["ready"] is True
+    assert free["skip"] is None
+    assert free["ready_reason"] == ""
+    # Кулдаун: причина есть — и «готов» рядом с ней уже не появится.
+    assert cooling["skip"]["code"] == meme.SKIP_COOLDOWN
+    assert cooling["skip"]["origin"] == "cooldown"
+    assert cooling["cooldown"]["remaining_seconds"] == own - 60
+    assert cooling["ready"] is False
+    assert cooling["ready_reason"] == meme.SKIP_COOLDOWN
+    assert not (cooling["ready"] is True and cooling["skip"] is not None)
+
+
+# ═══ 18. F2: «следующая проверка» не может быть раньше «последней» ═════════
+
+def test_next_check_is_never_before_last_check(tmp_path, monkeypatch):
+    """Один базис времени: решение записано «сейчас», оценка была 2 ч назад."""
+    _image_ok(monkeypatch)
+    stale_eval = NOW_TS - 7200
+
+    async def scenario():
+        svc = await _db(tmp_path, name="next_check.db")
+        try:
+            await _schema(svc)
+            # Так пишет сам наблюдатель на гейтах и на промахе draw: решение
+            # фиксируется на КАЖДОМ проходе, `last_eval_ts` — только оценки.
+            await _seed_observe_payload(svc, _text_payload(
+                eval_ts=stale_eval, now_override=NOW_TS,
+                skip_reason="eval_not_due", conditions={"evaluated": False}))
+            stale = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            # Обычное состояние: оценка и решение — один и тот же проход.
+            await _seed_observe_payload(svc, _text_payload(
+                eval_ts=NOW_TS - 3600, now_override=NOW_TS - 3600,
+                skip_reason="not_enough_messages"))
+            normal = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return stale["text_initiative"], normal["text_initiative"]
+        finally:
+            await svc.close()
+
+    stale, normal = asyncio.run(scenario())
+    # Последняя проверка — время записанного решения (каждый проход).
+    assert stale["last_check_ts"] == NOW_TS
+    # Расчётная дата оценки (last_eval + интервал) уже в прошлом к моменту
+    # последней проверки → дата не выдаётся; честно «на ближайшем проходе».
+    assert stale["next_check_ts"] is None
+    assert stale["next_check_basis"] == "every_pass"
+
+    # Обычное состояние: дата есть, она ПОЗЖЕ последней проверки.
+    assert normal["next_check_ts"] is not None
+    assert normal["next_check_basis"] == "eval_interval"
+    assert normal["next_check_ts"] > normal["last_check_ts"]
+
+    # Инвариант для любого состояния и любого механизма: `next` не раньше
+    # `last` (иначе в админке была бы «следующая проверка: прошедшая дата»).
+    for block in (stale, normal):
+        if block["next_check_ts"] is not None:
+            assert block["last_check_ts"] is not None, block["mechanism"]
+            assert block["next_check_ts"] >= block["last_check_ts"], \
+                block["mechanism"]
+

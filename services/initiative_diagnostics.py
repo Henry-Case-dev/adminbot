@@ -1471,7 +1471,9 @@ async def text_mechanism_diagnostics(db, chat_id, *,
     Числа берутся у того же read-model, что показывает ворота чата
     (`initiative_observer.chat_block_state`), поэтому диагностика не выводит
     своё мнение о состоянии механизма. Порядок причин «сейчас мешает» — тот
-    же порядок ворот, что у боевого пути. Никогда не бросает.
+    же порядок ворот, что у боевого пути. `last_check_ts`/`next_check_ts`
+    считаются на одном базисе (время проверки): дата в прошлом не выдаётся.
+    Никогда не бросает.
     """
     now_ts = _now(now)
     cid = _int_or_none(chat_id)
@@ -1513,6 +1515,15 @@ async def text_mechanism_diagnostics(db, chat_id, *,
         next_basis = "eval_interval" if interval > 0 else "every_pass"
         if next_check is None:
             next_basis = "unknown"
+        elif next_check <= last_check:
+            # F2: `last_check` — время РЕШЕНИЯ (пишется на каждом проходе),
+            # `next_eval_ts` — оценка (`last_eval_ts + interval`). Если решение
+            # записано позже расчётной даты оценки (проход был, оценки не было:
+            # min_gap, антифлуд, конфликт, дневной кап, промах draw), «следующая
+            # проверка» оказалась бы в прошлом. Оба поля — на одном базисе:
+            # дата в прошлое не выдаётся, вместо неё честное «на ближайшем
+            # проходе» (`every_pass`).
+            next_check, next_basis = None, "every_pass"
 
     draw = draw_block(decision.get("random"))
     if draw is None:
@@ -1593,6 +1604,27 @@ def _no_chat_block(mechanism: str, output_kind: str) -> dict:
     }
 
 
+async def _initiative_on(chat_id: int) -> bool:
+    """Реальный признак «инициатива включена» ДЛЯ ЭТОГО чата.
+
+    Боевой путь мема проверяет ДВА гейта подряд (`consider_chat`
+    :1458-1461): мастер-флаг наблюдателя и тумблер чата
+    (`observer_enabled() and chat_observer_enabled(chat)`). Диагностика
+    обязана спрашивать тот же признак, иначе она покажет «готов» там, где
+    живой проход отказывает `initiative_disabled`. Fail-closed: сбой чтения
+    = «выключено» (в отличие от «готово») — так честнее.
+    """
+    try:
+        if not obs.observer_enabled():
+            return False
+    except Exception:
+        return False
+    try:
+        return bool(await obs.chat_observer_enabled(chat_id))
+    except Exception:
+        return False
+
+
 async def _meme_precheck(db, chat_id: int, ledger, now_ts: int) -> dict:
     """Снимок брони публикации глазами МЕМ-механизма (та же координация)."""
     from services import publication_coordination as pubmod
@@ -1611,7 +1643,9 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
 
     Отдельный блок: ничего не берётся из блока текстовой инициативы и ничего
     в него не подмешивается. Порядок причин «сейчас мешает» — тот же порядок
-    гейтов, что у боевого `consider_chat`. Никогда не бросает.
+    гейтов, что у боевого `consider_chat` (включая тумблер инициативы чата и
+    отсутствие таблицы брони), а `ready` вычисляется после причины пропуска.
+    Никогда не бросает.
     """
     from services import meme_initiative as meme
     now_ts = _now(now)
@@ -1650,10 +1684,14 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
                else await meme.load_settings(chat_id))
     except Exception:
         cfg = None
+    # Тот же комбинированный гейт, что у боевого `consider_chat`: мастер-флаг
+    # И тумблер чата. Иначе блок показывал `ready=true` в чате, где мемы
+    # выключены, а живой проход отказывал `initiative_disabled` (F1).
+    initiative_on = await _initiative_on(cid)
     try:
         avail = await meme.availability(
             cid, settings=cfg, ledger=ledger, image_health=image_health,
-            publication=pub_view, now=now_ts)
+            publication=pub_view, now=now_ts, initiative_on=initiative_on)
     except Exception:
         logger.warning("[diag] meme availability failed", exc_info=True)
         avail = {}
@@ -1738,6 +1776,9 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         logger.warning("[diag] meme quota/quiet read failed", exc_info=True)
 
     # ── причина пропуска: ТЕКУЩЕЕ состояние в порядке боевых гейтов ─────────
+    # Порядок = `consider_chat`: инициатива/настройки/image/журнал (availability)
+    # → квота → свой кулдаун → тихие часы → отсутствие таблицы брони → бронь.
+    pub_block = publication_block(pub_view, checked_at=now_ts)
     avail_reason = str(avail.get("reason") or "")
     skip = None
     if avail_reason and avail_reason != "ok":
@@ -1748,6 +1789,11 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         skip = skip_block(meme.SKIP_COOLDOWN, "cooldown")
     elif quiet_active:
         skip = skip_block(meme.SKIP_QUIET, "quiet_hours")
+    elif pub_block is not None and pub_block.get("degraded"):
+        # Таблицы брони нет: боевой гейт отказывает `schema_absent`
+        # (`detail="publish_claim_absent"`, `consider_chat` :1506-1507) — мем
+        # не публикуется без координации. Деградация не выдаётся за «готов».
+        skip = skip_block(meme.SKIP_SCHEMA, "publication")
     elif pub_view.get("ok") is False:
         # Код берётся из причины брони (боевая карта), не из нового словаря.
         pub_reason = str(pub_view.get("reason") or "")
@@ -1761,6 +1807,13 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
     elif last_attempt_reason in meme.SKIP_REASONS:
         skip_recorded = skip_block(last_attempt_reason, "journal")
 
+    # `ready` считается ПОСЛЕ `skip`: два поля одного блока не могут
+    # противоречить («готов» рядом с собственной причиной пропуска).
+    can_start = avail.get("available") if avail else None
+    ready = None if can_start is None else (bool(can_start) and skip is None)
+    ready_reason = str((skip or {}).get("code")
+                       or ("" if ready else avail_reason))
+
     return {
         "mechanism": MECHANISM_MEME,
         "output_kind": meme.OUTPUT_KIND,
@@ -1768,8 +1821,8 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         "available": available,
         "data_state": DATA_OK if available else DATA_NO_DATA,
         "no_data_reasons": _unique(reasons),
-        "ready": (bool(avail.get("available")) if avail else None),
-        "ready_reason": avail_reason,
+        "ready": ready,
+        "ready_reason": ready_reason,
         "last_check_ts": last_check,
         "next_check_ts": next_check,
         "next_check_basis": next_basis,
@@ -1780,7 +1833,7 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         "skip_recorded": skip_recorded,
         "cooldown": cooldown,
         "quota": quota,
-        "publication": publication_block(pub_view, checked_at=now_ts),
+        "publication": pub_block,
         "blocking": None,
     }
 
@@ -1814,7 +1867,17 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
     * ``random.performed = false`` + ``no_draw_reason = "probability_one"``
       значит, что draw НЕ выполнялся (а не «случай сработал»);
     * ``cooldown`` считается только по собственному кулдауну механизма
-      (``scope = "mechanism_own"``), TTL брони 90/120/600 с — не кулдаун.
+      (``scope = "mechanism_own"``), TTL брони 90/120/600 с — не кулдаун;
+    * ``ready`` считается ПОСЛЕ ``skip``: ``ready = false``, если есть причина
+      пропуска (два поля одного блока не противоречат друг другу). Гейты —
+      ровно те, что у боевого пути: для мема это и мастер-флаг с тумблером
+      чата (``initiative_disabled``), и отсутствие таблицы брони
+      (``schema_absent``, ``origin="publication"``);
+    * ``next_check_ts`` никогда не раньше ``last_check_ts``: оба поля — на
+      одном базисе (время проверки); если расчётная дата оценки уже прошла к
+      моменту последней проверки, дата не выдаётся —
+      ``null`` + ``next_check_basis = "every_pass"`` («следующая попытка —
+      ближайший проход»).
 
     Карта полей блока механизма (``MECHANISM_BLOCK_FIELDS``; все ключи есть
     всегда, «нет данных» = ``null``)::
@@ -1845,7 +1908,9 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
     ``skip.origin``: ``gate``/``availability``/``quota``/``cooldown``/
     ``quiet_hours``/``publication`` — текущее состояние; ``payload_state``/
     ``journal`` — запись прошлого прохода (может быть устаревшей, поэтому
-    текущая причина и запись разведены в разные поля).
+    текущая причина и запись разведены в разные поля). ``origin=
+    "publication"`` с ``code="schema_absent"`` = таблицы брони нет, мем не
+    публикуется (деградация координации, а не «конфликта нет»).
 
     ``publication`` (``PUBLICATION_FIELDS``): ``coordination`` = "ok"|
     "degraded" (деградация ⇒ ``available=false``, ``conflict=null``,
