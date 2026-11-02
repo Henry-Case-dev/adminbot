@@ -323,6 +323,50 @@ def build_character_rules_block() -> str:
     return _CHARACTER_RULES_BLOCK
 
 
+async def resolve_character_block(chat_id: int) -> tuple:
+    """Проза личности чата как блок речевой сборки: ``(text, ctx)``.
+
+    Один резолв характера на ход: возвращается ровно то, что уходит в Writer
+    (``<Persona>`` + ``<Character_Rules>`` при K1 ON) и тот же
+    ``CharacterReadContext``, что у Direct-хода, поэтому профиль решений
+    (``build_decision_profile_block``) совпадает с Direct байт-в-байт.
+
+    Владелец основы тот же, что у direct-промпта: persona gate per-chat
+    (``flags.persona_enabled``), K1-слои уважаются. Fail-open → ``("", None)``:
+    слой личности пропускается с честной причиной в манифесте композера.
+
+    MEME-JOKE-SPEECH (arch/joke-speech-layers.md §8): тело перенесено сюда из
+    ``DirectChatService._initiative_character`` (логика не менялась), чтобы
+    жанровый Writer (этап B мемов) получал ТУ ЖЕ личность без второй копии
+    резолва и без инстанса Direct-сервиса.
+    """
+    try:
+        from services.chat_params import get_chat_param as _cpg
+        persona_enabled = await _cpg(
+            chat_id, "flags.persona_enabled",
+            hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+        if not persona_enabled:
+            return "", None
+        if mca_gates.character_layers_enabled():
+            ctx = await resolve_character_context(chat_id)
+            block = build_persona_prompt_block(
+                ctx.persona, [str(t) for t in (ctx.traits or ())],
+                enabled=True)
+            rules = build_character_rules_block()
+            if block and rules:
+                block = block + "\n\n" + rules
+            return block or "", ctx
+        persona = await resolve_bot_persona(chat_id)
+        traits = await get_traits(
+            int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+        texts = [str(t.get("text") or "") for t in (traits or ())]
+        ctx = CharacterReadContext(persona=persona, traits=tuple(texts))
+        return (build_persona_prompt_block(persona, texts, enabled=True)
+                or ""), ctx
+    except Exception:
+        return "", None
+
+
 # ── ASAP-FC-VOICE-01 / B: характер как ДАННЫЕ для decision-планеров ─────────
 # Причина правки по коду (plans/owner_inputs/2026-11-02-asap-fc-voice-01.md §5):
 # L1 получал головной срез ПРОЗЫ `<Persona>` (`L1_PERSONA_FRAME_CHARS = 400`)

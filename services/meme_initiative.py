@@ -20,6 +20,11 @@ MEME-PIPELINE-REFactor-01 (03.11.2026): пайплайн внутри ЭТОГО
   * этап B (прикол) — обязательный отдельный LLM-вызов по выжимке; длина
     ограничивается здесь: ``J = max(0, L - T)`` уходит модели явной
     инструкцией, защитная обрезка — только страховка от перелёта;
+  * этап B — АВТОРСКАЯ речь: system собирает единый речевой композер
+    (``compose_speech_system``), поэтому прикол придумывает персонаж в своём
+    характере (Core/Identity/Expression/базовая речь/юмор/приём Humor Craft/
+    Style Policy), а редактируемый промпт остаётся заданием. Второго
+    композера, дубля Core, нового агента и доп. LLM-вызовов нет;
   * этап C (картинка) собирает итоговый prompt из шаблона и ПРИКОЛА
     (не из сырой выжимки); потолок L относится именно к этому тексту;
   * ``manual=True`` (диагностика ``/meme``) обходит квоту/кулдаун/минимум
@@ -36,6 +41,7 @@ MEME-PIPELINE-REFactor-01 (03.11.2026): пайплайн внутри ЭТОГО
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import sqlite3
@@ -73,6 +79,15 @@ JOKE_PLACEHOLDER = "{joke}"
 #: промпта в админке не отменяет автоматический потолок (§3 ТЗ).
 JOKE_LENGTH_DIRECTIVE = ("Сгенерируй прикол длиной не более {n} символов. "
                          "Верни только текст прикола.")
+
+#: MEME-JOKE-SPEECH: этап B собирает system ЕДИНЫМ речевым композером
+#: (`services.prompt_composer.compose_speech_system`). Задание (редактируемый
+#: промпт + J-директива) — только слой `channel_contract`; личность, характер,
+#: «Речь и характер», базовая речь/юмор, приём Humor Craft, примеры и Style
+#: Policy приходят теми же резолверами, что у Direct/-инициативы.
+JOKE_SPEECH_WRITER = "meme_joke"
+#: Кода плана ответа у жанра нет честно: закрытая причина композера (§SKIP_REASONS).
+JOKE_PLAN_SKIP = "no_l1_plan_in_genre"
 
 IMAGE_PROMPT_BLOCK_ID = "initiative.meme.image"
 SUMMARY_PROMPT_BLOCK_ID = "initiative.meme.summary"
@@ -1418,10 +1433,13 @@ async def consider_chat(
         chat_id, JOKE_PROMPT_BLOCK_ID, factory=MEME_JOKE_PROMPT)
     instruction = joke_instruction(
         str(joke_prompt.get("text") or MEME_JOKE_PROMPT), budget.joke_budget)
+    joke_speech: dict = {}
     try:
         if joke_generator is None:
-            raw_joke = await _default_joke(
-                llm, summary, instruction=instruction, chat_id=int(chat_id))
+            raw_joke, joke_speech = await _default_joke(
+                llm, summary, instruction=instruction, chat_id=int(chat_id),
+                base_source=_speech_base_source(
+                    str(joke_prompt.get("source") or "")), job_id=jid)
         else:
             raw_joke = await joke_generator(int(chat_id), summary, instruction)
     except Exception as exc:
@@ -1444,6 +1462,10 @@ async def consider_chat(
         "source": str(joke_prompt.get("source") or ""),
         "placeholder": budget.placeholder,
     }
+    if joke_speech:
+        # MEME-JOKE-SPEECH: фактические ревизии Core/Expression/юмора и
+        # манифест сборки — аддитивно рядом с прежними ключами этапа.
+        facts[STAGE_JOKE]["speech"] = joke_speech
 
     # ── этап C — итоговый prompt из шаблона и ПРИКОЛА (не выжимки) ──────────
     prompt = render_image_prompt(template, joke)
@@ -1614,21 +1636,198 @@ async def _default_summarize(llm, rows, system_prompt: str, *,
     return str(raw or "").strip()
 
 
+@dataclass(frozen=True)
+class JokeAdvice:
+    """Совет юмора для композера: приём Humor Craft (нулевой LLM-вызов).
+
+    Композер читает ``comic_strategy`` ДО подмены PlanRef, поэтому текста
+    L1-плана в payload нет (``plan_skip=no_l1_plan_in_genre``), а приём
+    доезжает до слоя ``humor_craft``.
+    """
+
+    comic_strategy: str = ""
+    extent: str = ""
+    structure: str = ""
+    tone: str = ""
+
+
+def _text_sha12(text: str) -> str:
+    """12-hex sha256 — та же ревизия, что у композера/реестра промптов."""
+    return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()[:12]
+
+
+def _speech_base_source(layer: str) -> str:
+    """Провенанс задания для композера (закрытый набор ``SOURCES``).
+
+    Чат/глобальный слой различимы; заводская редакция, реестр и явный
+    override — ``default`` (новых значений не вводим).
+    """
+    return "chat" if str(layer or "") == "chat" else (
+        "global" if str(layer or "") == "global" else "default")
+
+
+async def joke_technique(chat_id: int | None, job_id: str, *, gates) -> str:
+    """Приём Humor Craft для этапа B: детерминированная ротация по ``job_id``.
+
+    Приём НЕ выбирает LLM (доп. вызовов нет) и НЕ один захардкоженный: список
+    техник берётся из документа владельца ``humor.craft``
+    (``mca_humor_craft.resolve_config``) — выключенные техники не выбираются
+    никогда, включённые участвуют в ротации ``sha256(job_id) % len(enabled)``.
+    Пусто → слоя нет; причина остаётся в манифесте (``humor_disabled``).
+    """
+    if not getattr(gates, "humor_craft_enabled", False):
+        return ""
+    try:
+        from services import mca_humor_craft as craft
+        cfg = await craft.resolve_config(chat_id)
+    except Exception:
+        logger.warning("[meme] humor craft config unreadable — слой пропущен",
+                       exc_info=True)
+        return ""
+    if not cfg.enabled:
+        return ""
+    enabled = [name for name in craft.TECHNIQUES if cfg.technique_enabled(name)]
+    if not enabled:
+        return ""
+    digest = hashlib.sha256(str(job_id or "").encode("utf-8")).hexdigest()
+    return enabled[int(digest, 16) % len(enabled)]
+
+
+def _speech_facts(system: str, manifest, technique: str) -> dict:
+    """Диагностика речевой сборки этапа B (аддитивно, в ``detail`` журнала).
+
+    Без ``versions["humor"]``: ключа в композере нет, а его добавление сдвинуло
+    бы ``manifest_id`` всех Writer'ов. Ревизия приёма берётся из трассы слоя
+    ``humor_craft``; текст прикола и сырые тексты слоёв сюда не попадают.
+    """
+    if manifest is None:
+        return {"composer": "failed", "system_sha12": _text_sha12(system)}
+    from services import prompt_composer as pc
+    versions = dict(manifest.versions or {})
+    traces = tuple(manifest.layers or ())
+    humor = next((t for t in traces if t.layer == pc.LAYER_HUMOR_CRAFT), None)
+    if humor is not None and humor.rendered:
+        humor_status = "rendered"
+    else:
+        humor_status = "skip:" + str(
+            (humor.skip_reason if humor is not None else "") or
+            "humor_no_strategy")
+    skipped: dict[str, str] = {}
+    for trace in traces:
+        if trace.rendered or not trace.skip_reason:
+            continue
+        previous = skipped.get(trace.layer)
+        skipped[trace.layer] = (
+            previous + "|" + trace.skip_reason
+            if previous and previous != trace.skip_reason
+            else (previous or trace.skip_reason))
+    return {
+        "composer": "on",
+        "system_sha12": pc.sha12(system),
+        "manifest": str(manifest.manifest_id or ""),
+        "core": str(versions.get("core") or ""),
+        "core_detail": str(versions.get("core_detail") or ""),
+        "identity": str(versions.get("identity") or ""),
+        "expression": str(versions.get("expression") or ""),
+        "style_policy": str(versions.get("style_policy") or ""),
+        "humor": (str(humor.revision or "") if humor is not None else ""),
+        "technique": str(technique or ""),
+        "humor_status": humor_status,
+        "layers": [{"layer": t.layer, "block": t.block_id,
+                    "revision": t.revision, "chars": int(t.chars or 0),
+                    "rendered": bool(t.rendered),
+                    "skip": t.skip_reason} for t in traces],
+        "skipped": skipped,
+        "off_axes": sorted(name for name, value in
+                           (manifest.flags or {}).items() if not value),
+    }
+
+
+async def _joke_system_prompt(chat_id: int | None, *, instruction: str,
+                              base_source: str, summary: str,
+                              job_id: str) -> tuple[str, dict]:
+    """System этапа B через ЕДИНЫЙ композер речи (ноль LLM-вызовов).
+
+    Задание (редактируемый промпт прикола + J-директива) едет слоем
+    ``channel_contract`` первым; речевые слои владельца дописываются после него
+    и заданием не вытесняются (аддитивного бюджета инструкций нет). Отдельного
+    композера/второй копии Core/нового агента здесь нет.
+
+    Композер fail-open: сбой сборки → база канала (payload этапа B
+    байт-в-байт сегодняшний) и ``composer="failed"``; прикол выжимкой не
+    подменяется.
+    """
+    base = str(instruction or "")
+    try:
+        from services import prompt_composer as pc
+    except Exception:                      # pragma: no cover — защитная ветка
+        logger.warning("[meme] speech composer unavailable — база канала",
+                       exc_info=True)
+        return base, {"composer": "failed", "system_sha12": _text_sha12(base)}
+    chat_key = int(chat_id) if chat_id is not None else 0
+    technique = ""
+    identity_text = ""
+    identity_skipped = "identity_absent"
+    try:
+        gates = await pc.resolve_gates(chat_key)
+        technique = await joke_technique(chat_key, job_id, gates=gates)
+        if getattr(gates, "persona_enabled", True):
+            try:
+                from services import bot_persona
+                identity_text, _ctx = await bot_persona.resolve_character_block(
+                    chat_key)
+            except Exception:
+                logger.warning("[meme] persona block unavailable — слой "
+                               "пропущен", exc_info=True)
+                identity_text = ""
+            identity_skipped = "" if str(identity_text or "").strip() \
+                else "identity_absent"
+        else:
+            identity_skipped = "persona_disabled"
+        system, manifest = await pc.compose_speech_system(
+            chat_id=chat_key, writer=JOKE_SPEECH_WRITER,
+            run_id=(str(job_id) or None), channel="plain", html_safe=False,
+            base_prompt=base, base_source=base_source,
+            include_mode_block=False, profile=pc.PROFILE_SPEECH_PLAIN,
+            gates=gates, include_speech_base=True, extent_block="",
+            plan_skip=JOKE_PLAN_SKIP,
+            response_plan=JokeAdvice(comic_strategy=technique),
+            identity_text=identity_text, identity_source="chat",
+            identity_skipped=identity_skipped,
+            style_skip="style_requests_absent", lessons_skip="lessons_absent",
+            speech_skip="speech_absent", context_text=str(summary or ""),
+            user_parts=(str(summary or ""),))
+    except Exception:
+        logger.warning("[meme] joke speech compose failed — база канала",
+                       exc_info=True)
+        return base, {"composer": "failed", "system_sha12": _text_sha12(base)}
+    return system, _speech_facts(system, manifest, technique)
+
+
 async def _default_joke(llm, summary: str, *, instruction: str,
-                        chat_id: int | None = None) -> str:
+                        chat_id: int | None = None, base_source: str = "",
+                        job_id: str = "") -> tuple[str, dict]:
     """Этап B: ОДИН LLM-вызов — выжимка превращается в короткий абсурдный прикол.
 
-    Модель получает выжимку и инструкцию, в которой уже стоит явное
-    ограничение длины N = J (§3 ТЗ): ограничение действует ДО генерации,
-    а не обрезкой постфактум. Нет клиента — честный ``RuntimeError``
-    (``joke_generation_failed``), а не подстановка выжимки вместо прикола.
+    System собирает единый речевой композер: прикол придумывает САМ персонаж
+    (Core/Identity/Expression/базовая речь/юмор/приём/Style Policy), а
+    редактируемый промпт и J-директива остаются заданием. Выжимка —
+    аналитическая часть: она едет ТОЛЬКО user-сообщением.
+
+    Возврат ``(текст, диагностика сборки)``: второй элемент пишется в
+    ``facts.joke.speech`` журнала попыток. Нет клиента — честный
+    ``RuntimeError`` (``joke_generation_failed``).
     """
     generate = getattr(llm, "generate", None) if llm is not None else None
     if generate is None:
         raise RuntimeError("joke_client_unavailable")
+    body = str(summary or "").strip()
+    system, speech = await _joke_system_prompt(
+        chat_id, instruction=instruction, base_source=base_source,
+        summary=body, job_id=job_id)
     messages = [
-        {"role": "system", "content": str(instruction or "")},
-        {"role": "user", "content": str(summary or "").strip()},
+        {"role": "system", "content": system},
+        {"role": "user", "content": body},
     ]
     raw = await asyncio.wait_for(
         generate(messages, temperature=0.8,
@@ -1636,7 +1835,7 @@ async def _default_joke(llm, summary: str, *, instruction: str,
                  module="initiative", step="meme_joke",
                  correlation_id=uuid.uuid4().hex[:16]),
         timeout=JOKE_TIMEOUT_SECONDS)
-    return str(raw or "").strip()
+    return str(raw or "").strip(), speech
 
 
 
@@ -1724,6 +1923,19 @@ def _joke_stats(rows: list[dict]) -> dict:
     }
 
 
+def _last_joke(rows: list[dict]) -> dict:
+    """Факты САМОГО СВЕЖЕГО ``joke``-ряда (витрина диагностики, без текстов).
+
+    Порядок ``rows`` — свежие первыми (durable — ``ts DESC``, process-local —
+    перевёрнутый кольцевой буфер), поэтому достаточно первой встреченной строки
+    этапа B. Разбор — тем же единственным ``parse_attempt_facts``.
+    """
+    for row in rows:
+        if str(row.get("stage") or "") == STAGE_JOKE:
+            return parse_attempt_facts(row)
+    return {}
+
+
 def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
                        chat_id: int | None = None,
                        day: DayWindow | None = None,
@@ -1757,6 +1969,9 @@ def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
         "counters": counters,
         "skip_reasons": reasons,
         "joke": _joke_stats(rows),
+        # MEME-JOKE-SPEECH: аддитивная диагностика свежего прикола (слои и
+        # фактические ревизии) для карточки «Инициатива → Мемы».
+        "last_joke": _last_joke(rows),
         "attempts": rows[:20],
         "quota": quota,
         "enabled_default": DEFAULT_ENABLED,
