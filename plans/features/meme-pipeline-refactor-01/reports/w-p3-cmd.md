@@ -83,6 +83,18 @@
 проверяется на отсутствие `image_generation_failed`, `MEME_IMAGE_PROMPT`,
 «прикол» и любого упоминания удаления.
 
+**Где физически лежат доказательства (для привязки PM).** Файла
+`tests/test_meme_pipeline_refactor_01.py` в репозитории нет и не было — это
+опечатка в arch §7/§8, не артефакт. Реальные файлы:
+
+- `tests/test_meme_command_autodelete.py` — команда `/meme` целиком:
+  `test_manual_run_bypasses_quota_cooldown_and_closed_gate` (квота 0 +
+  кулдаун + минимум сообщений + тихие часы + тумблеры + закрытый гейт) и
+  `test_manual_run_does_not_bypass_image_backend_availability`;
+- `tests/test_meme_pipeline_stages.py` — сам пайплайн с `manual=True`:
+  `test_manual_bypasses_quota_cooldown_activity_random_and_gate`,
+  `test_manual_keeps_image_and_schema_gates`.
+
 ## 5. Ярлыки (P5, service-часть)
 
 - `REASON_LABELS` + `joke_generation_failed`, `joke_empty`, `no_joke_budget`,
@@ -121,7 +133,12 @@ service-словарь уже их резолвит (`reason_label`, диагн�
 6. T6 не-админ (в т.ч. `is_dm_owner`): 0 delete, 0 исходящих, в журнале нет
    ни строки; гейт `is_meme_admin` (global/local/ADMIN_USER_ID) и
    fail-closed при сбое `access_for`;
-7. bypass-матрица (таблица §4) и «нет image backend» → короткая ошибка;
+7. bypass-матрица (таблица §4): `manual_run_bypasses_quota_cooldown_and_closed_gate`
+   — журнал содержит РОВНО `considered/eligible/summary/joke/image_generation/
+   publish`, факты публикации строго `{"gate": "manual_bypass",
+   "manual": true}` (без дизъюнкций), брони нет; плюс «нет image backend» →
+   короткая ошибка. Пайплайновые обходы отдельно —
+   `tests/test_meme_pipeline_stages.py`;
 8. `/meme` отсутствует в меню `_COMMANDS`;
 9. ярлыки: покрытие всех стадий + четыре кода.
 
@@ -135,6 +152,15 @@ service-словарь уже их резолвит (`reason_label`, диагн�
 | убрать `joke` из `MEME_STAGE_LABELS` | тест ярлыков падает |
 | не отправлять сообщение об ошибке | T4 падает |
 | снять RBAC-гейт | T6 падает |
+| `gate_reason = "manual_bypass"` → `"gate_ok"` (потеря маркера) | bypass-тест падает |
+| `"manual": bool(manual)` → `False` в фактах публикации | bypass-тест падает |
+
+Строгая проверка маркера (итерация 2 после ревью P3): в bypass-тесте убрана
+дизъюнкция `... or published[-1]["stage"] == STAGE_PUBLISH` (она была истинна
+всегда, т.к. фильтр уже выбирал `outcome == "published"`). Теперь проверяются
+ровно список стадий журнала и факты публикации
+`{"gate": "manual_bypass", "manual": True}`; обе мутации выше дают красный
+тест, после восстановления — 18 passed.
 
 Прогоны (эта ветка):
 - `pytest tests/test_meme_command_autodelete.py` — **18 passed**;

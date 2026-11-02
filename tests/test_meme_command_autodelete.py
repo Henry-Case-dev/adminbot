@@ -463,11 +463,19 @@ async def test_manual_run_bypasses_quota_cooldown_and_closed_gate(
     await meme_command.cmd_meme(_target(bot))
 
     assert bot.kinds() == ["photo"], bot.calls
-    published = [row for row in led.attempts(CHAT)
+    rows = led.attempts(CHAT)
+    # Журнал содержит РОВНО пройденные этапы, без лишних строк.
+    stages = sorted(str(row.get("stage")) for row in rows)
+    assert stages == sorted([meme.STAGE_CONSIDERED, meme.STAGE_ELIGIBLE,
+                             meme.STAGE_SUMMARY, meme.STAGE_JOKE,
+                             meme.STAGE_IMAGE, meme.STAGE_PUBLISH]), rows
+    published = [row for row in rows
                  if str(row.get("outcome")) == "published"]
-    assert published, led.attempts(CHAT)
-    assert meme.parse_attempt_facts(published[-1]).get("manual") is True \
-        or published[-1].get("stage") == meme.STAGE_PUBLISH
+    assert len(published) == 1, rows
+    # Маркер ручного запуска обязателен: gate=manual_bypass + manual=True.
+    # Мутация: вернуть реальный гейт (или потерять маркер) → тест красный.
+    facts = meme.parse_attempt_facts(published[0])
+    assert facts == {"gate": "manual_bypass", "manual": True}, facts
     # Квота дня не потрачена: ручной запуск не создаёт бронь.
     assert led.status_counts(CHAT, NOW.date().isoformat()) == \
         {"provider_called": before["provider_called"]}
