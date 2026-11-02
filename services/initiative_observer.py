@@ -282,6 +282,26 @@ REASON_LABELS: dict[str, str] = {
     "quiet_hours": "тихие часы — мем не запускается",
     "cycle_exception": ("сбой моста «инициатива → мем» (не провал выжимки)"),
     "slot_released": ("бронь этого задания уже снята — нужен новый запуск"),
+    # MEME-PIPELINE-REFactor-01 §7: этап B (прикол) — свои причины пропуска,
+    # иначе бейдж показывает голый код.
+    "joke_generation_failed": "прикол не сгенерировался",
+    "joke_empty": "модель вернула пустой прикол",
+    "no_joke_budget": "шаблон картинки не оставил места для прикола",
+    "template_empty": "шаблон промпта картинки пуст",
+}
+
+#: Человекочитаемые названия стадий мем-пайплайна — единый service-слой для
+#: витрины и диагностики (порядок совпадает с ``meme_initiative.STAGES``).
+#: Неизвестная стадия → сам код, без выдумывания смысла.
+MEME_STAGE_LABELS: dict[str, str] = {
+    "considered": "рассмотрено",
+    "eligible": "годно к генерации",
+    "summary": "выжимка",
+    "joke": "генерация прикола",
+    "image_generation": "генерация картинки",
+    "publish": "публикация",
+    "failed": "ошибка",
+    "skipped": "пропуск",
 }
 
 
@@ -291,6 +311,14 @@ def reason_label(reason_code) -> str:
     if not code:
         return REASON_LABELS["reason_not_recorded"]
     return REASON_LABELS.get(code, code)
+
+
+def meme_stage_label(stage_code) -> str:
+    """Ярлык стадии мем-пайплайна (``joke`` включён: §7 ТЗ, этап B)."""
+    code = str(stage_code or "").strip()
+    if not code:
+        return "—"
+    return MEME_STAGE_LABELS.get(code, code)
 
 
 # Ключи generic-резолва (chat_params.overrides → hot → settings-дефолт).

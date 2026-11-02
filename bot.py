@@ -56,6 +56,7 @@ from handlers.war_alert import war_alert_router, setup_war_alert
 from handlers.common import common_router, setup_common, setup_common_mimic
 from handlers.olya import olya_router, setup_olya
 from handlers.admin_commands import admin_commands_router, setup_admin_commands
+from handlers.meme_command import meme_command_router, setup_meme_command
 from handlers.menu import menu_router
 from services.olya_relay import OlyaRelay
 from handlers.summary import summary_observer_router, summary_router, setup_summary
@@ -929,6 +930,10 @@ async def on_startup():
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)
+    # MEME-PIPELINE-REFactor-01 §4: /meme — админская диагностика, в меню не
+    # публикуется. Регистрируется рядом с админскими командами, до catch-all.
+    setup_meme_command(db, _llm_client, bot)
+    dp.include_router(meme_command_router)
     dp.include_router(menu_router)
 
     # 0a. /debug_config (84.18, T-656) — скрытая диагностика RAM-кэша; DM-only,
