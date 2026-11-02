@@ -11,7 +11,9 @@
  * сетевых вызовов в модуле.
  *
  * Запуск: node tests/js/evol_cognitive_map_test.js
- * Успешный маркер: EVOL-COG-MAP-S1-OK
+ * Успешный маркер: EVOL-COG-MAP-S1-OK (адаптер), -S2-OK (карта: легенда,
+ * кластеры, бюджет подписей §9.2), -S3-OK (карточка узла/ребра: provenance,
+ * обоснование связи, адресные переходы и их честные отказы).
  */
 const path = require('path');
 const fs = require('fs');

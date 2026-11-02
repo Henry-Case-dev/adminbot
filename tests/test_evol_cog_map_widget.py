@@ -1,8 +1,8 @@
-"""EVOL-COG-MAP (W7-S2) — виджет «Когнитивной карты» на новом payload.
+"""EVOL-COG-MAP (W7-S2/S3) — виджет «Когнитивной карты» на новом payload.
 
-TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2)
-Контракт: `plans/features/evol/arch/cog-map-contract.md` §1/§4/§8 (слайс S2),
-исходник: `plans/current_task.md` §2.1–§2.6 (строки 1242–1302).
+TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2/S3)
+Контракт: `plans/features/evol/arch/cog-map-contract.md` §1/§4/§8/§9 (слайсы
+S2–S3), исходник: `plans/current_task.md` §2.1–§2.6 (строки 1242–1302).
 
 Что доказывается:
   * виджет «Статуса» читает `GET /api/memory/cognitive-map` и НЕ читает
@@ -16,6 +16,9 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2)
     включается по `totals > shown`, а не по `state`;
   * клиентские состояния (`loading/not_loaded/stale/renderer_failed`)
     отдельны от серверного `state` и отображаются честно;
+  * S3: карточка узла/ребра — один общий слой (панель справа / нижний лист),
+    поля только из payload, честное «не записано», четыре адресных перехода,
+    Back/Esc закрывают карточку первой, камера и выбор сохраняются;
   * старый маршрут `#/status/graph` и endpoint `/api/memory/graph` целы.
 
 Запуск: pytest tests/test_evol_cog_map_widget.py -q
