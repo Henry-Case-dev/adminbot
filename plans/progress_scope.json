@@ -334,7 +334,7 @@
       "maps": [
         "plans/features/epic-experience-learning-performance-help/requirements-map.json"
       ],
-      "coverage_complete": false,
+      "coverage_complete": true,
       "source_note": "Эпик E/P/H в конце current_task после FINAL v8. Исполнение: после завершения предшествующей очереди (COG-MAP, FINAL v8). PM декомпозирует E и P на пакеты, Architect сверяет с текущим HEAD/deployed. H открывается только после приёмки, деплоя и живой проверки ВСЕХ предшествующих задач. | Карта: 132 обязательных / 15 слайсов, зависимости и сериализация зафиксированы; H закрыт до приёмки+деплоя+живой проверки E и P.",
       "updated": "2026-11-02"
     }
