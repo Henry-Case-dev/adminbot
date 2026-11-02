@@ -324,7 +324,7 @@
                :title="headerSaveChip.title">
             <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
             <span aria-hidden="true">·</span>
-            <span>{{ headerSaveChip.label }}</span>
+            <span class="header-save-chip__label">{{ headerSaveChip.label }}</span>
           </div>
           <div class="header-user ml-auto flex items-center gap-1.5 text-xs shrink-0">
             <!-- UI-полировка TMA: аватар текущего юзера — same-origin blob
@@ -13735,6 +13735,23 @@
             <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
             <span class="sidebar-label">{{ n.label }}</span>
           </button>
+          <!-- W16 (контракт владельца 02.11.2026 §3): при узком эффективном
+               вьюпорте шапка убирает имя/роль пользователя — идентичность
+               переносится в ТОТ ЖЕ drawer (не меню, не панель, без дублей):
+               один и тот же единственный источник (me) и существующие стили
+               аватара. -->
+          <div v-if="me" class="sidebar-profile" data-drawer-profile
+               :title="meUserTitle">
+            <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
+                 class="w-6 h-6 rounded-full object-cover shrink-0 border border-white/15"
+                 @error="onMeAvatarError()">
+            <span v-else class="header-user-initial" aria-hidden="true">{{ meInitial }}</span>
+            <span class="sidebar-profile__meta">
+              <span class="sidebar-profile__name">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
+              <span class="sidebar-profile__role badge badge-info text-[10px] px-1.5 py-0"
+                    :title="me.role_name">{{ me.role_name }}</span>
+            </span>
+          </div>
         </nav>
       </aside>
 
