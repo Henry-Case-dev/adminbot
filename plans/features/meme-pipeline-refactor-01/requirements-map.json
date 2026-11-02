@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
+  "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -556,34 +556,34 @@
       "reason": "назначение /meme — ручной запуск для проверки и отладки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
-          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3 + §4: порядок обработчика RBAC -> delete -> consider_chat(manual=True) -> доставка, добивающих фоновых задач нет; критерий 10 PROVEN пробой A; тест P1 `..._activity_random_and_gate` держит `facts['manual'] is True` и `facts['gate'] == 'manual_bypass'` строго.",
           "type": "review",
-          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
-          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
         },
         {
-          "ref": "services/meme_initiative.py",
-          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - ручной проход существующего пайплайна (`manual=True`), не автоинициатива: команда не спрашивает `random_source`, не ставит бронь и не зависит от тумблеров/тихих часов; доставка идёт тем же sender'ом, что у авто-инициативы (:129-136 -> `InitiativeObserverRunner._meme_sender`, services/initiative_observer.py:1175).",
           "type": "code",
-          "artifact_path": "services/meme_initiative.py",
-          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         },
         {
-          "ref": "tests/test_meme_pipeline_stages.py",
-          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432) - запуск проходит при выключенных тумблерах и брошенном `initiative_enabled` (тумблер вообще не спрашивается); `test_admin_delete_is_first_network_action_and_runs_exactly_once` (:232) показывает полный ручной проход без авто-триггера.",
           "type": "test",
-          "artifact_path": "tests/test_meme_pipeline_stages.py",
-          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ],
       "disposition": "required",
@@ -599,34 +599,34 @@
       "reason": "команда игнорирует ограничения и кулдауны",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
-          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3 + §4: порядок обработчика RBAC -> delete -> consider_chat(manual=True) -> доставка, добивающих фоновых задач нет; критерий 10 PROVEN пробой A; тест P1 `..._activity_random_and_gate` держит `facts['manual'] is True` и `facts['gate'] == 'manual_bypass'` строго.",
           "type": "review",
-          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
-          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
         },
         {
-          "ref": "services/meme_initiative.py",
-          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - ручной проход существующего пайплайна (`manual=True`), не автоинициатива: команда не спрашивает `random_source`, не ставит бронь и не зависит от тумблеров/тихих часов; доставка идёт тем же sender'ом, что у авто-инициативы (:129-136 -> `InitiativeObserverRunner._meme_sender`, services/initiative_observer.py:1175).",
           "type": "code",
-          "artifact_path": "services/meme_initiative.py",
-          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         },
         {
-          "ref": "tests/test_meme_pipeline_stages.py",
-          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432) - запуск проходит при выключенных тумблерах и брошенном `initiative_enabled` (тумблер вообще не спрашивается); `test_admin_delete_is_first_network_action_and_runs_exactly_once` (:232) показывает полный ручной проход без авто-триггера.",
           "type": "test",
-          "artifact_path": "tests/test_meme_pipeline_stages.py",
-          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ],
       "disposition": "required",
@@ -642,34 +642,34 @@
       "reason": "это диагностический/manual запуск, а не автоинициатива",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
-          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3 + §4: порядок обработчика RBAC -> delete -> consider_chat(manual=True) -> доставка, добивающих фоновых задач нет; критерий 10 PROVEN пробой A; тест P1 `..._activity_random_and_gate` держит `facts['manual'] is True` и `facts['gate'] == 'manual_bypass'` строго.",
           "type": "review",
-          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
-          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
         },
         {
-          "ref": "services/meme_initiative.py",
-          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - ручной проход существующего пайплайна (`manual=True`), не автоинициатива: команда не спрашивает `random_source`, не ставит бронь и не зависит от тумблеров/тихих часов; доставка идёт тем же sender'ом, что у авто-инициативы (:129-136 -> `InitiativeObserverRunner._meme_sender`, services/initiative_observer.py:1175).",
           "type": "code",
-          "artifact_path": "services/meme_initiative.py",
-          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         },
         {
-          "ref": "tests/test_meme_pipeline_stages.py",
-          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432) - запуск проходит при выключенных тумблерах и брошенном `initiative_enabled` (тумблер вообще не спрашивается); `test_admin_delete_is_first_network_action_and_runs_exactly_once` (:232) показывает полный ручной проход без авто-триггера.",
           "type": "test",
-          "artifact_path": "tests/test_meme_pipeline_stages.py",
-          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ],
       "disposition": "required",
@@ -685,34 +685,34 @@
       "reason": "независимость от прохождения авто-триггера",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p1-review.md - частичное доказательство для MEME-CMD-MANUAL-RUN (строка остаётся PENDING)",
-          "observation": "ЧАСТИЧНО (задел P3): `manual=True` подтверждён на кандидате - пробы m1-m6 (квота 0, кулдаун, малое окно, промах random, тихие часы, выключенные тумблеры, закрытый гейт) и отсутствие брони; сам обработчик `/meme` в P1 не реализован, поэтому строка остаётся PENDING.",
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3 + §4: порядок обработчика RBAC -> delete -> consider_chat(manual=True) -> доставка, добивающих фоновых задач нет; критерий 10 PROVEN пробой A; тест P1 `..._activity_random_and_gate` держит `facts['manual'] is True` и `facts['gate'] == 'manual_bypass'` строго.",
           "type": "review",
-          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p1-review.md",
-          "artifact_sha256": "7b7399923c8c825d42a8e515cb13e0e8293033c7b328f0d471834143a7707e37",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "e9641dec3e927166cfd36e5ceb8636f89f77527e"
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
         },
         {
-          "ref": "services/meme_initiative.py",
-          "observation": "`consider_chat(..., manual=True)` (:1301-1362, :1389, :1460, :1521) и `AttemptResult.manually_triggered` готовы как основа команды.",
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - ручной проход существующего пайплайна (`manual=True`), не автоинициатива: команда не спрашивает `random_source`, не ставит бронь и не зависит от тумблеров/тихих часов; доставка идёт тем же sender'ом, что у авто-инициативы (:129-136 -> `InitiativeObserverRunner._meme_sender`, services/initiative_observer.py:1175).",
           "type": "code",
-          "artifact_path": "services/meme_initiative.py",
-          "artifact_sha256": "b540a59d3389efe5b837e41b18c63c2b203039b3a61edebd549a9081f80a8fcb",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         },
         {
-          "ref": "tests/test_meme_pipeline_stages.py",
-          "observation": "`test_manual_bypasses_quota_cooldown_activity_random_and_gate`, `test_manual_keeps_image_and_schema_gates`.",
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432) - запуск проходит при выключенных тумблерах и брошенном `initiative_enabled` (тумблер вообще не спрашивается); `test_admin_delete_is_first_network_action_and_runs_exactly_once` (:232) показывает полный ручной проход без авто-триггера.",
           "type": "test",
-          "artifact_path": "tests/test_meme_pipeline_stages.py",
-          "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
-          "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
-          "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ],
       "disposition": "required",
@@ -784,8 +784,36 @@
       "acceptance": "После получения `/meme` бот удаляет именно сообщение команды (тот же chat_id/message_id) ровно один раз, до или во время запуска пайплайна. Тест записывает Telegram-вызовы: один delete_message по id команды, ни одного удаления чужих сообщений, ни повторных попыток.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Автоудаление: ровно один delete, первым, до пайплайна' - PROVEN (events == ['delete','summary','joke','provider','photo'], delete_calls == [(chat, msg_id)]), плюс §7 мутация 'убрать вызов delete_command_message' -> 3 красных теста.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "Заказ §4/дополнение владельца 03.11.2026: `cmd_meme` вызывает `delete_command_message` (:190) ДО `run_manual_pipeline` (:194). В `delete_command_message` (:111-127) ровно один `message.delete()` под `asyncio.wait_for(..., DELETE_TIMEOUT_SECONDS = 5.0)` (:43, :117); chat_id/message_id берутся из самого сообщения (:115-116), повторов и добивающих задач нет.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T1 `test_admin_delete_is_first_network_action_and_runs_exactly_once` (:232-250): events == ['delete','summary','joke','provider','photo'], `delete_calls == [(CHAT, MESSAGE_ID)]` и `len(delete_calls) == 1`, провайдер картинки вызван. Мутация ревьюера 'убрать delete' роняет 3 теста, 'перенести delete после пайплайна' - T1 (приёмочный лист §7).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-CMD-AUTODELETE",
       "amendment_kind": "amendment",
       "amendment_section": "§4",
@@ -808,8 +836,36 @@
       "acceptance": "Смоделированный отказ удаления (нет прав / сообщение старше допустимого срока / сетевой сбой) не меняет исход пайплайна: генерация и выдача результата выполняются как без удаления, исключение не всплывает, попытка удаления не повторяется, в лог уходит одна WARNING-строка с типом ошибки и chat/msg id (без traceback и секретов), пользователю не отправляется ничего.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'сбой удаления проглатывается одним WARNING без traceback, без ретраев' - PROVEN (403-класс, RuntimeError, таймаут), §7 мутация 'второй delete() в except' -> 2 красных теста.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "Сбой удаления не выходит наружу: `delete_command_message` (:111-127) ловит любое исключение, пишет ОДИН WARNING с типом исключения (:122-124, без exc_info) и возвращает False; `cmd_meme` не смотрит на результат (:190) и всегда идёт в пайплайн (:194). Ожидание ограничено 5 с, ретраев нет.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_delete_failure_keeps_pipeline_and_message_count` (:288-311) параметризован RuntimeError (нет прав) и TelegramBadRequest (сообщение не найдено): состав событий тот же, `bot.kinds() == ['photo']`, `delete_calls == [(CHAT, MESSAGE_ID)]` (без ретраев), ровно один WARNING с типом исключения и `record.exc_info is None`. `test_delete_timeout_is_bounded_and_non_fatal` (:315-335): таймаут не мешает пайплайну.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-CMD-AUTODELETE",
       "amendment_kind": "amendment",
       "amendment_section": "§4",
@@ -832,8 +888,36 @@
       "acceptance": "Удаление работает на админском пути вызова `/meme`: тест с записью вызовов для админа фиксирует delete_message по id команды и последующий запуск пайплайна; для не-админа нет ни удаления, ни мема (отказ доступа не меняется).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Автоудаление только на админском пути, без обхода прав' - PROVEN: удаление стоит после гейта, у не-админа его нет вовсе (§5 оговорка про fail-open RBAC - сужение доступа, не эскалация).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "Удаление стоит внутри `cmd_meme` ПОСЛЕ RBAC-гейта (:182-187 -> :190): путь не-админа завершается раньше (:187 return), поэтому удаления чужого сообщения не бывает по построению, а не по проверке внутри удаления.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "Админ: T1 (:232) - delete по id команды и последующий полный пайплайн. Не-админ: T6 (:370-394) - `delete_calls == []`, исходящих 0, журнал пуст, то есть отказ доступа не изменился вместе с удалением.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-CMD-AUTODELETE",
       "amendment_kind": "amendment",
       "amendment_section": "§4",
@@ -857,8 +941,36 @@
       "acceptance": "Удаление не вводит обхода прав и не содержит хардкода чата/пользователя: используется штатное удаление собственного сообщения команды, отсутствие права удалять даёт только log-only отказ; тест на двух разных chat_id/пользователях показывает одинаковое поведение и не находит исключений по имени/ID.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Автоудаление только на админском пути, без обхода прав' - PROVEN; §5 разбирает деградацию RBAC и делает вывод, что fail-open здесь сужает доступ, а не расширяет его.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "Удаляется собственное сообщение команды штатным `message.delete()`; chat_id/message_id не хардкожены, а читаются из сообщения (:115-116); признак админства (`settings.ADMIN_USER_ID`/`roles.access_for`) остаётся тем же, что у остальных админских точек (:84-108). Дополнительных прав удаление не требует и не выдаёт.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "Один и тот же путь удаления проверен для разных пользователей: T1 (владелец/ADMIN_USER_ID, delete есть) и T6 (STRANGER, delete_calls == []); `test_admin_gate_accepts_roles_and_owner_id` (:398-414) добавляет глобального и локального админа. Тест использует единственную фикстуру CHAT - по нескольким chat_id доказательство опирается на код (:115-116), а не на отдельный прогон.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-CMD-AUTODELETE",
       "amendment_kind": "amendment",
       "amendment_section": "§4",
@@ -882,8 +994,36 @@
       "acceptance": "Автоудаление не добавляет пользовательских сообщений: при успехе в чат приходит ровно одно изображение и ноль текстовых сообщений; при отказе удаления - тоже ноль дополнительных сообщений (никаких «удалено», «не удалось», подсказок, ack и служебных follow-up).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Автоудаление не меняет исход и число исходящих' и 'Ответ - новое сообщение без reply-цели' - PROVEN (ни reply_parameters, ни reply_to_message_id ни в фото, ни в тексте ошибки).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "Автоудаление не добавляет ни одного сообщения: `delete_command_message` только удаляет и логирует (:111-127), об ошибке удаления пользователю ничего не сообщается (`_report_failure` вызывается лишь по исходу пайплайна, :193-201 и :206-209); успех - только фото от sender'а.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T2 `test_admin_success_sends_exactly_one_photo_without_caption` (:256-272): `bot.kinds() == ['photo']`, `bot.texts() == []`, caption отсутствует. `test_pipeline_failure_sends_one_short_message_no_photo` (:342-364): при провале ровно один текст и в нём нет ни 'удал', ни 'delete'. Отказ удаления не меняет число исходящих (T3 :288-311, T4 :342).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-CMD-AUTODELETE",
       "amendment_kind": "amendment",
       "amendment_section": "§4",
@@ -2760,8 +2900,45 @@
       "acceptance": "Команда /meme исполняется только для администратора; обычный пользователь не получает генерации, команда не рекламируется в меню/справке как пользовательская.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 11 PROVEN - проба C на реальном `roles.access_for` даёт отказ обычному пользователю (0 событий, 0 строк журнала), ЛС-владелец собственного чата тоже без прав; мутация 'снять RBAC' роняет T6.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "RBAC команды: `is_meme_admin` (:84-109) - `settings.ADMIN_USER_ID` либо `roles.access_for` (is_global_admin/is_local_admin); исключение проверки трактуется как отказ (:97-103). Гейт стоит первым в `cmd_meme` (:182-187): после отказа обработчик возвращается молча - ни удаления, ни пайплайна, ни сообщения.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T6 `test_non_admin_gets_silence_without_delete_or_pipeline` (:370-394): events == [], delete_calls == [], исходящих 0, журнал попыток пуст; `test_admin_gate_accepts_roles_and_owner_id` (:398-414) - owner/global/local проходят, обычный пользователь и отсутствие автора - нет; `test_admin_gate_fails_closed_when_access_check_raises` (:418-426).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "services/bot_commands.py",
+          "observation": "В меню команды нет: `_COMMANDS` (:16-30) = summary/info/menu, `set_my_commands` (:41-43) публикует только их. Файл кандидатом НЕ изменён - sha совпадает с блобом базы 242fbd38, то есть скрытость команды обеспечена отсутствием правки.",
+          "type": "code",
+          "artifact_path": "services/bot_commands.py",
+          "artifact_sha256": "b4fe16d9e5493a39b23d49eef68d0bb51ab06627fe97ab3ef0cbd459c263dbfb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00136",
@@ -2775,8 +2952,45 @@
       "acceptance": "Команда /meme исполняется только для администратора; обычный пользователь не получает генерации, команда не рекламируется в меню/справке как пользовательская.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 11 PROVEN - проба C на реальном `roles.access_for` даёт отказ обычному пользователю (0 событий, 0 строк журнала), ЛС-владелец собственного чата тоже без прав; мутация 'снять RBAC' роняет T6.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "RBAC команды: `is_meme_admin` (:84-109) - `settings.ADMIN_USER_ID` либо `roles.access_for` (is_global_admin/is_local_admin); исключение проверки трактуется как отказ (:97-103). Гейт стоит первым в `cmd_meme` (:182-187): после отказа обработчик возвращается молча - ни удаления, ни пайплайна, ни сообщения.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T6 `test_non_admin_gets_silence_without_delete_or_pipeline` (:370-394): events == [], delete_calls == [], исходящих 0, журнал попыток пуст; `test_admin_gate_accepts_roles_and_owner_id` (:398-414) - owner/global/local проходят, обычный пользователь и отсутствие автора - нет; `test_admin_gate_fails_closed_when_access_check_raises` (:418-426).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "services/bot_commands.py",
+          "observation": "В меню команды нет: `_COMMANDS` (:16-30) = summary/info/menu, `set_my_commands` (:41-43) публикует только их. Файл кандидатом НЕ изменён - sha совпадает с блобом базы 242fbd38, то есть скрытость команды обеспечена отсутствием правки.",
+          "type": "code",
+          "artifact_path": "services/bot_commands.py",
+          "artifact_sha256": "b4fe16d9e5493a39b23d49eef68d0bb51ab06627fe97ab3ef0cbd459c263dbfb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00137",
@@ -2790,8 +3004,45 @@
       "acceptance": "Команда /meme исполняется только для администратора; обычный пользователь не получает генерации, команда не рекламируется в меню/справке как пользовательская.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 11 PROVEN - проба C на реальном `roles.access_for` даёт отказ обычному пользователю (0 событий, 0 строк журнала), ЛС-владелец собственного чата тоже без прав; мутация 'снять RBAC' роняет T6.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "RBAC команды: `is_meme_admin` (:84-109) - `settings.ADMIN_USER_ID` либо `roles.access_for` (is_global_admin/is_local_admin); исключение проверки трактуется как отказ (:97-103). Гейт стоит первым в `cmd_meme` (:182-187): после отказа обработчик возвращается молча - ни удаления, ни пайплайна, ни сообщения.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T6 `test_non_admin_gets_silence_without_delete_or_pipeline` (:370-394): events == [], delete_calls == [], исходящих 0, журнал попыток пуст; `test_admin_gate_accepts_roles_and_owner_id` (:398-414) - owner/global/local проходят, обычный пользователь и отсутствие автора - нет; `test_admin_gate_fails_closed_when_access_check_raises` (:418-426).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "services/bot_commands.py",
+          "observation": "В меню команды нет: `_COMMANDS` (:16-30) = summary/info/menu, `set_my_commands` (:41-43) публикует только их. Файл кандидатом НЕ изменён - sha совпадает с блобом базы 242fbd38, то есть скрытость команды обеспечена отсутствием правки.",
+          "type": "code",
+          "artifact_path": "services/bot_commands.py",
+          "artifact_sha256": "b4fe16d9e5493a39b23d49eef68d0bb51ab06627fe97ab3ef0cbd459c263dbfb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00138",
@@ -2835,8 +3086,45 @@
       "acceptance": "При ручном запуске не действуют суточная квота, кулдаун между мемами, минимум сообщений и прочие ограничения авто-инициативного запуска; факт обхода фиксируется в диагностике запуска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 10 PROVEN - проба A (квота 0, кулдаун 3600, минимум 99, тихие часы, тумблеры, random, in-flight, закрытый гейт: события ['delete','summary','joke','provider','photo'], publish-строка {gate: manual_bypass, manual: true}, брони нет) плюс тесты P1/P3. §8 п.4 фиксирует слабую дизъюнкцию в тесте линии как неблокирующее замечание Builder.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - единственная точка запуска: `consider_chat(_db, chat_id, manual=True, ...)` (:147-155), `prompt_override` не передаётся. Второй ветки нет: обход квоты/кулдауна/минимума - это матрица `manual` существующего пайплайна `services/meme_initiative.py` (бронь не создаётся, гейт публикации помечает запуск как manual_bypass), а не копия генерации.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432-473): daily_limit=0 при уже израсходованном дне, cooldown_seconds=3600, min_messages=99 при окне 1, quiet_hours 00:00-23:59, тумблеры выключены, `initiative_enabled` бросает AssertionError, publish-гейт закрыт - фото опубликовано, брони нет (`status_counts` не изменился). В этом тесте проверка маркера ручного запуска ослаблена дизъюнкцией (:469-470, замечание ревью п.4), поэтому строгий маркер `{gate: manual_bypass, manual: true}` добирается тестом P1 `test_manual_bypasses_quota_cooldown_activity_random_and_gate` и пробой A ревьюера - вместе они и закрывают строку.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "reports/w-p3-cmd.md - отчёт Builder линии P3",
+          "observation": "§4 bypass-матрица (:64-79) перечисляет каждое ограничение отдельно с доказательством: квота, кулдаун, минимум сообщений, тихие часы, тумблеры, случайный триггер, in-flight, гейт публикации - 'да'; RBAC, готовность image-backend, журнал, разрешимость бюджета - 'нет'.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-cmd.md",
+          "artifact_sha256": "b6006b9bf17d76ee8a9b7e962fae370193815257834b4e66dab55419e2858512",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00145",
@@ -2850,8 +3138,45 @@
       "acceptance": "При ручном запуске не действуют суточная квота, кулдаун между мемами, минимум сообщений и прочие ограничения авто-инициативного запуска; факт обхода фиксируется в диагностике запуска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 10 PROVEN - проба A (квота 0, кулдаун 3600, минимум 99, тихие часы, тумблеры, random, in-flight, закрытый гейт: события ['delete','summary','joke','provider','photo'], publish-строка {gate: manual_bypass, manual: true}, брони нет) плюс тесты P1/P3. §8 п.4 фиксирует слабую дизъюнкцию в тесте линии как неблокирующее замечание Builder.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - единственная точка запуска: `consider_chat(_db, chat_id, manual=True, ...)` (:147-155), `prompt_override` не передаётся. Второй ветки нет: обход квоты/кулдауна/минимума - это матрица `manual` существующего пайплайна `services/meme_initiative.py` (бронь не создаётся, гейт публикации помечает запуск как manual_bypass), а не копия генерации.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432-473): daily_limit=0 при уже израсходованном дне, cooldown_seconds=3600, min_messages=99 при окне 1, quiet_hours 00:00-23:59, тумблеры выключены, `initiative_enabled` бросает AssertionError, publish-гейт закрыт - фото опубликовано, брони нет (`status_counts` не изменился). В этом тесте проверка маркера ручного запуска ослаблена дизъюнкцией (:469-470, замечание ревью п.4), поэтому строгий маркер `{gate: manual_bypass, manual: true}` добирается тестом P1 `test_manual_bypasses_quota_cooldown_activity_random_and_gate` и пробой A ревьюера - вместе они и закрывают строку.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "reports/w-p3-cmd.md - отчёт Builder линии P3",
+          "observation": "§4 bypass-матрица (:64-79) перечисляет каждое ограничение отдельно с доказательством: квота, кулдаун, минимум сообщений, тихие часы, тумблеры, случайный триггер, in-flight, гейт публикации - 'да'; RBAC, готовность image-backend, журнал, разрешимость бюджета - 'нет'.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-cmd.md",
+          "artifact_sha256": "b6006b9bf17d76ee8a9b7e962fae370193815257834b4e66dab55419e2858512",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00146",
@@ -2865,8 +3190,45 @@
       "acceptance": "При ручном запуске не действуют суточная квота, кулдаун между мемами, минимум сообщений и прочие ограничения авто-инициативного запуска; факт обхода фиксируется в диагностике запуска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 10 PROVEN - проба A (квота 0, кулдаун 3600, минимум 99, тихие часы, тумблеры, random, in-flight, закрытый гейт: события ['delete','summary','joke','provider','photo'], publish-строка {gate: manual_bypass, manual: true}, брони нет) плюс тесты P1/P3. §8 п.4 фиксирует слабую дизъюнкцию в тесте линии как неблокирующее замечание Builder.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - единственная точка запуска: `consider_chat(_db, chat_id, manual=True, ...)` (:147-155), `prompt_override` не передаётся. Второй ветки нет: обход квоты/кулдауна/минимума - это матрица `manual` существующего пайплайна `services/meme_initiative.py` (бронь не создаётся, гейт публикации помечает запуск как manual_bypass), а не копия генерации.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432-473): daily_limit=0 при уже израсходованном дне, cooldown_seconds=3600, min_messages=99 при окне 1, quiet_hours 00:00-23:59, тумблеры выключены, `initiative_enabled` бросает AssertionError, publish-гейт закрыт - фото опубликовано, брони нет (`status_counts` не изменился). В этом тесте проверка маркера ручного запуска ослаблена дизъюнкцией (:469-470, замечание ревью п.4), поэтому строгий маркер `{gate: manual_bypass, manual: true}` добирается тестом P1 `test_manual_bypasses_quota_cooldown_activity_random_and_gate` и пробой A ревьюера - вместе они и закрывают строку.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "reports/w-p3-cmd.md - отчёт Builder линии P3",
+          "observation": "§4 bypass-матрица (:64-79) перечисляет каждое ограничение отдельно с доказательством: квота, кулдаун, минимум сообщений, тихие часы, тумблеры, случайный триггер, in-flight, гейт публикации - 'да'; RBAC, готовность image-backend, журнал, разрешимость бюджета - 'нет'.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-cmd.md",
+          "artifact_sha256": "b6006b9bf17d76ee8a9b7e962fae370193815257834b4e66dab55419e2858512",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00147",
@@ -2880,8 +3242,45 @@
       "acceptance": "При ручном запуске не действуют суточная квота, кулдаун между мемами, минимум сообщений и прочие ограничения авто-инициативного запуска; факт обхода фиксируется в диагностике запуска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: критерий 10 PROVEN - проба A (квота 0, кулдаун 3600, минимум 99, тихие часы, тумблеры, random, in-flight, закрытый гейт: события ['delete','summary','joke','provider','photo'], publish-строка {gate: manual_bypass, manual: true}, брони нет) плюс тесты P1/P3. §8 п.4 фиксирует слабую дизъюнкцию в тесте линии как неблокирующее замечание Builder.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - единственная точка запуска: `consider_chat(_db, chat_id, manual=True, ...)` (:147-155), `prompt_override` не передаётся. Второй ветки нет: обход квоты/кулдауна/минимума - это матрица `manual` существующего пайплайна `services/meme_initiative.py` (бронь не создаётся, гейт публикации помечает запуск как manual_bypass), а не копия генерации.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432-473): daily_limit=0 при уже израсходованном дне, cooldown_seconds=3600, min_messages=99 при окне 1, quiet_hours 00:00-23:59, тумблеры выключены, `initiative_enabled` бросает AssertionError, publish-гейт закрыт - фото опубликовано, брони нет (`status_counts` не изменился). В этом тесте проверка маркера ручного запуска ослаблена дизъюнкцией (:469-470, замечание ревью п.4), поэтому строгий маркер `{gate: manual_bypass, manual: true}` добирается тестом P1 `test_manual_bypasses_quota_cooldown_activity_random_and_gate` и пробой A ревьюера - вместе они и закрывают строку.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "reports/w-p3-cmd.md - отчёт Builder линии P3",
+          "observation": "§4 bypass-матрица (:64-79) перечисляет каждое ограничение отдельно с доказательством: квота, кулдаун, минимум сообщений, тихие часы, тумблеры, случайный триггер, in-flight, гейт публикации - 'да'; RBAC, готовность image-backend, журнал, разрешимость бюджета - 'нет'.",
+          "type": "implementation",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-cmd.md",
+          "artifact_sha256": "b6006b9bf17d76ee8a9b7e962fae370193815257834b4e66dab55419e2858512",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00149",
@@ -2925,8 +3324,36 @@
       "acceptance": "Ручной запуск не обходит права доступа, не маскирует реальную ошибку модели или image pipeline и не работает при полностью отсутствующем рабочем image backend.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Не обходятся image backend, журнал, разрешимость бюджета, RBAC' - PROVEN (пробы C/D); 'Ошибка = одно короткое сообщение без кодов, промпта, выжимки, прикола' - PROVEN (_FAILURE_TEXT/_GENERIC_FAILURE проверены в тестах и пробах).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`_FAILURE_TEXT` (:47-62) + `_GENERIC_FAILURE` (:63) + `_report_failure` (:161-171): одна короткая бытовая фраза, без кодов, промпта, выжимки и прикола. `manual=True` не отменяет RBAC (:182-187), готовность image-модуля/провайдера, наличие журнала и разрешимость бюджета - они остаются гейтами пайплайна; сбой моста ловится (:193-201) и даёт одно сообщение без внутренностей.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_does_not_bypass_image_backend_availability` (:477-498): при нерабочем backend events == ['delete','text'], этапы не стартовали, провайдер не вызван, текст = человекочитаемая причина. `test_pipeline_failure_sends_one_short_message_no_photo` (:342-364): ровно один текст <=120 символов, без кода причины, без промпта и слова 'прикол', ни одного упоминания удаления - при успешном и при проваленном удалении.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00156",
@@ -2940,8 +3367,36 @@
       "acceptance": "Ручной запуск не обходит права доступа, не маскирует реальную ошибку модели или image pipeline и не работает при полностью отсутствующем рабочем image backend.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Не обходятся image backend, журнал, разрешимость бюджета, RBAC' - PROVEN (пробы C/D); 'Ошибка = одно короткое сообщение без кодов, промпта, выжимки, прикола' - PROVEN (_FAILURE_TEXT/_GENERIC_FAILURE проверены в тестах и пробах).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`_FAILURE_TEXT` (:47-62) + `_GENERIC_FAILURE` (:63) + `_report_failure` (:161-171): одна короткая бытовая фраза, без кодов, промпта, выжимки и прикола. `manual=True` не отменяет RBAC (:182-187), готовность image-модуля/провайдера, наличие журнала и разрешимость бюджета - они остаются гейтами пайплайна; сбой моста ловится (:193-201) и даёт одно сообщение без внутренностей.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_does_not_bypass_image_backend_availability` (:477-498): при нерабочем backend events == ['delete','text'], этапы не стартовали, провайдер не вызван, текст = человекочитаемая причина. `test_pipeline_failure_sends_one_short_message_no_photo` (:342-364): ровно один текст <=120 символов, без кода причины, без промпта и слова 'прикол', ни одного упоминания удаления - при успешном и при проваленном удалении.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00157",
@@ -2955,8 +3410,36 @@
       "acceptance": "Ручной запуск не обходит права доступа, не маскирует реальную ошибку модели или image pipeline и не работает при полностью отсутствующем рабочем image backend.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3: 'Не обходятся image backend, журнал, разрешимость бюджета, RBAC' - PROVEN (пробы C/D); 'Ошибка = одно короткое сообщение без кодов, промпта, выжимки, прикола' - PROVEN (_FAILURE_TEXT/_GENERIC_FAILURE проверены в тестах и пробах).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`_FAILURE_TEXT` (:47-62) + `_GENERIC_FAILURE` (:63) + `_report_failure` (:161-171): одна короткая бытовая фраза, без кодов, промпта, выжимки и прикола. `manual=True` не отменяет RBAC (:182-187), готовность image-модуля/провайдера, наличие журнала и разрешимость бюджета - они остаются гейтами пайплайна; сбой моста ловится (:193-201) и даёт одно сообщение без внутренностей.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_does_not_bypass_image_backend_availability` (:477-498): при нерабочем backend events == ['delete','text'], этапы не стартовали, провайдер не вызван, текст = человекочитаемая причина. `test_pipeline_failure_sends_one_short_message_no_photo` (:342-364): ровно один текст <=120 символов, без кода причины, без промпта и слова 'прикол', ни одного упоминания удаления - при успешном и при проваленном удалении.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00161",
@@ -3818,6 +4301,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -3870,6 +4371,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -3922,6 +4441,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -3974,6 +4511,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -4026,6 +4581,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -4078,6 +4651,24 @@
           "artifact_sha256": "15daeec2f1ab07a288db279099b93ae4d797255d0ff3bc7f2c150bfe1255a5d3",
           "candidate_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
           "artifact_commit": "b272a63bd978e38d4f7696b2172a7f5edf96b67d"
+        },
+        {
+          "ref": "services/initiative_observer.py",
+          "observation": "Service-словарь ярлыков стадий: `MEME_STAGE_LABELS` (:296-306) покрывает `set(meme.STAGES)`, включая `joke -> 'генерация прикола'`, и `meme_stage_label` (:316-321) отдаёт код для неизвестной стадии; четыре новых кода причины (joke_generation_failed, joke_empty, no_joke_budget, template_empty) зарегистрированы в `REASON_LABELS` (:287-290) и резолвятся `reason_label` (:311-314), который уже используется диагностикой. ВНИМАНИЕ: витринный бейдж читает собственный JS-словарь (web/app.js), поэтому визуальная часть ярлыка остаётся за MEME-UI-FIELDS (P4) и этой строкой не закрывается.",
+          "type": "code",
+          "artifact_path": "services/initiative_observer.py",
+          "artifact_sha256": "5737f6629be418aebcf239b8cc0c2a2aa436be8251a320845e245c9405d4e9fb",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_joke_stage_label_exists_for_every_pipeline_stage` (:513-525): `set(MEME_STAGE_LABELS) == set(meme.STAGES)`, ярлык отличается от кода, у joke есть 'прикол'; `test_new_skip_codes_resolve_to_human_labels` (:528-539) параметризован четырьмя новыми кодами: `reason_label(code) != code` и код не входит в ярлык.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
         }
       ]
     },
@@ -4513,8 +5104,36 @@
       "acceptance": "Приёмка 10: админская команда /meme работает вручную и не подчиняется кулдаунам, квотам и авто-триггерам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3, строка 'Критерий 10: /meme работает вручную, вне квот, кулдаунов и авто-триггеров' - PROVEN (проба A + test_manual_run_bypasses_quota_cooldown_and_closed_gate + тест P1 test_manual_bypasses_quota_cooldown_activity_random_and_gate).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "`run_manual_pipeline` (:139-159) - единственная точка запуска: `consider_chat(_db, chat_id, manual=True, ...)` (:147-155), `prompt_override` не передаётся. Второй ветки нет: обход квоты/кулдауна/минимума - это матрица `manual` существующего пайплайна `services/meme_initiative.py` (бронь не создаётся, гейт публикации помечает запуск как manual_bypass), а не копия генерации.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "`test_manual_run_bypasses_quota_cooldown_and_closed_gate` (:432-473): daily_limit=0 при уже израсходованном дне, cooldown_seconds=3600, min_messages=99 при окне 1, quiet_hours 00:00-23:59, тумблеры выключены, `initiative_enabled` бросает AssertionError, publish-гейт закрыт - фото опубликовано, брони нет (`status_counts` не изменился). В этом тесте проверка маркера ручного запуска ослаблена дизъюнкцией (:469-470, замечание ревью п.4), поэтому строгий маркер `{gate: manual_bypass, manual: true}` добирается тестом P1 `test_manual_bypasses_quota_cooldown_activity_random_and_gate` и пробой A ревьюера - вместе они и закрывают строку.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00220",
@@ -4528,8 +5147,36 @@
       "acceptance": "Приёмка 11: команда /meme недоступна не-администратору.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-p3-review.md - независимое ревью P3 (Approved по поведению, MAP_SYNC_REQUIRED до релизного гейта)",
+          "observation": "Приёмочный лист §3, строка 'Критерий 11: /meme недоступна не-админу' - PROVEN (проба C на реальном roles.access_for: 0 delete, 0 исходящих, 0 строк журнала; мутация 'снять RBAC' даёт красный тест).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p3-review.md",
+          "artifact_sha256": "1e379c1fe936d98b061df6dac1193cf6b547bc2350238c3ee16b5d18aeeebb58",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "3bfc6ed44a6ee1dd8a0966e91f8b7d899f57ef3a"
+        },
+        {
+          "ref": "handlers/meme_command.py",
+          "observation": "RBAC команды: `is_meme_admin` (:84-109) - `settings.ADMIN_USER_ID` либо `roles.access_for` (is_global_admin/is_local_admin); исключение проверки трактуется как отказ (:97-103). Гейт стоит первым в `cmd_meme` (:182-187): после отказа обработчик возвращается молча - ни удаления, ни пайплайна, ни сообщения.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "f454fb6dfe3e7ff422d7842714adb901aa525b9133f0cab084e720b89b169744",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        },
+        {
+          "ref": "tests/test_meme_command_autodelete.py (18 проверок)",
+          "observation": "T6 `test_non_admin_gets_silence_without_delete_or_pipeline` (:370-394): events == [], delete_calls == [], исходящих 0, журнал попыток пуст; `test_admin_gate_accepts_roles_and_owner_id` (:398-414) - owner/global/local проходят, обычный пользователь и отсутствие автора - нет; `test_admin_gate_fails_closed_when_access_check_raises` (:418-426).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_command_autodelete.py",
+          "artifact_sha256": "7375a613e2499b5787dd7d198fa4320efcd86378dbbdb1c4a0b8550bff3d28a7",
+          "candidate_commit": "d58537496cc129987e8eb045019909b794c11533",
+          "artifact_commit": "d58537496cc129987e8eb045019909b794c11533"
+        }
+      ]
     },
     {
       "source_id": "L00221",
