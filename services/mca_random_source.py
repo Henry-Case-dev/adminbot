@@ -91,6 +91,11 @@ PURPOSE_ASSOCIATION_PAIR = "association_pair"
 # контура потребитель фиксирует как random_unavailable, без локального
 # Math.random / random.Random.
 PURPOSE_MEME_TRIGGER = "meme_trigger"
+# INIT-COORD (03.11.2026): независимый draw ТЕКСТОВОЙ инициативы. Второго
+# клиента/генератора нет — тот же `RandomSourceService`, свой purpose и своя
+# трассировка; probability-ключ здесь отсутствует (порог задаёт настройка
+# `initiative.trigger_probability`, а не карта exploration).
+PURPOSE_INITIATIVE_TRIGGER = "initiative_trigger"
 
 # purpose → ключ вероятности (одна карта в одном месте; D6).
 EXPLORATION_PROBABILITY_KEYS = {
@@ -107,7 +112,8 @@ INTERNAL_PURPOSES = frozenset({PURPOSE_ACTIVATION_SELFCHECK})
 # Draw-purpose, которые контур принимает как санкционированные. Мем-триггер
 # здесь, но не в карте exploration: это не выбор альтернативы.
 SANCTIONED_DRAW_PURPOSES = (
-    EXPLORATION_PURPOSES | INTERNAL_PURPOSES | frozenset({PURPOSE_MEME_TRIGGER})
+    EXPLORATION_PURPOSES | INTERNAL_PURPOSES
+    | frozenset({PURPOSE_MEME_TRIGGER, PURPOSE_INITIATIVE_TRIGGER})
 )
 
 

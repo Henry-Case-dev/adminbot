@@ -227,20 +227,13 @@ def test_random_unavailable_is_recorded_not_masked(tmp_path, monkeypatch):
         called["summary"] += 1
         return "хук"
 
-    async def scenario():
-        down = _Hit(deferred=True)
-        result, provider, _ = await _consider(
-            tmp_path, source=down, summarizer=summarizer)
-        fallback = _Hit(value=0.01, fallback="provider_unavailable")
-        masked, _, _ = await _consider(
-            tmp_path, source=fallback, summarizer=summarizer,
-            ledger=result and _ledger(tmp_path))
-        return result, provider, down, masked
-
     # второй вызов со своим ledger — проще двумя корутинами
     async def both():
         down = _Hit(deferred=True)
         missing = _Hit(missing=True)
+        # INIT-COORD §2: значение из fallback-пути — ДЕЙСТВИТЕЛЬНОЕ решение
+        # (владелец разрешил `memory.random_fallback_to_pseudorandom`), а не
+        # отказ: мем публикуется, фактический источник честно в трассировке.
         fallback = _Hit(value=0.0, fallback="provider_unavailable")
         a, provider, _ = await _consider(
             tmp_path, source=down, summarizer=summarizer)
@@ -249,15 +242,22 @@ def test_random_unavailable_is_recorded_not_masked(tmp_path, monkeypatch):
         b, _, _ = await _consider(
             tmp_path / "b", source=missing, summarizer=summarizer)
         c, _, _ = await _consider(
-            tmp_path / "c", source=fallback, summarizer=summarizer)
+            tmp_path / "c", source=fallback, summarizer=summarizer,
+            gate=lambda _cid: _async_pair(True, "ok"), sender=None)
         return a, b, c, provider, down
 
     a, b, c, provider, down = _run(both())
     assert a.reason == meme.SKIP_RANDOM_UNAVAILABLE
     assert b.reason == meme.SKIP_RANDOM_UNAVAILABLE
-    assert c.reason == meme.SKIP_RANDOM_UNAVAILABLE
+    # Fallback — не отказ: генерация состоялась, причина не random_unavailable.
+    assert c.reason != meme.SKIP_RANDOM_UNAVAILABLE
+    assert c.generated is True
+    trace = c.stage_facts[meme.STAGE_ELIGIBLE]["random"]
+    assert trace["source"] == "pseudorandom"
+    assert trace["fallback_reason"] == "provider_unavailable"
+    assert trace["hit"] is True and trace["value"] == 0.0
     assert provider.calls == []
-    assert called["summary"] == 0
+    assert called["summary"] == 1
     assert down.kwargs["purpose"] == mrs.PURPOSE_MEME_TRIGGER
 
 
@@ -990,14 +990,18 @@ def test_v40_step_registered_and_ddl_owned_by_module():
 
 
 @pytest.mark.asyncio
-async def test_fresh_db_migrates_0_to_40_with_quota_tables(tmp_path):
-    from services.database import DatabaseService
+async def test_fresh_db_migrates_to_v41_with_quota_and_claim_tables(tmp_path):
+    from services import publication_coordination as pub
+    from services.database import (DatabaseService,
+                                   _SCHEMA_VERSION_PUBLISH_CLAIM)
 
     svc = DatabaseService(str(tmp_path / "v40_fresh.db"))
     await svc.initialize()
     try:
+        latest = max(s.version for s in DatabaseService.migration_steps())
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 40
+        assert (await cur.fetchone())[0] == latest == 41
+        assert _SCHEMA_VERSION_PUBLISH_CLAIM == 41
         book = await svc.db.execute(
             "SELECT name, checksum FROM schema_migrations WHERE version = 40")
         row = await book.fetchone()
@@ -1005,10 +1009,17 @@ async def test_fresh_db_migrates_0_to_40_with_quota_tables(tmp_path):
         assert row["name"] == "meme_quota_journal_v40"
         assert row["checksum"]
         cur = await svc.db.execute(
+            "SELECT name, checksum FROM schema_migrations WHERE version = 41")
+        row = await cur.fetchone()
+        assert row is not None
+        assert row["name"] == pub.CLAIM_MIGRATION_STEP_NAME
+        assert row["checksum"]
+        cur = await svc.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name IN (?, ?)", (meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE))
+            "AND name IN (?, ?, ?)", (meme.RESERVATION_TABLE,
+                                      meme.ATTEMPT_TABLE, pub.CLAIM_TABLE))
         assert {r["name"] for r in await cur.fetchall()} == {
-            meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE}
+            meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE, pub.CLAIM_TABLE}
         cur = await svc.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
             "('idx_meme_reservation_chat_day', 'idx_meme_attempt_chat_ts')")
@@ -1016,6 +1027,8 @@ async def test_fresh_db_migrates_0_to_40_with_quota_tables(tmp_path):
         # Настоящий признак готовности: журнал открывается на реальной БД.
         led = meme.open_ledger(svc)
         assert led is not None and led.table_present() is True
+        store = pub.open_store(svc)
+        assert store is not None and store.table_present() is True
     finally:
         await svc.close()
 
@@ -1023,6 +1036,7 @@ async def test_fresh_db_migrates_0_to_40_with_quota_tables(tmp_path):
 @pytest.mark.asyncio
 async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
     from services import message_identity as mi
+    from services import publication_coordination as pub
     from services.database import DatabaseService
 
     path = str(tmp_path / "v39_upgrade.db")
@@ -1040,6 +1054,7 @@ async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
         assert (await cur.fetchone())[0] == 39
         # До шага журнала квоты нет — и это честный schema_absent, а не тишина.
         assert meme.open_ledger(old) is None
+        assert pub.open_store(old).table_present() is False
         await mi.save_live_message(old, chat_id=-100, user_id=1,
                                    text="до-v40-строка", tg_message_id=11)
         cur = await old.db.execute(
@@ -1051,20 +1066,26 @@ async def test_v39_db_upgrades_to_v40_without_data_loss(tmp_path):
     svc = DatabaseService(path)
     await svc.initialize()
     try:
+        latest = max(s.version for s in DatabaseService.migration_steps())
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 40
+        assert (await cur.fetchone())[0] == latest == 41
         cur = await svc.db.execute(
             "SELECT checksum FROM schema_migrations WHERE version = 39")
         assert (await cur.fetchone())["checksum"] == checksum_39
         cur = await svc.db.execute(
             "SELECT name FROM schema_migrations WHERE version = 40")
         assert (await cur.fetchone())["name"] == "meme_quota_journal_v40"
+        cur = await svc.db.execute(
+            "SELECT name FROM schema_migrations WHERE version = 41")
+        assert (await cur.fetchone())["name"] == pub.CLAIM_MIGRATION_STEP_NAME
         row = await svc.get_smart_message_by_tg_id(-100, 11)
         assert row is not None and row["text"] == "до-v40-строка"
         led = meme.open_ledger(svc)
         assert led is not None
         # Журнал добавлен пустым: расхода до миграции не выдумывается.
         assert led.spent(-100, "2026-10-30") == 0
+        # Бронь добавлена пустой: прошлых публикаций не выдумывается.
+        assert pub.open_store(svc).snapshot(-100) == {}
     finally:
         await svc.close()
 
@@ -1174,10 +1195,14 @@ async def test_v40_restart_is_noop_and_keeps_quota_rows(tmp_path, caplog):
     with caplog.at_level(logging.INFO, logger="services.database"):
         await svc2.initialize()
     try:
+        latest = max(s.version for s in DatabaseService.migration_steps())
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 40
+        assert (await cur.fetchone())[0] == latest
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 40")
+        assert (await cur.fetchone())["c"] == 1
+        cur = await svc2.db.execute(
+            "SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 41")
         assert (await cur.fetchone())["c"] == 1
         assert "migration v40 applied" not in caplog.text
         led2 = meme.open_ledger(svc2)

@@ -874,6 +874,12 @@ BOT_OUTPUT_KINDS = frozenset({
     # (direct_output_kind(TRIGGER_INITIATIVE)); раньше молча коэрсился в
     # `other`, и funnel `sent` в Status был неизмерим.
     "initiative_reply", "other",
+    # MEME-PIPELINE-REFactor-01 / INIT-COORD: инициативный мем. Без своего
+    # kind вывод мема молча коэрсился в `other`, и существующие антифлуд/
+    # cooldown-хелперы (`_last_bot_output_age`) не видели картинку — текстовая
+    # инициатива могла ответить сразу после мема. DDL не меняется: колонка
+    # `output_kind` та же, расширяется только закрытый набор значений.
+    "meme_initiative",
 })
 BOT_OUTPUT_DELIVERY_STATUSES = frozenset({"delivered", "failed", "unknown"})
 
@@ -1751,6 +1757,20 @@ _SCHEMA_VERSION_PROMPT_JOURNAL = 39
 # нет: `pg_db`-таблицы под него не регистрируются, см. docstring шага).
 # Откат: cold git revert (таблицы инертны, старый код v39 их не читает).
 _SCHEMA_VERSION_MEME_QUOTA = 40
+
+# ── MEME-PIPELINE-REFactor-01 / INIT-COORD (03.11.2026, arch §3.2) ──────────
+# v41 — аддитивная таблица брони публикации `chat_publish_claim` (PK
+# `chat_id`, одна строка на чат). Обеспечивает «ровно одну публикацию» при
+# одновременной готовности двух механизмов и N воркерах/процессах: атомарность
+# даёт compare-and-set `UPSERT` по PK, а не in-process блокировка. DDL —
+# дословно у модуля-владельца (`publication_coordination.CLAIM_DDL_SQLITE`,
+# `CREATE TABLE IF NOT EXISTS`); шаг его только применяет, второй копии нет.
+# Аддитивно: ни одного UPDATE/DELETE существующих строк, индекс не нужен (PK),
+# backfill не требуется (пустая таблица = «броней нет»), повтор — no-op.
+# PG — no-op: состояние отправки живёт в операционной SQLite рядом с
+# `mca_bot_outputs` (PG-копия не читается никем и выдавала бы несуществующую
+# поддержку). Откат: cold git revert (таблица инертна, код v40 её не читает).
+_SCHEMA_VERSION_PUBLISH_CLAIM = 41
 
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
@@ -2983,6 +3003,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_MEME_QUOTA,
                           "meme_quota_journal_v40",
                           lambda svc: svc._migrate_meme_quota_v40()),
+            # MEME-PIPELINE-REFactor-01 / INIT-COORD (03.11.2026): v41 —
+            # аддитивная таблица брони публикации `chat_publish_claim` (PK
+            # `chat_id`). DDL — в модуле-владельце
+            # (`publication_coordination.CLAIM_DDL_SQLITE`, IF NOT EXISTS),
+            # шаг его только применяет. Идемпотентно, повтор — no-op, PG —
+            # no-op, старый код v40 таблицу не читает.
+            MigrationStep(_SCHEMA_VERSION_PUBLISH_CLAIM,
+                          "chat_publish_claim_v41",
+                          lambda svc: svc._migrate_publish_claim_v41()),
         ]
 
     @staticmethod
@@ -3364,6 +3393,27 @@ class DatabaseService:
                     meme.RESERVATION_TABLE, meme.ATTEMPT_TABLE)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_MEME_QUOTA}")
+        await self.db.commit()
+
+    async def _migrate_publish_claim_v41(self) -> None:
+        """v41 (INIT-COORD): бронь публикации `chat_publish_claim`.
+
+        Аддитивно: одна новая таблица (PK `chat_id`), без индексов и без
+        backfill. DDL — дословно в модуле-владельце
+        (`services.publication_coordination.CLAIM_DDL_SQLITE`); шаг применяет
+        именно его, второй копии выражений здесь нет. Повтор и legacy-БД, где
+        таблица уже создана тестами, — no-op. Существующие строки не
+        UPDATE/DELETE-ятся; пустая таблица = честное «броней нет».
+
+        PG — no-op: состояние отправки живёт в операционной SQLite рядом с
+        журналом выводов. Откат: cold git revert (таблица инертна)."""
+        from services import publication_coordination as pub
+        for statement in pub.CLAIM_DDL_SQLITE:
+            await self.db.execute(statement)
+        await self.db.commit()
+        logger.info("[database] migration v41: %s", pub.CLAIM_TABLE)
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_PUBLISH_CLAIM}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:

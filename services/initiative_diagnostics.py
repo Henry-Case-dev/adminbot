@@ -1015,6 +1015,8 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
                     setattr(mi, name, _noop_emitter)
             if original_style is not None:
                 dcs._style_initiative_text = _style_probe
+        from services import publication_coordination as _pubmod
+        publication = None
         result: dict = {}
         try:
             intent_kind = ("open_dispute"
@@ -1044,16 +1046,30 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
                 rows=rows, now=started,
                 addressee_user_id=verdict.get("addressee_user_id"),
                 rationale=verdict.get("rationale"))
+            # ── INIT-COORD (03.11.2026) §3.5: координация публикации ТЕМ ЖЕ
+            # швом, что у боевого пути (precheck → бронь → publish_guard →
+            # release). Реальный прогон занимает бронь — иначе он невидим для
+            # мема; dry-run бронь НЕ занимает (`claim=False`): он ничего не
+            # публикует и состояние чата не трогает.
+            publication = await _pubmod.open_text_publication(
+                db, int(chat_id), holder_ref="diag%s" % _int(started),
+                claim=not use_mock)
+            out["publication"] = publication.as_dict()
             result = await dcs.handle_initiative(
                 bot=(mock_bot if use_mock else bot), chat_id=int(chat_id),
                 situation=situation, candidates=[candidate], db=db,
                 writer_service=writer_service,
                 correlation_id="diag%s" % _int(started),
-                opportunity_row=opportunity_row) or {}
+                opportunity_row=opportunity_row,
+                publish_guard=publication.guard) or {}
         except Exception:
             logger.warning("[w5] initiative check failed", exc_info=True)
             result = {"status": "error"}
         finally:
+            if publication is not None:
+                await publication.close(
+                    published=(str((result or {}).get("status") or "") == "sent")
+                    and not use_mock)
             for name, func in suppressed.items():
                 setattr(mi, name, func)
             if original_style is not None:
