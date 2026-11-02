@@ -2,7 +2,7 @@
 
 Источник: `plans/current_task.md` §2 (строки 1238–1348), слайс `EVOL-COG-MAP` (W7, 41 required-строка).
 Роль: Architect. Ветка `evol/impl` @ `a5581869`. Решение заморожено для одной Builder-полосы + один проход Reviewer.
-Статус: **ARCHITECT_ADJUSTMENT_REQUIRED** — см. §8 (write_scope: `web/app.py`; зависимость от SRC-READER — мягкая).
+Статус: **ARCHITECT_ADJUSTMENT_REQUIRED** — см. §8 (write_scope: `web/api/cognitive_map.py`, `web/app.py`; зависимость от SRC-READER — мягкая).
 
 ## 0. Что уже есть (проверено в коде, не по аудитам)
 
@@ -46,7 +46,7 @@
 
 * Рендерер: **vis-network 9.1.9 как есть** (pan/zoom/select, DataSet, `destroy`, mobile-simple, reduced-motion). Подписи — собственный слой: `nodes.font.size=0` + отрисовка в событии `afterDrawing` (подтверждено в вендорном файле: `emitter.emit("afterDrawing", A)`); `ctx.setTransform(1,0,0,1,0,0)` + `network.canvasToDOM()`; DataSet не мутируется (иначе поедет `_graphSignature` `app.js:27835`).
 * Новый клиентский модуль `web/static/cognitive-map.js` — по образцу `web/static/execution_graph.js` (zero-build, CSP `self`, без inline/CDN): нормализация payload, фильтры, аллокатор подписей, состояние камеры/режимов — чистые функции, тестируемые `node`.
-* Новый бэкенд-модуль `web/api/memory_graph.py`: `GET /api/memory/cognitive-map` (аддитивно; `memory_agi.py` содержит существующий `/memory/graph`-контракт). Чтение — bounded SQL в этом модуле (прецедент сырого SQL в API — `memory_agi.py:1117-1184`), топология — через `graph_snapshot`, `services/database.py` **не трогаем** (параллельная безопасность).
+* Новый бэкенд-модуль **`web/api/cognitive_map.py`** — каноническое имя (реализовано и отревьюено в S1 `770f53c1`; `web/api/memory_graph.py` не создаётся; `cognitive_map_router` подключается одной строкой в `web/app.py`): `GET /api/memory/cognitive-map` (аддитивно; `memory_agi.py` содержит существующий `/memory/graph`-контракт). Чтение — bounded SQL в этом модуле (прецедент сырого SQL в API — `memory_agi.py:1117-1184`), топология — через `graph_snapshot`, `services/database.py` **не трогаем** (параллельная безопасность).
 * Примитивы: карточки/стекло `data-glass`, `badge*`, `btn-ghost`, токены дизайн-системы, `fmtTs`, `chatTitleFor`, `summaryAliasesMap`, `isMobileShell`, `reducedMotion`, `fullscreen-policy.js`.
 * «Открыть в Памяти» = `navTo('#/memory')` + предзаполнение существующего поиска каталога и типа (никакого нового маршрута/экрана).
 * «Открыть источник»: есть `tg_message_id` → существующий просмотр первоисточника/сообщения в админке (с проверкой прав); нет — «ссылка недоступна», без выдуманного пути. «История изменений» — только реальные версии (`supersedes`-цепочка, `expand_chain`), иначе «истории нет».
@@ -97,9 +97,11 @@
 
 **Переименование/зависимость:** COG-MAP нужен от SRC-READER только *вид* источника «прочитанный код» в карточке. Сегодня SRC-READER не персистит durable-ссылку на файл (payload + `source_reuse` + телеметрия), поэтому узел честно показывает сообщение-источник, а `provenance.source_refs` в модели зарезервировано. **S1 можно и нужно делать до мержа SRC-READER**; формальная `depends_on` в `slice-graph.json` — порядок эпика, не блокировка кода (решение для PM, карту не меняю).
 
-**Параллельная безопасность:** `web/static/cognitive-map.js`, `web/api/memory_graph.py`, `tests/**`, `plans/features/evol/audit/w7-cognitive-map.md` — PARALLEL_SAFE (новые файлы). `web/index.html`, `web/app.js`, `web/static/app.css`, `web/app.py` — **SERIALIZE**: писать только после того, как полоса ревью композиции UI освободит эти файлы; SRC-READER-полосу не касаются. Изменения аддитивные, «новое в хвост», старый рендер удаляется в S2 вместе с заголовком.
+**Параллельная безопасность:** `web/static/cognitive-map.js`, `web/api/cognitive_map.py`, `tests/**`, `plans/features/evol/audit/w7-cognitive-map.md` — PARALLEL_SAFE (новые файлы). `web/index.html`, `web/app.js`, `web/static/app.css`, `web/app.py` — **SERIALIZE**: писать только после того, как полоса ревью композиции UI освободит эти файлы; SRC-READER-полосу не касаются. Изменения аддитивные, «новое в хвост», старый рендер удаляется в S2 вместе с заголовком.
 
-**Требуемая правка write_scope (ARCHITECT_ADJUSTMENT):** добавить `web/app.py` (одна строка `include_router`). Без неё endpoint не публикуется.
+**Требуемая правка write_scope (ARCHITECT_ADJUSTMENT):** канонический модуль — `web/api/cognitive_map.py` (не `memory_graph.py`), плюс `web/app.py` (одна строка `include_router`). В `slice-graph.json` это правит PM одной строкой; без строки в `web/app.py` endpoint не публикуется.
+
+**S2 перед стартом:** «показано X из Y» выводится из `totals > shown` независимо от `state`/`truncated` (дефект B1 ревью S1 — флаги сущностей приводить к правилу остальных классов; исправление — в S1 у Builder). Живой замер размера ответа и `EXPLAIN QUERY PLAN` + рендер-замеры — S2/S4, не повод менять контракт до замера.
 
 **Риск:** R2 (визуальная деградация подписей и мобильная плотность), R1 по данным (изоляция чатов, отсутствие выдуманных рёбер), R3 (нет роста: только чтение).
 
