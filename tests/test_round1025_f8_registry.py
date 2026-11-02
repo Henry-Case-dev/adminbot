@@ -148,7 +148,17 @@ ROUTES_SHA256_F11 = (
     # `activation_time_available` по реальному `prompt_activations.created_at`.
     # Новых endpoint'ов нет (Δ routes=0), RBAC не ослаблен; набор путей
     # f8_baseline не менялся. Хэш переутверждён осознанно.
-    "e90288c2db67067773a08dda3f06b9a20f1bbfd74d4fe98d3067aecb1d02f4f5")
+    # MEME-PIPELINE-REFactor-01 P2 (03.11.2026, L-F11S-1 conscious
+    # requalification): контентная Δ в СУЩЕСТВУЮЩИХ POST /api/config (оба
+    # уровня) и GET/POST /api/initiative/meme-settings — поля `prompt_joke`/
+    # `prompt_image` в MemeSettingsUpdate, единый гейт шаблона
+    # `_meme_template_guard` (два `{joke}` → 422 на всех путях записи),
+    # витрина бюджета от ЭФФЕКТИВНОГО шаблона, снятие чатового override пустой
+    # строкой; затем ревью-правка `extra="forbid"` в MemeSettingsUpdate
+    # (неизвестное имя поля → 422 вместо тихого no-op). Новых endpoint'ов нет
+    # (Δ routes=0), RBAC/маскировка/DDL не менялись, набор путей f8_baseline
+    # не менялся. Хэш переутверждён осознанно (L-F11S-1).
+    "7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

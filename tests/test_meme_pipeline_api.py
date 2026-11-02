@@ -139,6 +139,43 @@ def client(monkeypatch):
         yield tc
 
 
+@pytest.fixture
+def real_layers(monkeypatch):
+    """Админский клиент, у которого слои настройки — НАСТОЯЩИЕ.
+
+    Отличие от фикстуры `client`: `chat_params.get_chat_param` и
+    `chat_params.get_chat_param_sourced` НЕ подменяются. Профиль читается
+    реальным `ChatParamsCache` над PG-двойником, пишется реальным
+    `set_chat_params` (тот же код, что в проде). Подменены только внешние
+    границы мем-модуля (сеть, ledger, БД лора), как и в `client`.
+    """
+    conn, cache, app = _build(monkeypatch)
+    global_layer: dict[str, object] = {}
+    monkeypatch.setattr(meme, "open_ledger", lambda db: None)
+    monkeypatch.setattr(meme, "model_prompt_chars", _no_model_capability)
+    from services import initiative_observer
+    monkeypatch.setattr(initiative_observer, "observer_enabled", lambda: True)
+    from services import image_generation as ig
+    monkeypatch.setattr(ig, "resolve_module_enabled",
+                        lambda chat_id=None: _true())
+    from services import lore_runtime
+    monkeypatch.setattr(lore_runtime, "get_lore_db", lambda: None)
+    from services import chat_params as chat_params_srv
+    # Штатный кэш чат-параметров поверх PG-двойника: резолв слоёв идёт из
+    # хранилища, а не из мока резолвера.
+    chat_cache = chat_params_srv.ChatParamsCache(cache.pg)
+    monkeypatch.setattr(chat_params_srv, "_chat_params_cache", chat_cache)
+    # Глобальный слой (`bot_settings`) эмулируется тем же hot.get.
+    monkeypatch.setattr(hot_config, "get",
+                        lambda key, default=None: global_layer.get(key, default))
+    with TestClient(app) as tc:
+        tc.cache = cache
+        tc.conn = conn
+        tc.global_layer = global_layer
+        tc.chat_params_cache = chat_cache
+        yield tc
+
+
 async def _true():
     return True
 
@@ -441,3 +478,98 @@ def test_post_requires_admin_and_some_change(client):
     assert client.conn.writes == []
     empty = _post(client, prompt_joke="", prompt_image="")
     assert empty.status_code == 422               # нечего менять — не «успех»
+
+
+# ── durable-регрессии из ревью P2 (пункты 8-10 чек-листа) ──────────────────
+
+def test_unknown_field_is_rejected_instead_of_silent_noop(real_layers):
+    """Опечатка в имени поля — 422, а не «сохранено ничего» (`extra="forbid"`).
+
+    Имена в коде — `prompt_joke`/`prompt_image`. Клиент по чужому имени
+    (`joke_prompt`, как в тексте слайс-графа) раньше получал 422 «нет
+    изменений» либо 200 без записи и считал правку сохранённой.
+    """
+    client = real_layers
+    resp = _post(client, prompt_joke="Прикол.", joke_prompt="Прикол.")
+    assert resp.status_code == 422, resp.text
+    assert "joke_prompt" in resp.text            # отказ называет виновника
+    assert client.conn.writes == []              # и ничего не записал
+    # Штатный путь карточки (только канонические имена) по-прежнему проходит.
+    ok = _post(client, prompt_joke="Прикол.")
+    assert ok.status_code == 200, ok.text
+    assert client.conn.params["overrides"][JOKE_KEY] == "Прикол."
+
+
+def test_chat_level_config_rejects_two_placeholders_without_writing(
+        real_layers):
+    """Чат-уровень `POST /api/config` — тот же гейт шаблона, что и глобальный.
+
+    Ревью P2 закрыло только глобальный путь (`_post_config_global`); здесь
+    закреплён чатовый (`X-Chat-Id`): два `{joke}` → 422, в `overrides` чата
+    ничего не записано (реальное хранилище, не мок).
+    """
+    client = real_layers
+    bad = {"items": [{"key": IMAGE_KEY, "value": "{joke} и ещё {joke}"}]}
+    resp = client.post("/api/config", json=bad, headers=_headers())
+    assert resp.status_code == 422, resp.text
+    assert "joke" in resp.text
+    assert client.conn.writes == []              # молчаливой записи нет
+    assert (client.conn.params.get("overrides") or {}) == {}
+
+    # Контроль: валидный шаблон тем же путём сохраняется (гейт не глухой).
+    ok = client.post("/api/config",
+                     json={"items": [{"key": IMAGE_KEY,
+                                      "value": "Мем: {joke}"}]},
+                     headers=_headers())
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["updated"] == [IMAGE_KEY]
+    assert client.conn.params["overrides"][IMAGE_KEY] == "Мем: {joke}"
+
+
+def test_layers_and_removal_through_real_resolver(real_layers):
+    """Три слоя и снятие чатового override — через НАСТОЯЩИЙ резолвер.
+
+    `effective_meme_prompt` → `_prompt_layer` → `chat_params.get_chat_param_sourced`
+    без мока этого шва: чат → глобальный → заводской, а пустая строка из API
+    удаляет именно чатовое переопределение. Запись идёт реальным
+    `set_chat_params` (он же инвалидирует кэш), поэтому каждое чтение берётся
+    из хранилища, а не из памяти предыдущего запроса.
+    """
+    client = real_layers
+
+    def view() -> dict:
+        return asyncio.run(meme.effective_meme_prompt(
+            CHAT_A, meme.JOKE_PROMPT_BLOCK_ID, factory=JOKE_FACTORY))
+
+    # 1) Нет ни переопределения, ни глобального значения → заводской текст.
+    factory = view()
+    assert factory["text"] == JOKE_FACTORY
+    assert factory["source"] == "factory"
+    assert factory["setting_key"] == JOKE_KEY
+
+    # 2) Глобальный слой (карточка «Промпты») сильнее заводского.
+    client.global_layer[JOKE_KEY] = "Глобальный прикол."
+    glob = view()
+    assert glob["text"] == "Глобальный прикол."
+    assert glob["source"] == "global"
+
+    # 3) Чатовое переопределение, записанное РЕАЛЬНЫМ API, сильнее глобального.
+    assert _post(client, prompt_joke="Чатовый прикол.").status_code == 200
+    assert client.conn.params["overrides"][JOKE_KEY] == "Чатовый прикол."
+    chat = view()
+    assert chat["text"] == "Чатовый прикол."
+    assert chat["source"] == "chat"
+    assert chat["differs_from_factory"] is True
+
+    # 4) Пустая строка снимает ЧАТОВЫЙ слой → снова действует глобальный.
+    assert _post(client, prompt_joke="").status_code == 200
+    assert JOKE_KEY not in client.conn.params["overrides"]
+    back = view()
+    assert back["text"] == "Глобальный прикол."
+    assert back["source"] == "global"
+
+    # 5) Без глобального слоя остаётся заводской текст (пустота ничего не обнулила).
+    client.global_layer.pop(JOKE_KEY)
+    out = view()
+    assert out["text"] == JOKE_FACTORY
+    assert out["source"] == "factory"

@@ -3906,7 +3906,15 @@ class MemeSettingsUpdate(BaseModel):
     квота `0` = выключено, окно ≥ 1, вероятность 0..1, тихие часы
     `HH:MM-HH:MM` (пусто = не заданы). `summarizer_model` пустой = наследовать
     общий суммаризатор. Мастер модуля здесь отсутствует намеренно.
+
+    `extra="forbid"`: неизвестное имя поля — ошибка запроса (422), а не
+    молчаливый no-op. Иначе клиент, собранный по другому имени (например
+    `joke_prompt`/`image_prompt` вместо `prompt_joke`/`prompt_image`), получал
+    бы 422 «нет изменений» или 200 без сохранения и искренне считал правку
+    сохранённой. Цена — ровно один честный отказ на опечатку в имени поля.
     """
+    model_config = {"extra": "forbid"}
+
     enabled: bool | None = None
     window_messages: int | None = Field(default=None, ge=1, le=5000)
     daily_limit: int | None = Field(default=None, ge=0, le=50)
