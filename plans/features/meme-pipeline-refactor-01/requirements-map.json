@@ -2606,6 +2606,23 @@
       "verification_tier": "engineering",
       "evidence": [],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
+    },
+    {
+      "source_id": "MAN-MEME-IIC-TEXT-CALLSITES-COORDINATED",
+      "source_line": 222,
+      "source_text_sha256": "cb0f525dc1480dc5c3c26d9300a3e57ebc4a2e34064ce5d1f9caa3318be02622",
+      "source_excerpt": "13. Не сломаны существующие механизмы инициативы и публикации.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "MEME-IIC-TEXT-CALLSITES-COORDINATED",
+      "slice": "MEME-INIT-COORDINATION",
+      "acceptance": "Каждая производственная точка отправки текстовой инициативы (observer, nostalgia в делегированной ветке K1+K3 ON, nostalgia в legacy-ветке K1/K3 OFF с прямым send, heartbeat `_run_initiative_candidate`, диагностика в реальном режиме публикации при `use_mock=False`) проходит precheck → acquire → `publish_guard` → release/cancel: при чужой публикации внутри интервала отправки нет, причина `publication_conflict` наблюдаема с detail, heartbeat-интент остаётся `pending` и перепроверяется следующим тиком (бюджет LLM не потрачен), nostalgia даёт `skipped` (не `error`) и пересобирает кандидата; при отсутствии таблицы claim nostalgia/heartbeat публикуют с `coordination=degraded` и одним WARN (мем по-прежнему `schema_absent`); структурная AST-проверка в `tests/test_initiative_coordination.py` находит вызовы `handle_initiative` в `services/*.py` и падает на вызове без `publish_guard=`, кроме явно перечисленных dry-run мест, и сама способна упасть на синтетическом вызове (T5).",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "verification_tier": "engineering",
+      "evidence": [],
+      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     }
   ],
   "items": [
