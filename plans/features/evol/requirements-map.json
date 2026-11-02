@@ -15867,7 +15867,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -15877,7 +15941,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.1 новая модель и источник вместо старого графа: виджет рендерит данные нового API, легаси-«Граф связей» не используется как источник (сам вывод легаси из сборки — S4). Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01250",
@@ -15902,7 +15967,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3/S4: §2.2 порядок блоков виджета — не заявлен в приёмке S2. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01254",
@@ -15927,7 +15993,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3/S4: §2.2 порядок «Факты/Убеждения/Парадигмы/Эволюция» — не заявлен в приёмке S2. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01255",
@@ -15952,7 +16019,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3/S4: §2.2 порядок блоков — не заявлен в приёмке S2. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01256",
@@ -15977,7 +16045,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3/S4: §2.2 порядок блоков — не заявлен в приёмке S2. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01257",
@@ -16002,7 +16071,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3/S4: §2.2 порядок блоков — не заявлен в приёмке S2. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01263",
@@ -16034,49 +16104,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16089,7 +16177,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 закрывает контракт идентичности узлов: `id` — стабильный типизированный ключ (`entity:*`, `evt:*`, `obs:*`), не индекс массива; `kind` из закрытого набора (fact/belief/paradigm/observation/evolution_event/other). S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 типизированные стабильные ключи узлов используются виджетом и адаптером; ключи не индексы массива. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01268",
@@ -16106,49 +16194,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16161,7 +16267,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт временные поля раздельно (произошло / обнаружено / сохранено / обновлено) в payload узла, без смешивания. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 временные поля приходят раздельно и отображаются без смешивания (виджет читает их из payload). Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01269",
@@ -16178,49 +16284,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16233,7 +16357,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт `provenance` (message_id/author_id/chat_id, документ, run_id по наличию, достоверная ссылка); для глобальных записей `chat_id=null`, `evt:0` устранён. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 provenance доходит до виджета: карточка/тултип получает message_id/author/chat и документ (сама карточка — S3). Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01270",
@@ -16250,49 +16374,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16305,7 +16447,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт `edges` только с подтверждённым типом связи (supports/contradicts/part_of/derived_from/revised_by), без синтетических рёбер. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 рёбра только подтверждённых типов; неподтверждённые не рисуются. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01271",
@@ -16322,49 +16464,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16377,7 +16537,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт `confidence`/`strength`/`freshness` только если значения реально рассчитаны; иначе они опускаются, а не подставляются. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 confidence/strength/freshness показываются только при реальном расчёте. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01272",
@@ -16394,49 +16554,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16449,7 +16627,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 сохраняет изолированные узлы как изолированные: orphan-сущность попадает в карту без выдуманных рёбер (`test_orphan_entity_is_reported_honestly`). S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.3 изолированные узлы видны без выдуманных рёбер (orphan-фикстура стенда). Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01276",
@@ -16479,7 +16657,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16489,7 +16731,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 цвет и форма по классам фактов/убеждений/парадигм/наблюдений/эволюции; различие не только цветом. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01281",
@@ -16504,7 +16747,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16514,7 +16821,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 узлы: кольцо/ореол и мягкий glow, размер от типа и визуального веса. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01282",
@@ -16529,7 +16837,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16539,7 +16911,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 рёбра тонкие и малоконтрастные, локально усиливаются при выборе; типы различимы. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01283",
@@ -16554,7 +16927,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16564,7 +17001,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 микродвижения едва заметные и устойчивые; раскрытие кластеров плавное, без бесконечного хаоса. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01284",
@@ -16579,7 +17017,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16589,7 +17091,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 полигональный фон и стекло не заменены; анимация фона остаётся видимой через стекло. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01285",
@@ -16606,49 +17109,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -16661,7 +17182,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 даёт материал для легенды (`by_kind`, `caps.classes=4`, классы kinds); сама легенда в виджете — S2. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 легенда обязательна и видима без документации: метки берутся из адаптера (`data-cog-legend-kind`, `{{ lg.label }}`), цвет/форма ↔ класс; слова владельца проверены node-тестом и живым стендом. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01286",
@@ -16676,7 +17197,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16686,7 +17271,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.4 подписи не сливаются в сплошной текст: экранное разрешение коллизий + LOD-бюджет по площади кадра (§9.2), бюджет растёт с площадью и обязанными подписями (мутации пойманы). Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01288",
@@ -16726,7 +17312,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3: §2.5 карточка узла — Telegram-ссылка с проверкой прав. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01295",
@@ -16751,7 +17338,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3: §2.5 «История изменений» с версиями/provenance. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01296",
@@ -16823,7 +17411,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт данные ребра (тип, обе сущности, источники/обоснование) в payload; панель по клику на ребро — S2/S3. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2 НЕ покрывает эту строку. S3: §2.5 карточка ребра — тип, источники, обе сущности, обоснование. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01297",
@@ -16838,7 +17426,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16848,7 +17500,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.5/§4 витрина: поиск по имени/алиасу с фокусом, фильтр по типу и реальному кластеру, сброс вида, «видно X из Y» нейтрально и независимо от состояния, честные состояния (loading/not_loaded/renderer_failed/stale/empty/degraded) одной строкой по худшему факту. §4 контракта (честность метрик) отдельной строки в карте не имеет — фиксируется здесь и в slice note. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01298",
@@ -16873,7 +17526,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S3: §2.5 переход в таблицу/детали памяти с сохранением контекста узла. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01300",
@@ -16888,7 +17542,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16898,7 +17616,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.6 паритет со старым графом сохранён: тот же маршрут и позиция в сетке, pan/zoom, полный экран. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01304",
@@ -16928,7 +17647,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16938,7 +17721,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.6 граф занимает всю ширину контента с адаптивной высотой (svh/dvh), без пустого прямоугольника. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01311",
@@ -16953,7 +17737,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -16963,7 +17811,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.6 центральный кластер читается сразу, второстепенное пространство не давит. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01312",
@@ -16980,49 +17829,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -17035,7 +17902,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 отдаёт узлы и scope для приоритезации подписей; LOD/подписи только приоритетных узлов — S2/S4. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.6 подписи только приоритетных узлов и текущей области + маленькая легенда, без громоздкой панели. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01313",
@@ -17060,7 +17927,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 мобильная карточка (bottom sheet) и свайп-закрытие. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01314",
@@ -17085,7 +17953,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 жесты (один палец/pan, pinch, tap) и приоритет со скроллом страницы. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01318",
@@ -17110,7 +17979,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 fullscreen в Mini App (safe-area, вырезы, dynamic viewport). Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01319",
@@ -17135,7 +18005,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 больше узлов/подписей в fullscreen — мобильная композиция. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01320",
@@ -17160,7 +18031,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 плавающие controls и нижний лист в fullscreen. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01321",
@@ -17175,7 +18047,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -17185,7 +18121,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.6 выход из fullscreen сохраняет узел, scale, камеру и фильтры (живой прогон стенда); BackButton — S4. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01322",
@@ -17210,7 +18147,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2 НЕ покрывает эту строку. S4: §2.7 landscape/малые экраны, неперекрытие controls. Доказательства S2 остаются в родительских строках §2.3/§2.4/§2.6/§2.8."
     },
     {
       "source_id": "L01328",
@@ -17242,49 +18180,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -17297,7 +18253,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 доказывает, что адаптер чистый и не тянет библиотеку: `web/index.html`/`web/app.js`/`web/static/app.css` не тронуты; выбор графовой библиотеки — S2. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 выбор библиотеки закрыт: переиспользован self-host vis-network (решение контракта), Cytoscape/D3 не подключены. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01331",
@@ -17312,7 +18268,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -17322,7 +18342,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 нет массового DOM-текста и дорогих backdrop-filter на каждой вершине; рёбра не рисуются все сразу. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01332",
@@ -17339,49 +18360,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -17394,7 +18433,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 библиотеку не подключает (адаптер автономен); фиксация версий и self-host графовой библиотеки — S2/S4. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 библиотека self-host, зафиксированная версия, новые зависимости не добавлены. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01333",
@@ -17411,49 +18450,67 @@
       "status": "PENDING",
       "evidence": [
         {
-          "ref": "w7-s1-review.md — Re-review 2 (Approved на d69f9584)",
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
           "type": "test",
-          "artifact_path": "plans/features/evol/reports/w7-s1-review.md",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "25725265",
-          "artifact_sha256": "993a045669468a3b91c1a9c72d8f475cb05e29b9c5e4c58fedf38e4fb3a663d1",
-          "observation": "Reviewer независимо подтвердил: единое правило полноты, устранение `evt:0`, невакуумность новых тестов (мутации краснеют), неизменность формы payload; прогоны 23 passed (API), 163 passed (webapp), `EVOL-COG-MAP-S1-OK checks=407` (JS)."
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
         },
         {
-          "ref": "w7-cognitive-map-s1.md — отчёт Builder по S1",
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
           "type": "test",
-          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s1.md",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "ddcbdded4f2c759bf1e1653b961e372b42705cfed01fb03fa0d57e46487abf99",
-          "observation": "Реализация и замеры S1: API, адаптер, caps, честная неполнота, изоляция чатов."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
         },
         {
-          "ref": "tests/test_evol_cog_map_api.py — контракт API",
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
           "type": "test",
-          "artifact_path": "tests/test_evol_cog_map_api.py",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "184c7e716fff6c5d1cf51742ce1d8954da8bc44a21a3138262a88e3e3e026c51",
-          "observation": "23 теста: partial/truncated по правилу `total > shown`, orphan честно изолирован, глобальная запись не превращается в `evt:0`, полный маленький чат даёт `ok`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
         },
         {
-          "ref": "tests/js/evol_cognitive_map_test.js — чистый адаптер",
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
           "type": "test",
           "artifact_path": "tests/js/evol_cognitive_map_test.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "4973c8d57b2157fe41191ec46e34fc27a83e239e7de1fabd58feeda3b0dcb13d",
-          "observation": "`EVOL-COG-MAP-S1-OK checks=407`: фильтры scope/kind, совместимость `chats:[null]`, отсутствие DOM-побочек адаптера."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
         },
         {
-          "ref": "web/api/cognitive_map.py — модуль API S1",
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
           "type": "test",
-          "artifact_path": "web/api/cognitive_map.py",
+          "artifact_path": "web/static/cognitive-map.js",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "d69f9584",
-          "artifact_sha256": "d0f2937fcd550723bde00f3473581e5b6f619d913ea7af330b9cd6e0df6124ae",
-          "observation": "Канонический модуль W7-S1: эндпоинт `GET /api/memory/cognitive-map`, публикация одной строкой `include_router` в `web/app.py`."
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
         }
       ],
       "sub_reqs": [
@@ -17466,7 +18523,7 @@
         "EVOL-COG-PERF"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
-      "note": "S1 даёт детерминированный порядок узлов (повторный прогон побайтово идентичен); стабильный layout, сохранение позиции/камеры — S2/S4. S1 (кандидат `d69f9584`, merge `25725265`) даёт контракт данных и клиентский адаптер: `GET /api/memory/cognitive-map` в `web/api/cognitive_map.py` (публикация — одна строка `include_router` в `web/app.py`), версия payload `cog-map/1`, caps `{nodes:800, edges:2400, per_class:150, classes:4}`; единое правило полноты `total > shown` по шести классам, `state`: degraded → empty → partial → ok; изоляция чатов (глобальные записи приходят с `chat_id=null`, `evt:0` устранён); изолированные узлы остаются изолированными без выдуманных рёбер; повторный прогон побайтово идентичен. Проверки: `pytest tests/test_evol_cog_map_api.py` — 23 passed; `node tests/js/evol_cognitive_map_test.js` — `EVOL-COG-MAP-S1-OK checks=407`. ОСТАЁТСЯ S2..S4: сам виджет на «Статусе» — это и есть acceptance строки, поэтому статус остаётся PENDING."
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 стабильный layout с локальным расчётом; позиция/камера сохраняются в пределах сессии. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01334",
@@ -17481,7 +18538,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -17491,7 +18612,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 при скрытии вкладки/виджета рисование и интенсивные расчёты останавливаются. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01335",
@@ -17506,7 +18628,71 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "w7-s2-review.md — Re-review 2, Approved на 9bd5818f (merge 1eaa6c24)",
+          "observation": "Reviewer: 6 мутаций краснеют на целевых пунктах, стенд `COG-MAP checks=127` / `EVOL-W15-COMPOSITION OK` (fails=0), легенда проверяется привязкой по типу, тавтологий нет; названные границы: Chromium-стенд, фикстура 11 узлов, локальный статический сервер.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w7-s2-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "95a0d0e4",
+          "artifact_sha256": "6a1894eca7100de0e002b5f6f953a21eaf1aaaf1048b43c1f2fde53d4ce9b7fc"
+        },
+        {
+          "ref": "w7-cognitive-map-s2.md — отчёт Builder по S2",
+          "observation": "Реализация виджета на новом payload: легенда словами владельца, нейтральная полнота, геометрический бюджет подписей, стабильная камера, раздельные view/data emptiness.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w7-cognitive-map-s2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "9338b2285b39ff9ed6004607fa5d1524cda33fa5d323a0e14294ee7927ab273b"
+        },
+        {
+          "ref": "tests/test_evol_cog_map_widget.py — контракт виджета",
+          "observation": "Тесты виджета: порядок, легенда (тип/метка/swatch), честные состояния, полнота, отсутствие LLM/эмбеддинг-вызовов.",
+          "type": "test",
+          "artifact_path": "tests/test_evol_cog_map_widget.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "6e8c8d29a032ae2472363a54e10e9ed8d363c62307de74ea4f98fe0cdb00d970"
+        },
+        {
+          "ref": "tests/js/evol_cognitive_map_test.js — адаптер и §14",
+          "observation": "Проверки адаптера и модели метрик («показано X из Y», нейтральность, независимость от состояния).",
+          "type": "test",
+          "artifact_path": "tests/js/evol_cognitive_map_test.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "2742bd1593fe23032ff8a8368b7dff06673168c2eb74c5d2f8e2f7bca49eb05c"
+        },
+        {
+          "ref": "web/static/cognitive-map.js — модуль карты",
+          "observation": "Рендер, LOD/бюджет подписей, pan/zoom, камера, fullscreen-состояние.",
+          "type": "test",
+          "artifact_path": "web/static/cognitive-map.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "7d43d58b6995f8c4438399a3d9e50f75cd535901781470c5a000e68aaddd753f"
+        },
+        {
+          "ref": "web/app.js — интеграция виджета в «Статус»",
+          "observation": "Маршрут, позиция в сетке, фильтры/поиск, честные состояния одной строкой (`cogStatus`), отсутствие вызовов LLM при рендере.",
+          "type": "test",
+          "artifact_path": "web/app.js",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "93bbf713cddd3add1d00bf369d5ccf43dffcb48209cc38a5748ac9bf76bab339"
+        },
+        {
+          "ref": "evidence/cog-map-s2/cog-map-measurements.json — замеры виджета и кадры",
+          "observation": "JSON замеров S2 (полнота, LOD-бюджет, состояния, reduced-motion) и кадры `w15-cog-*` (1280/390, degraded/empty/stale/filter-empty/full/0-to-n/reduced-motion).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/cog-map-s2/cog-map-measurements.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "1eaa6c24",
+          "artifact_sha256": "fd4ff6a37fff640ba1404c0f56f4cb29ece27e9d8dee188799e4d7520015a3dd"
+        }
+      ],
       "sub_reqs": [
         "EVOL-COG-ADAPTER",
         "EVOL-COG-VISUAL",
@@ -17516,7 +18702,8 @@
         "EVOL-COG-PARITY",
         "EVOL-COG-PERF"
       ],
-      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7."
+      "queue_note": "В очереди последним (owner: end of queue) — после EVOL-SRC-READER и текущих UI-волн, слайс W7.",
+      "note": "S2-доказательства привязаны (Reviewer Re-review 2, Approved на `9bd5818f`, merge `1eaa6c24`): §2.8 тяжёлые части графа не смешаны с CSS/SVG-фильтрами стекла. Строка остаётся PENDING: acceptance — готовый виджет, а карточка узла/ребра (S3) и мобильная композиция (S4) ещё впереди. P3-остатки Reviewer'а (не приёмка, в бэклог): мёртвый computed `cogDegradedNote`; одно самореферентное ожидание в `tests/js/evol_cognitive_map_test.js` (§14); одинаковый янтарный ромб у «Изменения»/«Наблюдения» (13 против 10); плотность подписей на реальных данных (~356 узлов) не измерена — это S4."
     },
     {
       "source_id": "L01337",
@@ -39886,7 +41073,7 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S1): доказательства S1 привязаны к 12 строкам (`L01267`-`L01272` — данные/модель, `L01296`, `L01285`, `L01312`, `L01333`, `L01330`, `L01332` — частично) по кандидату `d69f9584` / merge `25725265`; статус всех 12 остаётся PENDING, потому что acceptance строк — готовый виджет на «Статусе» (S2..S4). Канонический модуль S1 — `web/api/cognitive_map.py` + одна строка `include_router` в `web/app.py`. Записано руководство Reviewer'а для S2: «показано X из Y» подавать нейтрально, `partial` — нормальное состояние реального чата, а не ошибка. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, визуальный контракт): `L00478` (EVOL-033) закрыта по поведению — Reviewer w15-composition-review-2 §9 (§D, §E.2, §D-7, §C/§E.4 zoom/узкий вьюпорт, §E.1/§E.4 видео/преломление; §E.3 ранее W14/S12) + контракт владельца OI-2026-11-02-NARROW-VIEWPORT; доказательства привязаны к merge `4af1f197`; 23 дубля закрыты вместе с ней. P3-остатки (6.3–6.8 и профиль в drawer при 200 % текста) записаны в бэклог, не как приёмка. §12: 15 PASS, 2 BLOCKED на EVOL-COG-MAP — строки `L01966`-`L01982` остаются PENDING до перепрогона после COG. `L01826` остаётся PENDING: контролы/оверлеи сохранили литеральные радиусы (ревью §6.7). Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S1): доказательства S1 привязаны к 12 строкам (`L01267`-`L01272` — данные/модель, `L01296`, `L01285`, `L01312`, `L01333`, `L01330`, `L01332` — частично) по кандидату `d69f9584` / merge `25725265`; статус всех 12 остаётся PENDING, потому что acceptance строк — готовый виджет на «Статусе» (S2..S4). Канонический модуль S1 — `web/api/cognitive_map.py` + одна строка `include_router` в `web/app.py`. Записано руководство Reviewer'а для S2: «показано X из Y» подавать нейтрально, `partial` — нормальное состояние реального чата, а не ошибка. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, визуальный контракт): `L00478` (EVOL-033) закрыта по поведению — Reviewer w15-composition-review-2 §9 (§D, §E.2, §D-7, §C/§E.4 zoom/узкий вьюпорт, §E.1/§E.4 видео/преломление; §E.3 ранее W14/S12) + контракт владельца OI-2026-11-02-NARROW-VIEWPORT; доказательства привязаны к merge `4af1f197`; 23 дубля закрыты вместе с ней. P3-остатки (6.3–6.8 и профиль в drawer при 200 % текста) записаны в бэклог, не как приёмка. §12: 15 PASS, 2 BLOCKED на EVOL-COG-MAP — строки `L01966`-`L01982` остаются PENDING до перепрогона после COG. `L01826` остаётся PENDING: контролы/оверлеи сохранили литеральные радиусы (ревью §6.7). Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S2): доказательства S2 (кандидат `9bd5818f`, merge `1eaa6c24`) привязаны к 26 строкам — §2.1 (`L01240`), §2.3 (`L01267`-`L01272`), §2.4 (`L01280`-`L01286`), §2.5-витрина и §4 контракта (`L01297`), §2.6 (`L01300`, `L01310`-`L01312`, `L01321`), §2.8 (`L01330`-`L01335`). Строки остаются PENDING: S3 (карточка узла/ребра, история, переходы) и S4 (мобильная композиция, жесты, BackButton, fullscreen safe-area, retirement легаси-графа, живые замеры прода) ещё не сделаны; 15 строк явно отложены с пометкой. Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.",
   "deployed_release": {
     "version": "2.58.149",
     "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
