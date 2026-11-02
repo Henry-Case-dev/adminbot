@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "meme-pipeline-refactor-01",
-  "note": "Пакеты разрезаны по реальным write-scope. services/meme_initiative.py — одна горячая точка: MEME-PIPE-CORE и MEME-ANALYTICS-STAGES сериализованы зависимостью. web/index.html + web/app.js держит линия COG-MAP S3 (worktree evol-71536a366a11-814456b9, branch feat/cog-map-s3): MEME-UI-FIELDS стартует только после освобождения этих файлов. Дополнение OI-2026-11-03-MEME-CMD-AUTODELETE добавлено внутрь MEME-MANUAL-CMD (отдельного пакета не создаём): удаление сообщения команды не меняет write scope, verify-тест живёт в tests/test_meme_command_autodelete.py. Write scope MEME-MANUAL-CMD приведён к фактически изменённым файлам кандидата d5853749 (PM, 03.11.2026): handlers/meme_command.py + bot.py (регистрация роутера), services/bot_commands.py (не тронут — им же доказывается отсутствие команды в меню), services/initiative_observer.py (service-ярлыки стадий и коды причины для P5), tests/test_meme_command_autodelete.py. Прежние handlers/admin_commands.py и tests/test_admin_meme_command.py объявлены ошибочно: таких файлов в поставке нет. Имена полей мем-промптов в коде - `prompt_joke`/`prompt_image` (не `joke_prompt`/`image_prompt`): текст MEME-API-SCOPE приведён к коду 03.11.2026 по ревью P2, и после ревизии e99218af (мёрж ceb49b56) `MemeSettingsUpdate` объявлен с `extra=\"forbid\"` - чужое имя поля даёт 422 и называет виновника, поэтому расхождение имени больше не может остаться тихим no-op. Правка `web/api/routes.py` обязательно влечёт переутверждение двух канонических пинов (F8/F11 в tests/test_round1025_f8_registry.py и tests/test_mca23_planned_vs_actual.py), поэтому оба теста входят в write scope MEME-API-SCOPE. Фактический write-set кандидата P2 07627068 шире объявленного в пакете: services/meme_initiative.py (слой промпта, удаление `LengthLimit`/`resolve_length_limit`), services/param_catalog.py, services/prompt_registry.py, tests/test_meme_pipeline_stages.py и F8-артефакты (plans/docs/param-registry-round1025.*, tests/fixtures/round1025/*). Поэтому MEME-ANALYTICS-STAGES (P5) получил зависимость от MEME-API-SCOPE: он пишет тот же services/meme_initiative.py, и после правок P2 его нельзя вести параллельно (прежнее утверждение плана о трёх непересекающихся наборах файлов было неточным).",
+  "note": "Пакеты разрезаны по реальным write-scope. services/meme_initiative.py — одна горячая точка: MEME-PIPE-CORE и MEME-ANALYTICS-STAGES сериализованы зависимостью. web/index.html + web/app.js держит линия COG-MAP S3 (worktree evol-71536a366a11-814456b9, branch feat/cog-map-s3): MEME-UI-FIELDS стартует только после освобождения этих файлов. Дополнение OI-2026-11-03-MEME-CMD-AUTODELETE добавлено внутрь MEME-MANUAL-CMD (отдельного пакета не создаём): удаление сообщения команды не меняет write scope, verify-тест живёт в tests/test_meme_command_autodelete.py. Write scope MEME-MANUAL-CMD приведён к фактически изменённым файлам кандидата d5853749 (PM, 03.11.2026): handlers/meme_command.py + bot.py (регистрация роутера), services/bot_commands.py (не тронут — им же доказывается отсутствие команды в меню), services/initiative_observer.py (service-ярлыки стадий и коды причины для P5), tests/test_meme_command_autodelete.py. Прежние handlers/admin_commands.py и tests/test_admin_meme_command.py объявлены ошибочно: таких файлов в поставке нет. Имена полей мем-промптов в коде - `prompt_joke`/`prompt_image` (не `joke_prompt`/`image_prompt`): текст MEME-API-SCOPE приведён к коду 03.11.2026 по ревью P2, и после ревизии e99218af (мёрж ceb49b56) `MemeSettingsUpdate` объявлен с `extra=\"forbid\"` - чужое имя поля даёт 422 и называет виновника, поэтому расхождение имени больше не может остаться тихим no-op. Правка `web/api/routes.py` обязательно влечёт переутверждение двух канонических пинов (F8/F11 в tests/test_round1025_f8_registry.py и tests/test_mca23_planned_vs_actual.py), поэтому оба теста входят в write scope MEME-API-SCOPE. Фактический write-set кандидата P2 07627068 шире объявленного в пакете: services/meme_initiative.py (слой промпта, удаление `LengthLimit`/`resolve_length_limit`), services/param_catalog.py, services/prompt_registry.py, tests/test_meme_pipeline_stages.py и F8-артефакты (plans/docs/param-registry-round1025.*, tests/fixtures/round1025/*). Поэтому MEME-ANALYTICS-STAGES (P5) получил зависимость от MEME-API-SCOPE: он пишет тот же services/meme_initiative.py, и после правок P2 его нельзя вести параллельно (прежнее утверждение плана о трёх непересекающихся наборах файлов было неточным). | OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS (03.11.2026): пакет MEME-JOKE-SPEECH идёт после P1 и до закрытия 13 критериев §8; он делит `services/meme_initiative.py` с P1/P5, поэтому MEME-ANALYTICS-STAGES теперь зависит и от него (серийная точка — запись ревизий и manifest). MEME-INITIATIVE-LAYERS не пересекается по файлам ни с одним пакетом (тест + при необходимости `direct_chat_service.py`) и может идти параллельно, в том числе до освобождения web/**; AC-P0 из соседней карты его файл фактически не менял (кандидат acb8cfe4 трогает только negative_constraints/prompt_style_blocks). Веб-часть дополнения (показ ревизий и manifest) добавлена в MEME-UI-FIELDS: `web/api/routes.py` и `tests/test_meme_pipeline_api.py` нужны только если существующий GET-ответ не отдаёт эти поля; P4 зависит от MEME-API-SCOPE, поэтому пересечение write scope допустимо. Замороженное решение Архитектора (arch/joke-speech-layers.md, 03.11.2026) выровнено с этой нарезкой: `prompt_composer.py`, `mca_humor_craft.py`, `prompt_style_blocks.py` и `web/api/routes.py` — READ-ONLY (GET мем-настроек уже отдаёт `analytics` целиком, новые поля появляются из `analytics_snapshot.last_joke`), поэтому в write scope P4 остаются только `web/index.html`, `web/app.js` и `tests/test_evol014_ui.py`; перенос `_initiative_character` -> `bot_persona.resolve_character_block` (3 строки делегата) принадлежит MEME-JOKE-SPEECH, поэтому P7 трогает только новый тест и остаётся независимым от P6 и от web-лока.",
   "slices": [
     {
       "id": "MEME-PIPE-CORE",
@@ -55,7 +55,8 @@
       "id": "MEME-UI-FIELDS",
       "title": "Админка: два редактируемых промпта + диагностика лимита",
       "depends_on": [
-        "MEME-API-SCOPE"
+        "MEME-API-SCOPE",
+        "MEME-JOKE-SPEECH"
       ],
       "write_scope": [
         "web/index.html",
@@ -69,13 +70,37 @@
       "title": "Аналитика и логи: различимость четырёх этапов",
       "depends_on": [
         "MEME-PIPE-CORE",
-        "MEME-API-SCOPE"
+        "MEME-API-SCOPE",
+        "MEME-JOKE-SPEECH"
       ],
       "write_scope": [
         "services/meme_initiative.py",
         "tests/test_meme_analytics_stages.py"
       ],
       "acceptance": "Журнал попыток содержит отдельные записи для выжимки, прикола, картинки и публикации; для попытки доступны использованный шаблон, посчитанный J и фактическая длина прикола; упавший и пропущенный этапы различимы по коду, а тексты прикола в пользовательский чат и в лог не попадают."
+    },
+    {
+      "id": "MEME-JOKE-SPEECH",
+      "title": "Этап прикола через единый Prompt Composer + слои личности и юмора",
+      "depends_on": [
+        "MEME-PIPE-CORE"
+      ],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "services/bot_persona.py",
+        "services/direct_chat_service.py",
+        "tests/test_meme_joke_speech_layers.py"
+      ],
+      "acceptance": "Этап B собирает system существующим `prompt_composer.compose_speech_system` и в реальном payload получает Core, Identity/SelfModel, Expression, базовые инструкции юмора и Humor Craft при включении, с фактическими ревизиями в манифесте; редактируемый промпт прикола идёт отдельным заданием и не отключает слои; один LLM-вызов, без второго композера, нового агента и хардкода шуток; Humor Craft не привязан к одному приёму; диагностика попытки хранит ревизии Core/Expression/Humor и итоговый prompt manifest; Reviewer проверяет реальный payload модели."
+    },
+    {
+      "id": "MEME-INITIATIVE-LAYERS",
+      "title": "Проверка обычной текстовой инициативы: Core, Expression, Style Policy",
+      "depends_on": [],
+      "write_scope": [
+        "tests/test_initiative_speech_layers_chat_overrides.py"
+      ],
+      "acceptance": "Обычная текстовая инициатива фактически проходит Core, Expression и Style Policy с учётом глобальных и чатовых настроек: новый чат-оверрайд-тест захватывает реальные сообщения `_l2_write_answer(writer=\"initiative_writer\")` и показывает текст чатового Core, hint Style Policy, ревизии слоёв в `manifest.versions`, а также пропуск слоя с причиной при выключенной оси; `services/direct_chat_service.py` этим пакетом не меняется, байт-паритет обычного Direct-ответа подтверждают существующие тесты."
     }
   ]
 }

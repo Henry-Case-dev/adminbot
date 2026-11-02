@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-02-anticliche-memory-admin-ux-spec.md",
   "source_sha256": "e2b3624cd0defc89b23a1fe82ccdd8120001a69ecf07043aee081dcda6ca3e16",
-  "candidate_commit": "",
+  "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -50,7 +50,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Глобальная строка приоритета §1 над v2–v7 и прежними ADR: покрывает и гарантии других пакетов (безопасность, фактологические guards, действующие настройки), поведенческим кандидатом одного пакета не закрывается."
     },
     {
       "source_id": "M004",
@@ -65,7 +66,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Глобальная строка про контракт исполнения (результат — работающий продукт плюс независимая проверка и deploy). Для AC-P0 ревью §10 прямо фиксирует: деплой в пакете запрещён, живой чат не проверялся — строка закрывается на релизном этапе эпика."
     },
     {
       "source_id": "M005",
@@ -80,7 +82,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Глобальная строка приоритета §1 над v2–v7 и прежними ADR: покрывает и гарантии других пакетов (безопасность, фактологические guards, действующие настройки), поведенческим кандидатом одного пакета не закрывается."
     },
     {
       "source_id": "M006",
@@ -2359,10 +2362,52 @@
       "req_id": "AC-INV-01",
       "slice": "AC-P0",
       "acceptance": "На дереве и в runtime доказано: ни один AntiCliche-сигнал (regex, ручной список, динамическое правило, family, pinned, множественные совпадения) не вызывает повторную генерацию, reject, best-of, fallback, scrub или задержку исходящего сообщения — на каждый такой ход ровно один generate_call.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка AC-INV-01",
+          "observation": "§11 строка AC-INV-01 = VERIFIED: матрица п.3 (13 сценариев) — стилевой сигнал даёт ровно 1 вызов модели; мутация A (as_ai снова в FORMAT_GUARDS) роняет 10 тестов.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: стиль/множественные/динамические попадания → 1 generate_call; тесты класса `TestAntiClicheNeverRegenerates`.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00036",
@@ -2374,10 +2419,52 @@
       "req_id": "AC-INV-02",
       "slice": "AC-P0",
       "acceptance": "Независимые guard'ы (факты, числовые claims, form guard, метатекст, формат доставки) продолжают работать; стилистический отказ не переименован в format/metatext ради сохранения retry. Проверяется негативным тестом на каждый guard отдельно от стиля.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка AC-INV-02",
+          "observation": "§11 строка AC-INV-02 = VERIFIED: матрица guard-ов п.4 — format/form/metatext/numeric сохраняют свои причины и свои тексты, стилевой ответ не порождает ни одного ключа format_*/form_*/metatext_*/numeric_*.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: матрица guard-ов §2.2 + `TestIndependentGuardsStillFire`; стиль не переименован в format/metatext.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00037",
@@ -2407,7 +2494,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Ревью §11 прямо относит строку «вне этого кандидата»: проверка «ровно одна подсистема» охватывает дерево целиком (второй Validator Loop/Writer/страница конфигурации), кандидат acb8cfe4 меняет только negative_constraints/prompt_style_blocks + тесты. Закрывается отдельной инвентаризационной проверкой, а не поведенческим кандидатом."
     },
     {
       "source_id": "L00039",
@@ -2527,7 +2615,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации §1.1 (перепроверка пяти фактов на HEAD с file:line), ревью §11 относит её вне кандидата acb8cfe4; факты изменились после P0-правки и проверяются на актуальном HEAD, а не на кандидате пакета."
     },
     {
       "source_id": "L00049",
@@ -2542,7 +2631,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации §1.1 (перепроверка пяти фактов на HEAD с file:line), ревью §11 относит её вне кандидата acb8cfe4; факты изменились после P0-правки и проверяются на актуальном HEAD, а не на кандидате пакета."
     },
     {
       "source_id": "L00050",
@@ -2557,7 +2647,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации §1.1 (перепроверка пяти фактов на HEAD с file:line), ревью §11 относит её вне кандидата acb8cfe4; факты изменились после P0-правки и проверяются на актуальном HEAD, а не на кандидате пакета."
     },
     {
       "source_id": "L00051",
@@ -2572,7 +2663,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации §1.1 (перепроверка пяти фактов на HEAD с file:line), ревью §11 относит её вне кандидата acb8cfe4; факты изменились после P0-правки и проверяются на актуальном HEAD, а не на кандидате пакета."
     },
     {
       "source_id": "L00052",
@@ -2587,7 +2679,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации §1.1 (перепроверка пяти фактов на HEAD с file:line), ревью §11 относит её вне кандидата acb8cfe4; факты изменились после P0-правки и проверяются на актуальном HEAD, а не на кандидате пакета."
     },
     {
       "source_id": "L00053",
@@ -3364,10 +3457,52 @@
       "req_id": "AC-MET-RETRIES-ZERO",
       "slice": "AC-P0",
       "acceptance": "AntiCliche-triggered retries = 0 как измеряемый инвариант, а другие retry Validator Loop считаются отдельной статистикой и не смешиваются с ним.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка AC-MET-RETRIES-ZERO",
+          "observation": "§11 строка AC-MET-RETRIES-ZERO = VERIFIED: `anti_cliche_retries == 0` во всех 13 строках матрицы п.3, включая kill-switch и ошибку повтора.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: `stats['anti_cliche_retries'] == 0` на всех путях (тест + проба §2.2).",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00209",
@@ -5839,10 +5974,52 @@
       "req_id": "AC-DOD-ZERO-RETRY",
       "slice": "AC-P0",
       "acceptance": "Нулевая AntiCliche-перегенерация во всех legacy/manual/dynamic/новых сценариях при сохранных независимых guards.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка AC-DOD-ZERO-RETRY",
+          "observation": "§11 строка AC-DOD-ZERO-RETRY = VERIFIED: п.3 и п.4 целиком — нулевая AntiCliche-перегенерация в legacy/manual/dynamic сценариях при сохранных независимых guard-ах.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: прогон §2.2 целиком, независимые guard-ы сохранены; мутация `anti_cliche_retries: 0 → 1` роняет 15 тестов.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00630",
@@ -6574,10 +6751,52 @@
       "req_id": "T-PR-NO-RETRY",
       "slice": "AC-P0",
       "acceptance": "Тест 43: любой AntiCliche-only hit (legacy regex, dynamic, manual, pinned, strong, soft, множественные) даёт ровно один Writer generate_call, ноль anti-cliche retries, без правки текста и fallback.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка T-PR-NO-RETRY",
+          "observation": "§11 строка T-PR-NO-RETRY = VERIFIED: 7 стилевых кодов, множественные попадания и динамические `dyn_*` дают 1 вызов; тесты `test_style_signal_single_generate_call`, `test_multiple_style_hits_single_call`, `test_dynamic_rule_single_call`.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: 7 стилевых кодов + несколько попаданий + динамическое правило → 1 вызов (проба §2.2).",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00689",
@@ -6591,8 +6810,49 @@
       "acceptance": "Тест 44: AntiCliche-hit вместе с независимым нарушением числового claim даёт только существующее numeric-поведение; клише не влияет на число retry и ранжирование кандидатов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка T-PR-NUMERIC",
+          "observation": "§11 строка T-PR-NUMERIC = VERIFIED: стиль + numeric = 2 вызова и только numeric-повтор; проба ранжирования: на кандидате 2 вызова и возвращён первый кандидат, на базе f1219a14 — 3 вызова и второй, разница ровно в снятии веса клише.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: `style + numeric` → только numeric-повтор, клише не влияет на число повторов и ранжирование.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ]
     },
     {
       "source_id": "L00690",
@@ -6606,8 +6866,60 @@
       "acceptance": "Тест 45: AntiCliche-hit вместе с независимой проблемой form/metatext/format по-прежнему запускает реальный отдельный guard, без «переодевания» стиля в формат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка T-PR-FORM",
+          "observation": "§11 строка T-PR-FORM = VERIFIED: таблицы и перечни дают `format_guard_reason=format_retry` со своими текстами, form и metatext — свои причины и промпты; стиль не переименован ни в format, ни в metatext.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: format/form/metatext — свои причины и тексты; мутация «форматный повтор берёт FORM_GUARD_RETRY_SYSTEM_PROMPT» роняет 2 теста.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        },
+        {
+          "ref": "services/prompt_style_blocks.py — текст форматного повтора для перечней",
+          "observation": "`FORMAT_NO_LISTS_RETRY_TEXT` собран из существующего канона (ANTI_BOT_HEADER + пункт ANTI_BOT_ITEMS о перечнях): новый фабричный текст не вводился, реестр style.anti_bot не менялся.",
+          "type": "code",
+          "artifact_path": "services/prompt_style_blocks.py",
+          "artifact_sha256": "36636496f08d685fa874d25ae04a8d3be6ec85ee40e315418a7f86b54d0e4896",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "36353f9146f142f8f1453cd2023fd2d0fd0d1b0049ec139bcb2316680a6024ac"
+        }
+      ]
     },
     {
       "source_id": "L00691",
@@ -6621,8 +6933,49 @@
       "acceptance": "Тест 46: CLICHE_RETRY_SYSTEM_PROMPT недостижим на cliche-only путях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка T-PR-NO-CLICHE-PROMPT",
+          "observation": "§11 строка T-PR-NO-CLICHE-PROMPT = VERIFIED: AST-тест `test_cliche_retry_prompt_unreachable` плюс мутация C (возвращён импорт CLICHE_RETRY_SYSTEM_PROMPT → 2 падения); стилевой промпт не отправлялся ни в одной строке матрицы.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: AST-тест + проба: CLICHE_RETRY_SYSTEM_PROMPT в коде negative_constraints не используется.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ]
     },
     {
       "source_id": "L00692",
@@ -6637,7 +6990,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Тест 47 требует сбоя source/model/compile с совместимым LKG: часть про source и LKG относится к слою AC-DATA (403 Wikimedia, кеш/LKG), в кандидате acb8cfe4 не проверялась и в приёмке ревью (§11) не перечислена. Ждёт пакета AC-DATA."
     },
     {
       "source_id": "L00693",
@@ -7282,7 +7636,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации: работа от актуального HEAD/deployed SHA со сверкой конфигов, PG cache/schema и UI-компонентов. Ревью §11 относит её вне кандидата acb8cfe4."
     },
     {
       "source_id": "L00750",
@@ -7297,7 +7652,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Ревью §11 подтверждает строку только частично: «VERIFIED для retry и ranking». Части «активный PG LKG после 403 исследован» и «ложные нули / source retry storm устранены» относятся к AC-DATA и этим кандидатом не доказаны — строка остаётся PENDING до AC-DATA."
     },
     {
       "source_id": "L00751",
@@ -7534,10 +7890,52 @@
       "req_id": "AC-BAN-RETRY-PATHS",
       "slice": "AC-P0",
       "acceptance": "Не вызывается никакой AntiCliche-only retry/reject/best-of/fallback/scrub; такой retry не скрывается в format/metatext.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка AC-BAN-RETRY-PATHS",
+          "observation": "§11 строка AC-BAN-RETRY-PATHS = VERIFIED: в цикле повторов ветка `else: break`; стилевого retry/reject/best-of/fallback пути в модуле нет, `retry.cliche` рантаймом не резолвится.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: ветки CLICHE_RETRY_SYSTEM_PROMPT в цикле больше нет (`else: break`).",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L00775",
@@ -9892,7 +10290,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Строка инвентаризации про HEAD/deployed SHA и список затронутых точек; ревью §11 относит её вне кандидата acb8cfe4."
     },
     {
       "source_id": "L01108",
@@ -9949,10 +10348,52 @@
       "req_id": "GLOBAL-7-NO-STYLE-MEMORY-RETRY",
       "slice": "AC-P0",
       "acceptance": "Нет нового retry для стиля/памяти: отсутствует перегенерация из-за клише или случайно упомянутого факта, стилистический отказ не выдаётся за независимый form guard, доказательно нужные fact/numeric/security gates не сломаны.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/w-ac-p0-review.md — §11 приёмка по строкам, строка GLOBAL-7-NO-STYLE-MEMORY-RETRY",
+          "observation": "§11 строка GLOBAL-7-NO-STYLE-MEMORY-RETRY = VERIFIED: стиль не выдан за form/format/metatext (п.4), доказательные guard-gates не тронуты.",
+          "type": "review",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md",
+          "artifact_sha256": "f8146e948caa259adef909d444fc0262c5047ccdde5aacc7e0e8efdc6f7f5377",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "66ae512205caebec4c2c1bf20f995128d2863ea7"
+        },
+        {
+          "ref": "reports/w-ac-p0.md — §5 приёмка по строкам карты (отчёт Builder)",
+          "observation": "§5: стиль не выдан за form/format, доказательные gates не тронуты.",
+          "type": "builder",
+          "artifact_path": "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0.md",
+          "artifact_sha256": "5302dc77f3bd9abfb7dad703dbd8d9c74dd8b3b423a4c09937960dbffa82fb16",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "031af697"
+        },
+        {
+          "ref": "services/negative_constraints.py — разделение стиля и guard-ов, цикл повторов",
+          "observation": "Код кандидата acb8cfe4 (ветка feat/ac-p0-no-retry): STYLE_SIGNALS/FORMAT_GUARDS разделены в `split_rule_codes()`, стилевые коды исключены из выбора причины повтора, ранжирование без веса клише, `anti_cliche_retries`/`cliche_observed` в стартовом stats.",
+          "type": "code",
+          "artifact_path": "services/negative_constraints.py",
+          "artifact_sha256": "e1ca1844e2edfdbe2120686880754f30264c850b2a03f7b5539e430629791cad",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "5edc36c4a66b32f59827862eceffd773104dcd6d588a37bd9039010b94e0db5a"
+        },
+        {
+          "ref": "tests/test_negative_constraints_round1022.py — тесты AC-P0 на кандидате",
+          "observation": "Тесты кандидата acb8cfe4: `TestAntiClicheNeverRegenerates`, `TestIndependentGuardsStillFire`, `TestValidatorLoop`, `TestRuleClassification`, AST-тест недостижимости стилевого промпта (60 passed на кандидате по отчёту Builder, 255 passed / 2 failed по целевым наборам у Reviewer).",
+          "type": "test",
+          "artifact_path": "tests/test_negative_constraints_round1022.py",
+          "artifact_sha256": "e0fd8db859bd42dd7dfce94e3a190078641e6ac823d5d4038de72575b54a88c0",
+          "candidate_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "artifact_commit": "acb8cfe4b719795425540e0200f007a9be3435f8",
+          "branch": "feat/ac-p0-no-retry",
+          "candidate_artifact_sha256": "f455eafd7c1584a350a15611c8d9143b7283504b7db2519a4f15c2d8881dc37d"
+        }
+      ],
+      "live_requirement_note": "Канал доказательства — детерминированный рантайм-прогон (число вызовов модели, причина/текст повтора, ключи stats), а не живой чат: ревью 66ae5122 §10 прямо относит реальный ответ модели и качество живого текста к пакету подсказок (AC-PIPE/AC-LIVE), а §3 доказывает поведение на подменённом генераторе. Приёмка строки не изменена; изменён только объявленный канал (live_required)."
     },
     {
       "source_id": "L01112",
@@ -10044,5 +10485,9 @@
       "status": "PENDING",
       "evidence": []
     }
-  ]
+  ],
+  "slice_candidate_pins": {
+    "AC-P0": "acb8cfe4b719795425540e0200f007a9be3435f8"
+  },
+  "candidate_note": "AC-P0 привязан к кандидату acb8cfe4 (ветка feat/ac-p0-no-retry, база f1219a14 = родитель текущего HEAD evol/impl). Независимое ревью 66ae5122: поведение Approved по коду, единственный блокер был состоянием карты. Артефакты кода/тестов существуют в дереве, но их изменённая версия живёт на ветке кандидата: `candidate_artifact_sha256` фиксирует блоб именно acb8cfe4, `artifact_sha256` — файл в дереве evol/impl. Влитие ветки feat/ac-p0-no-retry — отдельное действие Orchestrator, не часть этой правки карты."
 }
