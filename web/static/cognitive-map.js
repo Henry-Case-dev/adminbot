@@ -695,6 +695,90 @@
    * наложение названий невозможно: бокс ставится только если не пересекается
    * с уже поставленными и целиком попадает во вьюпорт (§2.4 контракта).
    */
+  /* labelBudget(items, cfg, opts) -> {budget, raw, boxArea, cap, fill, limit,
+   *                                   mandatory, lod}
+   *
+   * Решение Architect §9.2: бюджет подписей выводится из ГЕОМЕТРИИ кадра, а не
+   * из LOD-константы:
+   *   budget = clamp(round(fill * W * H / boxArea), 4, cap)
+   * где boxArea — средняя по кандидатам подпись через `measureLabel()`
+   * (ширина `chars * 0.55 * fontSize`, высота `fontSize + padding`),
+   * fill = 0.05 desktop / 0.04 mobile, cap = 26/12 — ЖЁСТКИЕ потолки
+   * (`DEFAULTS.maxLabels`/`mobileMaxLabels` не меняются).
+   * LOD — доля бюджета: overview = min(budget, 6), normal = min(budget, 16),
+   * detail = budget. Выбранный узел и парадигмы подписываются всегда, поэтому
+   * бюджет не может быть меньше их числа (но не выше cap).
+   */
+  function labelBudget(items, cfg, opts) {
+    opts = opts || {};
+    var mobile = opts.mobile === true;
+    var cap = mobile
+      ? Math.min(numberOr(cfg.maxLabels, DEFAULTS.maxLabels),
+        DEFAULTS.mobileMaxLabels)
+      : numberOr(cfg.maxLabels, DEFAULTS.maxLabels);
+    var fontSize = numberOr(cfg.fontSize, DEFAULTS.fontSize);
+    var charWidth = numberOr(cfg.charWidth, DEFAULTS.charWidth);
+    var padding = numberOr(cfg.padding, DEFAULTS.padding);
+    var maxChars = numberOr(cfg.maxLabelChars, DEFAULTS.maxLabelChars);
+    var source = Array.isArray(items) ? items : [];
+    var totalChars = 0;
+    var counted = 0;
+    var mandatory = 0;
+    for (var i = 0; i < source.length; i += 1) {
+      var item = source[i];
+      if (!item || typeof item.id !== 'string') continue;
+      if (numberOrNull(item.x) === null || numberOrNull(item.y) === null) continue;
+      var text = labelText(item, maxChars);
+      if (text) {
+        totalChars += text.length;
+        counted += 1;
+      }
+      if (item.selected === true || item.kind === 'paradigm') mandatory += 1;
+    }
+    var fill = mobile ? 0.04 : 0.05;
+    var viewport = opts.viewport && typeof opts.viewport === 'object'
+      ? opts.viewport : null;
+    var width = viewport ? numberOr(viewport.width, 0) : 0;
+    var height = viewport ? numberOr(viewport.height, 0) : 0;
+    var boxArea = 0;
+    var raw = 0;
+    var budget;
+    if (width > 0 && height > 0 && counted > 0) {
+      var avgChars = totalChars / counted;
+      var boxW = Math.max(fontSize, avgChars * fontSize * charWidth) + 6;
+      var boxH = fontSize + padding;
+      boxArea = Math.max(1, boxW * boxH);
+      raw = Math.round((fill * width * height) / boxArea);
+      budget = Math.min(cap, Math.max(4, raw));
+    } else {
+      // Без вьюпорта/кандидатов геометрии нет — остаётся только потолок.
+      budget = Math.min(cap, 4);
+    }
+    if (mandatory) budget = Math.min(cap, Math.max(budget, mandatory));
+    var scale = numberOr(opts.scale, 1);
+    var overviewScale = numberOr(cfg.overviewScale, DEFAULTS.overviewScale);
+    var detailScale = numberOr(cfg.detailScale, DEFAULTS.detailScale);
+    var lod = scale < overviewScale ? 'overview'
+      : (scale >= detailScale ? 'detail' : 'normal');
+    var limit = lod === 'overview' ? Math.min(budget, 6)
+      : (lod === 'normal' ? Math.min(budget, 16) : budget);
+    return {
+      budget: budget, raw: raw, boxArea: boxArea, cap: cap, fill: fill,
+      limit: limit, mandatory: mandatory, lod: lod, counted: counted,
+    };
+  }
+
+  /* allocateLabels(items, opts) -> {labels, hidden, shown, lod, maxLabels}
+   * items: [{id, x, y, kind, title, degree, selected}]
+   * opts: {scale, viewport:{width,height}, mobile, maxLabels, fontSize,
+   *        padding, maxLabelChars}
+   *
+   * Детерминированно: порядок задан приоритетом, координаты входа не
+   * сортируются случайно, Math.random/Date не используются. Массовое
+   * наложение названий невозможно: бокс ставится только если не пересекается
+   * с уже поставленными и целиком попадает во вьюпорт (§2.4 контракта).
+   * Бюджет подписей — `labelBudget` (§9.2), LOD только ограничивает его долю.
+   */
   function allocateLabels(items, opts) {
     opts = opts || {};
     var cfg = {
@@ -710,12 +794,6 @@
     if (opts.mobile === true) {
       cfg.maxLabels = Math.min(cfg.maxLabels, DEFAULTS.mobileMaxLabels);
     }
-    var lod = scale < cfg.overviewScale ? 'overview'
-      : (scale >= cfg.detailScale ? 'detail' : 'normal');
-    // LOD по масштабу: на обзорном зуме подписываются только самые важные,
-    // иначе подписи конкурируют за место и превращаются в «массовый текст».
-    var budget = lod === 'overview' ? Math.min(cfg.maxLabels, 6)
-      : (lod === 'normal' ? Math.min(cfg.maxLabels, 16) : cfg.maxLabels);
 
     var viewport = opts.viewport && typeof opts.viewport === 'object'
       ? opts.viewport : null;
@@ -735,6 +813,12 @@
     }
     placeable.sort(comparePriority);
 
+    var plan = labelBudget(placeable, cfg, {
+      mobile: opts.mobile === true, viewport: viewport, scale: scale,
+    });
+    var lod = plan.lod;
+    var budget = plan.limit;
+
     var placed = [];
     var labels = [];
     for (var p = 0; p < placeable.length; p += 1) {
@@ -751,11 +835,14 @@
         text: text,
       };
       if (viewport) {
+        // Подпись должна целиком лежать в кадре с отступом: у сцены скруглённые
+        // края/рамка, и бокс, прижатый к самой кромке, визуально обрезается.
+        var inset = numberOr(opts.edgeInset, cfg.padding);
         var halfW = box.width / 2;
         var halfH = box.height / 2;
-        if (box.x - halfW < 0 || box.y - halfH < 0
-          || box.x + halfW > numberOr(viewport.width, 0)
-          || box.y + halfH > numberOr(viewport.height, 0)) {
+        if (box.x - halfW < inset || box.y - halfH < inset
+          || box.x + halfW > numberOr(viewport.width, 0) - inset
+          || box.y + halfH > numberOr(viewport.height, 0) - inset) {
           continue;                       // за пределами сцены — не рисуем
         }
       }
@@ -780,6 +867,13 @@
       shown: labels.length,
       lod: lod,
       maxLabels: budget,
+      // Диагностика §9.2 (приёмка в node-тесте): бюджет/потолок/заливка/
+      // площадь бокса и число обязательных подписей.
+      budget: plan.budget,
+      cap: plan.cap,
+      fill: plan.fill,
+      boxArea: plan.boxArea,
+      mandatory: plan.mandatory,
       scale: scale,
     };
   }
@@ -879,14 +973,21 @@
   }
 
   /* mapClientState({model, renderer, failed, now, staleMs, visibleNodes})
-   *        -> {state, serverState, note, stale, empty}
+   *        -> {state, notice, serverState, note, stale, empty, degraded}
    *
-   * Разделение состояний (контракт §4, решение Architect §7.2):
-   *   сервер: ok/partial/empty/degraded — факт о данных;
-   *   клиент: loading/not_loaded/stale/renderer_failed — факт о рендерере.
-   * Одно не выводится из другого. `now` передаётся ВХОДОМ (чистая функция).
-   * `partial` — НЕ отдельное «тревожное» состояние: показ полноты делает
-   * `completeness()`, нейтральной строкой.
+   * Разделение осей (контракт §4, §7.2) СОХРАНЕНО: `state` — факт о рендерере
+   * (loading/not_loaded/stale/renderer_failed/ready + `empty`, когда данных
+   * действительно нет). Серверные факты (`degraded`) в `state` не подмешиваются.
+   *
+   * Решение Architect §9.1: ВИДИМАЯ строка статуса одна и складывается по
+   * «худшему факту»: `renderer_failed` → `loading`/`not_loaded` → `degraded` →
+   * `empty` → `stale` → `ready`. Она отдаётся ОТДЕЛЬНЫМ полем `notice` (не
+   * заменой `state`), чтобы отказ источника не прятался за «всё хорошо» и
+   * чтобы «пусто» не объявлялось при `degraded.active === true` (отказавший
+   * источник не имеет права выглядеть пустотой).
+   *
+   * `now` передаётся ВХОДОМ (чистая функция). `partial` — не состояние UI:
+   * полноту показывает `completeness()` нейтральной строкой.
    */
   function mapClientState(opts) {
     opts = opts || {};
@@ -899,24 +1000,66 @@
     var visibleNodes = numberOr(opts.visibleNodes, nodeCount);
     var generatedAt = model ? numberOrNull(model.generatedAt) : null;
     var now = numberOrNull(opts.now);
+    var degradedActive = !!(model && model.degraded
+      && model.degraded.active === true);
+    var notLoaded = (model && model.degraded
+      && Array.isArray(model.degraded.notLoaded))
+      ? model.degraded.notLoaded.slice() : [];
     var stale = false;
     if (generatedAt !== null && now !== null && staleMs > 0) {
       stale = (now - generatedAt * 1000) > staleMs;
     }
+    // «Пусто» — факт об ОТСУТСТВИИ ДАННЫХ. Пока источник отказал, пустоту
+    // объявлять нельзя (§9.1): возможно, данные просто не прочитались.
+    var dataEmpty = degradedActive ? false
+      : (serverState === 'empty' || nodeCount === 0);
+    // Пустая ВИТРИНА (фильтр скрыл всё) — факт вида, а не данных: «нет фактов
+    // и связей» здесь было бы ложью, пользователю нужен сброс фильтра.
+    var viewEmpty = !dataEmpty && visibleNodes === 0 && nodeCount > 0;
+    var failed = opts.failed === true || renderer === 'failed';
+
+    // Ось рендерера — без серверных фактов.
     var state;
-    if (opts.failed === true || renderer === 'failed') state = 'renderer_failed';
+    if (failed) state = 'renderer_failed';
     else if (renderer === 'missing') state = 'not_loaded';
     else if (!model) state = 'loading';
-    else if (serverState === 'empty' || nodeCount === 0) state = 'empty';
-    else if (visibleNodes === 0) state = 'empty';
+    else if (dataEmpty) state = 'empty';
     else if (stale) state = 'stale';
     else state = 'ready';
+
+    // Видимая строка — «худший факт» (§9.1), включая отказ источника.
+    var noticeKind;
+    if (failed) noticeKind = 'renderer_failed';
+    else if (renderer === 'missing') noticeKind = 'not_loaded';
+    else if (!model) noticeKind = 'loading';
+    else if (degradedActive) noticeKind = 'degraded';
+    else if (dataEmpty) noticeKind = 'empty';
+    else if (stale) noticeKind = 'stale';
+    else noticeKind = 'ready';
+
+    var noticeText;
+    if (noticeKind === 'degraded') {
+      noticeText = notLoaded.length
+        ? 'часть источников не прочитана: ' + notLoaded.join(', ')
+        : 'часть источников не прочитана';
+    } else {
+      noticeText = STATE_LABELS[noticeKind] || '';
+    }
     return {
       state: state,
+      notice: {
+        kind: noticeKind,
+        text: noticeText,
+        sources: notLoaded,
+        degraded: noticeKind === 'degraded',
+      },
       serverState: serverState,
       note: STATE_LABELS[state] || '',
+      noticeText: noticeText,
       stale: stale,
       empty: state === 'empty',
+      viewEmpty: viewEmpty,
+      degraded: degradedActive,
       generatedAt: generatedAt,
     };
   }
@@ -950,6 +1093,7 @@
     measureLabel: measureLabel,
     boxesOverlap: boxesOverlap,
     labelPriority: labelPriority,
+    labelBudget: labelBudget,
     allocateLabels: allocateLabels,
   };
 });

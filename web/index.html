@@ -12123,7 +12123,7 @@
                  выше лент, что §5.3 запрещает). -->
             <div v-if="isGlobalAdmin && !graphFullVisible"
                  class="card p-4 status-graph sg-12" data-cog-map
-                 :data-cog-state="cogClientState.state">
+                 :data-cog-state="cogStatus.kind">
               <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <div class="text-xs font-bold">Когнитивная карта</div>
                 <span v-if="cognitionGraphData" class="text-xs text-gray-500"
@@ -12161,9 +12161,6 @@
                         aria-hidden="true"></span>{{ lg.label }}
                 </span>
               </div>
-              <!-- Отказ источника — это ОТКАЗ (не пустота и не «неполнота»). -->
-              <div v-if="cogDegradedNote" class="text-xs text-amber-300"
-                   data-cog-degraded>{{ cogDegradedNote }}</div>
               <div class="graph-search">
                 <input type="search" class="field input graph-search__input"
                        placeholder="Поиск по имени или алиасу…"
@@ -12192,32 +12189,37 @@
                         :disabled="!cognitionNetwork">Сбросить вид</button>
                 <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
               </div>
-              <!-- Состояния рендерера честные и отдельные от серверного `state`
-                   (контракт §4): loading / not_loaded / stale / renderer_failed.
-                   Пустые состояния — свои сообщения; нули как данные не рисуются. -->
-              <div v-if="cogEmpty" class="cog-state text-xs text-gray-500"
-                   data-cog-state="empty">
-                {{ cogClientState.note || 'в этой области нет фактов и связей' }}
-                <button class="btn-ghost text-xs" type="button"
+              <!-- ОДНА видимая строка статуса по «худшему факту» (Architect
+                   §9.1): renderer_failed → loading/not_loaded → degraded →
+                   empty → stale → ready. Поэтому «часть источников не
+                   прочитана» и «нет фактов» не могут висеть одновременно. -->
+              <div v-if="cogStatus.kind !== 'ready'"
+                   class="cog-state text-xs"
+                   :class="cogStatus.degraded ? 'text-amber-300' : 'text-gray-500'"
+                   :data-cog-state="cogStatus.kind"
+                   :data-cog-degraded="cogStatus.degraded ? '1' : null">
+                {{ cogStatus.text }}
+                <button v-if="cogStatus.kind === 'stale'" type="button"
+                        class="btn-ghost text-xs"
+                        @click="loadCognitionGraph()">Обновить</button>
+                <button v-if="cogStatus.kind === 'empty'
+                             || cogStatus.kind === 'renderer_failed'"
+                        type="button" class="btn-ghost text-xs"
                         @click="openMemoryFromCogMap()">Открыть в Памяти</button>
+                <button v-if="cogStatus.kind === 'degraded'" type="button"
+                        class="btn-ghost text-xs"
+                        @click="loadCognitionGraph()">Повторить</button>
               </div>
+              <!-- Данные есть, но выбранный фильтр скрыл всё — отдельный факт
+                   витрины (не состояние данных), поэтому своя строка. -->
               <div v-else-if="cogFilterEmpty" class="cog-state text-xs text-gray-500"
                    data-cog-state="filtered">
                 по выбранному фильтру узлов нет
                 <button class="btn-ghost text-xs" type="button"
                         @click="graphResetView()">Сбросить фильтры</button>
               </div>
-              <div v-else-if="cogClientState.state !== 'ready'"
-                   class="cog-state text-xs text-gray-500"
-                   :data-cog-state="cogClientState.state">
-                {{ cogClientState.note }}
-                <button v-if="cogClientState.state === 'stale'" type="button"
-                        class="btn-ghost text-xs"
-                        @click="loadCognitionGraph()">Обновить</button>
-                <button v-if="cogClientState.state === 'renderer_failed'"
-                        type="button" class="btn-ghost text-xs"
-                        @click="openMemoryFromCogMap()">Открыть в Памяти</button>
-              </div>
+              <div v-if="cogViewCounters" class="text-xs text-gray-500"
+                   data-cog-view-counters>{{ cogViewCounters }}</div>
               <div ref="cognitionGraph" class="cognition-graph" data-glass="c"
                    :hidden="cogEmpty"></div>
               <!-- §16: подробности выбранного узла + ближайшие связи (реальные
@@ -13602,7 +13604,7 @@
                  ref="graphFullPanel" tabindex="-1"
                  class="status-graph-full" role="dialog" aria-modal="true"
                  aria-label="Полное исследование когнитивной карты"
-                 :data-cog-state="cogClientState.state">
+                 :data-cog-state="cogStatus.kind">
               <div class="flex items-center gap-2 flex-wrap">
                 <div class="text-sm font-bold">Когнитивная карта</div>
                 <span v-if="cognitionGraphData" class="text-xs text-gray-500"
@@ -13626,8 +13628,6 @@
                         aria-hidden="true"></span>{{ lg.label }}
                 </span>
               </div>
-              <div v-if="cogDegradedNote" class="text-xs text-amber-300"
-                   data-cog-degraded>{{ cogDegradedNote }}</div>
               <div class="graph-search">
                 <input type="search" class="field input graph-search__input"
                        placeholder="Поиск по имени или алиасу…"
@@ -13656,11 +13656,34 @@
                         :disabled="!cognitionNetwork">Сбросить вид</button>
                 <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
               </div>
-              <div v-if="cogClientState.state !== 'ready'"
-                   class="cog-state text-xs text-gray-500"
-                   :data-cog-state="cogClientState.state">
-                {{ cogClientState.note }}
+              <!-- Та же ОДНА видимая строка статуса, что во встроенном виджете
+                   (§9.1); пустое состояние в полном экране тоже даёт переход в
+                   «Память» (контракт §4). -->
+              <div v-if="cogStatus.kind !== 'ready'"
+                   class="cog-state text-xs"
+                   :class="cogStatus.degraded ? 'text-amber-300' : 'text-gray-500'"
+                   :data-cog-state="cogStatus.kind"
+                   :data-cog-degraded="cogStatus.degraded ? '1' : null">
+                {{ cogStatus.text }}
+                <button v-if="cogStatus.kind === 'stale'" type="button"
+                        class="btn-ghost text-xs"
+                        @click="loadCognitionGraph()">Обновить</button>
+                <button v-if="cogStatus.kind === 'empty'
+                             || cogStatus.kind === 'renderer_failed'"
+                        type="button" class="btn-ghost text-xs"
+                        @click="openMemoryFromCogMap()">Открыть в Памяти</button>
+                <button v-if="cogStatus.kind === 'degraded'" type="button"
+                        class="btn-ghost text-xs"
+                        @click="loadCognitionGraph()">Повторить</button>
               </div>
+              <div v-else-if="cogFilterEmpty" class="cog-state text-xs text-gray-500"
+                   data-cog-state="filtered">
+                по выбранному фильтру узлов нет
+                <button class="btn-ghost text-xs" type="button"
+                        @click="graphResetView()">Сбросить фильтры</button>
+              </div>
+              <div v-if="cogViewCounters" class="text-xs text-gray-500"
+                   data-cog-view-counters>{{ cogViewCounters }}</div>
               <div ref="cognitionGraph"
                    class="cognition-graph cognition-graph--full" data-glass="c"
                    :hidden="cogEmpty"></div>

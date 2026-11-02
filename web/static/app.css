@@ -1619,6 +1619,8 @@
     .cog-legend__swatch--entity { background: #94a3b8; border-radius: 1px; }
     .cog-legend__swatch--other { background: #64748b; border-radius: 50%; }
     .cog-state { margin: 4px 0 6px; }
+    .cog-state .btn-ghost { margin-left: 6px; }
+    .cog-state .btn-ghost:first-child { margin-left: 0; }
     .cog-completeness { font-variant-numeric: tabular-nums; }
     @media (max-width: 479px) {
       .cog-legend { gap: 3px 9px; font-size: 9.5px; }

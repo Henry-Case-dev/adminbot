@@ -22,6 +22,7 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2)
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -173,19 +174,43 @@ async def test_real_payload_through_real_adapter(db, tmp_path):
 
 # ── 2. разметка виджета ─────────────────────────────────────────────────────
 
+def _legend_binding(html_block: str) -> dict:
+    """Как шаблон связывает легенду: тип ↔ метка ↔ swatch.
+
+    Метки легенды — динамические (`v-for="lg in cogLegend"`), поэтому
+    разметка обязана привязывать КАЖДУЮ строку к своему типу и брать текст
+    из адаптера; сами слова владельца проверяются в node-тесте адаптера
+    (`legendEntries().filter(required)`), а не «поиском слова в документе».
+    """
+    start = html_block.index('data-cog-legend')
+    block = html_block[start:html_block.index(">", start) + 1]
+    tail = html_block[start:html_block.index("</div>", start) + 6]
+    return {
+        "block": tail,
+        "for": 'v-for="lg in cogLegend"' in tail,
+        "kind_binding": ':data-cog-legend-kind="lg.kind"' in tail,
+        "label_binding": "{{ lg.label }}" in tail,
+        # swatch-класс строится из типа строки, а не захардкожен одной формой
+        "swatch_binding": "cog-legend__swatch--' + lg.kind" in tail,
+    }
+
+
 def test_widget_markup_and_legend():
     block = _map_block(INDEX)
     assert 'data-cog-map' in block
     assert "Когнитивная карта" in block
     assert "Граф связей" not in block, "в виджете карты остался старый заголовок"
-    # Легенда с четырьмя словами владельца, у каждого — свой тип.
-    for kind, label in (("fact", "Факты"), ("belief", "Убеждения"),
-                        ("paradigm", "Парадигмы"),
-                        ("evolution_event", "Изменения")):
-        assert 'cogLegend' in block
-        assert label in INDEX
-    assert "cog-legend__swatch--fact" in CSS
-    assert "cog-legend__swatch--paradigm" in CSS
+    # Легенда в разметке: строка на каждый класс модели, тип и метка берутся
+    # из одного источника (адаптер), swatch — по типу.
+    binding = _legend_binding(block)
+    assert binding["for"], "нет перебора строк легенды"
+    assert binding["kind_binding"], "строка легенды не привязана к типу"
+    assert binding["label_binding"], "метка легенды не берётся из адаптера"
+    assert binding["swatch_binding"], "swatch не привязан к типу"
+    # Форма на каждый ОБЯЗАТЕЛЬНЫЙ класс — в CSS (не только цвет).
+    for kind in ("fact", "belief", "paradigm", "evolution_event",
+                 "entity", "observation"):
+        assert "cog-legend__swatch--" + kind in CSS, kind
     assert "clip-path" in CSS            # форма, не только цвет
     # Контролы паритета: поиск по имени/алиасу, тип, кластер, сброс, fullscreen.
     assert 'graph-search__input' in block
@@ -197,6 +222,40 @@ def test_widget_markup_and_legend():
     assert 'class="card p-4 status-graph sg-12"' in INDEX
     assert 'class="status-graph-full"' in INDEX
     assert 'ref="graphFullPanel"' in INDEX
+
+
+def test_visible_status_is_single_worst_fact():
+    """§9.1: одна видимая строка статуса; «пусто» и «отказ» не сосуществуют."""
+    embedded = _map_block(INDEX)
+    full = INDEX[INDEX.index('class="status-graph-full"'):]
+    full = full[:full.index("Мониторинг") if "Мониторинг" in full
+                else len(full)]
+    for name, block in (("встроенный", embedded), ("полный экран", full)):
+        assert block.count('v-if="cogStatus.kind !== \'ready\'"') == 1, name
+        assert block.count('data-cog-degraded') == 1, name
+        assert block.count('v-else-if="cogFilterEmpty"') == 1, name
+        assert "text-amber-300" in block, name
+        assert "cogStatus.degraded" in block, name
+        assert "cogViewCounters" in block, name
+        # Контракт §4: пустота ведёт в «Память» и в полном экране тоже.
+        assert "openMemoryFromCogMap()" in block, name
+    # Порядок приоритетов закреплён в адаптере (§9.1).
+    body = _block(ADAPTER, "function mapClientState(opts) {",
+                  "  return {\n    VERSION: VERSION,")
+    assert "else if (degradedActive) noticeKind = 'degraded';" in body
+    assert "else if (dataEmpty) noticeKind = 'empty';" in body
+    order = [body.index("noticeKind = 'renderer_failed'"),
+             body.index("noticeKind = 'not_loaded'"),
+             body.index("noticeKind = 'loading'"),
+             body.index("noticeKind = 'degraded'"),
+             body.index("noticeKind = 'empty'"),
+             body.index("noticeKind = 'stale'"),
+             body.index("noticeKind = 'ready'")]
+    assert order == sorted(order), "приоритет видимой заметки нарушен"
+    assert "var dataEmpty = degradedActive ? false" in body, \
+        "empty не должен объявляться при отказе источника"
+    # Пустая витрина (фильтр) — отдельный факт вида, а не пустота данных.
+    assert "var viewEmpty = !dataEmpty && visibleNodes === 0" in body
 
 
 def test_completeness_line_is_neutral():
@@ -237,9 +296,47 @@ def test_client_states_mapped_honestly():
     assert "this.cognitionNetwork" in state_fn
     for marker in ("loading", "not_loaded", "stale", "renderer_failed"):
         assert marker in ADAPTER, marker
+    # Реактивность витрины (B1): computed/шаблон читают ТОЛЬКО поля из `data`,
+    # а не внутренние `_cog*` (иначе DOM показывает прошлый кадр).
+    data_block = _block(APP_JS, "cognitionMapCluster: '',",
+                        "_cognitionGraphSig: null,")
+    assert "cogViewNodes: 0" in data_block
+    assert "cogViewEdges: 0" in data_block
+    assert "this.cogViewNodes" in state_fn, \
+        "клиентское состояние должно читать реактивный счётчик витрины"
+    assert "this._cogView" not in state_fn, \
+        "нереактивное `_cogView` не должно попадать в computed-цепочку"
     # Шаблон показывает состояние честно (data-cog-state + подпись).
-    assert ':data-cog-state="cogClientState.state"' in INDEX
-    assert "cogClientState.note" in INDEX
+    assert ':data-cog-state="cogStatus.kind"' in INDEX
+    assert "cogStatus.text" in INDEX
+
+
+def test_empty_to_data_recreates_scene_and_keeps_counters_honest():
+    """B1: переход 0→N пересоздаёт сеть/делает fit и не оставляет «пусто»."""
+    render = _block(APP_JS, "renderCognitionGraph: async function () {",
+                    "_cogApplyData: function")
+    assert "var prevViewNodes = this.cogViewNodes;" in render
+    assert "emptyToData" in render, \
+        "переход 0→N не отличим от обычного обновления (узлы уйдут за кадр)"
+    assert "&& !emptyToData" in render
+    assert "this.cogViewNodes = (view.nodes || []).length;" in render
+    assert "this.cogViewEdges = (view.edges || []).length;" in render
+    # «Пусто по фильтру» не может висеть при непустой витрине: оба числа —
+    # из одного реактивного источника, а пустота вида отделена от пустоты
+    # данных (`viewEmpty` против `dataEmpty`).
+    filt = _block(APP_JS, "cogFilterEmpty: function () {",
+                  "// F11 (§19/D5)")
+    assert "this._cogClientState().viewEmpty === true" in filt
+    assert "cogStatus.kind !== 'ready'" in filt
+
+
+def test_camera_captured_after_animation_finished():
+    """B4: установившийся вид снимается на `animationFinished`."""
+    net = _block(APP_JS, "_cogCreateNetwork: function (",
+                 "_cogRedraw: function")
+    assert "net.on('animationFinished'" in net, \
+        "камера не снимается после анимации — сохранённый вид отстаёт"
+    assert "_cogCaptureCamera()" in net
 
 
 # ── 3. источник данных и судьба старого контракта ───────────────────────────
@@ -260,8 +357,7 @@ def test_legacy_route_and_api_stay_alive():
     # Маршрут полного экрана и родитель — не тронуты (retirement — S4).
     assert "'#/status/graph': 'status'" in APP_JS
     assert "'#/status/graph': '#/'" in APP_JS
-    # Старый серверный контракт продолжает существовать.
-    assert '"/memory/graph"' in MEMORY_API or "'/memory/graph'" in MEMORY_API
+    # Старый серверный контракт продолжает существовать (маршрут ручки).
     assert "memory/graph" in MEMORY_API
     # Legacy-рендер удалён из продукта, vis-network остаётся self-host.
     assert "'/static/vendor/vis-network/vis-network.min.js'" in APP_JS

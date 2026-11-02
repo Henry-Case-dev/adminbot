@@ -3536,6 +3536,12 @@
         cognitionMapVisMissing: false, // vis-network не загрузился
         cognitionMapCluster: '',       // клиентский фильтр по РЕАЛЬНОМУ кластеру
         cogHideDerived: false,         // скрыть производные рёбра (вид, не данные)
+        // W7-S2/B1: ВИТРИНА в реактивных данных. `_cog*` поля — внутренние
+        // (слой подписей, инстанс, камера) и намеренно не реактивны; но всё,
+        // что читают computed/шаблон (счётчики видимого набора, пустота по
+        // фильтру, статус), обязано быть здесь, иначе DOM показывает старое.
+        cogViewNodes: 0,               // видимых узлов в текущей витрине
+        cogViewEdges: 0,               // видимых рёбер в текущей витрине
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
         _cognitionGraphMode: null,     // F11 §16: 'simple' (mobile) | 'full'
         cognitionVisLoaded: false,     // lazy-load vis-network
@@ -7251,9 +7257,28 @@
         return C.completeness(model.shownOf);
       },
       // Клиентское состояние рендерера (loading/not_loaded/stale/
-      // renderer_failed/ready) — отдельно от серверного `state`.
+      // renderer_failed/ready) + отдельная видимая заметка `notice`
+      // (решение Architect §9.1) — считается от РЕАКТИВНЫХ счётчиков витрины.
       cogClientState: function () {
         return this._cogClientState();
+      },
+      // ЕДИНАЯ видимая строка статуса по «худшему факту» (§9.1):
+      // renderer_failed → loading/not_loaded → degraded → empty → stale → ready.
+      // Шаблон рисует ровно её (плюс отдельное «пусто по фильтру», когда
+      // данные есть и статус не хуже ready) — два противоречащих сообщения
+      // одновременно невозможны.
+      cogStatus: function () {
+        var st = this._cogClientState();
+        var kind = st.notice.kind;
+        var text = st.notice.text;
+        // `cogStaleLabel` — вычисляемое значение (Vue computed), не метод.
+        if (kind === 'stale') text = this.cogStaleLabel || text;
+        return {
+          kind: kind,
+          text: text,
+          degraded: st.notice.degraded === true,
+          sources: st.notice.sources || [],
+        };
       },
       cogCounters: function () {
         var C = window.CognitiveMap;
@@ -7263,35 +7288,49 @@
         var edges = (model.edges || []).length;
         return nodes + ' узлов · ' + edges + ' связей';
       },
+      // Видимый набор (после фильтров) — та же модель, что у рендера:
+      // счётчики витрины реактивны и не могут расходиться с сообщением о
+      // пустоте (B1).
+      cogViewCounters: function () {
+        var all = (this.cognitionGraphData
+          && (this.cognitionGraphData.nodes || []).length) || 0;
+        if (!all) return '';
+        if (!this.graphFilterGroup && !this.cognitionMapCluster
+          && this.cogHideDerived !== true) return '';
+        return 'видно ' + this.cogViewNodes + ' из ' + all + ' узлов · '
+          + this.cogViewEdges + ' связей';
+      },
       // Честное «данные на HH:MM» + кнопка обновления (устаревшее не выдаём
-      // за текущее, контракт §4).
+      // за текущее, контракт §4). Строка есть только когда устаревание —
+      // видимая заметка (а не когда его перекрывает отказ источника).
       cogStaleLabel: function () {
         var st = this._cogClientState();
         var model = this.cognitionGraphData || null;
-        if (st.state !== 'stale' || !model || model.generatedAt == null) return '';
+        if (st.notice.kind !== 'stale' || !model || model.generatedAt == null) {
+          return '';
+        }
         return 'данные на ' + this.fmtClock(model.generatedAt);
       },
-      // Часть источников не прочиталась — это ОТКАЗ, а не «неполнота»:
-      // показывается с предупреждением и названными источниками.
+      // Отказ источника — это ОТКАЗ, а не «неполнота» и не «пустота» (§9.1).
+      // Считается от `degraded.active` (реальный ответ сервера), а не от
+      // строкового `state`.
       cogDegradedNote: function () {
-        var model = this.cognitionGraphData || null;
-        if (!model || model.state !== 'degraded') return '';
-        var list = (model.degraded && model.degraded.notLoaded) || [];
-        return list.length
-          ? 'часть источников не прочитана: ' + list.join(', ')
-          : 'часть источников не прочитана';
+        var st = this._cogClientState();
+        return st.notice.kind === 'degraded' ? st.notice.text : '';
       },
-      // Пусто = данных в области нет (нули не рисуются как данные).
+      // Пусто = данных в области нет. Только когда отказа источника НЕТ:
+      // иначе «нет фактов» скрывало бы непрочитанный источник (§9.1).
       cogEmpty: function () {
-        var model = this.cognitionGraphData || null;
-        if (!model) return false;
-        return model.state === 'empty' || (model.nodes || []).length === 0;
+        return this._cogClientState().notice.kind === 'empty';
       },
-      // Пусто ПО ФИЛЬТРУ — другое: данные есть, но выбор их скрыл.
+      // Пусто ПО ФИЛЬТРУ — другое: данные есть, но выбор их скрыл. Считается
+      // от реактивного счётчика витрины; не показывается, когда видимый
+      // статус уже говорит о отказе/пустоте/рендерере. «Нет фактов и связей»
+      // (пустота данных) здесь было бы ложью — нужен сброс фильтра.
       cogFilterEmpty: function () {
-        if (this.cogEmpty) return false;
-        var view = this._cogView || null;
-        return !!(view && (view.nodes || []).length === 0);
+        if (!this.cognitionGraphData) return false;
+        if (this.cogStatus.kind !== 'ready') return false;
+        return this._cogClientState().viewEmpty === true;
       },
       // F11 (§19/D5): «Новые факты» — стабильный ключ (позиция скролла не
       // сбрасывается); время/тип показываются ТОЛЬКО если есть в ответе
@@ -28020,7 +28059,8 @@
         if (!this.isGlobalAdmin) return;
         // R10.11-5: пока грузился vis-network, могли уйти с «Статуса» —
         // stale-инстанс не создаём (destroy уже отработал при уходе).
-        if (this.activeTab !== 'status') return;        var self = this;
+        if (this.activeTab !== 'status') return;
+        var self = this;
         var C = window.CognitiveMap;
         var el = this._cogGraphEl();
         if (!el) return;
@@ -28035,7 +28075,16 @@
               ? '.status-graph-full' : '[data-cog-map]');
           }
         } catch (e) { inScope = true; }
-        if (!inScope && (this._cogDeferCount || 0) < 6) {
+        // Контейнер мог быть скрыт (пустое состояние) — сеть в 0×0 vis не
+        // измерит и не подгонит: ждём следующую отрисовку (B1).
+        var measured = true;
+        try {
+          if (typeof el.getBoundingClientRect === 'function') {
+            var rect = el.getBoundingClientRect();
+            measured = rect.width >= 2 && rect.height >= 2;
+          }
+        } catch (e) { measured = true; }
+        if ((!inScope || !measured) && (this._cogDeferCount || 0) < 8) {
           this._cogDeferCount = (this._cogDeferCount || 0) + 1;
           this.$nextTick(function () { self.renderCognitionGraph(); });
           return;
@@ -28045,12 +28094,18 @@
         if (!model || !C) return;                    // состояние даёт шаблон
         // Витрина: тип / кластер по РЕАЛЬНЫМ связям / производные рёбра.
         // Те же чистые функции, что и в node-тестах; сети не касаемся.
+        var prevViewNodes = this.cogViewNodes;      // реактивный счётчик ДО рендера
         var view = C.applyFilters(model, {
           kinds: this.graphFilterGroup ? [this.graphFilterGroup] : [],
           cluster: this.cognitionMapCluster || '',
           hideDerived: this.cogHideDerived === true,
         });
+        // `_cogView` — внутренний (нереактивный) слой подписей; всё, что читают
+        // computed/шаблон, публикуется в реактивные поля СРАЗУ (B1): иначе
+        // счётчики и сообщение о пустоте расходились с фактической сценой.
         this._cogView = view;
+        this.cogViewNodes = (view.nodes || []).length;
+        this.cogViewEdges = (view.edges || []).length;
         // F11 (§16/D4): mobile — упрощённая сцена; отдельный экран полного
         // исследования — полный режим. Один движок, разные композиции.
         var simpleGraph = this.isMobileShell && !this.graphFullVisible;
@@ -28073,23 +28128,37 @@
         this.cognitionMapVisMissing = false;
         el = this._cogGraphEl();
         if (!el || this.activeTab !== 'status') return;
+        // Переход 0 -> N (пустой чат, затем данные появились): сеть
+        // ПЕРЕСОЗДАЁТСЯ, иначе физика/fit не запускаются, узлы встают на
+        // детерминированную спираль и уходят за вьюпорт (B1).
+        var emptyToData = prevViewNodes === 0 && (view.nodes || []).length > 0;
+        if (emptyToData) {
+          // Камера пустой сцены (0×0 canvas) ничего не значит — иначе после
+          // появления данных мы «сохранили» бы кадр без узлов.
+          this._cogCamera = null;
+        }
         var sameInstance = !!(this.cognitionNetwork
           && mode === this._cognitionGraphMode && this._cogEl === el
           && el.isConnected !== false
-          && el.querySelector && el.querySelector('canvas'));
+          && el.querySelector && el.querySelector('canvas')
+          && !emptyToData);
         var positions = {};
         if (this.cognitionNetwork) {
           try {
             positions = this.cognitionNetwork.getPositions() || {};
           } catch (e) { positions = {}; }
-          if (!sameInstance) this._cogCaptureCamera();
+          // Камеру снимаем только когда прежний кадр осмыслен: при переходе
+          // 0 → N камеры нет (сцена была пуста) — нужен fit, а не «снимок».
+          if (!sameInstance && !emptyToData) this._cogCaptureCamera();
         }
         try {
           if (sameInstance) {
             this._cogApplyData(view, positions);     // локальное обновление
           } else {
+            var restoreCamera = this._cogCamera || null;
             this.destroyCognitionGraph();
-            this._cogCreateNetwork(el, view, mode, simpleGraph, positions);
+            this._cogCreateNetwork(el, view, mode, simpleGraph, positions,
+              restoreCamera);
           }
           this._cognitionGraphSig = sig;
           this._cognitionGraphMode = mode;
@@ -28103,6 +28172,8 @@
         // destroy() обнуляет `_cogView` — модель витрины восстанавливается
         // ПОСЛЕ создания сети (иначе слой подписей и счётчики видят пустоту).
         this._cogView = view;
+        this.cogViewNodes = (view.nodes || []).length;
+        this.cogViewEdges = (view.edges || []).length;
         this._cogRedraw();
       },
       // Локальное обновление существующей сети: DataSet меняется, ИНСТАНС
@@ -28223,8 +28294,13 @@
           hoverWidth: 1.4,
         };
       },
-      _cogCreateNetwork: function (el, view, mode, simple, prevPositions) {
+      _cogCreateNetwork: function (el, view, mode, simple, prevPositions,
+                                   restoreCamera) {
         var self = this;
+        // Пока сцена не измерена и камера/подгонка не выставлены, кадры
+        // отрисовки не должны «сохранять камеру»: иначе они запомнят
+        // неотрендеренный кадр и перекроют fit (B1).
+        this._cogInitializing = true;
         var i;
         var positions = prevPositions && typeof prevPositions === 'object'
           ? prevPositions : {};
@@ -28332,21 +28408,45 @@
         // `once` (не `on`) — слушатели не копятся при повторных рендерах.
         // B3-1: guard ТОЛЬКО по тождеству инстанса (полей destroyed/isDestroyed
         // в self-host vis-network v9.1.9 нет).
+        // Камера/подгонка выставляются ОДИН раз, когда сцена измерена:
+        // `restoreCamera` — вернуть прежний кадр (fullscreen ↔ embedded,
+        // возврат на вкладку), иначе `fit` (первый кадр, появление данных из
+        // пустоты) — иначе узлы остаются за вьюпортом (B1).
+        var settleView = function () {
+          if (!net || net !== self.cognitionNetwork) return;
+          self._cogInitializing = false;
+          if (restoreCamera) {
+            self._cogCamera = restoreCamera;
+            self._cogRestoreCamera(false);
+          } else {
+            self._cogCamera = null;
+            try {
+              net.fit({ animation: false });
+            } catch (e) { /* noop */ }
+          }
+        };
         if (!this.reducedMotion && GRAPH_PHYSICS_DISABLE_ON_STABILIZE) {
           var _afterStabilize = function () {
             if (net && net === self.cognitionNetwork) {
               try {
                 net.setOptions({ physics: { enabled: false } });
               } catch (e) { /* noop: сеть уже уничтожена */ }
-              // Камера восстанавливается ПОСЛЕ расстановки (fullscreen ↔
-              // embedded, повторный вход на «Статус») — L01321.
-              self._cogRestoreCamera(false);
+              settleView();
             }
           };
           net.once('stabilizationIterationsDone', _afterStabilize);
           net.once('stabilized', _afterStabilize);
         }
-        if (this._cogCamera) this._cogRestoreCamera(false);
+        settleView();
+        // B4: после анимации (`focus()`/`moveTo`) кадров отрисовки больше нет,
+        // и сохранённая камера отставала на один кадр (~3 px). Снимаем
+        // установившийся вид на `animationFinished` — допуск приёмки не
+        // ослабляется, значение просто становится верным.
+        if (typeof net.on === 'function') {
+          net.on('animationFinished', function () {
+            if (net === self.cognitionNetwork) self._cogCaptureCamera();
+          });
+        }
         this._cogApplyHighlight();
         try {
           this.graphApplyZoomLevel(net.getScale ? net.getScale() : null);
@@ -28366,6 +28466,9 @@
         var net = this.cognitionNetwork;
         var C = window.CognitiveMap;
         if (!net || !C || typeof net.getViewPosition !== 'function') return;
+        // Первый кадр после создания: камера ещё не выставлена (fit/restore),
+        // сохранять нечего — иначе «снимок» перекроет подгонку сцены (B1).
+        if (this._cogInitializing) return;
         var el = this._cogEl;
         // Снимаем камеру только у АКТУАЛЬНОГО контейнера: пока старый элемент
         // удаляется, vis пересчитывает translation под новый размер — такое
@@ -28399,7 +28502,6 @@
         var net = this.cognitionNetwork;
         var C = window.CognitiveMap;
         if (!net || !C || !ctx) return;
-        this._cogCaptureCamera();
         var el = this._cogEl || (this.$refs ? this.$refs.cognitionGraph : null);
         if (!el || typeof el.querySelector !== 'function') return;
         var canvas = el.querySelector('canvas');
@@ -28407,6 +28509,9 @@
         var cssW = canvas.clientWidth || el.clientWidth || 0;
         var cssH = canvas.clientHeight || el.clientHeight || 0;
         if (!cssW || !cssH) return;
+        // Снимаем камеру только у измеренной сцены: у скрытого/0×0 холста
+        // «вид» ничего не значит и перекрыл бы последующий fit (B1).
+        this._cogCaptureCamera();
         var view = this._cogView || { nodes: [], edges: [] };
         var positions;
         try {
@@ -28503,26 +28608,30 @@
         else if (typeof this.navigateTo === 'function') this.navigateTo('#/memory');
         else this.route = '#/memory';
       },
-      // Клиентское состояние рендерера (отдельно от серверного `state`).
+      // Клиентское состояние рендерера (отдельно от серверного `state`) +
+      // единая видимая заметка `notice` (§9.1). Читает ТОЛЬКО реактивные
+      // поля (B1): `cogViewNodes`, модель, признак падения рендерера.
       _cogClientState: function () {
         var C = window.CognitiveMap;
         if (!C || typeof C.mapClientState !== 'function') {
           return { state: 'renderer_failed', serverState: null, note: '',
-                   stale: false, empty: false, generatedAt: null };
+                   notice: { kind: 'renderer_failed', text: '', sources: [],
+                             degraded: false },
+                   stale: false, empty: false, degraded: false,
+                   generatedAt: null };
         }
         var renderer = 'ready';
         if (this.cognitionMapFailed) renderer = 'failed';
         else if (!this.cognitionNetwork) {
           renderer = this.cognitionMapVisMissing ? 'failed' : 'missing';
         }
-        var view = this._cogView || null;
         return C.mapClientState({
           model: this.cognitionGraphData || null,
           renderer: renderer,
           failed: this.cognitionMapFailed === true,
           now: Date.now(),
           staleMs: COG_MAP_STALE_MS,
-          visibleNodes: view ? view.nodes.length : undefined,
+          visibleNodes: this.cogViewNodes,
         });
       },
       // F2 (T-1560/1561, spec §5): поиск по имени/алиасу с фокусом. Алиасы

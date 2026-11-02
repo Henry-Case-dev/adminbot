@@ -569,12 +569,202 @@ const S2 = (function () {
   eq2(CM.mapClientState({ model: emptyModel, renderer: 'ready', now: nowMs })
     .state, 'empty', 'серверное empty → пустое состояние');
   eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
-    visibleNodes: 0 }).state, 'empty',
-  'фильтр скрыл все узлы → пустое состояние (вид, а не данные)');
+    visibleNodes: 0 }).state, 'ready',
+  'фильтр скрыл все узлы — это НЕ пустота данных (state остаётся ready)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    visibleNodes: 0 }).viewEmpty, true,
+  'фильтр скрыл все узлы → отдельный факт вида (viewEmpty)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs })
+    .viewEmpty, false, 'непустая витрина не помечена пустой');
+  eq2(CM.mapClientState({ model: emptyModel, renderer: 'ready', now: nowMs })
+    .viewEmpty, false, 'пустота данных — не «пустота по фильтру»');
   ok2(CM.STATE_LABELS.not_loaded && CM.STATE_LABELS.renderer_failed,
     'у клиентских состояний есть честные подписи');
   ok2(!/ошибк/i.test(CM.STATE_LABELS.not_loaded),
     'загрузка визуализации не подаётся как ошибка');
+
+  // ── 14. §9.1: видимая заметка по «худшему факту», `notice` рядом с `state` ─
+  // Модель с отказом источника и БЕЗ узлов — ровно то, что отдаёт сервер
+  // (`state='degraded'` + `degraded.active` при упавшей выборке).
+  const degradedEmpty = CM.normalizePayload({
+    version: 'cog-map/1', state: 'degraded', generated_at: fresh,
+    degraded: { active: true, not_loaded: ['memory_cycle'] },
+    nodes: [], edges: [], shown_of: { nodes: 0, edges: 0,
+                                       totals: { nodes: 0, edges: 0 } },
+  });
+  const degEmpty = CM.mapClientState({ model: degradedEmpty,
+    renderer: 'ready', now: nowMs });
+  eq2(degEmpty.notice.kind, 'degraded',
+    '§9.1: отказ источника — видимая заметка, а не «пусто»');
+  eq2(degEmpty.empty, false,
+    '§9.1: `empty` запрещён, пока degraded.active === true');
+  ok2(degEmpty.state !== 'empty',
+    '§9.1: клиентское `state` тоже не объявляет пустоту при отказе');
+  eq2(degEmpty.notice.text, 'часть источников не прочитана: memory_cycle',
+    '§9.1: заметка называет непрочитанный источник');
+  eq2(degEmpty.notice.sources, ['memory_cycle'],
+    '§9.1: список источников отдаётся отдельным полем');
+  ok2(degEmpty.notice.kind !== 'ready' && degEmpty.notice.degraded === true,
+    '§9.1: отказ не выглядит «всё хорошо»');
+
+  // Отказ источника ПРИ НАЛИЧИИ данных: клиентская ось — ready, видимая — degraded.
+  const degradedData = CM.normalizePayload({
+    version: 'cog-map/1', state: 'degraded', generated_at: fresh,
+    degraded: { active: true, not_loaded: ['edges'] },
+    nodes: [{ id: 'fact:1:1', kind: 'fact', title: 'Есть факт' }],
+    edges: [], shown_of: { nodes: 1, edges: 0,
+                           totals: { nodes: 1, edges: 0 } },
+  });
+  const degData = CM.mapClientState({ model: degradedData, renderer: 'ready',
+    now: nowMs });
+  eq2(degData.state, 'ready',
+    '§9.1: оси раздельные — рендерер в порядке, `state` = ready');
+  eq2(degData.notice.kind, 'degraded',
+    '§9.1: видимая строка всё равно сообщает об отказе');
+  // Приоритет «худшего факта» для остальных комбинаций.
+  eq2(CM.mapClientState({ model: degradedData, renderer: 'failed',
+    now: nowMs }).notice.kind, 'renderer_failed',
+  '§9.1: renderer_failed выше degraded');
+  eq2(CM.mapClientState({ model: null, renderer: 'missing',
+    now: nowMs }).notice.kind, 'not_loaded',
+  '§9.1: not_loaded выше degraded (модели ещё нет)');
+  const degradedStale = CM.mapClientState({ model: degradedData,
+    renderer: 'ready', now: (fresh + 3600) * 1000 });
+  eq2(degradedStale.notice.kind, 'degraded',
+    '§9.1: degraded выше stale');
+  // Без отказа источника пустота объявляется как обычно.
+  const plainEmpty = CM.mapClientState({ model: emptyModel, renderer: 'ready',
+    now: nowMs });
+  eq2(plainEmpty.notice.kind, 'empty',
+    'без отказа источника пустота — видимая заметка');
+  eq2(plainEmpty.empty, true, 'empty остаётся честным фактом данных');
+  // Полный набор: заметки нет, состояние ready.
+  const plainReady = CM.mapClientState({ model, renderer: 'ready', now: nowMs });
+  eq2(plainReady.notice.kind, 'ready', 'всё в порядке → заметки нет');
+  eq2(plainReady.notice.text, '', 'в порядке — пустой текст заметки');
+  // Свежесть/полнота независимы от заметки.
+  eq2(plainReady.notice.kind, degData.notice.kind === 'degraded'
+    ? 'ready' : 'degraded', 'полнота и статус — независимые поля');
+
+  // ── 15. §9.2: бюджет подписей из ГЕОМЕТРИИ кадра ───────────────────────
+  function labelItems(count, chars, extra) {
+    const out = [];
+    for (let i = 0; i < count; i += 1) {
+      out.push({
+        id: 'l' + i,
+        x: 40 + (i % 5) * 60,
+        y: 30 + Math.floor(i / 5) * 55,
+        kind: 'fact',
+        title: 'я'.repeat(chars),
+      });
+    }
+    return out.concat(extra || []);
+  }
+  function budgetOf(items, w, h, mobile, chars) {
+    return CM.labelBudget(items, {
+      maxLabels: CM.DEFAULTS.maxLabels,
+      mobileMaxLabels: CM.DEFAULTS.mobileMaxLabels,
+      fontSize: CM.DEFAULTS.fontSize,
+      padding: CM.DEFAULTS.padding,
+      charWidth: CM.DEFAULTS.charWidth,
+      maxLabelChars: chars || CM.DEFAULTS.maxLabelChars,
+    }, { mobile: mobile, viewport: { width: w, height: h }, scale: 1 });
+  }
+  const items12 = labelItems(12, 20);
+  const small = budgetOf(items12, 320, 300, true);
+  const mid = budgetOf(items12, 1000, 400, false);
+  const large = budgetOf(items12, 1440, 900, false);
+  ok2(small.budget >= 4, '§9.2: минимальный бюджет — 4 подписи');
+  ok2(small.budget <= CM.DEFAULTS.mobileMaxLabels,
+    '§9.2: мобильный бюджет ≤ потолка 12');
+  ok2(large.budget <= CM.DEFAULTS.maxLabels,
+    '§9.2: бюджет ≤ жёсткого потолка 26');
+  ok2(mid.budget < large.budget,
+    '§9.2: бюджет растёт с площадью кадра (1000×400 < 1440×900)');
+  ok2(small.budget < large.budget,
+    '§9.2: узкий мобильный кадр даёт меньший бюджет, чем большой десктоп');
+  eq2(small.fill, 0.04, '§9.2: мобильная заливка 0.04');
+  eq2(large.fill, 0.05, '§9.2: десктопная заливка 0.05');
+  // Длина подписи участвует: длиннее подпись — меньше подписей влезает.
+  const shortBudget = budgetOf(labelItems(12, 6), 1000, 400, false, 34);
+  const longBudget = budgetOf(labelItems(12, 34), 1000, 400, false, 34);
+  ok2(longBudget.budget < shortBudget.budget,
+    '§9.2: длина подписи уменьшает бюджет (геометрия, не константа)');
+  // Один и тот же кадр: мобильный fill < десктопного при равной площади.
+  const sameAreaMobile = budgetOf(items12, 800, 600, true);
+  const sameAreaDesktop = budgetOf(items12, 800, 600, false);
+  ok2(sameAreaMobile.budget < sameAreaDesktop.budget,
+    '§9.2: на одних данных mobile-бюджет меньше десктопного');
+  ok2(sameAreaMobile.budget <= CM.DEFAULTS.mobileMaxLabels
+    && sameAreaDesktop.budget <= CM.DEFAULTS.maxLabels,
+  '§9.2: оба бюджета под своими потолками');
+  // Обязательные подписи: выбранный узел и парадигма подписаны всегда.
+  const mandatoryItems = labelItems(6, 30, [
+    { id: 'sel', x: 60, y: 60, kind: 'fact', title: 'Выбранный', selected: true },
+    { id: 'par', x: 90, y: 90, kind: 'paradigm', title: 'Парадигма' },
+  ]);
+  const tiny = CM.allocateLabels(mandatoryItems, {
+    scale: 1, viewport: { width: 400, height: 300 },
+    maxLabelChars: 34, fontSize: 11,
+  });
+  ok2(tiny.mandatory >= 2, '§9.2: обязательные подписи посчитаны');
+  ok2(tiny.budget >= tiny.mandatory,
+    '§9.2: бюджет не меньше числа обязательных подписей');
+  ok2(tiny.labels.some((l) => l.id === 'sel'),
+    '§9.2: выбранный узел подписан даже в тесном кадре');
+  ok2(tiny.labels.some((l) => l.id === 'par'),
+    '§9.2: парадигма подписана даже в тесном кадре');
+  // Тесный кадр с ШЕСТЬЮ парадигмами: геометрический бюджет (< 6) поднимается
+  // до числа обязательных подписей — иначе «всегда подписаны» не выполнялось бы.
+  const manyParadigms = [];
+  for (let i = 0; i < 6; i += 1) {
+    manyParadigms.push({
+      id: 'p' + i, x: 20 + i * 18, y: 40, kind: 'paradigm',
+      title: 'Парадигма ' + i,
+    });
+  }
+  const crowded = CM.allocateLabels(manyParadigms, {
+    scale: 1, viewport: { width: 160, height: 80 }, fontSize: 11,
+  });
+  eq2(crowded.mandatory, 6, '§9.2: шесть обязательных подписей (парадигмы)');
+  ok2(crowded.budget >= 6,
+    '§9.2: бюджет поднят до числа обязательных подписей');
+  ok2(crowded.budget <= CM.DEFAULTS.maxLabels,
+    '§9.2: и при этом не выше жёсткого потолка');
+  // LOD — доля бюджета, а не отдельная константа.
+  const overview = CM.allocateLabels(items12, {
+    scale: CM.DEFAULTS.overviewScale - 0.1,
+    viewport: { width: 1440, height: 900 },
+  });
+  const normal = CM.allocateLabels(items12, {
+    scale: 0.9, viewport: { width: 1440, height: 900 },
+  });
+  const detail = CM.allocateLabels(items12, {
+    scale: 2, viewport: { width: 1440, height: 900 },
+  });
+  ok2(overview.maxLabels <= Math.min(normal.budget, 6),
+    '§9.2: overview — доля бюджета, не больше 6');
+  eq2(normal.maxLabels, Math.min(normal.budget, 16),
+    '§9.2: normal — доля бюджета, не больше 16');
+  eq2(detail.maxLabels, detail.budget,
+    '§9.2: detail — весь бюджет');
+  ok2(overview.labels.length <= normal.labels.length
+    && normal.labels.length <= detail.labels.length,
+  '§9.2: чем выше LOD, тем не меньше подписей');
+  // Подпись не прижимается к кромке кадра (у сцены скругление/рамка):
+  // бокс обязан лежать внутри с отступом `padding`.
+  const edgeItems = [
+    { id: 'top', x: 200, y: 3, kind: 'fact', title: 'У самой кромки' },
+    { id: 'mid', x: 200, y: 150, kind: 'fact', title: 'В центре' },
+  ];
+  const edge = CM.allocateLabels(edgeItems, {
+    scale: 1, viewport: { width: 400, height: 300 },
+  });
+  ok2(!edge.labels.some((l) => l.id === 'top'),
+    'подпись у самой кромки кадра не рисуется (обрезалась бы рамкой)');
+  ok2(edge.labels.every((l) => l.y - l.height / 2 >= CM.DEFAULTS.padding
+    && l.x - l.width / 2 >= CM.DEFAULTS.padding),
+  'все подписи внутри кадра с отступом');
 
   return s2;
 })();
