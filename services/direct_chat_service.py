@@ -11859,33 +11859,12 @@ class DirectChatService:
         собирался одной точкой `bot_persona.build_decision_profile_block` и
         совпадал байт-в-байт с профилем Direct для того же чата. Повторного
         снапшота/кеша нет: `resolve_character_context` уже ставит кадр хода.
-        Fail-open → ('', None) (планер получает честный «кадр недоступен»)."""
-        try:
-            from services.chat_params import get_chat_param as _cpg
-            persona_enabled = await _cpg(
-                chat_id, "flags.persona_enabled",
-                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
-            if not persona_enabled:
-                return "", None
-            if mca_gates.character_layers_enabled():
-                ctx = await bot_persona.resolve_character_context(chat_id)
-                block = bot_persona.build_persona_prompt_block(
-                    ctx.persona, [str(t) for t in (ctx.traits or ())],
-                    enabled=True)
-                rules = bot_persona.build_character_rules_block()
-                if block and rules:
-                    block = block + "\n\n" + rules
-                return block or "", ctx
-            persona = await bot_persona.resolve_bot_persona(chat_id)
-            traits = await bot_persona.get_traits(
-                int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
-            texts = [str(t.get("text") or "") for t in (traits or ())]
-            ctx = bot_persona.CharacterReadContext(
-                persona=persona, traits=tuple(texts))
-            return (bot_persona.build_persona_prompt_block(
-                persona, texts, enabled=True) or ""), ctx
-        except Exception:
-            return "", None
+        Fail-open → ('', None) (планер получает честный «кадр недоступен»).
+
+        MEME-JOKE-SPEECH (arch/joke-speech-layers.md §8): тело переехало в
+        `bot_persona.resolve_character_block` без изменения логики — инициатива
+        осталась тонким делегатом, второго резолва личности нет."""
+        return await bot_persona.resolve_character_block(int(chat_id))
 
     async def plan_initiative_decision(self, chat_id: int,
                                        intent_row: dict, *,

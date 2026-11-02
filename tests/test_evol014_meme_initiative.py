@@ -5,6 +5,7 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-014 (квота, гейты, промпт, �
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import inspect
 import json
 import pathlib
@@ -905,7 +906,13 @@ def test_default_summarizer_matches_real_client_contract(monkeypatch):
 
 
 def test_default_joke_matches_real_client_contract(monkeypatch):
-    """Этап B тем же клиентом: инструкция в system, выжимка в user."""
+    """Этап B тем же клиентом: задание в system, выжимка в user.
+
+    MEME-JOKE-SPEECH: system собирает единый речевой композер, поэтому
+    сообщение НАЧИНАЕТСЯ с задания и содержит J-директиву, а не равно ей
+    (речевые слои владельца дописываются после задания). Возврат этапа —
+    ``(текст прикола, диагностика сборки)``.
+    """
     from services.llm_client import LLMClient
 
     client = LLMClient("https://llm.example.invalid/v1", "sk-test",
@@ -924,20 +931,25 @@ def test_default_joke_matches_real_client_contract(monkeypatch):
         return _Response()
 
     monkeypatch.setattr(client, "_post", _post)
-    joke = _run(meme._default_joke(
+    joke, speech = _run(meme._default_joke(
         client, "выжимка целиком",
         instruction=meme.joke_instruction(meme.MEME_JOKE_PROMPT, 42),
         chat_id=-100))
 
     assert joke == "прикол"
     assert seen["path"] == "/chat/completions"
-    assert seen["payload"]["messages"][0] == {
-        "role": "system",
-        "content": meme.joke_instruction(meme.MEME_JOKE_PROMPT, 42)}
+    system_message = seen["payload"]["messages"][0]
+    assert system_message["role"] == "system"
+    assert system_message["content"].startswith(
+        meme.joke_instruction(meme.MEME_JOKE_PROMPT, 42))
     assert seen["payload"]["messages"][1] == {
         "role": "user", "content": "выжимка целиком"}
-    assert "не более 42 символов" in seen["payload"]["messages"][0]["content"]
+    assert "не более 42 символов" in system_message["content"]
     assert seen["payload"]["model"] == "chat-model"
+    # Сборка состоялась (композер fail-open не сработал) и связана с payload.
+    assert speech["composer"] == "on"
+    assert speech["system_sha12"] == hashlib.sha256(
+        system_message["content"].encode("utf-8")).hexdigest()[:12]
 
 
 def test_in_flight_check_precedes_paid_summary(tmp_path):
