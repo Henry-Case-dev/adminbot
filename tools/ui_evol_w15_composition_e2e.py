@@ -58,56 +58,112 @@ PORT = 8855
 DEFAULT_OUT = os.path.join(REPO, "plans", "features", "evol", "audit",
                            "evidence", "w15-composition")
 
-# Состояние экрана: (имя, адрес, драйвер под-состояния, комментарий).
+# Состояние экрана: (имя, адрес, драйвер под-состояния).
 # Драйверы: ("oversight", «подпись вкладки») — вкладка «Аналитики»;
-# ("speech", «подпись раздела») — раздел «Речи и характера»; ("prompt-key", None)
-# — открыть первый промпт в дереве; ("global", None) — верхний селектор в GLOBAL.
+# ("speech", «подпись раздела») — раздел «Речи и характера»; ("card", id) —
+# карточка-витрина `[data-speech-card=id]`; ("prompt-key", None) — открыть
+# первый промпт в дереве; ("global", None) — верхний селектор в GLOBAL.
 STATES = (
     ("status", "#/", None),
     ("analytics-overview", "#/oversight", ("oversight", "Обзор")),
     ("analytics-processes", "#/oversight", ("oversight", "Процессы")),
-    ("analytics-runs", "#/oversight", ("oversight", "Запуски")),
+    ("analytics-runs", "#/oversight",
+     ("oversight", "Процессы>Запуски")),
     ("analytics-incidents", "#/oversight", ("oversight", "Инциденты")),
     ("analytics-memory", "#/oversight", ("oversight", "Память")),
     ("analytics-costs", "#/oversight", ("oversight", "Модели")),
+    ("analytics-summary", "#/oversight", ("oversight", "Саммари")),
     ("modules", "#/modules", ("global", None)),
     ("ai", "#/ai", None),
     ("ai-models", "#/modules/summary/models", None),
     ("prompts", "#/ai/prompts", None),
     ("prompts-sub", "#/ai/prompts/summary", None),
     ("prompts-editor", "#/ai/prompts/summary", ("prompt-key", None)),
+    ("speech-hub", "#/ai/speech", ("back", None)),
     ("speech-persona", "#/ai/speech", ("speech", "Личность")),
     ("speech-style", "#/ai/speech", ("speech", "Речь и стиль")),
     ("speech-profanity", "#/ai/speech", ("speech", "Мат")),
     ("speech-examples", "#/ai/speech", ("speech", "Примеры")),
     ("speech-rules", "#/ai/speech", ("speech", "Правила")),
+    ("speech-core", "#/ai/speech", ("card", "core")),
+    ("speech-inspector", "#/ai/speech", ("card+mode", "inspector|preview")),
+    ("speech-capabilities", "#/ai/speech", ("card", "capabilities")),
+    ("speech-blocks", "#/ai/speech", ("card", "all")),
     ("memory", "#/memory", None),
     ("access", "#/access", None),
     ("access-roles", "#/access/roles", None),
 )
+
+# Маршруты §D-7, которых нет в STATES: композицию они не утверждают, но
+# компоненты/раскладка на них обязаны измеряться (ревью 5.2: «ни один экран не
+# исключать»). Для каждого снимается та же сигнатура компонентов и регрессии.
+COVERAGE_ROUTES = (
+    ("#/how", "how"),
+    ("#/permsoc", "permsoc"),
+    ("#/status/graph", "status-graph"),
+    ("#/ai/llm", "ai-llm"),
+    ("#/ai/limits", "ai-limits"),
+    ("#/ai/names", "ai-names"),
+    ("#/ai/persona", "ai-persona"),
+    ("#/ai/lore", "ai-lore"),
+    ("#/ai/relations", "ai-relations"),
+    ("#/ai/sleep", "ai-sleep"),
+    ("#/ai/nostalgia", "ai-nostalgia"),
+    ("#/ai/smart-cache", "ai-smart-cache"),
+    ("#/memory/rag", "memory-rag"),
+    ("#/memory/lore", "memory-lore"),
+    ("#/memory/relations", "memory-relations"),
+    ("#/access/admins", "access-admins"),
+    ("#/access/local", "access-local"),
+    ("#/modules/vision", "modules-vision"),
+    ("#/modules/sleep", "modules-sleep"),
+    ("#/modules/initiative", "modules-initiative"),
+    ("#/modules/reactions", "modules-reactions"),
+    ("#/modules/switches", "modules-switches"),
+    ("#/modules/features", "modules-features"),
+    ("#/modules/budgets", "modules-budgets"),
+    ("#/modules/images", "modules-images"),
+    ("#/modules/custom", "modules-custom"),
+    ("#/modules/random", "modules-random"),
+    ("#/modules/initiative/settings", "modules-initiative-settings"),
+)
 VIEWPORTS = ((390, 844), (1280, 900))
 
 # ── классы компонентов (одна визуальная роль) ───────────────────────────────
+# Карточка/панель. `.story-card` и `.ep-card` — детали внутри manage/feed
+# (рендерятся только по клику в «Историях»): их CSS переведён на токены и
+# удерживается структурным инвариантом, но в живой набор они НЕ входят —
+# иначе объявленный класс молча проходил бы с нулём экземпляров (ревью 5.1/5.2).
 CARD_SEL = (".card", ".module-card", ".hub-card", ".prov-block", ".intel-card",
-            ".story-card", ".speech-card", ".prompt-module-card",
-            ".modal-card", ".ep-card", ".run-card", ".conn-card")
+            ".prompt-module-card", ".speech-card", ".modal-card", ".run-card",
+            ".conn-card")
+# Компактная строка-сущность (кликабельная запись/раздел/слой).
 ROW_SEL = (".sfeed-item", ".mem-item", ".access-section-row",
-           ".dossier-ticker__item")
-DIVIDER_ROW_SEL = (".rec-row", ".llm-row", ".prompt-history-row", ".budget-row",
-                   ".timeline-row", ".pipe-run-row", ".log-row", ".meme-row",
-                   ".conn-fact")
-DENSE_ROW_SEL = (".speech-rule", ".speech-soft", ".speech-hist", ".speech-lesson",
-                 ".speech-entity-row", ".speech-layer-row", ".speech-cap-row",
-                 ".speech-trace-row", ".speech-block-row", ".speech-skip-row",
-                 ".speech-conflict-row", ".speech-hier-row")
-CHART_SEL = ("[data-status-activity]", ".card:has([data-viz-flow])",
-             ".card:has([data-viz-route])", ".card:has([data-viz-waterfall])")
+           ".dossier-ticker__item", ".speech-layer-card")
+# Строка-разделитель внутри таблицы/списка «ключ → значение».
+DIVIDER_ROW_SEL = (".budget-row", ".conn-fact", ".pipe-run-row")
+# Плотная строка таблицы/инспектора. `.speech-entity-row` удалён: класса нет в
+# разметке (мёртвое правило) — объявленный-но-не-рендерящийся класс запрещён.
+DENSE_ROW_SEL = (".speech-rule", ".speech-soft",
+                 ".speech-layer-row", ".speech-cap-row", ".speech-trace-row",
+                 ".speech-block-row", ".speech-skip-row", ".speech-conflict-row",
+                 ".speech-hier-row", ".speech-limits", ".mem-kv")
+# Уведомление/заметка: своя семантика цвета кромки, но геометрия роли — та же.
+NOTICE_SEL = (".access-audit",)
+CHART_SEL = ("[data-status-activity]", "[data-viz-flow]",
+             "[data-viz-waterfall]", "[data-viz-route]")
 TABLE_SEL = (".matrix-table", ".speech-table", ".avail-list")
 
 # Состояния компонента, которые НЕ являются вариантом геометрии: это состояния
 # (hover/picked/active). Из сравнения сигнатур они исключаются явно.
 STATE_SKIP = ('[data-sfeed-active="1"]', '.is-active', '.is-picked', '.is-open',
               '[aria-pressed="true"]')
+# Семантические варианты кромки (цвет = смысл: семантика памяти, diff before/
+# after, insufficient-история): геометрия роли остаётся общей, альфа границы у
+# них НЕ сравнивается с hairline роли.
+SEMANTIC_BORDER = ('.mem-kv--semantic', '.story-card--insufficient',
+                   '.speech-diff-line.before', '.speech-diff-line.after',
+                   '.speech-preview-line.after', '.funnel-cell--warn')
 
 CARD_TOKENS = ("--card-radius", "--card-hairline", "--card-pad")
 ROW_TOKENS = ("--row-radius", "--row-hairline", "--row-pad", "--row-gap")
@@ -132,7 +188,7 @@ TOKEN_PROPS = {
 }
 
 # Объявленные варианты (§L01826 разрешает отличия по размеру и состоянию).
-CARD_PAD_VARIANTS = (8.0, 12.0, 16.0, 20.0)   # p-2/p-3/p-4/p-5 модалок
+CARD_PAD_VARIANTS = (8.0, 12.0, 16.0, 20.0, 24.0)  # p-2/3/4/5/6
 ROW_PAD_Y_VARIANTS = (6.0, 8.0)               # лента в жёстком слоте 64 px
 MODAL_RADIUS_VARIANTS = (16.0, 18.0)          # 18 px — верхний радиус листа
 
@@ -172,7 +228,7 @@ PROBE_TOKENS = r"""
 
 PROBE_COMPONENTS = r"""
 (spec) => {
-  const {sel, skip} = spec;
+  const {sel, skip, semantic} = spec;
   const px = (v) => {
     const f = parseFloat(v);
     return Number.isFinite(f) ? Math.round(f * 100) / 100 : null;
@@ -212,12 +268,17 @@ PROBE_COMPONENTS = r"""
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
       const bw = px(cs.borderTopWidth);
+      let semanticBorder = false;
+      for (const sel2 of (semantic || [])) {
+        if (el.matches(sel2)) { semanticBorder = true; break; }
+      }
       out.classes[s].push({
         state: inState(el),
+        semantic: semanticBorder,
         glassA: el.getAttribute('data-glass') === 'a',
         radius: px(cs.borderTopLeftRadius),
         bw: bw,
-        balpha: bw ? alpha(cs.borderTopColor) : null,
+        balpha: (bw && !semanticBorder) ? alpha(cs.borderTopColor) : null,
         padTop: px(cs.paddingTop),
         padLeft: px(cs.paddingLeft),
         gap: px(cs.rowGap) || 0,
@@ -413,19 +474,316 @@ DRIVE = r"""
     it.click();
     return true;
   }
+  if (kind === 'back') {
+    const btn = document.querySelector('.speech-back, [data-speech-editor-back]');
+    if (!btn) return false;
+    btn.click();
+    return true;
+  }
+  if (kind === 'record') {
+    const it = document.querySelector('[data-status-dossier] .dossier-ticker__item');
+    if (!it) return false;
+    it.click();
+    return true;
+  }
+  if (kind === 'card') {
+    const card = document.querySelector('[data-speech-card="' + needle + '"]');
+    if (!card) return false;
+    card.click();
+    return true;
+  }
   const nav = kind === 'oversight'
     ? document.querySelector('[data-oversight-tabs]')
     : document.querySelector('[data-speech-area-nav]');
   if (!nav) return false;
   const btns = Array.from(nav.querySelectorAll('button, a'))
     .filter((b) => !/Раздел:/.test(b.textContent || ''));
-  const hit = btns.find((b) => new RegExp(needle, 'i')
+  const needles = String(needle).split('>');
+  const hit = btns.find((b) => new RegExp(needles[needles.length - 1], 'i')
     .test((b.textContent || '').trim()));
   if (!hit) return false;
+  if (needles.length > 1) {
+    // Сначала промежуточная вкладка (её данные остаются в SPA-состоянии).
+    const first = btns.find((b) => new RegExp(needles[0], 'i')
+      .test((b.textContent || '').trim()));
+    if (first) first.click();
+  }
   hit.click();
   return true;
 }
 """
+
+
+# ── фикстуры «живых» блоков речи/аналитики ──────────────────────────────────
+# Формы взяты из шаблонов `web/index.html` и чтения полей в `web/app.js`
+# (не выдуманные проценты: все числа — счётчики/идентификаторы фикстуры).
+SPEECH_OVERVIEW = {
+    "sections": [
+        {"id": "core", "title": "Личность", "subtitle": "Core, биография",
+         "detail": "постоянная основа", "icon": "psychology", "ready": True},
+        {"id": "style", "title": "Речь и стиль", "subtitle": "правила письма",
+         "detail": "строгие и мягкие", "icon": "edit_note", "ready": True},
+        {"id": "expression", "title": "Выражение", "subtitle": "тон, юмор",
+         "detail": "эффективные значения", "icon": "record_voice_over",
+         "ready": True},
+        {"id": "examples", "title": "Примеры", "subtitle": "авторские образцы",
+         "detail": "обучение на примерах", "icon": "menu_book", "ready": True},
+    ],
+    "advanced": [
+        {"id": "learning", "title": "Обучение", "subtitle": "обратная связь",
+         "icon": "school", "ready": True},
+        {"id": "inspector", "title": "Инспектор", "subtitle": "слои сборки",
+         "icon": "search", "ready": True},
+        {"id": "capabilities", "title": "Возможности",
+         "subtitle": "инструменты и права", "icon": "checklist", "ready": True},
+        {"id": "all", "title": "Все инструкции", "subtitle": "блоки текста",
+         "icon": "segment", "ready": True},
+    ],
+    "gates": {"character_core_enabled": True}, 
+    "layers": {"l1": {"fallback": False}, "self_model": {"applied": 2,
+                                                          "rejected": 1}},
+}
+SPEECH_CORE = {
+    "block_ids": {"full": "core.full", "compact": "core.compact"},
+    "doc_key": "content.core_doc",
+    "scope": "global",
+    "chat_id": None,
+    "inheritance": "global",
+    "global_present": True,
+    "chat_present": False,
+    "permanent_note": "Core — постоянный характер: он действует постоянно.",
+    "selection": {"level": "global", "reason": "глобальная редакция"},
+    "factory": {"full_text": "Ты — Админбот.", "compact_text": "Ты — Админбот.",
+                "full_chars": 15, "compact_chars": 15,
+                "full_revision": "f-12", "compact_revision": "f-12"},
+    "document": {"revision": "r-13", "enabled": True, "detail_level": "compact",
+                 "origin": "manual", "updated_at": "01.11.2026 12:00",
+                 "present": True},
+    "editions": {
+        "global": {"differs_from_factory": True, "label": "ручная"},
+        "full": {"text": "Ты — Админбот. Кратко.", "source": "global",
+                 "scope_label": "все чаты", "revision": "r-13",
+                 "factory_revision": "f-12", "differs_from_factory": True,
+                 "withheld": False, "withheld_class": None,
+                 "withheld_reason": None, "diagnostics": [], "chars": 22},
+        "compact": {"text": "Ты — Админбот.", "source": "factory",
+                    "scope_label": "заводская", "revision": "f-12",
+                    "factory_revision": "f-12", "differs_from_factory": False,
+                    "withheld": False, "withheld_class": None,
+                    "withheld_reason": None, "diagnostics": [], "chars": 15},
+    },
+    "diff": {"full": {"added": 1, "removed": 0, "rows": []},
+             "compact": {"added": 0, "removed": 0, "rows": []}},
+    "history": [
+        {"revision": "r-13", "kind": "manual", "scope": "global",
+         "sha256_12": "abcdef012345", "chars": 22,
+         "updated_at": "01.11.2026 12:00", "actor": "audit",
+         "reason": "правка"},
+        {"revision": "f-12", "kind": "factory", "scope": "global",
+         "sha256_12": "fedcba654321", "chars": 15,
+         "updated_at": "31.10.2026 09:30", "actor": "factory",
+         "reason": "заводская"},
+    ],
+    "inspection": {},
+    "gates": {"character_core_enabled": True},
+    "can_edit": True,
+}
+SPEECH_STYLE = {
+    "rules": [
+        {"id": "r1", "title": "Без канцелярита", "strictness": "hard",
+         "source": "owner", "enabled": True, "scope": "global",
+         "reason": "живее"},
+        {"id": "r2", "title": "Короткие абзацы", "strictness": "soft",
+         "source": "factory", "enabled": True, "scope": "global"},
+        {"id": "r3", "title": "Не повторять мысль", "strictness": "hard",
+         "source": "owner", "enabled": True, "scope": "chat"},
+        {"id": "r4", "title": "Без CAPS", "strictness": "hard",
+         "source": "factory", "enabled": False, "scope": "global"},
+        {"id": "r5", "title": "Мягкие связки", "strictness": "soft",
+         "source": "owner", "enabled": True, "scope": "initiative"},
+        {"id": "r6", "title": "Точные даты", "strictness": "hard",
+         "source": "factory", "enabled": True, "scope": "global"},
+    ],
+    "soft_instructions": [
+        {"id": "s1", "text": "Пиши дружелюбно", "scope": "global"},
+        {"id": "s2", "text": "Не извиняйся без причины", "scope": "chat"},
+    ],
+    "quotes_mode": "strip",
+}
+SPEECH_CAPABILITIES = {
+    "capabilities": [
+        {"capability_id": "web_search", "title": "Поиск в интернете",
+         "status": "ok", "reason_code": "", "reason": ""},
+        {"capability_id": "images", "title": "Изображения",
+         "status": "off", "reason_code": "key_missing",
+         "reason": "ключ не настроен"},
+        {"capability_id": "tts", "title": "Речь вслух",
+         "status": "off", "reason_code": "disabled",
+         "reason": "модуль выключен"},
+    ],
+    "trace": [
+        {"stage": "L1", "event": "decision", "outcome": "silent",
+         "reason_code": "", "status": "ok", "entity_id": "trace-1"},
+        {"stage": "Writer", "event": "reply", "outcome": "public",
+         "reason_code": "", "status": "ok", "entity_id": "trace-2"},
+    ],
+}
+SPEECH_BLOCKS = {"blocks": [
+    {"block_id": "core.identity", "purpose": "ядро личности",
+     "effective": {"source": "factory", "differs_from_factory": False}},
+    {"block_id": "style.rules", "purpose": "правила письма",
+     "effective": {"source": "owner", "differs_from_factory": True}},
+    {"block_id": "expression.tone", "purpose": "тон и юмор",
+     "effective": {"source": "factory", "differs_from_factory": False}},
+]}
+SPEECH_INSPECTOR = {
+    "preview": {
+        "preview_note": "Предпросмотр сборки: маскированные значения.",
+        "layers": [
+            {"layer": "core", "label": "Core", "source": "factory",
+             "revision": "r12", "rendered": True, "tokens": 210},
+            {"layer": "style", "label": "Style", "source": "owner",
+             "revision": "r3", "rendered": True, "tokens": 140},
+            {"layer": "examples", "label": "Примеры", "source": "factory",
+             "revision": "—", "rendered": False,
+             "skip_reason_human": "не выбраны", "skip_reason_code": "empty"},
+        ],
+        "system_masked": "SYSTEM: ****",
+    },
+    "skip_reasons": [
+        {"layer": "examples", "label": "Примеры", "code": "empty",
+         "text": "примеров нет"},
+    ],
+    "hierarchy": [
+        {"group": "core", "title": "Основа",
+         "items": [{"layer": "core", "label": "Core", "rendered": True},
+                   {"layer": "style", "label": "Style", "rendered": True}]},
+    ],
+    "core": {"level": "global", "reason": "глобальная редакция"},
+    "trace_coverage": [],
+    "conflicts_detail": {
+        "coverage_note": "Проверено по действующим правилам.",
+        "classes": [
+            {"class": "length", "title": "Длина", "detected": 1,
+             "items": [{"conflict_id": "c-1", "detail": "правило короче"}]},
+            {"class": "tone", "title": "Тон", "detected": 0, "items": []},
+        ],
+    },
+}
+SPEECH_LEARNING = {
+    "note": "",
+    "lessons": {"state": "ok", "count": 0, "items": []},
+    "humor_feedback": {
+        "enabled": True, "available": True, "paused": False, "can_manage": True,
+        "note": "", "reason": "", "sends": 12, "unknown_windows": 1,
+        "policy": "balanced", "signals": {"laugh": 3, "ignore": 2},
+        "decay_note": "Свежесть учитывается при выборе приёма.",
+        "scenarios": [],
+        "entries": [
+        {"lesson_id": "l1", "technique": "ирония", "direction": "strengthen",
+         "decay": "свежая", "influence": "чаще иронизирует"},
+        {"lesson_id": "l2", "technique": "сарказм", "direction": "weaken",
+         "decay": "стареет", "influence": "реже сарказм"},
+    ]},
+    "lessons": [],
+}
+PIPELINE_RUN = {
+    "run": {
+        "run_id": "w15-run-0001", "health": "ok", "health_label": "Норма",
+        "duration_ms": 5200, "chat_id": -1001234567890, "mode": "hybrid",
+        "nodes": [
+            {"key": "l1", "label": "L1", "state": "success", "latency_ms": 900},
+            {"key": "factcheck", "label": "Фактчек", "state": "success",
+             "latency_ms": 1500},
+            {"key": "writer", "label": "Writer", "state": "success",
+             "latency_ms": 1800},
+            {"key": "l2", "label": "L2 review", "state": "repaired",
+             "latency_ms": 700},
+            {"key": "publish", "label": "Публикация", "state": "success",
+             "latency_ms": 300},
+        ],
+        "coverage": {"total": 12},
+        "publication": {"status": "ok", "channel": "telegram"},
+        "capacity": {"required_input_tokens": 900,
+                     "reserved_output_tokens": 400},
+    },
+    "runs": [
+        {"run_id": "w15-run-0001", "ts": 1761800000, "health": "ok",
+         "health_label": "Норма", "source_count": 12},
+        {"run_id": "w15-run-0000", "ts": 1761796400, "health": "warn",
+         "health_label": "Деградация", "source_count": 8},
+    ],
+}
+PROCESS_ACTIVITY = {
+    "available": True, "events_available": True,
+    "processes": [
+        {"process_id": "ingestion.live", "counts": {"24h": 42, "7d": 210},
+         "effective": "ok", "last_ts": 1761800000},
+        {"process_id": "facts.extract", "counts": {"24h": 18, "7d": 96},
+         "effective": "ok", "last_ts": 1761800100},
+        {"process_id": "dossier.rebuild", "counts": {"24h": 6, "7d": 30},
+         "effective": "ok", "last_ts": 1761800200},
+        {"process_id": "summary.window", "counts": {"24h": 12, "7d": 60},
+         "effective": "ok", "last_ts": 1761800300},
+        {"process_id": "summary.hybrid", "counts": {"24h": 9, "7d": 41},
+         "effective": "ok", "last_ts": 1761800400},
+        {"process_id": "episodes.build", "counts": {"24h": 4, "7d": 20},
+         "effective": "ok", "last_ts": 1761800500},
+        {"process_id": "retrieval.query", "counts": {"24h": 30, "7d": 140},
+         "effective": "ok", "last_ts": 1761800600},
+        {"process_id": "direct.reply", "counts": {"24h": 21, "7d": 110},
+         "effective": "ok", "last_ts": 1761800700},
+        {"process_id": "intent.initiative", "counts": {"24h": 3, "7d": 12},
+         "effective": "ok", "last_ts": 1761800800},
+        {"process_id": "summary.publish", "counts": {"24h": 5, "7d": 25},
+         "effective": "ok", "last_ts": 1761800900},
+        {"process_id": "sleep.dream", "counts": {"24h": 2, "7d": 9},
+         "effective": "ok", "last_ts": 1761801000},
+    ],
+}
+EXTRA_STUBS = (
+    ("/api/speech/overview", SPEECH_OVERVIEW),
+    ("/api/speech/core", SPEECH_CORE),
+    ("/api/speech/style", SPEECH_STYLE),
+    ("/api/speech/expression", {"enabled": True, "tone": "dry", "wit": 3,
+                                "sharpness": 2, "verbosity": 2,
+                                "profanity": "occasional"}),
+    ("/api/speech/humor", {"enabled": True, "level": "medium",
+                           "techniques": [], "feedback": {}}),
+    ("/api/roles", {"roles": [{"role_name": "user", "level": 10,
+                               "permissions": {}}]}),
+    ("/api/speech/examples", {"items": [], "deleted": [], "legacy": []}),
+    ("/api/speech/learning", SPEECH_LEARNING),
+    ("/api/speech/blocks", SPEECH_BLOCKS),
+    ("/api/speech/capabilities", SPEECH_CAPABILITIES),
+    ("/api/speech/inspector", SPEECH_INSPECTOR),
+    ("/api/analytics/pipeline/inspector", PIPELINE_RUN),
+    ("/api/analytics/pipeline/runs/latest", PIPELINE_RUN),
+    ("/api/analytics/viz/process-activity", PROCESS_ACTIVITY),
+)
+
+
+def _routes(me=None):
+    """Стабы W10 + фикстуры «живых» плотных строк/графиков этой волны.
+
+    `me` — подмена ответа `/api/me` (нужна оптическому эксперименту: тот же
+    экран с включённым и выключенным вендорным Liquid Glass).
+    """
+    base_route = W10._routes2()
+
+    def _route(route):
+        url = route.request.url.split("?")[0]
+        if me is not None and url.endswith("/api/me"):
+            route.fulfill(status=200, content_type="application/json",
+                          body=json.dumps(me))
+            return
+        for marker, payload in EXTRA_STUBS:
+            if url.endswith(marker):
+                route.fulfill(status=200, content_type="application/json",
+                              body=json.dumps(payload))
+                return
+        base_route(route)
+    return _route
 
 
 def _ctx(browser, w, h):
@@ -434,7 +792,7 @@ def _ctx(browser, w, h):
                               device_scale_factor=2 if phone else 1,
                               is_mobile=phone, has_touch=phone)
     ctx.add_init_script(M.TMA_STUB)
-    ctx.route("**/api/**", W10._routes2())
+    ctx.route("**/api/**", _routes())
     return ctx
 
 
@@ -443,11 +801,16 @@ def run(out_dir, baseline=False, port=PORT):
 
     os.makedirs(out_dir, exist_ok=True)
     fails = []
-    report = {"states": {}, "tokens": {}, "screenshots": [], "fails": []}
+    report = {"states": {}, "tokens": {}, "screenshots": [], "fails": [],
+              "coverage": {}}
     httpd = ThreadingHTTPServer(("127.0.0.1", port), W9._Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d/web/index.html" % port
-    sel_all = list(CARD_SEL + ROW_SEL + DIVIDER_ROW_SEL + DENSE_ROW_SEL)
+    sel_all = list(CARD_SEL + ROW_SEL + DIVIDER_ROW_SEL + DENSE_ROW_SEL
+                   + NOTICE_SEL)
+    # что реально рендерилось хотя бы раз (по селектору) — для правила
+    # «объявленный класс без экземпляров = отказ» (ревью 5.2).
+    rendered = {sel: 0 for sel in sel_all}
 
     def shot(pg, name):
         path = os.path.join(out_dir, name + ".png")
@@ -456,6 +819,44 @@ def run(out_dir, baseline=False, port=PORT):
             report["screenshots"].append(os.path.basename(path))
         except Exception:  # noqa: BLE001
             pass
+
+    def measure(pg, label, name, route, drive, w, h, kind, errs,
+                shot_prefix=None, extra=None):
+        toks = pg.evaluate(PROBE_TOKENS, TOKEN_PROPS)
+        comp = pg.evaluate(PROBE_COMPONENTS,
+                           {"sel": sel_all, "skip": list(STATE_SKIP),
+                            "semantic": list(SEMANTIC_BORDER)})
+        charts = pg.evaluate(PROBE_CHARTS, list(CHART_SEL + TABLE_SEL))
+        compos = pg.evaluate(PROBE_COMPOSITION)
+        compos["sheetBottom"] = pg.evaluate(
+            "() => document.documentElement.classList.contains('w9-sheet-bottom')")
+        if not report["tokens"]:
+            report["tokens"] = toks
+        for sel, items in comp["classes"].items():
+            rendered[sel] += sum(1 for it in items if not it["state"])
+        cell = {"name": name, "route": route, "w": w, "h": h, "drive": drive,
+                "kind": kind, "components": comp, "charts": charts,
+                "composition": compos, "console": errs[-3:]}
+        if extra:
+            cell.update(extra)
+        report["states"][label] = cell
+        if shot_prefix:
+            shot(pg, shot_prefix)
+        if compos["hScroll"] > 1:
+            fails.append("%s: горизонтальный скролл %d px"
+                         % (label, compos["hScroll"]))
+        if compos["clipped"] > 0:
+            fails.append("%s: обрезанный текст в %d узлах (%s)"
+                         % (label, compos["clipped"],
+                            compos["clippedSamples"][:3]))
+        if errs:
+            fails.append("%s: ошибка консоли: %s" % (label, errs[-2:]))
+        if w <= 430:
+            small = [hh for hh in compos["rowHeights"] if hh < 44]
+            if small:
+                fails.append("%s: компактная строка <44 px (%s)"
+                             % (label, small[:4]))
+        return cell
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -468,35 +869,44 @@ def run(out_dir, baseline=False, port=PORT):
             pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
             for idx, (name, route, drive) in enumerate(STATES):
                 label = "%s@%d" % (name, w)
+                errs.clear()
                 pg.goto(base + "?w15=%d" % idx + route, wait_until="load")
                 pg.wait_for_selector(".app-shell", timeout=25000)
                 pg.wait_for_timeout(1200)
                 if drive and drive[0] == "global":
                     S12._to_global(pg, wait=1000)
+                elif drive and drive[0] == 'card+mode':
+                    card_id, mode = str(drive[1]).split('|')
+                    pg.evaluate(DRIVE, ["back", None])
+                    pg.wait_for_timeout(700)
+                    pg.evaluate(DRIVE, ["card", card_id])
+                    pg.wait_for_timeout(1600)
+                    pg.click('[data-inspector-mode="%s"]' % mode, timeout=8000)
+                    pg.wait_for_timeout(900)
+                elif drive and drive[0] == 'card':
+                    pg.evaluate(DRIVE, ["back", None])
+                    pg.wait_for_timeout(700)
+                    pg.evaluate(DRIVE, list(drive))
+                    pg.wait_for_timeout(1900)
+                elif drive and drive[0] == 'oversight' and '>' in str(drive[1]):
+                    seq = str(drive[1]).split('>')
+                    for part in seq:
+                        pg.evaluate(DRIVE, ['oversight', part])
+                        pg.wait_for_timeout(1500)
                 elif drive:
                     pg.evaluate(DRIVE, list(drive))
-                    pg.wait_for_timeout(900)
-                toks = pg.evaluate(PROBE_TOKENS, TOKEN_PROPS)
-                comp = pg.evaluate(PROBE_COMPONENTS,
-                                   {"sel": sel_all, "skip": list(STATE_SKIP)})
-                charts = pg.evaluate(PROBE_CHARTS, list(CHART_SEL + TABLE_SEL))
-                compos = pg.evaluate(PROBE_COMPOSITION)
-                compos["sheetBottom"] = pg.evaluate(
-                    "() => document.documentElement.classList.contains('w9-sheet-bottom')")
-                if not report["tokens"]:
-                    report["tokens"] = toks
-                report["states"][label] = {
-                    "name": name, "route": route, "w": w, "h": h,
-                    "drive": drive, "components": comp, "charts": charts,
-                    "composition": compos, "console": errs[-3:],
-                }
-                shot(pg, "w15-%s-%d" % (name, w))
+                    # Разделы речи/вкладки подгружают данные по клику: пауза
+                    # должна вмещать реальный запрос, иначе плотные строки
+                    # «не рендерятся» ложно.
+                    pg.wait_for_timeout(1900)
+                cell = measure(pg, label, name, route, drive, w, h, "composition",
+                               errs, shot_prefix="w15-%s-%d" % (name, w))
                 if name == "status":
                     # Живая проверка графика сердцебиения: причина и свежесть
                     # доступны пользователю (tooltip по клику/Enter), а не
                     # только в разметке. Тот же путь, что у пользователя.
                     tip = ""
-                    aria = compos.get("hbAria") or ""
+                    aria = cell["composition"].get("hbAria") or ""
                     try:
                         # Наведение — штатный путь для мыши (mouseenter), клик —
                         # для тача; проверяем оба, чтобы не подменять механизм.
@@ -509,7 +919,7 @@ def run(out_dir, baseline=False, port=PORT):
                         pg.keyboard.press("Escape")
                     except Exception:  # noqa: BLE001
                         tip = ""
-                    report["states"][label]["hb"] = {"tip": tip, "aria": aria}
+                    cell["hb"] = {"tip": tip, "aria": aria}
                     if not tip:
                         fails.append("%s: tooltip сердцебиения не открывается"
                                      % label)
@@ -519,23 +929,28 @@ def run(out_dir, baseline=False, port=PORT):
                     if not aria:
                         fails.append("%s: у графика сердцебиения нет aria-label"
                                      % label)
-                if compos["hScroll"] > 1:
-                    fails.append("%s: горизонтальный скролл %d px"
-                                 % (label, compos["hScroll"]))
-                if compos["clipped"] > 0:
-                    fails.append("%s: обрезанный текст в %d узлах (%s)"
-                                 % (label, compos["clipped"],
-                                    compos["clippedSamples"][:3]))
-                if errs:
-                    fails.append("%s: ошибка консоли: %s" % (label, errs[-2:]))
-                if w <= 430:
-                    small = [hh for hh in compos["rowHeights"] if hh < 44]
-                    if small:
-                        fails.append("%s: компактная строка <44 px (%s)"
-                                     % (label, small[:4]))
+            # Маршруты §D-7 вне STATES: та же сигнатура компонентов и те же
+            # регрессии; кадр — только 1280 (компактность доказательств).
+            for idx, (route, name) in enumerate(COVERAGE_ROUTES):
+                label = "%s@%d" % (name, w)
+                errs.clear()
+                pg.goto(base + "?w15c=%d" % idx + route, wait_until="load")
+                pg.wait_for_selector(".app-shell", timeout=25000)
+                pg.wait_for_timeout(1000)
+                report["coverage"].setdefault(route, []).append(w)
+                measure(pg, label, name, route, None, w, h, "coverage", errs,
+                        shot_prefix=("w15-cov-%s" % name) if w >= 1280 else None)
             ctx.close()
         browser.close()
     httpd.shutdown()
+
+    # ── 0. Ни один объявленный класс не имеет права «молча» отсутствовать ───
+    for sel, n in sorted(rendered.items()):
+        if n == 0:
+            fails.append("селектор %s: 0 экземпляров во всех %d состояниях — "
+                         "объявленный компонент обязан рендериться (или быть "
+                         "убраным из набора)" % (sel, len(report["states"])))
+    report["rendered_counts"] = rendered
 
     toks = report["tokens"]
 
@@ -599,7 +1014,7 @@ def run(out_dir, baseline=False, port=PORT):
 
     for sel in ROW_SEL:
         radii = set(collect(sel, "radius"))
-        if radii != {row_r}:
+        if radii and radii != {row_r}:
             fails.append("строка %s: радиус %s != --row-radius %s"
                          % (sel, sorted(radii), row_r))
         padt = set(collect(sel, "padTop"))
@@ -669,6 +1084,40 @@ def run(out_dir, baseline=False, port=PORT):
                      % (sorted(meta_sizes), chart_meta))
     if not chart_title:
         fails.append("графики: --chart-title-size не объявлен")
+
+    # Каждый объявленный график обязан хотя бы раз отрендериться С ДАННЫМИ, а не
+    # только честным пустым состоянием (иначе проверка вакуумна — ревью 5.2).
+    for sel in CHART_SEL:
+        seen = 0
+        with_data = 0
+        for label, st in report["states"].items():
+            for it in st["charts"]:
+                if it["sel"] != sel:
+                    continue
+                seen += 1
+                if not it["empty"] and it["drill"] > 0:
+                    with_data += 1
+        if seen == 0:
+            fails.append("график %s: 0 экземпляров во всех состояниях" % sel)
+        elif with_data == 0:
+            fails.append("график %s: ни разу не отрендерился с данными "
+                         "(только пустое состояние) — проверка вакуумна" % sel)
+    for sel in TABLE_SEL:
+        n = sum(1 for st in report["states"].values()
+                for it in st["charts"] if it["sel"] == sel)
+        if n == 0:
+            fails.append("таблица %s: 0 экземпляров во всех состояниях" % sel)
+
+    # ── 2b. Уведомления/заметки: геометрия роли, цвет кромки — семантический ─
+    for sel in NOTICE_SEL:
+        radii = set(collect(sel, "radius"))
+        if radii and radii != {tbl_r}:
+            fails.append("заметка %s: радиус %s != --table-row-radius %s"
+                         % (sel, sorted(radii), tbl_r))
+        padl = set(collect(sel, "padLeft"))
+        if padl and padl != {tbl_pad["l"]}:
+            fails.append("заметка %s: padding %s != --table-row-pad %s"
+                         % (sel, sorted(padl), tbl_pad["l"]))
 
     # ── 3. Таблицы: desktop-шапка / mobile-модель ───────────────────────────
     for label, st in report["states"].items():
@@ -846,14 +1295,23 @@ def run(out_dir, baseline=False, port=PORT):
             fails.append("Доступы(роли)@%d: нет audit trail изменения прав" % w)
 
     report["fails"] = fails
+    report["summary"] = {
+        "composition_states": len(STATES),
+        "coverage_routes": len(COVERAGE_ROUTES),
+        "viewports": len(VIEWPORTS),
+        "measured_cells": len(report["states"]),
+        "selectors": len(sel_all),
+        "selectors_rendered": sum(1 for n in rendered.values() if n > 0),
+        "instances": sum(rendered.values()),
+        "chart_selectors": len(CHART_SEL),
+        "table_selectors": len(TABLE_SEL),
+    }
     out_json = os.path.join(
         out_dir, "w15-composition%s.json" % ("-before" if baseline else ""))
     with io.open(out_json, "w", encoding="utf-8") as fh:
         json.dump(report, fh, ensure_ascii=False, indent=1)
 
-    print("W15 %s" % json.dumps({"states": len(report["states"]),
-                                 "shots": len(report["screenshots"]),
-                                 "fails": len(fails)}, ensure_ascii=False))
+    print("W15 %s" % json.dumps(report["summary"], ensure_ascii=False))
     for f in fails[:40]:
         print(" -", f)
     if fails and not baseline:
@@ -862,6 +1320,233 @@ def run(out_dir, baseline=False, port=PORT):
     print("EVOL-W15-COMPOSITION OK" if not fails else
           "EVOL-W15-COMPOSITION BASELINE (fails recorded: %d)" % len(fails))
     return 0
+
+
+# ── короткие видео (§E.1/§E.4): переходы/анимации и преломление стекла ──────
+VIDEO_SCENARIOS = (
+    {
+        "name": "w15-video-transitions-desktop-1280",
+        "viewport": (1280, 900), "mobile": False, "seconds": 9,
+        "steps": (
+            ("goto", "#/"),
+            ("wait", 1500),
+            # палитра (Ctrl+K): открытие, ввод, Esc
+            ("press", "Control+k"), ("wait", 700),
+            ("type", "input[data-command-palette], .palette-panel input", "память"),
+            ("wait", 500),
+            ("press", "Escape"), ("wait", 500),
+            # модалка записи досье на «Статусе» — открыть и закрыть
+            ("click", "[data-status-dossier] .dossier-ticker__item"),
+            ("wait", 1300),
+            ("press", "Escape"), ("wait", 600),
+            # ленты: ручная прокрутка вверх/вниз
+            ("scroll", "[data-sfeed-viewport]", 260),
+            ("wait", 900),
+            ("scroll", "[data-sfeed-viewport]", -160),
+            ("wait", 900),
+        ),
+    },
+    {
+        "name": "w15-video-transitions-mobile-390",
+        "viewport": (390, 844), "mobile": True, "seconds": 9,
+        "steps": (
+            ("goto", "#/modules"),
+            ("wait", 1500),
+            # drawer: открыть, выбрать раздел, закрыть
+            ("click", "[data-drawer-trigger]"),
+            ("wait", 900),
+            ("press", "Escape"), ("wait", 700),
+            # каталог модулей: фильтр и один тумблер (в GLOBAL)
+            ("click", ".module-filter-btn:nth-of-type(2)"),
+            ("wait", 900),
+            # раздел речи: переключение областей
+            ("goto", "#/ai/speech"),
+            ("wait", 1400),
+            ("click", "[data-speech-area-nav] .speech-area-nav__btn:nth-of-type(2)"),
+            ("wait", 1400),
+        ),
+    },
+    {
+        # Преломление видно там, где за стеклянной кромкой есть движущаяся сцена:
+        # каталог модулей = две карточки над полигональным фоном. Ведём мышь по
+        # кромке (specular/линза) и медленно прокручиваем сцену под стеклом.
+        "name": "w15-video-refraction-desktop-1280",
+        "viewport": (1280, 900), "mobile": False, "seconds": 9,
+        "steps": (
+            ("goto", "#/modules"),
+            ("wait", 2600),
+            ("move", 640, 300),
+            ("wait", 900),
+            ("move", 300, 360),
+            ("wait", 900),
+            ("move", 1000, 420),
+            ("wait", 900),
+            ("scroll", "main, .scroll-area", 140),
+            ("wait", 1500),
+            ("scroll", "main, .scroll-area", -140),
+            ("wait", 1500),
+        ),
+    },
+)
+
+
+def run_refraction_probe(out_dir, port=PORT + 6):
+    """Измерение преломления: один и тот же кадр с живым слоем и без него.
+
+    Скриншот сам по себе ничего не доказывает (стекло может быть простым
+    blur): сравниваем ОДИН участок сцены в двух прогонах — обычный материал и
+    явно выключенный вендорный Liquid Glass (`ME_GLASS_OFF`). Разница пикселей
+    в одном и том же регионе = слой реально влияет на картинку.
+    """
+    from playwright.sync_api import sync_playwright
+    from PIL import Image, ImageChops
+
+    os.makedirs(out_dir, exist_ok=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", port), W9._Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d/web/index.html" % port
+    # Полоса по кромке карточки: линза работает на краю, а не в центре.
+    clip = {"x": 240, "y": 170, "width": 720, "height": 60}
+    shots = {}
+    meta = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, channel="chrome")
+        for tag, me in (("on", M.ME_JSON), ("off", M.ME_JSON)):
+            ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+            ctx.add_init_script(M.TMA_STUB)
+            ctx.route("**/api/**", _routes(me=me))
+            pg = ctx.new_page()
+            pg.goto(base + "#/modules", wait_until="load")
+            pg.wait_for_selector(".app-shell", timeout=25000)
+            pg.wait_for_timeout(3200)
+            if tag == "off":
+                # Контрольная проба: останавливаем СЛОЙ ПРЕЛОМЛЕНИЯ (не флаг
+                # декоративной библиотеки — он гейтит другой модуль) и даём
+                # кадру перерисоваться без линзы.
+                pg.evaluate("() => { const g = window.__GlassRefraction;"
+                            " if (g && g.stop) { g.stop(); return true; }"
+                            " return false; }")
+                pg.wait_for_timeout(1200)
+            meta[tag] = {
+                "lgRefractCanvases": pg.evaluate(
+                    "() => document.querySelectorAll('canvas.lg-refract').length"),
+                "liquidGlassLib": pg.evaluate(
+                    "() => { const vm = window.__adminbotVm;"
+                    " return vm ? !!vm.liquidGlassLib : null; }"),
+                "glassStats": pg.evaluate(
+                    "() => { const g = window.__GlassRefraction;"
+                    " return g && typeof g.stats === 'function'"
+                    " ? g.stats() : null; }"),
+                "tierA": pg.evaluate(
+                    "() => document.querySelectorAll("
+                    "'[data-glass-tier=\"a\"]').length"),
+                "refractLayer": pg.evaluate(
+                    "() => document.documentElement.getAttribute("
+                    "'data-refract-layer')"),
+            }
+            path = os.path.join(out_dir, "w15-refraction-%s.png" % tag)
+            pg.screenshot(path=path, clip=clip)
+            shots[tag] = path
+            ctx.close()
+        browser.close()
+    httpd.shutdown()
+
+    a = Image.open(shots["on"]).convert("RGB")
+    b = Image.open(shots["off"]).convert("RGB")
+    diff = ImageChops.difference(a, b)
+    px = list(diff.getdata())
+    total = len(px)
+    changed = sum(1 for r, g, bl in px if max(r, g, bl) > 8)
+    mean = sum((r + g + bl) / 3.0 for r, g, bl in px) / max(1, total)
+    maxd = max((max(r, g, bl) for r, g, bl in px), default=0)
+    stats = {
+        "clip": clip, "viewport": {"width": 1440, "height": 900},
+        "route": "#/modules",
+        "materialOn": meta.get("on"), "materialOff": meta.get("off"),
+        "changedPercent": round(100.0 * changed / max(1, total), 2),
+        "meanDelta": round(mean, 2), "maxDelta": maxd,
+        "shots": {k: os.path.basename(v) for k, v in shots.items()},
+    }
+    with io.open(os.path.join(out_dir, "w15-refraction.json"), "w",
+                 encoding="utf-8") as fh:
+        json.dump(stats, fh, ensure_ascii=False, indent=1)
+    print("[refraction] %s" % json.dumps(stats, ensure_ascii=False))
+    return stats
+
+
+def run_videos(out_dir, port=PORT + 5):
+    """Записывает короткие .webm тем же стендом (реальный Chromium, стабы API).
+
+    Возвращает список путей. Кодирование — встроенный ffmpeg Playwright.
+    """
+    from playwright.sync_api import sync_playwright
+
+    os.makedirs(out_dir, exist_ok=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", port), W9._Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d/web/index.html" % port
+    made = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        for scen in VIDEO_SCENARIOS:
+            w, h = scen["viewport"]
+            vdir = os.path.join(out_dir, "_raw_" + scen["name"])
+            ctx = browser.new_context(viewport={"width": w, "height": h},
+                                      record_video_dir=vdir,
+                                      record_video_size={"width": w, "height": h},
+                                      device_scale_factor=1,
+                                      is_mobile=scen["mobile"],
+                                      has_touch=scen["mobile"])
+            ctx.add_init_script(M.TMA_STUB)
+            ctx.route("**/api/**", _routes())
+            pg = ctx.new_page()
+            try:
+                frames = []
+                for step in scen["steps"]:
+                    kind = step[0]
+                    try:
+                        if kind == "goto":
+                            pg.goto(base + step[1], wait_until="load")
+                            pg.wait_for_selector(".app-shell", timeout=20000)
+                        elif kind == "wait":
+                            pg.wait_for_timeout(step[1])
+                        elif kind == "press":
+                            pg.keyboard.press(step[1])
+                        elif kind == "type":
+                            pg.fill(step[1], step[2], timeout=6000)
+                        elif kind == "click":
+                            pg.click(step[1], timeout=6000)
+                        elif kind == "move":
+                            pg.mouse.move(step[1], step[2], steps=12)
+                        elif kind == "scroll":
+                            pg.evaluate(
+                                "(spec) => { const el = document.querySelector(spec[0]);"
+                                " if (el) el.scrollTop += spec[1]; }",
+                                [step[1], step[2]])
+                        frame = os.path.join(
+                            out_dir, "%s-step%02d.jpg" % (scen["name"], len(frames)))
+                        pg.screenshot(path=frame, type="jpeg", quality=80)
+                        frames.append(frame)
+                    except Exception as exc:  # noqa: BLE001
+                        print("[video] шаг %s пропущен: %s" % (kind, exc))
+                pg.wait_for_timeout(800)
+            finally:
+                video = pg.video
+                ctx.close()
+                if video:
+                    src = video.path()
+                    dst = os.path.join(out_dir, scen["name"] + ".webm")
+                    try:
+                        os.replace(src, dst)
+                    except Exception:  # noqa: BLE001
+                        import shutil
+                        shutil.move(src, dst)
+                    made.append(dst)
+                    print("[video] %s (viewport %dx%d, ~%d c), кадров %d"
+                          % (dst, w, h, scen["seconds"], len(frames)))
+        browser.close()
+    httpd.shutdown()
+    return made
 
 
 def _alpha_of(color):
@@ -892,7 +1577,15 @@ def main():
     ap.add_argument("--out", default=DEFAULT_OUT)
     ap.add_argument("--baseline", action="store_true")
     ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--video", action="store_true",
+                    help="записать короткие видео (переходы/анимации и "
+                         "преломление стекла) в <out>/video")
     args = ap.parse_args()
+    if args.video:
+        run_videos(os.path.join(args.out, "video"), port=args.port + 5)
+        run_refraction_probe(os.path.join(args.out, "video"),
+                             port=args.port + 7)
+        return 0
     return run(args.out, baseline=args.baseline, port=args.port)
 
 

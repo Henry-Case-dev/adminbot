@@ -1550,7 +1550,8 @@
     }
     .ribbon-item {
       display: flex; gap: 6px; align-items: baseline; font-size: .78rem;
-      padding: 3px 4px; transition: opacity .6s ease; min-width: 0;
+      /* W15-rework: ритм строки ленты — из шкалы (было 3/4 px литералом). */
+      padding: var(--space-1); transition: opacity .6s ease; min-width: 0;
     }
     .ribbon-ts { color: #94a3b8; font-size: .68rem; flex: none; }
     .ribbon-op-100 { opacity: 1; }
@@ -2398,9 +2399,12 @@
       display: flex;
       flex-direction: column;
       gap: .35rem;
-      padding: .5rem .6rem;
-      border: 1px solid var(--surface-border);
-      border-radius: .6rem;
+      /* W15-rework (ревью 5.1): карточка прогона — та же роль «панель», что и
+         все остальные карточки (было .6rem = 9.6 px радиуса и литеральный
+         padding). */
+      padding: var(--card-pad-tight);
+      border: var(--card-hairline);
+      border-radius: var(--card-radius);
       background: rgba(255, 255, 255, 0.03);
       min-width: 0;
       max-width: 100%;
@@ -4514,12 +4518,16 @@ html.cover-editor-open { overflow: hidden; }
    раздельно; раскладка строками «имя → значение» (не разноцветные pills
    одной строкой на мобиле). */
 .mem-kv {
-  border: 1px solid rgba(255, 255, 255, .08);
-  border-radius: 10px;
-  padding: .5rem .6rem;
+  /* W15-rework (ревью 5.1): блок «имя → значение» — та же роль плотного
+     блока (--table-*), что строки инспектора речи; было 10/0.08/8+9.6. */
+  border: var(--table-hairline);
+  border-radius: var(--table-row-radius);
+  padding: var(--table-row-pad);
   margin-top: .5rem;
   background: rgba(10, 14, 22, .55);  /* подложка над фоном, не фон */
 }
+/* Семантический вариант: меняется ТОЛЬКО цвет кромки (смысл), геометрия роли
+   остаётся общей. */
 .mem-kv--semantic { border-color: rgba(139, 92, 246, .25); }
 .mem-kv__title { font-weight: 700; color: var(--text-1, #F4F7FB);
   margin-bottom: .25rem; font-size: .78rem; }
@@ -4535,8 +4543,11 @@ html.cover-editor-open { overflow: hidden; }
    анимацию: плотная подложка ленты и элементов (слои карточек). */
 .intel-card .ribbon { background: rgba(10, 14, 22, .55); }
 .ribbon-item {
-  background: rgba(10, 14, 22, .45);
-  border-radius: 6px;
+  /* W15-rework: строка движущейся ленты — тот же радиус/подложка/ритм, что у
+     лент «Статуса» (без рамки, см. §4 отчёта). */
+  background: var(--row-bg-solid);
+  border-radius: var(--row-radius);
+  padding: var(--space-1);
 }
 
 /* U03.4: independent-воронка «Инициативы» — сетка ячеек стадий;
@@ -4548,9 +4559,11 @@ html.cover-editor-open { overflow: hidden; }
 }
 @media (max-width: 991px) { .funnel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .funnel-cell {
-  border: 1px solid rgba(255, 255, 255, .08);
-  border-radius: 8px;
-  padding: .35rem .5rem;
+  /* W15-rework: ячейка воронки — та же роль плотной ячейки/блока (--table-*);
+     раньше это была третья копия 8/0.08/5.6+8. */
+  border: var(--table-hairline);
+  border-radius: var(--table-row-radius);
+  padding: var(--table-row-pad);
   min-width: 0;
   background: rgba(10, 14, 22, .55);
 }
@@ -4569,9 +4582,10 @@ html.cover-editor-open { overflow: hidden; }
 }
 @media (max-width: 640px) { .exp-windows { grid-template-columns: 1fr; } }
 .exp-window {
-  border: 1px solid rgba(255, 255, 255, .08);
-  border-radius: 8px;
-  padding: .4rem .55rem;
+  /* W15-rework: окно 24ч/7д — плотный блок (--table-*). */
+  border: var(--table-hairline);
+  border-radius: var(--table-row-radius);
+  padding: var(--table-row-pad);
   min-width: 0;
   background: rgba(10, 14, 22, .55);
 }
@@ -4846,6 +4860,11 @@ html.cover-editor-open { overflow: hidden; }
 [data-stories-manage] { max-width: 100vw; overflow-x: hidden; }
 [data-stories-filters] .field { max-width: 100%; }
 .story-card {
+  /* W15-rework: радиус/ритм карточки истории — из общей системы панели
+     (раньше радиус приходил утилитой rounded-lg мимо токенов). Цвет кромки
+     остаётся семантическим (акцент истории). */
+  border-radius: var(--card-radius);
+  padding: var(--card-pad-tight);
   background: rgba(10, 14, 22, .55);
   border-color: rgba(66, 214, 196, .30);
 }
@@ -4997,8 +5016,9 @@ html.cover-editor-open { overflow: hidden; }
 .speech-card {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px;
+  gap: var(--space-2);
+  /* W15-rework: ритм карточки витрины — из системы (было 10 px мимо шкалы). */
+  padding: var(--card-pad-tight);
   min-height: 64px;
   text-align: left;
   cursor: pointer;
@@ -5069,18 +5089,22 @@ html.cover-editor-open { overflow: hidden; }
 .speech-layer-card {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: var(--control-h-touch);
+  /* W15-rework (ревью 5.1): карточка слоя — та же компактная строка-сущность,
+     что в «Памяти»/«Доступах»; раньше это была третья альфа (0.24) и радиус
+     10 px при 0.14/8 в соседних строках того же экрана. */
+  padding: var(--row-pad);
   text-align: left;
   color: inherit;
-  background: rgba(9, 14, 25, .72);
-  border: 1px solid rgba(148, 163, 184, .24);
-  border-radius: 10px;
+  background: var(--row-bg);
+  border: var(--row-hairline);
+  border-radius: var(--row-radius);
   min-width: 0;
 }
 .speech-layer-card-btn { cursor: pointer; }
+.speech-layer-card-btn:hover { background: var(--row-bg-hover); }
 .speech-layer-icon { font-size: 18px; line-height: 1; flex: none; color: var(--teal-500, #42D6C4); padding-top: 1px; }
 .speech-layer-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .speech-layer-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -5111,22 +5135,28 @@ html.cover-editor-open { overflow: hidden; }
 .speech-search { min-height: 44px; flex: 1 1 180px; min-width: 0; }
 .speech-warn {
   font-size: 12px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  /* ширина кромки — из шкалы, цвет остаётся семантическим (предупреждение) */
+  /* W15-rework: радиус/ритм — из системы (уведомление = та же геометрия, что
+     у строки); цвет кромки остаётся семантическим (жёлтый), это не hairline
+     роли. */
+  padding: var(--row-pad);
+  border-radius: var(--table-row-radius);
   background: rgba(250, 204, 21, .10);
-  border: 1px solid rgba(250, 204, 21, .28);
+  border: var(--border-hairline) solid rgba(250, 204, 21, .28);
   overflow-wrap: anywhere;
 }
 
-/* ASAP3 §1.3: ограничения подсказки — в существующей дизайн-системе. */
+/* ASAP3 §1.3: ограничения подсказки — в существующей дизайн-системе.
+   W15-rework (ревью 5.1): плотный блок = строка таблицы (--table-*), а не
+   четвёртая копия каркаса 10/0.18/10. */
 .speech-limits {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 10px;
-  background: rgba(9, 14, 25, .78);
-  border: 1px solid rgba(148, 163, 184, .18);
+  gap: var(--space-2);
+  padding: var(--table-row-pad);
+  border-radius: var(--table-row-radius);
+  background: var(--table-row-bg);
+  border: var(--table-hairline);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -5290,10 +5320,11 @@ html.cover-editor-open { overflow: hidden; }
 .speech-diff, .speech-preview { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .speech-diff-line, .speech-preview-line {
   font-size: 11px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  /* W15-rework (ревью 5.1): строки диффа — плотная строка таблицы. */
+  padding: var(--table-row-pad);
+  border-radius: var(--table-row-radius);
   background: rgba(9, 14, 25, .9);
-  border: 1px solid rgba(148, 163, 184, .18);
+  border: var(--table-hairline);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -6114,9 +6145,10 @@ html.cover-editor-open { overflow: hidden; }
   font-size: .66rem; color: #8b98ab; margin-top: 4px;
 }
 .ep-card {
-  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .12);
-  border-radius: var(--radius-lg, 12px);
-  padding: var(--space-3, 12px);
+  /* W15-rework: карточка эпизода — тот же каркас панели (--card-*). */
+  border: var(--card-hairline);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad-tight);
 }
 
 /* EVOL-014: настройки мемов (вкладка «Основные настройки» Инициативы). */
@@ -6721,7 +6753,8 @@ html.w9-sheet-bottom .modal-close {
 /* ── F4 (review EVOL-030): компактная строка аудита прав ───────────────── */
 .access-audit {
   display: grid; gap: 2px;
-  padding: 6px 9px; border-radius: 8px;
+  /* W15-rework: радиус/ритм из токенов (было литералом 8 и 6/9). */
+  padding: var(--row-pad); border-radius: var(--table-row-radius);
   background: rgba(148, 163, 184, .10);
   color: var(--text-2, #AAB6C8);
 }
