@@ -3158,9 +3158,15 @@ class ToolRouter:
 
     @staticmethod
     def _source_pointer_matches(pointer: dict, identity: dict) -> bool:
-        """Совпадает ли указатель записи с запрошенной идентичностью (B2)."""
+        """Совпадает ли указатель записи с запрошенной идентичностью (B2/R-1)."""
         repo = str(identity.get("repo") or "").lower()
         if repo and str(pointer.get("repo") or "").lower() != repo:
+            return False
+        # R-1: фрагмент окна относится к конкретному СИМВОЛУ. Если запрошен
+        # другой символ, отдавать прежний файл как `verified` (с прежним
+        # `symbol_found`) нельзя — пусть будет честный fetch/несовпадение.
+        symbol = str(identity.get("symbol") or "").strip()
+        if symbol and str(pointer.get("symbol") or "").strip() != symbol:
             return False
         pairs = tuple(identity.get("pairs") or ())
         stored = (str(pointer.get("ref") or ""), str(pointer.get("path") or ""))

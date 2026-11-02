@@ -866,6 +866,39 @@ class TestQualifiedReuse:
         assert len(fake.calls) == calls
 
     @pytest.mark.asyncio
+    async def test_reuse_refuses_file_read_for_another_symbol(self):
+        """R-1: запрос другого символа без path не получает чужой файл.
+
+        Фрагмент окна привязан к символу: отдать ранее прочитанный файл с
+        `verified=true` и `symbol_found=true` про ДРУГОЙ символ нельзя — либо
+        реальное чтение, либо честное «не найдено»."""
+        fake = FakeGitHub()
+        router = _router(fake)
+        claim = {"entity": "parallel output", "relation": "spec"}
+        first = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim, "repo": REPO, "ref": "main",
+             "path": "src/main/java/acme/ParallelLogic.java",
+             "symbol": "compute", "follow": False}, _ctx()))
+        assert first["verified"] is True
+        assert first["symbol"] == "compute" and first["symbol_found"] is True
+        # Тот же claim и repo, но ДРУГОЙ символ и без path/ref.
+        second = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim, "repo": REPO,
+             "symbol": "chanceLimit", "follow": False}, _ctx()))
+        assert second["reused"] is False
+        # Никакого подтверждения про чужой символ: либо честный отказ, либо
+        # чтение, где символ — именно запрошенный.
+        assert not (second["symbol"] == "compute"
+                    and second["symbol_found"] is True)
+        if second["verified"]:
+            assert second["symbol"] == "chanceLimit"
+        else:
+            assert second["status"] in ("not_found", "error", "unsupported")
+            assert second["verified_url"] == ""
+
+    @pytest.mark.asyncio
     async def test_reuse_keeps_honest_truncation_metadata(self):
         """Повторное чтение большого файла: те же обрезка/остаток/строки (B3)."""
         body = "\n".join(f"int field{i} = {i};" for i in range(1, 1201)) + "\n"
