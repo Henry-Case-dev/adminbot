@@ -68,6 +68,40 @@
     charWidth: 0.55,      // доля fontSize на символ (кириллица, усреднённо)
     minScale: 0.15,
     maxScale: 4,
+    // W7-S2: «данные на HH:MM» — порог устаревания считается на клиенте от
+    // `generated_at` (контракт §4: `stale` — клиентское состояние, сервер его
+    // не отдаёт). 15 минут = ритм существующего cognition-polling.
+    staleMs: 15 * 60 * 1000,
+  };
+
+  /* ── визуальная система (§2.4 контракта) ─────────────────────────────── */
+  /* Токены — существующая палитра приложения (user/topic/event/indigo), новых
+   * цветов не вводится. Цвет НЕ единственный различитель: у каждого класса
+   * своя форма, размер и строка легенды. `legend: true` — только четыре
+   * класса, названные владельцем (Факты/Убеждения/Парадигмы/Изменения);
+   * сущности и наблюдения — контекст, их строки легенды вторичны. */
+  var KIND_STYLE = {
+    fact: { color: '#38bdf8', shape: 'dot', size: 13, legend: true },
+    belief: { color: '#a78bfa', shape: 'rounded', size: 15, legend: true },
+    paradigm: { color: '#818cf8', shape: 'hexagon', size: 22, legend: true },
+    evolution_event: { color: '#f59e0b', shape: 'diamond', size: 13,
+      legend: true },
+    observation: { color: '#d97706', shape: 'diamond', size: 10,
+      legend: false },
+    entity: { color: '#94a3b8', shape: 'box', size: 11, legend: false },
+    other: { color: '#64748b', shape: 'dot', size: 10, legend: false },
+  };
+  // Порядок строк легенды = порядок слов владельца (ТЗ 1285).
+  var LEGEND_ORDER = ['fact', 'belief', 'paradigm', 'evolution_event'];
+  // Вторичные классы: показываются в легенде только если реально есть.
+  var LEGEND_EXTRA = ['entity', 'observation'];
+
+  var STATE_LABELS = {
+    loading: 'загрузка карты…',
+    not_loaded: 'визуализация грузится — счётчики уже видны',
+    renderer_failed: 'визуализация недоступна — данные и счётчики сохранены',
+    empty: 'в этой области нет фактов и связей',
+    ready: '',
   };
 
   function numberOrNull(value) {
@@ -394,8 +428,11 @@
 
   /* applyFilters(model, filters) -> {nodes, edges, counts}
    * filters: {kinds: [], scopes: [], chats: [], statuses: [], search: '',
-   *          hideIsolated}
+   *          hideIsolated, cluster: 'cl:<id>', hideDerived}
    * Пустой список = «все». Чистая функция: никаких запросов и мутаций.
+   *
+   * `cluster` — тематический кластер (W7-S2): вычисляется по РЕАЛЬНЫМ рёбрам
+   * (`computeClusters`), не по совпадению имён и не по близости на экране.
    */
   function applyFilters(model, filters) {
     filters = filters || {};
@@ -412,11 +449,24 @@
     var query = normalizeQuery(filters.search);
     var words = query ? query.split(' ') : [];
     var hideIsolated = filters.hideIsolated === true;
+    var hideDerived = filters.hideDerived === true;
+    var clusterNodes = null;
+    if (typeof filters.cluster === 'string' && filters.cluster) {
+      var clusters = computeClusters(model);
+      for (var c = 0; c < clusters.length; c += 1) {
+        if (clusters[c].id === filters.cluster) {
+          clusterNodes = toSet(clusters[c].nodeIds);
+          break;
+        }
+      }
+      if (!clusterNodes) clusterNodes = {}; // неизвестный кластер — пустой вид
+    }
     var picked = {};
     var nodes = [];
     for (var i = 0; i < model.nodes.length; i += 1) {
       var node = model.nodes[i];
       if (!isEmptySet(kinds) && !kinds[node.kind]) continue;
+      if (clusterNodes && !clusterNodes[node.id]) continue;
       if (!isEmptySet(scopes) && !scopes[node.scope]) continue;
       if (!isEmptySet(chats) && !chats[String(node.chatId)]) continue;
       if (!isEmptySet(statuses) && !statuses[String(node.status)]) continue;
@@ -435,6 +485,7 @@
     var edges = [];
     for (var j = 0; j < model.edges.length; j += 1) {
       var edge = model.edges[j];
+      if (hideDerived && edge.derived) continue;
       if (picked[edge.from] && picked[edge.to]) edges.push(edge);
     }
     return {
@@ -448,6 +499,109 @@
       },
     };
   }
+
+  /* ── кластеры по реальным связям (W7-S2) ─────────────────────────────── */
+
+  /* computeClusters(model) -> [{id, nodeIds, size, kinds, dominantKind,
+   *                             label, paradigmTitle}]
+   *
+   * Кластер = связная компонента по ПРИНЯТЫМ рёбрам. Никакой близости на
+   * экране, похожести названий или LLM: только реально записанные отношения.
+   * Изолированный узел — кластер из одного узла (это правда, а не ошибка).
+   * Детерминизм: корень компоненты = минимальный id, порядок кластеров —
+   * размер (по убыванию), затем id; повторный прогон даёт тот же результат.
+   */
+  function computeClusters(model) {
+    var nodes = (model && Array.isArray(model.nodes)) ? model.nodes : [];
+    var edges = (model && Array.isArray(model.edges)) ? model.edges : [];
+    var parent = {};
+    var i;
+    for (i = 0; i < nodes.length; i += 1) parent[nodes[i].id] = nodes[i].id;
+    function find(x) {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      return x;
+    }
+    function union(a, b) {
+      var ra = find(a);
+      var rb = find(b);
+      if (ra === rb) return;
+      // Корень — минимальный id: результат не зависит от порядка рёбер.
+      if (ra < rb) parent[rb] = ra; else parent[ra] = rb;
+    }
+    for (i = 0; i < edges.length; i += 1) {
+      var edge = edges[i];
+      if (!parent[edge.from] || !parent[edge.to]) continue;
+      union(edge.from, edge.to);
+    }
+    var groups = {};
+    var order = [];
+    for (i = 0; i < nodes.length; i += 1) {
+      var node = nodes[i];
+      var root = find(node.id);
+      if (!groups[root]) {
+        groups[root] = { id: 'cl:' + root, root: root, nodeIds: [],
+          kinds: {}, size: 0, paradigmTitle: null };
+        order.push(root);
+      }
+      var group = groups[root];
+      group.nodeIds.push(node.id);
+      group.kinds[node.kind] = (group.kinds[node.kind] || 0) + 1;
+      group.size += 1;
+      if (node.kind === 'paradigm'
+          && (group.paradigmTitle === null
+            || node.title.length < group.paradigmTitle.length
+            || (node.title.length === group.paradigmTitle.length
+              && node.title < group.paradigmTitle))) {
+        group.paradigmTitle = node.title;
+      }
+    }
+    order.sort();
+    var out = [];
+    for (i = 0; i < order.length; i += 1) {
+      var item = groups[order[i]];
+      var dominantKind = null;
+      var best = -1;
+      var kindKeys = Object.keys(item.kinds).sort();
+      for (var k = 0; k < kindKeys.length; k += 1) {
+        var kind = kindKeys[k];
+        var count = item.kinds[kind];
+        var priority = KIND_PRIORITY[kind] === undefined
+          ? KIND_PRIORITY.other : KIND_PRIORITY[kind];
+        // Сначала частота, при равенстве — приоритет класса (парадигма выше).
+        if (count > best) {
+          best = count;
+          dominantKind = kind;
+        } else if (count === best) {
+          var curPriority = KIND_PRIORITY[dominantKind] === undefined
+            ? KIND_PRIORITY.other : KIND_PRIORITY[dominantKind];
+          if (priority < curPriority) dominantKind = kind;
+        }
+      }
+      item.nodeIds.sort();
+      item.dominantKind = dominantKind || 'other';
+      item.label = item.paradigmTitle
+        ? (KIND_LABELS.paradigm + ': ' + item.paradigmTitle)
+        : (KIND_LABELS[item.dominantKind] + ' · ' + item.size);
+      out.push({
+        id: item.id,
+        nodeIds: item.nodeIds,
+        size: item.size,
+        kinds: item.kinds,
+        dominantKind: item.dominantKind,
+        paradigmTitle: item.paradigmTitle,
+        label: item.label,
+      });
+    }
+    out.sort(function (a, b) {
+      return (b.size - a.size)
+        || (a.id < b.id ? -1 : (a.id > b.id ? 1 : 0));
+    });
+    return out;
+  }
+
 
   /* ── камера ──────────────────────────────────────────────────────────── */
 
@@ -648,18 +802,145 @@
     return out;
   }
 
+  /* nodeStyle(kind) -> {color, shape, size, legend} — детерминированно. */
+  function nodeStyle(kind) {
+    return KIND_STYLE[KINDS.indexOf(kind) >= 0 ? kind : 'other']
+      || KIND_STYLE.other;
+  }
+
+  /* legendEntries(model) -> [{kind, label, color, shape, required}]
+   *
+   * Обязательные четыре строки — дословно слова владельца (ТЗ 1285):
+   * «Факты», «Убеждения», «Парадигмы», «Изменения». Показываются ВСЕГДА
+   * (легенда объясняет визуальную систему, а не только текущий кадр).
+   * «Сущности»/«Наблюдения» — вторичный контекст: строка появляется только
+   * если такие узлы реально есть в модели, и не подменяет четыре обязательных.
+   */
+  function legendEntries(model) {
+    var out = [];
+    var i;
+    for (i = 0; i < LEGEND_ORDER.length; i += 1) {
+      var kind = LEGEND_ORDER[i];
+      var style = KIND_STYLE[kind];
+      out.push({
+        kind: kind,
+        label: KIND_LABELS[kind],
+        color: style.color,
+        shape: style.shape,
+        required: true,
+      });
+    }
+    var present = {};
+    var nodes = (model && Array.isArray(model.nodes)) ? model.nodes : [];
+    for (i = 0; i < nodes.length; i += 1) present[nodes[i].kind] = true;
+    for (i = 0; i < LEGEND_EXTRA.length; i += 1) {
+      var extra = LEGEND_EXTRA[i];
+      if (!present[extra]) continue;
+      out.push({
+        kind: extra,
+        label: KIND_LABELS[extra],
+        color: KIND_STYLE[extra].color,
+        shape: KIND_STYLE[extra].shape,
+        required: false,
+      });
+    }
+    return out;
+  }
+
+  /* completeness(shownOf) -> {active, nodes:{shown,total}, edges:{...},
+   *                            text}
+   *
+   * ОДНО правило на узлы и рёбра: «показано X из Y» включается ТОЛЬКО когда
+   * `total > shown` (по S1-правке B1 таков любой реальный чат: снапшот берёт
+   * окрестность сидов). Это честная неполнота, а НЕ ошибка: текст нейтрален,
+   * никаких причин/статусов здесь нет. Полнота не обещается никогда, когда
+   * показана часть.
+   */
+  function completeness(shownOf) {
+    var src = shownOf && typeof shownOf === 'object' ? shownOf : {};
+    var nodes = numberOr(src.nodes, 0);
+    var edges = numberOr(src.edges, 0);
+    var totals = src.totals && typeof src.totals === 'object' ? src.totals : {};
+    var totalNodes = numberOr(totals.nodes, nodes);
+    var totalEdges = numberOr(totals.edges, edges);
+    var nodesShort = totalNodes > nodes;
+    var edgesShort = totalEdges > edges;
+    var parts = [];
+    if (nodesShort) parts.push(nodes + ' из ' + totalNodes + ' узлов');
+    if (edgesShort) parts.push(edges + ' из ' + totalEdges + ' связей');
+    return {
+      active: nodesShort || edgesShort,
+      nodes: { shown: nodes, total: totalNodes, truncated: nodesShort },
+      edges: { shown: edges, total: totalEdges, truncated: edgesShort },
+      // Одна нейтральная строка: «показано X из Y». Никаких оценок и
+      // предупреждений — это честная неполнота окрестности.
+      text: parts.length ? ('показано ' + parts.join(' · ')) : '',
+    };
+  }
+
+  /* mapClientState({model, renderer, failed, now, staleMs, visibleNodes})
+   *        -> {state, serverState, note, stale, empty}
+   *
+   * Разделение состояний (контракт §4, решение Architect §7.2):
+   *   сервер: ok/partial/empty/degraded — факт о данных;
+   *   клиент: loading/not_loaded/stale/renderer_failed — факт о рендерере.
+   * Одно не выводится из другого. `now` передаётся ВХОДОМ (чистая функция).
+   * `partial` — НЕ отдельное «тревожное» состояние: показ полноты делает
+   * `completeness()`, нейтральной строкой.
+   */
+  function mapClientState(opts) {
+    opts = opts || {};
+    var model = opts.model || null;
+    var renderer = opts.renderer || 'ready';    // ready | missing | failed
+    var staleMs = numberOr(opts.staleMs, DEFAULTS.staleMs);
+    var serverState = model && typeof model.state === 'string'
+      ? model.state : null;
+    var nodeCount = model && Array.isArray(model.nodes) ? model.nodes.length : 0;
+    var visibleNodes = numberOr(opts.visibleNodes, nodeCount);
+    var generatedAt = model ? numberOrNull(model.generatedAt) : null;
+    var now = numberOrNull(opts.now);
+    var stale = false;
+    if (generatedAt !== null && now !== null && staleMs > 0) {
+      stale = (now - generatedAt * 1000) > staleMs;
+    }
+    var state;
+    if (opts.failed === true || renderer === 'failed') state = 'renderer_failed';
+    else if (renderer === 'missing') state = 'not_loaded';
+    else if (!model) state = 'loading';
+    else if (serverState === 'empty' || nodeCount === 0) state = 'empty';
+    else if (visibleNodes === 0) state = 'empty';
+    else if (stale) state = 'stale';
+    else state = 'ready';
+    return {
+      state: state,
+      serverState: serverState,
+      note: STATE_LABELS[state] || '',
+      stale: stale,
+      empty: state === 'empty',
+      generatedAt: generatedAt,
+    };
+  }
+
   return {
     VERSION: VERSION,
     ACCEPTED_VERSIONS: ACCEPTED_VERSIONS.slice(),
     KINDS: KINDS.slice(),
     KIND_LABELS: KIND_LABELS,
+    KIND_STYLE: KIND_STYLE,
+    LEGEND_ORDER: LEGEND_ORDER.slice(),
+    STATE_LABELS: STATE_LABELS,
     DEFAULTS: DEFAULTS,
     normalizeQuery: normalizeQuery,
     normalizePayload: normalizePayload,
     normalizeShownOf: normalizeShownOf,
     searchNodes: searchNodes,
     applyFilters: applyFilters,
+    computeClusters: computeClusters,
     kindSummary: kindSummary,
+    nodeStyle: nodeStyle,
+    legendEntries: legendEntries,
+    completeness: completeness,
+    mapClientState: mapClientState,
     createCamera: createCamera,
     clampCamera: clampCamera,
     cameraFromNetwork: cameraFromNetwork,

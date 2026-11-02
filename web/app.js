@@ -1483,7 +1483,38 @@
   var GRAPH_EDGE_FONT = { far: 1, medium: 6, close: 10 }; // подписи рёбер
   var GRAPH_ZOOM_HYSTERESIS = 0.06;    // гистерезис режимов (без дёрганья)
 
-  function arr(x) { return Array.isArray(x) ? x : []; }
+  // ═══ EVOL-COG-MAP (W7-S2): виджет «Когнитивная карта» на новом payload ═════
+  // Источник данных — аддитивный `GET /api/memory/cognitive-map` (модуль
+  // `web/api/cognitive_map.py`, S1). Старый `/api/memory/graph` остаётся
+  // работоспособным (S4 занимается его судьбой), но виджет его больше НЕ
+  // запрашивает. Рендер — тот же self-host vis-network 9.1.9 (новых
+  // библиотек/CDN нет), подписи — собственный экранный слой (`afterDrawing`).
+  var COG_MAP_ENDPOINT = '/api/memory/cognitive-map';
+  // Порог «данные устарели» — клиентская константа (контракт §4/§7.2).
+  var COG_MAP_STALE_MS = 15 * 60 * 1000;
+  var COG_MAP_LABEL_FONT_PX = 11;      // подписи слоя (не подписи vis)
+  var COG_MAP_LABEL_CHARS = 30;        // длинный заголовок → «…», полный в панели
+  var COG_MAP_LABEL_OFFSET = 13;       // подпись ПОД узлом (не поверх него)
+  var COG_MAP_DIM_OPACITY = 0.25;      // остальное притушено при выборе
+
+
+  var arr = function (x) { return Array.isArray(x) ? x : []; };
+
+  // EVOL-COG-MAP (W7-S2): рендерер vis-network — НЕ реактивные данные.
+  // Vue 3 заворачивает любой объект, прочитанный из экземпляра, в `reactive`
+  // proxy; методы vis внутри обращаются к приватным полям классов, и вызов
+  // через proxy падает («Cannot read private member…»). `markRaw` возвращает
+  // объект как есть: экземпляр живет вне реактивности (как и должно быть у
+  // внешнего движка рисования).
+  function cogRaw(value) {
+    try {
+      if (window.Vue && typeof window.Vue.markRaw === 'function') {
+        return window.Vue.markRaw(value);
+      }
+    } catch (e) { /* markRaw недоступен — оставляем как есть */ }
+    return value;
+  }
+
 
   // D09 (§18F, панели): человекочитаемые причины статусов memory_dream_log
   // (обычный сон + глубокий сон). Неизвестный код показывается как есть.
@@ -3497,7 +3528,14 @@
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
         _cognitionPollRestore: null,   // F2: таймер возврата polling к 15с
         cognitionNetwork: null,        // vis.Network (destroy-дисциплина)
-        cognitionGraphData: null,      // {nodes, edges, truncated}
+        // W7-S2: здесь хранится НОРМАЛИЗОВАННАЯ модель `CognitiveMap`
+        // (адаптер S1), а не сырой payload старого `/api/memory/graph`:
+        // потребители (карта «Памяти», карточка) читают одно представление.
+        cognitionGraphData: null,
+        cognitionMapFailed: false,     // рендерер упал (честное состояние)
+        cognitionMapVisMissing: false, // vis-network не загрузился
+        cognitionMapCluster: '',       // клиентский фильтр по РЕАЛЬНОМУ кластеру
+        cogHideDerived: false,         // скрыть производные рёбра (вид, не данные)
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
         _cognitionGraphMode: null,     // F11 §16: 'simple' (mobile) | 'full'
         cognitionVisLoaded: false,     // lazy-load vis-network
@@ -7166,16 +7204,94 @@
           budget: d.budget || null,
         };
       },
-      // F11 (§16/D4): группы узлов графа для витринного фильтра (вес/алгоритм
-      // и layout НЕ меняются — только клиентское выделение).
+      // EVOL-COG-MAP (W7-S2): фильтр по ТИПУ узла — реальная таксономия
+      // модели (`fact/belief/paradigm/…`), а не «группы» старого снапшота.
+      // Паритет старого «фильтра групп» сохранён (L01297/L01300): выбор
+      // витрины не меняет данные и не ходит в сеть.
       graphGroupOptions: function () {
-        var g = this.cognitionGraphData || {};
-        var seen = {}, out = [];
-        (g.nodes || []).forEach(function (n) {
-          var grp = n.group || 'other';
-          if (!seen[grp]) { seen[grp] = true; out.push(grp); }
-        });
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model || !Array.isArray(model.nodes)) return [];
+        var counts = {};
+        var i;
+        for (i = 0; i < model.nodes.length; i += 1) {
+          var kind = model.nodes[i].kind;
+          counts[kind] = (counts[kind] || 0) + 1;
+        }
+        var out = [];
+        for (i = 0; i < C.KINDS.length; i += 1) {
+          var k = C.KINDS[i];
+          if (!counts[k]) continue;
+          out.push({ id: k, label: C.KIND_LABELS[k] || k, count: counts[k] });
+        }
         return out;
+      },
+      // W7-S2: кластеры по РЕАЛЬНЫМ связям (связные компоненты принятых
+      // рёбер). Никакой близости на экране/похожести имён/LMM здесь нет.
+      cogClusters: function () {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model) return [];
+        return C.computeClusters(model);
+      },
+      // Легенда: четыре слова владельца (Факты/Убеждения/Парадигмы/Изменения)
+      // + вторичные классы, если они реально есть в данных.
+      cogLegend: function () {
+        var C = window.CognitiveMap;
+        if (!C) return [];
+        return C.legendEntries(this.cognitionGraphData || null);
+      },
+      // «Показано X из Y» — ОДНО правило (totals > shown), нейтральный текст.
+      // Не зависит от server `state`: `partial` — нормальное состояние
+      // реального чата (снапшот берёт окрестность сидов + отбрасывает сирот).
+      cogCompleteness: function () {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model) return { active: false, text: '' };
+        return C.completeness(model.shownOf);
+      },
+      // Клиентское состояние рендерера (loading/not_loaded/stale/
+      // renderer_failed/ready) — отдельно от серверного `state`.
+      cogClientState: function () {
+        return this._cogClientState();
+      },
+      cogCounters: function () {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || !model) return '';
+        var nodes = (model.nodes || []).length;
+        var edges = (model.edges || []).length;
+        return nodes + ' узлов · ' + edges + ' связей';
+      },
+      // Честное «данные на HH:MM» + кнопка обновления (устаревшее не выдаём
+      // за текущее, контракт §4).
+      cogStaleLabel: function () {
+        var st = this._cogClientState();
+        var model = this.cognitionGraphData || null;
+        if (st.state !== 'stale' || !model || model.generatedAt == null) return '';
+        return 'данные на ' + this.fmtClock(model.generatedAt);
+      },
+      // Часть источников не прочиталась — это ОТКАЗ, а не «неполнота»:
+      // показывается с предупреждением и названными источниками.
+      cogDegradedNote: function () {
+        var model = this.cognitionGraphData || null;
+        if (!model || model.state !== 'degraded') return '';
+        var list = (model.degraded && model.degraded.notLoaded) || [];
+        return list.length
+          ? 'часть источников не прочитана: ' + list.join(', ')
+          : 'часть источников не прочитана';
+      },
+      // Пусто = данных в области нет (нули не рисуются как данные).
+      cogEmpty: function () {
+        var model = this.cognitionGraphData || null;
+        if (!model) return false;
+        return model.state === 'empty' || (model.nodes || []).length === 0;
+      },
+      // Пусто ПО ФИЛЬТРУ — другое: данные есть, но выбор их скрыл.
+      cogFilterEmpty: function () {
+        if (this.cogEmpty) return false;
+        var view = this._cogView || null;
+        return !!(view && (view.nodes || []).length === 0);
       },
       // F11 (§19/D5): «Новые факты» — стабильный ключ (позиция скролла не
       // сбрасывается); время/тип показываются ТОЛЬКО если есть в ответе
@@ -7283,24 +7399,32 @@
             raw: ['user_id: ' + u.user_id],
           });
         });
-        // 3) Связи — рёбра графа с человеческими ярлыками узлов.
+        // 3) Связи — рёбра графа с человеческими ярлыками узлов. W7-S2:
+        // модель карты (`CognitiveMap`) — заголовок узла `title`, тип ребра
+        // `relation`, происхождение `derived`; выдуманных связей по-прежнему
+        // не показываем (рёбра приходят только из payload).
         var g = this.cognitionGraphData || {};
         var nodeLabel = {};
         (g.nodes || []).forEach(function (n) {
-          nodeLabel[String(n.id)] = n.label || n.title || String(n.id);
+          nodeLabel[String(n.id)] = n.title || n.label || String(n.id);
         });
         (g.edges || []).slice(0, 200).forEach(function (e, i) {
           var from = nodeLabel[String(e.from)] || String(e.from);
           var to = nodeLabel[String(e.to)] || String(e.to);
           out.push({
-            key: 'rel|' + i + '|' + e.from + '|' + e.to,
+            key: 'rel|' + i + '|' + e.from + '|' + e.to + '|' + (e.relation || ''),
             type: 'relations', typeLabel: 'связь', source: 'graph', item: e,
             title: from + ' → ' + to,
-            body: e.label || e.relation || 'Тип связи не указан.',
-            status: 'связь графа памяти',
+            body: e.relation || e.label || 'Тип связи не указан.',
+            status: e.derived === true
+              ? 'производная связь (по ссылке в данных)'
+              : 'связь графа памяти',
             meta: [],
             raw: ['from: ' + e.from, 'to: ' + e.to,
-                  e.weight != null ? ('вес: ' + e.weight) : ''].filter(Boolean),
+                  e.relation ? ('тип: ' + e.relation) : '',
+                  e.justificationRecorded === false
+                    ? 'обоснование не записано' : ''
+            ].filter(Boolean),
           });
         });
         // 4) Контекст — убеждения и парадигмы (подтверждённость реальная).
@@ -13065,7 +13189,7 @@
       // #/access/roles, #/memory/*) — подпись из карточки хаба, не сырой hash.
       _routeLabel: function (route) {
         // F11 (10.25, ADR-1025-23 D4): заголовок экрана полного графа.
-        if (route === '#/status/graph') return 'Граф связей';
+        if (route === '#/status/graph') return 'Когнитивная карта';
         // SOUL-1 W6 (§6): заголовок special-screen «Речь и характер».
         if (route === '#/ai/speech') return 'Речь и характер';
         // EVOL-033 (W13): легаси-адрес того же единственного редактора
@@ -27823,205 +27947,598 @@
         });
         return this._visPromise;
       },
+      // ═══ EVOL-COG-MAP (W7-S2): данные, рендер, подписи, камера ═════════════
+      // Источник: аддитивный `GET /api/memory/cognitive-map` (S1). Старый
+      // `/api/memory/graph` виджет больше НЕ запрашивает (он остаётся
+      // работоспособным серверным контрактом — его судьба в S4).
+      // Нормализация — в адаптере `web/static/cognitive-map.js`: битый ответ
+      // не бросает, версия payload проверяется, связи без обоих концов
+      // отбрасываются (вымышленные рёбра невозможны).
       loadCognitionGraph: async function () {
         if (!this.isGlobalAdmin) return;
-        try {
-          this.cognitionGraphData = await this.api(
-            '/api/memory/graph' + this._cidQuery(true));
-        } catch (e) {
-          this.cognitionGraphData = { nodes: [], edges: [], truncated: false };
-        }
         var self = this;
+        var C = window.CognitiveMap;
+        try {
+          var payload = await this.api(COG_MAP_ENDPOINT + this._cidQuery(true));
+          if (!C || typeof C.normalizePayload !== 'function') {
+            // Адаптер не загрузился: данные не разбираем «на глаз», состояние
+            // честно уходит в renderer_failed (данные/счётчики не теряются).
+            this.cognitionMapFailed = true;
+            return;
+          }
+          var aliases = (typeof this.summaryAliasesMap === 'function')
+            ? this.summaryAliasesMap() : {};
+          this.cognitionGraphData = C.normalizePayload(payload,
+            { aliases: aliases });
+          this.cognitionMapVisMissing = false;
+          this.cognitionMapFailed = false;
+        } catch (e) {
+          // Данные не пришли: прежняя карта остаётся (и честно помечается
+          // устаревшей по `generated_at`); пустой «красивый» граф не рисуем.
+          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
+            this.toast('Когнитивная карта: ' + e.message, 'err');
+          }
+        }
         this.$nextTick(function () { self.renderCognitionGraph(); });
       },
-      // ISSUE-4: подпись данных графа. 15с-polling не должен сбрасывать
-      // drag/zoom/physics — пересоздаём vis.Network только при реальном
-      // изменении узлов/рёбер (иначе Android WebView получает лишнюю нагрузку).
-      _graphSignature: function (g) {
-        var nodes = (g && g.nodes) || [];
-        var edges = (g && g.edges) || [];
+      // Подпись ВИДИМОГО набора: 15с-polling не пересобирает карту, если
+      // данные/режим/фильтр не менялись (ISSUE-4 + L01333 «без прыжка»).
+      _graphSignature: function (view, mode) {
+        var nodes = (view && view.nodes) || [];
+        var edges = (view && view.edges) || [];
         return JSON.stringify([
-          nodes.map(function (n) {
-            return [n.id, n.label, n.group, n.degree || 0]; }),
+          mode || '',
+          nodes.map(function (n) { return [n.id, n.kind, n.degree]; }),
           edges.map(function (e) {
-            return [e.from, e.to, e.label || '', e.weight || 0]; }),
+            return [e.id, e.from, e.to, e.derived, e.relation];
+          }),
         ]);
       },
+      // Контейнер сцены: в полном экране это СВОЙ холст (другой элемент),
+      // иначе vis продолжал бы рисовать в скрытом встроенном контейнере
+      // (выход/вход в fullscreen обязан сохранять карту — L01321).
+      // Элемент берётся из ЖИВОГО DOM по состоянию экрана: `$refs` в момент
+      // смены маршрута может ещё указывать на удалённый узел.
+      _cogGraphEl: function () {
+        var full = this.graphFullVisible === true;
+        var el = null;
+        try {
+          var scope = document.querySelector(
+            full ? '.status-graph-full' : '[data-cog-map]');
+          if (scope && scope.querySelector) {
+            el = scope.querySelector('.cognition-graph');
+          }
+        } catch (e) { el = null; }
+        if (!el && this.$refs) {
+          var ref = this.$refs.cognitionGraph;
+          if (Array.isArray(ref)) ref = ref[ref.length - 1];
+          el = ref || null;
+        }
+        return el;
+      },
       renderCognitionGraph: async function () {
-        var ok = await this.ensureVisNetwork();
-        if (!ok || !this.isGlobalAdmin) return;
+        if (!this.isGlobalAdmin) return;
         // R10.11-5: пока грузился vis-network, могли уйти с «Статуса» —
-        // не создаём stale-инстанс (destroy уже отработал при уходе).
-        if (this.activeTab !== 'status') return;
-        var el = this.$refs ? this.$refs.cognitionGraph : null;
+        // stale-инстанс не создаём (destroy уже отработал при уходе).
+        if (this.activeTab !== 'status') return;        var self = this;
+        var C = window.CognitiveMap;
+        var el = this._cogGraphEl();
         if (!el) return;
-        var g = this.cognitionGraphData || { nodes: [], edges: [] };
-        var sig = this._graphSignature(g);
-        // F11 (§16/D4): mobile — упрощённый граф (без физики/перетаскивания,
-        // фиксированный fit); на отдельном экране полного исследования —
-        // полный режим. Смена режима → пере-рендер (instance пересоздаётся).
+        // Смена экрана (embedded ↔ полный экран): если DOM ещё держит прежний
+        // контейнер, рендер повторяется после отрисовки — иначе vis-network
+        // остался бы в удалённом узле, а в новом экране не было бы холста.
+        var wantsFull = this.graphFullVisible === true;
+        var inScope = true;
+        try {
+          if (el.closest) {
+            inScope = !!el.closest(wantsFull
+              ? '.status-graph-full' : '[data-cog-map]');
+          }
+        } catch (e) { inScope = true; }
+        if (!inScope && (this._cogDeferCount || 0) < 6) {
+          this._cogDeferCount = (this._cogDeferCount || 0) + 1;
+          this.$nextTick(function () { self.renderCognitionGraph(); });
+          return;
+        }
+        this._cogDeferCount = 0;
+        var model = this.cognitionGraphData || null;
+        if (!model || !C) return;                    // состояние даёт шаблон
+        // Витрина: тип / кластер по РЕАЛЬНЫМ связям / производные рёбра.
+        // Те же чистые функции, что и в node-тестах; сети не касаемся.
+        var view = C.applyFilters(model, {
+          kinds: this.graphFilterGroup ? [this.graphFilterGroup] : [],
+          cluster: this.cognitionMapCluster || '',
+          hideDerived: this.cogHideDerived === true,
+        });
+        this._cogView = view;
+        // F11 (§16/D4): mobile — упрощённая сцена; отдельный экран полного
+        // исследования — полный режим. Один движок, разные композиции.
         var simpleGraph = this.isMobileShell && !this.graphFullVisible;
         var mode = simpleGraph ? 'simple' : 'full';
-        // ISSUE-4: экземпляр жив и данные/режим не изменились → не трогаем сеть.
+        var sig = this._graphSignature(view, mode);
+        // «Ничего не изменилось» включает ЦЕЛЬ рендера: на 1280 режим
+        // embedded/fullscreen один и тот же, но контейнер другой — иначе
+        // после перехода в полный экран карта осталась бы в удалённом узле.
         if (this.cognitionNetwork && sig === this._cognitionGraphSig
-            && mode === this._cognitionGraphMode) return;
-        this.destroyCognitionGraph();
-        // D15/T-265: полные label'ы — вне DataSet-канонa не прячем: карта
-        // полного текста для detail/tooltip; на canvas — краткое представление.
-        var fullLabels = {};
-        var nodeRows = (g.nodes || []).map(function (n) {
-          var label = String(n.label == null ? n.id : n.label);
-          fullLabels[String(n.id)] = label;
-          var short = label;
-          if (short.length > GRAPH_LABEL_MAX_CHARS) {
-            short = short.slice(0, GRAPH_LABEL_MAX_CHARS - 1) + '…';
+            && mode === this._cognitionGraphMode
+            && this._cogEl === el && el.isConnected !== false) {
+          this._cogRedraw();
+          return;
+        }
+        var visOk = await this.ensureVisNetwork();
+        if (!visOk) {
+          this.cognitionMapVisMissing = true;        // честный not_loaded
+          return;
+        }
+        this.cognitionMapVisMissing = false;
+        el = this._cogGraphEl();
+        if (!el || this.activeTab !== 'status') return;
+        var sameInstance = !!(this.cognitionNetwork
+          && mode === this._cognitionGraphMode && this._cogEl === el
+          && el.isConnected !== false
+          && el.querySelector && el.querySelector('canvas'));
+        var positions = {};
+        if (this.cognitionNetwork) {
+          try {
+            positions = this.cognitionNetwork.getPositions() || {};
+          } catch (e) { positions = {}; }
+          if (!sameInstance) this._cogCaptureCamera();
+        }
+        try {
+          if (sameInstance) {
+            this._cogApplyData(view, positions);     // локальное обновление
+          } else {
+            this.destroyCognitionGraph();
+            this._cogCreateNetwork(el, view, mode, simpleGraph, positions);
           }
-          var degree = Number(n.degree || 0);
-          // Hub-узлы (заметные) — крупнее базового шрифта: их подписи
-          // пересекают drawThreshold раньше (medium-зум читает hub'ы).
-          return Object.assign({}, n, {
-            label: short,
-            title: label,
-            font: degree >= GRAPH_HUB_DEGREE_MIN
-              ? { size: GRAPH_FONT.medium + 4, color: '#e5e7eb' }
-              : undefined,
-          });
-        });
+          this._cognitionGraphSig = sig;
+          this._cognitionGraphMode = mode;
+          this.cognitionMapFailed = false;
+        } catch (e) {
+          // Не оставляем пустой чёрный прямоугольник: честное состояние,
+          // счётчики и переход в «Память» остаются в шаблоне.
+          this.cognitionMapFailed = true;
+          this.destroyCognitionGraph();
+        }
+        // destroy() обнуляет `_cogView` — модель витрины восстанавливается
+        // ПОСЛЕ создания сети (иначе слой подписей и счётчики видят пустоту).
+        this._cogView = view;
+        this._cogRedraw();
+      },
+      // Локальное обновление существующей сети: DataSet меняется, ИНСТАНС
+      // сохраняется → камера/масштаб/позиции узлов не прыгают (L01333).
+      _cogApplyData: function (view, positions) {
+        var ds = this._cognitionNodesDS;
+        var eds = this._cognitionEdgesDS;
+        if (!ds || !eds) return;
+        var rows = [];
+        var i;
+        for (i = 0; i < view.nodes.length; i += 1) {
+          var node = view.nodes[i];
+          var pos = positions[node.id]
+            || this._cogFallbackPosition(node, positions);
+          rows.push(this._cogNodeRow(node, pos));
+        }
+        var edgeRows = [];
+        for (i = 0; i < view.edges.length; i += 1) {
+          edgeRows.push(this._cogEdgeRow(view.edges[i]));
+        }
+        ds.clear();
+        ds.add(rows);
+        eds.clear();
+        eds.add(edgeRows);
+        this._cogRestoreCamera(false);
+        this._cogApplyHighlight();
+      },
+      // Детерминированная позиция нового узла: рядом с уже размещённым
+      // реальным соседом, иначе — спираль по хешу id. Math.random НЕ
+      // используется: повторный рендер даёт тот же кадр.
+      _cogFallbackPosition: function (node, positions) {
+        var model = this.cognitionGraphData || {};
+        var adjacency = model.adjacency || {};
+        var neighbors = adjacency[node.id] || [];
+        var sumX = 0;
+        var sumY = 0;
+        var count = 0;
+        for (var i = 0; i < neighbors.length; i += 1) {
+          var p = positions[neighbors[i]];
+          if (!p) continue;
+          sumX += p.x;
+          sumY += p.y;
+          count += 1;
+        }
+        if (count) {
+          return { x: (sumX / count) + 22, y: (sumY / count) + 22 };
+        }
+        var id = String(node.id);
+        var hash = 0;
+        for (var k = 0; k < id.length; k += 1) {
+          hash = (hash * 31 + id.charCodeAt(k)) % 100003;
+        }
+        var angle = (hash % 360) * Math.PI / 180;
+        var radius = 80 + (hash % 260);
+        return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+      },
+      // Строка узла для vis-network: форма/цвет/размер — из адаптера
+      // (единая визуальная система), подписи рисует собственный слой.
+      _cogNodeRow: function (node, pos) {
+        var C = window.CognitiveMap;
+        var style = C.nodeStyle(node.kind);
+        var styleShape = style.shape;
+        var highlighted = !!(this._cogHighlight && this._cogHighlight[node.id]);
+        var dim = !!(this._cogSelectedId && !highlighted);
+        // Размер = тип + degree (метрика отображения, не «доказательность»).
+        var size = style.size;
+        if (node.degree > 0) size += Math.min(5, Math.log(1 + node.degree));
+        var row = {
+          id: node.id,
+          label: '',
+          shape: styleShape,
+          size: size,
+          borderWidth: 1,
+          borderWidthSelected: 2,
+          color: {
+            background: style.color,
+            border: style.color,
+            highlight: { background: style.color, border: '#e2e8f0' },
+            hover: { background: style.color, border: '#e2e8f0' },
+          },
+          font: { size: 0 },
+          opacity: dim ? COG_MAP_DIM_OPACITY : 1,
+        };
+        if (styleShape === 'rounded' || styleShape === 'box') {
+          row.shape = 'box';
+          row.shapeProperties = {
+            borderRadius: styleShape === 'rounded' ? 5 : 2,
+          };
+        }
+        if (pos) {
+          row.x = pos.x;
+          row.y = pos.y;
+        }
+        return row;
+      },
+      // Строка ребра: очень тонкая и малоконтрастная; производное ребро —
+      // пунктир (это РЕАЛЬНАЯ ссылка, а не догадка), выбранное — заметнее.
+      _cogEdgeRow: function (edge) {
+        var focused = !!(this._cogEdgeFocus && this._cogEdgeFocus[edge.id]);
+        var color = focused ? 'rgba(226,232,240,.80)'
+          : (edge.derived ? 'rgba(148,163,184,.20)' : 'rgba(148,163,184,.34)');
+        return {
+          id: edge.id,
+          from: edge.from,
+          to: edge.to,
+          label: '',
+          color: {
+            color: color,
+            highlight: 'rgba(226,232,240,.85)',
+            hover: 'rgba(203,213,225,.60)',
+            opacity: 1,
+          },
+          width: focused ? 1.5 : 0.7,
+          dashes: edge.derived === true ? [3, 4] : false,
+          arrows: { to: { enabled: edge.relation === 'revised_by' } },
+          smooth: { type: 'continuous', roundness: 0.35 },
+          selectionWidth: 1.6,
+          hoverWidth: 1.4,
+        };
+      },
+      _cogCreateNetwork: function (el, view, mode, simple, prevPositions) {
+        var self = this;
+        var i;
+        var positions = prevPositions && typeof prevPositions === 'object'
+          ? prevPositions : {};
+        var nodeRows = [];
+        var placed = 0;
+        for (i = 0; i < view.nodes.length; i += 1) {
+          var node = view.nodes[i];
+          var pos = positions[node.id] || null;
+          if (pos) placed += 1;
+          nodeRows.push(this._cogNodeRow(node, pos));
+        }
+        // Если позиции уже известны (fullscreen ↔ embedded, повторный вход) —
+        // раскладка НЕ пересчитывается: камера и места узлов сохраняются.
+        var hasLayout = placed > 0 && placed === view.nodes.length;        var edgeRows = [];
+        for (i = 0; i < view.edges.length; i += 1) {
+          edgeRows.push(this._cogEdgeRow(view.edges[i]));
+        }
         var nodes = new window.vis.DataSet(nodeRows);
-        var edges = new window.vis.DataSet(g.edges || []);
-        this._graphFullLabels = fullLabels;
-        this._cognitionNodesDS = nodes;          // D15: пин подписей neighborhood
+        var edges = new window.vis.DataSet(edgeRows);
+        this._cognitionNodesDS = cogRaw(nodes);
+        this._cognitionEdgesDS = cogRaw(edges);
+        this._cogEl = el;
         this._graphNeighborhoodIds = [];
         this._graphZoomMode = 'medium';
         var options = {
-          nodes: { shape: 'dot', size: 14,
-                   // D15: подписи по масштабу — до порога не рисуются
-                   // (far → почти без подписей), maxVisible ограничивает рост.
-                   scaling: { label: { drawThreshold: 12, maxVisible: 26 } },
-                   font: { size: GRAPH_FONT.medium, color: '#e5e7eb' } },
-          edges: { arrows: 'to', smooth: true,
-                   color: { color: 'rgba(148,163,184,.45)' },
-                   scaling: { label: { drawThreshold: 14, maxVisible: 22 } },
-                   font: { size: GRAPH_EDGE_FONT.medium, color: '#94a3b8' } },
-          // F11 (§16/D4): mobile-упрощение — без перетаскивания узлов;
-          // desktop/полный экран — прежнее поведение.
-          interaction: { hover: true, dragNodes: !simpleGraph, dragView: true,
+          // Подписи vis выключены полностью: их рисует собственный
+          // screen-space слой (`afterDrawing`), иначе «стена текста» (RCA GR1).
+          nodes: { shape: 'dot', size: 12, font: { size: 0 },
+                   borderWidth: 1, borderWidthSelected: 2 },
+          edges: {
+            arrows: { to: { enabled: false } },
+            smooth: { type: 'continuous', roundness: 0.35 },
+            color: { color: 'rgba(148,163,184,.34)',
+                     highlight: 'rgba(226,232,240,.85)' },
+            width: 0.7, selectionWidth: 1.6, hoverWidth: 1.4,
+          },
+          // F11 (§16/D4): mobile-упрощение — без перетаскивания узлов.
+          interaction: { hover: true, dragNodes: !simple, dragView: true,
                          zoomView: true },
-          // F2 (T-1559): физика отталкивания barnesHut — кластеры
-          // разлетаются, а не слипаются. reducedMotion → физика выключена.
-          // F11: mobile-упрощение → физика сразу off (см. ниже, после создания).
+          // F2 (T-1559): физика отталкивания — кластеры расходятся, а не
+          // слипаются; reducedMotion → физики нет вовсе (кадр статичен).
           physics: this.reducedMotion
             ? false
             : {
                 solver: 'barnesHut',
                 barnesHut: {
-                  gravitationalConstant: -8000, // расталкивание (негатив)
-                  centralGravity: 0.3,          // удержание в кадре
-                  springLength: 120,            // длина пружины рёбер
+                  gravitationalConstant: -8000,
+                  centralGravity: 0.3,
+                  springLength: 120,
                   springConstant: 0.04,
-                  damping: 0.09,                // гасит «болтанку»
-                  avoidOverlap: 0.2,            // не даёт слипаться
+                  damping: 0.09,
+                  avoidOverlap: 0.2,
                 },
                 stabilization: { enabled: true,
                                  iterations: GRAPH_PHYSICS_ITERATIONS,
                                  updateInterval: 25, fit: true },
                 minVelocity: 0.75,
               },
-          groups: { user: { color: '#a78bfa' }, topic: { color: '#38bdf8' },
-                    event: { color: '#f59e0b' }, fact: { color: '#34d399' } },
         };
-        this.cognitionNetwork = new window.vis.Network(
-          el, { nodes: nodes, edges: edges }, options);
-        this._cognitionGraphSig = sig;
-        this._cognitionGraphMode = mode;
-        // F11 (§16/D4): mobile-упрощение — физика сразу выключена
-        // (фиксированный fit), перетаскивание — через `dragNodes`.
-        if (simpleGraph) {
+        // Раскладка уже известна (fullscreen ↔ embedded, возврат на вкладку):
+        // физика не запускается ВООБЩЕ — ни стабилизации с fit, ни движения
+        // узлов под камерой (L01333 «без прыжка», L01321 «камера сохранена»).
+        if (hasLayout) options.physics = false;
+        this.cognitionNetwork = cogRaw(new window.vis.Network(
+          el, { nodes: nodes, edges: edges }, options));
+        var net = this.cognitionNetwork;
+        if (hasLayout) {
           try {
-            this.cognitionNetwork.setOptions({ physics: { enabled: false } });
+            net.setOptions({ physics: { enabled: false } });
           } catch (e) { /* noop */ }
         }
-        // F11 (§16/D4): подробности выбранного узла + ближайшие связи. `on`
-        // (не `once`) — обработчики живут с инстансом и снимаются его destroy.
-        if (this.cognitionNetwork
-            && typeof this.cognitionNetwork.on === 'function') {
-          var selfSel = this;
-          this.cognitionNetwork.on('selectNode', function (params) {
+        // F11 (§16/D4): mobile-упрощение — физика сразу выключена.
+        if (simple) {
+          try {
+            net.setOptions({ physics: { enabled: false } });
+          } catch (e) { /* noop */ }
+        }
+        if (net && typeof net.on === 'function') {
+          net.on('afterDrawing', function (ctx) { self._cogDrawLabels(ctx); });
+          net.on('selectNode', function (params) {
             var id = params && params.nodes && params.nodes[0];
-            if (id != null) selfSel.graphSelectNode(id);
-            selfSel.graphApplySelectionLabels(params && params.nodes);
+            if (id != null) self.graphSelectNode(id);
+            self.graphApplySelectionLabels((params && params.nodes) || []);
           });
-          this.cognitionNetwork.on('deselectNode', function () {
-            selfSel.graphClearDetail();
-            selfSel.graphApplySelectionLabels([]);
+          net.on('deselectNode', function () {
+            self.graphClearDetail();
+            self.graphApplySelectionLabels([]);
           });
-          // D15/T-5265: semantic zoom — far/medium/close c гистерезисом.
-          // presentation-only: DataSet не меняется, только font-опции сети.
-          var selfZoom = this;
-          this.cognitionNetwork.on('zoom', function (zoomParams) {
-            selfZoom.graphApplyZoomLevel(
-              zoomParams && typeof zoomParams.scale === 'number'
-                ? zoomParams.scale : null);
+          net.on('zoom', function (zp) {
+            var scale = (zp && typeof zp.scale === 'number') ? zp.scale : 1;
+            try {
+              self._cogCamera = window.CognitiveMap.cameraFromNetwork(
+                net.getViewPosition(), scale);
+            } catch (e) { /* сеть уничтожена */ }
+            self.graphApplyZoomLevel(scale);
           });
-          // Первичный режим — по текущему масштабу после fit/стабилизации.
-          try {
-            var s0 = this.cognitionNetwork.getViewScale
-              ? this.cognitionNetwork.getViewScale() : null;
-            this.graphApplyZoomLevel(typeof s0 === 'number' ? s0 : null);
-          } catch (e) { /* noop */ }
+          net.on('dragEnd', function () {
+            try {
+              self._cogCamera = window.CognitiveMap.cameraFromNetwork(
+                net.getViewPosition(), net.getScale());
+            } catch (e) { /* сеть уничтожена */ }
+          });
         }
-        // F4 (ADR-1018-4 D2): выключаем physics ПОСЛЕ первичной расстановки.
-        // `once` (не `on`) — обработчики не копятся при повторных рендерах.
-        // B3-1: guard ТОЛЬКО по тождеству инстанса — после
-        // destroyCognitionGraph() this.cognitionNetwork=null, поэтому старый
-        // (уже уничтоженный) инстанс отсекается. Полей `destroyed`/
-        // `isDestroyed` в self-host vis-network v9.1.9 НЕТ — проверять их
-        // нельзя (мёртвый guard). Сетевые вызовы на уничтоженной сети ловит
-        // try/catch. reducedMotion → физика изначально false, слушатели не нужны.
+        // F4 (ADR-1018-4 D2): физика выключается ПОСЛЕ первичной расстановки;
+        // `once` (не `on`) — слушатели не копятся при повторных рендерах.
+        // B3-1: guard ТОЛЬКО по тождеству инстанса (полей destroyed/isDestroyed
+        // в self-host vis-network v9.1.9 нет).
         if (!this.reducedMotion && GRAPH_PHYSICS_DISABLE_ON_STABILIZE) {
-          var self = this;
-          var net = this.cognitionNetwork;
-          var _disablePhysics = function () {
+          var _afterStabilize = function () {
             if (net && net === self.cognitionNetwork) {
               try {
                 net.setOptions({ physics: { enabled: false } });
               } catch (e) { /* noop: сеть уже уничтожена */ }
+              // Камера восстанавливается ПОСЛЕ расстановки (fullscreen ↔
+              // embedded, повторный вход на «Статус») — L01321.
+              self._cogRestoreCamera(false);
             }
           };
-          net.once('stabilizationIterationsDone', _disablePhysics);
-          net.once('stabilized', _disablePhysics);
+          net.once('stabilizationIterationsDone', _afterStabilize);
+          net.once('stabilized', _afterStabilize);
         }
+        if (this._cogCamera) this._cogRestoreCamera(false);
+        this._cogApplyHighlight();
+        try {
+          this.graphApplyZoomLevel(net.getScale ? net.getScale() : null);
+        } catch (e) { /* noop */ }
       },
-      // F2 (T-1560/1561, spec §5): поиск по графу — подстрока по label
-      // (R16: id — ключ, поиск по label). Несколько совпадений — перебор
-      // по повторному Enter. Пустой ввод → сброс + fit(). search-only:
-      // polling/_graphSignature/пересоздание сети не затрагиваются.
+      _cogRedraw: function () {
+        var net = this.cognitionNetwork;
+        if (!net || typeof net.redraw !== 'function') return;
+        try {
+          net.redraw();
+        } catch (e) { /* сеть уничтожена */ }
+      },
+      // Камера снимается на каждом кадре (и перед сменой экрана): при смене
+      // embedded ↔ fullscreen контейнер меняет размер, vis пересчитывает
+      // translation — снимать позицию «на выходе» уже поздно (L01321/L01333).
+      _cogCaptureCamera: function () {
+        var net = this.cognitionNetwork;
+        var C = window.CognitiveMap;
+        if (!net || !C || typeof net.getViewPosition !== 'function') return;
+        var el = this._cogEl;
+        // Снимаем камеру только у АКТУАЛЬНОГО контейнера: пока старый элемент
+        // удаляется, vis пересчитывает translation под новый размер — такое
+        // значение нельзя принимать за камеру пользователя.
+        if (!el || el.isConnected === false) return;
+        var current = null;
+        try { current = this._cogGraphEl(); } catch (e) { current = null; }
+        if (current && current !== el) return;
+        try {
+          this._cogCamera = C.cameraFromNetwork(net.getViewPosition(),
+            net.getScale());
+        } catch (e) { /* сеть уничтожена */ }
+      },
+      _cogRestoreCamera: function (animate) {
+        var net = this.cognitionNetwork;
+        var C = window.CognitiveMap;
+        if (!net || !C || !this._cogCamera) return;
+        var cam = C.cameraToNetwork(this._cogCamera);
+        try {
+          net.moveTo({
+            position: cam.position,
+            scale: cam.scale,
+            animation: (animate && !this.reducedMotion)
+              ? { duration: 400, easingFunction: 'easeInOutQuad' } : false,
+          });
+        } catch (e) { /* сеть уничтожена */ }
+      },
+      // Слой подписей: экранное разрешение коллизий + LOD по масштабу.
+      // Приоритеты/потолки — константы адаптера (26 / 12 на мобильном).
+      _cogDrawLabels: function (ctx) {
+        var net = this.cognitionNetwork;
+        var C = window.CognitiveMap;
+        if (!net || !C || !ctx) return;
+        this._cogCaptureCamera();
+        var el = this._cogEl || (this.$refs ? this.$refs.cognitionGraph : null);
+        if (!el || typeof el.querySelector !== 'function') return;
+        var canvas = el.querySelector('canvas');
+        if (!canvas) return;
+        var cssW = canvas.clientWidth || el.clientWidth || 0;
+        var cssH = canvas.clientHeight || el.clientHeight || 0;
+        if (!cssW || !cssH) return;
+        var view = this._cogView || { nodes: [], edges: [] };
+        var positions;
+        try {
+          positions = net.getPositions() || {};
+        } catch (e) { return; }
+        var items = [];
+        var i;
+        for (i = 0; i < view.nodes.length; i += 1) {
+          var node = view.nodes[i];
+          var p = positions[node.id];
+          if (!p) continue;
+          var dom;
+          try {
+            dom = net.canvasToDOM({ x: p.x, y: p.y });
+          } catch (e) { continue; }
+          items.push({
+            id: node.id,
+            x: dom.x,
+            y: dom.y + COG_MAP_LABEL_OFFSET,
+            kind: node.kind,
+            title: node.title,
+            degree: node.degree,
+            selected: !!(this._cogHighlight && this._cogHighlight[node.id]),
+          });
+        }
+        var scale = 1;
+        try {
+          scale = net.getViewScale ? net.getViewScale() : 1;
+        } catch (e) { scale = 1; }
+        var simple = this._cognitionGraphMode === 'simple';
+        var alloc = C.allocateLabels(items, {
+          scale: scale,
+          viewport: { width: cssW, height: cssH },
+          mobile: simple,
+          // На большом экране подпись на 1 px крупнее: важно читается, а
+          // бюджет подписей тот же (L01312 — не «все сразу»).
+          fontSize: simple ? COG_MAP_LABEL_FONT_PX
+            : COG_MAP_LABEL_FONT_PX + 1,
+          maxLabelChars: COG_MAP_LABEL_CHARS,
+        });
+        // Диагностика приёмки: сколько подписей реально нарисовано и какой LOD.
+        this._cogLabels = alloc;
+        if (!alloc.labels.length) return;
+        var ratio = (canvas.width && cssW) ? (canvas.width / cssW) : 1;
+        ctx.save();
+        // Подписи рисуются в CSS-пикселях: канвас внутри имеет DPR-масштаб.
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '500 ' + COG_MAP_LABEL_FONT_PX
+          + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+        for (i = 0; i < alloc.labels.length; i += 1) {
+          var label = alloc.labels[i];
+          var selected = !!(this._cogHighlight && this._cogHighlight[label.id]);
+          // Остальное притушено вместе с узлами (L01281): подпись не должна
+          // светиться ярче самого узла.
+          var dimmed = !!this._cogSelectedId && !selected;
+          var left = label.x - label.width / 2;
+          var top = label.y - label.height / 2;
+          ctx.globalAlpha = dimmed ? 0.45 : 1;
+          ctx.fillStyle = 'rgba(8,11,18,.72)';
+          this._cogRoundRect(ctx, left, top, label.width, label.height, 5);
+          ctx.fill();
+          ctx.font = (selected ? '600 ' : '500 ')
+            + (this._cognitionGraphMode === 'simple'
+              ? COG_MAP_LABEL_FONT_PX : COG_MAP_LABEL_FONT_PX + 1)
+            + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+          ctx.fillStyle = selected ? '#f8fafc' : 'rgba(226,232,240,.90)';
+          ctx.fillText(label.text, label.x, label.y + 0.5);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      },
+      _cogRoundRect: function (ctx, x, y, w, h, r) {
+        var radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      },
+      // «Открыть в Памяти» из карты: существующий каталог знаний (никакого
+      // нового экрана/маршрута — L01298 «понятная страница, а не приборная
+      // панель»). Контекст узла и кнопки карточки — S3.
+      openMemoryFromCogMap: function () {
+        this.memoryCatalogQuery = '';
+        if (typeof this.navTo === 'function') this.navTo('#/memory');
+        else if (typeof this.navigateTo === 'function') this.navigateTo('#/memory');
+        else this.route = '#/memory';
+      },
+      // Клиентское состояние рендерера (отдельно от серверного `state`).
+      _cogClientState: function () {
+        var C = window.CognitiveMap;
+        if (!C || typeof C.mapClientState !== 'function') {
+          return { state: 'renderer_failed', serverState: null, note: '',
+                   stale: false, empty: false, generatedAt: null };
+        }
+        var renderer = 'ready';
+        if (this.cognitionMapFailed) renderer = 'failed';
+        else if (!this.cognitionNetwork) {
+          renderer = this.cognitionMapVisMissing ? 'failed' : 'missing';
+        }
+        var view = this._cogView || null;
+        return C.mapClientState({
+          model: this.cognitionGraphData || null,
+          renderer: renderer,
+          failed: this.cognitionMapFailed === true,
+          now: Date.now(),
+          staleMs: COG_MAP_STALE_MS,
+          visibleNodes: view ? view.nodes.length : undefined,
+        });
+      },
+      // F2 (T-1560/1561, spec §5): поиск по имени/алиасу с фокусом. Алиасы
+      // уже разложены в модели (`summaryAliasesMap` при загрузке), поэтому
+      // поиск — чистый `CognitiveMap.searchNodes` без новых запросов.
       searchCognitionGraph: async function () {
-        var q = String(this.graphSearchQuery || '').trim().toLowerCase();
+        var q = String(this.graphSearchQuery || '').trim();
         if (!this.cognitionNetwork) {
           // гонка lazy-load: дождаться рендера и повторить один раз
           await this.renderCognitionGraph();
           if (!this.cognitionNetwork) return;
         }
         if (!q) { this.clearCognitionGraphSearch(); return; }
-        var nodes = (this.cognitionGraphData &&
-                     this.cognitionGraphData.nodes) || [];
-        // F11 (§16/D4): поиск по имени (label) И по алиасу. Алиасы берём из
-        // УЖЕ загруженного `summaryAliasesMap()` (limits.summary_aliases);
-        // новых endpoint'ов/полей нет. Если совпал только алиас, для которого
-        // в графе нет узла — честное «в графе нет узла …» (без выдумывания).
-        var aliases = this.summaryAliasesMap ? this.summaryAliasesMap() : {};
-        var aliasIds = {};
-        Object.keys(aliases).forEach(function (uid) {
-          var val = aliases[uid];
-          if (val && String(val).toLowerCase().indexOf(q) !== -1) {
-            aliasIds[String(uid)] = true;
-          }
-        });
-        var hits = nodes.filter(function (n) {
-          if (String(n.label || '').toLowerCase().indexOf(q) !== -1) return true;
-          return !!aliasIds[String(n.id)];
-        });
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        var hits = C ? C.searchNodes(model, q) : [];
         if (!hits.length) {
           this._graphSearchMatches = [];
           this._graphSearchIdx = 0;
@@ -28029,20 +28546,38 @@
           this.toast('В графе нет узла «' + q + '»', 'warn');
           return;
         }
+        var node = hits[0];
+        // Узел мог быть скрыт витриной (фильтр) — честно снимаем фильтры,
+        // прежде чем фокусировать: пустой фокус вместо узла недопустим.
+        var view = this._cogView || { nodes: [] };
+        var inView = false;
+        for (var i = 0; i < view.nodes.length; i += 1) {
+          if (view.nodes[i].id === node.id) { inView = true; break; }
+        }
+        if (!inView) {
+          this.graphFilterGroup = '';
+          this.cognitionMapCluster = '';
+          this.cogHideDerived = false;
+          await this.renderCognitionGraph();
+        }
         // циклический перебор при повторном поиске того же запроса
-        if (q !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
-        this._graphSearchLastQ = q;
+        var needle = String(q).toLowerCase();
+        if (needle !== this._graphSearchLastQ) { this._graphSearchIdx = -1; }
+        this._graphSearchLastQ = needle;
         this._graphSearchMatches = hits;
         this._graphSearchIdx = (this._graphSearchIdx + 1) % hits.length;
-        var node = hits[this._graphSearchIdx];
+        node = hits[this._graphSearchIdx];
         var anim = this.reducedMotion
           ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
         this.cognitionNetwork.focus(node.id,
           { scale: 1.1, animation: anim });
         this.cognitionNetwork.selectNodes([node.id]);
-        // D15/T-265: подписи выбранного neighborhood (как при клике).
+        // Найденный узел показывается и в панели подробностей (иначе поиск
+        // фокусировал бы «молча»; L01297 — поиск с фокусировкой найденного).
+        this.graphSelectNode(node.id);
         this.graphApplySelectionLabels([node.id]);
-        this.graphSearchStatus = 'Найден: ' + node.label +
+        var title = node.title || node.id;
+        this.graphSearchStatus = 'Найден: ' + title +
           (hits.length > 1
             ? ' (' + (this._graphSearchIdx + 1) + '/' + hits.length + ')'
             : '');
@@ -28053,47 +28588,64 @@
         this._graphSearchMatches = [];
         this._graphSearchIdx = 0;
         this._graphSearchLastQ = '';
+        this._cogHighlight = null;
+        this._cogSelectedId = null;
+        this._cogEdgeFocus = null;
+        if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
+        if (typeof this._cogApplyHighlight === 'function') {
+          this._cogApplyHighlight();
+        }
         if (this.cognitionNetwork) {
           this.cognitionNetwork.selectNodes([]);
           var anim = this.reducedMotion ? false : { duration: 500 };
           this.cognitionNetwork.fit(anim);
         }
       },
-      // F11 (§16/D4): «ближайшие связи» узла — соседи по существующим рёбрам
-      // (реальные данные; вес/семантика/алгоритм НЕ меняются).
+      // F11 (§16/D4): «ближайшие связи» — соседи по РЕАЛЬНЫМ рёбрам модели.
       graphNeighborsOf: function (nodeId) {
-        var g = this.cognitionGraphData || {};
-        var byId = {};
-        (g.nodes || []).forEach(function (n) { byId[String(n.id)] = n; });
-        var seen = {}, out = [];
-        (g.edges || []).forEach(function (e) {
-          var other = null;
-          if (String(e.from) === String(nodeId)) other = e.to;
-          else if (String(e.to) === String(nodeId)) other = e.from;
-          if (other == null) return;
-          var k = String(other);
-          if (seen[k]) return;
-          seen[k] = true;
-          var n = byId[k] || {};
-          out.push({ id: other, label: n.label || k, group: n.group || 'other' });
-        });
+        var model = this.cognitionGraphData || {};
+        var byId = model.byId || {};
+        var adjacency = model.adjacency || {};
+        var ids = adjacency[String(nodeId)] || [];
+        var C = window.CognitiveMap;
+        var seen = {};
+        var out = [];
+        for (var i = 0; i < ids.length; i += 1) {
+          var key = String(ids[i]);
+          if (seen[key]) continue;
+          seen[key] = true;
+          var n = byId[key] || {};
+          out.push({
+            id: ids[i],
+            label: n.title || key,
+            kind: n.kind || 'other',
+            kindLabel: (C && n.kind) ? (C.KIND_LABELS[n.kind] || n.kind) : '',
+          });
+        }
         return out;
       },
-      // F11 (§16/D4): выбрали узел → подробности (реальные label/group/degree)
-      // + ближайшие связи.
+      // Выбранный узел → честные подробности модели (тип/статус/время).
+      // Карточка с кнопками и provenance — S3; здесь контекст выбора.
       graphSelectNode: function (nodeId) {
+        var model = this.cognitionGraphData || {};
+        var byId = model.byId || {};
+        var C = window.CognitiveMap;
         var detail = null;
         if (nodeId != null) {
-          var nodes = (this.cognitionGraphData
-            && this.cognitionGraphData.nodes) || [];
-          for (var i = 0; i < nodes.length; i++) {
-            if (String(nodes[i].id) === String(nodeId)) {
-              var n = nodes[i];
-              detail = { id: n.id, label: n.label || String(n.id),
-                         group: n.group || 'other',
-                         degree: (n.degree != null ? n.degree : null) };
-              break;
-            }
+          var n = byId[String(nodeId)] || null;
+          if (n) {
+            detail = {
+              id: n.id,
+              title: n.title || String(n.id),
+              kind: n.kind,
+              kindLabel: (C && n.kind) ? (C.KIND_LABELS[n.kind] || n.kind) : '',
+              status: n.status || null,
+              degree: n.degree,
+              isolated: n.isolated === true,
+              chatId: n.chatId,
+              scope: n.scope,
+              time: n.time || {},
+            };
           }
         }
         this.graphDetail = detail;
@@ -28104,8 +28656,9 @@
         this.graphDetail = null;
         this.graphNeighbors = [];
       },
-      // ── D15 (asap5-final-fixes, T-5265, §13B): semantic zoom helpers ─────
-      // Режим зума с гистерезисом (без дёрганья setOptions на тик).
+      // ── D15 (asap5-final-fixes, T-5265, §13B): semantic zoom ─────────────
+      // Режим с гистерезисом; он не режет данные (DataSet целиком), а задаёт
+      // детализацию слоя подписей (LOD по масштабу делает аллокатор).
       _graphZoomModeOf: function (scale) {
         var cur = this._graphZoomMode || 'medium';
         if (typeof scale !== 'number') return cur;
@@ -28116,79 +28669,78 @@
         if (scale > GRAPH_ZOOM_CLOSE) return 'close';
         return 'medium';
       },
-      // far — точки/рёбра все, подписи почти скрыты (кроме hub'ов);
-      // medium — подписи заметных; close — шире. Presentation-only:
-      // DataSet не меняется, только шрифтовые опции сети.
       graphApplyZoomLevel: function (scale) {
-        var net = this.cognitionNetwork;
-        if (!net) return;
         var mode = this._graphZoomModeOf(scale);
         if (mode === this._graphZoomMode) return;
         this._graphZoomMode = mode;
-        try {
-          net.setOptions({
-            nodes: { font: { size: GRAPH_FONT[mode] } },
-            edges: { font: { size: GRAPH_EDGE_FONT[mode] } },
-          });
-        } catch (e) { /* сеть уничтожена */ }
-        // Перезакрепить подписи neighborhood под новый пресет (выделение
-        // не «залипает» в старом размере).
-        if (this._graphNeighborhoodIds && this._graphNeighborhoodIds.length) {
-          this.graphPinNeighborhoodLabels(this._graphNeighborhoodIds);
-        }
+        // Подписи пересчитывает слой (LOD/коллизии), узлы и рёбра не режутся.
+        this._cogRedraw();
       },
-      _graphHubBaseline: function (n) {
-        return (Number((n && n.degree) || 0) >= GRAPH_HUB_DEGREE_MIN)
-          ? GRAPH_FONT.medium + 4 : GRAPH_FONT.medium;
-      },
-      // Подписи выбранного neighborhood (13B.2): label выбранного+соседей
-      // виден при любом зуме (пин = hub-базлайн + 4); остальные узлы —
-      // режим зума. Канонический label в DataSet НЕ меняется (полный текст —
-      // в detail/tooltip). Снятие выделения возвращает пресет.
+      // Сохранено по имени (D15/T-265): подписи выбранного neighborhood
+      // приоритетны — аллокатор ставит их первыми, DataSet не мутируется.
       graphPinNeighborhoodLabels: function (ids) {
-        var ds = this._cognitionNodesDS;
-        if (!ds) return;
-        var byId = {};
-        ((this.cognitionGraphData && this.cognitionGraphData.nodes) || [])
-          .forEach(function (n) { byId[String(n.id)] = n; });
-        var baseline = this._graphHubBaseline;
-        var updates = (ids || []).map(function (id) {
-          return { id: id,
-                   font: { size: baseline(byId[String(id)]) + 4 } };
-        });
-        try {
-          if (updates.length) ds.update(updates);
-        } catch (e) { /* сеть уничтожена */ }
+        this._graphNeighborhoodIds = (ids || []).slice();
+        this._cogRedraw();
       },
+      // Выделение: выбранный + его соседи заметнее, остальное притушено
+      // (L01281 «выбранный узел заметнее, соседи подсвечены»). Только вид.
       graphApplySelectionLabels: function (selectedIds) {
+        var ids = (selectedIds || []).map(String);
+        var highlight = {};
+        var i;
+        for (i = 0; i < ids.length; i += 1) {
+          highlight[ids[i]] = true;
+          var neighbors = this.graphNeighborsOf(ids[i]);
+          for (var j = 0; j < neighbors.length; j += 1) {
+            highlight[String(neighbors[j].id)] = true;
+          }
+        }
+        this._cogHighlight = ids.length ? highlight : null;
+        this._cogSelectedId = ids.length ? ids[0] : null;
+        this._cogEdgeFocus = {};
+        if (ids.length) {
+          var view = this._cogView || { edges: [] };
+          var sel = {};
+          for (i = 0; i < ids.length; i += 1) sel[ids[i]] = true;
+          for (i = 0; i < view.edges.length; i += 1) {
+            var edge = view.edges[i];
+            if (sel[String(edge.from)] || sel[String(edge.to)]) {
+              this._cogEdgeFocus[edge.id] = true;
+            }
+          }
+        }
+        this.graphPinNeighborhoodLabels(Object.keys(highlight));
+        this._cogApplyHighlight();
+      },
+      // Притушение/подсветка через DataSet.update (инстанс не пересоздаётся).
+      _cogApplyHighlight: function () {
         var ds = this._cognitionNodesDS;
-        var self = this;
-        var sel = {};
-        (selectedIds || []).forEach(function (id) { sel[String(id)] = true; });
-        var ids = Object.keys(sel);
-        ids.forEach(function (id) {
-          self.graphNeighborsOf(id).forEach(function (nb) {
-            if (!sel[String(nb.id)]) ids.push(String(nb.id));
-          });
-        });
-        // Снять прежний пин (возврат к пресету/hub-базлайну).
-        var prev = this._graphNeighborhoodIds || [];
-        if (prev.length && ds) {
-          var preset = GRAPH_FONT[this._graphZoomMode || 'medium'];
-          var byId = {};
-          ((this.cognitionGraphData && this.cognitionGraphData.nodes) || [])
-            .forEach(function (n) { byId[String(n.id)] = n; });
+        var eds = this._cognitionEdgesDS;
+        var view = this._cogView || { nodes: [], edges: [] };
+        var i;
+        if (ds) {
+          var updates = [];
+          for (i = 0; i < view.nodes.length; i += 1) {
+            var node = view.nodes[i];
+            var on = !this._cogSelectedId
+              || !!(this._cogHighlight && this._cogHighlight[node.id]);
+            updates.push({ id: node.id,
+                           opacity: on ? 1 : COG_MAP_DIM_OPACITY });
+          }
           try {
-            ds.update(prev.map(function (id) {
-              var n = byId[String(id)] || {};
-              var hub = Number(n.degree || 0) >= GRAPH_HUB_DEGREE_MIN;
-              return { id: id,
-                       font: { size: hub ? preset + 4 : preset } };
-            }));
+            if (updates.length) ds.update(updates);
           } catch (e) { /* сеть уничтожена */ }
         }
-        this._graphNeighborhoodIds = ids;
-        if (ids.length) this.graphPinNeighborhoodLabels(ids);
+        if (eds) {
+          var rows = [];
+          for (i = 0; i < view.edges.length; i += 1) {
+            rows.push(this._cogEdgeRow(view.edges[i]));
+          }
+          try {
+            if (rows.length) eds.update(rows);
+          } catch (e) { /* сеть уничтожена */ }
+        }
+        this._cogRedraw();
       },
       // F11 (§16/D4): фокус на узле/соседе — камера + выделение (сеть не
       // пересоздаётся; layout не трогается).
@@ -28201,45 +28753,42 @@
           this.cognitionNetwork.selectNodes([nodeId]);
         } catch (e) { /* noop: сеть уничтожена */ }
         this.graphSelectNode(nodeId);
-        // D15/T-265: подписи neighborhood при фокусе из detail-панели.
         this.graphApplySelectionLabels([nodeId]);
       },
-      // F11 (§16/D4): витринный клиентский фильтр по group — выделяем
-      // совпадающие узлы и подгоняем камеру. Физика/вес/дефолтный layout
-      // НЕ меняются.
+      // Витринные фильтры (тип/кластер/производные рёбра): данные не меняются,
+      // сети-запросов нет, камера сохраняется (см. renderCognitionGraph).
       applyGraphFilter: function () {
-        if (!this.cognitionNetwork) return;
-        var grp = this.graphFilterGroup;
-        if (!grp) { this.clearCognitionGraphSearch(); return; }
-        var nodes = (this.cognitionGraphData
-          && this.cognitionGraphData.nodes) || [];
-        var ids = nodes.filter(function (n) {
-          return (n.group || 'other') === grp;
-        }).map(function (n) { return n.id; });
-        if (!ids.length) {
-          this.graphSearchStatus = 'В группе нет узлов';
-          return;
-        }
-        try {
-          this.cognitionNetwork.selectNodes(ids);
-          this.cognitionNetwork.fit({
-            nodes: ids,
-            animation: this.reducedMotion ? false : { duration: 500 },
-          });
-        } catch (e) { /* noop */ }
-        this.graphSearchStatus = 'Группа «' + grp + '»: ' + ids.length + ' узлов';
+        this.graphSearchStatus = '';
+        this.renderCognitionGraph();
       },
-      // F11 (§16/D4): сброс вида — фильтр/подробности/выделение + fit().
+      // Сброс вида: фильтры/кластер/поиск/выделение сняты, кадр — общий.
       graphResetView: function () {
+        var self = this;
         this.graphFilterGroup = '';
+        this.cognitionMapCluster = '';
+        this.cogHideDerived = false;
         this.graphClearDetail();
         this.clearCognitionGraphSearch();
+        this._cogCamera = null;
+        this.$nextTick(function () {
+          self.renderCognitionGraph().then(function () {
+            if (self.cognitionNetwork) {
+              try {
+                self.cognitionNetwork.fit(self.reducedMotion
+                  ? false : { duration: 500 });
+              } catch (e) { /* сеть уничтожена */ }
+            }
+          });
+        });
       },
       // F11 (§16/D4): mobile — отдельный экран полного исследования. Основной
       // путь — аддитивный hash-маршрут `#/status/graph` (владелец — F1);
       // fallback при IA_V2_ENABLED=false — полноэкранная шторка.
+      // Выбранный узел/масштаб/камера/фильтры сохраняются (L01321).
       openGraphFull: function () {
-        this.graphClearDetail();
+        // Камера/масштаб фиксируются ДО смены экрана: после resize контейнера
+        // vis пересчитал бы translation, и кадр «уехал» бы (L01321).
+        this._cogCaptureCamera();
         if (this.iaV2) {
           if (typeof this.navTo === 'function') this.navTo('#/status/graph');
           else this.route = '#/status/graph';
@@ -28248,6 +28797,7 @@
         }
       },
       closeGraphFull: function () {
+        this._cogCaptureCamera();
         if (this.graphFullOpen) { this.graphFullOpen = false; return; }
         // ASAP-UI-02 §4.2/§11 (L01958): fullscreen-граф — СЛОЙ Back-стека,
         // поэтому закрывать его через `goBack()` нельзя: goBack → верхний
@@ -28272,12 +28822,15 @@
         }
         this._cognitionGraphSig = null;
         this._cognitionGraphMode = null;
-        // D15 (T-5265): сброс semantic-zoom состояния вместе с инстансом.
+        // D15 (T-5265): сброс состояния слоя подписей вместе с инстансом.
         this._cognitionNodesDS = null;
+        this._cognitionEdgesDS = null;
+        this._cogEl = null;
+        this._cogView = null;
+        this._cogLabels = null;
         this._graphNeighborhoodIds = [];
         this._graphZoomMode = 'medium';
         this._graphFullLabels = null;
-        if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
       },
       // ── Polling 15с с паузой при document.hidden (F5-Q3, R10.11-5) ─────
       // D2/R10.18: единый старт таймера БЕЗ раннего выхода по cognitionTimer

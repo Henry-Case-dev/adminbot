@@ -12104,32 +12104,66 @@
             </div>
 
             <!-- ═══ F11 (§12/§16, ADR-1025-23 D1/D4): Строка 2 — Граф связей — 8 кол.
-                 Расширение на месте: поиск (имя/алиас), фокус, ближайшие связи,
+                 Расширение на месте: поиск (имя/алиас), фокус, действия,
                  фильтры (витринные, клиентские), подробности, сброс вида.
                  Алгоритм/семантика веса и layout НЕ меняются; lazy-загрузка
                  vis-network сохранена. Mobile — упрощённый граф + отдельный
                  экран полного исследования. -->
-            <!-- ═══ ASAP-UI-02 (§5.2, wave 2): ЗАРЕЗЕРВИРОВАННОЕ МЕСТО
-                 «Когнитивной карты» (EVOL-COG, в очереди) — сразу под
-                 оперативным блоком здоровья и НАД единым виджетом четырёх
-                 лент. Пока EVOL-COG не реализован, здесь стоит существующая
-                 карта «Граф связей» с полным прежним функционалом
-                 (поиск/фокус/соседи/фильтры/полный экран). Карта — 12 кол.
+            <!-- ═══ ASAP-UI-02 (§5.2, wave 2) + EVOL-COG-MAP W7-S2 (02.11.2026):
+                 место «Когнитивной карты» — сразу под оперативным блоком
+                 здоровья и НАД единым виджетом четырёх лент. С S2 здесь
+                 «Когнитивная карта» на новом payload
+                 `GET /api/memory/cognitive-map`: типизированные узлы
+                 (факты/убеждения/парадигмы/изменения/сущности), реальные
+                 связи, легенда словами владельца, честное «показано X из Y»,
+                 подписи с экранным разрешением коллизий (LOD). Рендер — тот же
+                 self-host vis-network (без новых библиотек). Карта — 12 кол.
                  (единственный блок между здоровьем и лентами: иначе в сетке
                  остаётся пустое место, а «другие большие виджеты» оказались бы
                  выше лент, что §5.3 запрещает). -->
             <div v-if="isGlobalAdmin && !graphFullVisible"
-                 class="card p-4 status-graph sg-12">
+                 class="card p-4 status-graph sg-12" data-cog-map
+                 :data-cog-state="cogClientState.state">
               <div class="flex items-center gap-2 mb-1 flex-wrap">
-                <div class="text-xs font-bold">Граф связей</div>
-                <span v-if="cognitionGraphData" class="text-xs text-gray-500">
-                  {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер<template v-if="cognitionGraphData.truncated"> · показаны не все</template>
+                <div class="text-xs font-bold">Когнитивная карта</div>
+                <span v-if="cognitionGraphData" class="text-xs text-gray-500"
+                      data-cog-counters>
+                  {{ cogCounters }}
                 </span>
-                <span v-if="!cognitionVisLoaded" class="text-xs text-gray-500">vis-network грузится при открытии…</span>
+                <!-- Честная полнота: «показано X из Y» — НЕЙТРАЛЬНО (серый
+                     текст без предупреждений). После правки S1 это нормальное
+                     состояние почти любого реального чата (окрестность сидов
+                     + сироты), а не сбой. -->
+                <span v-if="cogCompleteness.active && !cogEmpty"
+                      class="text-xs text-gray-500 cog-completeness"
+                      data-cog-completeness>{{ cogCompleteness.text }}</span>
+                <span v-if="cogStaleLabel" class="text-xs text-gray-500"
+                      data-cog-stale>{{ cogStaleLabel }}</span>
+                <button class="btn-ghost text-xs" type="button"
+                        @click="loadCognitionGraph()"
+                        :disabled="!cognitionGraphData"
+                        aria-label="Обновить карту" title="Обновить карту">⟳</button>
                 <button class="btn-ghost text-xs ml-auto" type="button"
                         @click="openGraphFull()"
-                        title="Полное исследование графа">⛶ Полный экран</button>
+                        title="Полное исследование карты">⛶ Полный экран</button>
               </div>
+              <!-- Легенда ОБЯЗАТЕЛЬНА (ТЗ 1285): компактная, видимая без
+                   документации. Слова — владельца: Факты/Убеждения/Парадигмы/
+                   Изменения. Различие не только цветом: у класса своя форма. -->
+              <div class="cog-legend" data-cog-legend role="list"
+                   aria-label="Обозначения когнитивной карты">
+                <span v-for="lg in cogLegend" :key="'lgi' + lg.kind"
+                      class="cog-legend__item" role="listitem"
+                      :class="{ 'cog-legend__item--extra': !lg.required }"
+                      :data-cog-legend-kind="lg.kind">
+                  <span class="cog-legend__swatch"
+                        :class="'cog-legend__swatch--' + lg.kind"
+                        aria-hidden="true"></span>{{ lg.label }}
+                </span>
+              </div>
+              <!-- Отказ источника — это ОТКАЗ (не пустота и не «неполнота»). -->
+              <div v-if="cogDegradedNote" class="text-xs text-amber-300"
+                   data-cog-degraded>{{ cogDegradedNote }}</div>
               <div class="graph-search">
                 <input type="search" class="field input graph-search__input"
                        placeholder="Поиск по имени или алиасу…"
@@ -12140,24 +12174,61 @@
                 <button class="btn-ghost text-xs" type="button"
                         @click="searchCognitionGraph()"
                         :disabled="!cognitionNetwork">Найти</button>
-                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по группе"
+                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по типу узла"
                         v-model="graphFilterGroup" @change="applyGraphFilter()">
-                  <option value="">Все группы</option>
-                  <option v-for="g in graphGroupOptions" :key="'gg' + g" :value="g">{{ g }}</option>
+                  <option value="">Все типы</option>
+                  <option v-for="g in graphGroupOptions" :key="'gg' + g.id"
+                          :value="g.id">{{ g.label }} ({{ g.count }})</option>
+                </select>
+                <select class="field text-xs w-36 shrink-0" aria-label="Фильтр по кластеру"
+                        v-model="cognitionMapCluster" @change="applyGraphFilter()"
+                        data-cog-cluster>
+                  <option value="">Все кластеры</option>
+                  <option v-for="cl in cogClusters" :key="'cl' + cl.id"
+                          :value="cl.id">{{ cl.label }}</option>
                 </select>
                 <button class="btn-ghost text-xs" type="button"
                         @click="graphResetView()"
                         :disabled="!cognitionNetwork">Сбросить вид</button>
                 <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
               </div>
-              <div ref="cognitionGraph" class="cognition-graph" data-glass="c"></div>
+              <!-- Состояния рендерера честные и отдельные от серверного `state`
+                   (контракт §4): loading / not_loaded / stale / renderer_failed.
+                   Пустые состояния — свои сообщения; нули как данные не рисуются. -->
+              <div v-if="cogEmpty" class="cog-state text-xs text-gray-500"
+                   data-cog-state="empty">
+                {{ cogClientState.note || 'в этой области нет фактов и связей' }}
+                <button class="btn-ghost text-xs" type="button"
+                        @click="openMemoryFromCogMap()">Открыть в Памяти</button>
+              </div>
+              <div v-else-if="cogFilterEmpty" class="cog-state text-xs text-gray-500"
+                   data-cog-state="filtered">
+                по выбранному фильтру узлов нет
+                <button class="btn-ghost text-xs" type="button"
+                        @click="graphResetView()">Сбросить фильтры</button>
+              </div>
+              <div v-else-if="cogClientState.state !== 'ready'"
+                   class="cog-state text-xs text-gray-500"
+                   :data-cog-state="cogClientState.state">
+                {{ cogClientState.note }}
+                <button v-if="cogClientState.state === 'stale'" type="button"
+                        class="btn-ghost text-xs"
+                        @click="loadCognitionGraph()">Обновить</button>
+                <button v-if="cogClientState.state === 'renderer_failed'"
+                        type="button" class="btn-ghost text-xs"
+                        @click="openMemoryFromCogMap()">Открыть в Памяти</button>
+              </div>
+              <div ref="cognitionGraph" class="cognition-graph" data-glass="c"
+                   :hidden="cogEmpty"></div>
               <!-- §16: подробности выбранного узла + ближайшие связи (реальные
-                   label/group/degree, без выдумывания связей). -->
-              <div v-if="graphDetail" class="mt-2 text-xs">
+                   тип/связи из модели, без выдумывания связей). Карточка с
+                   кнопками «Открыть источник/История/в Память» — S3. -->
+              <div v-if="graphDetail" class="mt-2 text-xs" data-cog-detail>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="badge badge-info">{{ graphDetail.label }}</span>
-                  <span class="badge badge-muted">{{ graphDetail.group }}</span>
+                  <span class="badge badge-info">{{ graphDetail.title }}</span>
+                  <span class="badge badge-muted">{{ graphDetail.kindLabel }}</span>
                   <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
+                  <span class="badge badge-muted" v-if="graphDetail.isolated">изолированный</span>
                   <button class="btn-ghost text-[10px] ml-auto" type="button"
                           @click="graphClearDetail()">скрыть</button>
                 </div>
@@ -13521,23 +13592,42 @@
             </div>
             </div><!-- /F11 §12 .status-grid -->
             <!-- F11 (§16/D4, ADR-1025-23 D4): mobile — отдельный экран полного
-                 исследования графа связей. Основной путь — аддитивный
+                 исследования карты. Основной путь — аддитивный
                  hash-маршрут `#/status/graph` (владелец routing — F1; нативная
                  «назад»); fallback при IA_V2_ENABLED=false — полноэкранная
                  шторка (тот же компонент). DOM-порядок §12 не затрагивается:
-                 экран рендерится ВНЕ `.status-grid`. -->
+                 экран рендерится ВНЕ `.status-grid`. W7-S2: выход из полного
+                 экрана сохраняет выбранный узел, масштаб, камеру и фильтры. -->
             <div v-if="isGlobalAdmin && graphFullVisible"
                  ref="graphFullPanel" tabindex="-1"
                  class="status-graph-full" role="dialog" aria-modal="true"
-                 aria-label="Полное исследование графа связей">
+                 aria-label="Полное исследование когнитивной карты"
+                 :data-cog-state="cogClientState.state">
               <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-sm font-bold">Граф связей</div>
-                <span v-if="cognitionGraphData" class="text-xs text-gray-500">
-                  {{ (cognitionGraphData.nodes || []).length }} узлов · {{ (cognitionGraphData.edges || []).length }} рёбер
+                <div class="text-sm font-bold">Когнитивная карта</div>
+                <span v-if="cognitionGraphData" class="text-xs text-gray-500"
+                      data-cog-counters>
+                  {{ cogCounters }}
                 </span>
+                <span v-if="cogCompleteness.active && !cogEmpty"
+                      class="text-xs text-gray-500 cog-completeness"
+                      data-cog-completeness>{{ cogCompleteness.text }}</span>
                 <button class="btn-ghost text-xs ml-auto" type="button"
                         @click="closeGraphFull()">✕ Закрыть</button>
               </div>
+              <div class="cog-legend" data-cog-legend role="list"
+                   aria-label="Обозначения когнитивной карты">
+                <span v-for="lg in cogLegend" :key="'lgf' + lg.kind"
+                      class="cog-legend__item" role="listitem"
+                      :class="{ 'cog-legend__item--extra': !lg.required }"
+                      :data-cog-legend-kind="lg.kind">
+                  <span class="cog-legend__swatch"
+                        :class="'cog-legend__swatch--' + lg.kind"
+                        aria-hidden="true"></span>{{ lg.label }}
+                </span>
+              </div>
+              <div v-if="cogDegradedNote" class="text-xs text-amber-300"
+                   data-cog-degraded>{{ cogDegradedNote }}</div>
               <div class="graph-search">
                 <input type="search" class="field input graph-search__input"
                        placeholder="Поиск по имени или алиасу…"
@@ -13548,22 +13638,38 @@
                 <button class="btn-ghost text-xs" type="button"
                         @click="searchCognitionGraph()"
                         :disabled="!cognitionNetwork">Найти</button>
-                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по группе"
+                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по типу узла"
                         v-model="graphFilterGroup" @change="applyGraphFilter()">
-                  <option value="">Все группы</option>
-                  <option v-for="g in graphGroupOptions" :key="'ggf' + g" :value="g">{{ g }}</option>
+                  <option value="">Все типы</option>
+                  <option v-for="g in graphGroupOptions" :key="'ggf' + g.id"
+                          :value="g.id">{{ g.label }} ({{ g.count }})</option>
+                </select>
+                <select class="field text-xs w-36 shrink-0" aria-label="Фильтр по кластеру"
+                        v-model="cognitionMapCluster" @change="applyGraphFilter()"
+                        data-cog-cluster>
+                  <option value="">Все кластеры</option>
+                  <option v-for="cl in cogClusters" :key="'clf' + cl.id"
+                          :value="cl.id">{{ cl.label }}</option>
                 </select>
                 <button class="btn-ghost text-xs" type="button"
                         @click="graphResetView()"
                         :disabled="!cognitionNetwork">Сбросить вид</button>
+                <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+              </div>
+              <div v-if="cogClientState.state !== 'ready'"
+                   class="cog-state text-xs text-gray-500"
+                   :data-cog-state="cogClientState.state">
+                {{ cogClientState.note }}
               </div>
               <div ref="cognitionGraph"
-                   class="cognition-graph cognition-graph--full" data-glass="c"></div>
-              <div v-if="graphDetail" class="text-xs">
+                   class="cognition-graph cognition-graph--full" data-glass="c"
+                   :hidden="cogEmpty"></div>
+              <div v-if="graphDetail" class="text-xs" data-cog-detail>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="badge badge-info">{{ graphDetail.label }}</span>
-                  <span class="badge badge-muted">{{ graphDetail.group }}</span>
+                  <span class="badge badge-info">{{ graphDetail.title }}</span>
+                  <span class="badge badge-muted">{{ graphDetail.kindLabel }}</span>
                   <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
+                  <span class="badge badge-muted" v-if="graphDetail.isolated">изолированный</span>
                 </div>
                 <div v-if="graphNeighbors.length" class="flex flex-wrap gap-1 mt-1">
                   <button v-for="nb in graphNeighbors" :key="'nbf' + nb.id"
@@ -14717,6 +14823,12 @@
        (ТЗ §25). Zero-build, CSP `script-src 'self'`, ДО app.js: app.js
        читает `window.ExecutionGraph` в computed `tokenFlowTree`. -->
   <script src="/static/execution_graph.js?v=__APP_VERSION__"></script>
+  <!-- EVOL-COG-MAP (W7-S2): адаптер «Когнитивной карты» — нормализация
+       payload `GET /api/memory/cognitive-map`, фильтры, кластеры по реальным
+       связям, камера, экранный аллокатор подписей. Zero-build, CSP
+       `script-src 'self'`, ДО app.js: app.js читает `window.CognitiveMap`
+       (рендер, подписи, состояния). Новых библиотек нет. -->
+  <script src="/static/cognitive-map.js?v=__APP_VERSION__"></script>
   <!-- W2-FULLSCREEN (REQ-U07-1): политика fullscreen — plain IIFE без Vue,
        БЕЗ записи --tg-* (их пишет только telegram-init.js). ДО app.js:
        app.js монтирует зеркало по window.__FullscreenPolicy.subscribe(). -->

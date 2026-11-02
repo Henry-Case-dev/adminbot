@@ -1972,19 +1972,35 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         fit(anim) { calls.fit.push(anim); },
       };
     }
-    const nodes = [
-      { id: 1, label: 'Олег' },
-      { id: 2, label: 'олег_два' },
-      { id: 3, label: 'Кот' },
-    ];
+    // W7-S2: поиск идёт по НОРМАЛИЗОВАННОЙ модели (`CognitiveMap.searchNodes`),
+    // поэтому фикстура прогоняется через реальный адаптер, а не подсовывается
+    // сырым legacy-payload. Поведение (подстрока, циклический перебор,
+    // пустой ввод, редьюс-моушн) проверяется то же.
+    const CogMap = require(path.join(__dirname, '..', '..', 'web', 'static',
+      'cognitive-map.js'));
+    const model = CogMap.normalizePayload({
+      version: 'cog-map/1', state: 'ok',
+      nodes: [
+        { id: 'ent:1:1', kind: 'entity', title: 'Олег', chat_id: 1 },
+        { id: 'ent:1:2', kind: 'entity', title: 'олег_два', chat_id: 1 },
+        { id: 'ent:1:3', kind: 'entity', title: 'Кот', chat_id: 1 },
+      ],
+      edges: [],
+    });
+    const nodes = model.nodes;
     function baseCtx(net, extra) {
       return Object.assign({
         graphSearchQuery: '', graphSearchStatus: '',
-        cognitionNetwork: net, cognitionGraphData: { nodes },
+        cognitionNetwork: net, cognitionGraphData: model,
+        _cogView: { nodes: nodes, edges: [] },
         reducedMotion: false, _graphSearchMatches: [], _graphSearchIdx: 0,
         _graphSearchLastQ: '',
         toast() {}, renderCognitionGraph: async function () {},
         clearCognitionGraphSearch: methods.clearCognitionGraphSearch,
+        // W7-S2: найденный узел показывается и в панели подробностей.
+        graphSelectNode: methods.graphSelectNode,
+        graphNeighborsOf: methods.graphNeighborsOf,
+        graphClearDetail: methods.graphClearDetail,
         // D15/T-5265: подписи neighborhood (presentation-only) — стаб.
         graphApplySelectionLabels() {},
       }, extra || {});
@@ -1997,20 +2013,20 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       toast(t, k) { toasts.push([t, k]); } });
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(net.calls.focus.length, 1, 'F2: focus вызван');
-    assert.strictEqual(net.calls.focus[0][0], 1, 'F2: первое совпадение');
+    assert.strictEqual(net.calls.focus[0][0], 'ent:1:1', 'F2: первое совпадение');
     assert.strictEqual(net.calls.focus[0][1].scale, 1.1, 'F2: масштаб фокуса');
-    assert.deepStrictEqual(net.calls.select[0], [1], 'F2: selectNodes');
+    assert.deepStrictEqual(net.calls.select[0], ['ent:1:1'], 'F2: selectNodes');
     assert.strictEqual(ctx.graphSearchStatus.indexOf('Найден'), 0,
       'F2: статус «Найден…»');
     assert.ok(ctx.graphSearchStatus.indexOf('1/2') >= 0,
       'F2: счётчик 1/2');
     // Повторный Enter по тому же запросу → циклический перебор на 2-е.
     await methods.searchCognitionGraph.call(ctx);
-    assert.strictEqual(net.calls.focus[1][0], 2, 'F2: перебор на 2-е');
+    assert.strictEqual(net.calls.focus[1][0], 'ent:1:2', 'F2: перебор на 2-е');
     assert.ok(ctx.graphSearchStatus.indexOf('2/2') >= 0, 'F2: счётчик 2/2');
     // Следующий Enter → цикл замкнулся на первое.
     await methods.searchCognitionGraph.call(ctx);
-    assert.strictEqual(net.calls.focus[2][0], 1, 'F2: цикл замкнулся');
+    assert.strictEqual(net.calls.focus[2][0], 'ent:1:1', 'F2: цикл замкнулся');
 
     // Пустой ввод → без focus, сброс подсветки + fit().
     net = makeNet();
@@ -2111,17 +2127,41 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     }
     const prevVis = global.window.vis;
     global.window.vis = { DataSet: FakeDataSet, Network: FakeNetwork };
+    // W7-S2: рендер работает на модели адаптера — подключаем РЕАЛЬНЫЙ
+    // `cognitive-map.js` (как в браузере через <script>), а не подделку.
+    const prevCog = global.window.CognitiveMap;
+    global.window.CognitiveMap = require(path.join(__dirname, '..', '..',
+      'web', 'static', 'cognitive-map.js'));
+    const cogModel = global.window.CognitiveMap.normalizePayload({
+      version: 'cog-map/1', state: 'ok',
+      nodes: [
+        { id: 'fact:1:1', kind: 'fact', title: 'a', chat_id: 1 },
+        { id: 'fact:1:2', kind: 'fact', title: 'b', chat_id: 1 },
+      ],
+      edges: [{ id: 'e1', from: 'fact:1:1', to: 'fact:1:2',
+                relation: 'supports' }],
+    });
     const baseCtx = {
       isGlobalAdmin: true, activeTab: 'status', reducedMotion: false,
-      cognitionGraphData: {
-        nodes: [{ id: 1, label: 'a' }, { id: 2, label: 'b' }],
-        edges: [{ from: 1, to: 2, label: 'r', weight: 1 }],
-      },
+      cognitionGraphData: cogModel,
       $refs: { cognitionGraph: {} },
       cognitionNetwork: null, _cognitionGraphSig: null,
       ensureVisNetwork: methods.ensureVisNetwork,
       _graphSignature: methods._graphSignature,
       destroyCognitionGraph: methods.destroyCognitionGraph,
+      _cogGraphEl: methods._cogGraphEl,
+      // W7-S2: приватные помощники рендера берутся из реального кода.
+      _cogApplyData: methods._cogApplyData,
+      _cogCreateNetwork: methods._cogCreateNetwork,
+      _cogNodeRow: methods._cogNodeRow,
+      _cogEdgeRow: methods._cogEdgeRow,
+      _cogRedraw: methods._cogRedraw,
+      _cogRestoreCamera: methods._cogRestoreCamera,
+      _cogApplyHighlight: methods._cogApplyHighlight,
+      _cogFallbackPosition: methods._cogFallbackPosition,
+      _cogDrawLabels: methods._cogDrawLabels,
+      graphApplyZoomLevel: methods.graphApplyZoomLevel,
+      _graphZoomModeOf: methods._graphZoomModeOf,
     };
     await methods.renderCognitionGraph.call(baseCtx);
     assert.ok(netCreated, 'F4: сеть создана');
@@ -2167,6 +2207,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(netCreated.onceEvents.length, 0,
       'F4: reducedMotion → без слушателей');
     global.window.vis = prevVis;
+    if (prevCog === undefined) delete global.window.CognitiveMap;
+    else global.window.CognitiveMap = prevCog;
   }
 
   // ── F2 (sleep-manual-cascade-badges-round1018): реактивные бейджи ────────

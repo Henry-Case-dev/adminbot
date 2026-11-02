@@ -411,3 +411,173 @@ function labelItems(count) {
 })();
 
 console.log('EVOL-COG-MAP-S1-OK checks=' + checks);
+
+/* ═══ W7-S2 (карта на новом payload): визуальная система, кластеры по
+ * реальным связям, честная полнота и клиентские состояния. Всё — чистые
+ * функции адаптера, поэтому проверяется в node без DOM и vis-network. */
+
+const S2 = (function () {
+  let s2 = 0;
+  function ok2(cond, message) {
+    assert.ok(cond, message);
+    s2 += 1;
+  }
+  function eq2(actual, expected, message) {
+    assert.deepStrictEqual(actual, expected, message);
+    s2 += 1;
+  }
+
+  // ── 8. легенда: слова владельца и различитель не только цветом ─────────
+  const model = CM.normalizePayload(payload(), { aliases: ALIASES });
+  const legend = CM.legendEntries(model);
+  const required = legend.filter((e) => e.required);
+  eq2(required.map((e) => e.label),
+    ['Факты', 'Убеждения', 'Парадигмы', 'Изменения'],
+    'легенда: четыре обязательных слова владельца (ТЗ 1285)');
+  eq2(required.map((e) => e.kind),
+    ['fact', 'belief', 'paradigm', 'evolution_event'],
+    'легенда: обязательные классы — четыре когнитивных');
+  ok2(required.every((e) => /^#[0-9a-f]{6}$/i.test(e.color)),
+    'легенда: у каждого класса свой цвет токена');
+  eq2(new Set(required.map((e) => e.color)).size, 4,
+    'легенда: цвета классов различаются');
+  eq2(required.map((e) => e.shape),
+    ['dot', 'rounded', 'hexagon', 'diamond'],
+    'легенда: различие не только цветом — своя форма');
+  ok2(legend.every((e) => e.label !== 'Эволюция характера'),
+    '«Эволюция характера» — заголовок лент, а не строка легенды');
+  // Вторичные классы показываются только если реально есть в модели.
+  ok2(legend.some((e) => e.kind === 'entity' && e.required === false),
+    'сущности — вторичная строка (есть в модели)');
+  ok2(!legend.some((e) => e.kind === 'observation'),
+    'наблюдения не выдумываются, если их нет в данных');
+
+  // ── 9. визуальный стиль узла детерминирован и не цвето-только ─────────
+  eq2(CM.nodeStyle('paradigm').size > CM.nodeStyle('fact').size, true,
+    'парадигма крупнее факта (центр кластера)');
+  eq2(CM.nodeStyle('fact').color, '#38bdf8', 'факты — прохладный голубой');
+  eq2(CM.nodeStyle('belief').color, '#a78bfa', 'убеждения — мягкий фиолетовый');
+  eq2(CM.nodeStyle('paradigm').color, '#818cf8', 'парадигмы — индиго');
+  eq2(CM.nodeStyle('evolution_event').color, '#f59e0b',
+    'изменения — янтарный акцент');
+  eq2(CM.nodeStyle('entity').shape !== CM.nodeStyle('fact').shape, true,
+    'сущности отличаются формой, а не только цветом');
+  eq2(CM.nodeStyle('неизвестный').color, CM.KIND_STYLE.other.color,
+    'незнакомый тип не бросает и не выдумывает цвет');
+
+  // ── 10. кластеры по РЕАЛЬНЫМ связям: детерминизм, изоляты, чаты ────────
+  const clusterFixture = CM.normalizePayload({
+    version: 'cog-map/1', state: 'ok',
+    nodes: [
+      { id: 'paradigm:1:1', kind: 'paradigm', title: 'Доверие', chat_id: 1 },
+      { id: 'belief:1:2', kind: 'belief', title: 'Верю словам', chat_id: 1 },
+      { id: 'fact:1:3', kind: 'fact', title: 'Обещал и сделал', chat_id: 1 },
+      { id: 'fact:1:4', kind: 'fact', title: 'Изолированный факт', chat_id: 1 },
+      { id: 'fact:2:5', kind: 'fact', title: 'Чужой чат', chat_id: 2 },
+    ],
+    edges: [
+      { id: 'e1', from: 'belief:1:2', to: 'fact:1:3',
+        relation: 'derived_from', derived: true },
+      { id: 'e2', from: 'paradigm:1:1', to: 'belief:1:2',
+        relation: 'derived_from', derived: true },
+    ],
+  });
+  const clusters = CM.computeClusters(clusterFixture);
+  eq2(clusters.length, 3, 'кластеры: компонента + два изолированных узла');
+  eq2(clusters[0].size, 3, 'кластеры: связная компонента из трёх узлов');
+  eq2(clusters[0].paradigmTitle, 'Доверие',
+    'кластер назван по реальной парадигме');
+  eq2(clusters[0].label, 'Парадигмы: Доверие',
+    'подпись кластера — парадигма, а не выдуманная тема');
+  eq2(clusters.filter((c) => c.size === 1).length, 2,
+    'изолированные узлы — честные кластеры из одного узла');
+  ok2(clusters.every((c) => c.nodeIds.length === 1
+    || c.nodeIds.indexOf('fact:2:5') < 0),
+  'кластеры не приписывают узлу чужого чата несуществующую связь');
+  eq2(CM.computeClusters(clusterFixture), clusters,
+    'кластеры детерминированы: повторный прогон идентичен');
+  ok2(JSON.stringify(CM.computeClusters(clusterFixture))
+    === JSON.stringify(clusters),
+  'кластеры: порядок не зависит от порядка объектов');
+  const bigFirst = CM.computeClusters(CM.normalizePayload({
+    version: 'cog-map/1',
+    nodes: [
+      { id: 'a:1', kind: 'fact', title: 'A' },
+      { id: 'b:2', kind: 'fact', title: 'B', chat_id: 1 },
+      { id: 'c:3', kind: 'fact', title: 'C', chat_id: 1 },
+    ],
+    edges: [{ id: 'x', from: 'b:2', to: 'c:3', relation: 'supports' }],
+  }));
+  eq2(bigFirst.map((c) => c.size), [2, 1], 'кластеры: крупные первыми');
+
+  // ── 11. фильтр по кластеру: рёбра не рвутся, счётчики честные ──────────
+  const clusterId = clusters[0].id;
+  const filtered = CM.applyFilters(clusterFixture, { cluster: clusterId });
+  eq2(filtered.counts.nodes, 3, 'фильтр кластера: только его узлы');
+  eq2(filtered.counts.edges, 2, 'фильтр кластера: только внутренние рёбра');
+  ok2(filtered.nodes.every((n) => n.id.indexOf(':1:') > 0),
+    'фильтр кластера: узлы чужого чата не подмешиваются');
+  const unknownCluster = CM.applyFilters(clusterFixture, { cluster: 'cl:нет' });
+  eq2(unknownCluster.counts.nodes, 0,
+    'неизвестный кластер даёт пустой вид, а не всю карту');
+  const noDerived = CM.applyFilters(clusterFixture, { hideDerived: true });
+  eq2(noDerived.counts.edges, 0,
+    'скрытие производных рёбер убирает только их');
+
+  // ── 12. «показано X из Y»: одно правило, нейтральный текст ─────────────
+  const short = CM.completeness(model.shownOf);
+  eq2(short.active, true, 'полнота: часть данных → строка включается');
+  eq2(short.nodes, { shown: 6, total: 900, truncated: true },
+    'полнота: X и Y — из payload, а не из state');
+  eq2(short.text, 'показано 6 из 900 узлов · 4 из 2400 связей',
+    'полнота: нейтральный текст «показано X из Y»');
+  ok2(!/ошибк|сбой|внимани|предупрежд/i.test(short.text),
+    'полнота подаётся нейтрально, а не как ошибка');
+  const complete = CM.completeness({ nodes: 5, edges: 3,
+    totals: { nodes: 5, edges: 3 } });
+  eq2(complete.active, false, 'полнота: полный набор → строки нет');
+  eq2(complete.text, '', 'полнота: нечего показывать — текста нет');
+  const edgesShortOnly = CM.completeness({ nodes: 5, edges: 3,
+    totals: { nodes: 5, edges: 9 } });
+  eq2(edgesShortOnly.text, 'показано 3 из 9 связей',
+    'полнота: обрезаны только связи — честная формулировка');
+  eq2(edgesShortOnly.nodes.truncated, false,
+    'полнота: узлы не помечены обрезанными');
+  const missing = CM.completeness(null);
+  eq2(missing.active, false, 'полнота: без `shown_of` не выдумывает числа');
+
+  // ── 13. клиентское состояние ≠ серверный `state` ──────────────────────
+  const fresh = 1762000000;
+  const nowMs = (fresh + 60) * 1000;
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs }).state,
+    'ready', 'partial + свежие данные + рендерер готов → ready (не «ошибка»)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs }).serverState,
+    'partial', 'серверный state сохраняется отдельно');
+  eq2(CM.mapClientState({ model: null, renderer: 'ready', now: nowMs }).state,
+    'loading', 'нет модели → loading');
+  eq2(CM.mapClientState({ model, renderer: 'missing', now: nowMs }).state,
+    'not_loaded', 'vis-network не загружен → not_loaded');
+  eq2(CM.mapClientState({ model, renderer: 'failed', now: nowMs }).state,
+    'renderer_failed', 'рендерер упал → renderer_failed');
+  eq2(CM.mapClientState({ model, renderer: 'ready',
+    now: (fresh + 16 * 60) * 1000 }).state, 'stale',
+  'старые данные → stale (порог считается на клиенте)');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    staleMs: 0 }).state, 'ready', 'staleMs=0 отключает проверку устаревания');
+  const emptyModel = CM.normalizePayload({ version: 'cog-map/1',
+    state: 'empty', nodes: [], edges: [] });
+  eq2(CM.mapClientState({ model: emptyModel, renderer: 'ready', now: nowMs })
+    .state, 'empty', 'серверное empty → пустое состояние');
+  eq2(CM.mapClientState({ model, renderer: 'ready', now: nowMs,
+    visibleNodes: 0 }).state, 'empty',
+  'фильтр скрыл все узлы → пустое состояние (вид, а не данные)');
+  ok2(CM.STATE_LABELS.not_loaded && CM.STATE_LABELS.renderer_failed,
+    'у клиентских состояний есть честные подписи');
+  ok2(!/ошибк/i.test(CM.STATE_LABELS.not_loaded),
+    'загрузка визуализации не подаётся как ошибка');
+
+  return s2;
+})();
+
+checks += S2;
+console.log('EVOL-COG-MAP-S2-OK checks=' + S2);

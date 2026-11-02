@@ -172,9 +172,16 @@ class TestD3Sleep:
 
 class TestD4Graph:
     def test_search_alias(self):
+        # W7-S2: алиасы раскладываются в модель ОДИН раз при загрузке
+        # (`summaryAliasesMap` → `normalizePayload`), поиск — чистый
+        # `CognitiveMap.searchNodes` по названию/алиасу (без сети).
+        load = JS[JS.index("loadCognitionGraph: async function"):]
+        load = load[:load.index("_graphSignature: function")]
+        assert "summaryAliasesMap" in load, "§16: алиасы берутся из карты алиасов"
+        assert "normalizePayload" in load, "§16: модель строит адаптер"
         block = JS[JS.index("searchCognitionGraph: async function"):]
         block = block[:block.index("clearCognitionGraphSearch: function")]
-        assert "summaryAliasesMap" in block, "§16: поиск по алиасу"
+        assert "searchNodes" in block, "§16: поиск по названию/алиасу"
         assert "В графе нет узла" in JS
 
     def test_enhancements(self):
