@@ -140,6 +140,16 @@
     return n === null ? fallback : n;
   }
 
+  // Ограничение числа отрезком; пустой/инвертированный отрезок отдаёт `value`
+  // (узкий кадр не должен превращаться в NaN).
+  function clampNumber(value, lo, hi) {
+    var v = numberOr(value, 0);
+    var min = numberOr(lo, v);
+    var max = numberOr(hi, v);
+    if (!(max >= min)) return v;
+    return Math.min(Math.max(v, min), max);
+  }
+
   function normalizeQuery(value) {
     return String(value === null || value === undefined ? '' : value)
       .toLowerCase().replace(/ё/g, 'е')
@@ -888,25 +898,31 @@
     }
     // Сцена не остаётся «точками без имён»: узкий фильтр/плотный кластер
     // может отбросить ВСЕ подписи по коллизиям, и тогда пользователь видит
-    // безымянные точки. Ставим одну — самую приоритетную, чей бокс целиком
-    // лежит в кадре. Наложения нет по определению: она единственная.
+    // безымянные точки. Ставим одну — самую приоритетную. Если её бокс не
+    // влезает в кадр по горизонтали/вертикали, подпись СДВИГАЕТСЯ внутрь
+    // кадра (сама точка при этом в кадре), а не выбрасывается: сдвиг ограничен
+    // половиной бокса, поэтому подпись остаётся у своей точки. Наложения нет по
+    // определению — она единственная.
     if (!labels.length) {
       var fInset = numberOr(opts.edgeInset, cfg.padding);
+      var vw = viewport ? numberOr(viewport.width, 0) : 0;
+      var vh = viewport ? numberOr(viewport.height, 0) : 0;
       for (var f = 0; f < placeable.length; f += 1) {
         var fb = placeable[f];
         var ftext = labelText(fb, cfg.maxLabelChars);
         if (!ftext) continue;
         var fw = measureLabel(ftext, cfg.fontSize, cfg.charWidth);
         var fh = cfg.fontSize * 1.4;
+        var lx = fb.x;
+        var ly = fb.y;
         if (viewport) {
-          if (fb.x - fw / 2 < fInset || fb.y - fh / 2 < fInset
-            || fb.x + fw / 2 > numberOr(viewport.width, 0) - fInset
-            || fb.y + fh / 2 > numberOr(viewport.height, 0) - fInset) {
-            continue;                      // сам за кадром — не подписываем
-          }
+          // Точка за кадром — подписывать нечего (её и не видно).
+          if (fb.x < 0 || fb.y < 0 || fb.x > vw || fb.y > vh) continue;
+          lx = clampNumber(lx, fInset + fw / 2, vw - fInset - fw / 2);
+          ly = clampNumber(ly, fInset + fh / 2, vh - fInset - fh / 2);
         }
         labels.push({
-          id: fb.id, x: fb.x, y: fb.y, text: ftext,
+          id: fb.id, x: lx, y: ly, text: ftext,
           width: fw, height: fh,
           priority: labelPriority(fb),
         });

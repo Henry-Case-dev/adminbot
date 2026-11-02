@@ -1602,6 +1602,12 @@ def run_cog_map(browser, base, report, fails, out_dir):
               if m.type == "error" else None)
         pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
         pg.on("request", lambda r: requests.append(r.url))
+        # Диагностика (не проверка): какой именно ресурс не загрузился, если
+        # консоль сообщит ошибку. Без URL сообщение «Failed to load resource:
+        # ERR_CONNECTION_REFUSED» неотличимо от сетевой случайности стенда.
+        reqfail = []
+        pg.on("requestfailed", lambda r: reqfail.append(
+            "%s :: %s" % (r.url[:160], str(r.failure)[:60])))
         open_status(pg, "1-%d" % w)
         pg.wait_for_selector("[data-cog-map] canvas", timeout=25000)
         pg.wait_for_timeout(1200)
@@ -1814,7 +1820,7 @@ def run_cog_map(browser, base, report, fails, out_dir):
         section["viewports"][str(w)] = {
             "first": first, "zoomed": zoomed, "filtered": filtered,
             "reset": reset, "full": full, "back": back, "fullset": fullset,
-            "errors": errs[:5],
+            "errors": errs[:5], "request_failed": reqfail[:5],
         }
         ctx.close()
 
@@ -2269,18 +2275,36 @@ def run_cog_map(browser, base, report, fails, out_dir):
         # ── (5) карточка РЕБРА: тип, концы, обоснование ───────────────────
         pg.evaluate("() => window.__adminbotVm.closeCogCard()")
         pg.wait_for_timeout(400)
+        # Клик по ребру — попадание в линию на сцене. Промах в узел открывает
+        # карточку узла; её обязательно закрыть ДО следующей попытки, иначе на
+        # телефоне нижний лист (52dvh) перекрывает половину сцены и все
+        # следующие тапы уходят в лист, а не в карту (ровно так прогон на 390
+        # и «терял» ребро). Точки берём только реально видимые в кадре.
         opened_edge = None
-        for cand in pg.evaluate(COG_EDGE_POINTS)[:3]:
-            for dy in (0, 5, -5, 10, -10):
-                press_at(cand["x"], cand["y"] + dy)
+        edge_tries = 0
+        edge_cands = [c for c in pg.evaluate(COG_EDGE_POINTS)
+                      if 4 <= c["y"] <= h - 4 and 4 <= c["x"] <= w - 4][:6]
+        for cand in edge_cands:
+            for dy in (0, 6, -6, 12, -12, 20, -20):
+                y = cand["y"] + dy
+                if not (4 <= y <= h - 4):
+                    continue
+                edge_tries += 1
+                press_at(cand["x"], y)
                 got = probe_card()
                 if got["open"] and got["kind"] == "edge":
                     opened_edge = got
                     break
+                if got["open"]:
+                    pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+                    pg.wait_for_timeout(250)
             if opened_edge:
                 break
         ok(opened_edge is not None,
-           "%s: клик по ребру не открыл карточку связи" % label)
+           "%s: клик по ребру не открыл карточку связи "
+           "(кандидатов %d, попыток %d, последняя карточка %r/%r)"
+           % (label, len(edge_cands), edge_tries,
+              (probe_card() or {}).get("kind"), (probe_card() or {}).get("id")))
         if opened_edge:
             model_edge = pg.evaluate(
                 "(id) => { const e = (window.__adminbotVm.cognitionGraphData"

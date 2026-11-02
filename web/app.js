@@ -28735,8 +28735,15 @@
         }
         var node = (model.byId || {})[String(nodeId)] || null;
         if (!node) return null;      // узла нет в модели — карточку не рисуем
+        var prev = this.cogCard;
+        // Раскрытый список связей принадлежит ПОКАЗАННОЙ записи: обновление
+        // той же самой записи (поллинг, «Показать связи» → программное
+        // выделение → `selectNode` → `_cogSyncCard`) не должно его сворачивать,
+        // иначе кнопка отменяет собственное действие.
+        var same = !!(prev && prev.kind === 'node'
+          && String(prev.id) === String(node.id));
         this.cogCard = C.nodeCard(node, model);
-        this.cogCardLinksExpanded = false;
+        if (!same) this.cogCardLinksExpanded = false;
         if (!(opts && opts.silent)) this._cogFocusCard();
         return this.cogCard;
       },
@@ -28752,8 +28759,11 @@
           if (list[i].id === String(edgeId)) { edge = list[i]; break; }
         }
         if (!edge) return null;
+        var prevEdge = this.cogCard;
+        var sameEdge = !!(prevEdge && prevEdge.kind === 'edge'
+          && String(prevEdge.id) === String(edge.id));
         this.cogCard = C.edgeCard(edge, model);
-        this.cogCardLinksExpanded = false;
+        if (!sameEdge) this.cogCardLinksExpanded = false;
         if (!(opts && opts.silent)) this._cogFocusCard();
         return this.cogCard;
       },

@@ -553,6 +553,30 @@ def test_memory_catalog_relation_uses_human_label():
         "каталог показывает машинный тип связи (derived_from)"
 
 
+def test_show_links_is_not_undone_by_reselection():
+    """«Показать связи» не сворачивает себя повторным показом записи.
+
+    Программное выделение узла (`selectNodes`) поднимает `selectNode`, а тот
+    обновляет открытую карточку. Безусловный сброс `cogCardLinksExpanded` там
+    означал бы, что кнопка отменяет собственное действие (живой прогон 390:
+    «Показать связи» не раскрыло список).
+    """
+    node = _block(APP_JS, "openCogNodeCard: function (nodeId, opts) {",
+                  "openCogEdgeCard: function (edgeId, opts) {")
+    edge = _block(APP_JS, "openCogEdgeCard: function (edgeId, opts) {",
+                  "_cogRefreshCard: function () {")
+    assert "if (!same) this.cogCardLinksExpanded = false;" in node
+    assert "if (!sameEdge) this.cogCardLinksExpanded = false;" in edge
+    for body in (node, edge):
+        # Ровно ОДИН сброс и только под условием «это другая запись».
+        assert body.count("cogCardLinksExpanded = false") == 1, \
+            "показ той же записи сворачивает раскрытые связи"
+    links = _block(APP_JS, "cogShowLinks: function () {",
+                   "// Клик по ребру снимает выделение")
+    assert "this.cogCardLinksExpanded = true;" in links
+    assert "_cogSelectNode(card.id)" in links
+
+
 def test_card_is_back_stack_layer_and_keyboard_reachable():
     layers = _block(APP_JS, "function backStackLayers(vm) {",
                     "// Закрывает РОВНО один (верхний) слой")

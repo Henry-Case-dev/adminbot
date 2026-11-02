@@ -787,6 +787,31 @@ const S2 = (function () {
     { scale: 1, viewport: { width: 260, height: 200 } });
   eq2(allOutside.labels.length, 0,
     'всё за кадром — подписей нет (ни одного «висящего» имени)');
+  // Точка В кадре, но у самой кромки: бокс подписи туда не помещается. Подпись
+  // не выбрасывается, а СДВИГАЕТСЯ внутрь кадра — иначе узкий фильтр на
+  // телефоне оставлял сцену вообще без имён (живой прогон 390: 3 узла, 0
+  // подписей).
+  const atEdge = CM.allocateLabels(
+    [{ id: 'e1', x: 3, y: 3, kind: 'fact', title: 'У самой кромки кадра' }],
+    { scale: 1, viewport: { width: 260, height: 200 }, fontSize: 11 });
+  eq2(atEdge.labels.length, 1, 'точка у кромки всё равно подписана');
+  // Допуск 0.5 px: сравнение с отступом после clamp идёт на границе и
+  // упирается в плавающую точку (66.5 − 63.50000000000001 = 2.9999999999).
+  const EPS_PX = 0.51;
+  ok2(atEdge.labels[0].x - atEdge.labels[0].width / 2
+      >= CM.DEFAULTS.padding - EPS_PX
+    && atEdge.labels[0].y - atEdge.labels[0].height / 2
+      >= CM.DEFAULTS.padding - EPS_PX
+    && atEdge.labels[0].x + atEdge.labels[0].width / 2
+       <= 260 - CM.DEFAULTS.padding + EPS_PX,
+    'сдвинутая подпись целиком внутри кадра с отступом');
+  // Несколько узлов у кромки: подписан самый приоритетный, а не случайный.
+  const edgeMany = CM.allocateLabels([
+    { id: 'z', x: 2, y: 40, kind: 'observation', title: 'Наблюдение у кромки' },
+    { id: 'p', x: 4, y: 44, kind: 'paradigm', title: 'Парадигма у кромки' },
+  ], { scale: 1, viewport: { width: 260, height: 200 }, fontSize: 11 });
+  eq2(edgeMany.labels.map((l) => l.id), ['p'],
+    'у кромки подписана самая приоритетная запись');
 
   return s2;
 })();
