@@ -258,3 +258,86 @@ worktree нет `plans/current_task.md` (файл владельца не отс
 - **Независимая проверка:** 9 проб из §4 на собственных фикстурах (включая
   плотный граф 800/2400, кросс-чатовую ссылку, отказ одного источника, RBAC
   без подмены авторизации); одна нашла дефект B1.
+## Re-review 2 - кандидат `d69f9584` (правка B1)
+
+**Вердикт повторной проверки: B1 закрыт, блокеров нет.** Кандидат:
+`d69f9584` поверх `48b21ace`/`f49dd125`; диффа продукта касаются только
+`web/api/cognitive_map.py`, `web/static/cognitive-map.js`,
+`tests/test_evol_cog_map_api.py`, `tests/js/evol_cognitive_map_test.js`.
+`web/app.py` с прошлого кандидата не менялся, запрещённые файлы
+(`web/index.html`, `web/app.js`, `web/static/app.css`, `services/database.py`,
+`web/api/memory_agi.py`, `web/api/routes.py`) не тронуты, адаптер в
+`index.html` не подключён.
+
+### Что проверено независимо
+
+1. **Единое правило полноты.** В коде: `by_kind[kind].truncated = total > shown`
+   для всех шести классов (для `entity` плюс страховка `snapshot.truncated`),
+   `truncated.nodes = any(by_kind[*].truncated)`, `truncated.edges = cap ИЛИ
+   edge_total > shown_edges`, `truncated.by_class` берётся из `by_kind`,
+   `state`: `degraded` -> `empty` -> `partial` -> `ok`. Замеры на своих
+   фикстурах:
+
+   | Сценарий | `nodes` / `edges` | `by_kind.entity` | `truncated.nodes/edges` | `state` |
+   |---|---|---|---|---|
+   | 850 сущностей цепочкой (снапшот вернул окрестность) | 152 / 151 | `{shown:152,total:850,truncated:true}` | `true` / `true` | `partial` |
+   | Маленький полный чат (2 связанные сущности + 1 факт) | 3 / 1 | `{shown:2,total:2,truncated:false}` | `false` / `false` | `ok`, `totals.nodes=3=len(nodes)`, `totals.edges=1=len(edges)` |
+
+   По правилу «total > shown» все шесть классов в ответе согласованы; повторный
+   прогон на 850 сущностях побайтово идентичен (детерминизм сохранён).
+
+2. **`evt:0` устранён.** Чат A с системной записью `memory_dream_log.chat_id=0`
+   (`decay_run`) и своим `distilled`: в карте чата только
+   `evt:-1001:dream:2` (`scope="chat"`); в глобальной области системная запись
+   приходит как `evt:global:dream:1` со `scope="global"`, `chat_id=null` и
+   `provenance.chat_id=null`; `evt:0:` в id нет, id уникальны. Наблюдение без
+   чата тоже честно глобальное: `obs:global:<id>`, `scope="global"`,
+   `chat_id=null`. Адаптер: отдельная проба (5 проверок) подтвердила
+   `applyFilters(model,{scopes:['global']})`, `{scopes:['chat']}`, комбинацию
+   `scopes`+`kinds` и совместимость `chats:[null]`.
+
+3. **Новые тесты не вакуумные (мутации на копиях, код продукта не менялся).**
+   Откат `by_kind.entity.truncated` к старому `bool(snapshot.truncated)`:
+   краснеют `test_entity_neighbourhood_is_reported_partial` и
+   `test_orphan_entity_is_reported_honestly`, а
+   `test_fully_loaded_small_chat_is_ok` остаётся зелёным (это guard обратной
+   стороны правила, так и задумано). Откат `chat_id = raw_chat_id if
+   raw_chat_id not in (None, 0) else None` краснит
+   `test_global_decay_run_is_not_chat_zero`. Все четыре новых теста реально
+   ловят откат своей правки.
+
+4. **Форма payload не изменилась.** `version="cog-map/1"`, наборы ключей
+   верхнего уровня, узла и ребра те же; `caps` по-прежнему
+   `{nodes:800,edges:2400,per_class:150,classes:4}` (поле `entity_nodes`
+   зависит от числа когнитивных узлов, как и было: в маленьком чате 799).
+
+### Прогоны этой проверки
+
+| Команда | Результат |
+|---|---|
+| `pytest tests/test_evol_cog_map_api.py -q` | 23 passed |
+| `pytest tests/test_webapp_api.py -q` | 163 passed |
+| `node tests/js/evol_cognitive_map_test.js` | `EVOL-COG-MAP-S1-OK checks=407` |
+
+Падений, требующих сверки с базой, нет.
+
+### Что осталось (не блокирует S1)
+
+- **D1 (PM/Arch) не закрыт:** контракт §3/§8 и `slice-graph.json:918` всё ещё
+  называют модуль `web/api/memory_graph.py`, фактически это
+  `web/api/cognitive_map.py`. Это сверка документов, а не дефект поведения.
+- **Формулировка S2.** После правки «показано X из Y» становится нормальным
+  состоянием почти любого реального чата (снапшот отбрасывает сирот и берёт
+  окрестность сидов). В S2 это надо подавать нейтрально («показано 152 из
+  850»), а не как ошибку: это честная неполнота, а не сбой.
+- **Мелочь в отчёте Builder** (§9): фраза «все падают при откате правки»
+  соседствует с точным «краснеют два теста»; верно второе, третий тест это
+  guard обратной стороны.
+
+### Строки для PM после B1
+
+Привязывать к `d69f9584` (а не к `770f53c1`) можно те же строки, что и в §8,
+теперь уже без оговорки про B1: `L01267`, `L01268`, `L01269`, `L01270`,
+`L01271`, `L01272` (данные и модель) и частично `L01296`, `L01285`, `L01312`,
+`L01333`, `L01330`, `L01332`. Статус строк остаётся `PENDING`: acceptance
+каждой строки это виджет на «Статусе», то есть S2..S4.
