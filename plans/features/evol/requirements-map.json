@@ -13248,12 +13248,12 @@
       "source_excerpt": "- дана прямая ссылка на файл, директорию или репозиторий;",
       "disposition": "required",
       "reason": "Сценарий 1: дана прямая ссылка на файл, директорию или репозиторий → подтверждённое чтение исходника.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S1",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "прямая `blob`-ссылка на исходник → проверенное содержимое, правильная ветка/строки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13261,7 +13261,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13270,7 +13270,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13279,7 +13279,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13288,7 +13288,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13300,7 +13300,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №1 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01185",
@@ -13309,12 +13309,12 @@
       "source_excerpt": "- дано только название/примерное название репозитория, продукта, библиотеки или проекта;",
       "disposition": "required",
       "reason": "Сценарий 2: дано только название или примерное название репозитория/продукта/библиотеки → самостоятельный discovery.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S2",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13322,7 +13322,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13331,7 +13331,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13340,7 +13340,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13349,7 +13349,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13361,7 +13361,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №2 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01186",
@@ -13370,12 +13370,12 @@
       "source_excerpt": "- дана естественная формулировка функции/механизма/реализации без ссылки и без точного имени репозитория («где в этом моде считается параллельный выход», «какой код отвечает за ...»).",
       "disposition": "required",
       "reason": "Сценарий 3: естественная формулировка функции/механизма без ссылки и точного имени репозитория.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S3",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только естественное описание реализации без названия репозитория → репозиторий найден либо честная неоднозначность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13383,7 +13383,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13392,7 +13392,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13401,7 +13401,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13410,7 +13410,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13422,7 +13422,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №3 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01190",
@@ -13446,12 +13446,12 @@
       "source_excerpt": "1. **Repository Discovery.** Поиск репозиториев по названию, описанию, технологическим терминам и контексту пользователя. Сопоставление owner/repo, языка, релевантности к задаче, версии и популярно встречающихся алиасов. Опечатки и приблизи",
       "disposition": "required",
       "reason": "Операция Repository Discovery: owner/repo, язык, релевантность, версия, алиасы и опечатки через поиск, без жёстких словарей.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S2",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13459,7 +13459,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13468,7 +13468,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13477,7 +13477,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13486,7 +13486,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13498,7 +13498,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №2 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01197",
@@ -13507,12 +13507,12 @@
       "source_excerpt": "2. **Source Locator.** Поиск путей, названий символов, классов, методов, текстовых совпадений и связанных импортов/вызовов внутри выбранного репозитория. Отдельно различать совпадение по README/issue/release и настоящий исходный файл. Репоз",
       "disposition": "required",
       "reason": "Операция Source Locator: пути/символы/классы/методы/импорты внутри репозитория, отделение README/issue/release от настоящего исходника.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S3",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только естественное описание реализации без названия репозитория → репозиторий найден либо честная неоднозначность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13520,7 +13520,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13529,7 +13529,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13538,7 +13538,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13547,7 +13547,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13559,7 +13559,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №3 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01198",
@@ -13568,12 +13568,12 @@
       "source_excerpt": "3. **Verified Fetch.** Чтение непосредственно содержимого файла через надёжный source endpoint (для GitHub: contents/raw/API с корректным ref; при необходимости допустим безопасный fallback), а не только очищенный HTML. Понимать прямые `/bl",
       "disposition": "required",
       "reason": "Операция Verified Fetch через contents/raw/API с корректным ref: /blob/<ref>/<path>, commit-ссылки, raw URL, ветки с «/», адаптер для других хостингов.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S1",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "прямая `blob`-ссылка на исходник → проверенное содержимое, правильная ветка/строки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13581,7 +13581,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13590,7 +13590,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13599,7 +13599,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13608,7 +13608,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13620,7 +13620,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №1 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01199",
@@ -13629,12 +13629,12 @@
       "source_excerpt": "4. **Bounded Follow-up.** По запросу о поведении алгоритма просматривать определения вызываемых методов, используемые классы, наследование/интерфейсы, конфигурационные развилки и реальный путь исполнения; ограничивать глубину и размер перед",
       "disposition": "required",
       "reason": "Операция Bounded Follow-up: смежные классы/вызовы/наследование с конфигурируемой глубиной и явным «что ещё не проверено»; чтение не обрывается на файле, который лишь выставляет параметр.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S4",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "найденный класс лишь выставляет параметр → цепочка смежных классов, отсутствие ложного объяснения",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13642,7 +13642,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13651,7 +13651,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13660,7 +13660,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13669,7 +13669,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13681,7 +13681,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №4 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01200",
@@ -13690,12 +13690,12 @@
       "source_excerpt": "5. **Evidence Contract.** Возвращать LLM структурированный результат: `status`, `repo`, `ref`/commit, `path`, проверенный URL, диапазон строк, фрагмент кода, объём/обрезку, статус ошибки и provenance. Стадии discovery/locator/fetch различат",
       "disposition": "required",
       "reason": "Evidence Contract: структурированный результат (status, repo, ref/commit, path, проверенный URL, строки, фрагмент, усечение, ошибка, provenance); verified только при реально полученном файле.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S5",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "403/404/rate limit/timeout, HTML вместо кода, найден лишь сниппет → честный статус, без псевдоссылок и выдуманных причин",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13703,7 +13703,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13712,7 +13712,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13721,7 +13721,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13730,7 +13730,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13742,7 +13742,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №5 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01204",
@@ -13766,7 +13766,7 @@
       "source_excerpt": "- Если репозиторий однозначен по теме, бот **сам находит его и проверяет код**; не просит ссылку только потому, что URL не был передан.",
       "disposition": "required",
       "reason": "Однозначный по теме репозиторий бот находит сам и проверяет код, не просит ссылку из-за её отсутствия.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R2",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
@@ -13781,7 +13781,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "остаётся PENDING: нужна живая проверка маршрутизации LLM (не код слайса), см. Re-review 2 §R2.6. СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "остаётся PENDING: нужна живая проверка маршрутизации LLM (не код слайса), см. Re-review 2 §R2.6. СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R2`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01207",
@@ -13790,12 +13790,12 @@
       "source_excerpt": "- Если есть несколько реально разных версий или конкурирующих репозиториев, сначала использовать контекст разговора; при невозможности выбора сообщить кандидатов и уточнить **одну** необходимую развилку вместо уверенной подмены.",
       "disposition": "required",
       "reason": "Конкурирующие версии/репозитории: сначала контекст разговора, затем одна необходимая развилка вместо уверенной подмены.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R1",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13803,7 +13803,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13812,7 +13812,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13821,7 +13821,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13830,7 +13830,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13842,7 +13842,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R1`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01208",
@@ -13851,12 +13851,12 @@
       "source_excerpt": "- Если обнаружен исходный файл, отдавать действующую ссылку на файл/строки/commit и краткий точный ответ. При вопросе «как работает» — объяснять по реальному call path и отмечать важные условия/развилки.",
       "disposition": "required",
       "reason": "При найденном файле — действующая ссылка на файл/строки/commit и краткий точный ответ; при «как работает» — разбор по реальному call path.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R1",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13864,7 +13864,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13873,7 +13873,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13882,7 +13882,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13891,7 +13891,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13903,7 +13903,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R1`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01209",
@@ -13912,12 +13912,12 @@
       "source_excerpt": "- Если сеть, rate limit, 403, 404, timeout или parser не позволили прочитать файл, зафиксировать **конкретный технический результат** (без выдуманного описания причины, если её не видно). Не превращать недоступный код в псевдознание; отделя",
       "disposition": "required",
       "reason": "Техническая неудача (сеть, rate limit, 403, 404, timeout, parser) фиксируется конкретно, без выдуманного описания причины; документация отделяется от проверенного кода.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S5",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "403/404/rate limit/timeout, HTML вместо кода, найден лишь сниппет → честный статус, без псевдоссылок и выдуманных причин",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13925,7 +13925,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13934,7 +13934,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -13943,7 +13943,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -13952,7 +13952,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -13964,7 +13964,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №5 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01210",
@@ -13973,12 +13973,12 @@
       "source_excerpt": "- Проверить на исходном случае с GregTech (репозиторий, ветка `1.20.1`, `ParallelHatchPartMachine`, `GTRecipeModifiers.hatchParallel`, `ParallelLogic`, `RecipeRunner`, `ChanceLogic`), но **не зашивать ни одно из этих имён в runtime**.",
       "disposition": "required",
       "reason": "Проверка на исходном кейсе GregTech (репозиторий, ветка 1.20.1, ParallelHatchPartMachine, GTRecipeModifiers.hatchParallel, ParallelLogic, RecipeRunner, ChanceLogic) без зашивания имён в runtime.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R1",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -13986,7 +13986,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -13995,7 +13995,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14004,7 +14004,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14013,7 +14013,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14025,7 +14025,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: структурно ни одного имени из кейса в runtime; реальный прогон GregTech — живая проверка.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: структурно ни одного имени из кейса в runtime; реальный прогон GregTech — живая проверка.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R1`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01211",
@@ -14034,7 +14034,7 @@
       "source_excerpt": "- Просьбы вроде «найди Java-файл» и «разбери механику по коду» маршрутизировать к подтверждённому чтению, а не к финальному ответу на основании совпадения названия в поиске.",
       "disposition": "required",
       "reason": "«Найди Java-файл» и «разбери механику по коду» маршрутизируются к подтверждённому чтению, а не к финальному ответу по совпадению названия.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R2",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
@@ -14049,7 +14049,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "остаётся PENDING: нужна живая проверка маршрутизации LLM (не код слайса), см. Re-review 2 §R2.6. СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "остаётся PENDING: нужна живая проверка маршрутизации LLM (не код слайса), см. Re-review 2 §R2.6. СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R2`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01213",
@@ -14073,12 +14073,12 @@
       "source_excerpt": "1. **Не выдумывать прошлые реплики и даты.** Формулировки «вчера ты писал...», точные цитаты, авторы и временные привязки требуют найденного сообщения/источника с временем и корректной адресацией. При недостаточных данных говорить об ограни",
       "disposition": "required",
       "reason": "§1.4.1: не выдумывать прошлые реплики, точные цитаты, авторов и даты без найденного сообщения/источника с временем.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S6",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "неверная дата прежнего сообщения → отсутствие неподтверждённых цитат; после поправки не создаётся другая выдуманная хронология",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14086,7 +14086,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14095,7 +14095,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14104,7 +14104,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14113,7 +14113,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14125,7 +14125,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №6 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01218",
@@ -14134,12 +14134,12 @@
       "source_excerpt": "2. **Исправление ошибки — не новая фантазия.** После замечания пользователя бот перепроверяет доступные свидетельства и исправляет только подтверждённую часть. Не придумывает новую хронологию для оправдания предыдущей.",
       "disposition": "required",
       "reason": "§1.4.2: после замечания перепроверять свидетельства и исправлять только подтверждённую часть, не создавая новую хронологию.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S6",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "неверная дата прежнего сообщения → отсутствие неподтверждённых цитат; после поправки не создаётся другая выдуманная хронология",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14147,7 +14147,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14156,7 +14156,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14165,7 +14165,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14174,7 +14174,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14186,7 +14186,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №6 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01219",
@@ -14195,7 +14195,7 @@
       "source_excerpt": "3. **Соблюдать диалоговые обязательства.** Если сам назвал нужный файл или пообещал поиск, следующие реплики должны учитывать уже найденный контекст, а не возвращать задачу пользователю как новую. Использовать существующие Observer/L1/Write",
       "disposition": "required",
       "reason": "§1.4.3: соблюдать диалоговые обязательства (названный файл, обещанный поиск) через существующие Observer/L1/Writer/context, без вечного агента.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R2",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
@@ -14210,7 +14210,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "не этот слайс: промпт-канон байт-в-байт (ER-65 OK) — закрывается строкой ER-65, не SRC-READER."
+      "note": "не этот слайс: промпт-канон байт-в-байт (ER-65 OK) — закрывается строкой ER-65, не SRC-READER. Остаточная группа `EVOL-SRC-READER-R2`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01220",
@@ -14219,12 +14219,12 @@
       "source_excerpt": "4. **Точный смысл статуса инструмента.** Не говорить «посмотрел код» без успешной загрузки исходника; не говорить «GitHub не пустил» на основании пустой выдачи поисковика или ошибки парсера. `search_found` не равно `source_fetched`.",
       "disposition": "required",
       "reason": "§1.4.4: точный смысл статуса инструмента — search_found ≠ source_fetched; «GitHub не пустил» не выводится из пустой выдачи или ошибки парсера.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R1",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14232,7 +14232,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14241,7 +14241,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14250,7 +14250,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14259,7 +14259,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14271,7 +14271,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload» (смысл статуса). R-1 — reuse отдавал фрагмент, прочитанный ради другого символа — исправлен в `2618026e` с тестом.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload» (смысл статуса). R-1 — reuse отдавал фрагмент, прочитанный ради другого символа — исправлен в `2618026e` с тестом.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R1`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01221",
@@ -14280,7 +14280,7 @@
       "source_excerpt": "5. Характер бота остаётся тем же. Резкий стиль или мат допустимы по действующим настройкам, но они **не повышают статус непроверенного факта**.",
       "disposition": "required",
       "reason": "§1.4.5: характер и стиль (включая мат) не повышают статус непроверенного факта.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R2",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
@@ -14295,7 +14295,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "не этот слайс: промпт-канон байт-в-байт (ER-65 OK) — закрывается строкой ER-65, не SRC-READER."
+      "note": "не этот слайс: промпт-канон байт-в-байт (ER-65 OK) — закрывается строкой ER-65, не SRC-READER. Остаточная группа `EVOL-SRC-READER-R2`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01223",
@@ -14304,12 +14304,12 @@
       "source_excerpt": "### 1.5. Диагностика и конечная приёмка",
       "disposition": "required",
       "reason": "§1.5: разобрать реальные runtime-события инцидента, если трассы доступны; иначе не выдумывать root cause, закрыть проверяемые архитектурные пробелы и добавить телеметрию; конечная приёмка — 7 сценариев.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-R1",
       "slice": "EVOL-SRC-READER",
       "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14317,7 +14317,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14326,7 +14326,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14335,7 +14335,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14344,7 +14344,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14356,7 +14356,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Остаточная группа `EVOL-SRC-READER-R1`: строка не относится ровно к одному сценарию §1.5, acceptance сохранён исходным («7 сценариев §1.5»)."
     },
     {
       "source_id": "L01228",
@@ -14365,12 +14365,12 @@
       "source_excerpt": "- прямая `blob`-ссылка на исходник → проверенное содержимое, правильная ветка/строки;",
       "disposition": "required",
       "reason": "Тест 1: прямая blob-ссылка на исходник → проверенное содержимое, правильная ветка и строки.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S1",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "прямая `blob`-ссылка на исходник → проверенное содержимое, правильная ветка/строки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14378,7 +14378,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14387,7 +14387,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14396,7 +14396,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14405,7 +14405,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14417,7 +14417,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №1 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01229",
@@ -14426,12 +14426,12 @@
       "source_excerpt": "- только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл;",
       "disposition": "required",
       "reason": "Тест 2: только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S2",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14439,7 +14439,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14448,7 +14448,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14457,7 +14457,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14466,7 +14466,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14478,7 +14478,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №2 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01230",
@@ -14487,12 +14487,12 @@
       "source_excerpt": "- только естественное описание реализации без названия репозитория → репозиторий найден либо честная неоднозначность;",
       "disposition": "required",
       "reason": "Тест 3: только естественное описание реализации без имени репозитория → репозиторий найден либо честная неоднозначность.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S3",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "только естественное описание реализации без названия репозитория → репозиторий найден либо честная неоднозначность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14500,7 +14500,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14509,7 +14509,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14518,7 +14518,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14527,7 +14527,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14539,7 +14539,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №3 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01231",
@@ -14548,12 +14548,12 @@
       "source_excerpt": "- найденный класс лишь выставляет параметр → цепочка смежных классов, отсутствие ложного объяснения;",
       "disposition": "required",
       "reason": "Тест 4: найденный класс лишь выставляет параметр → цепочка смежных классов, без ложного объяснения.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S4",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "найденный класс лишь выставляет параметр → цепочка смежных классов, отсутствие ложного объяснения",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14561,7 +14561,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14570,7 +14570,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14579,7 +14579,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14588,7 +14588,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14600,7 +14600,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №4 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01232",
@@ -14609,12 +14609,12 @@
       "source_excerpt": "- 403/404/rate limit/timeout, HTML вместо кода, найден лишь сниппет → честный статус, без псевдоссылок и выдуманных причин;",
       "disposition": "required",
       "reason": "Тест 5: 403/404/rate limit/timeout, HTML вместо кода, найден лишь сниппет → честный статус без псевдоссылок и выдуманных причин.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S5",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "403/404/rate limit/timeout, HTML вместо кода, найден лишь сниппет → честный статус, без псевдоссылок и выдуманных причин",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14622,7 +14622,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14631,7 +14631,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14640,7 +14640,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14649,7 +14649,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14661,7 +14661,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №5 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01233",
@@ -14670,12 +14670,12 @@
       "source_excerpt": "- неверная дата прежнего сообщения → отсутствие неподтверждённых цитат; после поправки не создаётся другая выдуманная хронология;",
       "disposition": "required",
       "reason": "Тест 6: неверная дата прежнего сообщения → отсутствие неподтверждённых цитат; после поправки не создаётся другая выдуманная хронология.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S6",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "неверная дата прежнего сообщения → отсутствие неподтверждённых цитат; после поправки не создаётся другая выдуманная хронология",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14683,7 +14683,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14692,7 +14692,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14701,7 +14701,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14710,7 +14710,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14722,7 +14722,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых). закрыто только «в части инструмента/payload»: в payload нет цитат и хронологии; поведение LLM этим не доказывается.  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №6 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01234",
@@ -14731,12 +14731,12 @@
       "source_excerpt": "- нет повторных сетевых вызовов без необходимости; нет утечек токенов, обхода прав, исполнения чужого кода.",
       "disposition": "required",
       "reason": "Тест 7: нет повторных сетевых вызовов без необходимости; нет утечек токенов, обхода прав и исполнения чужого кода.",
-      "req_id": "EVOL-SRC-READER",
+      "req_id": "EVOL-SRC-READER-S7",
       "slice": "EVOL-SRC-READER",
-      "acceptance": "7 конечных сценариев §1.5 проходят без обязательных живых внешних проверок: (1) прямая blob-ссылка на исходник → проверенное содержимое, верная ветка и диапазон строк; (2) только имя репозитория + описание механизма → discovery → реальный source fetch → связанный файл; (3) только естественное описание реализации → репозиторий найден либо честная неоднозначность; (4) найденный класс лишь выставляет параметр → цепочка смежных классов без ложного объяснения; (5) 403/404/rate limit/timeout, HTML вместо кода, только сниппет → честный статус без псевдоссылок и выдуманных причин; (6) неверная дата прежнего сообщения → нет неподтверждённых цитат и новой выдуманной хронологии; (7) нет лишних повторных сетевых вызовов, утечек токенов, обхода прав и исполнения чужого кода. Правила доказательности §1.4 проверяются в тех же сценариях (прошлые реплики/даты только из найденного источника, исправление без новой фантазии, соблюдение диалоговых обязательств, search_found ≠ source_fetched, стиль не повышает статус факта). События discovery/locator/fetch различимы в диагностике; при отсутствии исторических трасс root cause не выдумывается, а добавляется телеметрия. Evidence Contract §1.2.5 возвращает status/repo/ref/path/url/строки/фрагмент/усечение/ошибку/provenance, и verified не объявляется по названиям или сниппетам.",
+      "acceptance": "нет повторных сетевых вызовов без необходимости; нет утечек токенов, обхода прав, исполнения чужого кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "w20-src-reader-review.md — Re-review 2 (§R2.6 «Привязка строк карты»)",
@@ -14744,7 +14744,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -14753,7 +14753,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -14762,7 +14762,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -14771,7 +14771,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -14783,7 +14783,7 @@
         "EVOL-SRC-EVIDENCE"
       ],
       "queue_note": "В очереди последним (owner: end of queue) — после текущих UI-волн EVOL, слайс W6.",
-      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок."
+      "note": "Доказательства привязаны к `2618026e`/`3650eb8f` (Reviewer Re-review 2 §R2.6 — строка в списке закрываемых).  СТАТУС PENDING — структурное ограничение карты: 27 строк слайса делят один `req_id EVOL-SRC-READER` и одно acceptance («7 сценариев §1.5»), а `requirements_gate.py` запрещает частичный перевод статуса внутри одного `req_id` (проверено на копии карты: 26 ошибок «duplicate req_id with inconsistent owner/acceptance/status»). Доказательства привязаны и повторной работы не потребуют; разблокировка — разрешение на разбиение `EVOL-SRC-READER` по сценариям (PM) либо закрытие всего блока после живых проверок. Сценарий §1.5 №7 (acceptance — дословный текст сценария владельца)."
     },
     {
       "source_id": "L01238",
@@ -29447,7 +29447,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader-review.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "8b31fcc3657399cdb2385583ba2956d9d6833ec879d97c7e626360c25839bedd"
         },
         {
@@ -29456,7 +29456,7 @@
           "type": "test",
           "artifact_path": "plans/features/evol/reports/w20-src-reader.md",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "3650eb8f",
+          "candidate_commit": "3650eb8f632c3b3277888cd6a6ef37fccf83dde9",
           "artifact_sha256": "594900d5de0b3cebeb6b72b5294381222b7243b86f7c83abb1d196c1554a26eb"
         },
         {
@@ -29465,7 +29465,7 @@
           "type": "test",
           "artifact_path": "tests/test_evol_source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "69d2c2098dde7372277557796c4a2decb324c8651bd5f4d708a6112d88632c6a"
         },
         {
@@ -29474,7 +29474,7 @@
           "type": "test",
           "artifact_path": "services/source_reader.py",
           "artifact_branch": "evol/impl",
-          "candidate_commit": "2618026e",
+          "candidate_commit": "2618026ec18ee026cee51f10256daad98910e64b",
           "artifact_sha256": "076e680beb5a7d8deca1e739dc8d82be30eb446f45e460fd8c50fa59c6542072"
         }
       ],
@@ -38268,7 +38268,7 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.",
   "deployed_release": {
     "version": "2.58.149",
     "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
