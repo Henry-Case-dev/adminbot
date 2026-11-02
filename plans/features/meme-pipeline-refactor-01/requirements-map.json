@@ -2,13 +2,14 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+  "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
   "slice_candidate_pins": {
     "MEME-PIPE-CORE": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
     "MEME-MANUAL-CMD": "d58537496cc129987e8eb045019909b794c11533",
     "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
     "MEME-JOKE-SPEECH": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
-    "MEME-INITIATIVE-LAYERS": "5fb018ab31db16953b6ea528b5f9d00ea97925ce"
+    "MEME-INITIATIVE-LAYERS": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+    "MEME-INIT-COORDINATION": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
   },
   "deployed_commit": "",
   "strict_evidence": true,
@@ -1922,9 +1923,38 @@
       "acceptance": "У каждого механизма собственные метки времени и собственный интервал проверки: тест делает текстовую оценку не готовой (или падает её фаза) и видит, что мем-проверка всё равно выполнена в этом проходе со своей меткой последней/следующей проверки и своим решением; обратный случай (падение мем-фазы) не отменяет текстовую оценку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.7 - per-mechanism диагностика",
+          "observation": "Текстовые гейты отдают next_eval_ts/last_decision (initiative_observer), мем - собственный last_check/next и своё решение (meme_initiative); «никогда не проверяли» отделено от нуля (N2: last_check_ts=0 = нет данных).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_phase_failure_does_not_cancel_meme_phase (:256)",
+          "observation": "Порядок вызовов наблюдаемый: scan падает, мем-фаза всё равно выполнена ('scan','meme'), статус прохода JOB_FAILED честный, text_phase_errors=1 - фазы не связаны одним try и не гасят друг друга.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_disabling_memes_leaves_text_phase_running (:198)",
+          "observation": "При тумблере мемов OFF вызываются и eval, и мем-фаза: у каждой свой проход со своим результатом, а не общий флаг «механизм отработал».",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -1939,9 +1969,29 @@
       "acceptance": "Условия срабатывания независимы: минимум сообщений, окно, тихие часы и контекстные проверки мема не влияют на условия текстовой инициативы и наоборот; тест делает мем-порог недостижимым и видит, что текстовая инициатива срабатывает по своим условиям, и обратное.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.1 (V2, V4, V6)",
+          "observation": "Раздельные try и собственные гейты: минимум сообщений/окно/тихие часы считаются в текстовых гейтах, мем-триггеры (окно, min messages, cooldown, квота) - в meme.consider_chat; пробы P3.a-d показали, что ростер и чат-гейт действительно пробрасываются из мем-фазы.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_phase_failure_does_not_cancel_meme_phase (:256)",
+          "observation": "Недостижимость текстовой части (исключение в скане) не отменяет мем-проверку: мем-фаза выполнена в том же проходе и её причина записана в payload['meme'] - условия одного механизма не блокируют другой.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -1956,9 +2006,29 @@
       "acceptance": "Кулдаун считается по собственным записям механизма: публикация мема не сдвигает и не сбрасывает кулдаун/паузу текстовой инициативы, а её инициативная реплика не сбрасывает кулдаун мемов; тест публикует один тип и проверяет, что второй оценивает свой кулдаун по своим предыдущим публикациям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.1 и §1.4",
+          "observation": "Собственный кулдаун механизма - отдельный гейт: мем считает его от ledger.last_provider_ts собственного резерва, текст - от своего профиля (min_gap/антифлуд); межтиповой интервал не подменяет ни один из них (зазор = max).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_own_quotas_do_not_cross_limit (:324)",
+          "observation": "После исчерпания суточной квоты мемов (3/3) текстовый профиль не изменился (max_replies_per_day=6, min_gap 2ч), а текстовая отправка не расходует квоту мема в другом чате (spent=0) - кулдаун/квота считаются по собственным записям.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -1973,9 +2043,29 @@
       "acceptance": "Квоты раздельные: суточная квота мемов не расходуется текстовой инициативой и ручным прогоном, дневной лимит инициативы не расходуется мемами; тест исчерпывает квоту одного механизма и показывает, что второй остаётся доступным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.1 (V3/V5)",
+          "observation": "Квота мемов живёт в собственной таблице meme_initiative_reservation с atomic BEGIN IMMEDIATE-резервом; дневной лимит инициативы считается по её собственному профилю - механизмы не расходуют чужую квоту.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_own_quotas_do_not_cross_limit (:324)",
+          "observation": "Реальный SqliteQuotaLedger: 3 резерва мемов дают spent=3, текстовый профиль не тронут, второй чат - spent=0; обратный порядок (текстовые отправки) квоту мемов не трогает.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -1990,9 +2080,29 @@
       "acceptance": "Статистика раздельная: журнал попыток и счётчики мема не смешиваются с воронкой инициативы и не обнуляются её проходом; тест снимает счётчики обоих до и после прохода каждого механизма и видит изменение только у сработавшего.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.1 и §1.7",
+          "observation": "Журнал попыток мема (payload['meme'], analytics_snapshot) и воронка инициативы (payload['chats']/counters, last_decision) - разные источники; _load_payload переносит meme_chats отдельно, общего helper-сброса нет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_evol014_meme_initiative.py::test_analytics_are_separate_from_initiative (:465)",
+          "observation": "Существующий тест: analytics мема помечены separate_from_initiative и не смешиваются с воронкой инициативы (на кандидате ключи остались аддитивными).",
+          "type": "test",
+          "artifact_path": "tests/test_evol014_meme_initiative.py",
+          "artifact_sha256": "dd7c1c550fec2bf75d66c5bbaa1fe4b7b7be4a5699a2a71ffc9bf4f84c6c85c7",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2007,9 +2117,29 @@
       "acceptance": "Срабатывание одного не запускает, не сбрасывает и не подменяет планирование другого: тест запускает мем-публикацию и проверяет, что состояние планирования текстовой инициативы (метки, окно, хэши контекста) не изменилось, кроме собственной записи факта публикации для координации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.1",
+          "observation": "Общего сброса нет: мем пишет payload['meme']/meme_chats, текст - chats/counters; _load_payload (initiative_observer:1313-1330) переносит meme_chats отдельно, поэтому текстовый лимит CHATS_TRACKED_MAX не вытесняет чат мема, а срабатывание одного не переписывает метки/окно другого.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_phase_failure_does_not_cancel_meme_phase (:256)",
+          "observation": "Собственная запись мем-фазы (payload['meme']['reason']='reached') сохраняется в чекпоинте, даже когда текстовая фаза упала, а её счётчик ошибок остаётся отдельным (text_phase_errors=1).",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2024,9 +2154,29 @@
       "acceptance": "Оба механизма используют существующий единый `mca_random_source.RandomSourceService`: второй QRNG-клиент, второй генератор, локальный `random`/PRNG и дублирующая инфраструктура не появляются; проверка включает статический поиск по затронутым путям и тест, что draw идёт через сервис с санкционированным purpose.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.2",
+          "observation": "Один клиент mca_random_source.RandomSourceService: purpose initiative_trigger санкционирован и не входит в карту exploration; grep не нашёл ни import random, ни второго draw-клиента/генератора.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_two_purposes_one_service_and_one_trace_format (:498)",
+          "observation": "Оба механизма идут через один сервис и один формат трассировки: в решении видны purpose, draw_id и источник; второго клиента в путях нет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2041,9 +2191,29 @@
       "acceptance": "Draw/decision раздельные: у каждого механизма свой purpose и свой `draw_id` в собственной трассировке, результат одного не переиспользуется вторым и не блокирует его; тест с двумя решениями даёт два разных `draw_id` и независимые исходы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_separate_draws_have_separate_traces (:565)",
+          "observation": "Два решения дают два разных draw_id под своими purposes (meme_trigger / initiative_trigger), результат одного не переиспользуется вторым и не блокирует его.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.2",
+          "observation": "Трассировка draw у мема и текста идёт тем же контуром (initiative_observer:620-676, meme_initiative:1174-1212); отдельной оси/генератора у мема нет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2058,9 +2228,38 @@
       "acceptance": "Существующие настройки источника и fallback не дублируются и не переизобретаются, а фактический источник отражается честно: в трассировке решения видны `source`, `source_impl`, `provider` и `fallback_reason`, поэтому псевдослучайный фолбэк (если он разрешён настройкой владельца) не выдаётся за квантовый, а недоступность (`deferred`, отсутствие значения, выключенный контур) даёт недоступность с причиной, а не тихое согласие; тест на реальном `draw_probability` показывает фактический источник.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_real_random_source_reports_actual_source (:517)",
+          "observation": "Реальный draw_probability на PRNG-пути отдаёт source=pseudorandom, provider=prng, source_impl=prng, fallback_reason=None - фактический источник назван, а не выдан за квантовый.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_deferred_source_is_unavailable_not_a_silent_fallback (:541) и ::test_fallback_value_is_a_real_decision_in_both_mechanisms (:550)",
+          "observation": "Недоступность источника даёт недоступность с причиной (не тихое согласие), а fallback-значение трактуется как действительное решение в обоих механизмах; существующие настройки источника не дублируются.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.2",
+          "observation": "Старое поведение «fallback_reason = отказ» удалено (meme_initiative:1183-1205); изменённый кейс c в test_evol014_meme_initiative:241-259 ждёт публикацию с source=pseudorandom, fallback_reason=provider_unavailable.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2075,9 +2274,38 @@
       "acceptance": "Перед фактической отправкой оба механизма читают недавние публикации бота в этом чате через существующий ledger/anti-flood и отказываются публиковать при недавнем выводе другого типа; тест публикует инициативную реплику и видит, что мем не уходит (и наоборот) с явной причиной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md, Re-review 2 §2 (G1/G2)",
+          "observation": "Живой код обеих сторон: реальная legacy-отправка nostalgia (sent=1) -> реальный meme.consider_chat через 60 с: published=False, reason=publication_conflict, detail=cross_type_interval; обратный порядок (реальный мем с watermark last_publish_kind=meme_initiative) -> nostalgia через 60 с sent=0/bot.calls=[], через 1801 с - ровно одно сообщение. Постоянной блокировки нет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t2_nostalgia_legacy_blocked_right_after_meme (:1892)",
+          "observation": "Направление «nostalgia после мема»: legacy-отправка получает отказ брони и не пишет в чат; причина наблюдаема.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t2_nostalgia_legacy_writes_watermark_visible_to_meme (:1833)",
+          "observation": "Направление «мем после nostalgia»: legacy-отправка оставляет watermark в общей строке брони, поэтому мем видит чужой вывод того же чата.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2092,9 +2320,38 @@
       "acceptance": "Используется существующий журнал выводов (`mca_bot_outputs`) без второго хранилища: публикация мема записывается с собственным `output_kind`, поэтому антифлуд и координация видят вывод любого типа; тест находит запись мема с корректными `chat_id`, временем и kind.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_publication_is_visible_in_shared_ledger (:1037)",
+          "observation": "Публикация мема находит запись в существующем mca_bot_outputs с output_kind=meme_initiative, корректными chat_id, временем и tg_message_id - второго хранилища нет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_duplicate_job_does_not_create_second_output_row (:1063)",
+          "observation": "Повтор того же job_id не двоит строку журнала: координация и антифлуд видят один факт вывода.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.3",
+          "observation": "PUBLICATION_KINDS=('initiative_reply','meme_initiative') читаются из существующего list_recent_bot_outputs; DDL журнала не менялся, мем-тип только добавлен в BOT_OUTPUT_KINDS.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2109,9 +2366,38 @@
       "acceptance": "Межтиповой интервал между публикациями разных типов — настраиваемый параметр в существующей цепочке чат→hot→дефолт (значение по умолчанию объявлено один раз), а не константа в коде; тест меняет значение параметра и наблюдает соответствующее поведение гейта на границе отправки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_cross_type_interval_default_and_bounds (:965)",
+          "observation": "Ключ initiative.cross_type_publication_interval_seconds резолвится чат->hot->дефолт (MIN_GAP_FLOOR_SECONDS), значение меняет поведение гейта на границе отправки; проверены границы и 0.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "services/publication_coordination.py:349-367 (резолв) разбор в reports/w-p8-review.md §1.4",
+          "observation": "Дефолт объявлен один раз (значение существующей MIN_GAP_FLOOR_SECONDS), резолв одной функцией; константы тайминга в пути координации нет.",
+          "type": "code",
+          "artifact_path": "services/publication_coordination.py",
+          "artifact_sha256": "9476579aa940f42a5519efd2a987c400726d2238a80921d4b4d89e72edc4b380",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.4",
+          "observation": "Интервал 0 выключает проверку (:178), свой тип интервалом не ограничен (:180-183).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2126,9 +2412,38 @@
       "acceptance": "Межтиповой интервал отвечает только за предотвращение столкновения и не заменяет индивидуальные кулдауны, расписания, квоты и минимум сообщений: тест при нулевом интервале показывает, что собственные правила блокируют по-прежнему, а при большом интервале собственные правила не ослабляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_interval_never_shortens_own_cooldown (:992) и ::test_small_interval_does_not_override_own_cooldown (:1013)",
+          "observation": "При 0 < interval < cooldown фактический зазор = max(): мем всё равно ждёт свой кулдаун (SKIP_COOLDOWN), интервал его не ослабляет и не укорачивает.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_zero_interval_disables_interval_coordination (:1000)",
+          "observation": "При нулевом интервале собственные правила механизма продолжают блокировать - интервал не заменяет кулдаун/расписание/минимум сообщений.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.4",
+          "observation": "«Не укорачивает» обеспечено структурно: собственный кулдаун - отдельный гейт механизма, интервал - отдельное условие брони; resolve_gap_seconds справочная, гейты не подменяет.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2143,9 +2458,38 @@
       "acceptance": "Атомарное разрешение конфликта: при одновременной готовности обоих механизмов и нескольких параллельных воркерах в одном чате публикуется ровно одна публикация на интервал, вторая откладывается с повторной проверкой актуальности либо отменяется с явной причиной; проверка N воркеров на одной БД не даёт дубля и превышения лимитов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_n_parallel_workers_publish_once (:669) и ::test_simultaneous_readiness_publishes_exactly_once (:644)",
+          "observation": "8 параллельных воркеров на одном файле: ровно одна бронь доходит до sending, остальные получают publication_conflict; при одновременной готовности обоих механизмов публикуется ровно один, у второго явная причина.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.3 (пробы P5.a-d, A1-A6)",
+          "observation": "Независимо: 8 одновременных корутин asyncio.gather -> ровно одна бронь, ровно один sending, 7 честных publication_conflict, деградаций 0; сквозной цикл реальными механизмами в двух порядках.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "services/publication_coordination.py:144-200 (CAS-UPSERT и предикат claimed->sending)",
+          "observation": "Право звать sender даёт только переход claimed->sending одним CAS-стейтментом; in-process lock и паузы не используются.",
+          "type": "code",
+          "artifact_path": "services/publication_coordination.py",
+          "artifact_sha256": "9476579aa940f42a5519efd2a987c400726d2238a80921d4b4d89e72edc4b380",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2160,9 +2504,38 @@
       "acceptance": "Проигравший или отложенный не отправляется слепо: мем отменяется с явной причиной, и уже сгенерированная картинка позже не отправляется никогда, при этом его собственные кулдаун и квота не сбрасываются; инициативная реплика откладывается с сохранением намерения и перепроверяется на свежем контексте существующим механизмом повторной проверки; причина и итоговый исход видны в журнале и отличаются от «решения не было».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_publish_guard_cancels_without_send (:1256)",
+          "observation": "Отказ брони перед отправкой: реплика отменена с причиной publication_conflict, sender не вызван, intent остаётся durable (pending/deferred), бюджет не потрачен - проигравший не отправляется слепо.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md, Re-review 2 §2 (C, G2)",
+          "observation": "Heartbeat при живом маркере /meme: отправок нет, intent остаётся pending, attempts=0, worker_budget.consume НЕ вызван; после истечения маркера - ровно одна отправка. nostalgia после мема: skipped=1 (не error) и кандидат пересобирается следующим проходом.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_stale_meme_is_not_sent_after_delay (:771)",
+          "observation": "Сгенерированная картинка после изменения окна не отправляется: публикация отменена, sender не вызван, квота/кулдаун мема не сброшены.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2177,9 +2550,29 @@
       "acceptance": "Устаревшая публикация после задержки не отправляется: у отложенного/долгого решения есть ограниченное окно актуальности (конфигурируемое), после которого мем или инициативная реплика отменяются с явной причиной; тест с управляемым временем не даёт отправки устаревшего решения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_stale_meme_is_not_sent_after_delay (:771)",
+          "observation": "Управляемое время: окно чата изменилось за время генерации -> publication_stale, отправки нет, бронь освобождена без watermark.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.3",
+          "observation": "Перепроверка watermark окна до/после claim (meme_initiative:1572, 1747-1760); устаревшее решение отменяется с явной причиной, окно актуальности конфигурируемое.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2194,9 +2587,38 @@
       "acceptance": "Отключение мемов не отключает текстовую инициативу: при `flags.meme_initiative_enabled=false` инициативные реплики продолжают генерироваться по своим правилам, существующий `blocks_text_initiative() is False` сохраняется и покрыт тестом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_disabling_memes_leaves_text_phase_running (:198)",
+          "observation": "Тумблер мемов OFF: проход выполняет и eval, и мем-фазу с причиной SKIP_DISABLED - инициативные реплики продолжают генерироваться по своим правилам.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_flags_never_touch_text_mechanism (:183)",
+          "observation": "blocks_text_initiative() is False, OUTPUT_KIND мема не входит в INITIATIVE_OUTPUT_KINDS, текстовые гейты не читают мем-лимиты - отключение мемов текстовую инициативу не глушит.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.1",
+          "observation": "Существующее поведение «мем-флаг не глушит текст» проверено и не менялось (test_evol014_meme_initiative:141, отдача в API - test_evol014_ui:165).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2211,9 +2633,38 @@
       "acceptance": "Настройки не переписывают и не ограничивают друг друга: кулдауны и квоты одного механизма не действуют на другой, а запись настроек мема не меняет ключи инициативы и наоборот; тест сравнивает снимок ключей и эффективных значений до/после записи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_own_quotas_do_not_cross_limit (:324)",
+          "observation": "Кулдауны и квоты одного механизма не действуют на другой: исчерпанная квота мемов не меняет текстовый профиль, текстовые отправки не расходуют мем-квоту.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_flags_never_touch_text_mechanism (:183)",
+          "observation": "Ключи мем-настроек (meme_cooldown_seconds, meme_daily_limit) не читаются текстовыми гейтами; запись мем-настроек не переписывает ключи инициативы.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.1 и §1.4",
+          "observation": "Настройки не переписывают друг друга: резолв ключей идёт по собственным пространствам (initiative.meme_* против initiative.*), а межтиповой интервал вынесен в отдельный гейт и не меняет эффективные значения кулдаунов/квот ни одного механизма.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2228,10 +2679,40 @@
       "acceptance": "Мастер-тумблер модуля сохраняет семантику: выключенный мастер останавливает оба механизма, включённый не включает мемы вместо их собственного флага; тест фиксирует все четыре комбинации (мастер × мем-флаг) наблюдаемым поведением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
-      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
+      "evidence": [
+        {
+          "ref": "tests/test_evol014_meme_initiative.py::test_initiative_off_stops_memes (:166)",
+          "observation": "Мастер-гейт выключен: мем получает SKIP_INITIATIVE_DISABLED, провайдер не вызван, а порядок в run (observer_enabled раньше _meme_phase) означает, что выключенный мастер останавливает оба механизма.",
+          "type": "test",
+          "artifact_path": "tests/test_evol014_meme_initiative.py",
+          "artifact_sha256": "dd7c1c550fec2bf75d66c5bbaa1fe4b7b7be4a5699a2a71ffc9bf4f84c6c85c7",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_evol014_meme_initiative.py::test_default_off_and_text_initiative_untouched (:138)",
+          "observation": "Мастер включён, мем-флаг OFF: мемы не идут (SKIP_DISABLED, провайдер не вызван), текстовая реплика проходит - включённый мастер не включает мемы вместо их собственного флага.",
+          "type": "test",
+          "artifact_path": "tests/test_evol014_meme_initiative.py",
+          "artifact_sha256": "dd7c1c550fec2bf75d66c5bbaa1fe4b7b7be4a5699a2a71ffc9bf4f84c6c85c7",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.1 (V6)",
+          "observation": "Семантика тумблеров не менялась пакетом; асимметрия бюджета LLM дефектом не признана.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
+      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
+      "notes": "Отдельного теста «четыре комбинации» нет как одного кейса: покрыты три наблюдаемых исхода (мастер OFF -> оба механизма стоят; мастер ON + мем-флаг OFF -> мемы стоят, текст идёт; мастер ON + мем-флаг ON -> мемы публикуют) плюс структурный порядок гейта observer_enabled раньше _meme_phase. Комбинация «мастер OFF x мем-флаг ON» отдельного assert не имеет - поведение следует из того же мастер-гейта (initiative_observer:1389, до мем-фазы). Записано в бэклог слайса, слайс не расширяется."
     },
     {
       "source_id": "MAN-MEME-IIC-MANUAL-PRIORITY",
@@ -2245,9 +2726,38 @@
       "acceptance": "Ручной `/meme` приоритетен: когда автоматическая публикация любого типа готова к отправке, она откладывается или отменяется с явной причиной, а ручной прогон публикует результат; ручной запуск по-прежнему обходит автоматические квоты/кулдауны/триггеры и не порождает дубль с авто-постом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_automatic_path_cannot_begin_sending_after_manual_priority (:844)",
+          "observation": "Уже взятая авто-бронь при живом маркере /meme не переходит в sending: granted=False, reason=publication_conflict, detail=manual_priority, строка остаётся claimed с прежним claim_id; ручной acquire забирает бронь.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_command_marks_priority_before_generation (:897)",
+          "observation": "Обработчик /meme ставит маркер ДО запуска пайплайна (delete -> priority -> pipeline), поэтому авто-публикация видит ручной запуск.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.5 и Re-review 2 §1 (мутация M4)",
+          "observation": "Пробы P1.b/P2.b-d: маркер после взятой авто-брони блокирует sending; /meme забирает чужой claimed, проигравший не отправляет и не стирает чужую бронь; удаление предиката маркера теперь роняет тест.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2262,9 +2772,38 @@
       "acceptance": "Координация не ослабляет права и безопасность: `/meme` доступна только админу, координация не даёт обхода RBAC, отсутствие рабочего image backend остаётся честной ошибкой, а причины блокировки публикации не раскрывают в чат внутренние детали.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.5",
+          "observation": "RBAC не тронут (meme_command:211-218): /meme доступна только админу; координация не добавляет обхода прав, тексты ошибок не раскрывают внутренние детали брони.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "handlers/meme_command.py:211-229 (проверка админа, маркер, запуск)",
+          "observation": "Порядок в обработчике: проверка админа -> удаление -> маркер приоритета -> пайплайн; отсутствие рабочего image backend остаётся честной ошибкой пайплайна, а не обходом гейта.",
+          "type": "code",
+          "artifact_path": "handlers/meme_command.py",
+          "artifact_sha256": "c628cba48984eff8fd4eb0ee4f533011d8678e87a950edb2ec915ce05b70814f",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_foreign_sending_yields_publication_in_flight (:879)",
+          "observation": "Чужой sending даёт честный publication_in_flight без второй публикации - координация не даёт способа обойти гейт отправки.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2364,9 +2903,29 @@
       "acceptance": "Reviewer независимо опровергает связанность: отключает или ломает один механизм и убеждается, что второй проверяется и публикуется по своим правилам со своими метками и своим решением, и наоборот.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §6 (пробы P3.a-d)",
+          "observation": "Reviewer независимо ломал/выключал один механизм: ростер и чат-гейт реально пробрасываются из мем-фазы, текстовая оценка идёт по своим меткам; при падении текстовой фазы мем-проверка выполнена.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_phase_roster_comes_from_own_source (:412)",
+          "observation": "Проводка ростера в _meme_phase проверена на реальном коде фазы: чаты мема берутся из своего источника, не из текстового payload.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2381,9 +2940,29 @@
       "acceptance": "Reviewer принудительно делает оба механизма готовыми одновременно и наблюдает ровно одну публикацию, у второго — явную причину откладывания/отмены, без потери решения и без второго сообщения в чат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.3 и §6 (P5.a-d, A1-A6)",
+          "observation": "Оба механизма принудительно готовы: ровно одна публикация, у второго publication_conflict с detail, второго сообщения в чат нет; проверено в двух порядках и на 8 параллельных корутинах.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_simultaneous_readiness_publishes_exactly_once (:644)",
+          "observation": "Оба готовы одновременно -> ровно один sender-вызов, у второго явная причина отмены, решение не потеряно.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2398,9 +2977,29 @@
       "acceptance": "Reviewer запускает N параллельных воркеров на одной БД в одном чате и убеждается, что дублей нет, интервал и квоты не превышены, а проигравшие получают явную причину в журнале.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.3 (P5.a-d)",
+          "observation": "8 параллельных воркеров на одной БД в одном чате: ровно один claim_id дошёл до sending, остальные - честный publication_conflict, интервал и квоты не превышены, деградаций 0.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_n_parallel_workers_publish_once (:669)",
+          "observation": "Тот же сценарий в durable-тесте: потоки на реальном файле SQLite, ровно одна бронь доходит до отправки.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2415,9 +3014,29 @@
       "acceptance": "Reviewer выполняет рестарт между решением и отправкой: повторной или устаревшей отправки нет, а состояние координации (недавняя публикация, отложенное решение) восстановлено из durable-хранилища.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.3 (пробы P7.a-e)",
+          "observation": "Рестарт между решением и отправкой: бронь sending с истёкшим TTL восстанавливается, мёртвая бронь повторить отправку не может (publication_expired), recovered_delivery_unknown=True и detail=delivery_unknown видны; состояние (watermark, отложенное решение) читается из durable-строки.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_restart_reclaims_expired_claim_without_second_publication (:728) и ::test_claim_ttl_expiry_allows_takeover (:756)",
+          "observation": "Durable-тесты рестарта и TTL: повторной/устаревшей отправки нет, бронь переходит новому владельцу только после истечения срока.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2432,9 +3051,29 @@
       "acceptance": "Reviewer вызывает `/meme` в момент готовности автоматического поста: публикуется ручной результат, автоматический откладывается/отменяется с причиной, права и технические гейты сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.5 (пробы P1.b, P2.b-d)",
+          "observation": "Reviewer вызвал /meme в момент готовности авто-поста: публикуется ручной результат, авто-бронь не уходит в sending (detail=manual_priority), проигравший не стирает чужую бронь; RBAC и технические гейты сохранены.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_manual_priority_preempts_claimed_but_not_sending (:831)",
+          "observation": "Маркер забирает claimed-бронь, но не чужой sending - ручной прогон проходит, автоматический откладывается с причиной.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2449,9 +3088,29 @@
       "acceptance": "Reviewer проверяет публикации в двух чатах: межтиповой интервал и блокировки действуют по-чатово, публикация в одном чате не задерживает и не отменяет публикацию в другом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.6 (пробы P6.a-b)",
+          "observation": "Два реальных мем-прохода в двух чатах публикуются, у каждого своя строка брони; PK chat_id, глобальной блокировки нет (grep по asyncio.Lock/_GLOBAL_LOCK).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_different_chats_proceed_independently (:941)",
+          "observation": "Параллельные acquire в двух чатах успешны независимо - интервал и бронь действуют по-чатово.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2466,9 +3125,38 @@
       "acceptance": "Reviewer проверяет отсутствие дублей на одном и том же `job_id`/попытке: повторный вызов не публикует второй раз, а причина отказа видна в журнале.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.3",
+          "observation": "Повторный вызов на том же job_id не публикует второй раз; причина отказа/состояние брони видны в строке и в журнале выводов.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_duplicate_job_does_not_create_second_output_row (:1063)",
+          "observation": "Повтор job_id не создаёт вторую строку журнала выводов и не дублирует публикацию.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_evol014_meme_initiative.py::test_retry_same_job_does_not_double_count",
+          "observation": "Повтор той же попытки не удваивает расход квоты - дубля нет и на уровне резерва.",
+          "type": "test",
+          "artifact_path": "tests/test_evol014_meme_initiative.py",
+          "artifact_sha256": "dd7c1c550fec2bf75d66c5bbaa1fe4b7b7be4a5699a2a71ffc9bf4f84c6c85c7",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2483,9 +3171,29 @@
       "acceptance": "Запрещены фиктивные паузы `sleep`/`asyncio.sleep` для сериализации публикаций: Reviewer не находит таких пауз в пути координации, а тесты доказывают исход без ожидания (управляемое время/инъекция часов).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.9",
+          "observation": "grep по изменённым модулям и тестам: нет asyncio.sleep, time.sleep, asyncio.Lock, create_task, import random; время инъектируется параметром now.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_no_new_scheduler_or_lock_in_package (:1523)",
+          "observation": "Тест-запрет проходит по пакету: пауз/локов/фоновых задач в пути координации нет; TTL аренды (90/120/600) - замороженное решение Архитектора, а не пауза.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2500,9 +3208,29 @@
       "acceptance": "Запрещён хардкод таймингов координации: межтиповой интервал, окно актуальности и окно «недавних публикаций» берутся из конфигурации, значение по умолчанию объявлено один раз и переопределяется без правки кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md §1.4",
+          "observation": "Интервал, окно актуальности и окно «недавних публикаций» приходят из конфигурации; дефолт объявлен один раз в publication_coordination (MIN_GAP_FLOOR_SECONDS) и переопределяется через чат->hot без правки кода.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_cross_type_interval_default_and_bounds (:965)",
+          "observation": "Изменение значения параметра наблюдаемо меняет поведение гейта; проверены границы и отключение нулём.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2517,9 +3245,29 @@
       "acceptance": "Запрещена глобальная блокировка всех чатов: резерв/блокировка берётся в границах чата, работа в разных чатах не сериализуется; тест с двумя чатами показывает параллельные независимые публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_different_chats_proceed_independently (:941)",
+          "observation": "Две параллельные брони в разных чатах выдаются одновременно: сериализация только в границах чата (PK chat_id).",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.6",
+          "observation": "Grep по asyncio.Lock/_GLOBAL_LOCK и пробы P6.a-b: работа в разных чатах не сериализуется, публикация одного чата не задерживает другой.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2534,9 +3282,29 @@
       "acceptance": "Запрещены новые дублирующие планировщики: мем-проверка и координация живут в существующем проходе инициативы и существующем журнале выводов; второго цикла, брокера, очереди или отдельного воркера не появляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_no_new_scheduler_or_lock_in_package (:1523)",
+          "observation": "Второго планировщика/воркера/очереди нет: мем-проверка живёт в существующем проходе инициативы, координация - в существующем журнале выводов плюс одна аддитивная таблица строк.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.9 и §1.8",
+          "observation": "Новых таблиц диагностики нет; схема v41 - одна аддитивная таблица chat_publish_claim с CREATE TABLE IF NOT EXISTS, второй цикл/брокер не появляется.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2551,9 +3319,38 @@
       "acceptance": "Ростер чатов мем-механизма не является побочным результатом текстового сканирования: тихий чат без новых сообщений всё равно рассматривается по своим правилам, а вытеснение старого чата из текстового состояния не отменяет мем-проверку; тест с чатом вне текстового окна показывает мем-попытку с собственной причиной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_phase_roster_comes_from_own_source (:412)",
+          "observation": "При payload['chats']={другой чат} мем-фаза спрашивает meme_chat_roster и передаёт свой список: тихий чат вне текстового окна всё равно рассматривается (roster_source='roster', separate_from_initiative=True).",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_roster_is_independent_of_text_scan (:344)",
+          "observation": "Ростер мема - собственный источник: фильтрация не-групповых/выключенных и лимит MAX_CHATS_PER_PASS считаются у мемов, а не берутся из текстового скана.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.1 (V1, проба P3.a)",
+          "observation": "Вытеснение чата из текстового состояния (CHATS_TRACKED_MAX) не отменяет мем-проверку; проба подтвердила проводку на реальной фазе.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2568,9 +3365,38 @@
       "acceptance": "Вероятностное решение у каждого механизма своё: собственная ось вероятности и собственный draw, результат одного не влияет на порог другого; ось текстовой инициативы имеет дефолт, сохраняющий прежнее поведение (решение принимается без случайного шага при значении по умолчанию), а при значении ниже единицы draw идёт тем же общим сервисом — тест фиксирует паритет на дефолте и независимость решений при p<1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_trigger_probability_default_is_byte_parity (:579)",
+          "observation": "Дефолт оси текстовой инициативы (1.0) сохраняет прежнее поведение: draw не выполняется, reason=probability_one, решение принимается без случайного шага.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_text_trigger_probability_below_one_draws (:600)",
+          "observation": "При p<1 draw идёт тем же общим сервисом и результат наблюдаем в трассировке - ось у каждого механизма своя и чужой порог на неё не влияет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.2",
+          "observation": "Мем и текст имеют разные purposes и разные оси вероятности; один draw не переиспользуется вторым (test_separate_draws_have_separate_traces).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2585,9 +3411,38 @@
       "acceptance": "Тумблер уровня чата сохраняет семантику и для мемов: при выключенной инициативе конкретного чата мем-механизм в этом чате не публикует и не тратит квоту, даже если мем-флаг включён; тест проверяет чат с `initiative.enabled=false` и включёнными мемами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_meme_phase_passes_chat_gate_to_meme (:446)",
+          "observation": "Реально выключенный чат: гейт передан callable, для выключенного чата даёт False, on_initiative_cycle возвращает initiative_disabled и published=False - мем не публикует и не тратит квоту.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_chat_scope_stops_memes (:386)",
+          "observation": "Чат с initiative.enabled=false и включённым мем-флагом: причина SKIP_INITIATIVE_DISABLED, публикации нет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md §1.1 (V4)",
+          "observation": "Чат-гейт инициативы реально останавливает мем-механизм: _meme_phase передаёт chat_enabled=chat_observer_enabled, и для выключенного чата мем получает initiative_disabled без публикации и без расхода квоты.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2602,9 +3457,38 @@
       "acceptance": "Деградация координации видима и безопасна: при отсутствии служебного состояния координации мем-механизм останавливается на существующей честной причине `schema_absent` (без отправки), а текстовая инициатива не выключается молча — публикует с явным признаком деградации и одним WARNING в лог; тест проверяет оба исхода и отсутствие дубля.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "tests/test_initiative_coordination.py::test_claim_table_absent_is_honest_for_both_mechanisms (:1565)",
+          "observation": "Без таблицы брони: мем останавливается на честной причине schema_absent (без отправки), текстовая инициатива не гаснет молча - публикует с coordination=degraded, ровно один WARN, дубля нет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t1_degraded_without_claim_table_still_sends (:1792)",
+          "observation": "На реальном коде nostalgia: отсутствие таблицы даёт coordination=degraded, и текст всё равно уходит - выключения основного механизма нет.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-review.md, Re-review 2 §2 (проба D)",
+          "observation": "Независимо: open_text_publication без таблицы даёт coordination='degraded', granted=True; реальный heartbeat-тик публикует (sent=1), метка деградации видна в фактах.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2616,13 +3500,61 @@
       "reason": "",
       "req_id": "MEME-IIC-TEXT-CALLSITES-COORDINATED",
       "slice": "MEME-INIT-COORDINATION",
-      "acceptance": "Каждая производственная точка отправки текстовой инициативы (observer, nostalgia в делегированной ветке K1+K3 ON, nostalgia в legacy-ветке K1/K3 OFF с прямым send, heartbeat `_run_initiative_candidate`, диагностика в реальном режиме публикации при `use_mock=False`) проходит precheck → acquire → `publish_guard` → release/cancel: при чужой публикации внутри интервала отправки нет, причина `publication_conflict` наблюдаема с detail, heartbeat-интент остаётся `pending` и перепроверяется следующим тиком (бюджет LLM не потрачен), nostalgia даёт `skipped` (не `error`) и пересобирает кандидата; при отсутствии таблицы claim nostalgia/heartbeat публикуют с `coordination=degraded` и одним WARN (мем по-прежнему `schema_absent`); структурная AST-проверка в `tests/test_initiative_coordination.py` находит вызовы `handle_initiative` в `services/*.py` и падает на вызове без `publish_guard=`, кроме явно перечисленных dry-run мест, и сама способна упасть на синтетическом вызове (T5).",
+      "acceptance": "Каждая производственная точка отправки текстовой инициативы (observer, nostalgia в делегированной ветке K1+K3 ON, nostalgia в legacy-ветке K1/K3 OFF с прямым send, heartbeat `_run_initiative_candidate`, диагностика в реальном режиме публикации при `use_mock=False`) проходит precheck → acquire → `publish_guard` → release/cancel: при чужой публикации внутри интервала отправки нет, причина `publication_conflict` наблюдаема с detail, heartbeat-интент остаётся `pending` и перепроверяется следующим тиком (бюджет LLM не потрачен), nostalgia даёт `skipped` (не `error`) и пересобирает кандидата; при отсутствии таблицы claim nostalgia/heartbeat публикуют с `coordination=degraded` и одним WARN (мем по-прежнему `schema_absent`); структурная AST-проверка в `tests/test_initiative_coordination.py` находит вызовы `handle_initiative`/`initiative_entry` в продакшн-модулях и падает на вызове без `publish_guard=` или с `**kwargs` (исключений нет: dry-run диагностики тоже передаёт guard, отклонение от arch §10.3 зафиксировано как D1 в бэклоге слайса), и сама способна упасть на синтетическом вызове (T5).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
-      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
+      "evidence": [
+        {
+          "ref": "reports/w-p8-review.md, Re-review 2 §2 (шов и точки)",
+          "observation": "Шов TextPublication/open_text_publication (precheck -> acquire -> guard -> release) стоит во всех точках: наблюдатель-повод, делегированный кандидат nostalgia (nostalgia_worker:1120-1154), legacy-отправка nostalgia (:1055-1096), heartbeat (memory_maintenance:587-620), диагностика в реальном режиме (initiative_diagnostics:1054-1072); сигнатура handle_initiative не менялась (publish_guard последний kw-only, default None).",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-review.md",
+          "artifact_sha256": "b1bd6a4f4a20871736cf390cdc4590070da056a0196684409cd364b5e6caba15",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t3_heartbeat_refusal_keeps_intent_and_budget (:1937)",
+          "observation": "Heartbeat на отказе: отправки нет, intent остаётся pending и перепроверяется следующим тиком, budget.consume не вызван - LLM-бюджет не потрачен.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t5_every_text_send_site_passes_publish_guard (:2198) и ::test_t5_guard_flags_a_new_unguarded_call (:2218)",
+          "observation": "AST-проверка находит вызовы шва в services/*.py (>=4 точки, включая ожидаемые четыре файла) и падает на вызове без publish_guard= или с **kwargs; самопроверка ловит синтетический незащищённый вызов, защищённый пропускает.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "tests/test_initiative_coordination.py::test_t2_nostalgia_legacy_blocked_right_after_meme (:1892) (пятая точка)",
+          "observation": "Legacy-отправка nostalgia (K1/K3 OFF) идёт мимо шва, но координируется напрямую: после мема бронь останавливает отправку, причина наблюдаема.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_coordination.py",
+          "artifact_sha256": "0367c3f543ff83393e250e5869e1c2fc442cdcf639ef47aba5810c4fead9cdc0",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        },
+        {
+          "ref": "reports/w-p8-b2-sites.md (отчёт Builder по шву)",
+          "observation": "Точки и порядок precheck -> acquire -> guard -> release зафиксированы Builder по каждому вызову; тесты T1-T5 добавлены в тот же файл координации.",
+          "type": "builder",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p8-b2-sites.md",
+          "artifact_sha256": "f710e1af0bf2b364fc7e740c024093a8de4c5d9171d2eb3f57c29674090a5a17",
+          "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+          "artifact_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+        }
+      ],
+      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
+      "acceptance_basis": "arch/initiative-coordination.md §10.5 (коммит 7ab7c811)"
     }
   ],
   "items": [
@@ -7329,6 +8261,6 @@
       "arch_decision": "plans/features/meme-pipeline-refactor-01/arch/initiative-coordination.md"
     }
   ],
-  "slice_candidate_pins_note": "MEME-JOKE-SPEECH / MEME-INITIATIVE-LAYERS: кандидат 76608fad - merge-коммит feat/meme-joke-speech в evol/impl; дерево сервисов/тестов идентично проверенному коду a1f0f9a0 (git diff a1f0f9a0 76608fad по этим файлам пуст), отчёт Builder - ae72735b. MEME-INITIATIVE-LAYERS и MEME-JOKE-SPEECH перепинены 03.11.2026 на 5fb018ab: это следующий кандидат той же полосы, коммит 5dd0cb36 добавил случай выключенной оси Expression, код сервисов в нём не менялся (git diff 76608fad 5fb018ab -- services/ пуст), поэтому обе полосы проверяются с --candidate 5fb018ab; доказательства P6 перепривязаны к нему без перепроверки поведения. candidate_commit карты поднят до 5fb018ab (все прежние пины - его предки: ceb49b56, 242fbd38, 76608fad, d5853749), чтобы scoped-гейт P7 шёл по актуальному кандидату полосы. Остальные пины (P1 b272a63b, P2 ceb49b56, P3 d5853749) не менялись: их доказательства привязаны к своим кандидатам и на новых требованиях не перепроверялись. MEME-API-SCOPE привязан к ceb49b56 напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этих мёржей, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату.",
+  "slice_candidate_pins_note": "MEME-INIT-COORDINATION: кандидат f9d1cda9 (ветка feat/meme-init-coord, база 760916e8) - P8-реализация ff35a53f + тесты B1 aa13e4b6 + все точки отправки текста B2 f9d1cda9; ревью Approved (reports/w-p8-review.md, Re-review 2). Прочие пины не менялись и остаются отдельными: MEME-PIPE-CORE b272a63b, MEME-API-SCOPE ceb49b56, MEME-MANUAL-CMD d5853749, MEME-JOKE-SPEECH 5fb018ab (merge 76608fad), MEME-INITIATIVE-LAYERS 5fb018ab. Внимание: до merge ветки feat/meme-init-coord в evol/impl артефакты P8 существуют только в дереве кандидата.",
   "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются. | 03.11.2026 binding: OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS получил якорные строки источника и привязку - 13 строк P6 MEME-JOKE-SPEECH VERIFIED (кандидат 76608fad = код a1f0f9a0, ревью reports/w-joke-speech-review.md), 4 из 4 строк P7 MEME-INITIATIVE-LAYERS VERIFIED (MEME-INIT-EXPRESSION-PASS закрыт на следующем кандидате полосы 5fb018ab коммитом 5dd0cb36: случай выключенной оси Expression на пути инициативы, ревью независимое, falsifiability перепроверен PM и записан в reports/pm-p7-expression-axis-binding.md), MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**)."
 }
