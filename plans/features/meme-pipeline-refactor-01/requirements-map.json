@@ -2,13 +2,13 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+  "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
   "slice_candidate_pins": {
     "MEME-PIPE-CORE": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
     "MEME-MANUAL-CMD": "d58537496cc129987e8eb045019909b794c11533",
     "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
-    "MEME-JOKE-SPEECH": "76608fad3296389b2617ebde3d3df2a55d7aae27",
-    "MEME-INITIATIVE-LAYERS": "76608fad3296389b2617ebde3d3df2a55d7aae27"
+    "MEME-JOKE-SPEECH": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+    "MEME-INITIATIVE-LAYERS": "5fb018ab31db16953b6ea528b5f9d00ea97925ce"
   },
   "deployed_commit": "",
   "strict_evidence": true,
@@ -1062,7 +1062,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1072,7 +1072,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1081,7 +1081,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1114,7 +1114,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1124,7 +1124,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1133,7 +1133,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1166,7 +1166,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1176,7 +1176,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1209,7 +1209,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1219,7 +1219,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1252,7 +1252,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1262,7 +1262,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1295,7 +1295,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1305,7 +1305,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1338,7 +1338,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1348,7 +1348,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1381,7 +1381,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1391,7 +1391,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1400,7 +1400,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1433,7 +1433,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1443,7 +1443,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1452,7 +1452,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1485,7 +1485,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1495,7 +1495,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1504,7 +1504,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1537,7 +1537,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1547,7 +1547,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1556,7 +1556,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_joke_speech_layers.py",
           "artifact_sha256": "8a2e5c1b689d937afaa3675898366989faf6577d97444b8d935ee84a9e15f36d",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1589,7 +1589,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1599,7 +1599,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         }
@@ -1633,7 +1633,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1643,7 +1643,7 @@
           "type": "code",
           "artifact_path": "services/meme_initiative.py",
           "artifact_sha256": "b0b7c6a1f4c96c9d76fb415ffd85e0ace1e2beb7a50a6df51b8c051da499570b",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1652,7 +1652,7 @@
           "type": "test",
           "artifact_path": "tests/test_meme_pipeline_stages.py",
           "artifact_sha256": "9f2e67ed69a591fd239e023cb8c85bdb662f60df6fe87714bf7c3ea6223300ed",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1685,7 +1685,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1694,8 +1694,8 @@
           "observation": "Чатовая редакция Core (rev 11) в manifest.versions и в payload; GLOBAL_CORE отсутствует; слой core помечен rendered; один Writer-вызов.",
           "type": "test",
           "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
-          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1704,7 +1704,7 @@
           "type": "test",
           "artifact_path": "tests/test_soul1_w5_observer_gates.py",
           "artifact_sha256": "aacf7a47b26b0efa9277c991cc68fb9086f48c135188eb710009130e27952f67",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1715,7 +1715,8 @@
       "amendment_source_sha256": "8941c8d1e2fc0848fdba4d48e849777863a5626b464cae17bda7f9d2f45faaef",
       "amendment_source_line": 20,
       "amendment_line_sha256": "2fde982b2b8d22a05f0e1cd252860763831134a5343610878f8d231a922d2453",
-      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо"
+      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо",
+      "notes": "Перепроверено на кандидате 5fb018ab (после правки тестового файла коммитом 5dd0cb36): те же утверждения живы, изменилась только нумерация строк и параметризация осей. Дайджест тестового артефакта обновлён; код-артефакты (a1f0f9a0) не менялись. Оба случая выключенной оси Expression существуют и оба проверяют наблюдаемое: этап прикола - tests/test_meme_joke_speech_layers.py:430 (speech['skipped']['expression'] == 'expression_disabled' в жанровом Writer'е прикола) и обычная текстовая инициатива - tests/test_initiative_speech_layers_chat_overrides.py [expression-expression_disabled-...] на кандидате 5fb018ab; плюс общий уровень композера - tests/test_add_exp_expression.py:563."
     },
     {
       "source_id": "MAN-MEME-INIT-EXPRESSION-PASS",
@@ -1729,8 +1730,46 @@
       "acceptance": "Expression («Речь и характер») доезжает до payload инициативы с учётом глобальных и чатовых настроек: чатовое переопределение меняет собранный system, при выключенном Expression — честная причина пропуска; проверка на реальном payload инициативного сообщения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "reports/pm-p7-expression-axis-binding.md - вердикт Reviewer (handoff) + независимая перепроверка PM",
+          "observation": "Reviewer независимо проверил случай выключенной оси Expression на реальном собранном payload: слой отсутствует, причина названа, Core/Style живы, проверка падает если слой рендерится, ослаблений нет. Отдельного файла отчёта Reviewer нет - вердикт передан координатором и зафиксирован в этом артефакте вместе с перепроверкой PM: 4 passed на кандидате, мутация M3 (композер рендерит слой всегда) роняет тест на rendered is False, мутация M2 (builder игнорирует enabled) роняет его на имени причины; дерево восстановлено, HEAD 5fb018ab.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/pm-p7-expression-axis-binding.md",
+          "artifact_sha256": "408c0a39f8d601f99aec00a593a9903a0901597d74919c892a9cd43ff0d6f7b3",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+          "artifact_commit": "",
+          "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
+        },
+        {
+          "ref": "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_disabled_axis_skips_layer_with_reason[expression-expression_disabled-...]",
+          "observation": "Выключенная ось Expression в чатовом И глобальном документе: слой expression не рендерен, skip_reason=='expression_disabled' из закрытого SKIP_REASONS; в payload нет ни чатового, ни глобального пожелания выражения и нет EXPRESSION_HEADER; при этом Core (чатовая редакция) и Style Policy (chat rev 9, hint в payload) живы и помечены rendered. Writer один, манифест снят с боевого пути инициативы.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+          "artifact_commit": "5dd0cb36643d0a191a65d4be2e43d0996723e1a9"
+        },
+        {
+          "ref": "tests/test_initiative_speech_layers_chat_overrides.py::test_initiative_uses_chat_level_core_style_and_expression",
+          "observation": "Положительная половина оси: при включённом Expression чатовое пожелание и чатовая ревизия доезжают до payload (CHAT_EXPR_NOTE есть, GLOBAL_EXPR_NOTE нет, manifest.versions['expression'] == чатовой ревизии, EXPRESSION_HEADER в system). Вместе с выключенным случаем это даёт обе стороны контракта на одном кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+          "artifact_commit": "5dd0cb36643d0a191a65d4be2e43d0996723e1a9"
+        },
+        {
+          "ref": "merge 5fb018ab (5dd0cb36 -> evol/impl): тестовый файл в дереве кандидата",
+          "observation": "Правка оси Expression вошла в полосу отдельным коммитом 5dd0cb36 (1 файл, +24/-6) и слита merge-коммитом 5fb018ab; дерево сервисов не менялось, поэтому код-доказательства a1f0f9a0 остаются в силе. Дайджест файла в дереве 5fb018ab совпадает с указанным в этой строке.",
+          "type": "code",
+          "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
+          "artifact_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce"
+        }
+      ],
       "amendment_ref": "OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS",
       "amendment_kind": "amendment",
       "amendment_section": "этап B / диагностика мемов / обычная текстовая инициатива",
@@ -1739,7 +1778,7 @@
       "amendment_source_line": 20,
       "amendment_line_sha256": "2fde982b2b8d22a05f0e1cd252860763831134a5343610878f8d231a922d2453",
       "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо",
-      "pending_note": "PENDING: чатовое переопределение Expression доказано (test_initiative_speech_layers_chat_overrides.py:177 - чатовая заметка в payload, глобальной нет, ревизия совпадает), но случай ВЫКЛЮЧЕННОЙ оси Expression на пути инициативы не проверен: в test_...chat_overrides.py параметризованы только оси core и style, а expression_disabled проверяется лишь на этапе прикола (test_meme_joke_speech_layers.py:430) и на уровне композера (test_add_exp_expression.py:563). Нужен один параметризованный случай axis='expression' на payload Writer'а инициативы (skipped reason expression_disabled + остальные слои живы)."
+      "notes": "Закрыто 03.11.2026 на кандидате 5fb018ab. Прежний PENDING был про отсутствие случая выключенной оси Expression на пути инициативы (он был только на этапе прикола и на уровне композера). Теперь случай есть: Оба случая выключенной оси Expression существуют и оба проверяют наблюдаемое: этап прикола - tests/test_meme_joke_speech_layers.py:430 (speech['skipped']['expression'] == 'expression_disabled' в жанровом Writer'е прикола) и обычная текстовая инициатива - tests/test_initiative_speech_layers_chat_overrides.py [expression-expression_disabled-...] на кандидате 5fb018ab; плюс общий уровень композера - tests/test_add_exp_expression.py:563. Acceptance проверен наблюдаемо (слой отсутствует, причина названа, остальные слои живы); тест falsifiable - при принудительном рендере слоя падает на rendered is False."
     },
     {
       "source_id": "MAN-MEME-INIT-STYLE-POLICY",
@@ -1761,7 +1800,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1770,8 +1809,8 @@
           "observation": "chat_policy.hint в system, global_policy.hint нет, manifest.versions['style_policy'] == chat-ревизии (rev 9); документы строятся штатным style_policy.build_document.",
           "type": "test",
           "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
-          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1779,8 +1818,8 @@
           "observation": "Выключенная ось стиля: слой style_policy_hint не отрендерен, skip_reason=='style_policy_disabled' из закрытого SKIP_REASONS, остальные слои (Core, персона) на месте.",
           "type": "test",
           "artifact_path": "tests/test_initiative_speech_layers_chat_overrides.py",
-          "artifact_sha256": "50f05aa9393adbcbaee4228157440886e3f842976d34d1b2155d4815beec9607",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "artifact_sha256": "321142336537cc22b6300727bd30c09a4aaf5ece46d60b019ccf77cc2155aadb",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1791,7 +1830,8 @@
       "amendment_source_sha256": "8941c8d1e2fc0848fdba4d48e849777863a5626b464cae17bda7f9d2f45faaef",
       "amendment_source_line": 20,
       "amendment_line_sha256": "2fde982b2b8d22a05f0e1cd252860763831134a5343610878f8d231a922d2453",
-      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо"
+      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо",
+      "notes": "Перепроверено на кандидате 5fb018ab (после правки тестового файла коммитом 5dd0cb36): те же утверждения живы, изменилась только нумерация строк и параметризация осей. Дайджест тестового артефакта обновлён; код-артефакты (a1f0f9a0) не менялись. Оба случая выключенной оси Expression существуют и оба проверяют наблюдаемое: этап прикола - tests/test_meme_joke_speech_layers.py:430 (speech['skipped']['expression'] == 'expression_disabled' в жанровом Writer'е прикола) и обычная текстовая инициатива - tests/test_initiative_speech_layers_chat_overrides.py [expression-expression_disabled-...] на кандидате 5fb018ab; плюс общий уровень композера - tests/test_add_exp_expression.py:563."
     },
     {
       "source_id": "MAN-MEME-INIT-NO-DIRECT-REWORK",
@@ -1813,7 +1853,7 @@
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-joke-speech-review.md",
           "artifact_sha256": "b15ca8030e4931e5032e6020e497c8e38282eea5ebdfc956189e7acb4b633f38",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "",
           "artifact_commit_note": "файл добавлен коммитом PM-привязки (в коде-кандидате его не было)"
         },
@@ -1823,7 +1863,7 @@
           "type": "code",
           "artifact_path": "services/direct_chat_service.py",
           "artifact_sha256": "3bf3c96fcc7d0feaf1ccb7cbfa1fdaac1f6bd310543c97451a08004e1b20042a",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         },
         {
@@ -1832,7 +1872,7 @@
           "type": "test",
           "artifact_path": "tests/test_soul1_w5_observer_gates.py",
           "artifact_sha256": "aacf7a47b26b0efa9277c991cc68fb9086f48c135188eb710009130e27952f67",
-          "candidate_commit": "76608fad3296389b2617ebde3d3df2a55d7aae27",
+          "candidate_commit": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
           "artifact_commit": "a1f0f9a00705c08b38ec684557148a08b75888b8"
         }
       ],
@@ -1843,7 +1883,8 @@
       "amendment_source_sha256": "8941c8d1e2fc0848fdba4d48e849777863a5626b464cae17bda7f9d2f45faaef",
       "amendment_source_line": 20,
       "amendment_line_sha256": "2fde982b2b8d22a05f0e1cd252860763831134a5343610878f8d231a922d2453",
-      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо"
+      "amendment_excerpt": "> Также проверить обычную текстовую инициативу на фактическое прохождение Core, Expression и Style Policy с учётом глобальных и чатовых настроек. Не менять рабо",
+      "notes": "Перепроверено на кандидате 5fb018ab (после правки тестового файла коммитом 5dd0cb36): те же утверждения живы, изменилась только нумерация строк и параметризация осей. Дайджест тестового артефакта обновлён; код-артефакты (a1f0f9a0) не менялись. Оба случая выключенной оси Expression существуют и оба проверяют наблюдаемое: этап прикола - tests/test_meme_joke_speech_layers.py:430 (speech['skipped']['expression'] == 'expression_disabled' в жанровом Writer'е прикола) и обычная текстовая инициатива - tests/test_initiative_speech_layers_chat_overrides.py [expression-expression_disabled-...] на кандидате 5fb018ab; плюс общий уровень композера - tests/test_add_exp_expression.py:563."
     },
     {
       "source_id": "MAN-MEME-JOKE-DIAG-UI",
@@ -7173,7 +7214,7 @@
         20
       ],
       "source_pointer_note": "Вербатим-текст дополнения - plans/owner_inputs/2026-11-03-meme-joke-speech-layers.md (sha256 файла выше). Строки 10-20 - пять абзацев требования владельца (композер и слои, задание вместо личности, запреты и приём Humor Craft, выжимка/картинка, диагностика и проверка реального payload, проверка обычной инициативы). Строка 8 - заголовок дополнения; на неё же ссылаются другие дополнения этой задачи.",
-      "binding_note": "Привязка 03.11.2026 (PM): сервисная часть дополнения реализована кандидатом a1f0f9a0 (код) + ae72735b (отчёт Builder), независимо принята Reviewer (reports/w-joke-speech-review.md, APPROVED по поведению) и объединена в evol/impl merge-коммитом 76608fad (дерево кода = a1f0f9a0). Строки P6 MEME-JOKE-SPEECH (13) - VERIFIED на кандидате 76608fad; P7 MEME-INITIATIVE-LAYERS - 3 из 4 VERIFIED, MEME-INIT-EXPRESSION-PASS остаётся PENDING (нет случая выключенной оси Expression на пути инициативы); показ диагностики в админке остаётся PENDING в P4 (MEME-JOKE-DIAG-UI)."
+      "binding_note": "Привязка 03.11.2026 (PM): сервисная часть дополнения реализована кандидатом a1f0f9a0 (код) + ae72735b (отчёт Builder), независимо принята Reviewer (reports/w-joke-speech-review.md, APPROVED по поведению) и объединена в evol/impl merge-коммитом 76608fad (дерево кода = a1f0f9a0). Строки P6 MEME-JOKE-SPEECH (13) - VERIFIED (код a1f0f9a0, кандидат 76608fad; доказательства перепривязаны к 5fb018ab, поведение не перепроверялось - дерево services/ между кандидатами идентично). P7 MEME-INITIATIVE-LAYERS закрыт 03.11.2026 на следующем кандидате полосы 5fb018ab: коммит 5dd0cb36 добавил случай выключенной оси Expression на пути инициативы (expression_enabled=False в глобальном и чатовом документах, годная причина expression_disabled, Core и Style Policy живы), Reviewer принял его независимо на реальном собранном payload, PM перепроверил falsifiability (принудительный рендер слоя роняет тест на rendered is False, игнор флага в builder - на имени причины); вердикт и перепроверка записаны в reports/pm-p7-expression-axis-binding.md. Все 4 строки P7 - VERIFIED на 5fb018ab, гейт --stage review --slice MEME-INITIATIVE-LAYERS --candidate 5fb018ab = 0 ошибок. Теперь существуют оба случая expression_disabled: этап прикола (tests/test_meme_joke_speech_layers.py:430) и обычная инициатива (кейс [expression-...] в tests/test_initiative_speech_layers_chat_overrides.py). Показ диагностики в админке остаётся PENDING в P4 (MEME-JOKE-DIAG-UI)."
     },
     {
       "id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
@@ -7271,6 +7312,6 @@
       "arch_decision": "plans/features/meme-pipeline-refactor-01/arch/initiative-coordination.md"
     }
   ],
-  "slice_candidate_pins_note": "MEME-JOKE-SPEECH / MEME-INITIATIVE-LAYERS: кандидат 76608fad - merge-коммит feat/meme-joke-speech в evol/impl; дерево сервисов/тестов идентично проверенному коду a1f0f9a0 (git diff a1f0f9a0 76608fad по этим файлам пуст), отчёт Builder - ae72735b. Остальные пины (P1 b272a63b, P2 ceb49b56, P3 d5853749) не менялись: их доказательства привязаны к своим кандидатам и на новых требованиях не перепроверялись. candidate_commit - объединённый кандидат полосы P2 (ceb49b56 = код e99218af + доки 69edaccc): именно на нём перепроверены все привязанные артефакты. MEME-API-SCOPE привязан к нему напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этого мёржа, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату.",
-  "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются. | 03.11.2026 binding: OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS получил якорные строки источника и привязку - 13 строк P6 MEME-JOKE-SPEECH VERIFIED, 3 из 4 строк P7 MEME-INITIATIVE-LAYERS VERIFIED, MEME-INIT-EXPRESSION-PASS PENDING (нет случая выключенной оси Expression на пути инициативы), MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**). Кандидат 76608fad (= код a1f0f9a0), ревью reports/w-joke-speech-review.md."
+  "slice_candidate_pins_note": "MEME-JOKE-SPEECH / MEME-INITIATIVE-LAYERS: кандидат 76608fad - merge-коммит feat/meme-joke-speech в evol/impl; дерево сервисов/тестов идентично проверенному коду a1f0f9a0 (git diff a1f0f9a0 76608fad по этим файлам пуст), отчёт Builder - ae72735b. MEME-INITIATIVE-LAYERS и MEME-JOKE-SPEECH перепинены 03.11.2026 на 5fb018ab: это следующий кандидат той же полосы, коммит 5dd0cb36 добавил случай выключенной оси Expression, код сервисов в нём не менялся (git diff 76608fad 5fb018ab -- services/ пуст), поэтому обе полосы проверяются с --candidate 5fb018ab; доказательства P6 перепривязаны к нему без перепроверки поведения. candidate_commit карты поднят до 5fb018ab (все прежние пины - его предки: ceb49b56, 242fbd38, 76608fad, d5853749), чтобы scoped-гейт P7 шёл по актуальному кандидату полосы. Остальные пины (P1 b272a63b, P2 ceb49b56, P3 d5853749) не менялись: их доказательства привязаны к своим кандидатам и на новых требованиях не перепроверялись. MEME-API-SCOPE привязан к ceb49b56 напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этих мёржей, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату.",
+  "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются. | 03.11.2026 binding: OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS получил якорные строки источника и привязку - 13 строк P6 MEME-JOKE-SPEECH VERIFIED (кандидат 76608fad = код a1f0f9a0, ревью reports/w-joke-speech-review.md), 4 из 4 строк P7 MEME-INITIATIVE-LAYERS VERIFIED (MEME-INIT-EXPRESSION-PASS закрыт на следующем кандидате полосы 5fb018ab коммитом 5dd0cb36: случай выключенной оси Expression на пути инициативы, ревью независимое, falsifiability перепроверен PM и записан в reports/pm-p7-expression-axis-binding.md), MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**)."
 }

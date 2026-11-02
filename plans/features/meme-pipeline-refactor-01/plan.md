@@ -274,12 +274,22 @@ Humor Craft при его включении. Редактируемый про�
 Сервисная часть дополнения реализована и принята независимым Reviewer: код `a1f0f9a0`,
 документы `ae72735b`, вердикт `reports/w-joke-speech-review.md` (APPROVED по поведению,
 единственным блокером была эта карта). Полоса объединена в `evol/impl` merge-коммитом
-`76608fad` (дерево сервисов и тестов идентично `a1f0f9a0`), он же — кандидат привязки.
+`76608fad` (дерево сервисов и тестов идентично `a1f0f9a0`), он же — кандидат привязки P6.
+
+P7 закрыт отдельно на следующем кандидате полосы `5fb018ab`: коммит `5dd0cb36` добавил
+в `tests/test_initiative_speech_layers_chat_overrides.py` случай выключенной оси
+Expression (`expression_enabled=False` в глобальном и чатовом документах) и проверку,
+что Core и Style Policy при этом живы; Reviewer принял случай независимо на реальном
+собранном payload, PM перепроверил falsifiability (принудительный рендер слоя роняет
+тест на `rendered is False`, игнор флага в builder — на имени причины). Проверка
+зафиксирована в `reports/pm-p7-expression-axis-binding.md`. Теперь существуют оба
+случая `expression_disabled`: этап прикола (`tests/test_meme_joke_speech_layers.py:430`)
+и обычная инициатива (кейс `[expression-...]` того же файла).
 
 | Пакет | Итог | Что осталось |
 |---|---|---|
-| P6 `MEME-JOKE-SPEECH` | 13 / 13 `VERIFIED` | ничего: гейт `--stage review --slice MEME-JOKE-SPEECH --candidate 76608fad` = 0 ошибок |
-| P7 `MEME-INITIATIVE-LAYERS` | 3 / 4 `VERIFIED` | `MEME-INIT-EXPRESSION-PASS` — PENDING: нет случая выключенной оси Expression на пути инициативы (на этапе прикола он есть) |
+| P6 `MEME-JOKE-SPEECH` | 13 / 13 `VERIFIED` | ничего: гейт `--stage review --slice MEME-JOKE-SPEECH --candidate 5fb018ab` = 0 ошибок |
+| P7 `MEME-INITIATIVE-LAYERS` | 4 / 4 `VERIFIED` (кандидат `5fb018ab`) | ничего: ось Expression закрыта коммитом `5dd0cb36` (случай `expression_disabled` на пути инициативы), гейт `--stage review --slice MEME-INITIATIVE-LAYERS --candidate 5fb018ab` = 0 ошибок |
 | P4 `MEME-UI-FIELDS` | `MEME-JOKE-DIAG-UI` PENDING | показ ревизий/manifest в карточке: нужен `web/**`, полоса ждёт освобождения |
 
 Остаток эпика не изменился: P4 (`MEME-UI-FIELDS`) и пакеты координации инициативы
