@@ -1,0 +1,69 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "meme-pipeline-refactor-01",
+  "note": "Пакеты разрезаны по реальным write-scope. services/meme_initiative.py — одна горячая точка: MEME-PIPE-CORE и MEME-ANALYTICS-STAGES сериализованы зависимостью. web/index.html + web/app.js держит линия COG-MAP S3 (worktree evol-71536a366a11-814456b9, branch feat/cog-map-s3): MEME-UI-FIELDS стартует только после освобождения этих файлов.",
+  "slices": [
+    {
+      "id": "MEME-PIPE-CORE",
+      "title": "Три этапа пайплайна + перенос потолка длины на прикол",
+      "depends_on": [],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "services/prompt_registry.py",
+        "tests/test_evol014_meme_initiative.py",
+        "tests/test_meme_pipeline_stages.py"
+      ],
+      "acceptance": "На фикстурах чата пайплайн делает три шага (выжимка -> прикол -> image prompt); выжимка формируется без числового потолка, J = max(0, L - T) посчитан и передан инструкцией модели, image prompt = шаблон + прикол, защитная обрезка только как страховка; ручной режим manual=True bypass-ит квоту/кулдаун/минимум сообщений/случайный триггер, но не RBAC/image-доступность."
+    },
+    {
+      "id": "MEME-API-SCOPE",
+      "title": "API мем-настроек: два промпта + диагностика L/T/J",
+      "depends_on": [
+        "MEME-PIPE-CORE"
+      ],
+      "write_scope": [
+        "web/api/routes.py",
+        "tests/test_meme_pipeline_api.py"
+      ],
+      "acceptance": "GET /api/initiative/meme-settings отдаёт эффективный текст обоих промптов и их источник, а также числа L, T, J; POST принимает joke_prompt/image_prompt, пишет чатовое переопределение и глобальный слой, отдаёт свежий срез; невалидные значения и отсутствие прав дают 422/403, а не молчаливую запись."
+    },
+    {
+      "id": "MEME-MANUAL-CMD",
+      "title": "Админская диагностическая команда /meme",
+      "depends_on": [
+        "MEME-PIPE-CORE"
+      ],
+      "write_scope": [
+        "handlers/admin_commands.py",
+        "services/bot_commands.py",
+        "tests/test_admin_meme_command.py"
+      ],
+      "acceptance": "В группе /meme от не-админа не порождает генерации; от админа запускает пайплайн вручную при исчерпанной квоте, активном кулдауне и малом числе сообщений; при недоступном image backend возвращает честную ошибку; в меню команд бота команда не появляется."
+    },
+    {
+      "id": "MEME-UI-FIELDS",
+      "title": "Админка: два редактируемых промпта + диагностика лимита",
+      "depends_on": [
+        "MEME-API-SCOPE"
+      ],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "tests/test_evol014_ui.py"
+      ],
+      "acceptance": "В Модули -> Инициатива -> Мемы оба промпта редактируются и сохраняются (не read-only), рядом с лимитом показаны потолок итогового промпта, длина шаблона и бюджет прикола; после сохранения и перезагрузки страницы видны сохранённые значения, а стадии аналитики содержат отдельную метку генерации прикола."
+    },
+    {
+      "id": "MEME-ANALYTICS-STAGES",
+      "title": "Аналитика и логи: различимость четырёх этапов",
+      "depends_on": [
+        "MEME-PIPE-CORE"
+      ],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "tests/test_meme_analytics_stages.py"
+      ],
+      "acceptance": "Журнал попыток содержит отдельные записи для выжимки, прикола, картинки и публикации; для попытки доступны использованный шаблон, посчитанный J и фактическая длина прикола; упавший и пропущенный этапы различимы по коду, а тексты прикола в пользовательский чат и в лог не попадают."
+    }
+  ]
+}
