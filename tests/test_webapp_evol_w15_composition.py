@@ -76,6 +76,11 @@ def _rules(css):
     Комментарии заменяются пробелами с сохранением переводов строк: иначе
     селектор склеивается с комментарием и нарушение приписывается чужому
     правилу (проверено на реальном CSS).
+
+    Правила внутри `@media`/`@supports` разбираются РЕКУРСИВНО: прелюдия
+    at-правила — не селектор, и раньше её тело считалось одним «правилом»,
+    из-за чего литерал внутри media-блока был слепой зоной (ревью 2, 6.1).
+    Именно там жил бы запрещённый «костыль под 195 px».
     """
     css = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)),
                  css, flags=re.S)
@@ -99,7 +104,12 @@ def _rules(css):
             j += 1
         body = css[brace + 1:j]
         line = css[:sel_start].count("\n") + 1
-        out.append((sel, body, line))
+        if sel.startswith("@"):
+            base = css[:brace + 1].count("\n")
+            for sub_sel, sub_body, sub_line in _rules(body):
+                out.append((sub_sel, sub_body, sub_line + base))
+        else:
+            out.append((sel, body, line))
         i = j + 1
     return out
 
@@ -225,6 +235,18 @@ def test_invariant_catches_reintroduced_variant():
     bad3 = _literal_geometry(mutated3)
     assert bad3 and any("run-card" in b[1] for b in bad3), \
         "инвариант не поймал литеральную границу .run-card"
+    # Ревью 2, 6.1: правило ВНУТРИ @media — то место, где жил бы «костыль под
+    # 195 px». Прелюдия at-правила не селектор: тело разбирается рекурсивно.
+    mutated4 = (CSS + "\n@media (max-width: 359px) {\n"
+                "  .hub-card { border-radius: 12px; }\n}\n")
+    bad4 = _literal_geometry(mutated4)
+    assert bad4 and any("hub-card" in b[1] for b in bad4), \
+        "инвариант не поймал литерал .hub-card внутри @media"
+    mutated5 = (CSS + "\n@media (max-width: 500px) {\n"
+                "  .speech-rule { padding: 8px 10px; }\n}\n")
+    bad5 = _literal_geometry(mutated5)
+    assert bad5 and any("speech-rule" in b[1] for b in bad5), \
+        "инвариант не поймал литерал .speech-rule внутри @media"
 
 
 # ── 3. Точки применения токенов (не только объявление) ──────────────────────

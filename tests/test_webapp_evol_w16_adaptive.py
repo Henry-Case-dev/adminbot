@@ -98,14 +98,80 @@ def test_no_second_menu_or_bottom_navbar_added():
 
 
 # ── §1/§2: сетки не выезжают при эффективной ширине меньше своего пола ──────
+def _css_rules(css):
+    """Правила с балансом скобок; тело @media/@supports разбирается рекурсивно.
+
+    Ревью 2 (6.2): прежняя версия искала подстроку свойства в СЕЛЕКТОРЕ, то
+    есть не могла упасть ни на одном входе. Здесь перебираются объявления
+    реальных правил — включая правила внутри media-блоков, где и живут
+    адаптивные сетки.
+    """
+    css = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+                 css, flags=re.S)
+    out = []
+    i = 0
+    while i < len(css):
+        brace = css.find("{", i)
+        if brace == -1:
+            break
+        sel_start = css.rfind("}", 0, brace) + 1
+        sel = css[sel_start:brace].strip()
+        depth = 0
+        j = brace
+        while j < len(css):
+            if css[j] == "{":
+                depth += 1
+            elif css[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        body = css[brace + 1:j]
+        if sel.startswith("@"):
+            out.extend(_css_rules(body))
+        else:
+            out.append((sel, body))
+        i = j + 1
+    return out
+
+
+def _grid_columns(css):
+    """(селектор, значение) для каждого объявления grid-template-columns."""
+    out = []
+    for sel, body in _css_rules(css):
+        for decl in body.split(";"):
+            if ":" not in decl:
+                continue
+            prop, val = decl.split(":", 1)
+            if prop.strip().lower() == "grid-template-columns":
+                out.append((sel, val.strip()))
+    return out
+
+
 def test_grids_clamp_min_track_to_available_width():
+    # 1) Ни одного «жёсткого» пола ≥200 px: пол обязан быть ограничен
+    #    доступной шириной через min(100%, …), иначе на эффективной ширине
+    #    меньше пола сетка выезжает за вьюпорт (page zoom / крупный шрифт).
     offenders = []
-    for sel, body in _rule_bodies("grid-template-columns"):
-        for m in re.finditer(r"minmax\(\s*(\d+)px", body):
-            if int(m.group(1)) >= 200:
-                offenders.append((sel[:50], m.group(0)))
+    clamped = 0
+    for sel, val in _grid_columns(CSS):
+        if re.search(r"minmax\(\s*min\(\s*100%", val):
+            clamped += 1
+        for m in re.finditer(r"minmax\(\s*(\d+(?:\.\d+)?)px", val):
+            if float(m.group(1)) >= 200:
+                offenders.append((sel[:44], m.group(0)))
     assert not offenders, ("жёсткий пол трека ≥200 px без min(100%, …): %s"
                            % offenders)
+    # 2) Положительная проверка: ограниченная форма в файле действительно есть
+    #    (иначе проверка выше проходила бы на файле вообще без сеток).
+    assert clamped >= 4, \
+        "в CSS должно остаться ≥4 сетки с minmax(min(100%, …)), найдено %d" % clamped
+    # 3) Конкретные компактные сетки — в ограниченной форме.
+    compact = [v for s, v in _grid_columns(CSS)
+               if ".module-list" in s and ".hub-grid" in s]
+    assert compact, "не найдено правило .module-list/.hub-grid"
+    assert any("min(100%, 320px)" in v for v in compact), \
+        ".module-list/.hub-grid обязаны ограничивать пол 320 px: %s" % compact
 
 
 # ── §6: стенд различает три режима масштаба и меряет реальную геометрию ─────
