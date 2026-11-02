@@ -739,6 +739,14 @@
                 </div>
 
                 <div class="card p-4">
+                  <!-- W7-S3: переход из карточки узла. Каталог читает свои
+                       источники — если такой записи в нём нет, это сказано
+                       прямо, а не показано пустым списком без объяснения. -->
+                  <div v-if="cogMemoryNote && cogMemoryTarget
+                             && memoryCatalogQuery === cogMemoryTarget.query"
+                       class="text-xs text-amber-300 mb-2" data-memory-from-cog>
+                    {{ cogMemoryNote }}
+                  </div>
                   <div v-if="!memoryCatalogItems.length" class="text-xs text-gray-500">
                     Записей пока нет — память наполняется из переписки выбранного чата.
                   </div>
@@ -12221,26 +12229,16 @@
               <div v-if="cogViewCounters" class="text-xs text-gray-500"
                    data-cog-view-counters>{{ cogViewCounters }}</div>
               <div ref="cognitionGraph" class="cognition-graph" data-glass="c"
+                   tabindex="0" data-cog-scene
+                   role="application"
+                   aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
+                   @keydown.enter.prevent="openCogSelectedCard()"
+                   @keydown.space.prevent="openCogSelectedCard()"
                    :hidden="cogEmpty"></div>
-              <!-- §16: подробности выбранного узла + ближайшие связи (реальные
-                   тип/связи из модели, без выдумывания связей). Карточка с
-                   кнопками «Открыть источник/История/в Память» — S3. -->
-              <div v-if="graphDetail" class="mt-2 text-xs" data-cog-detail>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="badge badge-info">{{ graphDetail.title }}</span>
-                  <span class="badge badge-muted">{{ graphDetail.kindLabel }}</span>
-                  <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
-                  <span class="badge badge-muted" v-if="graphDetail.isolated">изолированный</span>
-                  <button class="btn-ghost text-[10px] ml-auto" type="button"
-                          @click="graphClearDetail()">скрыть</button>
-                </div>
-                <div v-if="graphNeighbors.length" class="flex flex-wrap gap-1 mt-1">
-                  <button v-for="nb in graphNeighbors" :key="'nb' + nb.id"
-                          type="button" class="badge badge-muted"
-                          @click="focusGraphNode(nb.id)">→ {{ nb.label }}</button>
-                </div>
-                <div v-else class="text-gray-500 mt-1">Ближайших связей нет.</div>
-              </div>
+              <!-- W7-S3: подробности выбранной записи — ОДНА карточка-слой
+                   (`cogCard`, разметка ниже вне сетки), общая для встроенной
+                   карты и полного экрана. Прежний встроенный бейдж-блок удалён,
+                   чтобы запись не показывалась дважды. -->
             </div>
 
             <!-- ═══ ASAP-UI-02 (§5.3/§7, wave 2): ЕДИНЫЙ виджет «Мониторинг
@@ -13686,20 +13684,193 @@
                    data-cog-view-counters>{{ cogViewCounters }}</div>
               <div ref="cognitionGraph"
                    class="cognition-graph cognition-graph--full" data-glass="c"
+                   tabindex="0" data-cog-scene
+                   role="application"
+                   aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
+                   @keydown.enter.prevent="openCogSelectedCard()"
+                   @keydown.space.prevent="openCogSelectedCard()"
                    :hidden="cogEmpty"></div>
-              <div v-if="graphDetail" class="text-xs" data-cog-detail>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="badge badge-info">{{ graphDetail.title }}</span>
-                  <span class="badge badge-muted">{{ graphDetail.kindLabel }}</span>
-                  <span class="badge badge-muted" v-if="graphDetail.degree != null">связей: {{ graphDetail.degree }}</span>
-                  <span class="badge badge-muted" v-if="graphDetail.isolated">изолированный</span>
-                </div>
-                <div v-if="graphNeighbors.length" class="flex flex-wrap gap-1 mt-1">
-                  <button v-for="nb in graphNeighbors" :key="'nbf' + nb.id"
-                          type="button" class="badge badge-muted"
-                          @click="focusGraphNode(nb.id)">→ {{ nb.label }}</button>
-                </div>
+              <!-- W7-S3: подробности — та же ОДНА карточка-слой, что и во
+                   встроенном виджете (общий элемент, без дубля разметки). -->
+            </div>
+            <!-- ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ═══════════════
+                 Клик по узлу/ребру открывает этот слой: desktop — выдвижная
+                 панель справа, телефон — нижний лист. Показывает ТОЛЬКО
+                 записанное в payload; отсутствующее названо отсутствующим.
+                 Кнопки — «Открыть источник», «История изменений», «Открыть в
+                 Памяти», «Показать связи»: у неработающей видна причина, а не
+                 пустая декорация. Закрытие (✕ / Esc / Back) возвращает фокус на
+                 сцену и НЕ меняет камеру, зум и фильтры. -->
+            <div v-if="cogCard" id="cog-card" ref="cogCardPanel"
+                 class="cog-card" :class="'cog-card--' + cogCard.kind"
+                 data-glass="b"
+                 role="dialog" aria-modal="true" tabindex="-1"
+                 :data-cog-card="cogCard.kind" :data-cog-card-id="cogCard.id"
+                 :aria-label="cogCard.kind === 'edge'
+                   ? 'Связь когнитивной карты' : 'Запись когнитивной карты'"
+                 @keydown="cogCardKeydown($event)">
+              <div class="cog-card__head">
+                <span class="badge badge-muted" data-cog-card-kind>{{ cogCard.kindLabel }}</span>
+                <span v-if="cogCard.kind === 'node'" class="cog-card__scope"
+                      data-cog-card-scope>{{ cogCardScopeLabel }}</span>
+                <button class="btn-ghost text-xs ml-auto" type="button"
+                        data-cog-card-close @click="closeCogCard()"
+                        aria-label="Закрыть карточку">✕</button>
               </div>
+
+              <template v-if="cogCard.kind === 'node'">
+                <div class="cog-card__title" data-cog-card-title>{{ cogCard.title }}</div>
+                <div class="cog-card__text" :class="{ 'is-absent': !cogCard.text }"
+                     data-cog-card-text>{{ cogCard.text || cogCard.textNote }}</div>
+                <div class="cog-card__facts">
+                  <span v-if="cogCard.status" class="cog-card__fact"
+                        data-cog-card-status>статус: {{ cogCard.status }}</span>
+                  <span v-if="cogCard.isolated" class="cog-card__fact"
+                        data-cog-card-isolated>связей не записано</span>
+                </div>
+
+                <div class="cog-card__section" data-cog-card-times>
+                  <div class="cog-card__label">Время</div>
+                  <div v-for="t in cogCard.times" :key="'ct' + t.key"
+                       class="cog-card__row" :data-cog-time="t.key">
+                    <span class="cog-card__key">{{ t.label }}</span>
+                    <span class="cog-card__value">{{ fmtTs(t.value) }}</span>
+                  </div>
+                  <div v-if="cogCard.timesNote" class="cog-card__absent"
+                       data-cog-times-absent>{{ cogCard.timesNote }}</div>
+                </div>
+
+                <div class="cog-card__section" data-cog-card-provenance>
+                  <div class="cog-card__label">Происхождение</div>
+                  <div v-if="cogCard.provenance.origin" class="cog-card__row"
+                       data-cog-origin>
+                    <span class="cog-card__key">Откуда</span>
+                    <span class="cog-card__value">{{ cogCardOriginLabel }}
+                      <span class="cog-card__hint">({{ cogCard.provenance.origin }})</span></span>
+                  </div>
+                  <div v-if="cogCard.provenance.messageId != null" class="cog-card__row"
+                       data-cog-message>
+                    <span class="cog-card__key">Сообщение</span>
+                    <span class="cog-card__value">#{{ cogCard.provenance.messageId }}
+                      <span v-if="cogCard.chatId != null" class="cog-card__hint">·
+                        {{ cogCardScopeLabel }}</span></span>
+                  </div>
+                  <div v-if="cogCard.provenance.sourceIds.length" class="cog-card__row"
+                       data-cog-source-ids>
+                    <span class="cog-card__key">Основания</span>
+                    <span class="cog-card__value">{{ cogCard.provenance.sourceIds.join(', ') }}</span>
+                  </div>
+                  <div v-if="cogCard.provenance.sourceRefs.length" class="cog-card__row"
+                       data-cog-source-refs>
+                    <span class="cog-card__key">Ссылки источника</span>
+                    <span class="cog-card__value">{{ cogCard.provenance.sourceRefs.length }}
+                      шт.</span>
+                  </div>
+                  <div v-if="cogCard.provenance.versionOf != null" class="cog-card__row"
+                       data-cog-version-of>
+                    <span class="cog-card__key">Заменяет</span>
+                    <span class="cog-card__value">запись №{{ cogCard.provenance.versionOf }}</span>
+                  </div>
+                  <div v-if="!cogCard.provenance.origin && cogCard.provenance.messageId == null
+                             && !cogCard.provenance.sourceIds.length
+                             && !cogCard.provenance.sourceRefs.length
+                             && cogCard.provenance.versionOf == null"
+                       class="cog-card__absent" data-cog-provenance-absent>
+                    источник записи не указан
+                  </div>
+                </div>
+
+                <div class="cog-card__section" data-cog-card-metrics>
+                  <div class="cog-card__label">Что посчитано</div>
+                  <div v-for="m in cogCard.metrics.rows" :key="'cm' + m.key"
+                       class="cog-card__row" :data-cog-metric="m.key">
+                    <span class="cog-card__key">{{ m.label }}</span>
+                    <span class="cog-card__value">{{ m.value }}
+                      <span class="cog-card__hint">{{ m.nature }}</span></span>
+                  </div>
+                  <div class="cog-card__absent" data-cog-metrics-note>{{ cogCard.metrics.note }}</div>
+                </div>
+
+                <div class="cog-card__section" data-cog-card-history>
+                  <div class="cog-card__label">Изменения</div>
+                  <div v-if="cogCard.history.available">
+                    <button v-for="h in cogCard.history.nodes" :key="'ch' + h.id"
+                            type="button" class="cog-card__link"
+                            :data-cog-history-node="h.id"
+                            @click="openCogNodeCard(h.id)">→ {{ h.title }}</button>
+                  </div>
+                  <div v-else class="cog-card__absent" data-cog-history-absent>
+                    {{ cogCard.history.reason }}
+                  </div>
+                </div>
+
+                <div class="cog-card__section" data-cog-card-links>
+                  <div class="cog-card__label">Связи
+                    <span class="cog-card__label-hint">записанные в данных</span></div>
+                  <div v-if="cogCard.neighbors.length"
+                       :class="{ 'cog-card__links--collapsed': !cogCardLinksExpanded }">
+                    <button v-for="nb in cogCard.neighbors" :key="'cn' + nb.edgeId"
+                            type="button" class="cog-card__link"
+                            :data-cog-neighbor="nb.id"
+                            @click="openCogEdgeCard(nb.edgeId)">
+                      {{ nb.title }}
+                      <span class="cog-card__hint">{{ nb.relationLabel }}</span>
+                    </button>
+                  </div>
+                  <div v-else class="cog-card__absent" data-cog-links-absent>
+                    связей не записано
+                  </div>
+                </div>
+
+                <div class="cog-card__actions" data-cog-card-actions>
+                  <div class="cog-card__action">
+                    <button v-for="act in cogCard.actions" :key="'ca' + act.id"
+                            type="button" class="btn-ghost text-xs"
+                            :data-cog-action="act.id"
+                            :disabled="!act.enabled"
+                            :title="act.enabled ? '' : act.reason"
+                            @click="cogCardAction(act.id)">{{ act.label }}</button>
+                  </div>
+                  <div v-for="act in cogCard.actions" :key="'car' + act.id">
+                    <div v-if="!act.enabled" class="cog-card__absent"
+                         :data-cog-action-reason="act.id">
+                      {{ act.label }}: {{ act.reason }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="cog-card__title" data-cog-card-title>
+                  {{ cogCard.relationLabel }}
+                  <span class="cog-card__hint">{{ cogCard.kindLabel }}</span>
+                </div>
+                <div class="cog-card__section" data-cog-edge-endpoints>
+                  <div class="cog-card__label">Что связывает</div>
+                  <button v-for="ep in cogCard.endpoints" :key="'ce' + ep.id"
+                          type="button" class="cog-card__link"
+                          :data-cog-edge-endpoint="ep.id"
+                          @click="openCogNodeCard(ep.id)">{{ ep.title }}
+                    <span class="cog-card__hint">{{ ep.kindLabel }}</span>
+                  </button>
+                </div>
+                <div class="cog-card__section" data-cog-edge-justification
+                     :data-cog-justification-recorded="cogCard.justification.recorded ? '1' : '0'">
+                  <div class="cog-card__label">Почему связь показана</div>
+                  <div class="cog-card__value"
+                       :class="{ 'cog-card__absent': !cogCard.justification.recorded }">
+                    {{ cogCard.justification.text }}
+                  </div>
+                </div>
+                <div class="cog-card__section" data-cog-edge-provenance>
+                  <div class="cog-card__label">Происхождение связи</div>
+                  <div v-for="row in cogCard.justification.rows" :key="'cp' + row.key"
+                       class="cog-card__row" :data-cog-edge-row="row.key">
+                    <span class="cog-card__key">{{ row.label }}</span>
+                    <span class="cog-card__value">{{ row.value }}</span>
+                  </div>
+                </div>
+              </template>
             </div>
             </template>
           </template>

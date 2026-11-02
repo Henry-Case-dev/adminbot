@@ -764,6 +764,14 @@ def cog_payload(state="partial", nodes_total=COG_NODES_TOTAL,
     gen = int(time.time()) if generated_at is None else int(generated_at)
 
     def node(nid, kind, title, status=None, isolated=False):
+        tail = nid.rsplit(":", 1)[-1]
+        prov = {"record": "graph_facts", "chat_id": c,
+                "message_id": 555, "origin": "chat_history"}
+        # Реальный payload (`_fact_node`) всегда несёт `fact_id` — фикстура
+        # обязана повторять форму ответа, иначе «Открыть источник» проверялся
+        # бы на записи без идентификатора.
+        if kind in ("fact", "belief", "paradigm") and tail.isdigit():
+            prov["fact_id"] = int(tail)
         return {
             "id": nid, "kind": kind, "scope": "chat", "chat_id": c,
             "title": title, "text": title, "status": status,
@@ -771,8 +779,7 @@ def cog_payload(state="partial", nodes_total=COG_NODES_TOTAL,
             "time": {"occurred_at": 1750000000, "observed_at": None,
                      "saved_at": 1750000100, "confirmed_at": None,
                      "updated_at": None},
-            "provenance": {"record": "graph_facts", "chat_id": c,
-                           "message_id": 555, "origin": "chat_history"},
+            "provenance": prov,
             "metrics": {"importance": 5, "weight": None, "degree": None},
             "refs": {},
         }
@@ -856,8 +863,7 @@ def set_cog_payload(payload):
 
 
 EXTRA_STUBS = [
-    ("/api/speech/overview", SPEECH_OVERVIEW),
-    ("/api/speech/core", SPEECH_CORE),
+    ("/api/speech/overview", SPEECH_OVERVIEW),    ("/api/speech/core", SPEECH_CORE),
     ("/api/speech/style", SPEECH_STYLE),
     ("/api/speech/expression", {"enabled": True, "tone": "dry", "wit": 3,
                                 "sharpness": 2, "verbosity": 2,
@@ -875,6 +881,14 @@ EXTRA_STUBS = [
     ("/api/analytics/pipeline/runs/latest", PIPELINE_RUN),
     ("/api/analytics/viz/process-activity", PROCESS_ACTIVITY),
     ("/api/memory/cognitive-map", cog_payload()),
+    # W7-S3: «Открыть источник» доводит до первоисточника существующим
+    # read-only drill'ом окна записи (`/api/memory/attribution/trace`).
+    ("/api/memory/attribution/trace", {
+        "kind": "trace",
+        "trigger": {"row_id": 555, "sent_at": 1761800000,
+                    "author_entity_id": 9, "revision": 1},
+        "facts": [],
+    }),
 ]
 
 
@@ -1311,6 +1325,132 @@ COG_REQUIRED_LEGEND = ["Факты", "Убеждения", "Парадигмы",
 COG_BANNED_REQUESTS = ("/api/llm", "/api/memory/embeddings", "/api/summary",
                        "/api/oversight/dossier_rebuild")
 
+COG_CARD_ACTION_IDS = ["source", "history", "memory", "links"]
+# W7-S3: точка узла на экране (сцена embedded или полного экрана — по `_cogEl`).
+COG_NODE_POINT = r"""
+(id) => {
+  const vm = window.__adminbotVm;
+  const net = vm && vm.cognitionNetwork;
+  const el = vm && vm._cogEl;
+  if (!net || !el) return null;
+  const canvas = el.querySelector('canvas');
+  if (!canvas) return null;
+  const pos = (net.getPositions() || {})[id];
+  if (!pos) return null;
+  const d = net.canvasToDOM(pos);
+  const r = canvas.getBoundingClientRect();
+  return {x: r.left + d.x, y: r.top + d.y,
+          canvas: {left: r.left, top: r.top, right: r.right,
+                   bottom: r.bottom}};
+}
+"""
+
+# Середины рёбер на экране (длинные — первыми): по ним кликаем по ребру.
+COG_EDGE_POINTS = r"""
+() => {
+  const vm = window.__adminbotVm;
+  const net = vm && vm.cognitionNetwork;
+  const el = vm && vm._cogEl;
+  if (!net || !el) return [];
+  const canvas = el.querySelector('canvas');
+  if (!canvas) return [];
+  const r = canvas.getBoundingClientRect();
+  const view = vm._cogView || { edges: [] };
+  const pos = net.getPositions() || {};
+  const out = [];
+  for (const e of view.edges) {
+    const a = pos[e.from];
+    const b = pos[e.to];
+    if (!a || !b) continue;
+    const da = net.canvasToDOM(a);
+    const db = net.canvasToDOM(b);
+    const x = r.left + (da.x + db.x) / 2;
+    const y = r.top + (da.y + db.y) / 2;
+    out.push({id: e.id, x, y, len: Math.hypot(da.x - db.x, da.y - db.y)});
+  }
+  out.sort((p, q) => q.len - p.len);
+  return out;
+}
+"""
+
+PROBE_COG_CARD = r"""
+() => {
+  const vm = window.__adminbotVm || null;
+  const card = document.querySelector('[data-cog-card]');
+  const txt = (sel) => {
+    const el = card ? card.querySelector(sel) : null;
+    return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+  };
+  const all = (sel, attr) => (card ? Array.from(card.querySelectorAll(sel)) : [])
+    .map((el) => el.getAttribute(attr));
+  const rect = card ? card.getBoundingClientRect() : null;
+  const times = (card ? Array.from(card.querySelectorAll('[data-cog-time]')) : [])
+    .map((el) => ({
+      key: el.getAttribute('data-cog-time'),
+      text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+    }));
+  const actions = (card ? Array.from(card.querySelectorAll('[data-cog-action]')) : [])
+    .map((el) => ({id: el.getAttribute('data-cog-action'),
+                   disabled: el.disabled === true}));
+  const reasons = (card
+    ? Array.from(card.querySelectorAll('[data-cog-action-reason]')) : [])
+    .map((el) => ({id: el.getAttribute('data-cog-action-reason'),
+                   text: (el.textContent || '').replace(/\s+/g, ' ').trim()}));
+  const just = card ? card.querySelector('[data-cog-edge-justification]') : null;
+  return {
+    open: !!card,
+    kind: card ? (card.getAttribute('data-cog-card') || '') : '',
+    id: card ? (card.getAttribute('data-cog-card-id') || '') : '',
+    title: txt('[data-cog-card-title]'),
+    text: txt('[data-cog-card-text]'),
+    status: txt('[data-cog-card-status]'),
+    scope: txt('[data-cog-card-scope]'),
+    times: times,
+    timesAbsent: txt('[data-cog-times-absent]'),
+    origin: txt('[data-cog-origin]'),
+    message: txt('[data-cog-message]'),
+    sourceIds: txt('[data-cog-source-ids]'),
+    provenanceAbsent: txt('[data-cog-provenance-absent]'),
+    metrics: all('[data-cog-metric]', 'data-cog-metric'),
+    metricsNote: txt('[data-cog-metrics-note]'),
+    historyAbsent: txt('[data-cog-history-absent]'),
+    historyNodes: all('[data-cog-history-node]', 'data-cog-history-node'),
+    neighbors: all('[data-cog-neighbor]', 'data-cog-neighbor'),
+    endpoints: all('[data-cog-edge-endpoint]', 'data-cog-edge-endpoint'),
+    justification: txt('[data-cog-edge-justification]'),
+    recorded: just ? just.getAttribute('data-cog-justification-recorded') : '',
+    edgeRows: all('[data-cog-edge-row]', 'data-cog-edge-row'),
+    actions: actions,
+    reasons: reasons,
+    rect: rect ? {left: Math.round(rect.left), right: Math.round(rect.right),
+                  top: Math.round(rect.top), bottom: Math.round(rect.bottom),
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height)} : null,
+    vw: window.innerWidth, vh: window.innerHeight,
+    selected: vm ? (vm._cogSelectedId || '') : '',
+    highlight: vm && vm._cogHighlight ? Object.keys(vm._cogHighlight).sort() : [],
+    edgeFocus: vm && vm._cogEdgeFocus ? Object.keys(vm._cogEdgeFocus).sort() : [],
+    linksExpanded: vm ? vm.cogCardLinksExpanded === true : null,
+    cam: vm ? (vm._cogCamera || null) : null,
+    route: location.hash,
+    fullscreen: !!document.querySelector('.status-graph-full'),
+    recordOpen: vm ? vm.statusRecordOpen === true : null,
+    recordId: vm && vm.statusRecord ? vm.statusRecord.id : null,
+    recordMessage: vm && vm.statusRecord ? vm.statusRecord.tg_message_id : null,
+    activeEl: document.activeElement
+      ? String(document.activeElement.className || document.activeElement.tagName)
+      : '',
+    memoryQuery: vm ? String(vm.memoryCatalogQuery || '') : '',
+    memoryNote: (() => {
+      const el = document.querySelector('[data-memory-from-cog]');
+      return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    })(),
+    catalogTitles: vm ? (vm.memoryCatalogFiltered || []).slice(0, 12)
+      .map((it) => String(it.title || '')) : [],
+  };
+}
+"""
+
 PROBE_COG = r"""
 () => {
   const vm = window.__adminbotVm || null;
@@ -1372,7 +1512,7 @@ PROBE_COG = r"""
 
 
 def run_cog_map(browser, base, report, fails, out_dir):
-    """Живая приёмка «Когнитивной карты» (EVOL-COG-MAP W7-S2).
+    """Живая приёмка «Когнитивной карты» (EVOL-COG-MAP W7-S2/S3).
 
     Проверяется РЕАЛЬНЫЙ рендерер (`web/app.js` + self-host vis-network) на
     детерминированной фикстуре payload `GET /api/memory/cognitive-map`:
@@ -1384,6 +1524,9 @@ def run_cog_map(browser, base, report, fails, out_dir):
       * полный экран открывается/закрывается как существующий слой, камера
         и выбор сохраняются, ошибок консоли нет;
       * `degraded` ≠ `partial` (отказ источника виден) и `empty` честен.
+      * W7-S3: карточка узла/ребра (панель/лист), обоснование связи из payload,
+        четыре адресных перехода с проверкой ЦЕЛИ, Back закрывает карточку
+        первой и не двигает камеру, клавиатура Enter/Esc и возврат фокуса.
     """
     section = report.setdefault("cog_map", {"viewports": {}, "checks": 0})
     checks = 0
@@ -1913,8 +2056,435 @@ def run_cog_map(browser, base, report, fails, out_dir):
     ctx.close()
     set_cog_payload(cog_payload())
 
-    section["degraded"] = degraded
-    section["empty"] = empty
+    # ═══ W7-S3: карточка узла/ребра, обоснование связи, адресные переходы ═══
+    # Проверяется поведение, а не наличие разметки: где открывается карточка,
+    # что в ней стоит по payload, куда именно ведёт каждое действие, что
+    # происходит, когда цели нет, и сохраняются ли камера и выбор.
+    card_report = {}
+    for (w, h) in COG_VIEWPORTS:
+        label = "cog-card@%d" % w
+        set_cog_payload(cog_payload())
+        ctx = _ctx(browser, w, h)
+        pg = ctx.new_page()
+        errs = []
+        reqs = []
+        pg.on("console", lambda m: errs.append(m.text[:160])
+              if m.type == "error" else None)
+        pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+        pg.on("request", lambda r: reqs.append(r.url))
+        open_status(pg, "card-%d" % w)
+        pg.wait_for_selector("[data-cog-map] canvas", timeout=25000)
+        pg.wait_for_timeout(1400)
+        pg.locator(".status-graph").first.scroll_into_view_if_needed()
+        pg.wait_for_timeout(400)
+
+        c = COG_CHAT
+        ent_anya = "ent:%d:1" % c
+        fact_coffee = "fact:%d:11" % c
+        fact_old = "fact:%d:13" % c
+        obs_node = "obs:%d:41" % c
+        alone = "ent:%d:4" % c
+        probe_card = lambda: pg.evaluate(PROBE_COG_CARD)
+
+        def press_at(x, y):
+            """Клик по сцене: тач на телефоне, мышь на десктопе."""
+            if w <= 430:
+                pg.touchscreen.tap(x, y)
+            else:
+                pg.mouse.click(x, y)
+            pg.wait_for_timeout(700)
+
+        def click_node(node_id, tries=3):
+            """Клик по узлу на сцене: тап на телефоне, мышь на десктопе.
+
+            Проверяет, что открылась карточка ИМЕННО этого узла: попадание в
+            ребро/соседа не выдаётся за успех (иначе дальше проверялась бы
+            другая запись). Если узел оказался за краем кадра, он сначала
+            центрируется существующим `focusGraphNode` — тест не жмёт «вслепую».
+            """
+            for _ in range(tries):
+                point = pg.evaluate(COG_NODE_POINT, node_id)
+                if not point:
+                    return False
+                area = point["canvas"]
+                inside = (area["left"] + 2 <= point["x"] <= area["right"] - 2
+                          and area["top"] + 2 <= point["y"] <= area["bottom"] - 2
+                          and 2 <= point["y"] <= h - 2)
+                if not inside:
+                    pg.evaluate(
+                        "(id) => window.__adminbotVm.focusGraphNode(id)", node_id)
+                    pg.wait_for_timeout(1200)
+                    point = pg.evaluate(COG_NODE_POINT, node_id)
+                    if not point:
+                        return False
+                press_at(point["x"], point["y"])
+                got = probe_card()
+                if got["kind"] == "node" and got["id"] == node_id:
+                    return True
+                if got["open"]:
+                    pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+                    pg.wait_for_timeout(300)
+            return False
+
+        def card_action(card_id):
+            try:
+                pg.click('[data-cog-action="%s"]' % card_id, timeout=8000)
+            except Exception:  # noqa: BLE001
+                return False
+            pg.wait_for_timeout(1200)
+            return True
+
+        def action_of(card, act_id):
+            found = [a for a in card["actions"] if a["id"] == act_id]
+            return found[0] if found else None
+
+        # ── (1) карточка узла: панель на desktop, лист на телефоне ────────
+        def focus_node(node_id):
+            """Центрировать узел существующим фокусом ПЕРЕД замером камеры.
+
+            Иначе замер «до» мог бы совпасть с моментом, когда тест сам
+            центрирует кадр (это не пользовательское действие карточки).
+            """
+            pg.evaluate("(id) => window.__adminbotVm.focusGraphNode(id)", node_id)
+            pg.wait_for_timeout(1300)
+
+        def cam_of(settled):
+            if not settled:
+                return (None, None)
+            return ({"x": settled[0], "y": settled[1]}, settled[2])
+
+        focus_node(fact_coffee)
+        cam_before = settled_view(pg)
+        ok(click_node(fact_coffee), "%s: узел факта не найден на сцене" % label)
+        card = probe_card()
+        ok(card["open"] and card["kind"] == "node",
+           "%s: клик по узлу не открыл карточку (%r/%r)"
+           % (label, card["open"], card["kind"]))
+        ok(card["id"] == fact_coffee,
+           "%s: карточка показывает не выбранную запись (%r)" % (label, card["id"]))
+        ok("Аня любит утренний кофе" in card["title"],
+           "%s: в карточке нет текста записи (%r)" % (label, card["title"]))
+        ok(card["scope"] and "чат" in card["scope"],
+           "%s: область записи не названа (%r)" % (label, card["scope"]))
+        ok([t["key"] for t in card["times"]] == ["occurredAt", "savedAt"],
+           "%s: показаны не те поля времени (%s)"
+           % (label, [t["key"] for t in card["times"]]))
+        ok(all(t["text"].startswith(("Когда произошло", "Когда обнаружено",
+                                     "Когда сохранено", "Когда подтверждено",
+                                     "Когда обновлено"))
+               for t in card["times"]),
+           "%s: дата без корректного названия (%s)" % (label, card["times"]))
+        ok(not card["timesAbsent"],
+           "%s: при заполненном времени показано «не указано»" % label)
+        ok("555" in card["message"],
+           "%s: адрес сообщения-источника не показан (%r)"
+           % (label, card["message"]))
+        ok("chat_history" in card["origin"],
+           "%s: происхождение записи не показано (%r)" % (label, card["origin"]))
+        ok("degree" in card["metrics"],
+           "%s: метрика связей не показана (%s)" % (label, card["metrics"]))
+        ok("не рассчитываются" in card["metricsNote"],
+           "%s: нерасчитываемые метрики не названы (%r)"
+           % (label, card["metricsNote"]))
+        ok([a["id"] for a in card["actions"]] == COG_CARD_ACTION_IDS,
+           "%s: набор действий карточки %s" % (label,
+                                               [a["id"] for a in card["actions"]]))
+        # Геометрия: desktop — панель у правого края, телефон — лист снизу.
+        if w >= 768:
+            ok(abs(card["rect"]["right"] - (card["vw"] - 12)) <= 2
+               and 300 <= card["rect"]["width"] <= 380,
+               "%s: карточка не панель справа (%s)" % (label, card["rect"]))
+            ok(card["rect"]["width"] < card["vw"] * 0.5,
+               "%s: панель занимает пол-экрана (%s)" % (label, card["rect"]))
+        else:
+            ok(abs(card["rect"]["bottom"] - card["vh"]) <= 2
+               and card["rect"]["left"] <= 1
+               and abs(card["rect"]["right"] - card["vw"]) <= 1,
+               "%s: карточка не нижний лист (%s)" % (label, card["rect"]))
+            ok(card["rect"]["height"] <= card["vh"] * 0.7,
+               "%s: лист закрывает почти всю карту (%s)" % (label, card["rect"]))
+        # Камера и зум открытием карточки не меняются.
+        ok(same_camera(cam_of(cam_before), cam_of(settled_view(pg))),
+           "%s: открытие карточки сдвинуло камеру %s"
+           % (label, cam_before))
+        shot(pg, "w15-cog-card-node-%d" % w, "[data-cog-card]")
+
+        # ── (2) «Открыть источник»: конкретная запись + сообщение ─────────
+        ok(card_action("source"), "%s: кнопка «Открыть источник» недоступна" % label)
+        rec = probe_card()
+        ok(rec["recordOpen"] is True,
+           "%s: «Открыть источник» не открыл окно записи" % label)
+        ok(rec["recordId"] == 11,
+           "%s: открыта не та запись (%r вместо 11)" % (label, rec["recordId"]))
+        ok(rec["recordMessage"] == 555,
+           "%s: окно записи не про то сообщение (%r)" % (label, rec["recordMessage"]))
+        trace_text = pg.evaluate(
+            "() => (document.body.innerText.match(/Сообщение #\\d+/g) || [''])[0]")
+        ok("Сообщение #555" in trace_text,
+           "%s: первоисточник не доведён до сообщения (%r)"
+           % (label, trace_text))
+        shot(pg, "w15-cog-card-source-%d" % w, "[data-sfeed-modal]")
+        pg.evaluate("() => window.__adminbotVm.closeStatusRecord()")
+        pg.wait_for_timeout(500)
+        back_from_record = probe_card()
+        ok(back_from_record["open"] and back_from_record["id"] == fact_coffee,
+           "%s: закрытие окна записи закрыло карточку" % label)
+
+        # ── (3) «История изменений»: конкретная версия, а не раздел ────────
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(400)
+        ok(click_node(fact_old), "%s: узел версии не найден" % label)
+        card = probe_card()
+        hist_act = action_of(card, "history")
+        ok(hist_act and hist_act["disabled"] is False,
+           "%s: история версий недоступна при реальном ребре (%s)"
+           % (label, card["reasons"]))
+        ok(card_action("history"), "%s: кнопка «История изменений» недоступна" % label)
+        hist = probe_card()
+        ok(hist["id"] == "evt:%d:revision:51" % c,
+           "%s: история открыла %r вместо записи изменения"
+           % (label, hist["id"]))
+        ok(hist["selected"] == "evt:%d:revision:51" % c,
+           "%s: запись изменения не выделена на карте" % label)
+
+        # ── (4) «Показать связи»: реальные рёбра узла, камера цела ─────────
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(400)
+        focus_node(fact_coffee)
+        cam_before_links = settled_view(pg)
+        ok(click_node(fact_coffee), "%s: узел факта не найден" % label)
+        card = probe_card()
+        ok(card["neighbors"] and len(card["neighbors"]) == 2,
+           "%s: карточка не перечислила рёбра узла (%s)"
+           % (label, card["neighbors"]))
+        ok(card_action("links"), "%s: кнопка «Показать связи» недоступна" % label)
+        links = probe_card()
+        ok(links["linksExpanded"] is True,
+           "%s: «Показать связи» не раскрыло список связей" % label)
+        ok(links["edgeFocus"] == ["ce1", "ce3"],
+           "%s: подсвечены не рёбра узла (%s)" % (label, links["edgeFocus"]))
+        ok(same_camera(cam_of(cam_before_links), cam_of(settled_view(pg))),
+           "%s: «Показать связи» сдвинуло камеру" % label)
+
+        # ── (5) карточка РЕБРА: тип, концы, обоснование ───────────────────
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(400)
+        opened_edge = None
+        for cand in pg.evaluate(COG_EDGE_POINTS)[:3]:
+            for dy in (0, 5, -5, 10, -10):
+                press_at(cand["x"], cand["y"] + dy)
+                got = probe_card()
+                if got["open"] and got["kind"] == "edge":
+                    opened_edge = got
+                    break
+            if opened_edge:
+                break
+        ok(opened_edge is not None,
+           "%s: клик по ребру не открыл карточку связи" % label)
+        if opened_edge:
+            model_edge = pg.evaluate(
+                "(id) => { const e = (window.__adminbotVm.cognitionGraphData"
+                ".edges || []).filter((x) => x.id === id)[0];"
+                " return e ? {id: e.id, relation: e.relation,"
+                " recorded: e.justificationRecorded === true} : null; }",
+                opened_edge["id"])
+            ok(model_edge is not None,
+               "%s: карточка связи ссылается на несуществующее ребро (%r)"
+               % (label, opened_edge["id"]))
+            ok(opened_edge["title"].strip() != ""
+               and len(opened_edge["endpoints"]) == 2,
+               "%s: карточка связи без типа/концов (%s)"
+               % (label, opened_edge))
+            ok(opened_edge["recorded"] ==
+               ("1" if model_edge and model_edge["recorded"] else "0"),
+               "%s: обоснование связи расходится с payload (%r vs %r)"
+               % (label, opened_edge["recorded"], model_edge))
+            ok(opened_edge["justification"].strip() != "",
+               "%s: обоснование связи не сформулировано" % label)
+            shot(pg, "w15-cog-card-edge-%d" % w, "[data-cog-card]")
+
+        # Ребро без provenance: обоснование НЕ записано, выбор узла сохранён.
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(400)
+        ok(click_node(obs_node), "%s: узел наблюдения не найден" % label)
+        obs_card = probe_card()
+        ok(obs_card["id"] == obs_node, "%s: открыта не та запись" % label)
+        neighbor_ok = True
+        try:
+            pg.click("[data-cog-neighbor]", timeout=8000)
+        except Exception:  # noqa: BLE001
+            neighbor_ok = False
+        ok(neighbor_ok, "%s: строка связи не открывает карточку ребра" % label)
+        pg.wait_for_timeout(700)
+        bare = probe_card()
+        ok(bare["kind"] == "edge" and bare["id"] == "ce6",
+           "%s: строка связи открыла не ребро ce6 (%r)"
+           % (label, bare["id"]))
+        ok(bare["recorded"] == "0",
+           "%s: ребро без provenance выдано за обоснованное" % label)
+        ok("обоснование не записано" in bare["justification"],
+           "%s: отсутствие обоснования не названо (%r)"
+           % (label, bare["justification"]))
+        ok(bare["selected"] == obs_node,
+           "%s: выбор узла пропал при выборе ребра (%r)"
+           % (label, bare["selected"]))
+        ok(obs_node in bare["highlight"],
+           "%s: выбранный узел больше не подсвечен" % label)
+
+        # ── (6) «Открыть в Памяти»: контекст узла и честная пустота ────────
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(300)
+        ok(click_node(ent_anya), "%s: сущность «Аня» не найдена" % label)
+        card = probe_card()
+        ok(card_action("memory"), "%s: кнопка «Открыть в Памяти» недоступна" % label)
+        mem = probe_card()
+        ok(mem["route"] == "#/memory",
+           "%s: переход в «Память» не выполнен (%r)" % (label, mem["route"]))
+        ok(mem["memoryQuery"] == "Аня",
+           "%s: поиск каталога не предзаполнен контекстом узла (%r)"
+           % (label, mem["memoryQuery"]))
+        ok("Аня" in mem["catalogTitles"],
+           "%s: каталог не показал ту же запись (%s)"
+           % (label, mem["catalogTitles"]))
+        ok(not mem["memoryNote"],
+           "%s: при найденной записи показана заметка об отсутствии (%r)"
+           % (label, mem["memoryNote"]))
+        shot(pg, "w15-cog-card-memory-%d" % w, "[data-memory-catalog]")
+
+        # Негативный случай: записи карты в каталоге нет — это СКАЗАНО.
+        pg.evaluate("() => window.__adminbotVm.navigateTo('#/')")
+        pg.wait_for_timeout(1600)
+        pg.locator(".status-graph").first.scroll_into_view_if_needed()
+        pg.wait_for_timeout(300)
+        ok(click_node(fact_old), "%s: узел факта «Дача» не найден" % label)
+        card = probe_card()
+        ok(card_action("memory"), "%s: кнопка «Открыть в Памяти» недоступна" % label)
+        miss = probe_card()
+        ok(miss["route"] == "#/memory", "%s: переход не выполнен" % label)
+        ok(miss["memoryQuery"] == "Дача — место отдыха",
+           "%s: запрос каталога не про эту запись (%r)"
+           % (label, miss["memoryQuery"]))
+        ok("Дача — место отдыха" not in miss["catalogTitles"],
+           "%s: каталог внезапно содержит запись (%s)"
+           % (label, miss["catalogTitles"]))
+        ok("сейчас нет" in miss["memoryNote"],
+           "%s: отсутствие записи в каталоге не названо (%r)"
+           % (label, miss["memoryNote"]))
+        shot(pg, "w15-cog-card-memory-miss-%d" % w, "[data-memory-catalog]")
+
+        # ── (7) неработающие действия называют причину и ничего не делают ──
+        pg.evaluate("() => window.__adminbotVm.navigateTo('#/')")
+        pg.wait_for_timeout(1600)
+        pg.locator(".status-graph").first.scroll_into_view_if_needed()
+        pg.wait_for_timeout(300)
+        ok(click_node(alone), "%s: изолированный узел не найден" % label)
+        solo = probe_card()
+        src_act = action_of(solo, "source")
+        links_act = action_of(solo, "links")
+        hist_act = action_of(solo, "history")
+        ok(src_act and src_act["disabled"] is True,
+           "%s: у сущности доступен «Открыть источник»" % label)
+        ok(links_act and links_act["disabled"] is True,
+           "%s: у изолированного узла доступны «связи»" % label)
+        ok(hist_act and hist_act["disabled"] is True,
+           "%s: у записи без версий доступна история" % label)
+        reasons = {r["id"]: r["text"] for r in solo["reasons"]}
+        ok("сущности" in reasons.get("source", ""),
+           "%s: причина недоступности источника не названа (%s)"
+           % (label, reasons))
+        ok("изолирован" in reasons.get("links", ""),
+           "%s: изолированность не названа причиной (%s)"
+           % (label, reasons))
+        ok("версий" in reasons.get("history", ""),
+           "%s: отсутствие истории не названо (%s)" % (label, reasons))
+        pg.evaluate("() => { const el = document.querySelector("
+                    "'[data-cog-action=\"source\"]'); if (el) el.click(); }")
+        pg.wait_for_timeout(700)
+        ok(probe_card()["recordOpen"] is False,
+           "%s: неработающее действие всё-таки что-то открыло" % label)
+        shot(pg, "w15-cog-card-honest-%d" % w, "[data-cog-card]")
+
+        # ── (8) Back закрывает карточку ПЕРВОЙ и сохраняет камеру/выбор ────
+        pg.evaluate("() => window.__adminbotVm.closeCogCard()")
+        pg.wait_for_timeout(400)
+        focus_node(fact_coffee)
+        cam_back = settled_view(pg)
+        ok(click_node(fact_coffee), "%s: узел факта не найден" % label)
+        opened = probe_card()
+        ok(opened["open"], "%s: карточка не открылась перед Back" % label)
+        pg.evaluate("() => window.__adminbotVm.goBack()")
+        pg.wait_for_timeout(800)
+        after_back = probe_card()
+        ok(not after_back["open"], "%s: Back не закрыл карточку" % label)
+        ok(after_back["route"] in ("#/", ""),
+           "%s: Back ушёл с «Статуса» вместо закрытия карточки (%r)"
+           % (label, after_back["route"]))
+        ok(after_back["selected"] == fact_coffee,
+           "%s: Back потерял выбранный узел (%r)"
+           % (label, after_back["selected"]))
+        ok(same_camera(cam_of(cam_back), cam_of(settled_view(pg))),
+           "%s: закрытие карточки не сохранило камеру %s"
+           % (label, cam_back))
+
+        # Полный экран: первый Back — карточка, второй — сам экран.
+        pg.evaluate("() => window.__adminbotVm.openGraphFull()")
+        pg.wait_for_timeout(2000)
+        in_full = probe_card()
+        ok(in_full["route"] == "#/status/graph",
+           "%s: полный экран не открылся (%r)" % (label, in_full["route"]))
+        ok(click_node(fact_coffee), "%s: в полном экране узел не найден" % label)
+        full_card = probe_card()
+        ok(full_card["open"] and full_card["id"] == fact_coffee,
+           "%s: в полном экране карточка не открылась" % label)
+        pg.evaluate("() => window.__adminbotVm.goBack()")
+        pg.wait_for_timeout(900)
+        full_after = probe_card()
+        ok(not full_after["open"],
+           "%s: Back в полном экране не закрыл карточку" % label)
+        ok(full_after["route"] == "#/status/graph",
+           "%s: Back закрыл весь полный экран вместо карточки (%r)"
+           % (label, full_after["route"]))
+        pg.evaluate("() => window.__adminbotVm.goBack()")
+        pg.wait_for_timeout(1200)
+        full_closed = probe_card()
+        ok(full_closed["route"] in ("#/", ""),
+           "%s: второй Back не закрыл полный экран (%r)"
+           % (label, full_closed["route"]))
+
+        # ── (9) клавиатура: Enter открывает выбранный узел, Esc закрывает ──
+        pg.wait_for_timeout(600)
+        pg.evaluate("(id) => window.__adminbotVm.focusGraphNode(id)", fact_coffee)
+        pg.wait_for_timeout(1000)
+        scene_focus = pg.evaluate(
+            "() => { const el = document.querySelector('[data-cog-scene]');"
+            " if (!el) return false; el.focus();"
+            " return document.activeElement === el; }")
+        ok(scene_focus, "%s: сцена карты не получает фокус" % label)
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(700)
+        kb = probe_card()
+        ok(kb["open"] and kb["id"] == fact_coffee,
+           "%s: Enter не открыл карточку выбранного узла (%r)" % (label, kb["id"]))
+        pg.keyboard.press("Escape")
+        pg.wait_for_timeout(600)
+        kb_after = probe_card()
+        ok(not kb_after["open"], "%s: Esc не закрыл карточку" % label)
+        ok("cognition-graph" in kb_after["activeEl"],
+           "%s: фокус не вернулся на сцену карты (%r)"
+           % (label, kb_after["activeEl"]))
+
+        ok(not errs, "%s: ошибки консоли: %s" % (label, errs[:2]))
+        card_report[str(w)] = {
+            "node": card, "source": rec, "history": hist, "links": links,
+            "edge": opened_edge, "bare": bare, "memory": mem, "memory_miss": miss,
+            "honest": solo, "back": after_back, "fullscreen": full_after,
+            "keyboard": kb_after, "errors": errs[:5],
+        }
+        ctx.close()
+    section["card"] = card_report
+    set_cog_payload(cog_payload())
+
+    section["degraded"] = degraded 
     section["stale"] = stale
     section["degraded_zero"] = deg0
     section["empty_to_data"] = {"before": before, "after": after,

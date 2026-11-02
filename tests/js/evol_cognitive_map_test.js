@@ -765,9 +765,246 @@ const S2 = (function () {
   ok2(edge.labels.every((l) => l.y - l.height / 2 >= CM.DEFAULTS.padding
     && l.x - l.width / 2 >= CM.DEFAULTS.padding),
   'все подписи внутри кадра с отступом');
+  // Узкий фильтр/плотный кластер: все подписи могут выпасть по коллизиям.
+  // Тогда рисуется ОДНА — самая приоритетная, иначе карта = безымянные точки.
+  const crowdedSame = [
+    { id: 'a', x: 100, y: 100, kind: 'fact', title: 'Очень длинная подпись первая' },
+    { id: 'b', x: 104, y: 102, kind: 'fact', title: 'Очень длинная подпись вторая' },
+    { id: 'c', x: 106, y: 98, kind: 'fact', title: 'Очень длинная подпись третья' },
+  ];
+  const dense = CM.allocateLabels(crowdedSame, {
+    scale: 1, viewport: { width: 260, height: 200 }, maxLabelChars: 30,
+    fontSize: 11,
+  });
+  eq2(dense.labels.length, 1,
+    'плотный кластер: подписана ровно одна точка, сцена не «немая»');
+  ok2(dense.labels[0].id === 'a',
+    'плотный кластер: подписана самая приоритетная (при равенстве — первая)');
+  // Честное исключение: если ни одна подпись не помещается в кадр, подписей
+  // нет — подписывать точку за кадром бессмысленно.
+  const allOutside = CM.allocateLabels(
+    [{ id: 'far', x: 900, y: 700, kind: 'fact', title: 'Далеко' }],
+    { scale: 1, viewport: { width: 260, height: 200 } });
+  eq2(allOutside.labels.length, 0,
+    'всё за кадром — подписей нет (ни одного «висящего» имени)');
 
   return s2;
 })();
 
 checks += S2;
 console.log('EVOL-COG-MAP-S2-OK checks=' + S2);
+
+/* ═══ W7-S3 (карточка узла/ребра): что показано по payload, честное
+ * отсутствие данных, обоснование связи и адресные переходы. Всё — чистые
+ * функции адаптера (DOM/vis/сети здесь нет). */
+
+const S3 = (function () {
+  let s3 = 0;
+  function ok3(cond, message) {
+    assert.ok(cond, message);
+    s3 += 1;
+  }
+  function eq3(actual, expected, message) {
+    assert.deepStrictEqual(actual, expected, message);
+    s3 += 1;
+  }
+
+  const model = CM.normalizePayload(payload(), { aliases: ALIASES });
+  const byId = (id) => model.byId[id];
+  const action = (card, id) => card.actions.filter((a) => a.id === id)[0];
+
+  // ── 15. узлы: показ по наличию данных ──────────────────────────────────
+  const fact = CM.nodeCard(byId('fact:-1001:1'), model);
+  eq3(fact.kind, 'node', 'карточка узла помечена своим видом');
+  eq3(fact.id, 'fact:-1001:1', 'карточка называет конкретную запись');
+  eq3(fact.title, 'Любит утренний кофе без сахара', 'заголовок из модели');
+  eq3(fact.text, 'Любит утренний кофе без сахара', 'полный текст из модели');
+  eq3(fact.kindLabel, 'Факты', 'тип назван словом класса');
+  eq3(fact.scope, 'chat', 'область записи сохранена');
+  eq3(fact.chatId, -1001, 'чат записи сохранён');
+  // Раздельные времена: только заполненные, каждая со своим названием.
+  eq3(fact.times.map((t) => t.key), ['occurredAt', 'savedAt', 'confirmedAt'],
+    'показаны только реально заполненные поля времени');
+  eq3(fact.times.map((t) => t.label),
+    ['Когда произошло', 'Когда сохранено', 'Когда подтверждено'],
+    'у каждой даты своё название (не «дата» на всё)');
+  eq3(fact.timesNote, '', 'при наличии времени примечание не нужно');
+  // Provenance: источник/сообщение/основания.
+  eq3(fact.provenance.messageId, 555, 'адрес сообщения-источника в карточке');
+  eq3(fact.provenance.origin, 'chat_history', 'происхождение записи сохранено');
+  // Метрики: только реально посчитанное + честное примечание.
+  eq3(fact.metrics.rows.map((r) => r.key), ['importance', 'weight', 'degree'],
+    'показаны importance/weight/degree — у каждой названа природа');
+  ok3(fact.metrics.rows.every((r) => r.nature && r.nature.length > 3),
+    'у каждой метрики названа её природа (не «доказательность»)');
+  ok3(!/confidence|strength|freshness/.test(JSON.stringify(fact.metrics.rows)),
+    'confidence/strength/freshness не выдумываются как метрики');
+  ok3(fact.metrics.note.indexOf('не рассчитываются') >= 0,
+    'нерасчитываемые метрики названы словами, а не нулём');
+  // Время отсутствует целиком — честное «не указано», а не подстановка.
+  const oldFact = CM.nodeCard(byId('fact:-1001:2'), model);
+  eq3(oldFact.times, [], 'пустое время не заполняется соседней датой');
+  eq3(oldFact.timesNote, 'время записи не указано',
+    'отсутствие времени названо отсутствием');
+  eq3(oldFact.provenance.messageId, null, 'нет сообщения — нет выдуманного id');
+  eq3(oldFact.text, 'Старый факт про кофе', 'текст показан и без времени');
+
+  // ── 16. четыре адресных перехода и честные причины отказа ───────────────
+  eq3(fact.actions.map((a) => a.id), ['source', 'history', 'memory', 'links'],
+    'карточка содержит ровно четыре контрактных действия');
+  eq3(fact.actions.map((a) => a.label),
+    ['Открыть источник', 'История изменений', 'Открыть в Памяти',
+      'Показать связи'],
+    'подписи кнопок — слова контракта');
+  const source = action(fact, 'source');
+  eq3(source.enabled, true, 'факт с сообщением: источник доступен');
+  eq3(source.target,
+    { type: 'record', source: 'fact', factId: 1, chatId: -1001, messageId: 555 },
+    'цель «Открыть источник» — конкретная запись и конкретное сообщение');
+
+  const entity = CM.nodeCard(byId('ent:-1001:10'), model);
+  const entitySource = action(entity, 'source');
+  eq3(entitySource.enabled, false,
+    'у сущности нет сообщения — кнопка не работает');
+  ok3(/сущности/.test(entitySource.reason),
+    'причина отказа названа, а не скрыта: ' + entitySource.reason);
+  eq3(entitySource.target, null, 'неработающее действие не имеет цели');
+
+  const paradigm = CM.nodeCard(byId('paradigm:-1001:4'), model);
+  const paradigmSource = action(paradigm, 'source');
+  eq3(paradigmSource.enabled, false,
+    'у парадигмы без сообщения источник недоступен');
+  ok3(/сообщение не записано/.test(paradigmSource.reason),
+    'причина — «сообщение не записано», без выдуманной ссылки');
+  // Изолированный узел: связей не записано — это сказано словами.
+  const linksIsolated = action(paradigm, 'links');
+  eq3(linksIsolated.enabled, false, 'у изолированной парадигмы связей нет');
+  ok3(/изолирован/.test(linksIsolated.reason),
+    'изолированность названа причиной, а не пустым списком');
+  eq3(paradigm.neighbors, [], 'соседи не дорисовываются из совпадения имён');
+  // История: у записи без версий её честно нет.
+  const belief = CM.nodeCard(byId('belief:-1001:3'), model);
+  const historyNone = action(belief, 'history');
+  eq3(historyNone.enabled, false, 'у записи без версий истории нет');
+  eq3(historyNone.reason, 'версий этой записи не записано',
+    'отсутствие истории названо, а не реконструировано');
+  // У старой версии история ЕСТЬ и ведёт к конкретной новой записи.
+  const historyOldFact = action(oldFact, 'history');
+  eq3(historyOldFact.enabled, true, 'реальная связь версий делает историю доступной');
+  eq3(historyOldFact.target, { type: 'node', id: 'fact:-1001:1' },
+    'история ведёт к конкретной версии, а не в раздел');
+  // История факта 1: реальное ребро revised_by (версия 2 → 1).
+  const historyFact = action(fact, 'history');
+  eq3(historyFact.enabled, true, 'реальная версия записи делает историю доступной');
+  eq3(historyFact.target, { type: 'node', id: 'fact:-1001:2' },
+    '«История изменений» ведёт к конкретной записи-версии, а не в раздел');
+  eq3(fact.history.nodes.map((n) => n.id), ['fact:-1001:2'],
+    'список версий — реальные узлы модели');
+  // Память: поиск каталога предзаполняется названием и типом записи.
+  const memory = action(fact, 'memory');
+  eq3(memory.target,
+    { type: 'memory', query: 'Любит утренний кофе без сахара', memoryType: 'facts' },
+    '«Открыть в Памяти» несёт контекст узла (запрос и тип)');
+  eq3(action(byId('paradigm:-1001:4') ? paradigm : paradigm, 'memory').target.memoryType,
+    'context', 'парадигма ищется в каталоге как «контекст»');
+
+  // ── 17. связи узла: строки ведут к конкретным рёбрам/записям ────────────
+  const factLinks = action(fact, 'links');
+  eq3(factLinks.enabled, true, 'у связанного факта «Показать связи» работает');
+  eq3(factLinks.target.edgeIds.slice().sort(),
+    ['derived:-1001:1:fact', 'revision:-1001:1:2'],
+    'цель «Показать связи» — конкретные записанные рёбра');
+  eq3(fact.neighbors.length, 2, 'карточка перечисляет реальные связи узла');
+  ok3(fact.neighbors.every((n) => n.edgeId && n.id && n.relationLabel),
+    'у каждой связи есть ребро, вторая запись и название типа');
+  eq3(fact.neighbors[0].relationLabel, 'выведено из',
+    'машинный тип связи назван по-русски');
+  eq3(CM.relationLabel('обсуждали'), 'обсуждали',
+    'реальный relation_type не переводится догадкой');
+  eq3(CM.relationLabel(''), 'тип не указан',
+    'пустой тип связи не притворяется названным');
+
+  // ── 18. ребро: тип, обе сущности, обоснование ЗАПИСАНО или НЕТ ─────────
+  const recorded = CM.edgeCard(model.edges.filter((e) => e.id === 'edge:-1001:1')[0],
+    model);
+  eq3(recorded.kind, 'edge', 'карточка ребра помечена своим видом');
+  eq3(recorded.relation, 'обсуждали', 'тип связи показан как записан');
+  eq3(recorded.derived, false, 'записанное ребро не выдаётся за производное');
+  eq3(recorded.kindLabel, 'записана в графе', 'происхождение ребра названо');
+  eq3(recorded.endpoints.map((e) => e.id), ['ent:-1001:10', 'ent:-1001:11'],
+    'обе сущности ребра — конкретные узлы модели');
+  eq3(recorded.endpoints.map((e) => e.title), ['Хаб', 'Тема'],
+    'концы ребра названы заголовками записей');
+  eq3(recorded.justification.recorded, true, 'обоснование из payload сохранено');
+  ok3(recorded.justification.text.indexOf('фактом №1') > 0,
+    'обоснование называет факт-основание: ' + recorded.justification.text);
+  ok3(recorded.justification.rows.some((r) => r.key === 'basis'
+    && r.value === 'fact_provenance'),
+  'provenance ребра показан (источник связи)');
+
+  const noJustification = CM.edgeCard(
+    model.edges.filter((e) => e.id === 'derived:-1001:1:fact')[0], model);
+  eq3(noJustification.justification.recorded, true,
+    'производное ребро с fact_id имеет записанное обоснование');
+
+  const superseded = CM.edgeCard(
+    model.edges.filter((e) => e.id === 'revision:-1001:1:2')[0], model);
+  eq3(superseded.justification.recorded, false,
+    'у ребра версий отдельного факта-обоснования нет — не притворяемся');
+  ok3(/замене версий/.test(superseded.justification.text)
+    && /№2/.test(superseded.justification.text),
+  'причина версии названа реальной записью: ' + superseded.justification.text);
+  eq3(superseded.relationLabel, 'заменено версией',
+    'ребро версий названо по-русски');
+
+  const bare = CM.edgeCard({ id: 'edge:x', from: 'ent:-1001:10',
+    to: 'ent:-1001:11', relation: '', derived: false,
+    justificationRecorded: false, provenance: {} }, model);
+  eq3(bare.justification.recorded, false, 'ребро без provenance честно без причины');
+  eq3(bare.justification.text, 'обоснование не записано',
+    'текст отсутствия обоснования — прямой, без «вероятно»');
+  eq3(bare.relationLabel, 'тип не указан', 'пустой тип не выдумывается');
+  eq3(bare.justification.rows, [], 'нет provenance — нет выдуманных строк');
+
+  // ── 19. отсутствие данных не превращается в «правдоподобное» ───────────
+  const empty = CM.normalizePayload({ version: 'cog-map/1', nodes: [
+    { id: 'obs:1:5', kind: 'observation', title: 'Заметка', text: null,
+      status: null, provenance: { record: 'mca_trait_observations',
+        observation_id: 5, chat_id: 1, source_refs: [{ message_id: 9 }] } },
+    { id: 'evt:1:revision:6', kind: 'evolution_event', title: 'Версия заменена',
+      text: null, status: 'superseded', chat_id: 1,
+      provenance: { record: 'graph_facts.supersedes', chat_id: 1,
+        new_fact_id: 6, old_fact_id: 5 } },
+  ], edges: [] });
+  const obs = CM.nodeCard(empty.byId['obs:1:5'], empty);
+  eq3(obs.text, null, 'у наблюдения нет текста — карточка не выдумывает');
+  eq3(obs.textNote, 'текст записи не сохранён', 'отсутствие текста названо');
+  eq3(obs.provenance.sourceRefs.length, 1,
+    'ссылки источника показаны (реальные refs записи)');
+  eq3(action(obs, 'source').enabled, false,
+    'у наблюдения нет сообщения — источник недоступен');
+  ok3(/наблюдения/.test(action(obs, 'source').reason),
+    'причина отказа у наблюдения названа');
+  const evt = CM.nodeCard(empty.byId['evt:1:revision:6'], empty);
+  eq3(evt.textNote, 'текст записи не сохранён',
+    'у записи изменения текста нет — это сказано');
+  ok3(/изменения/.test(action(evt, 'source').reason),
+    'у записи изменения нет сообщения — причина названа');
+  ok3(evt.history.available === false, 'у самого события версий нет');
+
+  // ── 20. детерминизм и защита от мусора ─────────────────────────────────
+  eq3(JSON.stringify(CM.nodeCard(byId('fact:-1001:1'), model)),
+    JSON.stringify(CM.nodeCard(byId('fact:-1001:1'), model)),
+    'карточка детерминирована: повторный вызов даёт тот же результат');
+  eq3(CM.nodeCard(null, model), null, 'без узла карточка не строится');
+  eq3(CM.edgeCard(null, model), null, 'без ребра карточка не строится');
+  eq3(CM.nodeTimes({ time: {} }), [], 'пустой блок времени — пустой список дат');
+  eq3(CM.TIME_FIELDS.map((f) => f.key),
+    ['occurredAt', 'observedAt', 'savedAt', 'confirmedAt', 'updatedAt'],
+    'пять разных времён названы раздельно');
+
+  return s3;
+})();
+
+checks += S3;
+console.log('EVOL-COG-MAP-S3-OK checks=' + S3);

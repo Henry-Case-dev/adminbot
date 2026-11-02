@@ -104,6 +104,31 @@
     ready: '',
   };
 
+  /* ── карточка (W7-S3): раздельные времена и названия связи ─────────────
+   * Пять полей времени в payload РАЗНЫЕ по смыслу (§2.5 ТЗ: «дату создания/
+   * обнаружения/последней модификации, каждая с корректным названием»).
+   * Подписи фиксированы здесь, чтобы карточка не называла «время сохранения»
+   * «датой события». */
+  var TIME_FIELDS = [
+    { key: 'occurredAt', label: 'Когда произошло' },
+    { key: 'observedAt', label: 'Когда обнаружено' },
+    { key: 'savedAt', label: 'Когда сохранено' },
+    { key: 'confirmedAt', label: 'Когда подтверждено' },
+    { key: 'updatedAt', label: 'Когда обновлено' },
+  ];
+
+  /* Русские названия ТОЛЬКО для машинных типов рёбер, которые формирует
+   * сервер (`derived_from`/`revised_by`); остальные `relation_type` — реальные
+   * строки из БД и не «переводятся» догадками. */
+  var RELATION_LABELS = {
+    derived_from: 'выведено из',
+    revised_by: 'заменено версией',
+  };
+
+  /* Тип каталога «Памяти» для перехода из карточки (существующие типы
+   * `memoryCatalogTypes`, нового маршрута не заводится). */
+  var MEMORY_TYPE = { fact: 'facts', belief: 'context', paradigm: 'context' };
+
   function numberOrNull(value) {
     if (value === null || value === undefined || value === '') return null;
     var n = Number(value);
@@ -861,6 +886,33 @@
         priority: labelPriority(candidate),
       });
     }
+    // Сцена не остаётся «точками без имён»: узкий фильтр/плотный кластер
+    // может отбросить ВСЕ подписи по коллизиям, и тогда пользователь видит
+    // безымянные точки. Ставим одну — самую приоритетную, чей бокс целиком
+    // лежит в кадре. Наложения нет по определению: она единственная.
+    if (!labels.length) {
+      var fInset = numberOr(opts.edgeInset, cfg.padding);
+      for (var f = 0; f < placeable.length; f += 1) {
+        var fb = placeable[f];
+        var ftext = labelText(fb, cfg.maxLabelChars);
+        if (!ftext) continue;
+        var fw = measureLabel(ftext, cfg.fontSize, cfg.charWidth);
+        var fh = cfg.fontSize * 1.4;
+        if (viewport) {
+          if (fb.x - fw / 2 < fInset || fb.y - fh / 2 < fInset
+            || fb.x + fw / 2 > numberOr(viewport.width, 0) - fInset
+            || fb.y + fh / 2 > numberOr(viewport.height, 0) - fInset) {
+            continue;                      // сам за кадром — не подписываем
+          }
+        }
+        labels.push({
+          id: fb.id, x: fb.x, y: fb.y, text: ftext,
+          width: fw, height: fh,
+          priority: labelPriority(fb),
+        });
+        break;
+      }
+    }
     return {
       labels: labels,
       hidden: placeable.length - labels.length,
@@ -1064,6 +1116,294 @@
     };
   }
 
+  /* ── W7-S3: карточка узла/ребра и адресные переходы ──────────────────── */
+
+  function relationLabel(relation) {
+    var key = String(relation == null ? '' : relation);
+    if (!key) return 'тип не указан';
+    return RELATION_LABELS[key] || key;
+  }
+
+  /* nodeTimes(node) -> [{key,label,value}]
+   * Только РЕАЛЬНО заполненные поля времени: отсутствующее не подменяется
+   * соседней датой (иначе «когда произошло» показывало бы время сохранения). */
+  function nodeTimes(node) {
+    var out = [];
+    var time = (node && node.time) || {};
+    for (var i = 0; i < TIME_FIELDS.length; i += 1) {
+      var field = TIME_FIELDS[i];
+      var value = numberOrNull(time[field.key]);
+      if (value === null) continue;
+      out.push({ key: field.key, label: field.label, value: value });
+    }
+    return out;
+  }
+
+  function nodeProvenance(node) {
+    var prov = (node && node.provenance) || {};
+    return {
+      record: prov.record ? String(prov.record) : null,
+      origin: prov.origin ? String(prov.origin) : null,
+      messageId: numberOrNull(prov.message_id),
+      sourceIds: Array.isArray(prov.source_ids) ? prov.source_ids.slice() : [],
+      sourceRefs: Array.isArray(prov.source_refs) ? prov.source_refs.slice() : [],
+      versionOf: numberOrNull(prov.version_of),
+      dimension: prov.dimension ? String(prov.dimension) : null,
+      entityType: prov.entity_type ? String(prov.entity_type) : null,
+      agentId: prov.agent_id ? String(prov.agent_id) : null,
+    };
+  }
+
+  /* nodeMetrics(node) -> {rows, note}
+   * Показываются только метрики с РЕАЛЬНЫМ вычислением: importance/weight —
+   * как есть из записи (природа названа), degree — по показанным связям.
+   * `confidence`/`strength`/`freshness` не рассчитываются нигде в проекте,
+   * поэтому их нет в строках, а есть honest-примечание. */
+  function nodeMetrics(node) {
+    var rows = [];
+    var metrics = (node && node.metrics) || {};
+    var importance = numberOrNull(metrics.importance);
+    var weight = numberOrNull(metrics.weight);
+    if (importance !== null) {
+      rows.push({ key: 'importance', label: 'Важность', value: importance,
+        nature: 'правило извлечения важности' });
+    }
+    if (weight !== null) {
+      rows.push({ key: 'weight', label: 'Вес', value: weight,
+        nature: 'правило извлечения веса' });
+    }
+    rows.push({ key: 'degree', label: 'Связей', value: numberOr(
+      node ? node.degree : 0, 0), nature: 'по показанным связям' });
+    return { rows: rows,
+      note: 'уверенность, сила и свежесть не рассчитываются' };
+  }
+
+  /* nodeNeighbors(node, model) -> [{edgeId,id,title,kindLabel,relation,…}]
+   * Только РЕАЛЬНО записанные рёбра модели (обе стороны уже проверены при
+   * нормализации) — «связанные записи» не достраиваются по совпадению имён. */
+  function nodeNeighbors(node, model) {
+    var out = [];
+    if (!node) return out;
+    var edges = (model && model.edges) || [];
+    var byId = (model && model.byId) || {};
+    for (var i = 0; i < edges.length; i += 1) {
+      var edge = edges[i];
+      var otherId = null;
+      if (edge.from === node.id) otherId = edge.to;
+      else if (edge.to === node.id) otherId = edge.from;
+      if (!otherId) continue;
+      var other = byId[otherId] || null;
+      out.push({
+        edgeId: edge.id,
+        id: otherId,
+        title: (other && other.title) || otherId,
+        kindLabel: (other && other.kindLabel) || '',
+        relation: edge.relation,
+        relationLabel: relationLabel(edge.relation),
+        derived: edge.derived === true,
+      });
+    }
+    return out;
+  }
+
+  /* nodeHistory(node, model) -> {available,count,nodes,reason}
+   * «История изменений» — только реальные версии: рёбра `revised_by` и узлы
+   * изменений, чьи `old_fact_id`/`new_fact_id` указывают на эту запись.
+   * Реконструкция «было/стало» из текущего текста запрещена (§2.5 ТЗ). */
+  function nodeHistory(node, model) {
+    var empty = { available: false, count: 0, nodes: [],
+      reason: 'версий этой записи не записано' };
+    if (!node) return empty;
+    var byId = (model && model.byId) || {};
+    var nodes = (model && model.nodes) || [];
+    var edges = (model && model.edges) || [];
+    var out = [];
+    var seen = {};
+    var push = function (other) {
+      if (!other || !other.id || seen[other.id]) return;
+      seen[other.id] = true;
+      out.push({ id: other.id, title: other.title || other.id,
+        kindLabel: other.kindLabel || '' });
+    };
+    for (var i = 0; i < edges.length; i += 1) {
+      var edge = edges[i];
+      if (edge.relation !== 'revised_by') continue;
+      if (edge.from !== node.id && edge.to !== node.id) continue;
+      push(byId[edge.from === node.id ? edge.to : edge.from]);
+    }
+    var factId = numberOrNull((node.provenance || {}).fact_id);
+    if (factId !== null) {
+      for (var j = 0; j < nodes.length; j += 1) {
+        var candidate = nodes[j];
+        if (candidate.kind !== 'evolution_event') continue;
+        var prov = candidate.provenance || {};
+        if (numberOrNull(prov.old_fact_id) !== factId
+            && numberOrNull(prov.new_fact_id) !== factId) continue;
+        push(candidate);
+      }
+    }
+    out.sort(function (a, b) {
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
+    if (!out.length) return empty;
+    return { available: true, count: out.length, nodes: out, reason: '' };
+  }
+
+  /* nodeCard(node, model) -> модель карточки узла (или null).
+   *
+   * Показывает ПО НАЛИЧИЮ ДАННЫХ; отсутствующее названо отсутствующим, а не
+   * заменено правдоподобным значением. Кнопки — только работающие: у каждой
+   * есть `enabled` и honest `reason` (почему нельзя) и конкретная `target`
+   * (что именно откроется). Ни fetch, ни DOM, ни новых запросов здесь нет. */
+  function nodeCard(node, model) {
+    if (!node || typeof node !== 'object' || !node.id) return null;
+    var kindKey = KINDS.indexOf(node.kind) >= 0 ? node.kind : 'other';
+    var prov = nodeProvenance(node);
+    var times = nodeTimes(node);
+    var neighbors = nodeNeighbors(node, model);
+    var history = nodeHistory(node, model);
+    var metrics = nodeMetrics(node);
+    var recordSource = (kindKey === 'fact' || kindKey === 'belief'
+      || kindKey === 'paradigm') ? kindKey : null;
+    var factId = numberOrNull((node.provenance || {}).fact_id);
+    var sourceEnabled = recordSource !== null && prov.messageId !== null
+      && node.chatId !== null;
+    var sourceReason = '';
+    if (!sourceEnabled) {
+      if (recordSource === null) {
+        if (kindKey === 'entity') sourceReason = 'у сущности нет сообщения-источника';
+        else if (kindKey === 'observation') sourceReason = 'у наблюдения нет адреса сообщения';
+        else sourceReason = 'у записи изменения нет сообщения-источника';
+      } else {
+        sourceReason = 'сообщение не записано в данных записи';
+      }
+    }
+    var memoryQuery = node.title || '';
+    var actions = [
+      {
+        id: 'source', label: 'Открыть источник', enabled: sourceEnabled,
+        reason: sourceReason,
+        target: sourceEnabled ? {
+          type: 'record', source: recordSource, factId: factId,
+          chatId: node.chatId, messageId: prov.messageId,
+        } : null,
+      },
+      {
+        id: 'history', label: 'История изменений', enabled: history.available,
+        reason: history.reason,
+        target: history.available
+          ? { type: 'node', id: history.nodes[0].id } : null,
+      },
+      {
+        id: 'memory', label: 'Открыть в Памяти', enabled: memoryQuery !== '',
+        reason: memoryQuery ? '' : 'у записи нет названия — в каталоге её не найти',
+        target: memoryQuery ? {
+          type: 'memory', query: memoryQuery,
+          memoryType: MEMORY_TYPE[kindKey] || 'all',
+        } : null,
+      },
+      {
+        id: 'links', label: 'Показать связи', enabled: neighbors.length > 0,
+        reason: neighbors.length ? ''
+          : (node.isolated ? 'связей не записано: узел изолирован'
+            : 'связей не записано'),
+        target: neighbors.length ? {
+          type: 'links', nodeId: node.id,
+          edgeIds: neighbors.map(function (n) { return n.edgeId; }),
+        } : null,
+      },
+    ];
+    return {
+      kind: 'node',
+      id: node.id,
+      title: node.title || node.id,
+      kindKey: kindKey,
+      kindLabel: KIND_LABELS[kindKey],
+      scope: node.scope === 'global' ? 'global' : 'chat',
+      chatId: node.chatId,
+      text: node.text === null || node.text === undefined ? null : String(node.text),
+      textNote: (node.text === null || node.text === undefined)
+        ? 'текст записи не сохранён' : '',
+      status: node.status === null || node.status === undefined
+        ? null : String(node.status),
+      isolated: node.isolated === true,
+      degree: numberOr(node.degree, 0),
+      times: times,
+      timesNote: times.length ? '' : 'время записи не указано',
+      provenance: prov,
+      metrics: metrics,
+      neighbors: neighbors,
+      history: history,
+      actions: actions,
+    };
+  }
+
+  /* edgeCard(edge, model) -> модель карточки ребра (или null).
+   *
+   * Показывает тип связи, обе сущности, provenance и ЧЕСТНОЕ обоснование:
+   * `justification.recorded` берётся из payload как есть. Ребро без записи
+   * причины не выдаётся за подтверждённую причинную связь (§2.5 ТЗ). */
+  function edgeCard(edge, model) {
+    if (!edge || typeof edge !== 'object' || !edge.id) return null;
+    var byId = (model && model.byId) || {};
+    var prov = edge.provenance || {};
+    var factId = numberOrNull(prov.fact_id);
+    var basis = prov.basis ? String(prov.basis) : null;
+    var recorded = edge.justificationRecorded === true;
+    var text;
+    if (recorded) {
+      text = factId !== null
+        ? ('обоснование записано: связь создана фактом №' + factId)
+        : 'обоснование записано';
+    } else if (basis === 'supersedes') {
+      text = 'обоснование не записано как факт; связь выведена из записи о '
+        + 'замене версий (№' + numberOr(prov.old_fact_id, '—') + ' → №'
+        + numberOr(prov.new_fact_id, '—') + ')';
+    } else {
+      text = 'обоснование не записано';
+    }
+    var rows = [];
+    var addRow = function (key, label, value) {
+      if (value === null || value === undefined || value === '') return;
+      rows.push({ key: key, label: label, value: value });
+    };
+    addRow('edge_id', 'Запись ребра', numberOrNull(prov.edge_id));
+    addRow('fact_id', 'Факт-обоснование', factId);
+    addRow('origin', 'Происхождение', prov.origin ? String(prov.origin) : null);
+    addRow('recorded_at', 'Записано', numberOrNull(prov.recorded_at));
+    addRow('updated_at', 'Обновлено', numberOrNull(prov.updated_at));
+    addRow('weight', 'Вес связи', numberOrNull(prov.weight));
+    addRow('old_fact_id', 'Прежняя версия', numberOrNull(prov.old_fact_id));
+    addRow('new_fact_id', 'Новая версия', numberOrNull(prov.new_fact_id));
+    addRow('source_fact_id', 'Основание', numberOrNull(prov.source_fact_id));
+    addRow('basis', 'Источник связи', basis);
+    var endpoint = function (id) {
+      var node = byId[id] || null;
+      return {
+        id: id,
+        title: (node && node.title) || id,
+        kindLabel: (node && node.kindLabel) || '',
+      };
+    };
+    return {
+      kind: 'edge',
+      id: edge.id,
+      relation: edge.relation || '',
+      relationLabel: relationLabel(edge.relation),
+      derived: edge.derived === true,
+      kindLabel: edge.derived === true ? 'выведена из ссылки в данных'
+        : 'записана в графе',
+      endpoints: [endpoint(edge.from), endpoint(edge.to)],
+      justification: {
+        recorded: recorded,
+        basis: basis,
+        factId: factId,
+        text: text,
+        rows: rows,
+      },
+    };
+  }
+
   return {
     VERSION: VERSION,
     ACCEPTED_VERSIONS: ACCEPTED_VERSIONS.slice(),
@@ -1084,6 +1424,16 @@
     legendEntries: legendEntries,
     completeness: completeness,
     mapClientState: mapClientState,
+    TIME_FIELDS: TIME_FIELDS.map(function (f) {
+      return { key: f.key, label: f.label };
+    }),
+    RELATION_LABELS: RELATION_LABELS,
+    relationLabel: relationLabel,
+    nodeTimes: nodeTimes,
+    nodeHistory: nodeHistory,
+    nodeNeighbors: nodeNeighbors,
+    nodeCard: nodeCard,
+    edgeCard: edgeCard,
     createCamera: createCamera,
     clampCamera: clampCamera,
     cameraFromNetwork: cameraFromNetwork,
