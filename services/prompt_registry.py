@@ -951,6 +951,33 @@ _PG_BLOCK_META: dict[str, dict] = {
         composition_point="speech_plain/factcheck_critique_section",
         enabled_by="flags.factcheck_critique_section_enabled", speech=True,
         scope="code", owner_lane="W5-EVOL", ui="catalog"),
+    # MEME-PIPELINE-REFactor-01 (§3 ТЗ, P2): два РЕДАКТИРУЕМЫХ промпта
+    # мем-пайплайна. До этой полосы блоки объявлялись код-канонами без
+    # `pg_key` (`ui="catalog_pending"`): ключей не было в каталоге,
+    # `POST /api/config` отбивал их как неизвестные, карточка мемов честно
+    # показывала шаблон read-only. Теперь ключ каталога есть, а рантайм
+    # (`meme_initiative.effective_meme_prompt`) читает чат/hot-слои по этому
+    # `pg_key` — правка действует без правки сервиса. Текст заводской
+    # редакции не менялся (метка и печать те же).
+    "prompts.meme_joke": dict(
+        block_id="initiative.meme.joke", family="initiative",
+        purpose="Этап B мем-пайплайна: из выжимки одного чата — короткий "
+                "абсурдный прикол. Инструкция длины дописывается кодом "
+                "ПОСЛЕ этого текста: правка в админке не отменяет потолок.",
+        consumers=("meme_initiative.py:consider_chat",),
+        composition_point="initiative/meme_joke",
+        enabled_by="flags.meme_initiative_enabled", speech=False,
+        scope="code", owner_lane="W1-MEME-P02", ui="catalog"),
+    "prompts.meme_image": dict(
+        block_id="initiative.meme.image", family="initiative",
+        purpose="Шаблон промпта этапа C (генерация картинки): прикол "
+                "подставляется на место {joke}, без плейсхолдера — "
+                "дописывается в хвост. Потолок итогового промпта считает "
+                "`resolve_meme_budget`, а не этот текст.",
+        consumers=("meme_initiative.py:consider_chat",),
+        composition_point="initiative/meme_image",
+        enabled_by="flags.meme_initiative_enabled", speech=False,
+        scope="code", owner_lane="W1-MEME-P02", ui="catalog"),
     "prompts.summary_system_prompt": dict(
         block_id="summary.base.single", family="summary",
         purpose="Legacy-саммари одним вызовом (OFF/LEVEL-3): события и "
@@ -1874,23 +1901,11 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         consumers=("cover_style_jobs.py:1889",),
         composition_point="cover/scene_verify",
         migration="factory", owner_lane="W2B-EVOL016", speech=False),
-    # EVOL-014: заводской image-prefix и лёгкий summarizer. Редактирование —
-    # общий effective_prompt (override передаётся в реестр), без второго
-    # хранилища. pg_key здесь не объявляется: литерал prompts.* без записи в
-    # каталоге роняет полноту реестра, а каталог — соседняя полоса (P2).
-    # MEME-PIPELINE-REFactor-01: как только у блоков появится pg_key каталога
-    # (полоса API/UI), рантайм начнёт читать чат/hot-слои БЕЗ правки сервиса —
-    # ключ берётся из самого блока (``effective_meme_prompt``).
-    declare_prompt(
-        block_id="initiative.meme.image",
-        purpose="Заводской шаблон image-prompt инициативного мема (этап C). "
-                "Стартовое значение дословно: «Создай мем с шрифтом импакт:».",
-        family="initiative", scope="code",
-        code_source="services.meme_initiative.MEME_IMAGE_PROMPT",
-        consumers=("meme_initiative.py:consider_chat",),
-        composition_point="initiative/meme_image",
-        migration="factory", owner_lane="W1-MEME-P01", speech=False,
-        ui="catalog_pending"),
+    # MEME-PIPELINE-REFactor-01 (§3 ТЗ): оба РЕДАКТИРУЕМЫХ промпта мемов —
+    # `prompts.meme_image` / `prompts.meme_joke` — объявлены одной точкой в
+    # `_PG_BLOCK_META` (ключи каталога). Второй `declare_prompt` здесь дал бы
+    # дубль блока (контракт EVOL-018). Этап A (выжимка) остаётся код-каноном:
+    # редактирование выжимки в ТЗ не требуется.
     declare_prompt(
         block_id="initiative.meme.summary",
         purpose="Лёгкая meme-oriented выжимка одного чата. Потолка длины у "
@@ -1899,19 +1914,6 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         code_source="services.meme_initiative.MEME_SUMMARY_SYSTEM_PROMPT",
         consumers=("meme_initiative.py:consider_chat",),
         composition_point="initiative/meme_summary",
-        migration="factory", owner_lane="W1-MEME-P01", speech=False,
-        ui="catalog_pending"),
-    # MEME-PIPELINE-REFactor-01 (§1–§2 ТЗ): обязательный этап B — прикол из
-    # выжимки. Потолок длины дописывается кодом после промпта: правка текста
-    # в админке не отменяет ограничение.
-    declare_prompt(
-        block_id="initiative.meme.joke",
-        purpose="Заводской промпт этапа B («прикол из выжимки»). Дословно: "
-                "«Придумай короткий абсурдный прикол из этой выжимки.»",
-        family="initiative", scope="code",
-        code_source="services.meme_initiative.MEME_JOKE_PROMPT",
-        consumers=("meme_initiative.py:consider_chat",),
-        composition_point="initiative/meme_joke",
         migration="factory", owner_lane="W1-MEME-P01", speech=False,
         ui="catalog_pending"),
     # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок

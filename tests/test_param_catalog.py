@@ -360,7 +360,10 @@ class TestPromptsContentPgOnly:
         # EVOL §5 W5 review-fix B1 (31.10.2026): +1 — prompts.factcheck_
         # critique_directive (директива раздела «Критический разнос»; ключ
         # реестрового блока factcheck.critique.directive) = 26.
-        assert len(prompts) == 26
+        # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 — prompts.meme_joke и
+        # prompts.meme_image (промпты мем-пайплайна; блоки реестра
+        # initiative.meme.* были объявлены код-канонами без pg_key) = 28.
+        assert len(prompts) == 28
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -488,7 +491,7 @@ class TestGroups8424:
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
         # EVOL-031 (30.10.2026): −2 группы (smart_cache flags/limits) → 119.
-        assert len(GROUPS) == 120
+        assert len(GROUPS) == 121
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -645,7 +648,7 @@ class TestGroups8424:
         # готовности, окно связи, срок ожидающего запроса, lease/очередь/срок
         # жизни/попытки/backoff, limits_vision in-place) → models 77,
         # limits 232, итого 570.
-        assert counts == {"prompts": 26, "models": 77, "keys": 35,
+        assert counts == {"prompts": 28, "models": 77, "keys": 35,
                           "limits": 232, "flags": 106, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

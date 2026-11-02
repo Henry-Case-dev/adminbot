@@ -436,6 +436,21 @@ def joke_placeholder_count(template: str) -> int:
     return str(template or "").count(JOKE_PLACEHOLDER)
 
 
+def template_validation_error(template: str) -> str:
+    """Причина отказа шаблона картинки ("" — шаблон допустим).
+
+    Контракт §2–§3 ТЗ: плейсхолдер ``{joke}`` допустим в единственном
+    экземпляре. Два и более — ошибка конфигурации: сохранение отклоняется
+    (422), а не «молча дописывает» второй прикол. Пустой шаблон валиден как
+    значение (это не «снять слой»): рантайм отдельно пропускает мем с
+    ``template_empty``.
+    """
+    if joke_placeholder_count(template) > 1:
+        return (f"шаблон: допускается не более одного {JOKE_PLACEHOLDER} "
+                f"(найдено {joke_placeholder_count(template)})")
+    return ""
+
+
 def template_chars(template: str) -> int:
     """T — длина шаблона без прикола (с разделителем в append-режиме)."""
     head = str(template or "")
@@ -515,55 +530,7 @@ def trim_joke(joke: str, limit: int) -> tuple[str, bool]:
     return body, False
 
 
-# ── совместимость витрины (до перевода routes.py на resolve_meme_budget) ───
-
-@dataclass(frozen=True)
-class LengthLimit:
-    """Устаревшая обёртка витрины: те же L/T/J, старые имена полей.
-
-    ``summary_target`` всегда ``None``: потолка у выжимки больше НЕТ. Числа
-    берутся из ``resolve_meme_budget`` — расхождения с рантаймом невозможны.
-    Удаляется вместе с переводом ``web/api/routes.py`` на ``MemeBudget``.
-    """
-
-    value: int | None
-    source: str
-    summary_target: int | None
-    prefix_chars: int
-    known: bool
-    candidates: tuple[tuple[str, int], ...] = ()
-    template_chars: int = 0
-    joke_budget: int = 0
-
-    def as_dict(self) -> dict:
-        return {
-            "value": self.value,
-            "source": self.source,
-            "summary_target": self.summary_target,
-            "prefix_chars": self.prefix_chars,
-            "known": self.known,
-            "template_chars": self.template_chars,
-            "joke_budget": self.joke_budget,
-            "candidates": [
-                {"source": name, "value": number}
-                for name, number in self.candidates
-            ],
-        }
-
-
-def resolve_length_limit(*, model_chars: int | None,
-                         admin: int | None,
-                         explicit: int | None,
-                         prefix: str) -> LengthLimit:
-    """Совместимость: ``prefix`` — это шаблон картинки. Считает ``MemeBudget``."""
-    budget = resolve_meme_budget(model_chars=model_chars, admin=admin,
-                                 explicit=explicit, template=prefix)
-    return LengthLimit(
-        value=budget.ceiling, source=budget.source, summary_target=None,
-        prefix_chars=budget.template_chars, known=budget.known,
-        candidates=budget.candidates, template_chars=budget.template_chars,
-        joke_budget=budget.joke_budget)
-
+# ── промпты: слои настройки по ключу каталога (единый источник — реестр) ────
 
 def active_prompt_view(block_id: str, *, override: str | None = None) -> dict:
     """Эффективный текст через общий реестр. Отдельного хранилища нет."""
@@ -571,24 +538,51 @@ def active_prompt_view(block_id: str, *, override: str | None = None) -> dict:
     return prompt_factory.meme_prompt_view(block_id, pg_value=override)
 
 
-async def _prompt_layer(chat_id: int | None, pg_key: str) -> str:
-    """Непустой слой настройки: чат-override → глобальный hot. Пусто = нет слоя."""
-    if not pg_key:
+def prompt_setting_key(block_id: str) -> str:
+    """PG-ключ каталога для блока промпта (``""`` — блок объявлен только кодом).
+
+    Ключ берётся у САМОГО блока реестра, а не литералом: один источник правды
+    и для чтения слоёв (``effective_meme_prompt``), и для записи (API).
+    """
+    try:
+        from services import prompt_registry as pr
+        spec = pr.block(block_id)
+        return str(getattr(spec, "pg_key", "") or "")
+    except Exception:
+        logger.debug("[meme] prompt key unreadable | block=%s", block_id,
+                     exc_info=True)
         return ""
+
+
+async def _prompt_layer(chat_id: int | None, pg_key: str) -> tuple[str, str]:
+    """Непустой слой настройки: ``(текст, слой)`` — ``chat`` → ``global``.
+
+    Источник слоя берётся у штатного резолвера `chat_params.get_chat_param_sourced`
+    (override скоупа → ConfigCache), поэтому «чат» и «глобальный» различимы:
+    без этого карточка не может честно показать, откуда текст, и не может
+    снять именно чатовое переопределение.
+
+    Пустое/пробельное значение слоя = слоя нет (``("", "")``): пустота не
+    обнуляет промпт, происходит провал на следующий слой.
+    """
+    if not pg_key:
+        return "", ""
     try:
         if chat_id is not None:
             from services import chat_params
-            value = await chat_params.get_chat_param(int(chat_id), pg_key, None)
+            value, source = await chat_params.get_chat_param_sourced(
+                int(chat_id), pg_key, None)
             if value is not None and str(value).strip():
-                return str(value)
+                return str(value), ("chat" if source == "chat" else "global")
+            return "", ""
         from services import hot_config as hot
         value = hot.get(pg_key, None)
         if value is not None and str(value).strip():
-            return str(value)
+            return str(value), "global"
     except Exception:
         logger.debug("[meme] prompt layer unreadable | key=%s", pg_key,
                      exc_info=True)
-    return ""
+    return "", ""
 
 
 async def effective_meme_prompt(chat_id: int | None, block_id: str, *,
@@ -597,42 +591,46 @@ async def effective_meme_prompt(chat_id: int | None, block_id: str, *,
     """Эффективный мем-промпт: явный override → чат → глобальный → заводской.
 
     Ключ слоя берётся из САМОГО блока реестра (``pg_key``), а не из литерала:
-    как только полоса API/UI заводит ключ каталога, чтение чат/hot-слоёв
-    включается без правки этого сервиса. Пустое/пробельное значение слоя
-    проваливается на следующий слой (пустота не обнуляет промпт).
+    правка карточки «Промпты» (глобально) и карточки мемов (чат) действует без
+    правки этого сервиса. Пустое/пробельное значение слоя проваливается на
+    следующий слой (пустота не обнуляет промпт).
+
+    ``source`` — фактический слой: ``explicit_override`` | ``chat`` |
+    ``global`` | ``factory`` (``registry`` — заводская редакция изменена через
+    реестр). ``setting_key`` — ключ, которым правят этот промпт.
     """
     text = ""
     layer = ""
     if explicit is not None and str(explicit).strip():
         text, layer = str(explicit), "explicit_override"
+    key = prompt_setting_key(block_id)
+    if not text:
+        text, layer = await _prompt_layer(chat_id, key)
     view: dict = {}
     try:
-        view = active_prompt_view(block_id)
+        view = active_prompt_view(block_id, override=text or None)
     except Exception:
         logger.debug("[meme] prompt view unavailable | block=%s", block_id,
                      exc_info=True)
     if not text:
-        pg_key = ""
-        try:
-            from services import prompt_registry as pr
-            spec = pr.block(block_id)
-            pg_key = str(getattr(spec, "pg_key", "") or "")
-        except Exception:
-            pg_key = ""
-        from_layer = await _prompt_layer(chat_id, pg_key)
-        if from_layer:
-            text, layer = from_layer, "setting_override"
-    if not text:
         text = str(view.get("text") or factory)
         layer = "factory" if not view.get("differs_from_factory") else "registry"
+    differs = bool(view.get("differs_from_factory"))
+    if not differs and layer in ("explicit_override", "chat", "global"):
+        # Реестр не смог назвать заводской текст (нестандартный/тестовый блок):
+        # слой настройки всё равно отличие, если текст не равен заводской
+        # редакции, переданной вызывающим. Основной источник — реестр; это
+        # страховка от ложного «заводской», а не второй расчёт эффективности.
+        reference = str(factory or "")
+        differs = (str(text) != reference) if reference else True
     return {
         "block_id": block_id,
         "text": text,
         "source": layer or "factory",
         "factory_revision": str(view.get("factory_revision") or ""),
         "revision": view.get("revision") or 0,
-        "differs_from_factory": (bool(view.get("differs_from_factory"))
-                                 or layer not in ("", "factory")),
+        "differs_from_factory": differs,
+        "setting_key": key,
     }
 
 
