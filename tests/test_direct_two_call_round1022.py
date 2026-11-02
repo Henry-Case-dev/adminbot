@@ -106,19 +106,24 @@ class TestDirectTwoCall:
 
     @pytest.mark.asyncio
     async def test_validator_loop_retry(self):
-        svc = _service([_SYNTH_JSON, "как ИИ", "чистый ответ"])
+        # FINAL v8 §1.1: стиль не повторяется; независимый guard формата
+        # доставки (таблицы в plain-канале) — повторяется ровно один раз.
+        table = "| a | b |\n|---|---|"
+        svc = _service([_SYNTH_JSON, table, "чистый ответ"])
         text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
         assert text == "чистый ответ"
         assert svc.llm.generate.await_count == 3
 
     @pytest.mark.asyncio
-    async def test_validator_exhausted_returns_best(self):
-        svc = _service([_SYNTH_JSON, "как ИИ и подводя итог", "подводя итог",
-                        "в заключение"])
+    async def test_validator_exhausted_keeps_text(self):
+        table = "| a | b |\n|---|---|"
+        svc = _service([_SYNTH_JSON, table, table])
         text, _mode = await svc._synthesize_direct_answer(
             -100, "q", _tool_raw(), None)
-        assert text == "подводя итог"
+        # честная деградация: текст не правится молча, повтор ≤1
+        assert text == table
+        assert svc.llm.generate.await_count == 3
 
     @pytest.mark.asyncio
     async def test_empty_verbalizer_returns_none(self):

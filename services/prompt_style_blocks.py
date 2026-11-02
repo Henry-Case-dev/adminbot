@@ -385,6 +385,14 @@ FORMAT_RICH_BLOCK = (
     "структура. Пользуйся силой статьи на полную."
 )
 
+#: Текст форматного повтора ``bullet_list`` (совместимость канала, НЕ
+#: анти-клише). Берётся из единственного источника текста ``ANTI_BOT_ITEMS``
+#: (пункт о перечнях, п.4 — порядок закреплён байт-пинами ``ANTI_BOT_BLOCK``,
+#: реестр ``style.anti_bot``): новой prompt-прозы не появляется. Нужен, чтобы
+#: форматный отказ имел собственный текст и не смешивался со стилевым
+#: ``CLICHE_RETRY_SYSTEM_PROMPT`` (FINAL v8 §1.1/§1.2, ADR §3).
+FORMAT_NO_LISTS_RETRY_TEXT = ANTI_BOT_HEADER + "\n" + ANTI_BOT_ITEMS[3]
+
 _CHANNEL_PLAIN = "plain"
 _CHANNEL_RICH = "rich"
 

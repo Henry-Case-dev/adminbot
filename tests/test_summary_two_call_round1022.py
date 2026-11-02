@@ -80,18 +80,20 @@ class TestSummaryTwoCall:
 
     @pytest.mark.asyncio
     async def test_validator_loop_retry(self):
-        gen, llm = _generator([_DIGEST, "как ИИ отвечаю", "чистый текст"])
+        # FINAL v8 §1.1: стиль не повторяется; формат доставки — ровно один раз.
+        table = "| a | b |\n|---|---|"
+        gen, llm = _generator([_DIGEST, table, "чистый текст"])
         draft = await gen._generate_two_call("история", 3800, -100)
         assert draft.text == "чистый текст"
         assert llm.generate.await_count == 3
 
     @pytest.mark.asyncio
-    async def test_validator_exhausted_returns_best(self):
-        gen, llm = _generator([
-            _DIGEST, "как ИИ и подводя итог", "подводя итог", "в заключение"])
+    async def test_validator_exhausted_keeps_best(self):
+        table = "| a | b |\n|---|---|"
+        gen, llm = _generator([_DIGEST, table, table])
         draft = await gen._generate_two_call("история", 3800, -100)
-        assert draft.text == "подводя итог"      # лучший вариант (fail-open)
-        assert llm.generate.await_count == 4
+        assert draft.text == table               # лучший вариант (fail-open)
+        assert llm.generate.await_count == 3     # 1 редактор + 2 рассказчика
 
     @pytest.mark.asyncio
     async def test_empty_narrator_returns_none(self):
