@@ -1,8 +1,8 @@
 {
   "schema": "openworkflow-slices-v1",
   "epic": "epic-experience-learning-performance-help",
-  "source": "plans/owner_inputs/2026-11-02-experience-learning-performance-help.md",
-  "notes": "E и P могут идти параллельно только при непересекающихся write_scope. Внутри эпика пересечения сняты рёбрами зависимостей; пересечения с очередью (COG-MAP, FINAL v8) — в plan.md, вне этого графа. H — единственная финальная зависимость.",
+  "source": "plans/features/epic-experience-learning-performance-help/source-2026-11-02-epic-and-parity.md",
+  "notes": "E и P могут идти параллельно только при непересекающихся write_scope. Внутри эпика пересечения сняты рёбрами зависимостей; пересечения с очередью (COG-MAP, FINAL v8) — в plan.md, вне этого графа. H — единственная финальная зависимость. Гейт паритета (дополнение владельца OI-2026-11-02-PERF-PARITY, коммиты b9ff8a7e/b0fce752/983c78b4, контракт docs/track-p-performance-parity.md) применяется к каждому пакету P отдельно: в acceptance шести P-пакетов добавлены части (a) метрика, (b) артефакт паритета, (c) сравниваемые состояния и вьюпорты; отсутствие или отклонение паритета аннулирует пакет независимо от метрик. Пять пунктов дополнения PAR-01..PAR-05 и опорные P-SPEC-PARITY/P-GENUINE принадлежат EP-P-ACCEPT. Источник карты и графа - консолидированный дословный снимок (эпик-вход + дополнение), исходные owner-файлы не редактировались.",
   "slices": [
     {
       "id": "EP-GUARD",
@@ -30,7 +30,9 @@
     {
       "id": "EP-E-GATE",
       "track": "E",
-      "depends_on": ["EP-E-EXTRACT"],
+      "depends_on": [
+        "EP-E-EXTRACT"
+      ],
       "write_scope": [
         "services/mca_experience_jobs.py",
         "services/mca_experience.py",
@@ -45,7 +47,9 @@
     {
       "id": "EP-E-LESSON",
       "track": "E",
-      "depends_on": ["EP-E-GATE"],
+      "depends_on": [
+        "EP-E-GATE"
+      ],
       "write_scope": [
         "services/mca_experience.py",
         "services/database.py",
@@ -62,7 +66,9 @@
     {
       "id": "EP-E-OUTCOME",
       "track": "E",
-      "depends_on": ["EP-E-LESSON"],
+      "depends_on": [
+        "EP-E-LESSON"
+      ],
       "write_scope": [
         "web/api/oversight_router.py",
         "web/api/memory_agi.py",
@@ -96,7 +102,13 @@
     {
       "id": "EP-E-ACCEPT",
       "track": "E",
-      "depends_on": ["EP-E-EXTRACT", "EP-E-GATE", "EP-E-LESSON", "EP-E-OUTCOME", "EP-E-DIALOGUE"],
+      "depends_on": [
+        "EP-E-EXTRACT",
+        "EP-E-GATE",
+        "EP-E-LESSON",
+        "EP-E-OUTCOME",
+        "EP-E-DIALOGUE"
+      ],
       "write_scope": [
         "tests/test_ep_e_accept.py",
         "plans/features/epic-experience-learning-performance-help/evidence/e-accept/"
@@ -115,7 +127,7 @@
       ],
       "risk": "R1",
       "writer_mode": "writer",
-      "acceptance": "Baseline и «после» сняты на одном SHA в идентичном окружении существующим инструментарием (Playwright + curl + EXPLAIN), сохранены сырые прогоны, p50/p95 и разделение network/server/JS/render; отсутствие Android WebView отмечено как «не проверено»."
+      "acceptance": "Baseline и «после» сняты на одном SHA в идентичном окружении существующим инструментарием (Playwright + curl + EXPLAIN), сохранены сырые прогоны, p50/p95 и разделение network/server/JS/render; отсутствие Android WebView отмечено как «не проверено». Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: baseline B с cold/warm/desktop p50+p95 времени до полезного «Статуса», интерактивного первого экрана, отклика контрола, long tasks, frame drops, числа запросов, transfer bytes, доли 304, числа SQL/EXPLAIN, размера JSON; (b) артефакт паритета: UX Surface Manifest и матрица паритета, снятые для B тем же кодом, что снимет C, плюс калибровка детектора на одноразовой копии (один отключённый эффект обязан уронить счётчики манифеста и поднять метрики); (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], cold-первый кадр, полезный «Статус», каждая вкладка, смена чата/scope, `.more-sheet` closed/open, fullscreen normal/fullscreen, tier-ы стекла a/b/c/shell на стенде, reduced-motion. Без baseline паритета пакета нет."
     },
     {
       "id": "EP-P-CACHE",
@@ -129,12 +141,14 @@
       ],
       "risk": "R2",
       "writer_mode": "writer",
-      "acceptance": "Версионированные JS/CSS/vendor реально переиспользуются (304/memory, без no-store), HTML и приватные API не кешируются, версия в URL соответствует байтам, сжатие подтверждено на реальном proxy, CSP сохранён."
+      "acceptance": "Версионированные JS/CSS/vendor реально переиспользуются (304/memory, без no-store), HTML и приватные API не кешируются, версия в URL соответствует байтам, сжатие подтверждено на реальном proxy, CSP сохранён. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: рост доли 304 на warm-входе, снижение transfer bytes и времени до полезного «Статуса», загрузка после релиза без принудительной чистки кеша; (b) артефакт паритета: распакованные байты JS/CSS/HTML идентичны baseline, 0-px геометрия, инвентарь контролов/DOM, паритет стекла/полигона/движения и данных равны, тест stale mixed assets (P-04) проходит; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], повторный вход в том же релизе, новый релиз после деплоя, путь GET/HEAD/ETag/304. Пакет без этого артефакта паритета не принимается независимо от чисел."
     },
     {
       "id": "EP-P-SCRIPTS",
       "track": "P",
-      "depends_on": ["EP-E-OUTCOME"],
+      "depends_on": [
+        "EP-E-OUTCOME"
+      ],
       "write_scope": [
         "web/index.html",
         "tests/js/ep_p_scripts_test.js",
@@ -142,12 +156,14 @@
       ],
       "risk": "R2",
       "writer_mode": "writer",
-      "acceptance": "Порядок и способ подключения vendor-скриптов сохранён по зависимостям (Vue/DOMPurify/Telegram bridge/Chart/canvas), обязательный bootstrap краток, необязательное для первого экрана отложено, отказ необязательного не ломает вход."
+      "acceptance": "Порядок и способ подключения vendor-скриптов сохранён по зависимостям (Vue/DOMPurify/Telegram bridge/Chart/canvas), обязательный bootstrap краток, необязательное для первого экрана отложено, отказ необязательного не ломает вход. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: число запросов до полезного экрана, убранные дублирующие GET, time-to-interactive, число мутаций при retry; (b) артефакт паритета: инвентарь состояний loading/error/empty/retry, INV-DATA и INV-DOM равны, отсутствие stale overwrite при быстрой смене чата (P-06), control конфликта ревизий на двух админах (P-13), отсутствие секретов/initData в браузерном хранилище; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], быстрая смена чата, медленная сеть, отказ API, offline->online. Пакет без этого артефакта паритета не принимается независимо от чисел."
     },
     {
       "id": "EP-P-BOOT",
       "track": "P",
-      "depends_on": ["EP-P-SCRIPTS"],
+      "depends_on": [
+        "EP-P-SCRIPTS"
+      ],
       "write_scope": [
         "web/index.html",
         "web/app.js",
@@ -157,7 +173,7 @@
       ],
       "risk": "R3",
       "writer_mode": "writer",
-      "acceptance": "Первый экран «Статус» не монтирует скрытые вкладки/графики/редакторы; deep link открывает нужную вкладку напрямую; стадии загрузки конечны (loaded/empty/error-retry/degraded); смена чата не даёт stale overwrite; визуальный контракт и мобильная геометрия не изменены."
+      "acceptance": "Первый экран «Статус» не монтирует скрытые вкладки/графики/редакторы; deep link открывает нужную вкладку напрямую; стадии загрузки конечны (loaded/empty/error-retry/degraded); смена чата не даёт stale overwrite; визуальный контракт и мобильная геометрия не изменены. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: main-thread parse/compile/mount, long tasks, время до полезного «Статуса», загрузка по deep link, отсутствие роста listeners/timers/canvas/heap при повторных переключениях вкладок; (b) артефакт паритета: идентичный DOM после загрузки на каждой вкладке и deep link, отсутствие новых промежуточных заглушек там, где контент раньше появлялся сразу, INV-DOM/INV-GLASS/INV-POLY/INV-MOTION/INV-ROUTE равны, сохранены клавиатурные/landscape/fullscreen/dropdown состояния; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], каждая вкладка, deep link на вкладку, landscape 844x390, fullscreen, reduced-motion. Пакет без этого артефакта паритета не принимается независимо от чисел."
     },
     {
       "id": "EP-P-ANIM",
@@ -174,12 +190,15 @@
       ],
       "risk": "R2",
       "writer_mode": "writer",
-      "acceptance": "На document.hidden/закрытой модалке/внеэкранных блоках непрерывной работы нет, при возврате геометрия восстанавливается без скачка, чтения геометрии сгруппированы с записями стилей, внешний вид идентичен на скриншотах при включённых эффектах."
+      "acceptance": "На document.hidden/закрытой модалке/внеэкранных блоках непрерывной работы нет, при возврате геометрия восстанавливается без скачка, чтения геометрии сгруппированы с записями стилей, внешний вид идентичен на скриншотах при включённых эффектах. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: frame drops, long tasks, idle CPU/GPU при hidden, число layout за кадр, отсутствие роста между циклами вкладок; (b) артефакт паритета: все 11 полей getDiagnostics() равны при фиксированном ?bgseed=, nodeCount в диапазоне 90-140 (desktop) / 45-75 (mobile), bloom+morphphase присутствуют, инвентарь INV-MOTION и сэмплы transform/opacity равны, INV-GLASS (tier/backdrop-filter/--glass-* токены) равен, 0 различающихся пикселей на детерминированных состояниях; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], document.hidden round trip, закрытая модалка, скрытый overlay, fullscreen normal/fullscreen. Пакет без этого артефакта паритета не принимается независимо от чисел."
     },
     {
       "id": "EP-P-API",
       "track": "P",
-      "depends_on": ["EP-E-OUTCOME", "EP-E-LESSON"],
+      "depends_on": [
+        "EP-E-OUTCOME",
+        "EP-E-LESSON"
+      ],
       "write_scope": [
         "web/api/routes.py",
         "web/api/oversight_router.py",
@@ -190,12 +209,19 @@
       ],
       "risk": "R2",
       "writer_mode": "writer",
-      "acceptance": "/config и тяжёлые read-path измерены и ускорены на доказанных участках (EXPLAIN + baseline), списки отдаются keyset/страницами, event loop остаётся отзывчивым, RBAC и единый param_catalog не нарушены."
+      "acceptance": "/config и тяжёлые read-path измерены и ускорены на доказанных участках (EXPLAIN + baseline), списки отдаются keyset/страницами, event loop остаётся отзывчивым, RBAC и единый param_catalog не нарушены. Гейт паритета пакета (обязателен, без него пакет не принимается): (a) метрика: p50/p95 эндпоинтов, число SQL, EXPLAIN самого дорогого SELECT до/после, байты JSON, event-loop lag; (b) артефакт паритета: равные количества отрисованных строк/полей/значений на фиксированном датасете, те же поля и достижимость в UI, единый param_catalog, неизменные RBAC/effective values и write-эндпоинты, отсутствие подстановки нулей при таймауте; (c) сравниваемые состояния/вьюпорты: V [320x700, 390x844, 768x1024, 1280x800] + регрессионный свип [360/430/1024/1440/1920/2560], вкладки с большим числом записей, конкурентное редактирование двумя админами, граничные страницы пагинации. Пакет без этого артефакта паритета не принимается независимо от чисел."
     },
     {
       "id": "EP-P-ACCEPT",
       "track": "P",
-      "depends_on": ["EP-P-MEASURE", "EP-P-CACHE", "EP-P-SCRIPTS", "EP-P-BOOT", "EP-P-ANIM", "EP-P-API"],
+      "depends_on": [
+        "EP-P-MEASURE",
+        "EP-P-CACHE",
+        "EP-P-SCRIPTS",
+        "EP-P-BOOT",
+        "EP-P-ANIM",
+        "EP-P-API"
+      ],
       "write_scope": [
         "tests/test_ep_p_accept.py",
         "tests/js/ep_p_accept_test.js",
@@ -208,7 +234,11 @@
     {
       "id": "EP-H-HELP",
       "track": "H",
-      "depends_on": ["EP-E-ACCEPT", "EP-P-ACCEPT", "EP-GUARD"],
+      "depends_on": [
+        "EP-E-ACCEPT",
+        "EP-P-ACCEPT",
+        "EP-GUARD"
+      ],
       "write_scope": [
         "services/info_service.py",
         "info_text.md",
@@ -218,7 +248,7 @@
       ],
       "risk": "R2",
       "writer_mode": "writer",
-      "acceptance": "Оба гайда пересмотрены по фактически deployed системе и доставлены в PG/UI с версиями, backup и датой реального сохранения; в тексте нет pending-функций как существующих, запрещённых обещаний безошибочности и XSS; стиль и оба уровня читателя сохранены. Открывается только после PASS+deploy+live ВСЕХ предыдущих задач очереди."
+      "acceptance": "Оба гайда пересмотрены по фактически deployed системе и доставлены в PG/UI с версиями, backup и датой реального сохранения; в тексте нет pending-функций как существующих, запрещённых обещаний безошибочности и XSS; стиль и оба уровня читателя сохранены. Открывается только после PASS+deploy+live ВСЕХ предыдущих задач очереди, включая E и P и ранее добавленные AntiCliche/Memory/UI исправления; параллельно с ними не выполняется, до этого документацию не редактировать и не обновлять фиктивной датой."
     }
   ]
 }

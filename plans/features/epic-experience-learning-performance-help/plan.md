@@ -106,6 +106,31 @@ Size: S — один узкий механизм, M — связный меха�
    `tools/ui_*_e2e.py` (Playwright-паттерн), `tools/mca18_paired_replay.py` (для E7-3/E-09),
    `tests/js/`; новый recorder `tools/ui_ep_perf_baseline.py` — тонкая обвязка, не харнесс.
 
+### 4a. Гейт паритета по пакетам P (обязателен для каждого пакета)
+
+Дополнение владельца `OI-2026-11-02-PERF-PARITY` (`b9ff8a7e`) и контракт
+`docs/track-p-performance-parity.md` (`b0fce752`): оптимизация затрагивает только код, загрузку, рендеринг,
+запросы, кеширование и внутреннюю архитектуру; визуальный и функциональный паритет обязателен, любое
+отклонение — регрессия и блокер релиза даже при улучшенных метриках.
+
+Каждый пакет P отдельно обязан предъявить три части на одном SHA кандидата: **(a)** метрику, **(b)** артефакт
+паритета, **(c)** сравниваемые состояния и вьюпорты. Без артефакта паритета пакет не принимается независимо
+от чисел; в карте требований это строки `P-GATE-00..P-GATE-05`, в `slice-graph.json` — та же формулировка
+в `acceptance` соответствующего слайса.
+
+| Пакет | (a) метрика | (b) артефакт паритета | (c) состояния и вьюпорты |
+|---|---|---|---|
+| `EP-P-MEASURE` (P0) | baseline B: cold/warm/desktop p50+p95 до полезного «Статуса», интерактивного экрана, отклика; long tasks, frame drops, запросы, байты, 304, SQL/EXPLAIN, JSON | UX Surface Manifest + матрица паритета для B тем же кодом, что снимет C, плюс калибровка детектора (один отключённый эффект обязан уронить счётчики) | V [320×700, 390×844, 768×1024, 1280×800] + свип [360/430/1024/1440/1920/2560]; cold-кадр, «Статус», вкладки, смена чата/scope, `.more-sheet`, fullscreen, tier-ы стекла, reduced-motion |
+| `EP-P-CACHE` (P1) | доля 304 на warm-входе ↑, transfer bytes ↓, время до полезного «Статуса» ↓, загрузка после релиза без чистки кеша | распакованные JS/CSS/HTML байты идентичны, 0-px геометрия, инвентарь контролов/DOM, стекло/полигон/движение/данные равны, stale-mixed-assets (P-04) | V + свип; повторный вход в том же релизе, новый релиз, путь GET/HEAD/ETag/304 |
+| `EP-P-SCRIPTS` (P2) | запросы до полезного экрана, убранные дубли GET, time-to-interactive, мутации при retry | loading/error/empty/retry, INV-DATA/INV-DOM, нет stale overwrite (P-06), конфликт ревизий (P-13), нет секретов в хранилище | V + свип; быстрая смена чата, медленная сеть, отказ API, offline→online |
+| `EP-P-BOOT` (P3) | parse/compile/mount, long tasks, время до «Статуса», deep link, нет роста listeners/timers/heap | идентичный DOM на вкладках и deep link, нет новых заглушек, INV-DOM/GLASS/POLY/MOTION/ROUTE, клавиатура/landscape/fullscreen/dropdown | V + свип; каждая вкладка, deep link, landscape 844×390, fullscreen, reduced-motion |
+| `EP-P-ANIM` (P4) | frame drops, long tasks, idle CPU/GPU при hidden, layout за кадр, отсутствие роста | 11 полей `getDiagnostics()` при фиксированном `?bgseed=`, nodeCount 90–140 / 45–75, bloom+morph, INV-MOTION/INV-GLASS, 0 пикселей | V + свип; `document.hidden` round trip, закрытая модалка, скрытый overlay, fullscreen |
+| `EP-P-API` (P5) | p50/p95 эндпоинтов, число SQL, EXPLAIN дорогого SELECT, байты JSON, event-loop lag | равные строки/поля/значения на фиксированном датасете, единый `param_catalog`, RBAC/effective values, без нулей при таймауте | V + свип; вкладки с большим числом записей, два админа, граничные страницы |
+
+Сквозные строки дополнения (`PAR-01..PAR-05`, `P-SPEC-PARITY`, `P-GENUINE`) принадлежат `EP-P-ACCEPT`;
+`P-SPEC-PARITY` — спецификационная опора (§0.3 «быстрее админка vs сохранить дизайн»), `P-GENUINE` — запрет
+выдать косметический skeleton за приложение или скрыть задержку за анимацией.
+
 ## 5. Существующее vs отсутствующее (текущее дерево, ветка `evol/impl`)
 
 Вердикты: `DONE_AND_VERIFIED` / `PARTIAL` / `MISSING` / `CONFLICTS_WITH_NEW_CONTRACT` / `NOT_APPLICABLE`.
