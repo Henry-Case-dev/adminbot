@@ -457,11 +457,12 @@ async def test_plan_edit_unavailable_denied_and_notice(monkeypatch):
     from services.direct_l1 import L1Plan
     _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_NOT_CONFIGURED)
     svc = _make_svc()
-    block, fired, denied = await svc._l1_capability_consistency(
+    block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
         MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
         intent=None, image_pre_gate_fired=False)
     assert fired is False
+    assert delivered is False
     assert "image_edit" in denied
     assert "capability_notice" in block and "image_edit" in block
 
@@ -473,11 +474,12 @@ async def test_plan_edit_available_no_denial_no_generation_force(monkeypatch):
     from services.direct_l1 import L1Plan
     _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_READY)
     svc = _make_svc()
-    block, fired, denied = await svc._l1_capability_consistency(
+    block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
         MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
         intent=None, image_pre_gate_fired=False)
     assert fired is False
+    assert delivered is False
     assert denied == ()
     assert block == ""
 
@@ -494,12 +496,13 @@ async def test_word_intent_create_does_not_override_plan_edit(monkeypatch):
     create_intent = dc.ActionIntent(intent=dc.INTENT_CREATE_IMAGE,
                                     capability="image_generation",
                                     confidence=dc.CONFIDENCE_HIGH)
-    block, fired, denied = await svc._l1_capability_consistency(
+    block, fired, delivered, denied = await svc._l1_capability_consistency(
         CHAT, "можешь изменить мем", MagicMock(), MagicMock(),
         L1Plan(capabilities_needed=("image_edit",)),
         intent=create_intent, image_pre_gate_fired=False)
     # План выбрал edit → routing-fix генерации НЕ стреляет:
     assert fired is False
+    assert delivered is False
     assert denied == ()          # image_generation готов (не он выбирался)
     # Недоступный edit — правдивая пометка Writer'у (генерация вместо него
     # не идёт); контракт §5.18 others: инструмент не прячется, пометка есть.

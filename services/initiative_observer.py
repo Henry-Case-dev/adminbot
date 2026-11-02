@@ -1149,7 +1149,15 @@ class InitiativeObserverRunner:
         if bot is None:
             return None
 
-        async def _send(chat_id, content, caption):
+        async def _send(chat_id, content, prompt):
+            """P0 MEME-IMAGE-ONLY (owner 02.11.2026): только изображение.
+
+            Промпт генерации («Создай мем с шрифтом импакт: …») — ВНУТРЕННИЙ
+            текст: он не уходит ни отдельным сообщением, ни caption'ом к фото
+            (caption в Telegram виден как подпись под картинкой — та же утечка
+            служебного текста). Третий аргумент `prompt` остаётся в контракте
+            доставки (журнал попытки/аналитика), в Telegram не отправляется.
+            """
             from services import telegram_send
             photo = content
             try:
@@ -1157,8 +1165,7 @@ class InitiativeObserverRunner:
                 photo = BufferedInputFile(content, filename="meme.png")
             except Exception:
                 photo = content
-            await telegram_send.send_photo(
-                bot, int(chat_id), photo, caption=caption or None)
+            await telegram_send.send_photo(bot, int(chat_id), photo)
             return True
 
         return _send

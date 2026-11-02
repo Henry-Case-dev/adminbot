@@ -2268,6 +2268,12 @@ async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
                     "повторная генерация и повторная отправка не выполняются.\n"
                     f"{suffix}\n"
                     "</image_result>")
+        # P0 MEME-IMAGE-ONLY (owner 02.11.2026): картинка реально доставлена —
+        # это ответ хода; отдельного текстового сообщения после неё нет.
+        try:
+            ctx.image_delivered = True
+        except Exception:      # pragma: no cover - ctx не мутабелен
+            pass
         # ADD-TR.4 (ADTR-POSTGEN, M-ADTR-POSTGEN-DEFECT): визуально
         # специфическое описание допустимо ТОЛЬКО по анализу фактически
         # отправленного bitmap; при OFF/unavailable/pending — честный статус
