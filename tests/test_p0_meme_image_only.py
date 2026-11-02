@@ -109,15 +109,20 @@ async def _initiative_pass(*, bot, sender, provider, ledger, chat_id=-100):
     async def gate(_chat_id):
         return True, "ok"
 
-    async def summarizer(_cid, _rows_arg, _target, _system):
+    # MEME-PIPELINE-REFactor-01: выжимка (без потолка) + обязательный этап B.
+    async def summarizer(_cid, _rows_arg, _system):
         return "хук"
+
+    async def joke_generator(_cid, _summary, _instruction):
+        return "прикол"
 
     return await meme.consider_chat(
         None, chat_id, settings=_settings(), ledger=ledger, now=NOW,
         tz_name="UTC", tz_source="utc_fallback",
         initiative_enabled=lambda: True, image_status=IMAGE_OK,
         random_source=_Hit(), messages=_rows(chat_id),
-        summarizer=summarizer, image_provider=provider,
+        summarizer=summarizer, joke_generator=joke_generator,
+        image_provider=provider,
         publish_gate=gate, sender=sender, model_chars=200)
 
 
@@ -205,7 +210,7 @@ async def test_d_success_analytics_and_journal_unchanged(tmp_path):
     rows = ledger.attempts(-100)
     stages = {str(row.get("stage") or "") for row in rows}
     outcomes = {str(row.get("outcome") or "") for row in rows}
-    assert {"summary", "image_generation", "publish"} <= stages
+    assert {"summary", "joke", "image_generation", "publish"} <= stages
     assert "published" in outcomes
     assert not [row for row in rows if row.get("outcome") == "failed"]
 
@@ -224,8 +229,9 @@ async def test_d_success_analytics_and_journal_unchanged(tmp_path):
     assert payload["prompt_origin"] in {"factory", "custom"}
     assert payload["output_kind"] == meme.OUTPUT_KIND
     assert payload["blocks_text_initiative"] is False
-    assert payload["limit"] and payload["limit"]["value"] > 0
+    assert payload["limit"] and payload["limit"]["ceiling"] > 0
     assert payload["limit"]["known"] is True
+    assert payload["limit"]["joke_budget"] > 0
     assert result.prompt.startswith(PREFIX)   # промпт записан внутри результата
     assert result.counters.get(meme.STAGE_PUBLISH) == 1
 

@@ -358,7 +358,10 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "cover.scene_verify": "scene-verify-w2b",
     # EVOL-014: заводские промпты инициативных мемов.
     "initiative.meme.image": "meme-image-evol014",
-    "initiative.meme.summary": "meme-summary-evol014",
+    # MEME-PIPELINE-REFactor-01: у выжимки снят потолок длины (текст изменён),
+    # появился отдельный блок этапа B.
+    "initiative.meme.summary": "meme-summary-nolimit-01",
+    "initiative.meme.joke": "meme-joke-evol014",
 }
 
 
@@ -513,7 +516,9 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "cover.scene_verify": ("scene-verify-w2b", "507d915349e1"),
     # EVOL-014: печати sha12 заводского текста (сгенерированы из кода).
     "initiative.meme.image": ("meme-image-evol014", "f81fe7e4b505"),
-    "initiative.meme.summary": ("meme-summary-evol014", "8b0906ccbdaa"),
+    # MEME-PIPELINE-REFactor-01: текст выжимки больше не ограничивает длину.
+    "initiative.meme.summary": ("meme-summary-nolimit-01", "175781ddfd7e"),
+    "initiative.meme.joke": ("meme-joke-evol014", "2f30ca1f9a6b"),
 }
 
 #: Явные исключения grep-аудита EVOL-018 (контракт §1.7 п.4): имя константы
@@ -1871,27 +1876,43 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         migration="factory", owner_lane="W2B-EVOL016", speech=False),
     # EVOL-014: заводской image-prefix и лёгкий summarizer. Редактирование —
     # общий effective_prompt (override передаётся в реестр), без второго
-    # хранилища. pg_key не объявляется здесь: литерал prompts.* без записи
-    # в каталоге роняет полноту реестра, а каталог — соседняя полоса.
+    # хранилища. pg_key здесь не объявляется: литерал prompts.* без записи в
+    # каталоге роняет полноту реестра, а каталог — соседняя полоса (P2).
+    # MEME-PIPELINE-REFactor-01: как только у блоков появится pg_key каталога
+    # (полоса API/UI), рантайм начнёт читать чат/hot-слои БЕЗ правки сервиса —
+    # ключ берётся из самого блока (``effective_meme_prompt``).
     declare_prompt(
         block_id="initiative.meme.image",
-        purpose="Заводской префикс image-prompt инициативного мема. "
+        purpose="Заводской шаблон image-prompt инициативного мема (этап C). "
                 "Стартовое значение дословно: «Создай мем с шрифтом импакт:».",
         family="initiative", scope="code",
         code_source="services.meme_initiative.MEME_IMAGE_PROMPT",
         consumers=("meme_initiative.py:consider_chat",),
         composition_point="initiative/meme_image",
-        migration="factory", owner_lane="W3-EVOL014", speech=False,
+        migration="factory", owner_lane="W1-MEME-P01", speech=False,
         ui="catalog_pending"),
     declare_prompt(
         block_id="initiative.meme.summary",
-        purpose="Лёгкая meme-oriented выжимка одного чата. Потолок длины "
-                "передаётся вызовом, в текст инструкции не зашит.",
+        purpose="Лёгкая meme-oriented выжимка одного чата. Потолка длины у "
+                "выжимки нет: ограничение перенесено на этап прикола.",
         family="initiative", scope="code",
         code_source="services.meme_initiative.MEME_SUMMARY_SYSTEM_PROMPT",
         consumers=("meme_initiative.py:consider_chat",),
         composition_point="initiative/meme_summary",
-        migration="factory", owner_lane="W3-EVOL014", speech=False,
+        migration="factory", owner_lane="W1-MEME-P01", speech=False,
+        ui="catalog_pending"),
+    # MEME-PIPELINE-REFactor-01 (§1–§2 ТЗ): обязательный этап B — прикол из
+    # выжимки. Потолок длины дописывается кодом после промпта: правка текста
+    # в админке не отменяет ограничение.
+    declare_prompt(
+        block_id="initiative.meme.joke",
+        purpose="Заводской промпт этапа B («прикол из выжимки»). Дословно: "
+                "«Придумай короткий абсурдный прикол из этой выжимки.»",
+        family="initiative", scope="code",
+        code_source="services.meme_initiative.MEME_JOKE_PROMPT",
+        consumers=("meme_initiative.py:consider_chat",),
+        composition_point="initiative/meme_joke",
+        migration="factory", owner_lane="W1-MEME-P01", speech=False,
         ui="catalog_pending"),
     # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок
     # ``factcheck.critique.directive`` больше НЕ объявляется здесь — он стал
@@ -2818,7 +2839,15 @@ def factory_set_fingerprint() -> str:
 #: (голос/каноны фактчека и ревизия EVR3 планера L1), поэтому набор
 #: фабричных текстов пересчитан по объединению: ``68c915718b7d`` (только P0)
 #: → ``__MERGED__`` (P0+P1). Печати обоих блоков целы.
-FACTORY_SET_SHA256_12 = "630ca46dff76"
+#:
+#: MEME-PIPELINE-REFactor-01 (03.11.2026): состав набора изменился осознанно —
+#:   * ``initiative.meme.summary`` переписан (с выжимки снят потолок длины,
+#:     метка ``meme-summary-nolimit-01``, печать ``175781ddfd7e``);
+#:   * добавлен блок ``initiative.meme.joke`` (заводской текст этапа B дословно,
+#:     метка ``meme-joke-evol014``, печать ``2f30ca1f9a6b``).
+#: Было ``630ca46dff76``, стало ``54ac2b8ac34b``. Переутверждено осознанно
+#: (SOUL-AMD.3.2): ни один другой канон не менялся.
+FACTORY_SET_SHA256_12 = "54ac2b8ac34b"
 
 
 

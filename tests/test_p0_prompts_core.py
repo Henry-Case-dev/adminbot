@@ -127,7 +127,11 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # ASAP-FC-VOICE-01 / B (02.11.2026): L1-планер → EVR3 (правило статуса
     # секции «ПРОФИЛЬ РЕШЕНИЙ») → b1c1ab5b3b68, переутверждено осознанно.
     # Мерж P0+P1 (evol/impl): обе ревизии активны одновременно — набор фабричных текстов пересчитан по объединению.
-    assert pr.FACTORY_SET_SHA256_12 == "630ca46dff76"
+    # MEME-PIPELINE-REFactor-01 (03.11.2026): выжимка мемов переписана без
+    # потолка длины (meme-summary-nolimit-01) + новый блок этапа B
+    # initiative.meme.joke (meme-joke-evol014); прочие каноны не тронуты.
+    # Было 630ca46dff76, стало 54ac2b8ac34b. Переутверждено осознанно.
+    assert pr.FACTORY_SET_SHA256_12 == "54ac2b8ac34b"
 
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"

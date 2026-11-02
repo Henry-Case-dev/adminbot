@@ -4,6 +4,10 @@
 принимает существующий проход ``initiative.observe``; здесь живёт только
 способность собрать выжимку одного чата и заказать картинку.
 
+MEME-PIPELINE-REFactor-01 (03.11.2026): пайплайн внутри ЭТОГО же сервиса
+состоит из трёх явных этапов — выжимка → прикол → картинка. Второй
+параллельной ветки нет.
+
 Инварианты:
   * свой тумблер, заводской OFF; выключение мемов не трогает текстовую
     инициативу; выключение Initiative останавливает и мемы;
@@ -11,10 +15,18 @@
     (purpose ``meme_trigger``). Недоступность контура → ``random_unavailable``.
     Локального ``random`` / Math.random нет;
   * окно сообщений и cooldown конфигурируются (дефолт окна 500 — не кап);
-  * потолок длины считается ДО выжимки и передаётся суммаризатору как цель;
-    постфактум-обрезки нет;
+  * этап A (выжимка) потолком длины НЕ ограничен: суммаризатор получает окно
+    и системный промпт, никакой цели в символах и постфактум-обрезки;
+  * этап B (прикол) — обязательный отдельный LLM-вызов по выжимке; длина
+    ограничивается здесь: ``J = max(0, L - T)`` уходит модели явной
+    инструкцией, защитная обрезка — только страховка от перелёта;
+  * этап C (картинка) собирает итоговый prompt из шаблона и ПРИКОЛА
+    (не из сырой выжимки); потолок L относится именно к этому тексту;
+  * ``manual=True`` (диагностика ``/meme``) обходит квоту/кулдаун/минимум
+    сообщений/случайный триггер/тихие часы/in-flight/гейт публикации, но НЕ
+    права, готовность image-модуля, наличие журнала и разрешимость бюджета;
   * заводской image-prompt — дословный префикс ``Создай мем с шрифтом импакт:``
-    плюс выжимка; текст берётся из реестра промптов;
+    плюс прикол; текст берётся из реестра промптов;
   * суточная квота — свой счётчик (не ``image_calls``): бронь до вызова
     провайдера, день — календарный в TZ чата (нет TZ → UTC с пометкой
     fallback). Нет таблицы → честный ``schema_absent``, без генерации;
@@ -37,22 +49,35 @@ from zoneinfo import ZoneInfo
 logger = logging.getLogger(__name__)
 
 # ── заводские промпты (реестр: declare_prompt + печать) ─────────────────────
-#: Дословно, слово в слово. После двоеточия подставляется выжимка.
+#: Дословно, слово в слово. Шаблон этапа C: прикол подставляется на ``{joke}``,
+#: а если плейсхолдера нет — дописывается в хвост (историческое поведение).
 MEME_IMAGE_PROMPT = "Создай мем с шрифтом импакт:"
 
-#: Лёгкая инструкция выжимки. Числовой потолок в константу не зашит:
-#: его передают вызовом, уже посчитанным из capability/настройки.
+#: Дословно (владелец, §1–§2 ТЗ). Промпт этапа B.
+MEME_JOKE_PROMPT = "Придумай короткий абсурдный прикол из этой выжимки."
+
+#: Лёгкая инструкция выжимки. Потолка в символах здесь нет и быть не должно:
+#: этап A больше не ограничивается длиной (§1 ТЗ, «потолок снят с выжимки»).
 MEME_SUMMARY_SYSTEM_PROMPT = (
     "Собери короткую выжимку именно под мем из сообщений одного чата. "
     "Нужен мемный хук: конфликт, шутка, повтор, абсурд или локальный инсайд, "
-    "а не пересказ разговора вообще. Не добавляй фактов, которых нет в окне. "
-    "Потолок символов передаётся отдельно и является целевым размером "
-    "выжимки: уложись в него сразу. Верни только текст выжимки, без кавычек, "
-    "заголовков и пояснений."
+    "а не пересказ разговора вообще. Не добавляй фактов, которых нет в окне, "
+    "и сохрани конкретику (кто, что, над чем шутка). Верни только текст "
+    "выжимки, без кавычек, заголовков и пояснений."
 )
+
+#: Плейсхолдер прикола в шаблоне картинки. Больше одного — ошибка конфигурации.
+JOKE_PLACEHOLDER = "{joke}"
+
+#: Инструкция длины дописывается ПОСЛЕ редактируемого промпта этапа B: правка
+#: промпта в админке не отменяет автоматический потолок (§3 ТЗ).
+JOKE_LENGTH_DIRECTIVE = ("Сгенерируй прикол длиной не более {n} символов. "
+                         "Верни только текст прикола.")
 
 IMAGE_PROMPT_BLOCK_ID = "initiative.meme.image"
 SUMMARY_PROMPT_BLOCK_ID = "initiative.meme.summary"
+JOKE_PROMPT_BLOCK_ID = "initiative.meme.joke"
+
 OUTPUT_KIND = "meme_initiative"
 
 # ── настройки (дефолты; override чата → hot → дефолт; не магические капы) ──
@@ -85,6 +110,11 @@ SKIP_RANDOM_UNAVAILABLE = "random_unavailable"
 SKIP_RANDOM_MISS = "no_random_hit"
 SKIP_COOLDOWN = "cooldown_active"
 SKIP_SUMMARY = "summary_failed"
+#: Этап B: отдельные коды — «прикол не сгенерился» не равно «выжимка упала».
+SKIP_JOKE_FAILED = "joke_generation_failed"
+SKIP_JOKE_EMPTY = "joke_empty"
+SKIP_NO_JOKE_BUDGET = "no_joke_budget"
+SKIP_TEMPLATE_EMPTY = "template_empty"
 SKIP_IMAGE_FAILED = "image_generation_failed"
 SKIP_PUBLISH = "publish_blocked"
 SKIP_QUOTA = "daily_quota_reached"
@@ -102,20 +132,24 @@ SKIP_SLOT_RELEASED = "slot_released"
 SKIP_REASONS = (
     SKIP_DISABLED, SKIP_INITIATIVE_DISABLED, SKIP_IMAGE_MODULE_OFF,
     SKIP_IMAGE_NOT_CONFIGURED, SKIP_IMAGE_UNHEALTHY, SKIP_RANDOM_UNAVAILABLE,
-    SKIP_RANDOM_MISS, SKIP_COOLDOWN, SKIP_SUMMARY, SKIP_IMAGE_FAILED,
-    SKIP_PUBLISH, SKIP_QUOTA, SKIP_ACTIVITY, SKIP_SCHEMA, SKIP_LENGTH_UNKNOWN,
-    SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION, SKIP_SLOT_RELEASED,
+    SKIP_RANDOM_MISS, SKIP_COOLDOWN, SKIP_SUMMARY, SKIP_JOKE_FAILED,
+    SKIP_JOKE_EMPTY, SKIP_NO_JOKE_BUDGET, SKIP_TEMPLATE_EMPTY,
+    SKIP_IMAGE_FAILED, SKIP_PUBLISH, SKIP_QUOTA, SKIP_ACTIVITY, SKIP_SCHEMA,
+    SKIP_LENGTH_UNKNOWN, SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION,
+    SKIP_SLOT_RELEASED,
 )
 
 STAGE_CONSIDERED = "considered"
 STAGE_ELIGIBLE = "eligible"
 STAGE_SUMMARY = "summary"
+#: MEME-PIPELINE-REFactor-01: обязательный этап B между выжимкой и картинкой.
+STAGE_JOKE = "joke"
 STAGE_IMAGE = "image_generation"
 STAGE_PUBLISH = "publish"
 STAGE_FAILED = "failed"
 STAGE_SKIPPED = "skipped"
 STAGES = (
-    STAGE_CONSIDERED, STAGE_ELIGIBLE, STAGE_SUMMARY, STAGE_IMAGE,
+    STAGE_CONSIDERED, STAGE_ELIGIBLE, STAGE_SUMMARY, STAGE_JOKE, STAGE_IMAGE,
     STAGE_PUBLISH, STAGE_FAILED, STAGE_SKIPPED,
 )
 
@@ -358,16 +392,148 @@ async def load_settings(chat_id: int | None) -> MemeSettings:
     )
 
 
-# ── длина: считается ДО выжимки, без последующей обрезки ───────────────────
+# ── бюджет длины: L (итоговый prompt), T (шаблон), J = max(0, L - T) ────────
+
+@dataclass(frozen=True)
+class MemeBudget:
+    """Единственный расчёт бюджета: один и тот же для рантайма и витрины.
+
+    ``ceiling`` = L — эффективный потолок итогового image-prompt (минимум
+    кандидатов), ``template_chars`` = T — длина шаблона БЕЗ прикола,
+    ``joke_budget`` = J = max(0, L - T) — сколько символов остаётся приколу.
+    Инвариант: ``T + len(joke) <= L``.
+
+    ``placeholder``: ``slot`` (ровно один ``{joke}``), ``append`` (историческое
+    «шаблон + пробел + прикол»), ``invalid`` (два и более плейсхолдера —
+    конфигурация отклоняется при сохранении, в рантайме работает append).
+    """
+
+    ceiling: int | None
+    source: str
+    template_chars: int
+    joke_budget: int
+    known: bool
+    placeholder: str = "append"
+    candidates: tuple[tuple[str, int], ...] = ()
+
+    def as_dict(self) -> dict:
+        return {
+            "ceiling": self.ceiling,
+            "source": self.source,
+            "template_chars": self.template_chars,
+            "joke_budget": self.joke_budget,
+            "known": self.known,
+            "placeholder": self.placeholder,
+            "candidates": [
+                {"source": name, "value": number}
+                for name, number in self.candidates
+            ],
+        }
+
+
+def joke_placeholder_count(template: str) -> int:
+    """Сколько раз в шаблоне картинки стоит ``{joke}`` (валидно 0 или 1)."""
+    return str(template or "").count(JOKE_PLACEHOLDER)
+
+
+def template_chars(template: str) -> int:
+    """T — длина шаблона без прикола (с разделителем в append-режиме)."""
+    head = str(template or "")
+    if joke_placeholder_count(head) == 1:
+        return len(head.replace(JOKE_PLACEHOLDER, ""))
+    # Нет плейсхолдера (или он невалиден) — прикол дописывается через пробел.
+    return len(head) + 1
+
+
+def render_image_prompt(template: str, joke: str) -> str:
+    """Итоговый prompt этапа C: шаблон + ПРИКОЛ (не выжимка).
+
+    Валидный шаблон с одним ``{joke}`` подставляет прикол на его место; шаблон
+    без плейсхолдера сохраняет исторический вид ``шаблон + ' ' + прикол``.
+    """
+    body = str(joke or "").strip()
+    head = str(template or "")
+    if joke_placeholder_count(head) == 1:
+        return head.replace(JOKE_PLACEHOLDER, body)
+    return f"{head} {body}"
+
+
+def resolve_meme_budget(*, model_chars: int | None,
+                        admin: int | None,
+                        explicit: int | None,
+                        template: str) -> MemeBudget:
+    """L/T/J одной функцией — рантайм и витрина обязаны звать именно её.
+
+    Источник L — тот кандидат, который реально связал итог (минимум). Явный
+    override, админская настройка и capability модели не смешиваются в
+    безымянный бюджет. Потолок относится к ИТОГОВОМУ prompt (шаблон + прикол),
+    а не к выжимке: J — это и есть «сколько остаётся приколу».
+    """
+    candidates: list[tuple[str, int]] = []
+    if explicit is not None and int(explicit) > 0:
+        candidates.append(("explicit_override", int(explicit)))
+    if admin is not None and int(admin) > 0:
+        candidates.append(("admin_setting", int(admin)))
+    if model_chars is not None and int(model_chars) > 0:
+        candidates.append(("model_capability", int(model_chars)))
+    placeholders = joke_placeholder_count(template)
+    if placeholders == 1:
+        mode = "slot"
+    elif placeholders == 0:
+        mode = "append"
+    else:
+        mode = "invalid"
+    chars = template_chars(template)
+    if not candidates:
+        return MemeBudget(ceiling=None, source="unknown", template_chars=chars,
+                          joke_budget=0, known=False, placeholder=mode)
+    source, value = min(candidates, key=lambda item: (item[1], item[0]))
+    return MemeBudget(
+        ceiling=int(value), source=source, template_chars=chars,
+        joke_budget=max(0, int(value) - int(chars)), known=True,
+        placeholder=mode, candidates=tuple(candidates))
+
+
+def joke_instruction(prompt_text: str, limit: int) -> str:
+    """Промпт этапа B + явное ограничение длины (модель знает N ДО генерации)."""
+    base = str(prompt_text or "").strip() or MEME_JOKE_PROMPT
+    return f"{base}\n\n{JOKE_LENGTH_DIRECTIVE.format(n=int(limit))}"
+
+
+def trim_joke(joke: str, limit: int) -> tuple[str, bool]:
+    """Защитная обрезка перелёта (страховка, НЕ основной механизм).
+
+    Возвращает ``(текст, была ли обрезка)``. По границе слова, если она есть.
+    """
+    body = str(joke or "").strip()
+    if body and int(limit or 0) > 0 and len(body) > int(limit):
+        cut = body[:int(limit)]
+        space = cut.rfind(" ")
+        if space > 0:
+            cut = cut[:space]
+        return (cut.strip() or body[:int(limit)].strip()), True
+    return body, False
+
+
+# ── совместимость витрины (до перевода routes.py на resolve_meme_budget) ───
 
 @dataclass(frozen=True)
 class LengthLimit:
+    """Устаревшая обёртка витрины: те же L/T/J, старые имена полей.
+
+    ``summary_target`` всегда ``None``: потолка у выжимки больше НЕТ. Числа
+    берутся из ``resolve_meme_budget`` — расхождения с рантаймом невозможны.
+    Удаляется вместе с переводом ``web/api/routes.py`` на ``MemeBudget``.
+    """
+
     value: int | None
     source: str
     summary_target: int | None
     prefix_chars: int
     known: bool
     candidates: tuple[tuple[str, int], ...] = ()
+    template_chars: int = 0
+    joke_budget: int = 0
 
     def as_dict(self) -> dict:
         return {
@@ -376,6 +542,8 @@ class LengthLimit:
             "summary_target": self.summary_target,
             "prefix_chars": self.prefix_chars,
             "known": self.known,
+            "template_chars": self.template_chars,
+            "joke_budget": self.joke_budget,
             "candidates": [
                 {"source": name, "value": number}
                 for name, number in self.candidates
@@ -387,57 +555,86 @@ def resolve_length_limit(*, model_chars: int | None,
                          admin: int | None,
                          explicit: int | None,
                          prefix: str) -> LengthLimit:
-    """Эффективный потолок всего image-prompt и цель выжимки.
-
-    Источник — тот кандидат, который реально связал итог (минимум).
-    Явный override, админская настройка и capability модели не смешиваются
-    в безымянный бюджет. Цель выжимки = потолок минус префикс и пробел,
-    чтобы суммаризатор сразу писал под N, а не под «потом обрежем».
-    """
-    candidates: list[tuple[str, int]] = []
-    if explicit is not None and int(explicit) > 0:
-        candidates.append(("explicit_override", int(explicit)))
-    if admin is not None and int(admin) > 0:
-        candidates.append(("admin_setting", int(admin)))
-    if model_chars is not None and int(model_chars) > 0:
-        candidates.append(("model_capability", int(model_chars)))
-    prefix_chars = len(prefix or "")
-    if not candidates:
-        return LengthLimit(value=None, source="unknown", summary_target=None,
-                           prefix_chars=prefix_chars, known=False)
-    source, value = min(candidates, key=lambda item: (item[1], item[0]))
-    # Пробел между префиксом и выжимкой входит в потолок prompt'а.
-    separator = 1 if prefix_chars else 0
-    target = value - prefix_chars - separator
-    if target <= 0:
-        return LengthLimit(value=value, source=source, summary_target=None,
-                           prefix_chars=prefix_chars, known=False,
-                           candidates=tuple(candidates))
-    return LengthLimit(value=value, source=source, summary_target=target,
-                       prefix_chars=prefix_chars, known=True,
-                       candidates=tuple(candidates))
-
-
-def build_image_prompt(prefix: str, summary: str, *,
-                       summary_target: int | None) -> tuple[str, str]:
-    """``prefix + ' ' + summary``. Длиннее цели — отказ, не срез.
-
-    Возвращает ``(prompt, error)``. ``error`` пуст только если выжимка
-    уже уложилась в заранее посчитанную цель.
-    """
-    text = str(summary or "").strip()
-    head = str(prefix or "")
-    if not text:
-        return "", "empty_summary"
-    if summary_target is not None and len(text) > int(summary_target):
-        return "", "exceeded_precomputed_limit"
-    return f"{head} {text}", ""
+    """Совместимость: ``prefix`` — это шаблон картинки. Считает ``MemeBudget``."""
+    budget = resolve_meme_budget(model_chars=model_chars, admin=admin,
+                                 explicit=explicit, template=prefix)
+    return LengthLimit(
+        value=budget.ceiling, source=budget.source, summary_target=None,
+        prefix_chars=budget.template_chars, known=budget.known,
+        candidates=budget.candidates, template_chars=budget.template_chars,
+        joke_budget=budget.joke_budget)
 
 
 def active_prompt_view(block_id: str, *, override: str | None = None) -> dict:
     """Эффективный текст через общий реестр. Отдельного хранилища нет."""
     from services import prompt_factory
     return prompt_factory.meme_prompt_view(block_id, pg_value=override)
+
+
+async def _prompt_layer(chat_id: int | None, pg_key: str) -> str:
+    """Непустой слой настройки: чат-override → глобальный hot. Пусто = нет слоя."""
+    if not pg_key:
+        return ""
+    try:
+        if chat_id is not None:
+            from services import chat_params
+            value = await chat_params.get_chat_param(int(chat_id), pg_key, None)
+            if value is not None and str(value).strip():
+                return str(value)
+        from services import hot_config as hot
+        value = hot.get(pg_key, None)
+        if value is not None and str(value).strip():
+            return str(value)
+    except Exception:
+        logger.debug("[meme] prompt layer unreadable | key=%s", pg_key,
+                     exc_info=True)
+    return ""
+
+
+async def effective_meme_prompt(chat_id: int | None, block_id: str, *,
+                                explicit: str | None = None,
+                                factory: str = "") -> dict:
+    """Эффективный мем-промпт: явный override → чат → глобальный → заводской.
+
+    Ключ слоя берётся из САМОГО блока реестра (``pg_key``), а не из литерала:
+    как только полоса API/UI заводит ключ каталога, чтение чат/hot-слоёв
+    включается без правки этого сервиса. Пустое/пробельное значение слоя
+    проваливается на следующий слой (пустота не обнуляет промпт).
+    """
+    text = ""
+    layer = ""
+    if explicit is not None and str(explicit).strip():
+        text, layer = str(explicit), "explicit_override"
+    view: dict = {}
+    try:
+        view = active_prompt_view(block_id)
+    except Exception:
+        logger.debug("[meme] prompt view unavailable | block=%s", block_id,
+                     exc_info=True)
+    if not text:
+        pg_key = ""
+        try:
+            from services import prompt_registry as pr
+            spec = pr.block(block_id)
+            pg_key = str(getattr(spec, "pg_key", "") or "")
+        except Exception:
+            pg_key = ""
+        from_layer = await _prompt_layer(chat_id, pg_key)
+        if from_layer:
+            text, layer = from_layer, "setting_override"
+    if not text:
+        text = str(view.get("text") or factory)
+        layer = "factory" if not view.get("differs_from_factory") else "registry"
+    return {
+        "block_id": block_id,
+        "text": text,
+        "source": layer or "factory",
+        "factory_revision": str(view.get("factory_revision") or ""),
+        "revision": view.get("revision") or 0,
+        "differs_from_factory": (bool(view.get("differs_from_factory"))
+                                 or layer not in ("", "factory")),
+    }
+
 
 
 # ── день чата ───────────────────────────────────────────────────────────────
@@ -910,10 +1107,16 @@ class AttemptResult:
     prompt: str = ""
     published: bool = False
     generated: bool = False
-    limit: LengthLimit | None = None
+    limit: MemeBudget | None = None
     prompt_origin: str = ""
     window_messages: int = 0
     counters: dict = field(default_factory=dict)
+    #: Факты этапов (summary/joke/image_generation/publish) — компактный JSON
+    #: в существующее поле `detail` строки журнала. Схема БД не меняется.
+    stage_facts: dict = field(default_factory=dict)
+    #: Текст прикола остаётся ВНУТРИ результата: в чат и в as_dict он не идёт.
+    joke: str = ""
+    manually_triggered: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -928,6 +1131,8 @@ class AttemptResult:
             "prompt_origin": self.prompt_origin,
             "window_messages": self.window_messages,
             "limit": self.limit.as_dict() if self.limit else None,
+            "stage_facts": dict(self.stage_facts or {}),
+            "manual": bool(self.manually_triggered),
             "blocks_text_initiative": False,
             "output_kind": OUTPUT_KIND,
         }
@@ -935,6 +1140,34 @@ class AttemptResult:
 
 def _remember(row: dict) -> None:
     _PROCESS_ATTEMPTS.append(dict(row))
+
+
+def compact_facts(facts: dict | None) -> str:
+    """Компактный JSON фактов этапа для поля ``detail`` (без текстов прикола)."""
+    if not facts:
+        return ""
+    try:
+        return json.dumps(facts, ensure_ascii=False, sort_keys=True,
+                          separators=(",", ":"))
+    except (TypeError, ValueError):
+        return ""
+
+
+def parse_attempt_facts(row: dict | str) -> dict:
+    """Разбор фактов этапа из ``detail``. Не JSON → пустой словарь.
+
+    Один разборщик на витрину, аналитику и тесты (R2: формат в строке журнала
+    слабее типизированной колонки, поэтому читает его ровно одна функция).
+    """
+    raw = row.get("detail") if isinstance(row, dict) else row
+    text = str(raw or "").strip()
+    if not text.startswith("{"):
+        return {}
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _finish(result: AttemptResult, *, ledger, now_ts: int,
@@ -945,6 +1178,10 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
         stages.append(result.stage)
     for stage in stages:
         terminal = stage == stages[-1]
+        facts = compact_facts((result.stage_facts or {}).get(stage))
+        # Терминальная строка сохраняет нынешний текстовый detail (код
+        # причины важнее фактов); пройденные этапы несут свой JSON фактов.
+        detail = (result.detail or facts) if terminal else facts
         row = {
             "attempt_id": uuid.uuid4().hex,
             "chat_id": int(result.chat_id),
@@ -953,9 +1190,9 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
             "stage": stage,
             "outcome": result.outcome if terminal else "passed",
             "reason_code": result.reason if terminal else "",
-            "detail": result.detail if terminal else "",
+            "detail": detail,
             "limit_source": result.limit.source if result.limit else "",
-            "limit_value": result.limit.value if result.limit else None,
+            "limit_value": (result.limit.ceiling if result.limit else None),
             "window_messages": settings.window_messages,
         }
         _remember(row)
@@ -966,6 +1203,7 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
                 logger.warning("[meme] attempt journal failed", exc_info=True)
     result.window_messages = settings.window_messages
     return result
+
 
 
 async def _default_messages(db, chat_id: int, limit: int) -> list[dict]:
@@ -1015,14 +1253,25 @@ async def consider_chat(
         message_reader: Callable[..., Awaitable[list[dict]]] | None = None,
         llm: Any = None,
         summarizer: Callable[..., Awaitable[str]] | None = None,
+        joke_generator: Callable[..., Awaitable[str]] | None = None,
         image_provider: Callable[..., Awaitable[Any]] | None = None,
         publish_gate: Callable[..., Awaitable[tuple]] | None = None,
         sender: Callable[..., Awaitable[Any]] | None = None,
         job_id: str | None = None,
         prompt_override: str | None = None,
         model_chars: int | None = None,
+        manual: bool = False,
 ) -> AttemptResult:
-    """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов."""
+    """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов.
+
+    Три этапа в одном проходе: A выжимка (без потолка) → B прикол (здесь
+    работает J = max(0, L - T)) → C image prompt (шаблон + прикол).
+
+    ``manual=True`` — диагностический запуск (``/meme``): квота, кулдаун,
+    минимум сообщений, случайный триггер, тихие часы, in-flight и гейт
+    публикации не применяются; права проверяет вызывающий слой, а готовность
+    image-модуля, наличие журнала и разрешимость бюджета остаются гейтами.
+    """
     stamp = now or datetime.now(timezone.utc)
     if stamp.tzinfo is None:
         stamp = stamp.replace(tzinfo=timezone.utc)
@@ -1030,28 +1279,35 @@ async def consider_chat(
     cfg = settings if settings is not None else await load_settings(chat_id)
     counters = {stage: 0 for stage in STAGES}
     counters[STAGE_CONSIDERED] = 1
+    facts: dict[str, dict] = {}
 
     def skipped(reason: str, *, stage: str = STAGE_SKIPPED,
-                detail: str = "", limit: LengthLimit | None = None,
+                detail: str = "", limit: MemeBudget | None = None,
                 jid: str = "") -> AttemptResult:
         counters[stage] = counters.get(stage, 0) + 1
         result = AttemptResult(
             chat_id=int(chat_id), stage=stage, outcome="skipped",
             reason=reason, detail=detail, job_id=jid, limit=limit,
-            counters=dict(counters))
+            counters=dict(counters), stage_facts=dict(facts),
+            manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
 
     if initiative_enabled is None:
         def initiative_enabled() -> bool:
             from services.initiative_observer import observer_enabled
             return bool(observer_enabled())
-    if not initiative_enabled():
-        return skipped(SKIP_INITIATIVE_DISABLED)
-    if chat_enabled is not None and not await chat_enabled(int(chat_id)):
-        return skipped(SKIP_INITIATIVE_DISABLED)
-    if not cfg.enabled:
-        return skipped(SKIP_DISABLED)
+    # Тумблеры — часть авто-инициативы, а не диагностики: ручной запуск
+    # обязан работать до включения мемов, иначе отладить нечего.
+    if not manual:
+        if not initiative_enabled():
+            return skipped(SKIP_INITIATIVE_DISABLED)
+        if chat_enabled is not None and not await chat_enabled(int(chat_id)):
+            return skipped(SKIP_INITIATIVE_DISABLED)
+        if not cfg.enabled:
+            return skipped(SKIP_DISABLED)
 
+    # Ниже — гейты, которые ручной запуск НЕ обходит: без рабочего image
+    # backend мем физически не создать, без журнала некуда писать попытку.
     image = image_status if image_status is not None else \
         await image_dependency(chat_id, health=image_health)
     if not image.get("available"):
@@ -1061,18 +1317,21 @@ async def consider_chat(
         return skipped(SKIP_SCHEMA)
 
     day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
-    view = quota_view(ledger, chat_id=int(chat_id), day=day,
-                      limit=cfg.daily_limit)
-    if int(cfg.daily_limit) <= 0 or int(view.get("spent") or 0) >= int(
-            cfg.daily_limit):
-        return skipped(SKIP_QUOTA)
+    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
+    if not manual:
+        view = quota_view(ledger, chat_id=int(chat_id), day=day,
+                          limit=cfg.daily_limit)
+        if int(cfg.daily_limit) <= 0 or int(view.get("spent") or 0) >= int(
+                cfg.daily_limit):
+            return skipped(SKIP_QUOTA)
 
-    last_ts = ledger.last_provider_ts(int(chat_id))
-    if cfg.cooldown_seconds and last_ts and ts - last_ts < cfg.cooldown_seconds:
-        return skipped(SKIP_COOLDOWN)
+        last_ts = ledger.last_provider_ts(int(chat_id))
+        if cfg.cooldown_seconds and last_ts and \
+                ts - last_ts < cfg.cooldown_seconds:
+            return skipped(SKIP_COOLDOWN)
 
-    if quiet_hours_block(cfg.quiet_hours, stamp, day.timezone_name):
-        return skipped(SKIP_QUIET)
+        if quiet_hours_block(cfg.quiet_hours, stamp, day.timezone_name):
+            return skipped(SKIP_QUIET)
 
     if message_reader is not None:
         rows = await message_reader(int(chat_id), cfg.window_messages)
@@ -1086,82 +1345,142 @@ async def consider_chat(
                if int(row.get("chat_id", chat_id)) != int(chat_id)]
     if foreign:
         return skipped(SKIP_SUMMARY, detail="chat_mix")
-    if len(rows) < cfg.min_messages:
-        return skipped(SKIP_ACTIVITY)
+    if not rows:
+        # Пустое окно — не «мало сообщений»: генерировать не из чего даже
+        # в ручном режиме. Отдельный detail, чтобы причина была видна.
+        return skipped(SKIP_ACTIVITY, detail="window_empty", jid=jid)
+    if not manual and len(rows) < cfg.min_messages:
+        return skipped(SKIP_ACTIVITY, jid=jid)
 
-    source = random_source
-    if source is None:
-        source = await default_random_source(db)
-    draw = await draw_trigger(source, chat_id=int(chat_id),
-                              probability=cfg.trigger_probability)
-    if not draw.ok:
-        return skipped(draw.reason, detail=draw.draw_id)
+    if not manual:
+        source = random_source
+        if source is None:
+            source = await default_random_source(db)
+        draw = await draw_trigger(source, chat_id=int(chat_id),
+                                  probability=cfg.trigger_probability)
+        if not draw.ok:
+            return skipped(draw.reason, detail=draw.draw_id, jid=jid)
+
 
     counters[STAGE_ELIGIBLE] = 1
-    prompt_view = active_prompt_view(IMAGE_PROMPT_BLOCK_ID,
-                                     override=prompt_override)
-    prefix = str(prompt_view.get("text") or MEME_IMAGE_PROMPT)
-    origin = "custom" if prompt_view.get("differs_from_factory") else "factory"
+
+    # ── этап C' — шаблон: T и режим подстановки нужны ДО этапа B ────────────
+    image_prompt = await effective_meme_prompt(
+        chat_id, IMAGE_PROMPT_BLOCK_ID, explicit=prompt_override,
+        factory=MEME_IMAGE_PROMPT)
+    template = str(image_prompt.get("text") or "")
+    origin = "factory" if image_prompt.get("source") == "factory" else "custom"
+    if not template.strip():
+        return skipped(SKIP_TEMPLATE_EMPTY, stage=STAGE_FAILED,
+                       detail="template_missing", jid=jid)
     if model_chars is None and prompt_override is None:
         model_chars = await model_prompt_chars()
-    limit = resolve_length_limit(
+    budget = resolve_meme_budget(
         model_chars=model_chars, admin=cfg.length_admin,
-        explicit=cfg.length_override, prefix=prefix)
-    if not limit.known or limit.summary_target is None:
-        result = skipped(SKIP_LENGTH_UNKNOWN, limit=limit)
-        result.prompt_origin = origin
-        return result
+        explicit=cfg.length_override, template=template)
+    if not budget.known:
+        return skipped(SKIP_LENGTH_UNKNOWN, limit=budget, jid=jid)
+    if budget.joke_budget <= 0:
+        # J = 0: шаблон уже съел весь потолок. Честный пропуск ДО LLM-вызова.
+        return skipped(SKIP_NO_JOKE_BUDGET, limit=budget, jid=jid)
 
-    summary_prompt = active_prompt_view(SUMMARY_PROMPT_BLOCK_ID)
-    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
     # Guard «генерация уже идёт» — ДО платной выжимки: иначе чужая свежая
     # бронь съедала бы LLM-вызов впустую (порядок проверок — до дорогих).
-    if ledger.fresh_inflight(int(chat_id), ts) and not job_id:
-        return skipped(SKIP_IN_FLIGHT, limit=limit, jid=jid)
+    if not manual and ledger.fresh_inflight(int(chat_id), ts) and not job_id:
+        return skipped(SKIP_IN_FLIGHT, limit=budget, jid=jid)
+
+    summary_prompt = await effective_meme_prompt(
+        chat_id, SUMMARY_PROMPT_BLOCK_ID, factory=MEME_SUMMARY_SYSTEM_PROMPT)
+    summary_system = str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT)
+
+    # ── этап A — выжимка: БЕЗ потолка длины (ни цели, ни обрезки) ───────────
     try:
         if summarizer is None:
             summary = await _default_summarize(
-                llm, rows, int(limit.summary_target),
-                str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT),
-                chat_id=int(chat_id), model=cfg.summarizer_model)
+                llm, rows, summary_system, chat_id=int(chat_id),
+                model=cfg.summarizer_model)
         else:
-            summary = await summarizer(
-                int(chat_id), rows, int(limit.summary_target),
-                str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT))
+            summary = await summarizer(int(chat_id), rows, summary_system)
     except Exception as exc:
         logger.warning("[meme] summary failed | chat=%s | error=%s",
                        chat_id, type(exc).__name__)
-        counters[STAGE_FAILED] = 1
         return skipped(SKIP_SUMMARY, stage=STAGE_FAILED,
-                       detail=f"exception:{type(exc).__name__}", limit=limit,
+                       detail=f"exception:{type(exc).__name__}", limit=budget,
                        jid=jid)
+    summary = str(summary or "").strip()
+    if not summary:
+        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail="empty_summary",
+                       limit=budget, jid=jid)
     counters[STAGE_SUMMARY] = 1
-    prompt, error = build_image_prompt(
-        prefix, str(summary or ""), summary_target=limit.summary_target)
-    if error:
-        counters[STAGE_FAILED] = 1
-        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail=error,
-                       limit=limit, jid=jid)
+    facts[STAGE_SUMMARY] = {"chars": len(summary),
+                            "source": summary_prompt.get("source")}
 
-    reserved = ledger.reserve(
-        chat_id=int(chat_id), day_bucket=day.bucket, job_id=jid,
-        limit=cfg.daily_limit, tz_name=day.timezone_name,
-        tz_source=day.timezone_source, now_ts=ts)
-    if reserved.already:
-        if reserved.status == "released":
-            # Слот снят (вызов провайдера достоверно не начинался): квота
-            # не исчерпана, новый слот берётся другим job_id.
-            return skipped(SKIP_SLOT_RELEASED, detail="job_released",
-                           limit=limit, jid=jid)
-        if reserved.status in ("provider_called", "provider_failed"):
-            # Тот же job уже дошёл до провайдера: второй слот не берём и
-            # второй платный вызов не делаем.
-            return skipped(SKIP_QUOTA, detail="job_already_counted",
-                           limit=limit, jid=jid)
-        return skipped(SKIP_QUOTA, detail=f"job_{reserved.status or 'denied'}",
-                       limit=limit, jid=jid)
-    if not reserved.ok:
-        return skipped(reserved.reason, limit=limit, jid=jid)
+    # ── этап B — прикол: единственное место, где работает потолок длины ─────
+    joke_prompt = await effective_meme_prompt(
+        chat_id, JOKE_PROMPT_BLOCK_ID, factory=MEME_JOKE_PROMPT)
+    instruction = joke_instruction(
+        str(joke_prompt.get("text") or MEME_JOKE_PROMPT), budget.joke_budget)
+    try:
+        if joke_generator is None:
+            raw_joke = await _default_joke(
+                llm, summary, instruction=instruction, chat_id=int(chat_id))
+        else:
+            raw_joke = await joke_generator(int(chat_id), summary, instruction)
+    except Exception as exc:
+        logger.warning("[meme] joke failed | chat=%s | error=%s",
+                       chat_id, type(exc).__name__)
+        return skipped(SKIP_JOKE_FAILED, stage=STAGE_FAILED,
+                       detail=f"exception:{type(exc).__name__}", limit=budget,
+                       jid=jid)
+    joke, trimmed = trim_joke(str(raw_joke or ""), budget.joke_budget)
+    if not joke:
+        return skipped(SKIP_JOKE_EMPTY, stage=STAGE_FAILED, detail="empty_joke",
+                       limit=budget, jid=jid)
+    counters[STAGE_JOKE] = 1
+    facts[STAGE_JOKE] = {
+        "limit": int(budget.joke_budget),
+        "template_chars": int(budget.template_chars),
+        "ceiling": budget.ceiling,
+        "chars": len(joke),
+        "trimmed": bool(trimmed),
+        "source": str(joke_prompt.get("source") or ""),
+        "placeholder": budget.placeholder,
+    }
+
+    # ── этап C — итоговый prompt из шаблона и ПРИКОЛА (не выжимки) ──────────
+    prompt = render_image_prompt(template, joke)
+    facts[STAGE_IMAGE] = {
+        "chars": len(prompt),
+        "template_chars": int(budget.template_chars),
+        "template_revision": str(image_prompt.get("factory_revision") or ""),
+        "template_source": str(image_prompt.get("source") or ""),
+        "joke_chars": len(joke),
+    }
+
+    if manual:
+        # Ручной запуск не тратит квоту: брони нет вовсе, строка попытки есть.
+        reserved = ReserveResult(ok=True, reason="manual", status="manual")
+    else:
+        reserved = ledger.reserve(
+            chat_id=int(chat_id), day_bucket=day.bucket, job_id=jid,
+            limit=cfg.daily_limit, tz_name=day.timezone_name,
+            tz_source=day.timezone_source, now_ts=ts)
+        if reserved.already:
+            if reserved.status == "released":
+                # Слот снят (вызов провайдера достоверно не начинался): квота
+                # не исчерпана, новый слот берётся другим job_id.
+                return skipped(SKIP_SLOT_RELEASED, detail="job_released",
+                               limit=budget, jid=jid)
+            if reserved.status in ("provider_called", "provider_failed"):
+                # Тот же job уже дошёл до провайдера: второй слот не берём и
+                # второй платный вызов не делаем.
+                return skipped(SKIP_QUOTA, detail="job_already_counted",
+                               limit=budget, jid=jid)
+            return skipped(SKIP_QUOTA,
+                           detail=f"job_{reserved.status or 'denied'}",
+                           limit=budget, jid=jid)
+        if not reserved.ok:
+            return skipped(reserved.reason, limit=budget, jid=jid)
 
     called = False
     try:
@@ -1180,27 +1499,34 @@ async def consider_chat(
         reason = "exception"
         content = None
     if not called:
-        ledger.mark(jid, "released", reason or "not_called")
-        counters[STAGE_FAILED] = 1
+        if not manual:
+            ledger.mark(jid, "released", reason or "not_called")
         return skipped(SKIP_IMAGE_FAILED, stage=STAGE_FAILED,
-                       detail=reason or "not_called", limit=limit, jid=jid)
+                       detail=reason or "not_called", limit=budget, jid=jid)
     if not ok:
-        ledger.mark(jid, "provider_failed", reason or SKIP_IMAGE_FAILED)
+        if not manual:
+            ledger.mark(jid, "provider_failed", reason or SKIP_IMAGE_FAILED)
         counters[STAGE_IMAGE] = 1
-        counters[STAGE_FAILED] = 1
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_FAILED, outcome="failed",
             reason=SKIP_IMAGE_FAILED, detail=reason, job_id=jid,
-            generated=False, limit=limit, prompt_origin=origin,
-            counters=dict(counters))
+            generated=False, limit=budget, prompt_origin=origin,
+            counters=dict(counters), stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
-    ledger.mark(jid, "provider_called", "")
+    if not manual:
+        ledger.mark(jid, "provider_called", "")
     counters[STAGE_IMAGE] = 1
 
-    if publish_gate is None:
+    if manual:
+        # Диагностика не соревнуется с авто-инициативой и не ждёт гейта.
+        allowed, gate_reason = True, "manual_bypass"
+    elif publish_gate is None:
         allowed, gate_reason = await _default_publish_gate(db, int(chat_id), ts)
     else:
         allowed, gate_reason = await publish_gate(int(chat_id))
+    facts[STAGE_PUBLISH] = {"gate": str(gate_reason or ""),
+                            "manual": bool(manual)}
     if not allowed or sender is None:
         counters[STAGE_PUBLISH] = 1
         counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
@@ -1212,9 +1538,13 @@ async def consider_chat(
             reason=SKIP_PUBLISH,
             detail=detail,
             job_id=jid, prompt=prompt, published=False, generated=True,
-            limit=limit, prompt_origin=origin, counters=dict(counters))
+            limit=budget, prompt_origin=origin, counters=dict(counters),
+            stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
     try:
+        # Доставка не меняется: sender получает ТОЛЬКО изображение; prompt и
+        # прикол остаются внутренними (никогда не caption и не сообщение).
         await sender(int(chat_id), content, prompt)
     except Exception:
         logger.warning("[meme] publish failed", exc_info=True)
@@ -1222,32 +1552,37 @@ async def consider_chat(
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="blocked",
             reason=SKIP_PUBLISH, detail="send_failed", job_id=jid,
-            prompt=prompt, published=False, generated=True, limit=limit,
-            prompt_origin=origin, counters=dict(counters))
+            prompt=prompt, published=False, generated=True, limit=budget,
+            prompt_origin=origin, counters=dict(counters),
+            stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
     counters[STAGE_PUBLISH] = 1
     result = AttemptResult(
         chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="published",
         reason="sent", job_id=jid, prompt=prompt, published=True,
-        generated=True, limit=limit, prompt_origin=origin,
-        counters=dict(counters))
+        generated=True, limit=budget, prompt_origin=origin,
+        counters=dict(counters), stage_facts=dict(facts), joke=joke,
+        manually_triggered=bool(manual))
     return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
 
 
 #: Предел ожидания лёгкого LLM-вызова выжимки в этом же проходе инициативы.
 SUMMARY_TIMEOUT_SECONDS = 45
+#: Предел ожидания обязательного этапа B. Короче выжимки: прикол — короткий
+#: текст, а проход инициативы не должен висеть из-за него.
+JOKE_TIMEOUT_SECONDS = 30
 
 
-async def _default_summarize(llm, rows, target: int, system_prompt: str, *,
+async def _default_summarize(llm, rows, system_prompt: str, *,
                              chat_id: int | None = None,
                              model: str = "") -> str:
-    """Лёгкий контур выжимки: ОДИН вызов существующего LLM-клиента.
+    """Этап A: лёгкий контур выжимки — ОДИН вызов существующего LLM-клиента.
 
     Тяжёлый summary-pipeline (planner → writer → reviewer) не используется.
-    ``target`` — уже посчитанная до вызова цель в символах: она уходит
-    суммаризатору как задание («уложись в N»), а не проверяется обрезкой
-    постфактум. Нет клиента/вызова — честный ``RuntimeError``, не тихая
-    подстановка чужого текста.
+    Потолка длины здесь НЕТ (MEME-PIPELINE-REFactor-01 §1): в payload не
+    уходит ``target_chars``, постфактум-обрезки тоже нет. Нет клиента/вызова —
+    честный ``RuntimeError``, не тихая подстановка чужого текста.
     """
     generate = getattr(llm, "generate", None) if llm is not None else None
     if generate is None:
@@ -1261,7 +1596,6 @@ async def _default_summarize(llm, rows, target: int, system_prompt: str, *,
         logger.info("[meme] summarizer_model=%s не применяется общим "
                     "клиентом; фактическая модель=%s", model, effective_model)
     payload = {
-        "target_chars": int(target),
         "messages": [
             {"id": row.get("id"), "text": str(row.get("text") or "")[:500]}
             for row in rows
@@ -1280,6 +1614,32 @@ async def _default_summarize(llm, rows, target: int, system_prompt: str, *,
                  correlation_id=uuid.uuid4().hex[:16]),
         timeout=SUMMARY_TIMEOUT_SECONDS)
     return str(raw or "").strip()
+
+
+async def _default_joke(llm, summary: str, *, instruction: str,
+                        chat_id: int | None = None) -> str:
+    """Этап B: ОДИН LLM-вызов — выжимка превращается в короткий абсурдный прикол.
+
+    Модель получает выжимку и инструкцию, в которой уже стоит явное
+    ограничение длины N = J (§3 ТЗ): ограничение действует ДО генерации,
+    а не обрезкой постфактум. Нет клиента — честный ``RuntimeError``
+    (``joke_generation_failed``), а не подстановка выжимки вместо прикола.
+    """
+    generate = getattr(llm, "generate", None) if llm is not None else None
+    if generate is None:
+        raise RuntimeError("joke_client_unavailable")
+    messages = [
+        {"role": "system", "content": str(instruction or "")},
+        {"role": "user", "content": str(summary or "").strip()},
+    ]
+    raw = await asyncio.wait_for(
+        generate(messages, temperature=0.8,
+                 chat_id=int(chat_id) if chat_id is not None else None,
+                 module="initiative", step="meme_joke",
+                 correlation_id=uuid.uuid4().hex[:16]),
+        timeout=JOKE_TIMEOUT_SECONDS)
+    return str(raw or "").strip()
+
 
 
 async def _default_image(prompt: str, chat_id: int, job_id: str):
@@ -1341,6 +1701,31 @@ def _bridge_failure(chat_id: int, exc: BaseException,
     return result
 
 
+def _joke_stats(rows: list[dict]) -> dict:
+    """Сводка по этапу B из разобранных фактов (без текстов приколов)."""
+    attempts = 0
+    chars_total = 0
+    trimmed = 0
+    for row in rows:
+        if str(row.get("stage") or "") != STAGE_JOKE:
+            continue
+        facts = parse_attempt_facts(row)
+        if "chars" not in facts:
+            continue
+        try:
+            chars_total += int(facts.get("chars") or 0)
+        except (TypeError, ValueError):
+            continue
+        attempts += 1
+        if facts.get("trimmed"):
+            trimmed += 1
+    return {
+        "attempts": attempts,
+        "avg_chars": (round(chars_total / attempts, 1) if attempts else None),
+        "trimmed": trimmed,
+    }
+
+
 def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
                        chat_id: int | None = None,
                        day: DayWindow | None = None,
@@ -1373,10 +1758,12 @@ def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
         "coverage": coverage,
         "counters": counters,
         "skip_reasons": reasons,
+        "joke": _joke_stats(rows),
         "attempts": rows[:20],
         "quota": quota,
         "enabled_default": DEFAULT_ENABLED,
     }
+
 
 
 async def availability(chat_id: int | None, *,
