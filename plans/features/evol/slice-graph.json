@@ -915,9 +915,10 @@
         "web/static/app.css",
         "web/static/cognitive-map.js",
         "web/static/design-tokens.css",
-        "web/api/memory_graph.py",
+        "web/api/cognitive_map.py",
         "web/api/memory_agi.py",
         "web/app.py",
+        "tests/test_evol_cog_map_api.py",
         "tests/js/evol_cognitive_map_test.js",
         "plans/features/evol/audit/w7-cognitive-map.md"
       ],
@@ -926,7 +927,7 @@
         "EVOL-COG-MAP"
       ],
       "depends_note": "Владелец: конец очереди, после UI-волн и EVOL-SRC-READER. Зависимости — писатели web/index.html, web/app.js, web/static/** (вся UI-цепочка через EVOL-UI-FULLDOD), EVOL-UI-HEALTHGLASS/EVOL-UI-STORIES/EVOL-UI-DESIGN (ленты и токены), EVOL-B-EXP/EVOL-B-FACTS/EVOL-B-MEMCYCLES (источники данных лент), EVOL-B-TELEMETRY (события). Параллельных UI-писателей нет.",
-      "note": "Скоуп расширен на `web/app.py` (одна строка `include_router`) — без неё новый endpoint `GET /api/memory/cognitive-map` не публикуется. Реализация идёт четырьмя под-слайсами по контракту `plans/features/evol/arch/cog-map-contract.md`: W7-S1 — API и адаптер данных (эндпоинт + публикация роутера), W7-S2 — карта (визуальная система, легенда/LOD, drilldown), W7-S3 — карточка записи и адресные переходы, W7-S4 — mobile (embedded↔fullscreen), паритет старого графа и регрессия. W7-S1..S4 сериализуются с линией композиции UI на `web/index.html`, `web/app.js`, `web/static/app.css`: параллельных писателей этих файлов нет (остальные UI-слайсы — предки по `depends_on`). Авторитетное основание реализации: контракт `plans/features/evol/arch/cog-map-contract.md` (коммит `ae559db7`, четыре под-слайса W7-S1..S4) и расширение скоупа на `web/app.py` (коммит `e144dd28`); W7-S1..S4 реализуются строго по этим двум артефактам, отклонения — только через Architect."
+      "note": "Скоуп расширен на `web/app.py` (одна строка `include_router`) — без неё новый endpoint `GET /api/memory/cognitive-map` не публикуется. Реализация идёт четырьмя под-слайсами по контракту `plans/features/evol/arch/cog-map-contract.md`: W7-S1 — API и адаптер данных (эндпоинт + публикация роутера), W7-S2 — карта (визуальная система, легенда/LOD, drilldown), W7-S3 — карточка записи и адресные переходы, W7-S4 — mobile (embedded↔fullscreen), паритет старого графа и регрессия. W7-S1..S4 сериализуются с линией композиции UI на `web/index.html`, `web/app.js`, `web/static/app.css`: параллельных писателей этих файлов нет (остальные UI-слайсы — предки по `depends_on`). Авторитетное основание реализации: контракт `plans/features/evol/arch/cog-map-contract.md` (коммит `ae559db7`, четыре под-слайса W7-S1..S4) и расширение скоупа на `web/app.py` (коммит `e144dd28`); W7-S1..S4 реализуются строго по этим двум артефактам, отклонения — только через Architect. Фактический модуль реализации W7-S1 — `web/api/cognitive_map.py` (коммит `770f53c1`, ветка `feat/cog-map-s1`): он добавляет модуль, `web/app.py` (одна строка `include_router`), `web/static/cognitive-map.js` и тесты `tests/js/evol_cognitive_map_test.js` + `tests/test_evol_cog_map_api.py`. Контракт называл `web/api/memory_graph.py`, но реализация его не касается — этот файл остаётся нетронутым legacy-API и из скоупа убран; если под-слайсу S2..S4 действительно понадобится его правка, скоуп расширяется отдельно."
     },
     {
       "id": "ASAP-FC-ADMISSION-01",
