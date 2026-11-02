@@ -6295,8 +6295,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00042",
@@ -6344,8 +6382,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00044",
@@ -8612,9 +8688,190 @@
       "acceptance": "Полный визуально-функциональный дизайн-контракт исполнен на всех основных и вспомогательных маршрутах (Статус, Аналитика, Модули, ИИ, Память, Доступы, провайдеры, Vision, фактчек, Sleep, Personality, примеры, PERMsoc, help, профиль и остальные — ни один экран не исключён): единый визуальный язык (сохранённый полигональный фон и жидкое стекло, одна hairline-граница панели, согласованные радиусы и тени, шкала расстояний 4/8/12/16/24/32, высоты desktop-контролов ~32–40 и touch hit area ≥44×44, цветовая иерархия, единые иконки/подписи, слои сцена→стекло→nav→overlay→tooltip с одним механизмом порталов/focus); единые компоненты: карточка системы, preview vs detail, группы кнопок, тумблеры (глобальный в каталоге — инвариант), compact-row ленты, графики с единицами/таймзоной/drilldown, таблицы/формы, модалки (desktop окно / mobile sheet), навигация без дублей и перекрытий, адресные ссылки между разделами; поэкранная композиция раздела D реализована; инвентаризация до/после со снимками и видео на эталонных viewport 320/360/390/430, 600/768/1024, 1440/1920, low-height landscape, zoom 200%, safe area, fullscreen; состояния normal/degraded/failed/unknown/disabled, empty/loading/partial/error, hover/focus/pressed/selected, global/chat проверены; любое изменение shader/refraction/transparency/фона = нарушение scope; принята только при восстановленной операционной ясности (что работает/сломано/когда проверялось/куда перейти); все разделы ощущаются одной премиальной консолью, мобильный portrait/landscape реально удобен, настройки/действия/диагностика сохранены, красное стекло подчиняется EVOL-032.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "ОСНОВАНИЕ ПРИЁМКИ ОБНОВЛЕНО решением владельца OI-2026-11-02-NARROW-VIEWPORT (`plans/owner_inputs/2026-11-02-narrow-viewport-decision.md`): минимальная поддерживаемая ширина полноценного мобильного интерфейса — 320 CSS px; на 320/360/390 при обычном масштабе не допускаются обрезания, горизонтальный overflow, наложения и потеря функциональности. Ниже 320 px и при увеличении текста до 200 % сценарий НЕ объявляется неподдерживаемым: требуется адаптивный reflow — второстепенные действия можно переносить в существующий drawer, подписи сокращать, вертикальная прокрутка разрешена, критические элементы управления обязаны оставаться доступными. Запрещено: постоянная двухрядная шапка на обычных мобильных размерах, нижний навбар, дублирующие меню и панели, уменьшение шрифтов и тач-целей ради формального прохождения теста, отдельная система CSS-костылей под 195 px. Нужно различать browser page zoom, системное увеличение шрифта и особенности Telegram WebView и проверять фактическое поведение, а не вычислять ширину делением пикселей на коэффициент. Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer. Пункт «zoom 200 %» больше НЕ вопрос владельцу — это implementation requirement контракта. Строка остаётся OPEN до реализации и ревью; повторно владельца о breakpoints и расположении второстепенных элементов не спрашивать. Для EVOL-033 это означает: эталонные прогоны идут на 320/360/390 (и далее 430/600/768/1024/1440/1920) как на полноценном интерфейсе, а 200 % текста и эффективная ширина ниже 320 проверяются как reflow- сценарий с сохранением критических контролов, а не как исключение из контракта."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w13-evol033.md — отчёт Builder полосы EVOL-033 (§A–§E)",
+          "observation": "Инвентаризация маршрутов/компонентов, состояния, токены, портал/focus, тач-цели, дефекты и их правки.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w13-evol033.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "4a7af10868039e5f252d6f7a29215519a25094a3b84c82d73c17f0e37be3f4aa"
+        },
+        {
+          "ref": "evidence/evol-033/w13-states.json — 40 записей состояний",
+          "observation": "Снимки состояний normal/degraded/empty/loading/error по маршрутам; используется как инвентарь до/после.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/evol-033/w13-states.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "7a9be957d8c8f79aa61cf7877e0c384296e685a9b5ad12bca787cd9c0c8bd3a0"
+        },
+        {
+          "ref": "evidence/evol-033/w13-routes-inventory.json — инвентарь маршрутов",
+          "observation": "Перечень маршрутов и компонентов §D-7: ни один экран не исключён «потому что нет снимка».",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/evol-033/w13-routes-inventory.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "c61df68a8940a739db5d453ff6798fdd5e92d0326121f10ae359ad7c625a809b"
+        },
+        {
+          "ref": "evidence/evol-033/w13-touch-targets.json — тач-цели",
+          "observation": "routes 104, cells 312, controlsMeasured 186, below44 = 0, occluded 6 — тач-цели ≥44 подтверждены замером.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/evol-033/w13-touch-targets.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "4b82a72f97e3e3d50669922e0cc7bc64ab617c68dbcda5f064ab2220e193c8e5"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w13_touch_portal.py — портал/focus/тач-цели",
+          "observation": "16 тестов полосы (портал в body, focus-trap, тач-цели) — зелёные на кандидате.",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w13_touch_portal.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e53b25ebdb0cb0d8fc92bf2407af842eaab0a80713f3dafd22cbf2fad11ccebc"
+        },
+        {
+          "ref": "w14-s12-review.md — Re-check 3, Approved для набора §12",
+          "observation": "Итог: 15 PASS, 2 BLOCKED, 0 FAIL; блокированы №11 (встроенная карта) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (LOD/камера). Остальные сценарии §12 приняты.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w14-s12-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "93d3681fd4d39be2a606caaa876ec4817c54542bb662ea254423fdd43641c0e1"
+        },
+        {
+          "ref": "w14-s12-scenarios.md — отчёт Builder по 17 сценариям §12",
+          "observation": "Прогон сценариев с фикстурами и фиксацией состояний §12.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w14-s12-scenarios.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "c367129bfd977d7a075d865a86a5e7b5217e856088795d4e9f029571e81bd3c7"
+        },
+        {
+          "ref": "evidence/s12/w14-s12-scenarios.json — стенд §12",
+          "observation": "Машиночитаемый результат прогона 17 сценариев (15 PASS, 2 BLOCKED).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/s12/w14-s12-scenarios.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "5ae29cb42f9c5821473a44034b535d8a3bf9f91291002bec0eec9397ad483f8d"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w14_states.py — состояния/aria-busy/чекбоксы/hover/pressed",
+          "observation": "Тесты §E.3 (loading/aria-busy, чекбоксы, hover/pressed/selected, back-stack) — зелёные.",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w14_states.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "a777282eb15b3996e89b29574934a2db0dc557b32198255d97ac2edf28604b41"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-composition-review.md — первое ревью волны (находки 5.1/5.2/5.3)",
+          "observation": "Зафиксированы блокеры состава компонентов и полноты стенда; закрыты в кандидате, что подтверждает review-2.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "28c5b7efc1939f4a96b8452cbd16c654e16af9cdff0e6638248a2780ed43e5d1"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        },
+        {
+          "ref": "video/w15-video-transitions-desktop-1280.webm — запись переходов (desktop)",
+          "observation": "Реальное движение (VP9), используется как доказательство §E.1 по анимации/переходам на 1280.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/video/w15-video-transitions-desktop-1280.webm",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "7688c510251ddb5f4c8849b789bb2e69b21e590f773e9e7f8d0080ee8f70c42a"
+        },
+        {
+          "ref": "video/w15-video-transitions-mobile-390.webm — запись переходов (mobile)",
+          "observation": "Реальное движение на 390 (portrait phone) — §E.1.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/video/w15-video-transitions-mobile-390.webm",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "5b0590e6f4e7c6896e6d02ea01a5e9061ec7a8a34bab76009f3d469624840f2a"
+        },
+        {
+          "ref": "video/w15-video-refraction-desktop-1280.webm + w15-refraction.json — преломление",
+          "observation": "A/B преломления: 1.86 % различия подтверждено Reviewer'ом независимо — стекло не деградировало.",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/video/w15-video-refraction-desktop-1280.webm",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "607e6ac08f7468e8292326efe1c3963e9c92c3891fc78fcd1dc4b2c7589006e5"
+        },
+        {
+          "ref": "evidence/w15-composition/adaptive/w16-adapt-font200-*.jpg — 200 % текста",
+          "observation": "Кадры 320/360/390 modules+oversight при 200 % текста: reflow, 0 overflow, критические действия доступны (остаток: кадры сняты в переходе — P3, не приёмка).",
+          "type": "ui",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/adaptive/w16-adapt-font200-modules-320.jpg",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0409dfb67350ba6fc783b63bee0aa4811643935e0ee05742057a350c24f20f12"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w15_composition.py — композиция/роли/оверлей",
+          "observation": "Тесты волны композиции: роли компонентов, непрозрачный оверлей, отсутствие дублей. Оговорка: структурные проверки не считаются доказательством правил внутри @media (см. отчёт ревью 6.1/6.2).",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w15_composition.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "d0fb5857feb032c86bc9bf495be5d0bab699263015d214c43aec40767a6866ba"
+        },
+        {
+          "ref": "tests/test_webapp_evol_w16_adaptive.py — адаптив 320 и ниже",
+          "observation": "Тесты адаптивного reflow по контракту владельца. Оговорка: `test_grids_clamp_min_track_to_available_width` НЕ является покрытием правил внутри @media (ревью 6.1) — доказательство даёт живой стенд и замеры.",
+          "type": "test",
+          "artifact_path": "tests/test_webapp_evol_w16_adaptive.py",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0b64356c1d8b007964005848815547710a4ae235a0b08f480981e59c3c177caa"
+        }
+      ],
+      "note": "ЗАКРЫТО ПО ПОВЕДЕНИЮ (Reviewer w15-composition-review-2.md, §9: «L00478 закрывается по поведению»). Клаузы: §D поэкранная композиция — 27 состояний, диф не меняет разметку, 0 отказов; §E.2 единые компоненты — 110 ячеек, 30/30 селекторов, инвариант литералов + мутации; §D-7 — 28 маршрутов × 2 вьюпорта, «ни один экран не исключён»; §C/§E.4 zoom 200 % и узкий вьюпорт — контракт владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow) + 27 ячеек и базовый прогон 45–67 → 0; §E.1/§E.4 — 3 записи VP9 и A/B преломления 1.86 %; §E.3 (loading/aria-busy, чекбоксы, hover/pressed/selected, back-stack) — ранее W14/S12. ЧЕСТНАЯ ОГОВОРКА: доказательством служит живой стенд (JSON) и независимые контрпримеры Reviewer'а; `test_webapp_evol_w16_adaptive.py::test_grids_clamp_min_track_to_available_width` и инвариант литералов НЕ считаются покрытием правил внутри @media (ревью 6.1, 6.2) — они приведены как регресс, не как доказательство. P3-ОСТАТКИ В БЭКЛОГ (не приёмка, строку не держат): (6.3) мёртвое объявление `.speech-area-nav__btn`; (6.4) дубль `.oversight-sort`; (6.5) кадры адаптива сняты в переходе (200 мс после закрытия drawer); (6.7) радиусы контролов/оверлеев всё ещё литеральные 9/10/12/14/16 px — пре-существующее, §E.2 покрывает роли карточка/строка/таблица/график; (6.8) нет видео для планшета/ландшафта (статичные кадры есть, записи — только 1280 и 390); профиль в drawer при 200 % текста достижим только после прокрутки drawer (допустимо по §3, но написано прямо)."
     },
     {
       "source_id": "L00484",
@@ -8628,8 +8885,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00504",
@@ -8643,8 +8938,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00506",
@@ -8658,8 +8991,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00507",
@@ -8673,8 +9044,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00508",
@@ -8688,8 +9097,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00509",
@@ -8703,8 +9150,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00510",
@@ -8718,8 +9203,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00511",
@@ -8733,8 +9256,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00512",
@@ -8748,8 +9309,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00513",
@@ -8763,8 +9362,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00514",
@@ -8778,8 +9415,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00515",
@@ -8793,8 +9468,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00517",
@@ -8808,8 +9521,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00529",
@@ -8823,8 +9574,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00545",
@@ -8838,8 +9627,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00547",
@@ -8853,8 +9680,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00548",
@@ -8868,8 +9733,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00549",
@@ -8883,8 +9786,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00550",
@@ -8898,9 +9839,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "ОСНОВАНИЕ ПРИЁМКИ ОБНОВЛЕНО решением владельца OI-2026-11-02-NARROW-VIEWPORT (`plans/owner_inputs/2026-11-02-narrow-viewport-decision.md`): минимальная поддерживаемая ширина полноценного мобильного интерфейса — 320 CSS px; на 320/360/390 при обычном масштабе не допускаются обрезания, горизонтальный overflow, наложения и потеря функциональности. Ниже 320 px и при увеличении текста до 200 % сценарий НЕ объявляется неподдерживаемым: требуется адаптивный reflow — второстепенные действия можно переносить в существующий drawer, подписи сокращать, вертикальная прокрутка разрешена, критические элементы управления обязаны оставаться доступными. Запрещено: постоянная двухрядная шапка на обычных мобильных размерах, нижний навбар, дублирующие меню и панели, уменьшение шрифтов и тач-целей ради формального прохождения теста, отдельная система CSS-костылей под 195 px. Нужно различать browser page zoom, системное увеличение шрифта и особенности Telegram WebView и проверять фактическое поведение, а не вычислять ширину делением пикселей на коэффициент. Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer. Пункт «zoom 200 %» больше НЕ вопрос владельцу — это implementation requirement контракта. Строка остаётся OPEN до реализации и ревью; повторно владельца о breakpoints и расположении второстепенных элементов не спрашивать."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00551",
@@ -8914,8 +9892,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00552",
@@ -8929,8 +9945,46 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w13-evol033-review.md — Re-check 3, Approved (артефакт полосы)",
+          "observation": "Design-приёмка: 1040 ячеек стенда (hScroll 0, offscreen 0, clipped 0, console 0, failures 0), portal/focus (parentIsBody true, 16 строк фокус-ловушки), 312 тач-целей (below44 = 0, occluded 6), 40 записей состояний, дефекты heartbeat/roles сняты; журнал: L00478 остаётся за PM.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w13-evol033-review.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "0d5335aca5fa34f05fa91c9c9e180595cfeabb01b739596c5905e22da310a42c"
+        },
+        {
+          "ref": "w15-composition-review-2.md — финальный вердикт: L00478 закрывается по поведению",
+          "observation": "Адъюдикация: §D поэкранная композиция VERIFIED (27 состояний, диф не меняет разметку, 0 отказов); §E.2 единые компоненты VERIFIED (110 ячеек, 30/30 селекторов, инвариант литералов + мутации); §D-7 VERIFIED (28 маршрутов × 2 вьюпорта); §C/§E.4 zoom 200 % и узкий вьюпорт VERIFIED (27 ячеек + базовый прогон 45–67 → 0); §E.1/§E.4 видео/преломление VERIFIED (3 записи VP9, A/B 1.86 %); §E.3 — ранее в W14/S12. Независимые контрпримеры: нейтрализация скрытия подписей (шапка 190 px, overflow 0), прогон базы 5fc2ded5 (45–67 узлов за вьюпортом против 0), отсутствие цикла ResizeObserver.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт Builder волны композиции",
+          "observation": "Сведение ролей (карточка/панель/компактная строка/строка таблицы/каркас графика), непрозрачный оверлей, адаптивный reflow по контракту владельца, видео-записи.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        },
+        {
+          "ref": "evidence/w15-composition/w15-composition.json — живой стенд композиции (110 ячеек)",
+          "observation": "Вычисленные стили каждого экземпляра ролей на 21 состоянии: 110 ячеек, 30/30 селекторов, 0 отказов; именно этот стенд, а не инвариант литералов, доказывает §E.2 (см. честную оговорку ниже).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/evidence/w15-composition/w15-composition.json",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
+          "artifact_sha256": "e5f9b4cf989fed9ebdee148b5d66d8422133803b33b0466034f02828470ab89f"
+        }
+      ],
+      "note": "Дубликат строки `L00478` (EVOL-033): закрывается вместе с ней по поведению; полный набор доказательств — в `L00478`. См. также P3-остатки в бэклоге (6.3–6.8) в её примечании."
     },
     {
       "source_id": "L00558",
@@ -23473,7 +24527,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: базовые роли сведены (EVOL-022/023/026-030 используют .btn/.btn-ghost/.field/.card/[data-glass]/health-glass-surface), но остаются локальные плотности/отступы (web/static/app.css:1403, 1469-1470, 4194, 4549-4553) — нормализуются точечно при касании этих экранов, без глобального рестайла (asap-ui-02-matrix.md §5, PARTIAL).",
-      "note": "Открыто: acceptance требует, чтобы отличия были только утверждёнными вариантами/токенами. Роли сведены (26 --ctl-*, 46 .ctl-*, 15 тумблеров; d1a706d2/c89b08ef), но в app.css остаются локальные плотности (1403, 1469-1470, 4194, 4549-4553), не объявленные вариантами. Зависимость: UI-дельта ASAP-UI-02."
+      "note": "Остаётся PENDING: acceptance требует «одна визуальная роль = один тип компонента» и допускает отличия только утверждёнными вариантами/токенами. §E.2 (w15) закрыт только для ролей карточка/строка/строка таблицы/каркас графика (110 ячеек, 30/30 селекторов). Точная незакрытая часть — контролы и оверлеи: радиусы всё ещё литеральные 9/10/12/14/16 px (`.oversight-mobile-option` 9, `.more-menu-item` 10, `.prompt-tree-item` 8, `.scope-trigger` 16, `.more-menu-panel` 14), что Reviewer зафиксировал как пре-существующее вне предмета волны (w15-composition-review-2.md §6.7). Нужен отдельный проход по контролам: привести к `--ctl-*`/`--overlay-*` токенам либо объявить вариантами."
     },
     {
       "source_id": "L01827",
@@ -26925,7 +27979,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "ОСНОВАНИЕ ПРИЁМКИ ОБНОВЛЕНО решением владельца OI-2026-11-02-NARROW-VIEWPORT (`plans/owner_inputs/2026-11-02-narrow-viewport-decision.md`): минимальная поддерживаемая ширина полноценного мобильного интерфейса — 320 CSS px; на 320/360/390 при обычном масштабе не допускаются обрезания, горизонтальный overflow, наложения и потеря функциональности. Ниже 320 px и при увеличении текста до 200 % сценарий НЕ объявляется неподдерживаемым: требуется адаптивный reflow — второстепенные действия можно переносить в существующий drawer, подписи сокращать, вертикальная прокрутка разрешена, критические элементы управления обязаны оставаться доступными. Запрещено: постоянная двухрядная шапка на обычных мобильных размерах, нижний навбар, дублирующие меню и панели, уменьшение шрифтов и тач-целей ради формального прохождения теста, отдельная система CSS-костылей под 195 px. Нужно различать browser page zoom, системное увеличение шрифта и особенности Telegram WebView и проверять фактическое поведение, а не вычислять ширину делением пикселей на коэффициент. Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer. Пункт «zoom 200 %» больше НЕ вопрос владельцу — это implementation requirement контракта. Строка остаётся OPEN до реализации и ревью; повторно владельца о breakpoints и расположении второстепенных элементов не спрашивать. Сценарий №1 §12 («phone portrait») оценивается по этому контракту: 320 — полноценный минимум, а не «узкий край»."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01967",
@@ -26942,7 +27996,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "ОСНОВАНИЕ ПРИЁМКИ ОБНОВЛЕНО решением владельца OI-2026-11-02-NARROW-VIEWPORT (`plans/owner_inputs/2026-11-02-narrow-viewport-decision.md`): минимальная поддерживаемая ширина полноценного мобильного интерфейса — 320 CSS px; на 320/360/390 при обычном масштабе не допускаются обрезания, горизонтальный overflow, наложения и потеря функциональности. Ниже 320 px и при увеличении текста до 200 % сценарий НЕ объявляется неподдерживаемым: требуется адаптивный reflow — второстепенные действия можно переносить в существующий drawer, подписи сокращать, вертикальная прокрутка разрешена, критические элементы управления обязаны оставаться доступными. Запрещено: постоянная двухрядная шапка на обычных мобильных размерах, нижний навбар, дублирующие меню и панели, уменьшение шрифтов и тач-целей ради формального прохождения теста, отдельная система CSS-костылей под 195 px. Нужно различать browser page zoom, системное увеличение шрифта и особенности Telegram WebView и проверять фактическое поведение, а не вычислять ширину делением пикселей на коэффициент. Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer. Пункт «zoom 200 %» больше НЕ вопрос владельцу — это implementation requirement контракта. Строка остаётся OPEN до реализации и ревью; повторно владельца о breakpoints и расположении второстепенных элементов не спрашивать. Сценарий №2 §12 («phone landscape / low viewport») оценивается как reflow при малой доступной высоте и ширине, с сохранением критических действий."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01968",
@@ -26959,7 +28013,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №3 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01969",
@@ -26976,7 +28030,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №4 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01970",
@@ -26993,7 +28047,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №5 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Уточнение по сценарию №5 («Меню „Ещё“ — ellipsis, второстепенные действия, без дублей разделов»): app-level панель «…» удалена более поздним решением владельца (§6.1 v2.1), поэтому буквальный локатор перекрыт; клауза выполнена по существу — сеточной замены нет, второй панели разделов нет, второстепенные действия (навигация, поиск, fullscreen, служебные действия) доступны в drawer/шапке. Reviewer признал это легитимным PASS и просил только зафиксировать в карте (w16 §6)."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01971",
@@ -27010,7 +28064,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №6 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Механика самого №6 при этом доказана (backStackLayers, нативный Back на корневом слое, по одному слою за Back) — не хватает именно сводной приёмки набора."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01972",
@@ -27027,7 +28081,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №7 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01973",
@@ -27044,7 +28098,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №8 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01974",
@@ -27061,7 +28115,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №9 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01975",
@@ -27078,7 +28132,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №10 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01976",
@@ -27095,7 +28149,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №11 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сценарий №11 (встроенная карта) не реализован: карта — слайс EVOL-COG-MAP."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01977",
@@ -27112,7 +28166,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №12 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сценарий №12 (fullscreen-карта с LOD) не реализован: карта — слайс EVOL-COG-MAP."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01978",
@@ -27129,7 +28183,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №13 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01979",
@@ -27146,7 +28200,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №14 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком. Сам №14 доказан (RBAC живьём, `?focus=` резолв, секреты не индексируются), но набор из 17 сценариев не закрыт."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01980",
@@ -27163,7 +28217,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "ОСНОВАНИЕ ПРИЁМКИ ОБНОВЛЕНО решением владельца OI-2026-11-02-NARROW-VIEWPORT (`plans/owner_inputs/2026-11-02-narrow-viewport-decision.md`): минимальная поддерживаемая ширина полноценного мобильного интерфейса — 320 CSS px; на 320/360/390 при обычном масштабе не допускаются обрезания, горизонтальный overflow, наложения и потеря функциональности. Ниже 320 px и при увеличении текста до 200 % сценарий НЕ объявляется неподдерживаемым: требуется адаптивный reflow — второстепенные действия можно переносить в существующий drawer, подписи сокращать, вертикальная прокрутка разрешена, критические элементы управления обязаны оставаться доступными. Запрещено: постоянная двухрядная шапка на обычных мобильных размерах, нижний навбар, дублирующие меню и панели, уменьшение шрифтов и тач-целей ради формального прохождения теста, отдельная система CSS-костылей под 195 px. Нужно различать browser page zoom, системное увеличение шрифта и особенности Telegram WebView и проверять фактическое поведение, а не вычислять ширину делением пикселей на коэффициент. Reviewer проверяет реальный reflow, доступность действий, отсутствие обрезаний и корректность fullscreen/drawer. Пункт «zoom 200 %» больше НЕ вопрос владельцу — это implementation requirement контракта. Строка остаётся OPEN до реализации и ревью; повторно владельца о breakpoints и расположении второстепенных элементов не спрашивать. Сценарий №15 §12 («клавиатура/zoom 200 %») перестаёт быть открытым вопросом владельцу: 200 % текста и large fonts проверяются как обычное требование контракта (reflow, доступные Save/Close, без обрезаний)."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01981",
@@ -27180,7 +28234,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №16 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01982",
@@ -27197,7 +28251,7 @@
       "status": "PENDING",
       "evidence": [],
       "status_note": "PENDING: 12 сценариев PASS, но №10 заблокирован разбиением лент (3+1), №11 и №14 MISSING (карта EVOL-COG, поиск EVOL-037), №6/№8/№12/№13/№17 частичные (asap-ui-02-matrix.md §12) — контракт целиком не выполнен.",
-      "note": "Строка остаётся PENDING: acceptance — весь набор 17 сценариев §12, а не сценарий №17 отдельно; на задеплоенном 2.58.147 (e18a86eb) этой волной доказаны только №6 (единый Back-stack, L01958) и №14 (поиск/deep-link с RBAC 627→536 и резолвом `?focus=`), сценарии №11/№12 не реализованы (когнитивная карта — EVOL-COG-MAP, очередь владельца), а сводный прогон всех 17 сценариев не проводился. Молчаливого сужения нет: строка не закрывается, пока набор не принят целиком."
+      "note": "§12: после S12 (w14-s12-review.md, Re-check 3, Approved для набора) — 15 PASS, 2 BLOCKED, 0 FAIL. Блокированы №11 (встроенная карта: LOD/камера) и №12 (fullscreen карта) — ждут EVOL-COG-MAP (S2..S4). После мерджа COG-MAP сценарии перепрогнать и закрыть; до этого строка остаётся PENDING. Основание приёмки по узкому вьюпорту — решение владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow)."
     },
     {
       "source_id": "L01986",
@@ -38832,7 +39886,7 @@
       "note": "Общепроектный P0 corrective (не новый эпик): синхронизация медиаанализа с потребителями + контракт вывода Vision. 124 строки инвентаря: часть required, остальные duplicate/context с конкретной причиной. Предыдущие записи source_addenda сохраняют исторические sha снимков."
     }
   ],
-  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S1): доказательства S1 привязаны к 12 строкам (`L01267`-`L01272` — данные/модель, `L01296`, `L01285`, `L01312`, `L01333`, `L01330`, `L01332` — частично) по кандидату `d69f9584` / merge `25725265`; статус всех 12 остаётся PENDING, потому что acceptance строк — готовый виджет на «Статусе» (S2..S4). Канонический модуль S1 — `web/api/cognitive_map.py` + одна строка `include_router` в `web/app.py`. Записано руководство Reviewer'а для S2: «показано X из Y» подавать нейтрально, `partial` — нормальное состояние реального чата, а не ошибка. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.",
+  "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S1): доказательства S1 привязаны к 12 строкам (`L01267`-`L01272` — данные/модель, `L01296`, `L01285`, `L01312`, `L01333`, `L01330`, `L01332` — частично) по кандидату `d69f9584` / merge `25725265`; статус всех 12 остаётся PENDING, потому что acceptance строк — готовый виджет на «Статусе» (S2..S4). Канонический модуль S1 — `web/api/cognitive_map.py` + одна строка `include_router` в `web/app.py`. Записано руководство Reviewer'а для S2: «показано X из Y» подавать нейтрально, `partial` — нормальное состояние реального чата, а не ошибка. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, визуальный контракт): `L00478` (EVOL-033) закрыта по поведению — Reviewer w15-composition-review-2 §9 (§D, §E.2, §D-7, §C/§E.4 zoom/узкий вьюпорт, §E.1/§E.4 видео/преломление; §E.3 ранее W14/S12) + контракт владельца OI-2026-11-02-NARROW-VIEWPORT; доказательства привязаны к merge `4af1f197`; 23 дубля закрыты вместе с ней. P3-остатки (6.3–6.8 и профиль в drawer при 200 % текста) записаны в бэклог, не как приёмка. §12: 15 PASS, 2 BLOCKED на EVOL-COG-MAP — строки `L01966`-`L01982` остаются PENDING до перепрогона после COG. `L01826` остаётся PENDING: контролы/оверлеи сохранили литеральные радиусы (ревью §6.7). Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.",
   "deployed_release": {
     "version": "2.58.149",
     "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
