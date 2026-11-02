@@ -2,11 +2,11 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
+  "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
   "slice_candidate_pins": {
     "MEME-PIPE-CORE": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
     "MEME-MANUAL-CMD": "d58537496cc129987e8eb045019909b794c11533",
-    "MEME-API-SCOPE": "07627068570c67f27ee0bc81d77d0546d1496b61"
+    "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899"
   },
   "deployed_commit": "",
   "strict_evidence": true,
@@ -2229,51 +2229,71 @@
       "reason": "",
       "req_id": "MEME-PROMPT-THREE-LAYER",
       "slice": "MEME-API-SCOPE",
-      "acceptance": "СЕРВЕРНАЯ ЧАСТЬ (P2): оба промпта - штатные ключи каталога `prompts.meme_joke` / `prompts.meme_image` с дословными заводскими дефолтами и per-chat; сохранение и загрузка идут по действующей модели конфигурации (`POST/GET /api/initiative/meme-settings`, `POST /api/config`), действует цепочка чат -> глобальный -> заводской текст на штатном резолвере, пустая строка снимает чатовое переопределение; шаблон с двумя `{joke}` отклоняется 422 на всех путях записи без частичной записи; витрина считает L/T/J от эффективного шаблона и совпадает с числами реального прогона. Интерфейсная часть требования вынесена в отдельную строку MEME-PROMPT-THREE-LAYER-UI (P4).",
+      "acceptance": "СЕРВЕРНАЯ ЧАСТЬ (P2): оба промпта - штатные ключи каталога `prompts.meme_joke` / `prompts.meme_image` с дословными заводскими дефолтами и per-chat; сохранение и загрузка идут по действующей модели конфигурации (`POST/GET /api/initiative/meme-settings`, `POST /api/config`), действует цепочка чат -> глобальный -> заводской текст на штатном резолвере, пустая строка снимает чатовое переопределение; шаблон с двумя `{joke}` отклоняется 422 на всех путях записи без частичной записи; неизвестное имя поля в `MemeSettingsUpdate` отклоняется 422 (`extra=\"forbid\"`), а не превращается в тихий no-op без записи; витрина считает L/T/J от эффективного шаблона и совпадает с числами реального прогона. Интерфейсная часть требования вынесена в отдельную строку MEME-PROMPT-THREE-LAYER-UI (P4).",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p2-review.md - независимое ревью P2: §3 (слои), §4 (витрина = рантайм), §5 (гейт `{joke}`)",
-          "observation": "Ревью проверяло слои настоящим `get_chat_param_sourced` с пересозданием кэша чат-параметров: чатовый текст -> source=chat, без чатового -> global, без обоих -> заводской дословно («Придумай короткий абсурдный прикол из этой выжимки.»); пустая строка, отправленная по HTTP, удаляет ключ из `overrides`. Гейт `{joke}`: 422 на чат- и глобальном путях `/api/config` и на `meme-settings`, частичной записи нет. Вердикт: серверная часть Approved, интерфейсное условие отнесено к P4.",
+          "ref": "reports/w-p2-review.md - независимое ревью P2: §3 (слои), §4 (витрина = рантайм), §5 (гейт `{joke}`), §9 (неблокирующие пункты), §13 (вердикт)",
+          "observation": "Ревью на кандидате 07627068 проверяло слои настоящим `get_chat_param_sourced` с пересозданием кэша чат-параметров: чатовый текст -> source=chat, без чатового -> global, без обоих -> заводской дословно («Придумай короткий абсурдный прикол из этой выжимки.»); пустая строка, отправленная по HTTP, удаляет ключ из `overrides`. Гейт `{joke}`: 422 на чат- и глобальном путях `/api/config` и на `meme-settings`, частичной записи нет. Вердикт Approved (серверная часть), интерфейсное условие - P4. Пункты §9 (имена полей и два durable-теста) были неблокирующими и закрыты отдельной ревизией полосы e99218af, смёрженной в ceb49b56; вердикт сохраняется, повторного ревью список не требовал.",
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p2-review.md",
           "artifact_sha256": "def2ef0f7121c34e0b31401d008e5082c0e53a393586e3cfbfe8ed0a96f2acab",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899"
         },
         {
-          "ref": "reports/w-p2-api.md - отчёт Builder P2 (docs-коммит поверх кандидата)",
-          "observation": "Две записи каталога `prompts.meme_joke` / `prompts.meme_image` (per_chat, ui=catalog, группа `prompts_initiative_meme`, вкладка «Промпты»), единственная точка объявления `_PG_BLOCK_META`, поля `prompt_joke` / `prompt_image` в `MemeSettingsUpdate`, пустая строка снимает чатовое переопределение; заводские тексты и печати не менялись (`seal_integrity() == {}`).",
+          "ref": "reports/w-p2-api.md - отчёт Builder P2 (docs-коммит 88b48792 поверх кандидата)",
+          "observation": "Две записи каталога `prompts.meme_joke` / `prompts.meme_image` (per_chat, ui=catalog, группа `prompts_initiative_meme`, вкладка «Промпты»), единственная точка объявления `_PG_BLOCK_META`, поля `prompt_joke` / `prompt_image` в `MemeSettingsUpdate`, пустая строка снимает чатовое переопределение; заводские тексты и печати не менялись (`seal_integrity() == {}`). После ревью в ту же модель добавлен `extra=\"forbid\"`: чужое имя поля становится 422, а не молчаливым no-op.",
           "type": "implementation",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p2-api.md",
           "artifact_sha256": "76b6226e6787ba2a00d14eb48242ac3498aa04cfa7d6c861d77b7f9c3bcf7dd8",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
           "artifact_commit": "88b487920b325ff54737eed000fe8bc1f1d22fd3"
         },
         {
           "ref": "web/api/routes.py",
-          "observation": "`MemeSettingsUpdate` принимает `prompt_joke` / `prompt_image`; `_meme_template_guard` вызывается на трёх путях записи (`/api/config` чат-уровень, `/api/config` глобальный уровень, `/api/initiative/meme-settings`); `_meme_settings_payload` считает L/T/J от эффективного шаблона, обёртка `resolve_length_limit` и датакласс `LengthLimit` удалены.",
+          "observation": "`MemeSettingsUpdate` принимает `prompt_joke` / `prompt_image` и объявлен с `extra=\"forbid\"` (неизвестное имя поля -> 422, а не тихая запись «ничего не изменилось»); `_meme_template_guard` вызывается на трёх путях записи (`/api/config` чат-уровень, `/api/config` глобальный уровень, `/api/initiative/meme-settings`); `_meme_settings_payload` считает L/T/J от эффективного шаблона, обёртка `resolve_length_limit` и датакласс `LengthLimit` удалены. Новых endpoint'ов нет (Δ routes=0), поэтому контентный сдвиг зафиксирован переутверждением F8/F11-пинов в том же коммите e99218af.",
           "type": "code",
           "artifact_path": "web/api/routes.py",
-          "artifact_sha256": "e90288c2db67067773a08dda3f06b9a20f1bbfd74d4fe98d3067aecb1d02f4f5",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
-          "artifact_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "artifact_sha256": "7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
         },
         {
           "ref": "tests/test_meme_pipeline_api.py",
-          "observation": "9 контрактных проверок: ключи каталога и единственный блок реестра, запись/чтение каждого промпта, приоритет чат -> глобальный -> заводской со снятием override, равенство чисел витрины и журнала реального прогона, 422 на два `{joke}` без записи, 403 без прав и 422 на «ничего не менялось».",
+          "observation": "10 контрактных проверок: ключи каталога и единственный блок реестра, запись/чтение каждого промпта, приоритет чат -> глобальный -> заводской со снятием override, равенство чисел витрины и журнала реального прогона, 422 на два `{joke}` без записи, 403 без прав и 422 на «ничего не менялось»; плюс три durable-регрессии из ревью: неизвестное имя поля -> 422 без записи (проверка `extra=\"forbid\"`), чат-уровень `POST /api/config` с двумя `{joke}` -> 422 без записи в `overrides`, и три слоя со снятием чатового override через НАСТОЯЩИЙ `get_chat_param_sourced` (без мока этого шва).",
           "type": "test",
           "artifact_path": "tests/test_meme_pipeline_api.py",
-          "artifact_sha256": "43584ae5b758a91e4c027600376a33fe422c865753aba4f192dbf63d99fbb549",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
-          "artifact_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "artifact_sha256": "d9e70abf39b38c82d3e1285e6b4fd5e2699ffd62a80b2edd7491f7f98aac50da",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
+        },
+        {
+          "ref": "tests/test_round1025_f8_registry.py - переутверждение F8/F11-пина",
+          "observation": "F8/F11-канон: `ROUTES_SHA256_F11` переутверждён осознанно на `7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9` (контентная Δ в существующих `POST /api/config` и `GET/POST /api/initiative/meme-settings`, новых путей нет: Δ routes=0, набор f8_baseline не менялся, RBAC/DDL не тронуты). Перепин - необходимое следствие правки `web/api/routes.py`, поэтому файл входит в write scope пакета, а не считается посторонним изменением.",
+          "type": "test",
+          "artifact_path": "tests/test_round1025_f8_registry.py",
+          "artifact_sha256": "f016e3b49c982a126ba85aea5c89891daa2ba4d79d7ba7c9a72f572f5ba3006e",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
+        },
+        {
+          "ref": "tests/test_mca23_planned_vs_actual.py - второй канонический пин того же контракта",
+          "observation": "Второй канонический пин `test_mca23_planned_vs_actual.py` (плановое против фактического) переутверждён на тот же хэш routes.py с той же оговоркой L-F11S-1: Δ routes=0, новые endpoint'ы не появились, изменилось содержимое существующих обработчиков мем-настроек.",
+          "type": "test",
+          "artifact_path": "tests/test_mca23_planned_vs_actual.py",
+          "artifact_sha256": "0a28eacaca2d87bfc74ddc872ca29785a6f20c37416e56e8965582669090c292",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
         }
       ],
       "notes": [
         "Сплит приёмки по ревью P2 (§7, §10): L73-L74 закрывают СЕРВЕРНУЮ часть, L75 вынесена в MEME-PROMPT-THREE-LAYER-UI (P4). Критерии владельца 3, 4 и 5 закрываются целиком только в P4 - строка MEME-ACC-05 остаётся PENDING.",
         "Решение ревью P2 §8.2 (принято, P2 не блокирует): запись мем-промптов идёт мимо матрицы прав `/api/config` и не пишет журнал ревизий промптов. ТЗ §2 этого не требует, гейт карточки (владелец в ЛС / global-local admin) не слабее дефолтной матрицы `prompts.*`; отклонение достижимо только при специально настроенном per-key override. P4 обязан принять осознанное решение (чек-лист п.11): либо звать `_prompt_record_saved_snapshots` и проверять `effective_matrix`, либо пометить ключи `hidden` и объявить карточку мемов единственным владельцем (прецедент `prompts.summary_cover_style_id`).",
-        "Замечание ревью P2 №1 (чек-лист п.10): в кандидате 07627068 MemeSettingsUpdate ещё игнорирует неизвестные поля - extra=\"forbid\" в этом коммите отсутствует (проверено по кандидату и по всей ветке до него). Правка extra=\"forbid\" добавлена отдельной ревизией полосы P2 вместе с тестом на отказ неизвестного имени; после неё опечатка в имени поля перестаёт быть тихим no-op, поэтому текст slice-graph уже приведён к именам кода (prompt_joke/prompt_image)."
+        "Имена полей: ревью P2 (§9 п.1) нашло расхождение текста графа с кодом. Оно закрыто с двух сторон: текст slice-graph приведён к именам кода (`prompt_joke` / `prompt_image`), а в `MemeSettingsUpdate` включён `extra=\"forbid\"` (e99218af, мёрж ceb49b56) - теперь чужое имя поля даёт 422 и называет виновника, а не тихий no-op, поэтому будущее расхождение имени не может остаться незамеченным.",
+        "Неблокирующие пункты ревью §9.2 (чек-лист P4 п.8-9) закрыты durable-тестами в том же коммите e99218af: чат-путь `POST /api/config` с двумя `{joke}` и три слоя со снятием override через настоящий `get_chat_param_sourced`. Пункты 8-9 чек-листа P4 сняты; пункты 6, 11, 12 и визуальные 13 остаются за P4.",
+        "Правка `web/api/routes.py` влечёт переутверждение двух канонических пинов (`tests/test_round1025_f8_registry.py`, `tests/test_mca23_planned_vs_actual.py`). Оба файла внесены в write scope MEME-API-SCOPE как необходимое следствие изменения routes.py: это не посторонняя работа, а обязательная часть того же кандидата."
       ]
     },
     {
@@ -2285,51 +2305,71 @@
       "reason": "",
       "req_id": "MEME-PROMPT-THREE-LAYER",
       "slice": "MEME-API-SCOPE",
-      "acceptance": "СЕРВЕРНАЯ ЧАСТЬ (P2): оба промпта - штатные ключи каталога `prompts.meme_joke` / `prompts.meme_image` с дословными заводскими дефолтами и per-chat; сохранение и загрузка идут по действующей модели конфигурации (`POST/GET /api/initiative/meme-settings`, `POST /api/config`), действует цепочка чат -> глобальный -> заводской текст на штатном резолвере, пустая строка снимает чатовое переопределение; шаблон с двумя `{joke}` отклоняется 422 на всех путях записи без частичной записи; витрина считает L/T/J от эффективного шаблона и совпадает с числами реального прогона. Интерфейсная часть требования вынесена в отдельную строку MEME-PROMPT-THREE-LAYER-UI (P4).",
+      "acceptance": "СЕРВЕРНАЯ ЧАСТЬ (P2): оба промпта - штатные ключи каталога `prompts.meme_joke` / `prompts.meme_image` с дословными заводскими дефолтами и per-chat; сохранение и загрузка идут по действующей модели конфигурации (`POST/GET /api/initiative/meme-settings`, `POST /api/config`), действует цепочка чат -> глобальный -> заводской текст на штатном резолвере, пустая строка снимает чатовое переопределение; шаблон с двумя `{joke}` отклоняется 422 на всех путях записи без частичной записи; неизвестное имя поля в `MemeSettingsUpdate` отклоняется 422 (`extra=\"forbid\"`), а не превращается в тихий no-op без записи; витрина считает L/T/J от эффективного шаблона и совпадает с числами реального прогона. Интерфейсная часть требования вынесена в отдельную строку MEME-PROMPT-THREE-LAYER-UI (P4).",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "reports/w-p2-review.md - независимое ревью P2: §3 (слои), §4 (витрина = рантайм), §5 (гейт `{joke}`)",
-          "observation": "Ревью проверяло слои настоящим `get_chat_param_sourced` с пересозданием кэша чат-параметров: чатовый текст -> source=chat, без чатового -> global, без обоих -> заводской дословно («Придумай короткий абсурдный прикол из этой выжимки.»); пустая строка, отправленная по HTTP, удаляет ключ из `overrides`. Гейт `{joke}`: 422 на чат- и глобальном путях `/api/config` и на `meme-settings`, частичной записи нет. Вердикт: серверная часть Approved, интерфейсное условие отнесено к P4.",
+          "ref": "reports/w-p2-review.md - независимое ревью P2: §3 (слои), §4 (витрина = рантайм), §5 (гейт `{joke}`), §9 (неблокирующие пункты), §13 (вердикт)",
+          "observation": "Ревью на кандидате 07627068 проверяло слои настоящим `get_chat_param_sourced` с пересозданием кэша чат-параметров: чатовый текст -> source=chat, без чатового -> global, без обоих -> заводской дословно («Придумай короткий абсурдный прикол из этой выжимки.»); пустая строка, отправленная по HTTP, удаляет ключ из `overrides`. Гейт `{joke}`: 422 на чат- и глобальном путях `/api/config` и на `meme-settings`, частичной записи нет. Вердикт Approved (серверная часть), интерфейсное условие - P4. Пункты §9 (имена полей и два durable-теста) были неблокирующими и закрыты отдельной ревизией полосы e99218af, смёрженной в ceb49b56; вердикт сохраняется, повторного ревью список не требовал.",
           "type": "review",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p2-review.md",
           "artifact_sha256": "def2ef0f7121c34e0b31401d008e5082c0e53a393586e3cfbfe8ed0a96f2acab",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899"
         },
         {
-          "ref": "reports/w-p2-api.md - отчёт Builder P2 (docs-коммит поверх кандидата)",
-          "observation": "Две записи каталога `prompts.meme_joke` / `prompts.meme_image` (per_chat, ui=catalog, группа `prompts_initiative_meme`, вкладка «Промпты»), единственная точка объявления `_PG_BLOCK_META`, поля `prompt_joke` / `prompt_image` в `MemeSettingsUpdate`, пустая строка снимает чатовое переопределение; заводские тексты и печати не менялись (`seal_integrity() == {}`).",
+          "ref": "reports/w-p2-api.md - отчёт Builder P2 (docs-коммит 88b48792 поверх кандидата)",
+          "observation": "Две записи каталога `prompts.meme_joke` / `prompts.meme_image` (per_chat, ui=catalog, группа `prompts_initiative_meme`, вкладка «Промпты»), единственная точка объявления `_PG_BLOCK_META`, поля `prompt_joke` / `prompt_image` в `MemeSettingsUpdate`, пустая строка снимает чатовое переопределение; заводские тексты и печати не менялись (`seal_integrity() == {}`). После ревью в ту же модель добавлен `extra=\"forbid\"`: чужое имя поля становится 422, а не молчаливым no-op.",
           "type": "implementation",
           "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p2-api.md",
           "artifact_sha256": "76b6226e6787ba2a00d14eb48242ac3498aa04cfa7d6c861d77b7f9c3bcf7dd8",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
           "artifact_commit": "88b487920b325ff54737eed000fe8bc1f1d22fd3"
         },
         {
           "ref": "web/api/routes.py",
-          "observation": "`MemeSettingsUpdate` принимает `prompt_joke` / `prompt_image`; `_meme_template_guard` вызывается на трёх путях записи (`/api/config` чат-уровень, `/api/config` глобальный уровень, `/api/initiative/meme-settings`); `_meme_settings_payload` считает L/T/J от эффективного шаблона, обёртка `resolve_length_limit` и датакласс `LengthLimit` удалены.",
+          "observation": "`MemeSettingsUpdate` принимает `prompt_joke` / `prompt_image` и объявлен с `extra=\"forbid\"` (неизвестное имя поля -> 422, а не тихая запись «ничего не изменилось»); `_meme_template_guard` вызывается на трёх путях записи (`/api/config` чат-уровень, `/api/config` глобальный уровень, `/api/initiative/meme-settings`); `_meme_settings_payload` считает L/T/J от эффективного шаблона, обёртка `resolve_length_limit` и датакласс `LengthLimit` удалены. Новых endpoint'ов нет (Δ routes=0), поэтому контентный сдвиг зафиксирован переутверждением F8/F11-пинов в том же коммите e99218af.",
           "type": "code",
           "artifact_path": "web/api/routes.py",
-          "artifact_sha256": "e90288c2db67067773a08dda3f06b9a20f1bbfd74d4fe98d3067aecb1d02f4f5",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
-          "artifact_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "artifact_sha256": "7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
         },
         {
           "ref": "tests/test_meme_pipeline_api.py",
-          "observation": "9 контрактных проверок: ключи каталога и единственный блок реестра, запись/чтение каждого промпта, приоритет чат -> глобальный -> заводской со снятием override, равенство чисел витрины и журнала реального прогона, 422 на два `{joke}` без записи, 403 без прав и 422 на «ничего не менялось».",
+          "observation": "10 контрактных проверок: ключи каталога и единственный блок реестра, запись/чтение каждого промпта, приоритет чат -> глобальный -> заводской со снятием override, равенство чисел витрины и журнала реального прогона, 422 на два `{joke}` без записи, 403 без прав и 422 на «ничего не менялось»; плюс три durable-регрессии из ревью: неизвестное имя поля -> 422 без записи (проверка `extra=\"forbid\"`), чат-уровень `POST /api/config` с двумя `{joke}` -> 422 без записи в `overrides`, и три слоя со снятием чатового override через НАСТОЯЩИЙ `get_chat_param_sourced` (без мока этого шва).",
           "type": "test",
           "artifact_path": "tests/test_meme_pipeline_api.py",
-          "artifact_sha256": "43584ae5b758a91e4c027600376a33fe422c865753aba4f192dbf63d99fbb549",
-          "candidate_commit": "07627068570c67f27ee0bc81d77d0546d1496b61",
-          "artifact_commit": "07627068570c67f27ee0bc81d77d0546d1496b61"
+          "artifact_sha256": "d9e70abf39b38c82d3e1285e6b4fd5e2699ffd62a80b2edd7491f7f98aac50da",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
+        },
+        {
+          "ref": "tests/test_round1025_f8_registry.py - переутверждение F8/F11-пина",
+          "observation": "F8/F11-канон: `ROUTES_SHA256_F11` переутверждён осознанно на `7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9` (контентная Δ в существующих `POST /api/config` и `GET/POST /api/initiative/meme-settings`, новых путей нет: Δ routes=0, набор f8_baseline не менялся, RBAC/DDL не тронуты). Перепин - необходимое следствие правки `web/api/routes.py`, поэтому файл входит в write scope пакета, а не считается посторонним изменением.",
+          "type": "test",
+          "artifact_path": "tests/test_round1025_f8_registry.py",
+          "artifact_sha256": "f016e3b49c982a126ba85aea5c89891daa2ba4d79d7ba7c9a72f572f5ba3006e",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
+        },
+        {
+          "ref": "tests/test_mca23_planned_vs_actual.py - второй канонический пин того же контракта",
+          "observation": "Второй канонический пин `test_mca23_planned_vs_actual.py` (плановое против фактического) переутверждён на тот же хэш routes.py с той же оговоркой L-F11S-1: Δ routes=0, новые endpoint'ы не появились, изменилось содержимое существующих обработчиков мем-настроек.",
+          "type": "test",
+          "artifact_path": "tests/test_mca23_planned_vs_actual.py",
+          "artifact_sha256": "0a28eacaca2d87bfc74ddc872ca29785a6f20c37416e56e8965582669090c292",
+          "candidate_commit": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
+          "artifact_commit": "e99218afd086fd74ca6336f2c4525212a4b08ca2"
         }
       ],
       "notes": [
         "Сплит приёмки по ревью P2 (§7, §10): L73-L74 закрывают СЕРВЕРНУЮ часть, L75 вынесена в MEME-PROMPT-THREE-LAYER-UI (P4). Критерии владельца 3, 4 и 5 закрываются целиком только в P4 - строка MEME-ACC-05 остаётся PENDING.",
         "Решение ревью P2 §8.2 (принято, P2 не блокирует): запись мем-промптов идёт мимо матрицы прав `/api/config` и не пишет журнал ревизий промптов. ТЗ §2 этого не требует, гейт карточки (владелец в ЛС / global-local admin) не слабее дефолтной матрицы `prompts.*`; отклонение достижимо только при специально настроенном per-key override. P4 обязан принять осознанное решение (чек-лист п.11): либо звать `_prompt_record_saved_snapshots` и проверять `effective_matrix`, либо пометить ключи `hidden` и объявить карточку мемов единственным владельцем (прецедент `prompts.summary_cover_style_id`).",
-        "Замечание ревью P2 №1 (чек-лист п.10): в кандидате 07627068 MemeSettingsUpdate ещё игнорирует неизвестные поля - extra=\"forbid\" в этом коммите отсутствует (проверено по кандидату и по всей ветке до него). Правка extra=\"forbid\" добавлена отдельной ревизией полосы P2 вместе с тестом на отказ неизвестного имени; после неё опечатка в имени поля перестаёт быть тихим no-op, поэтому текст slice-graph уже приведён к именам кода (prompt_joke/prompt_image)."
+        "Имена полей: ревью P2 (§9 п.1) нашло расхождение текста графа с кодом. Оно закрыто с двух сторон: текст slice-graph приведён к именам кода (`prompt_joke` / `prompt_image`), а в `MemeSettingsUpdate` включён `extra=\"forbid\"` (e99218af, мёрж ceb49b56) - теперь чужое имя поля даёт 422 и называет виновника, а не тихий no-op, поэтому будущее расхождение имени не может остаться незамеченным.",
+        "Неблокирующие пункты ревью §9.2 (чек-лист P4 п.8-9) закрыты durable-тестами в том же коммите e99218af: чат-путь `POST /api/config` с двумя `{joke}` и три слоя со снятием override через настоящий `get_chat_param_sourced`. Пункты 8-9 чек-листа P4 сняты; пункты 6, 11, 12 и визуальные 13 остаются за P4.",
+        "Правка `web/api/routes.py` влечёт переутверждение двух канонических пинов (`tests/test_round1025_f8_registry.py`, `tests/test_mca23_planned_vs_actual.py`). Оба файла внесены в write scope MEME-API-SCOPE как необходимое следствие изменения routes.py: это не посторонняя работа, а обязательная часть того же кандидата."
       ]
     },
     {
@@ -5560,5 +5600,5 @@
       "acceptance_note": "Приёмка пакета MEME-MANUAL-CMD (в дополнение к прежней): тест записывает Telegram-вызовы и подтверждает три вещи - удаление сообщения команды происходит ровно один раз, пайплайн после удаления всё равно отрабатывает, смоделированный отказ удаления не меняет исход пайплайна и не порождает лишних сообщений (только WARNING в логе)."
     }
   ],
-  "slice_candidate_pins_note": "candidate_commit - последний независимо отревьюенный срез (P2, 07627068); срезы до джойн-мёржа живут на своих коммитах, поэтому --stage review для среза запускается с ЕГО пином, а вся карта валидируется на общем кандидате после объединяющего мёржа."
+  "slice_candidate_pins_note": "candidate_commit - объединённый кандидат полосы P2 (ceb49b56 = код e99218af + доки 69edaccc): именно на нём перепроверены все привязанные артефакты. MEME-API-SCOPE привязан к нему напрямую; MEME-PIPE-CORE (b272a63b) и MEME-MANUAL-CMD (d5853749) - срезы, принятые ДО этого мёржа, их доказательства живут на своих коммитах, поэтому --stage review для этих срезов запускается с их пином. Перед полным релизом (после P4/P5) привязки срезов сводятся к единому кандидату."
 }

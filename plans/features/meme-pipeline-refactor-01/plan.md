@@ -13,9 +13,9 @@
 | Метрика | Значение |
 |---|---|
 | Строк-кандидатов автоинвентаря | 116 |
-| Ручных строк (проза без маркера списка) | 16 |
-| `required` строк | 99 |
-| Уникальных `req_id` | 40 |
+| Ручных строк (проза без маркера списка + дополнения владельца) | 21 |
+| `required` строк | 104 |
+| Уникальных `req_id` | 46 |
 | `context` строк (с конкретной причиной) | 33 |
 | Критерии приёмки §8 | **13** (`MEME-ACC-01` … `MEME-ACC-13`), каждая — отдельная строка |
 | Пакетов (слайсов) | 5 |
@@ -52,7 +52,7 @@
 | # | Пакет | Зависит от | Write scope | Риск | Смысл одной проверяемой поставки |
 |---|---|---|---|---|---|
 | P1 | `MEME-PIPE-CORE` | — | `services/meme_initiative.py`, `services/prompt_registry.py`, `tests/test_evol014_meme_initiative.py`, `tests/test_meme_pipeline_stages.py` | R1 | Три этапа + перенос потолка: без этого «прикол» некуда вставлять, а UI нечего показывать |
-| P2 | `MEME-API-SCOPE` | P1 | `web/api/routes.py`, `tests/test_meme_pipeline_api.py` | R1 | Контракт двух промптов и чисел L/T/J — единственный источник для UI |
+| P2 | `MEME-API-SCOPE` | P1 | `web/api/routes.py`, `tests/test_meme_pipeline_api.py`, `tests/test_round1025_f8_registry.py`, `tests/test_mca23_planned_vs_actual.py` | R1 | Контракт двух промптов и чисел L/T/J — единственный источник для UI |
 | P3 | `MEME-MANUAL-CMD` | P1 | `handlers/meme_command.py`, `bot.py`, `services/bot_commands.py`, `services/initiative_observer.py`, `tests/test_meme_command_autodelete.py` | R1 | Ручной диагностический запуск + RBAC, отдельно от UI и API |
 | P4 | `MEME-UI-FIELDS` | P2 | `web/index.html`, `web/app.js`, `tests/test_evol014_ui.py` | R2 | Два реально редактируемых поля + диагностика лимита в админке |
 | P5 | `MEME-ANALYTICS-STAGES` | P1, P2 | `services/meme_initiative.py`, `tests/test_meme_analytics_stages.py` | R1 | Различимость четырёх этапов в журнале/логах |
@@ -64,6 +64,11 @@
 **параллельно** (непересекающиеся наборы файлов: API/сервисы против `handlers/`, `bot.py`,
 observer и теста команды); P5 — после P2. P4 — единственный пакет, заблокированный внешним
 держателем `web/index.html` и `web/app.js`.
+
+Write scope P2 расширен на два канонических пина (`tests/test_round1025_f8_registry.py`,
+`tests/test_mca23_planned_vs_actual.py`): контентная правка `web/api/routes.py` меняет
+аудируемый хэш F8/F11, и переутверждение пинов (Δ routes=0) — обязательное следствие той же
+поставки, а не посторонняя работа. Это же зафиксировано в `slice-graph.json`.
 
 ### Точки сериализации (обязательные)
 
@@ -142,7 +147,12 @@ observer и теста команды); P5 — после P2. P4 — единс�
 
 ## 7. Доказательства и приёмка
 
-- Все 99 обязательных строк — `PENDING`; ни одна не помечена `VERIFIED` авансом.
+- Все 104 обязательные строки — инженерного уровня (`verification_tier: engineering`). На
+  03.11.2026: **87 `VERIFIED`, 17 `PENDING`** (16 — `MEME-UI-FIELDS` (P4), 1 —
+  `MEME-ANALYTICS-STAGES` (P5)). `VERIFIED` ставится только за candidate-bound доказательство.
+- Серверная часть P2 (L73/L74) привязана к объединённому кандидату **ceb49b56** (код e99218af,
+  доки 69edaccc): `extra="forbid"` и два durable-теста из неблокирующего списка ревью вошли в
+  кандидата, поэтому вердикт Reviewer сохраняется без повторного ревью.
 - Ожидаемые артефакты: `tests/test_meme_pipeline_stages.py` (три этапа, `J = max(0, L - T)`,
   отсутствие потолка у выжимки, инструкция модели, защитная обрезка), `tests/test_meme_pipeline_api.py`
   (промпты и числа L/T/J, глобальный и чатовый scope, 403/422), `tests/test_meme_command_autodelete.py`
