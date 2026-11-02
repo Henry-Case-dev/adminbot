@@ -2974,10 +2974,13 @@ class ToolRouter:
         claim_keys = self._claim_keys(ctx, args)
         chat_id = getattr(ctx, "chat_id", None)
         scope = "chat" if _sr.github_token() else "public"
-        identity = {"repo": repo, "ref": ref, "path": path,
-                    "symbol": symbol, "operation": operation}
+        identity = self._source_identity(url=url, repo=repo, ref=ref,
+                                         path=path, symbol=symbol)
         bypass = self._reuse_bypass(args, ctx)
-        if claim_keys and not bypass:
+        # Reuse — про ПРОЧИТАННЫЙ источник: discovery всегда ищет заново
+        # (дешёвый вызов, а «найденный ранее репозиторий» может устареть).
+        reuse_allowed = operation in (_sr.OPERATION_READ, _sr.OPERATION_LOCATE)
+        if claim_keys and not bypass and reuse_allowed:
             reused = self._source_reuse_payload(
                 reader, claim_keys, identity=identity, scope=scope,
                 chat_id=chat_id, operation=operation)
@@ -3038,19 +3041,27 @@ class ToolRouter:
         if claim_keys and payload.get("status") == _sr.STATUS_OK \
                 and payload.get("verified"):
             for key in claim_keys:
+                # Хранится ровно доставленный фрагмент (без среза): иначе reuse
+                # отдавал бы меньше текста, чем первый ответ, и не мог бы
+                # честно сообщить обрезку (§1.1, прецедент `fetch_article`).
                 source_reuse.store(
                     key, url=str(payload.get("verified_url") or ""),
                     source_id=str(payload.get("source_id") or ""),
-                    snippet=str(payload.get("snippet") or "")[:2000],
+                    snippet=str(payload.get("snippet") or ""),
                     read_level=str(payload.get("read_level")
                                    or source_reuse.READ_LEVEL_SELECTED),
                     source_kind=str(payload.get("source_kind") or ""),
                     scope=scope, chat_id=chat_id,
                     full_source_pointer=self._source_pointer(payload))
-        error = payload.get("error") or {}
-        if isinstance(error, dict) and error.get("code"):
-            # MCA-11 (M-MCA02-3): SafeFetchError-код/стадия/retryable →
-            # out-of-band сигнал ToolResult (payload при этом не меняется).
+        # MCA-11 (M-MCA02-3, контракт §2): SafeFetchError-код/стадия/retryable →
+        # out-of-band сигнал ToolResult. Полная запись лежит в `error_detail`
+        # (`error` — строкой-кодом ради `tool_result`), поэтому читаем её;
+        # dict-форма поддержана для совместимости.
+        error = payload.get("error_detail")
+        if not isinstance(error, dict):
+            candidate = payload.get("error")
+            error = candidate if isinstance(candidate, dict) else {}
+        if error.get("code"):
             _tool_result.set_signal(ctx, {
                 "error_code": str(error.get("code") or ""),
                 "stage": str(error.get("stage") or ""),
@@ -3085,6 +3096,7 @@ class ToolRouter:
     @staticmethod
     def _source_pointer(payload: dict) -> dict:
         """Указатель источника для reuse (без текста кода — identity/строки)."""
+        truncation = payload.get("truncation") or {}
         return {
             "provider": "github",
             "repo": str(payload.get("repo") or ""),
@@ -3095,7 +3107,69 @@ class ToolRouter:
             "file_total_lines": int(payload.get("file_total_lines") or 0),
             "source_kind": str(payload.get("source_kind") or ""),
             "sha256": str((payload.get("provenance") or {}).get("sha256") or ""),
+            # Метаданные ДОСТАВЛЕННОГО фрагмента: без них reuse-ответ врал бы
+            # «truncated=false, остаток 0» (§1.1 «объём/обрезка»).
+            "delivered_chars": int(payload.get("snippet_chars") or 0),
+            "truncated": bool(truncation.get("truncated")),
+            "why": str(truncation.get("why") or ""),
+            "effective_limit": int(truncation.get("effective_limit") or 0),
+            "remainder_lines": int(
+                truncation.get("retrievable_remainder_lines") or 0),
+            "language": str(payload.get("language") or ""),
+            "symbol": str(payload.get("symbol") or ""),
+            "symbol_found": bool(payload.get("symbol_found")),
+            "parameter_only": bool(payload.get("parameter_only")),
+            "stage": str(payload.get("stage") or ""),
         }
+
+    @staticmethod
+    def _source_identity(*, url: str, repo: str, ref: str, path: str,
+                         symbol: str) -> dict:
+        """Идентичность запроса для qualified reuse (B2).
+
+        Считается из ФАКТИЧЕСКОГО адреса поверх явных аргументов: ссылка сама
+        несёт repo/ref/path (`url is enough, no repo needed`), поэтому сверка
+        по сырым аргументам пропускала бы смену версии и файла и отдавала бы
+        чужой commit как `verified` (§3.3 контракта).
+
+        ``pairs`` — все допустимые пары (ref, path) из ссылки («короткий ref
+        первым», как в провайдере) и из аргументов: указатель совпадает, если
+        попал хотя бы в одну из них (ветка со слэшем разрешается однозначно)."""
+        from services import source_reader as _sr
+        parsed = _sr.parse_source_url(url) if str(url or "").strip() else None
+        repo_full = ""
+        if parsed is not None and parsed.owner and parsed.repo:
+            repo_full = f"{parsed.owner}/{parsed.repo}"
+        if not repo_full:
+            spec = _sr.parse_repo_spec(repo)
+            if spec is not None:
+                repo_full = f"{spec[0]}/{spec[1]}"
+        ref = str(ref or "").strip()
+        path = str(path or "").strip()
+        pairs: list[tuple[str, str]] = []
+        if ref and path:
+            pairs.append((ref, path))
+        if parsed is not None:
+            for pair in parsed.ref_path_candidates or ():
+                if pair not in pairs:
+                    pairs.append(pair)
+        return {"repo": repo_full, "pairs": tuple(pairs[:4]), "ref": ref,
+                "path": path, "symbol": str(symbol or "")}
+
+    @staticmethod
+    def _source_pointer_matches(pointer: dict, identity: dict) -> bool:
+        """Совпадает ли указатель записи с запрошенной идентичностью (B2)."""
+        repo = str(identity.get("repo") or "").lower()
+        if repo and str(pointer.get("repo") or "").lower() != repo:
+            return False
+        pairs = tuple(identity.get("pairs") or ())
+        stored = (str(pointer.get("ref") or ""), str(pointer.get("path") or ""))
+        if pairs:
+            return stored in pairs
+        # Явных (ref, path) нет (запрос «найди реализацию X»): reuse допустим
+        # только внутри того же репозитория и только на уже найденный файл —
+        # иначе это была бы подмена адреса.
+        return bool(repo and stored[1])
 
     def _source_reuse_payload(self, reader, claim_keys, *, identity: dict,
                               scope: str, chat_id, operation: str):
@@ -3117,15 +3191,13 @@ class ToolRouter:
                     continue
                 if not pointer.get("sha256"):
                     continue
-                if identity.get("path") and \
-                        str(pointer.get("path") or "") != identity["path"]:
+                if not self._source_pointer_matches(pointer, identity):
                     continue
-                if identity.get("ref") and \
-                        str(pointer.get("ref") or "") != identity["ref"]:
-                    continue
-                if identity.get("repo") and \
-                        str(pointer.get("repo") or "").lower() != \
-                        str(identity["repo"]).lower():
+                # Запись и доставленный текст обязаны быть согласованы: если
+                # сохранённый фрагмент короче записанного объёма, честнее
+                # перечитать файл, чем отдавать усечённое как полное.
+                if int(pointer.get("delivered_chars") or 0) != \
+                        len(record.snippet):
                     continue
                 return {
                     "status": "ok", "stage": "fetch", "verified": True,
@@ -3141,14 +3213,21 @@ class ToolRouter:
                     "snippet_chars": len(record.snippet),
                     "file_total_lines": int(pointer.get("file_total_lines")
                                             or 0),
-                    "language": "",
-                    "symbol": str(identity.get("symbol") or ""),
-                    "symbol_found": False,
-                    "parameter_only": False,
+                    "language": str(pointer.get("language") or ""),
+                    "symbol": str(pointer.get("symbol")
+                                  or identity.get("symbol") or ""),
+                    "symbol_found": bool(pointer.get("symbol_found")),
+                    "parameter_only": bool(pointer.get("parameter_only")),
+                    # Честная обрезка ДОСТАВЛЕННОГО фрагмента: те же числа, что
+                    # были в первом ответе (§1.1 «объём/обрезка»).
                     "truncation": {
-                        "truncated": False, "why": "",
-                        "effective_limit": 0, "limit_source": "reuse",
-                        "retrievable_remainder_lines": 0},
+                        "truncated": bool(pointer.get("truncated")),
+                        "why": str(pointer.get("why") or ""),
+                        "effective_limit": int(pointer.get("effective_limit")
+                                               or 0),
+                        "limit_source": "reuse",
+                        "retrievable_remainder_lines": int(
+                            pointer.get("remainder_lines") or 0)},
                     "not_checked": {
                         "files_considered": 0, "files_read": 0,
                         "depth_left": 0, "reason": "reuse"},

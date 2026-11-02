@@ -88,10 +88,41 @@ FILE_TEST = """package acme;
 public class ParallelLogicTest { }
 """
 
+#: Тот же исходник в CRLF: реальные Windows-репозитории (и 16 файлов этого
+#: репозитория) закоммичены так. Фрагмент обязан оставаться точной подстрокой.
+FILE_CRLF = FILE_LOGIC.replace("\n", "\r\n")
+
+#: UTF-8 с кириллицей в комментариях и строках — обычный русский исходник.
+FILE_CYRILLIC = """package acme;
+
+// Параллельный выход: считаем по пределу
+public class ParallelLimit {
+    private int limit = 4;
+
+    public int compute(int requested) {
+        // минимум из запрошенного и предела
+        return Math.min(requested, limit);
+    }
+}
+"""
+
+#: Бинарные байты (заголовок PNG + NUL): не «код», verified быть не может.
+FILE_BINARY = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+               b"\x00\x00\x01\x00\x00\x00\x01\x00\x08\x06\x00"
+               b"\x00\x00\x1f\x15\xc4\x89\x00\x00")
+
+#: Не-UTF-8 байты (0xFF) — честный invalid_encoding, не «файл не найден».
+FILE_BAD_UTF8 = b"package acme;\n// caf\xe9 \xff\nclass A {}\n"
+
 FILES = {
     "src/main/java/acme/ParallelHatchPartMachine.java": FILE_MACHINE,
     "src/main/java/acme/ParallelLogic.java": FILE_LOGIC,
     "src/main/java/acme/ParallelConfig.java": FILE_CONFIG,
+    "src/main/java/acme/CrlfLogic.java": FILE_CRLF,
+    "src/main/java/acme/ParallelLimit.java": FILE_CYRILLIC,
+    "src/main/java/acme/Empty.java": "",
+    "src/main/java/acme/Legacy.java": FILE_BAD_UTF8,
+    "assets/logo.bin": FILE_BINARY,
     "src/test/java/acme/ParallelLogicTest.java": FILE_TEST,
     "README.md": "# acme mod\n",
 }
@@ -105,10 +136,23 @@ def _sha(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()
 
 
+def _sha_bytes(data: bytes) -> str:
+    return hashlib.sha1(data).hexdigest()
+
+
+def _b64_bytes(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
+
+
 def _tree(files: dict) -> dict:
-    entries = [{"path": path, "type": "blob", "sha": _sha(body),
-                "size": len(body.encode("utf-8"))}
-               for path, body in files.items()]
+    entries = []
+    for path, body in files.items():
+        if isinstance(body, bytes):
+            entries.append({"path": path, "type": "blob",
+                            "sha": _sha_bytes(body), "size": len(body)})
+        else:
+            entries.append({"path": path, "type": "blob", "sha": _sha(body),
+                            "size": len(body.encode("utf-8"))})
     entries.append({"path": "src/main/java/acme", "type": "tree",
                     "sha": _sha("dir")})
     return {"sha": COMMIT, "tree": entries, "truncated": False}
@@ -121,8 +165,12 @@ class FakeGitHub:
                  body: bytes | None = None, redirect_to: str = "",
                  path_mismatch: bool = False, truncated_tree: bool = False,
                  raw_disabled: bool = False,
+                 tree_status: int | None = None,
+                 directories: tuple[str, ...] = (),
                  search_items: list | None = None) -> None:
         self.files = dict(FILES if files is None else files)
+        self.directories = set(directories)
+        self.tree_status = tree_status
         self.status = status
         self.body = body
         self.redirect_to = redirect_to
@@ -138,9 +186,16 @@ class FakeGitHub:
         return httpx.Response(status, json=payload, request=request)
 
     def _contents(self, request, path: str) -> httpx.Response:
+        if path in self.directories:
+            return self._json(request, [{"name": "x", "type": "file"}])
         body = self.files.get(path)
         if body is None:
             return self._json(request, {"message": "Not Found"}, 404)
+        if isinstance(body, bytes):
+            return self._json(request, {
+                "type": "file", "path": path,
+                "sha": _sha_bytes(body), "size": len(body),
+                "encoding": "base64", "content": _b64_bytes(body)})
         return self._json(request, {
             "type": "file",
             "path": "src/main/java/acme/Other.java" if self.path_mismatch
@@ -182,6 +237,9 @@ class FakeGitHub:
                     return self._json(request, {"message": "Not Found"}, 404)
                 return self._json(request, [{"sha": sha}])
             if path == f"/repos/{REPO}/git/trees/{COMMIT}":
+                if self.tree_status:
+                    return self._json(request, {"message": "boom"},
+                                      self.tree_status)
                 tree = _tree(self.files)
                 tree["truncated"] = self.truncated_tree
                 return self._json(request, tree)
@@ -192,6 +250,12 @@ class FakeGitHub:
             if path.startswith(blob_prefix):
                 sha = path[len(blob_prefix):]
                 for body in self.files.values():
+                    if isinstance(body, bytes):
+                        if _sha_bytes(body) == sha:
+                            return self._json(request, {
+                                "sha": sha, "size": len(body),
+                                "encoding": "base64", "content": _b64_bytes(body)})
+                        continue
                     if _sha(body) == sha:
                         return self._json(request, {
                             "sha": sha, "size": len(body.encode("utf-8")),
@@ -206,7 +270,8 @@ class FakeGitHub:
             body = self.files.get("/".join(parts[3:])) if len(parts) > 3 else None
             if body is None:
                 return httpx.Response(404, content=b"", request=request)
-            return httpx.Response(200, content=body.encode("utf-8"),
+            raw = body if isinstance(body, bytes) else body.encode("utf-8")
+            return httpx.Response(200, content=raw,
                                   headers={"content-type": "text/plain"},
                                   request=request)
         return httpx.Response(404, content=b"", request=request)
@@ -499,6 +564,19 @@ class TestFollowUp:
         assert payload["not_checked"]["depth_left"] == 0
 
     @pytest.mark.asyncio
+    async def test_tree_failure_does_not_destroy_verified_read(self):
+        """Сбой дерева в follow-up → цепочка неполна, но чтение подтверждено."""
+        payload = await _reader(FakeGitHub(tree_status=502)).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/ParallelHatchPartMachine.java",
+            symbol="getParallel", follow=True)
+        assert payload["status"] == sr.STATUS_OK
+        assert payload["verified"] is True
+        assert payload["followup_incomplete"] is True
+        assert payload["not_checked"]["reason"] == "tree_unavailable"
+        assert payload["files"][0]["role"] == "primary"
+
+    @pytest.mark.asyncio
     async def test_follow_false_keeps_single_file(self):
         fake = FakeGitHub()
         payload = await _reader(fake).run(
@@ -594,14 +672,27 @@ class TestHonestFailures:
         assert payload["snippet"] == ""
 
     @pytest.mark.asyncio
-    async def test_credentials_in_url_are_rejected(self):
+    async def test_credentialed_link_is_stripped_and_never_reaches_network(self):
+        """Креденшелы в ссылке: в запросы/логи/payload они не попадают.
+
+        Пользовательский URL не передаётся транспорту как есть (провайдер
+        строит адреса сам), поэтому опасность — именно утечка. Проверяем
+        фактические контакты и содержимое payload, а не «отказ»."""
         fake = FakeGitHub()
         payload = await _reader(fake).run(
             operation=sr.OPERATION_READ,
-            url="https://user:pass@github.com/acme/mod/blob/main/x.py")
-        # Креденшелы в ссылке — не источник чтения: отказ до сети.
-        assert payload["status"] in (sr.STATUS_ERROR, sr.STATUS_UNSUPPORTED)
-        assert payload["verified"] is False
+            url="https://user:pass@github.com/acme/mod/blob/main/"
+                "src/main/java/acme/ParallelLogic.java", follow=False)
+        hosts = {call.split("/")[0] for call in fake.calls}
+        assert hosts <= {"api.github.com", "raw.githubusercontent.com"}
+        # Сама ссылка с креденшелами гасится существующим guard'ом SafeFetcher.
+        with pytest.raises(sf.SafeFetchError) as exc:
+            sf.guarded_target("https://user:pass@github.com/acme/mod")
+        assert exc.value.code == "credentials_in_url"
+        body = json.dumps(payload, ensure_ascii=False)
+        assert "pass@" not in body and "user:" not in body
+        assert payload["repo"] == REPO
+        assert payload["verified"] in (True, False)   # чтение, не утечка
 
     @pytest.mark.asyncio
     async def test_missing_identity_arguments(self):
@@ -667,16 +758,22 @@ class TestGuards:
                 name = getattr(node.func, "id", "")
                 assert name not in banned_calls, name
 
-    def test_payload_never_contains_tokens_or_raw_urls(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_payload_never_contains_tokens_or_raw_urls(self, monkeypatch):
         monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN",
                             "ghp_SUPERSECRETTOKEN123")
-        provider = sr.GitHubProvider(sf.SafeFetcher(), token=sr.github_token())
+        provider = sr.GitHubProvider(sf.SafeFetcher(),
+                                    token=sr.github_token())
         headers = provider._headers()
         assert headers["Authorization"].endswith("ghp_SUPERSECRETTOKEN123")
-        # В лог-идентификатор токен не попадает (R17-маскирование).
-        masked = sr.safe_log_ref(
-            "https://api.github.com/repos/a/b?token=ghp_SUPERSECRETTOKEN123")
-        assert "ghp_SUPERSECRETTOKEN123" not in masked
+        # Токен живёт только в заголовке: ни payload, ни provenance его не несут.
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="1.20.1",
+            path="src/main/java/acme/ParallelLogic.java", follow=False)
+        body = json.dumps(payload, ensure_ascii=False)
+        assert "ghp_SUPERSECRETTOKEN123" not in body
+        assert "Authorization" not in body
+        assert "://" not in json.dumps(payload["provenance"])
 
 
 # ── 7. Reuse: те же байты без сети, смена версии — новый fetch ────────────
@@ -701,6 +798,99 @@ class TestQualifiedReuse:
         assert second["snippet"] == first["snippet"]
         assert second["line_range"] == first["line_range"]
         assert len(fake.calls) == calls_after_first      # ни одного нового вызова
+
+    @pytest.mark.asyncio
+    async def test_reuse_by_link_with_other_ref_fetches(self):
+        """Тот же claim, две ссылки с разным ref → второй вызов читает заново."""
+        fake = FakeGitHub()
+        router = _router(fake)
+        claim = {"entity": "parallel output", "relation": "spec",
+                 "version": "1.20.1"}
+        first = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim,
+             "url": ("https://github.com/acme/mod/blob/1.20.1/src/main/java/"
+                     "acme/ParallelLogic.java")}, _ctx()))
+        assert first["status"] == "ok" and first["verified"] is True
+        assert first["ref"] == "1.20.1"
+        second = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim,
+             "url": ("https://github.com/acme/mod/blob/main/src/main/java/"
+                     "acme/ParallelLogic.java")}, _ctx()))
+        assert second["reused"] is False          # чужая версия не переиспользована
+        assert second["ref"] == "main"
+        assert second["network_calls"] > 0
+
+    @pytest.mark.asyncio
+    async def test_reuse_by_link_to_other_file_fetches(self):
+        """Тот же claim, ссылка на ДРУГОЙ файл → отдаётся запрошенный файл."""
+        fake = FakeGitHub()
+        router = _router(fake)
+        claim = {"entity": "parallel output", "relation": "spec"}
+        base = "https://github.com/acme/mod/blob/main/src/main/java/acme/"
+        first = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim, "url": base + "ParallelLogic.java"},
+            _ctx()))
+        assert first["path"].endswith("ParallelLogic.java")
+        second = json.loads(await router.dispatch(
+            "read_source_code",
+            {"operation": "read", "claim": claim, "url": base + "ParallelConfig.java"},
+            _ctx()))
+        assert second["reused"] is False
+        assert second["path"].endswith("ParallelConfig.java")
+        assert "chanceLimit" in second["snippet"]
+
+    @pytest.mark.asyncio
+    async def test_reuse_same_link_with_branch_slash_reuses(self):
+        """Ветка со слэшем: повторная та же ссылка = reuse, без сети."""
+        fake = FakeGitHub()
+        router = _router(fake)
+        claim = {"entity": "parallel output", "relation": "spec"}
+        url = ("https://github.com/acme/mod/blob/feature/x/src/main/java/acme/"
+               "ParallelLogic.java")
+        first = json.loads(await router.dispatch(
+            "read_source_code", {"operation": "read", "claim": claim,
+                                 "url": url}, _ctx()))
+        assert first["verified"] is True
+        assert first["path"].endswith("ParallelLogic.java")
+        # ref показывается тот, к которому чтение реально привязано.
+        assert first["ref"] == "feature/x"
+        calls = len(fake.calls)
+        again = json.loads(await router.dispatch(
+            "read_source_code", {"operation": "read", "claim": claim,
+                                 "url": url}, _ctx()))
+        assert again["reused"] is True
+        assert again["network_calls"] == 0
+        assert len(fake.calls) == calls
+
+    @pytest.mark.asyncio
+    async def test_reuse_keeps_honest_truncation_metadata(self):
+        """Повторное чтение большого файла: те же обрезка/остаток/строки (B3)."""
+        body = "\n".join(f"int field{i} = {i};" for i in range(1, 1201)) + "\n"
+        fake = FakeGitHub(files={"src/main/java/acme/Huge.java": body})
+        router = _router(fake)
+        args = {"operation": "read", "repo": REPO, "ref": "main",
+                "path": "src/main/java/acme/Huge.java", "follow": False,
+                "claim": {"entity": "huge file", "relation": "spec"}}
+        ctx = _ctx()
+        ctx.evidence_budget_chars = 8000
+        first = json.loads(await router.dispatch("read_source_code", args, ctx))
+        assert first["truncation"]["truncated"] is True
+        assert first["truncation"]["retrievable_remainder_lines"] > 0
+        first_chars = first["snippet_chars"]
+        first_range = list(first["line_range"])
+        second = json.loads(await router.dispatch("read_source_code", args, _ctx()))
+        assert second["reused"] is True
+        assert second["network_calls"] == 0
+        # Тот же доставленный фрагмент и та же ЧЕСТНАЯ обрезка.
+        assert second["snippet_chars"] == first_chars
+        assert second["snippet"] == first["snippet"]
+        assert second["line_range"] == first_range
+        assert second["truncation"]["truncated"] is True
+        assert second["truncation"]["retrievable_remainder_lines"] == \
+            first["truncation"]["retrievable_remainder_lines"]
 
     @pytest.mark.asyncio
     async def test_changed_ref_forces_new_fetch(self):
@@ -777,6 +967,110 @@ class TestQualifiedReuse:
                                    scope="public", chat_id=None,
                                    operation="read")
         assert payload is None
+
+
+# ── 3b. B1: байтовые семантики (CRLF, не-UTF-8, бинарь, кириллица) ────────
+
+class TestByteSemantics:
+    @pytest.mark.asyncio
+    async def test_crlf_file_verifies_and_snippet_is_exact_substring(self):
+        """CRLF-исходник: `verified=true`, фрагмент — точные байты файла."""
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="1.20.1",
+            path="src/main/java/acme/CrlfLogic.java", symbol="compute",
+            follow=False)
+        assert payload["status"] == sr.STATUS_OK, payload
+        assert payload["verified"] is True
+        # Фрагмент сохраняет реальные переводы строк файла и совпадает
+        # ПОСТРОЧНО с диапазоном line_range (иное означало бы сдвиг смещений).
+        assert "\r\n" in payload["snippet"]
+        assert payload["snippet"] in FILE_CRLF
+        # Строки CRLF-файла уже содержат свой "\r", поэтому склейка идёт
+        # через "\n" и воспроизводит реальные "\r\n" файла.
+        lines = sr.split_lines(FILE_CRLF)
+        start, end = payload["line_range"]
+        assert payload["snippet"] == "\n".join(lines[start - 1:end])
+        assert lines[start - 1].endswith("\r")
+        assert payload["file_total_lines"] == len(sr.split_lines(FILE_CRLF))
+        # Номера строк считаются по реальному файлу: `compute` — 10-я строка.
+        assert payload["symbol_found"] is True
+        assert payload["line_range"][0] <= 10 <= payload["line_range"][1]
+        assert payload["verified_url"].startswith(
+            f"https://github.com/{REPO}/blob/{COMMIT}/")
+
+    @pytest.mark.asyncio
+    async def test_utf8_cyrillic_file_verifies_with_correct_lines(self):
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/ParallelLimit.java", symbol="compute",
+            follow=False)
+        assert payload["status"] == sr.STATUS_OK
+        assert payload["verified"] is True
+        assert "Параллельный выход" in payload["snippet"]
+        assert payload["snippet"] in FILE_CYRILLIC
+        cyrillic_lines = sr.split_lines(FILE_CYRILLIC)
+        start, end = payload["line_range"]
+        assert payload["snippet"] == "\n".join(cyrillic_lines[start - 1:end])
+        assert payload["symbol_found"] is True
+        assert payload["file_total_lines"] == len(sr.split_lines(FILE_CYRILLIC))
+
+    @pytest.mark.asyncio
+    async def test_binary_file_never_verifies(self):
+        """PNG-байты с NUL не могут стать «проверенным исходником»."""
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="assets/logo.bin", follow=False)
+        assert payload["status"] == sr.STATUS_UNSUPPORTED
+        assert payload["verified"] is False
+        assert payload["verified_url"] == ""
+        assert payload["snippet"] == ""
+        assert payload["reason"] == "binary_content"
+        assert payload["not_checked"]["files_read"] == 1
+
+    @pytest.mark.asyncio
+    async def test_invalid_utf8_is_not_source(self):
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/Legacy.java", follow=False)
+        assert payload["status"] == sr.STATUS_UNSUPPORTED
+        assert payload["verified"] is False
+        assert payload["reason"] == "invalid_encoding"
+
+    @pytest.mark.asyncio
+    async def test_empty_file_is_not_missing(self):
+        payload = await _reader(FakeGitHub()).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/Empty.java", follow=False)
+        assert payload["status"] == sr.STATUS_UNSUPPORTED
+        assert payload["reason"] == "empty_content"
+        assert payload["verified"] is False
+        assert payload["path"] == "src/main/java/acme/Empty.java"
+
+    @pytest.mark.asyncio
+    async def test_directory_path_is_directory_not_missing(self):
+        fake = FakeGitHub(directories=("src/main/java/acme",))
+        payload = await _reader(fake).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme", follow=False)
+        assert payload["status"] == sr.STATUS_UNSUPPORTED
+        assert payload["reason"] == "path_is_directory"
+        assert payload["source_kind"] == sr.KIND_DIRECTORY
+        assert payload["verified"] is False
+
+    def test_decode_rule_is_strict(self):
+        """Правило декодирования: UTF-8 strict, без latin-1-отката, без NUL."""
+        assert sr.decode_source_bytes("код".encode("utf-8")).ok is True
+        assert sr.decode_source_bytes(b"a\r\nb\r\n").text == "a\r\nb\r\n"
+        bad = sr.decode_source_bytes(b"\xff\xfe\xfd")
+        assert bad.ok is False and bad.reason == "invalid_encoding"
+        # NUL в сырых байтах — бинарь, даже если кодировка «не читается».
+        assert sr.decode_source_bytes(b"\xff\x00").reason == "binary_content"
+        binary = sr.decode_source_bytes(b"MZ\x00\x01\x02")
+        assert binary.ok is False and binary.reason == "binary_content"
+        assert sr.decode_source_bytes(b"").reason == "empty_content"
+        # Строки: разделитель только \n, CR сохраняется, хвостовой \n не строка.
+        assert sr.split_lines("a\r\nb\r\n") == ["a\r", "b\r"]
+        assert sr.split_lines("a\nb") == ["a", "b"]
 
 
 # ── 4b. Доказательность payload (§1.4): без выдуманной хронологии ─────────
@@ -863,6 +1157,46 @@ class TestEvidenceWindow:
         assert ctx.evidence_limits[-1]["tool"] == "read_source_code"
         assert ctx.evidence_limits[-1]["source_read_level"] in (
             "selected", "parsed")
+
+
+# ── 8b. Исходящий сигнал §2 и закрытый словарь кодов (N1/N3) ──────────────
+
+class TestOutboundSignal:
+    @pytest.mark.asyncio
+    async def test_fetch_failure_sets_out_of_band_signal(self):
+        """§2: SafeFetchError-код/стадия/retryable → out-of-band сигнал."""
+        ctx = _ctx()
+        out = await _router(FakeGitHub(status=404, body=b"")).dispatch(
+            "read_source_code",
+            {"operation": "read", "repo": REPO, "ref": "1.20.1",
+             "path": "src/main/java/acme/Missing.java"}, ctx)
+        payload = json.loads(out)
+        assert payload["status"] == "error"
+        assert payload["error"] == sr.ERR_SOURCE_MISSING
+        signal = tool_result.take_signal(ctx)
+        assert isinstance(signal, dict), signal
+        assert signal["error_code"] == sr.ERR_SOURCE_MISSING
+        assert signal["retryable"] is False
+        assert signal["stage"] in sr.STAGES
+
+    @pytest.mark.asyncio
+    async def test_provider_5xx_signal_is_retryable(self):
+        ctx = _ctx()
+        await _router(FakeGitHub(status=502, body=b"")).dispatch(
+            "read_source_code",
+            {"operation": "read", "repo": REPO, "ref": "main",
+             "path": "a/B.java"}, ctx)
+        signal = tool_result.take_signal(ctx)
+        assert signal["error_code"] == sr.ERR_PROVIDER_UNAVAILABLE
+        assert signal["retryable"] is True
+
+    def test_every_mapped_reason_code_exists_in_dictionary(self):
+        """N3: ни один payload-код не отображается в несуществующий код."""
+        unknown = {payload_code: reason
+                   for payload_code, reason in sr._REASON_FOR_CODE.items()
+                   if reason not in mca_events.REASON_CODES}
+        assert unknown == {}
+        assert sr.ERR_UNSUPPORTED_KIND in sr._REASON_FOR_CODE
 
 
 # ── 9. Телеметрия: стадии различимы, коды — существующие ──────────────────

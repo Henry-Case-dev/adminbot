@@ -40,7 +40,7 @@ from typing import Any, Protocol
 from urllib.parse import unquote, urlsplit
 
 from config.settings import settings
-from services.safe_fetch import SafeFetchError, mask_url
+from services.safe_fetch import SafeFetchError
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,8 @@ ERR_PROVIDER_UNCONFIGURED = "provider_unconfigured"
 ERR_DISABLED = "disabled"
 ERR_INVALID_URL = "invalid_url"
 ERR_UNSUPPORTED_KIND = "unsupported"
+#: Пустой файл — это НЕ «файла нет»: отдельная машинная причина.
+ERR_EMPTY_CONTENT = "empty_content"
 
 #: payload-код → существующий `mca_events.REASON_CODES` (§5):
 #: `no_relevant_results` — payload-код, в словаре ему соответствует
@@ -123,7 +125,11 @@ _REASON_FOR_CODE = {
     ERR_PROVIDER_UNCONFIGURED: "provider_unconfigured",
     ERR_DISABLED: "disabled",
     ERR_INVALID_URL: "invalid_url",
-    ERR_UNSUPPORTED_KIND: "capability_not_ready",
+    # «Форма ответа, которую нельзя использовать как код» (каталог, symlink,
+    # submodule, не-UTF-8/бинарь) — существующий код класса parser/битого
+    # ответа. Значения `capability_not_ready` в `mca_events.REASON_CODES` НЕТ,
+    # поэтому оно здесь не используется (0 новых кодов).
+    ERR_UNSUPPORTED_KIND: "parse_error",
 }
 
 # ── предохранители (потолки — контракт §4) ──────────────────────────────────
@@ -692,17 +698,21 @@ class GitHubProvider:
             if contents.data:
                 return contents
             # содержимое не вложено (файл > 1 MB) — берём blobs по sha.
-            if contents.sha:
+            if contents.size and contents.sha:
                 file = await self._read_blob(repo, contents.sha, path)
                 if file is not None:
                     return file
+            # size == 0 и байтов нет: файл действительно пуст. Возвращаем его
+            # как есть — вызывающий отдаст честный `unsupported/empty_content`,
+            # а не «файла нет».
+            return contents
         raw_file = None
         try:
             raw_file = await self._read_raw(repo, commit, encoded, path)
         except SourceFetchError as exc:
             if exc.code != ERR_SOURCE_MISSING:
                 last_error = exc
-        if raw_file is not None and raw_file.data:
+        if raw_file is not None:
             return raw_file
         if last_error is not None:
             # Причина отказа содержимого не маскируется «файла нет»: сначала
@@ -835,24 +845,91 @@ def language_for_path(path: str) -> str:
     return _LANGUAGE_BY_EXT.get(name[dot:].lower(), "") if dot >= 0 else ""
 
 
-def decode_file_text(data: bytes) -> str:
-    """Байты → текст (utf-8, затем честный отказ на не-utf8)."""
+@dataclass(frozen=True)
+class DecodedSource:
+    """Результат строгого декодирования байт источника.
+
+    ``ok=False`` — это НЕ «файла нет»: байты получены, но это не текст
+    исходника (не-UTF-8 или служебные/бинарные байты). Причина — закрытый
+    машинный тег, наружу отдаётся как ``reason``/``detail``."""
+
+    text: str = ""
+    ok: bool = False
+    reason: str = ""
+
+
+#: Доля служебных символов, выше которой содержимое считается бинарным.
+#: Считаются только управляющие символы, НЕ являющиеся текстовыми
+#: (`\t`, `\n`, `\r` — легальные байты исходника, включая CRLF).
+_MAX_CONTROL_RATIO = 0.02
+_TEXT_CONTROLS = frozenset({"\t", "\n", "\r", "\f", "\v"})
+
+
+def decode_source_bytes(data: bytes) -> DecodedSource:
+    """Строгое декодирование источника: UTF-8 без откатов и без «бинарного ok».
+
+    Правило (V1.2): ``verified`` возможен только для текста, декодированного
+    строго как UTF-8 и не состоящего из служебных/бинарных байтов. Latin-1 и
+    прочие «всеядные» декодеры не используются: они превращают PNG/архив в
+    «код» с NUL-ами. Не-UTF-8 и бинарь → честный ``ok=False`` с причиной."""
     if not data:
-        return ""
+        return DecodedSource(reason="empty_content")
+    # NUL в сырых байтах — однозначный бинарь: отдельная причина честнее
+    # «invalid_encoding» (PNG/архив/исполняемый файл).
+    if b"\x00" in data:
+        return DecodedSource(reason="binary_content")
     try:
-        return data.decode("utf-8")
+        text = data.decode("utf-8")
     except UnicodeDecodeError:
-        try:
-            return data.decode("latin-1")
-        except UnicodeDecodeError:      # pragma: no cover - защитная ветка
-            return ""
+        return DecodedSource(reason="invalid_encoding")
+    controls = 0
+    for char in text:
+        if char in _TEXT_CONTROLS:
+            continue
+        code = ord(char)
+        if code < 0x20 or code == 0x7F:
+            controls += 1
+    if controls and controls / max(1, len(text)) > _MAX_CONTROL_RATIO:
+        return DecodedSource(reason="binary_content")
+    return DecodedSource(text=text, ok=True)
+
+
+def decode_file_text(data: bytes) -> str:
+    """Текст источника или ``""`` (тонкая обёртка над строгим правилом)."""
+    return decode_source_bytes(data).text
 
 
 def split_lines(text: str) -> list[str]:
-    """Строки файла без завершающих переводов (1-based нумерация снаружи)."""
+    """Строки файла: разделитель — только ``\\n``, ``\\r`` сохраняется.
+
+    ``str.splitlines()`` здесь непригоден: он съедает ``\\r``, и любой
+    CRLF-исходник переставал быть «точным фрагментом» реальных байт (ложный
+    ``verified=false``). Завершающий перевод строки не создаёт лишнюю строку."""
     if not text:
         return []
-    return text.splitlines()
+    parts = text.split("\n")
+    if len(parts) > 1 and parts[-1] == "":
+        parts.pop()
+    return parts
+
+
+def line_spans(text: str) -> list[tuple[int, int]]:
+    """Смещения (start, end) каждой строки в исходном тексте (без ``\\n``).
+
+    ``end`` включает ``\\r`` для CRLF-файла: срез по смещениям даёт ровно те
+    байты, что были в файле."""
+    spans: list[tuple[int, int]] = []
+    offset = 0
+    for line in split_lines(text):
+        spans.append((offset, offset + len(line)))
+        offset += len(line) + 1
+    return spans
+
+
+def strip_line_ending(line: str) -> str:
+    """Строка без хвостового ``\\r`` — только для синтаксического разбора."""
+    return line[:-1] if line.endswith("\r") else line
+
 
 
 def locate_symbol_line(lines: list[str], symbol: str) -> int:
@@ -863,7 +940,7 @@ def locate_symbol_line(lines: list[str], symbol: str) -> int:
     pattern = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(token)
                          + r"(?![A-Za-z0-9_])")
     for index, line in enumerate(lines, start=1):
-        if pattern.search(line):
+        if pattern.search(strip_line_ending(line)):
             return index
     return 0
 
@@ -875,7 +952,7 @@ def symbol_occurrences(lines: list[str], symbol: str) -> list[int]:
     pattern = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(token)
                          + r"(?![A-Za-z0-9_])")
     return [index for index, line in enumerate(lines, start=1)
-            if pattern.search(line)]
+            if pattern.search(strip_line_ending(line))]
 
 
 #: Формы строки, при которых символ «только выставляет параметр» (§4, §1.2.4):
@@ -900,7 +977,7 @@ def is_parameter_only(lines: list[str], symbol: str) -> bool:
     token = re.escape(str(symbol).strip())
     patterns = [re.compile(p.pattern.format(sym=token)) for p in _PARAMETER_ONLY_RES]
     for index in hits:
-        line = lines[index - 1]
+        line = strip_line_ending(lines[index - 1])
         if not any(pattern.search(line) for pattern in patterns):
             return False
     return True
@@ -972,42 +1049,42 @@ class SnippetWindow:
     total_lines: int = 0
 
 
-def build_snippet(lines: list[str], *, budget_chars: int,
+def build_snippet(text: str, *, budget_chars: int,
                   symbol_line: int = 0, line_start: int | None = None,
-                  line_end: int | None = None,
-                  need: str = "start") -> SnippetWindow:
-    """Собрать фрагмент из строк файла в пределах динамического окна.
+                  line_end: int | None = None) -> SnippetWindow:
+    """Собрать фрагмент как ТОЧНЫЙ срез исходного текста (V1.3).
 
-    ``text`` — ТОЧНАЯ подстрока исходного текста (строки a..b, склеенные
-    ``\\n``): номера строк передаются отдельно (`line_range`), поэтому
+    ``text`` — декодированный текст файла целиком; фрагмент вырезается по
+    смещениям строк, поэтому переводы строк (в том числе ``\\r\\n``) остаются
+    теми же, что в файле. Номера строк передаются отдельно (`line_range`),
     единственная копия кода в payload остаётся дословной."""
+    lines = split_lines(text)
     total = len(lines)
     if total <= 0:
         return SnippetWindow(total_lines=0)
+    spans = line_spans(text)
     start, end = line_window(total, symbol_line=symbol_line,
                              line_start=line_start, line_end=line_end)
     if start <= 0 or end < start:
         return SnippetWindow(total_lines=total)
     limit = int(budget_chars or 0)
     chosen_end = start - 1
-    used = 0
     for index in range(start, end + 1):
-        piece = lines[index - 1]
-        extra = len(piece) + (1 if (used or chosen_end >= start) else 0)
-        if limit > 0 and used + extra > limit and chosen_end >= start:
+        # Длина среза от начала первой строки до конца текущей — с реальным
+        # разделителем; бюджет считается по тем же байтам, что доставляются.
+        candidate = spans[index - 1][1] - spans[start - 1][0]
+        if limit > 0 and candidate > limit and chosen_end >= start:
             break
-        used += extra
         chosen_end = index
     if chosen_end < start:
         chosen_end = start
-        used = len(lines[start - 1])
-    text = "\n".join(lines[start - 1:chosen_end])
+    fragment = text[spans[start - 1][0]:spans[chosen_end - 1][1]]
     remainder = total - chosen_end if chosen_end < total else 0
     truncated = chosen_end < total
-    return SnippetWindow(text=text, line_range=(start, chosen_end),
+    return SnippetWindow(text=fragment, line_range=(start, chosen_end),
                          truncated=truncated,
                          why="over_window" if truncated else "",
-                         used_chars=len(text),
+                         used_chars=len(fragment),
                          retrievable_remainder_lines=remainder,
                          total_lines=total)
 
@@ -1341,6 +1418,8 @@ class SourceReader:
         if path_hint and not pairs:
             pairs.append((ref_hint, path_hint))
         seen: set[tuple[str, str]] = set()
+        unsupported: SourceFetchError | None = None
+        pending_empty: tuple | None = None
         for ref_candidate, path_candidate in pairs[:_MAX_REF_CANDIDATES]:
             if not path_candidate or (ref_candidate, path_candidate) in seen:
                 continue
@@ -1363,12 +1442,28 @@ class SourceReader:
                 source_file = await self.provider.read_file(
                     repo, commit, path_candidate)
             except SourceFetchError as exc:
-                if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
+                if exc.code == ERR_UNSUPPORTED_KIND:
+                    # Каталог/symlink/submodule: это не «файла нет». Запоминаем
+                    # честную причину и пробуем следующий кандидат.
+                    unsupported = exc
+                    continue
+                if exc.code == ERR_SOURCE_MISSING:
                     continue
                 raise
-            if source_file is None or not source_file.data:
+            if source_file is None:
+                continue
+            if not source_file.data:
+                empty = True
+                pending_empty = (ref_candidate, commit, path_candidate,
+                                 source_file)
                 continue
             return (ref_candidate, commit, path_candidate, source_file)
+        if unsupported is not None:
+            raise unsupported
+        if pending_empty is not None:
+            # Файл существует, но пуст: возвращаем идентичность и пустые байты,
+            # чтобы вызвавший отдал честный `unsupported/empty_content`.
+            return pending_empty
         return None
 
     async def _commit_for(self, state: "_RunState", info, ref: str) -> str:
@@ -1395,8 +1490,19 @@ class SourceReader:
                          ref_hint: str, path_hint: str, symbol: str,
                          stage: str) -> dict:
         state.stage = stage
-        identity = await self._resolve_identity(
-            state, info, parsed=parsed, ref_hint=ref_hint, path_hint=path_hint)
+        try:
+            identity = await self._resolve_identity(
+                state, info, parsed=parsed, ref_hint=ref_hint,
+                path_hint=path_hint)
+        except SourceFetchError as exc:
+            if exc.code == ERR_UNSUPPORTED_KIND:
+                # Каталог/symlink/submodule вместо файла — честный «это не
+                # читаемый файл», а не «файла нет».
+                return self._not_source_payload(
+                    state, info=info, commit="", path=path_hint,
+                    source_file=None,
+                    reason=exc.detail or "unsupported_kind", stage=stage)
+            raise
         if identity is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
@@ -1404,7 +1510,10 @@ class SourceReader:
             raise SourceFetchError(ERR_SOURCE_MISSING, stage, http=404,
                                    detail="path_or_ref_not_found")
         ref_used, commit, path_used, prefetched = identity
-        state.requested_ref = ref_hint or ref_used
+        # Показываем ref, к которому чтение РЕАЛЬНО привязано: при разборе
+        # `/blob/<ref…>/<path>` «сырая» догадка (например `feature` для ветки
+        # `feature/x`) вводила бы в заблуждение и ломала бы reuse-идентичность.
+        state.requested_ref = ref_used or ref_hint
         if not path_used:
             raise SourceFetchError(ERR_SOURCE_MISSING, stage,
                                    detail="path_required")
@@ -1412,17 +1521,22 @@ class SourceReader:
         if source_file is None:
             source_file = await self.provider.read_file(info.full_name, commit,
                                                         path_used)
-        if source_file is None or not source_file.data:
+        if source_file is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
                         extra={"network_calls": self._network_calls()})
             raise SourceFetchError(ERR_SOURCE_MISSING, stage, http=404,
-                                   detail="empty_file")
+                                   detail="unreadable_file")
+        if not source_file.data:
+            # Пустой файл существует: это не «нет файла», а «нечего читать».
+            return self._not_source_payload(
+                state, info=info, commit=commit, path=path_used,
+                source_file=source_file, reason="empty_content", stage=stage)
         state.files_read += 1
-        text = decode_file_text(source_file.data)
-        lines = split_lines(text)
+        decoded = decode_source_bytes(source_file.data)
+        lines = split_lines(decoded.text)
         symbol_line = locate_symbol_line(lines, symbol) if symbol else 0
-        if symbol and not symbol_line:
+        if decoded.ok and symbol and not symbol_line:
             # Символ не подтверждён байтами: честный not_found, а не «вероятно».
             _emit_stage(stage, "success",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
@@ -1434,7 +1548,7 @@ class SourceReader:
                                  reason="symbol_not_found")
         return self._read_payload(state, info=info, commit=commit,
                                   path=path_used, source_file=source_file,
-                                  lines=lines, symbol=symbol,
+                                  decoded=decoded, symbol=symbol,
                                   symbol_line=symbol_line, stage=stage,
                                   ref_kind=_ref_kind(state.requested_ref))
 
@@ -1479,13 +1593,14 @@ class SourceReader:
             if source_file is None or not source_file.data:
                 continue
             state.files_read += 1
-            lines = split_lines(decode_file_text(source_file.data))
+            decoded = decode_source_bytes(source_file.data)
+            lines = split_lines(decoded.text)
             symbol_line = locate_symbol_line(lines, symbol) if symbol else 0
-            if symbol and not symbol_line:
+            if decoded.ok and symbol and not symbol_line:
                 continue
             return self._read_payload(state, info=info, commit=commit,
                                       path=entry.path, source_file=source_file,
-                                      lines=lines, symbol=symbol,
+                                      decoded=decoded, symbol=symbol,
                                       symbol_line=symbol_line,
                                       stage=STAGE_LOCATOR,
                                       ref_kind=_ref_kind(state.requested_ref))
@@ -1548,7 +1663,13 @@ class SourceReader:
                         reason_code=_REASON_FOR_CODE[ERR_RATE_LIMIT],
                         extra={"network_calls": self._network_calls()})
             return _finish(True)
-        listing = await self.provider.list_tree(info.full_name, commit)
+        # Сбой дерева на этапе follow-up НЕ отменяет уже подтверждённое чтение
+        # основного файла: цепочка просто помечается неполной (честный
+        # not_checked), а не превращается в ошибку инструмента.
+        try:
+            listing = await self.provider.list_tree(info.full_name, commit)
+        except SourceFetchError:
+            listing = None
         if listing is None:
             reason = reason or "tree_unavailable"
             return _finish(True)
@@ -1581,20 +1702,29 @@ class SourceReader:
             if source_file is None or not source_file.data:
                 continue
             state.files_read += 1
-            text = decode_file_text(source_file.data)
+            decoded = decode_source_bytes(source_file.data)
+            if not decoded.ok:
+                # Бинарь/не-UTF-8 среди смежных файлов — не «код»: файл не
+                # добавляется в цепочку (честно, без verified).
+                continue
+            text = decoded.text
             child_lines = split_lines(text)
             child_symbol = _first_present(identifiers, child_lines)
             symbol_line = locate_symbol_line(child_lines, child_symbol) \
                 if child_symbol else 0
-            window = build_snippet(child_lines, budget_chars=per_file_budget,
+            window = build_snippet(text, budget_chars=per_file_budget,
                                    symbol_line=symbol_line)
+            child_verified = bool(
+                window.text and window.text in text
+                and _kind_for_path(entry.path) == KIND_FILE)
             files.append({
                 "path": entry.path,
-                "verified": bool(window.text) and window.text in text,
+                "verified": child_verified,
                 "line_range": [int(window.line_range[0]),
                                int(window.line_range[1])],
-                "verified_url": _verified_url(info.full_name, commit,
-                                              entry.path, window.line_range),
+                "verified_url": (_verified_url(info.full_name, commit,
+                                               entry.path, window.line_range)
+                                 if child_verified else ""),
                 "snippet": window.text,
                 "snippet_chars": len(window.text),
                 "symbol": child_symbol,
@@ -1615,20 +1745,28 @@ class SourceReader:
 
     # -- сборка payload --------------------------------------------------
     def _read_payload(self, state: "_RunState", *, info, commit: str,
-                      path: str, source_file: SourceFile, lines: list[str],
-                      symbol: str, symbol_line: int, stage: str,
-                      ref_kind: str) -> dict:
+                      path: str, source_file: SourceFile,
+                      decoded: "DecodedSource", symbol: str, symbol_line: int,
+                      stage: str, ref_kind: str) -> dict:
         """Payload чтения: `verified` — ТОЛЬКО по инварианту V1.
 
         Заголовок/README/иной вид источника (`source_kind != "file"`)
-        доставляет текст честно (`verified=false`), но НЕ подтверждается."""
+        доставляет текст честно (`verified=false`), но НЕ подтверждается.
+        Содержимое, которое не является текстом исходника (не-UTF-8,
+        NUL/служебные байты), не доставляется и не подтверждается: это
+        ``unsupported`` с машинной причиной, а не «файла нет»."""
         kind = _kind_for_path(path)
-        window = build_snippet(lines, budget_chars=int(state.budget_chars or 0),
+        if not decoded.ok:
+            return self._not_source_payload(
+                state, info=info, commit=commit, path=path,
+                source_file=source_file, reason=decoded.reason, stage=stage)
+        text = decoded.text
+        lines = split_lines(text)
+        window = build_snippet(text, budget_chars=int(state.budget_chars or 0),
                                symbol_line=symbol_line,
                                line_start=state.line_start,
                                line_end=state.line_end)
-        text = decode_file_text(source_file.data)
-        # V1.3: `snippet` — ТОЧНАЯ подстрока декодированных байт.
+        # V1.3: `snippet` — ТОЧНАЯ подстрока декодированного текста.
         exact = bool(window.text) and window.text in text
         parameter_only = bool(symbol) and is_parameter_only(lines, symbol)
         verified = bool(exact and kind == KIND_FILE and bool(lines))
@@ -1678,6 +1816,39 @@ class SourceReader:
                            "path_depth": path.count("/"),
                            "language": payload["language"],
                            "repo_present": True})
+        return payload
+
+    def _not_source_payload(self, state: "_RunState", *, info, commit: str,
+                            path: str, source_file: SourceFile, reason: str,
+                            stage: str) -> dict:
+        """Байты получены, но это не текст исходника → честный `unsupported`.
+
+        Отличается от `source_missing` (файла/ветки нет) и от `ok`: бинарь,
+        не-UTF-8 содержимое, пустой файл, каталог, symlink/submodule
+        называются своими причинами; `verified` всегда False."""
+        payload = self._payload(
+            state, STATUS_UNSUPPORTED,
+            repo=info.full_name, commit=commit, path=path,
+            source_kind=(KIND_DIRECTORY if reason == "path_is_directory"
+                         else _kind_for_path(path)),
+            reason=reason,
+            read_level="fetched")
+        payload["provenance"].update({
+            "provider": PROVIDER_GITHUB,
+            "endpoint": source_file.endpoint if source_file is not None
+            else "",
+            "fetched_at": int(time.time()),
+            "bytes": len(source_file.data) if source_file is not None else 0,
+            "sha256": (hashlib.sha256(source_file.data).hexdigest()
+                       if source_file is not None else ""),
+            "read_level": "fetched",
+        })
+        payload["source_id"] = _source_id(info.full_name, commit, path)
+        _emit_stage(stage, "skipped",
+                    reason_code=_REASON_FOR_CODE[ERR_UNSUPPORTED_KIND],
+                    extra={"network_calls": self._network_calls(),
+                           "files_read": state.files_read,
+                           "verified": False})
         return payload
 
     def _payload(self, state: "_RunState", status: str, **overrides) -> dict:
@@ -1927,13 +2098,6 @@ def _source_id(repo: str, commit: str, path: str) -> str:
     return hashlib.sha256(raw).hexdigest()[:12]
 
 
-# ── безопасный лог-идентификатор (R17) ─────────────────────────────────────
-
-def safe_log_ref(url: str) -> str:
-    """URL для лога без query/секретов (существующий `mask_url`)."""
-    return mask_url(str(url or ""))
-
-
 __all__ = [
     "STATUSES", "STAGES", "OPERATIONS", "SUPPORTED_HOSTS",
     "STATUS_OK", "STATUS_AMBIGUOUS", "STATUS_NOT_FOUND", "STATUS_UNSUPPORTED",
@@ -1944,5 +2108,6 @@ __all__ = [
     "sibling_identifiers", "is_parameter_only", "locate_symbol_line",
     "language_for_path", "decode_file_text", "split_lines",
     "source_read_enabled", "max_files", "max_depth", "max_requests",
-    "max_file_bytes", "github_token", "safe_log_ref",
+    "max_file_bytes", "github_token", "decode_source_bytes", "DecodedSource",
+    "line_spans", "strip_line_ending", "ERR_EMPTY_CONTENT",
 ]

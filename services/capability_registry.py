@@ -876,7 +876,7 @@ async def resolve(capability_id: str, chat_id: int | None = None, *,
             # читается (анонимная квота), поэтому ключ не является гейтом.
             state = await _build_from_announced(
                 cap, "Чтение исходного кода", "read_source_code",
-                "services.source_reader", ("read_source_code",),
+                "services.tool_router", ("read_source_code",),
                 ("url", "repo", "query", "path", "symbol"), now=now)
         else:
             state = CapabilityState(
