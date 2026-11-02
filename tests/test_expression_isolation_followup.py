@@ -193,5 +193,10 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # ASAP-FC-VOICE-01 / B (02.11.2026): L1-планер → EVR3 (правило статуса
     # секции «ПРОФИЛЬ РЕШЕНИЙ») → b1c1ab5b3b68.
     # Мерж P0+P1 (evol/impl): обе ревизии активны одновременно — набор фабричных текстов пересчитан по объединению.
-    assert pr.FACTORY_SET_SHA256_12 == "630ca46dff76"
+    # MEME-PIPELINE-REFactor-01 (03.11.2026): состав набора изменился
+    # осознанно — выжимка мемов переписана без потолка длины
+    # (meme-summary-nolimit-01) и добавлен блок этапа B
+    # initiative.meme.joke (meme-joke-evol014); прочие каноны не тронуты.
+    # Было 630ca46dff76, стало 54ac2b8ac34b.
+    assert pr.FACTORY_SET_SHA256_12 == "54ac2b8ac34b"
 

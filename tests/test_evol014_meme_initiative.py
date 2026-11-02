@@ -96,7 +96,8 @@ def _run(coro):
 
 
 async def _consider(tmp_path, chat_id=-100, *, source=None, provider=None,
-                    summarizer=None, gate=None, sender=None, messages=None,
+                    summarizer=None, joke_generator=None, gate=None,
+                    sender=None, messages=None,
                     reader=None, settings=None, ledger=None,
                     image_status=None, model_chars=200, **kwargs):
     led = ledger if ledger is not None else _ledger(tmp_path)
@@ -105,8 +106,11 @@ async def _consider(tmp_path, chat_id=-100, *, source=None, provider=None,
     if provider is None:
         provider = _Provider()
     if summarizer is None:
-        async def summarizer(cid, rows, target, system):
+        async def summarizer(cid, rows, system):
             return "хук"
+    if joke_generator is None:
+        async def joke_generator(cid, summary, instruction):
+            return "прикол"
     result = await meme.consider_chat(
         None, chat_id,
         settings=settings if settings is not None else _settings(),
@@ -120,6 +124,7 @@ async def _consider(tmp_path, chat_id=-100, *, source=None, provider=None,
         messages=messages if messages is not None else _rows(chat_id),
         message_reader=reader,
         summarizer=summarizer,
+        joke_generator=joke_generator,
         image_provider=provider,
         publish_gate=gate,
         sender=sender,
@@ -300,17 +305,23 @@ async def _async_pair(ok, reason):
     return ok, reason
 
 
-# ── 4. лимит длины до суммаризатора, без обрезки ───────────────────────────
+# ── 4. потолок относится к итоговому prompt, а не к выжимке ─────────────────
 
-def test_length_limit_is_applied_before_summarizer(tmp_path):
+def test_length_budget_goes_to_joke_stage_not_summarizer(tmp_path):
+    """Этап A не получает числовой цели; J = L - T уходит этапу B."""
     seen = {}
     order = []
 
-    async def summarizer(_cid, _rows, target, system):
+    async def summarizer(_cid, _rows, system):
         order.append("summary")
-        seen["target"] = target
         seen["system"] = system
         return "хук"
+
+    async def joke_generator(_cid, summary, instruction):
+        order.append("joke")
+        seen["summary"] = summary
+        seen["instruction"] = instruction
+        return "прикол"
 
     provider = _Provider()
 
@@ -319,46 +330,65 @@ def test_length_limit_is_applied_before_summarizer(tmp_path):
         return await provider(prompt, chat_id, job_id)
 
     result, _, _ = _run(_consider(
-        tmp_path, summarizer=summarizer, provider=wrapped, model_chars=80,
+        tmp_path, summarizer=summarizer, joke_generator=joke_generator,
+        provider=wrapped, model_chars=80,
         gate=lambda _cid: _async_pair(False, "recheck_demoted")))
-    expected = 80 - len(PREFIX) - 1
-    assert seen["target"] == expected
-    assert seen["target"] != 80
+    expected = 80 - (len(PREFIX) + 1)          # T: шаблон + пробел
+    assert order == ["summary", "joke", "provider"]
     assert seen["system"] == meme.MEME_SUMMARY_SYSTEM_PROMPT
-    assert order == ["summary", "provider"]
+    assert seen["summary"] == "хук"
+    assert f"не более {expected} символов" in seen["instruction"]
     assert result.reason == meme.SKIP_PUBLISH
     assert result.limit.source == "model_capability"
-    assert result.limit.summary_target == expected
-    assert result.prompt == f"{PREFIX} хук"
+    assert result.limit.ceiling == 80
+    assert result.limit.template_chars == len(PREFIX) + 1
+    assert result.limit.joke_budget == expected
+    assert result.prompt == f"{PREFIX} прикол"
     assert result.prompt_origin == "factory"
 
 
-def test_overlong_summary_is_not_truncated(tmp_path):
-    async def summarizer(_cid, _rows, target, _system):
-        return "я" * (int(target) + 4)
+def test_long_summary_is_not_truncated_and_feeds_joke_whole(tmp_path):
+    """Выжимка длиннее старого потолка доходит до этапа B целиком."""
+    long_summary = "маркер-выжимки " * 200
+    seen = {}
+
+    async def summarizer(_cid, _rows, _system):
+        return long_summary
+
+    async def joke_generator(_cid, summary, _instruction):
+        seen["summary"] = summary
+        return "прикол"
+
+    sent = []
+
+    async def sender(chat_id, content, prompt):
+        sent.append((chat_id, content, prompt))
 
     provider = _Provider()
     result, _, led = _run(_consider(
-        tmp_path, summarizer=summarizer, provider=provider, model_chars=80))
-    assert result.reason == meme.SKIP_SUMMARY
-    assert result.detail == "exceeded_precomputed_limit"
-    assert provider.calls == []
-    assert led.spent(-100, "2026-10-30") == 0
-    prompt, error = meme.build_image_prompt(PREFIX, "я" * 50, summary_target=10)
-    assert prompt == "" and error == "exceeded_precomputed_limit"
+        tmp_path, summarizer=summarizer, joke_generator=joke_generator,
+        provider=provider, model_chars=80,
+        gate=lambda _cid: _async_pair(True, "ok"), sender=sender))
+    assert seen["summary"] == long_summary.strip()
+    assert len(seen["summary"]) > 80
+    assert result.reason == "sent"
+    assert len(sent) == 1 and sent[0][0] == -100
+    assert provider.calls and provider.calls[0][0] == f"{PREFIX} прикол"
+    assert led.spent(-100, "2026-10-30") == 1
 
 
 def test_length_source_is_explicit():
-    limit = meme.resolve_length_limit(
-        model_chars=400, admin=120, explicit=90, prefix=PREFIX)
+    limit = meme.resolve_meme_budget(
+        model_chars=400, admin=120, explicit=90, template=PREFIX)
     assert limit.source == "explicit_override"
-    assert limit.value == 90
-    admin = meme.resolve_length_limit(
-        model_chars=400, admin=120, explicit=None, prefix=PREFIX)
+    assert limit.ceiling == 90
+    admin = meme.resolve_meme_budget(
+        model_chars=400, admin=120, explicit=None, template=PREFIX)
     assert admin.source == "admin_setting"
-    unknown = meme.resolve_length_limit(
-        model_chars=None, admin=None, explicit=None, prefix=PREFIX)
+    unknown = meme.resolve_meme_budget(
+        model_chars=None, admin=None, explicit=None, template=PREFIX)
     assert unknown.known is False and unknown.source == "unknown"
+    assert unknown.joke_budget == 0
 
 
 # ── 5. заводской prompt дословно и через реестр ─────────────────────────────
@@ -763,18 +793,26 @@ def test_meme_phase_runs_real_pipeline_and_journals_stages(
 
     rows = led.attempts(-100)
     stages = {row["stage"] for row in rows}
-    assert {meme.STAGE_SUMMARY, meme.STAGE_IMAGE} <= stages
+    assert {meme.STAGE_SUMMARY, meme.STAGE_JOKE, meme.STAGE_IMAGE} <= stages
     assert meme.STAGE_CONSIDERED in stages and meme.STAGE_ELIGIBLE in stages
     reasons = {row["reason_code"] for row in rows if row["reason_code"]}
     assert meme.SKIP_CYCLE_EXCEPTION not in reasons
     assert meme.SKIP_SUMMARY not in reasons
-    # Выжимка пришла от реального клиента и с посчитанной целью.
-    assert len(llm.calls) == 1
-    messages, kwargs = llm.calls[0]
-    assert kwargs["step"] == "meme_summary"
-    assert kwargs["module"] == "initiative"
-    body = json.loads(messages[1]["content"])
-    assert body["target_chars"] == 200 - len(PREFIX) - 1
+    assert meme.SKIP_JOKE_FAILED not in reasons
+    # Два РАЗНЫХ вызова: выжимка (без потолка) и прикол (с явным лимитом).
+    assert len(llm.calls) == 2
+    summary_messages, summary_kwargs = llm.calls[0]
+    assert summary_kwargs["step"] == "meme_summary"
+    assert summary_kwargs["module"] == "initiative"
+    summary_body = json.loads(summary_messages[1]["content"])
+    assert "target_chars" not in summary_body          # потолок снят с выжимки
+    assert [item["id"] for item in summary_body["messages"]] == list(range(6))
+    joke_messages, joke_kwargs = llm.calls[1]
+    assert joke_kwargs["step"] == "meme_joke"
+    assert joke_kwargs["module"] == "initiative"
+    assert joke_messages[1]["content"] == "мемный хук"   # прикол из выжимки
+    expected_j = 200 - (len(PREFIX) + 1)
+    assert f"не более {expected_j} символов" in joke_messages[0]["content"]
     assert provider_calls and provider_calls[0][0].startswith(PREFIX + " ")
     snap = meme.analytics_snapshot(led, chat_id=-100)
     assert snap["counters"][meme.STAGE_SUMMARY] == 1
@@ -852,7 +890,7 @@ def test_default_summarizer_matches_real_client_contract(monkeypatch):
 
     monkeypatch.setattr(client, "_post", _post)
     summary = _run(meme._default_summarize(
-        client, _rows(-100, 2), 60, "система", chat_id=-100,
+        client, _rows(-100, 2), "система", chat_id=-100,
         model="другая-модель"))
 
     assert summary == "хук"
@@ -860,9 +898,45 @@ def test_default_summarizer_matches_real_client_contract(monkeypatch):
     assert seen["payload"]["messages"][0] == {
         "role": "system", "content": "система"}
     body = json.loads(seen["payload"]["messages"][1]["content"])
-    assert body["target_chars"] == 60
+    assert "target_chars" not in body        # у выжимки больше нет потолка
     assert [item["id"] for item in body["messages"]] == [0, 1]
     # Модель задаётся общим клиентом: подмены на одну выжимку нет.
+    assert seen["payload"]["model"] == "chat-model"
+
+
+def test_default_joke_matches_real_client_contract(monkeypatch):
+    """Этап B тем же клиентом: инструкция в system, выжимка в user."""
+    from services.llm_client import LLMClient
+
+    client = LLMClient("https://llm.example.invalid/v1", "sk-test",
+                       "chat-model", "")
+    seen: dict = {}
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {"choices": [{"message": {"content": "  прикол  "}}]}
+
+    async def _post(path, payload, **_kwargs):
+        seen["path"] = path
+        seen["payload"] = payload
+        return _Response()
+
+    monkeypatch.setattr(client, "_post", _post)
+    joke = _run(meme._default_joke(
+        client, "выжимка целиком",
+        instruction=meme.joke_instruction(meme.MEME_JOKE_PROMPT, 42),
+        chat_id=-100))
+
+    assert joke == "прикол"
+    assert seen["path"] == "/chat/completions"
+    assert seen["payload"]["messages"][0] == {
+        "role": "system",
+        "content": meme.joke_instruction(meme.MEME_JOKE_PROMPT, 42)}
+    assert seen["payload"]["messages"][1] == {
+        "role": "user", "content": "выжимка целиком"}
+    assert "не более 42 символов" in seen["payload"]["messages"][0]["content"]
     assert seen["payload"]["model"] == "chat-model"
 
 
@@ -1007,22 +1081,28 @@ async def test_real_db_path_publishes_meme_and_journals_quota(tmp_path):
         async def sender(chat_id, content, caption):
             published.append((chat_id, content, caption))
 
-        async def summarizer(chat_id, rows, target, system):
+        async def summarizer(chat_id, rows, system):
             assert len(rows) == 3          # окно прочитано из настоящей таблицы
             return "хук"
+
+        async def joke_generator(chat_id, summary, instruction):
+            assert summary == "хук"
+            return "прикол"
 
         result = await meme.consider_chat(
             svc, -100, settings=_settings(), ledger=led, now=NOW,
             tz_name="UTC", tz_source="utc_fallback",
             initiative_enabled=lambda: True, image_status=IMAGE_OK,
             random_source=_Hit(), summarizer=summarizer,
+            joke_generator=joke_generator,
             image_provider=provider, publish_gate=gate, sender=sender,
             model_chars=200)
 
         assert result.published is True and result.reason == "sent"
         assert len(provider.calls) == 1
-        assert provider.calls[0][0].startswith(PREFIX)
+        assert provider.calls[0][0] == f"{PREFIX} прикол"
         assert len(published) == 1 and published[0][0] == -100
+        assert published[0][2] == f"{PREFIX} прикол"   # внутренний аргумент
 
         cur = await svc.db.execute(
             f"SELECT status FROM {meme.RESERVATION_TABLE} WHERE chat_id = ?",
@@ -1034,7 +1114,7 @@ async def test_real_db_path_publishes_meme_and_journals_quota(tmp_path):
             (-100,))
         journal = await cur.fetchall()
         stages = {r["stage"] for r in journal}
-        assert {"summary", "image_generation", "publish"} <= stages
+        assert {"summary", "joke", "image_generation", "publish"} <= stages
         assert "published" in {r["outcome"] for r in journal}
         assert not {r for r in journal if r["outcome"] == "failed"}
         day = meme.day_window(-100, NOW, tz_name="UTC",
