@@ -81,15 +81,19 @@ class TestFactcheckTwoCall:
 
     @pytest.mark.asyncio
     async def test_validator_exhausted_falls_back_to_single(self):
+        # FINAL v8 §1.1: стиль больше не тратит повторы — исчерпание даёт
+        # независимый guard формата доставки (таблицы), не клише.
+        table = "| a | b |\n|---|---|"
         service, llm = _service(
-            [_ANALYST_JSON, "как ИИ", "подводя итог", "в заключение", "одиночный"])
+            [_ANALYST_JSON, table, table, "одиночный"])
         result = await service.check_claim("t")
         assert result == "одиночный"
-        assert llm.generate.await_count == 5   # 1 аналитик + 3 вербализ + 1 single
+        assert llm.generate.await_count == 4   # 1 аналитик + 2 вербализ + 1 single
 
     @pytest.mark.asyncio
     async def test_validator_retry_success(self):
-        service, llm = _service([_ANALYST_JSON, "как ИИ", "чистый дерзкий текст"])
+        table = "| a | b |\n|---|---|"
+        service, llm = _service([_ANALYST_JSON, table, "чистый дерзкий текст"])
         result = await service.check_claim("t")
         assert result == "чистый дерзкий текст"
         assert llm.generate.await_count == 3

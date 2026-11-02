@@ -968,7 +968,8 @@ class TestVerbalizeFormFlow:
         assert text == "13 штук"
         assert stats == {"attempts": 1, "retries": 0, "hits": [],
                          "fallback": False, "retry_error": False,
-                         "enabled": True}
+                         "enabled": True, "anti_cliche_retries": 0,
+                         "cliche_observed": []}
 
     @pytest.mark.asyncio
     async def test_default_params_byte_parity(self):
@@ -980,18 +981,26 @@ class TestVerbalizeFormFlow:
         assert text == "нормальный дерзкий текст"
         assert stats == {"attempts": 1, "retries": 0, "hits": [],
                          "fallback": False, "retry_error": False,
-                         "enabled": True}
+                         "enabled": True, "anti_cliche_retries": 0,
+                         "cliche_observed": []}
 
     @pytest.mark.asyncio
-    async def test_cliche_retry_prompt_unchanged_without_form(self):
+    async def test_style_hit_never_retries_without_form(self):
+        """FINAL v8 §1.1 (ADR §3): стилевое попадание не перегенерирует —
+        ``CLICHE_RETRY_SYSTEM_PROMPT`` на этом пути недостижим."""
         seen = []
 
         async def gen(messages):
             seen.append(messages[-1]["content"] if len(messages) > 1 else "")
             return "как ИИ" if len(seen) == 1 else "чисто"
 
-        await verbalize_validated(gen, [{"role": "user", "content": "x"}])
-        assert seen[1] == CLICHE_RETRY_SYSTEM_PROMPT
+        text, stats = await verbalize_validated(
+            gen, [{"role": "user", "content": "x"}])
+        assert len(seen) == 1
+        assert text == "как ИИ"
+        assert CLICHE_RETRY_SYSTEM_PROMPT not in seen
+        assert stats["anti_cliche_retries"] == 0
+        assert stats["cliche_observed"] == ["as_ai"]
 
 
 # ── D: интеграция System2 + событие reason ──────────────────────────────────

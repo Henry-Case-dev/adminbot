@@ -233,28 +233,37 @@ class TestScrubberDoesNotCutCliches:
 # ── validator-loop с динамическими правилами ────────────────────────────────
 
 class TestValidatorDynamic:
+    """ASAP-EVOL-ANTICLICHE §1.1 (ADR §3): динамическое правило — наблюдение.
+
+    PG-правило больше не возвращает ответ на перегенерацию: ровно один
+    ``generate_call``, код виден в ``stats['cliche_observed']``.
+    """
+
     @pytest.mark.asyncio
-    async def test_dynamic_rule_triggers_retry(self):
+    async def test_dynamic_rule_does_not_retry(self):
         rule = build_dynamic_rule("шаблонное словосочетание")
         gen = AsyncMock(side_effect=[
             "ну шаблонное словосочетание тут", "теперь чисто"])
         text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             dynamic_rules=[rule])
-        assert text == "теперь чисто"
-        assert stats["retries"] == 1
-        assert gen.await_count == 2
+        assert text == "ну шаблонное словосочетание тут"
+        assert stats["retries"] == 0
+        assert gen.await_count == 1
+        assert stats["anti_cliche_retries"] == 0
+        assert stats["cliche_observed"] == [rule.code]
 
     @pytest.mark.asyncio
-    async def test_dynamic_rule_exhausted_fallback(self):
+    async def test_dynamic_rule_never_falls_back(self):
         rule = build_dynamic_rule("шаблонное словосочетание")
         gen = AsyncMock(return_value="шаблонное словосочетание всегда")
-        _text, stats = await verbalize_validated(
+        text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             dynamic_rules=[rule], max_retries=99)
-        assert gen.await_count == 3
-        assert stats["fallback"] is True
+        assert gen.await_count == 1
+        assert stats["fallback"] is False
         assert rule.code in stats["hits"]
+        assert text == "шаблонное словосочетание всегда"
 
     @pytest.mark.asyncio
     async def test_no_dynamic_rules_unchanged(self):
@@ -262,10 +271,11 @@ class TestValidatorDynamic:
         _text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}])
         assert stats["hits"] == ["summing_up"]
+        assert gen.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_generator_rules_survive_retries(self):
-        """M2: генератор не должен исчерпаться на ретраях."""
+    async def test_generator_rules_survive_single_call(self):
+        """M2: генератор правил материализуется один раз (повторов нет)."""
         rule = build_dynamic_rule("секретный штамп")
         calls = []
 
@@ -277,9 +287,9 @@ class TestValidatorDynamic:
         _text, stats = await verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             dynamic_rules=rules, max_retries=2)
-        assert len(calls) == 3          # каждый ответ забракован
-        assert stats["retries"] == 2
-        assert rule.code in stats["hits"]
+        assert len(calls) == 1
+        assert stats["retries"] == 0
+        assert rule.code in stats["cliche_observed"]
 
 
 # ── S10.22-4b ───────────────────────────────────────────────────────────────
