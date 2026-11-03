@@ -5088,6 +5088,15 @@
       promptSaveBusy: function () {
         return this.saveState === 'saving';
       },
+      // Черновик блока речи отличается от сохранённого текста — только тогда
+      // имеет смысл предупреждать о закрытии страницы.
+      speechBlockDirty: function () {
+        var d = this.speechBlockDetail;
+        if (!d || !d.block_id) return false;
+        var saved = (d.saved && d.saved.text) || '';
+        return String(this.speechBlockDraft == null ? ''
+          : this.speechBlockDraft) !== String(saved);
+      },
       // Единственный статус сохранения карточки. Оптимистического
       // «сохранено» нет: только «сохраняем», конфликт и ошибка.
       promptEditorNotice: function () {
@@ -10645,6 +10654,8 @@
       // Закрытие/перезагрузка страницы — единственный случай, когда правки
       // теряются безвозвратно (в памяти). Штатное сообщение браузера нельзя
       // переписать, поэтому сам факт предупреждения — и есть честный сигнал.
+      // PVR-S4: тот же guard покрывает черновики промптов (библиотека и блок
+      // речи) — только пока они действительно не сохранены.
       _bindMemeDraftUnloadGuard: function () {
         if (this._memeUnloadBound) return;
         if (typeof window === 'undefined'
@@ -10652,7 +10663,10 @@
         var self = this;
         this._memeUnloadBound = true;
         window.addEventListener('beforeunload', function (ev) {
-          if (self.memeDraftDirty !== true) return undefined;
+          var dirty = self.memeDraftDirty === true
+            || self.workspacePromptDirty === true
+            || self.speechBlockDirty === true;
+          if (!dirty) return undefined;
           if (ev) {
             ev.preventDefault();
             try { ev.returnValue = ''; } catch (e) { /* старый API */ }
