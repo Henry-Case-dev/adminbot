@@ -152,9 +152,12 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
     kind = "reply" if target is not message else "command"
     # M3 (§1.5, BD-2): envelope, план, поиск и вердикт обязаны идти по ОДНОМУ
     # тексту. Текст берётся из публикации после единственной законной
-    # подмены (contextual), а не до неё.
+    # подмены (contextual), а не до неё. В claim он идёт, когда публикация
+    # реально собрала тезис сверх буквальной цели (caption другого элемента
+    # альбома/OCR/контекстный антецедент) — иначе прежний путь «текст из БД»
+    # байт-в-байт, и маршрут ветки не меняется.
     assembled_claim = (publication.text
-                       if publication is not None and publication.text
+                       if publication is not None and publication.augmented
                        else None)
     eff_target_tg = (publication.target_tg_message_id
                      if publication is not None
