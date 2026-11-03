@@ -866,9 +866,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                              trigger_tg_message_id=req.trigger_tg_message_id,
                              hint=req.user_hint,
                              # §3.3/I3: в claim идёт РОВНО текст публикации —
-                             # тот же, что увидит вердикт.
+                             # тот же, что увидит вердикт (когда публикация
+                             # собрала тезис сверх сохранённой строки).
                              claim_text=(str(publication.text or "").strip()
-                                         or None),
+                                         if publication.augmented else None),
                              claim_anchor_tg_message_id=getattr(
                                  publication, "claim_anchor_tg_message_id",
                                  None)),
