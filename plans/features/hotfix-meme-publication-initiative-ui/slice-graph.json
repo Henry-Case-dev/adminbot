@@ -1,0 +1,59 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "HOTFIX-MEME-PUBLICATION-AND-INITIATIVE-UI (OI-2026-11-03-MEME-PUBLICATION-HOTFIX). Карта: plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json, план/сверка: plans/features/evol/arch/owner-inputs-reconciliation-2026-11-03.md. Назначение графа: срочный P0 обязан выпускаться срезом и НЕ ждать P1 UI (ТЗ §4.1: «P0 публикации мемов — исправить, тестировать, независимо принять и выкатить как срочный пакет, не удерживать релиз до полного UI-рефакторинга»). Поэтому P0-PUBLICATION и P0.5-CEILING-AUTO не имеют зависимостей, а P1-UI-INITIATIVE зависит от обоих: пока P0 не принят, `--stage release --slice P0-PUBLICATION` законен, а P1 не может быть выпущен раньше P0.",
+  "purpose": "Сделать законным `check --stage release --slice P0-PUBLICATION` после того, как строки P0 станут VERIFIED с candidate-bound доказательствами, не дожидаясь готовности P1.",
+  "release_order": ["P0-PUBLICATION", "P0.5-CEILING-AUTO", "P1-UI-INITIATIVE"],
+  "shared_file_note": "services/meme_initiative.py и tests/test_p0_meme_publication_hotfix.py нужны обеим полосам P0 и P0.5 (кандидат b95b7363 меняет их ради обеих семантик). Чтобы не появлялось двух писателей в одном файле, эти файлы закреплены за P0-PUBLICATION: изменения P0.5 внутри них выполняет тот же единственный Builder, а не вторая полоса. web/app.js числится за P0.5 (витрина потолка) и за P1 (страница «Инициатива»); это не конфликт, а порядок мержа: P1 зависит от P0.5, поэтому мерж P1 идёт после. Фактические worktree P0/P1 уже существуют параллельно — граф фиксирует порядок мержа, а не расположение рабочих деревьев.",
+  "slices": [
+    {
+      "id": "P0-PUBLICATION",
+      "title": "P0: готовый мем не отменяется из-за нового сообщения (снапшот источника, ручной /meme, содержательные reason code, идемпотентность, только изображение, трасса событий)",
+      "wave": "P0",
+      "depends_on": [],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "services/initiative_observer.py",
+        "handlers/meme_command.py",
+        "tests/test_p0_meme_publication_hotfix.py",
+        "tests/test_initiative_coordination.py",
+        "tests/test_evol014_meme_initiative.py"
+      ],
+      "acceptance": "Публикация мема не зависит от роста переписки: снапшот источника фиксируется на старте, новые сообщения/reactions/latest_message_id/watermark не дают publication_stale, ручной /meme доставляет ту же картинку при 1/10/50 новых сообщениях, авто проверяет только права/активность модуля/пригодность output/ledger-координацию, коллизия откладывается durable-механизмом без потери картинки и без второй генерации, рестарт и два воркера не дают дубля и двойной квоты, в чат уходит только изображение, а трасса различает image_ready и publication_sent с точным reason code.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["HMF-ACC-01", "HMF-ACC-02", "HMF-ACC-03", "HMF-ACC-04", "HMF-ACC-05", "HMF-ACC-08", "HMF-ACC-09"]
+    },
+    {
+      "id": "P0.5-CEILING-AUTO",
+      "title": "P0.5: пустой потолок длины = auto сквозным образом (UI → API → хранилище → runtime → диагностика)",
+      "wave": "P0",
+      "depends_on": [],
+      "write_scope": [
+        "web/api/routes.py",
+        "web/app.js",
+        "tests/js/meme_ui_fields_test.js",
+        "tests/test_evol014_ui.py"
+      ],
+      "acceptance": "Пустое/null/пробельное поле потолка означает auto на всём тракте и после перезапуска: три состояния различаются, некорректный ввод отклоняется с точным сообщением, auto берёт только реальные лимиты провайдера без подстановки 0/NaN/800, фиксированный потолок считает бюджет по фактическому payload production renderer'а, ошибка потолка останавливает конвейер до генерации и не маскируется под publication_stale, а витрина честно показывает «Автоматически» либо реальное число.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["HMF-LEN-01", "HMF-LEN-02", "HMF-LEN-03", "HMF-LEN-04", "HMF-LEN-05", "HMF-LEN-06", "HMF-ACC-10"]
+    },
+    {
+      "id": "P1-UI-INITIATIVE",
+      "title": "P1: перекомпоновка страницы «Модули → Инициатива» на пять вкладок с сохранением всей функциональности и стиля",
+      "wave": "P1",
+      "depends_on": ["P0-PUBLICATION", "P0.5-CEILING-AUTO"],
+      "write_scope": [
+        "web/index.html",
+        "web/app.js",
+        "web/static/app.css",
+        "tests/**"
+      ],
+      "acceptance": "Страница собрана из одной верхней панели и пяти вкладок (Обзор, Текстовая инициатива, Мемы, Публикации, Диагностика) без дублирования блоков и тумблеров; каждый параметр прежней страницы имеет новое место и продолжает работать, оба промпта редактируются и наследуются, бюджет и «Последняя попытка» видны на вкладке «Мемы»; на 1536×960, 390×844 и 360×740 (включая Telegram WebView) нет переполнения, обрезки кнопок и перекрытия сохранения клавиатурой; стеклянный дизайн и остальная админка не изменены.",
+      "risk": "R2",
+      "next_role": "Builder",
+      "req_ids": ["HMF-UI-01", "HMF-UI-02", "HMF-UI-03", "HMF-UI-04", "HMF-UI-05", "HMF-UI-06", "HMF-UI-07", "HMF-UI-08", "HMF-UI-09", "HMF-UI-10", "HMF-ACC-06", "HMF-ACC-07"]
+    }
+  ]
+}
