@@ -940,9 +940,10 @@ def test_command_marks_priority_before_generation(monkeypatch):
         order.append("priority")
         return NOW_TS + pub.MANUAL_PRIORITY_SECONDS
 
-    async def _pipeline(chat_id, bot, *, request_ref=""):
+    async def _pipeline(chat_id, bot, *, request_ref="", permission_check=None):
         order.append("pipeline")
         assert request_ref == "5"          # id сообщения /meme в снапшоте/событиях
+        assert callable(permission_check)  # B2: реальная перепроверка прав
         return SimpleNamespace(published=True, reason="sent")
 
     async def _admin(_uid, _cid):

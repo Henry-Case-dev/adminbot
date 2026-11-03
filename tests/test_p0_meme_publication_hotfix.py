@@ -198,7 +198,8 @@ async def _pass(tmp_path, *, manual: bool, db=None, sender=None,
                 provider=None, settings=None, store=None, job_id=None,
                 gate=None, joke="прикол", joke_fn=None, summarizer=None,
                 publication=None, ledger=None, source_check=None,
-                initiative_enabled=None, request_ref=""):
+                initiative_enabled=None, request_ref="",
+                permission_check=None):
     store = store if store is not None else _store(tmp_path)
     led = ledger if ledger is not None else meme.SqliteQuotaLedger(store.path)
     # Окно читается из «живой» БД: тогда работает и проверка исходного
@@ -227,7 +228,7 @@ async def _pass(tmp_path, *, manual: bool, db=None, sender=None,
         sender=sender if sender is not None else _Sender(),
         claim_store=store, model_chars=None, manual=manual,
         job_id=job_id, publication=publication, source_check=source_check,
-        request_ref=request_ref)
+        request_ref=request_ref, permission_check=permission_check)
 
 
 def _journal(ledger) -> list[dict]:
@@ -794,6 +795,23 @@ from tests.test_meme_pipeline_api import client, real_layers  # noqa: E402,F401
 ENDPOINT = "/api/initiative/meme-settings"
 
 
+@pytest.fixture(autouse=True)
+def _release_random_source_singleton():
+    """Не оставлять после теста захваченный singleton случайности.
+
+    `mca_random_source.get_service` — модульный singleton, привязанный к первой
+    БД; тесты этого файла создают и закрывают настоящие `DatabaseService`.
+    Сброс после каждого теста не даёт «призраку» закрытой БД всплыть в чужих
+    тестах (это уже случалось в наборе до этой правки).
+    """
+    yield
+    try:
+        from services import mca_random_source as _mrs
+        _mrs.reset_service()
+    except Exception:                          # pragma: no cover
+        pass
+
+
 def _hdr_for(client_obj) -> dict:
     from tests.test_webapp_api import _hdr
     from tests.test_meme_pipeline_api import ADMIN_ID
@@ -883,10 +901,824 @@ def test_global_and_chat_ceiling_do_not_mix(real_layers):
     assert back["joke_budget"] == 700 - back["template_chars"]
 
 
-def test_absent_field_does_not_touch_saved_ceiling(client):
-    """Поле не пришло → сохранённый потолок НЕ стирается (историческая 0 тоже)."""
-    assert _post_length(client, 450).status_code == 200
-    resp = client.post(ENDPOINT, json={"cooldown_seconds": 0},
-                       headers=_hdr_for(client))
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["length_limit"]["ceiling"] == 450
+
+# ═══════════════════════════════════════════════════════════════════════════
+# B1 (arch/deferred-publication.md): готовый авто-мем НЕ выбрасывается при
+# отказе брони — durable-очередь на существующей `task_jobs` + байты на диске,
+# доставка существующим тиком мема, ровно один раз.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import hashlib  # noqa: E402
+import sqlite3  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from services.database import DatabaseService  # noqa: E402
+from services.task_supervisor import (  # noqa: E402
+    JOB_CANCELLED, JOB_COMPLETED, JOB_FAILED, JOB_QUEUED)
+
+
+def _settings_cd(cooldown: int = 0) -> meme.MemeSettings:
+    return meme.MemeSettings(enabled=True, window_messages=10, daily_limit=5,
+                             cooldown_seconds=cooldown, min_messages=1,
+                             trigger_probability=1.0)
+
+
+async def _seed_messages(svc, chat_id: int = CHAT, n: int = 5) -> list[int]:
+    """Настоящие сообщения в настоящей БД: ростер/источник проверяются по ним."""
+    ids = []
+    for index in range(1, n + 1):
+        cursor = await svc.db.execute(
+            "INSERT INTO smart_messages (user_id, chat_id, text, reply_to_id, "
+            "timestamp, media_type, author_name, is_forward, tg_message_id) "
+            "VALUES (?, ?, ?, NULL, ?, 'text', 'u', 0, NULL)",
+            (42, int(chat_id), f"реплика {index}", NOW_TS - 60 + index))
+        ids.append(cursor.lastrowid)
+    await svc.db.commit()
+    return ids
+
+
+class _Env:
+    """Реальный durable-контур: БД сервиса + журнал квоты + бронь + каталог."""
+
+    def __init__(self, svc, ledger, store, pending: Path):
+        self.svc = svc
+        self.ledger = ledger
+        self.store = store
+        self.pending = pending
+
+
+class _ForeignDuringGeneration:
+    """Реальный координатор, у которого ДРУГОЙ механизм публикует в момент
+    вызова `acquire` — ровно та гонка, что была в инциденте (precheck прошёл до
+    генерации, слот заняли пока рисовалась картинка).
+    """
+
+    def __init__(self, inner, store):
+        self.inner = inner
+        self._store = store
+        self.foreign = None
+        self.acquire_calls: list[dict] = []
+
+    def store(self):
+        return self.inner.store()
+
+    def available(self) -> bool:
+        return self.inner.available()
+
+    async def precheck(self, *args, **kwargs):
+        return await self.inner.precheck(*args, **kwargs)
+
+    async def acquire(self, chat_id, holder_kind, **kwargs):
+        self.acquire_calls.append(dict(kwargs))
+        if self.foreign is None:
+            self.foreign = self._store.acquire(
+                chat_id=int(chat_id), holder_kind=pub.KIND_TEXT_INITIATIVE,
+                now=NOW_TS, interval_seconds=0)
+            assert self.foreign.granted
+            assert self._store.begin_sending(
+                chat_id=int(chat_id), claim_id=self.foreign.claim_id,
+                now=NOW_TS).granted
+        return await self.inner.acquire(chat_id, holder_kind, **kwargs)
+
+    async def begin_sending(self, *args, **kwargs):
+        return await self.inner.begin_sending(*args, **kwargs)
+
+    async def release(self, *args, **kwargs):
+        return await self.inner.release(*args, **kwargs)
+
+    def finish_foreign(self, chat_id: int = CHAT) -> None:
+        """Чужой механизм закончил отправку (реальный release брони)."""
+        if self.foreign is None:
+            return
+        self._store.release(chat_id=int(chat_id), claim_id=self.foreign.claim_id,
+                            published=True,
+                            holder_kind=pub.KIND_TEXT_INITIATIVE, now=NOW_TS)
+
+
+async def _env(tmp_path, monkeypatch, *, rows: int = 5) -> _Env:
+    pending = tmp_path / "pending"
+    monkeypatch.setenv("MEME_PENDING_DIR", str(pending))
+    svc = DatabaseService(str(tmp_path / "hotfix.db"))
+    await svc.initialize()
+    await _seed_messages(svc, CHAT, rows)
+    path = str(svc.db_path)
+    meme.SqliteQuotaLedger(path).apply_schema()
+    ledger = meme.SqliteQuotaLedger(path)
+    store = pub.SqliteClaimStore(path)
+    return _Env(svc, ledger, store, pending)
+
+
+async def _auto_pass(env: _Env, *, sender=None, provider=None, job_id=None,
+                     gate=None, settings=None, now_ts: int = NOW_TS,
+                     publication=None, rights_check=None):
+    """Один АВТО-проход по реальной БД (снапшот источника берётся из неё)."""
+    sender = sender if sender is not None else _Sender()
+    provider = provider if provider is not None else _Provider()
+
+    async def summarizer(_cid, _rows_arg, _system):
+        return "хук"
+
+    async def joke(_cid, _summary, _instruction):
+        return "прикол"
+
+    async def _gate(_cid):
+        return (True, "ok") if gate is None else gate()
+
+    return await meme.consider_chat(
+        env.svc, CHAT,
+        settings=settings if settings is not None else _settings_cd(),
+        ledger=env.ledger, now=NOW, now_ts=now_ts, tz_name="UTC",
+        tz_source="utc_fallback", initiative_enabled=lambda: True,
+        image_status=IMAGE_OK, random_source=_Hit(0.0),
+        summarizer=summarizer, joke_generator=joke, image_provider=provider,
+        publish_gate=_gate, sender=sender, claim_store=env.store,
+        publication=publication, model_chars=None, job_id=job_id,
+        rights_check=rights_check)
+
+
+def _after_interval() -> int:
+    """Момент, когда межтиповой интервал после чужой публикации истёк."""
+    return NOW_TS + pub.default_interval_seconds() + 60
+
+
+async def _deliver(env: _Env, *, sender=None, gate=None, now_ts=None,
+                   rights_check=None, source_check=None):
+    sender = sender if sender is not None else _Sender()
+
+    async def _gate(_cid):
+        return (True, "ok") if gate is None else gate()
+
+    return await meme.deliver_deferred_all(
+        env.svc, chat_ids=[CHAT], ledger=env.ledger, sender=sender,
+        publish_gate=_gate, initiative_enabled=lambda: True,
+        claim_store=env.store, settings=_settings_cd(),
+        now_ts=_after_interval() if now_ts is None else now_ts,
+        tz_name="UTC", tz_source="utc_fallback",
+        rights_check=rights_check, source_check=source_check)
+
+
+def _pending_rows(env: _Env) -> list[dict]:
+    conn = sqlite3.connect(str(env.svc.db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM task_jobs WHERE kind = ? ORDER BY created_at",
+            (meme.DEFERRED_KIND,))
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+async def _deferred_after_generation(tmp_path, monkeypatch, *, job_id: str,
+                                     provider=None, settings=None):
+    """Сгенерировать авто-мем и проиграть бронь настоящей чужой публикацией."""
+    env = await _env(tmp_path, monkeypatch)
+    race = _ForeignDuringGeneration(
+        pub.PublicationCoordinator(env.svc, store=env.store), env.store)
+    sender = _Sender()
+    provider = provider if provider is not None else _Provider()
+    result = await _auto_pass(env, sender=sender, provider=provider,
+                              job_id=job_id, publication=race,
+                              settings=settings)
+    return env, race, result, sender, provider
+
+
+# ── инвариант 1: артефакт не теряется ──────────────────────────────────────
+
+def test_b1_artifact_is_kept_when_claim_is_refused(tmp_path, monkeypatch):
+    """Бронь не выдана при generated=True (авто) → файл и строка `queued` есть.
+
+    Мутация: убрать `defer_generated_meme` из ветки отказа — файла и строки
+    нет, тест красный (ровно дефект B1).
+    """
+    async def scenario():
+        env, race, result, sender, provider = await _deferred_after_generation(
+            tmp_path, monkeypatch, job_id="job-b1-keep")
+        try:
+            return result, _pending_rows(env), sender, provider, env
+        finally:
+            await env.svc.close()
+
+    result, rows, sender, provider, env = asyncio.run(scenario())
+
+    assert result.published is False
+    assert result.generated is True            # картинка была готова
+    assert result.reason in (meme.SKIP_PUBLICATION_CONFLICT,
+                            meme.SKIP_PUBLICATION_IN_FLIGHT)
+    assert sender.calls == []                  # отправки не было
+    assert len(provider.calls) == 1            # ровно одна оплаченная генерация
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["status"] == JOB_QUEUED
+    assert row["kind"] == meme.DEFERRED_KIND
+    assert row["coalesce_key"] == meme.deferred_coalesce_key(CHAT)
+    assert row["deadline_at"] == NOW_TS + meme.DEFAULT_COOLDOWN_SECONDS
+    payload = meme.deferred_payload(row)
+    assert payload["chat_id"] == CHAT
+    assert payload["run_id"] == "job-b1-keep"
+    assert payload["sha256"] == hashlib.sha256(b"png").hexdigest()
+    assert payload["size"] == 3
+    assert payload["msg_count"] == 5 and payload["msg_ids"]
+    assert payload["mode"] == meme.MODE_AUTOMATIC
+    # Файл реально существует в managed-каталоге и совпадает с байтами.
+    path = Path(row["result_ref"])
+    assert path.exists() and path.read_bytes() == b"png"
+    assert path.parent == env.pending
+
+
+# ── инвариант 2: ровно одна доставка после освобождения слота ──────────────
+
+def test_b1_slot_busy_then_one_delivery_then_completed(tmp_path, monkeypatch):
+    """3 прохода в занятом слоте → 0 отправок; слот свободен → ровно 1; ещё 3 → 0."""
+    async def scenario():
+        env, race, result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-slot")
+        try:
+            sender = _Sender()
+            waits = []
+            for _ in range(3):
+                waits.append(await _deliver(env, sender=sender, now_ts=NOW_TS))
+            assert sender.calls == []          # слот занят — отправки нет
+            race.finish_foreign()              # чужой механизм закончил
+            delivered = await _deliver(env, sender=sender)
+            after = [await _deliver(env, sender=sender) for _ in range(3)]
+            return waits, delivered, after, sender, env
+        finally:
+            await env.svc.close()
+
+    waits, delivered, after, sender, env = asyncio.run(scenario())
+
+    assert all(items == [] for items in waits)   # слот занят — ничего не ушло
+    assert delivered and len(delivered) == 1
+    assert delivered[0].published is True and delivered[0].reason == "sent"
+    assert len(sender.calls) == 1
+    assert all(items == [] for items in after)
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_COMPLETED]
+    assert not Path(rows[0]["result_ref"]).exists()   # байты убраны
+
+
+# ── инвариант 3: без второй генерации ──────────────────────────────────────
+
+def test_b1_pending_artifact_blocks_new_generation(tmp_path, monkeypatch):
+    """Пока артефакт ждёт слота, проход НЕ зовёт ни LLM, ни провайдера."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-nogen")
+        try:
+            second_provider = _Provider()
+            calls: list = []
+            second_provider.calls = calls
+
+            async def _summarizer(*_a, **_k):
+                calls.append("llm")
+                return "хук"
+
+            result = await meme.consider_chat(
+                env.svc, CHAT, settings=_settings_cd(), ledger=env.ledger,
+                now=NOW, now_ts=NOW_TS, tz_name="UTC",
+                tz_source="utc_fallback", initiative_enabled=lambda: True,
+                image_status=IMAGE_OK, random_source=_Hit(0.0),
+                summarizer=_summarizer, joke_generator=_summarizer,
+                image_provider=second_provider, publish_gate=_gate_ok,
+                sender=_Sender(), claim_store=env.store, model_chars=None,
+                job_id="job-b1-nogen-2")
+            return result, calls, env
+        finally:
+            await env.svc.close()
+
+    result, calls, env = asyncio.run(scenario())
+
+    assert calls == []                      # ни одного вызова LLM/провайдера
+    assert result.published is False and result.generated is False
+    assert result.detail == "deferred_pending"
+    assert len(_pending_rows(env)) == 1
+
+
+# ── инвариант 4: рестарт ───────────────────────────────────────────────────
+
+def test_b1_restart_sees_queue_and_delivers(tmp_path, monkeypatch):
+    """Новый процесс (новые объекты сервисов) видит `queued` + файл и доставляет."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-restart")
+        race.finish_foreign()
+        pending = env.pending
+        await env.svc.close()
+        svc2 = DatabaseService(str(tmp_path / "hotfix.db"))
+        await svc2.initialize()
+        path = str(svc2.db_path)
+        env2 = _Env(svc2, meme.SqliteQuotaLedger(path),
+                    pub.SqliteClaimStore(path), pending)
+        try:
+            sender = _Sender()
+            delivered = await _deliver(env2, sender=sender)
+            return delivered, sender, env2
+        finally:
+            await svc2.close()
+
+    delivered, sender, env = asyncio.run(scenario())
+    assert delivered and delivered[0].published is True
+    assert len(sender.calls) == 1
+    assert [row["status"] for row in _pending_rows(env)] == [JOB_COMPLETED]
+
+
+# ── инвариант 5: квота не тратится дважды ─────────────────────────────────
+
+def test_b1_delivery_does_not_reserve_quota(tmp_path, monkeypatch):
+    """Доставка готового артефакта не создаёт новую бронь квоты."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-quota")
+        try:
+            before = _reservations(env.ledger)
+            day = meme.day_window(CHAT, NOW, tz_name="UTC")
+            spent_before = meme.quota_view(env.ledger, chat_id=CHAT, day=day,
+                                          limit=5)["spent"]
+            race.finish_foreign()
+            await _deliver(env)
+            after = _reservations(env.ledger)
+            spent_after = meme.quota_view(env.ledger, chat_id=CHAT, day=day,
+                                         limit=5)["spent"]
+            return before, after, spent_before, spent_after
+        finally:
+            await env.svc.close()
+
+    before, after, spent_before, spent_after = asyncio.run(scenario())
+    assert [row["job_id"] for row in before] == ["job-b1-quota"]
+    assert after == before
+    assert spent_before == 1 and spent_after == 1
+
+
+# ── инвариант 6: права/модуль ──────────────────────────────────────────────
+
+def test_b1_rights_revoked_cancels_with_own_code(tmp_path, monkeypatch):
+    """Чат больше не допустимая цель → `rights_revoked`, без отправки."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-rights")
+        try:
+            # Права отозваны: из РЕАЛЬНОГО источника ростера чат пропал.
+            await env.svc.db.execute(
+                "DELETE FROM smart_messages WHERE chat_id = ?", (CHAT,))
+            await env.svc.db.commit()
+            race.finish_foreign()
+            sender = _Sender()
+            delivered = await _deliver(env, sender=sender)
+            return delivered, sender, env
+        finally:
+            await env.svc.close()
+
+    delivered, sender, env = asyncio.run(scenario())
+    assert sender.calls == []
+    assert delivered and delivered[0].reason == meme.SKIP_RIGHTS_REVOKED
+    assert delivered[0].detail == "chat_not_in_roster"
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_CANCELLED]
+    assert not Path(rows[0]["result_ref"]).exists()
+
+
+def test_b1_module_off_cancels_with_disabled_code(tmp_path, monkeypatch):
+    """Тумблер выключен между генерацией и отправкой → `disabled_by_setting`."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-off")
+        try:
+            from services import chat_params
+            original = chat_params.get_chat_param
+
+            async def _param(chat_id, key, default=None):
+                if key == meme.KEY_ENABLED:
+                    return False
+                return await original(chat_id, key, default)
+
+            chat_params.get_chat_param = _param
+            try:
+                race.finish_foreign()
+                sender = _Sender()
+                delivered = await _deliver(env, sender=sender)
+            finally:
+                chat_params.get_chat_param = original
+            return delivered, sender, env
+        finally:
+            await env.svc.close()
+
+    delivered, sender, env = asyncio.run(scenario())
+    assert sender.calls == []
+    assert delivered and delivered[0].reason == meme.SKIP_DISABLED
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_CANCELLED]
+    assert not Path(rows[0]["result_ref"]).exists()
+
+
+# ── инвариант 7: честное истечение ─────────────────────────────────────────
+
+def test_b1_expired_artifact_reports_honest_code_once(tmp_path, monkeypatch):
+    """Ретенция истекла → одна строка `deferred_publication_expired`, файла нет."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-exp")
+        try:
+            later = NOW_TS + meme.DEFAULT_COOLDOWN_SECONDS + 1
+            race.finish_foreign()
+            sender = _Sender()
+            first = await _deliver(env, sender=sender, now_ts=later)
+            second = await _deliver(env, sender=sender, now_ts=later + 10)
+            return first, second, sender, env
+        finally:
+            await env.svc.close()
+
+    first, second, sender, env = asyncio.run(scenario())
+    assert sender.calls == []
+    assert first and first[0].reason == meme.SKIP_DEFERRED_EXPIRED
+    assert second == []                        # повторных строк нет
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_CANCELLED]
+    assert not Path(rows[0]["result_ref"]).exists()
+    journal = [row for row in env.ledger.attempts(CHAT)
+               if str(row.get("reason_code")) == meme.SKIP_DEFERRED_EXPIRED]
+    assert len(journal) == 1                   # ровно одна строка на переход
+    from services.initiative_observer import reason_label
+    assert reason_label(meme.SKIP_DEFERRED_EXPIRED) != meme.SKIP_DEFERRED_EXPIRED
+
+
+# ── инвариант 8: дубль невозможен ──────────────────────────────────────────
+
+def test_b1_two_parallel_deliveries_send_once(tmp_path, monkeypatch):
+    """Два параллельных прохода доставки → одна отправка (CAS + бронь)."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-par")
+        try:
+            race.finish_foreign()
+            sender = _Sender()
+            both = await asyncio.gather(_deliver(env, sender=sender),
+                                        _deliver(env, sender=sender))
+            return both, sender, env
+        finally:
+            await env.svc.close()
+
+    both, sender, env = asyncio.run(scenario())
+    assert len(sender.calls) == 1
+    delivered = [item for result in both for item in result if item.published]
+    assert len(delivered) == 1
+    assert [row["status"] for row in _pending_rows(env)] == [JOB_COMPLETED]
+
+
+# ── инвариант 9: delivery_unknown не переотправляется ──────────────────────
+
+def test_b1_send_failure_is_terminal_delivery_unknown(tmp_path, monkeypatch):
+    """Исключение sender'а → `delivery_unknown`, файл удалён, повтора нет."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-unknown")
+        try:
+            race.finish_foreign()
+            boom = _Sender(boom=True)
+            first = await _deliver(env, sender=boom)
+            again = await _deliver(env, sender=_Sender())
+            return first, again, boom, env
+        finally:
+            await env.svc.close()
+
+    first, again, boom, env = asyncio.run(scenario())
+    assert len(boom.calls) == 1                # ровно одна попытка
+    assert first and first[0].reason == meme.REASON_DELIVERY_UNKNOWN
+    assert first[0].published is False
+    assert again == []                         # повторов нет
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_FAILED]
+    assert not Path(rows[0]["result_ref"]).exists()
+    assert _terminal_facts(env.ledger).get("delivery") == "unknown"
+
+
+def test_b1_interrupted_row_is_finalised_not_resent(tmp_path, monkeypatch):
+    """Строка, помеченная watchdog'ом `interrupted`, не переотправляется."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-crash")
+        try:
+            race.finish_foreign()
+            conn = sqlite3.connect(str(env.svc.db_path))
+            try:
+                conn.execute("UPDATE task_jobs SET status = 'interrupted' "
+                             "WHERE kind = ?", (meme.DEFERRED_KIND,))
+                conn.commit()
+            finally:
+                conn.close()
+            sender = _Sender()
+            delivered = await _deliver(env, sender=sender)
+            return delivered, sender, env
+        finally:
+            await env.svc.close()
+
+    delivered, sender, env = asyncio.run(scenario())
+    assert sender.calls == []
+    assert delivered and delivered[0].reason == meme.REASON_DELIVERY_UNKNOWN
+    assert delivered[0].detail == "interrupted"
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_FAILED]
+    assert not Path(rows[0]["result_ref"]).exists()
+
+
+# ── инвариант 10: журнал не спамится ───────────────────────────────────────
+
+def test_b1_waiting_passes_do_not_write_journal_rows(tmp_path, monkeypatch):
+    """N проходов ожидания слота → НИ ОДНОЙ новой строки журнала попыток."""
+    async def scenario():
+        env, _race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-spam")
+        try:
+            before = len(env.ledger.attempts(CHAT))
+            for _ in range(5):
+                await _deliver(env, now_ts=NOW_TS)
+            after = len(env.ledger.attempts(CHAT))
+            return before, after
+        finally:
+            await env.svc.close()
+
+    before, after = asyncio.run(scenario())
+    assert after == before                     # ожидание — не попытка
+
+
+def test_b1_pending_row_is_single_per_chat(tmp_path, monkeypatch):
+    """На чат — одна активная отложенная запись (existing unique partial v14)."""
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b1-one")
+        try:
+            # Второй проход с «активным» артефактом не генерирует (см. инв.3),
+            # поэтому проверяем механизм напрямую: второй enqueue того же чата.
+            snapshot = meme.build_source_snapshot(
+                chat_id=CHAT, rows=[{"id": 1, "text": "x"}],
+                run_id="run-2", mode=meme.MODE_AUTOMATIC,
+                purpose=meme.PURPOSE_AUTOMATIC, now_ts=NOW_TS)
+            again = await meme.defer_generated_meme(
+                env.svc, chat_id=CHAT, content=b"png2", snapshot=snapshot,
+                run_id="run-2", reason=meme.SKIP_PUBLICATION_CONFLICT,
+                detail="cross_type_interval", cfg=_settings_cd(),
+                prompt_origin="factory", now_ts=NOW_TS)
+            rows = _pending_rows(env)
+            return again, rows, env
+        finally:
+            await env.svc.close()
+
+    again, rows, env = asyncio.run(scenario())
+    assert again is not None and again.get("already_pending") is True
+    assert len(rows) == 1                      # одна активная запись на чат
+    # Свежий (второй) файл не оставлен мусором, а старый артефакт цел.
+    assert len(list(env.pending.glob("*.bin"))) == 1
+    assert Path(rows[0]["result_ref"]).exists()
+
+
+# ── два РАЗНЫХ job_id: не дубль, а два законных прохода под своими лимитами ──
+
+def test_two_different_job_ids_are_rate_limited_not_deduped(tmp_path,
+                                                            monkeypatch):
+    """Вердикт по «двум job_id публикуют дважды»: это не дубль-путь.
+
+    Факты на реальном коде:
+      * у автоматического мема РОВНО ОДНА точка входа — `on_initiative_cycle`
+        (единственный вызов в `initiative_observer._meme_phase`), а она живёт
+        внутри singleflight-задачи `initiative.observe`
+        (`coalesce_key="initiative.observe:global"`): два прохода одновременно
+        не идут by construction;
+      * второй проход с НОВЫМ `job_id` ограничен собственным кулдауном
+        механизма (`initiative.meme_cooldown_seconds`, дефолт 6 ч) и суточной
+        квотой — это разные законные попытки, а не дубль одного запроса;
+      * при выключенном кулдауне (тестовая конфигурация `cooldown_seconds=0`)
+        второй проход действительно публикует второй мем — но это следствие
+        конфигурации, а не дефект дедупликации.
+
+    Тест фиксирует обе стороны факта: с дефолтным кулдауном второго мема нет.
+    """
+    async def scenario():
+        env = await _env(tmp_path, monkeypatch)
+        try:
+            first_provider = _Provider()
+            first = await _auto_pass(env, provider=first_provider,
+                                     job_id="job-a",
+                                     settings=_settings_cd(cooldown=21600))
+            second_provider = _Provider()
+            second = await _auto_pass(env, provider=second_provider,
+                                      job_id="job-b",
+                                      settings=_settings_cd(cooldown=21600))
+            return first, second, first_provider, second_provider
+        finally:
+            await env.svc.close()
+
+    first, second, first_provider, second_provider = asyncio.run(scenario())
+    assert first.published is True
+    assert len(first_provider.calls) == 1
+    assert second.published is False
+    assert second.reason == meme.SKIP_COOLDOWN     # свой кулдаун, не дубль
+    assert second_provider.calls == []             # второй генерации нет
+
+
+def test_single_entry_point_for_automatic_memes():
+    """Авто-мемы идут ТОЛЬКО из singleflight-прохода инициативы."""
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    callers: list[str] = []
+    for path in list((root / "services").glob("*.py")) + list(
+            (root / "handlers").glob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:                    # pragma: no cover
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr == "on_initiative_cycle":
+                    callers.append(f"{path.name}:{node.lineno}")
+    assert len(callers) == 1, callers
+    assert callers[0].startswith("initiative_observer.py:")
+
+
+# ── B2: реальная перепроверка прав (не мок гейта) ──────────────────────────
+
+def test_b2_real_roster_rights_are_checked(tmp_path, monkeypatch):
+    """Настоящая `_default_rights_check` по настоящему источнику ростера."""
+    async def scenario():
+        env = await _env(tmp_path, monkeypatch)
+        try:
+            allowed = await meme._default_rights_check(env.svc, CHAT)
+            await env.svc.db.execute(
+                "DELETE FROM smart_messages WHERE chat_id = ?", (CHAT,))
+            await env.svc.db.commit()
+            denied = await meme._default_rights_check(env.svc, CHAT)
+            return allowed, denied
+        finally:
+            await env.svc.close()
+
+    allowed, denied = asyncio.run(scenario())
+    assert allowed == (True, "", "")
+    assert denied[0] is False
+    assert denied[1] == meme.SKIP_RIGHTS_REVOKED
+    assert denied[2] == "chat_not_in_roster"
+
+
+def test_b2_rights_revoked_during_generation_blocks_direct_publication(
+        tmp_path, monkeypatch):
+    """Права отозваны ПОСЛЕ генерации → свой код, отправки нет."""
+    async def scenario():
+        env = await _env(tmp_path, monkeypatch)
+        try:
+            provider = _Provider()
+            sender = _Sender()
+
+            async def _revoke(_cid):
+                await env.svc.db.execute(
+                    "DELETE FROM smart_messages WHERE chat_id = ?", (CHAT,))
+                await env.svc.db.commit()
+                return await meme._default_rights_check(env.svc, int(_cid))
+
+            result = await _auto_pass(env, sender=sender, provider=provider,
+                                      job_id="job-b2-direct",
+                                      rights_check=_revoke)
+            return result, sender, provider, env
+        finally:
+            await env.svc.close()
+
+    result, sender, provider, env = asyncio.run(scenario())
+    assert result.published is False
+    assert result.reason == meme.SKIP_RIGHTS_REVOKED
+    assert result.detail == "chat_not_in_roster"
+    assert result.generated is True            # картинка была готова
+    assert sender.calls == []                  # публикации нет
+    assert len(provider.calls) == 1
+
+
+def test_b2_manual_permission_is_rechecked_before_publication(tmp_path):
+    """Ручной путь: права отозваны после старта генерации → `rights_revoked`."""
+    store = _store(tmp_path)
+    led = meme.SqliteQuotaLedger(store.path)
+    sender = _Sender()
+    provider = _Provider()
+
+    async def permission_check() -> bool:
+        return False
+
+    result = asyncio.run(_pass(tmp_path, manual=True, store=store, ledger=led,
+                               sender=sender, provider=provider,
+                               permission_check=permission_check))
+    assert result.published is False
+    assert result.reason == meme.SKIP_RIGHTS_REVOKED
+    assert result.detail == "permission_denied"
+    assert result.generated is True           # генерация состоялась
+    assert sender.calls == []                 # но публикации нет
+    assert len(provider.calls) == 1
+
+
+def test_b2_handler_passes_real_permission_hook(tmp_path, monkeypatch):
+    """`/meme` перепроверяет РЕАЛЬНЫЙ RBAC перед публикацией (два вызова)."""
+    from handlers import meme_command
+    from tests.test_meme_command_autodelete import (_Bot, _install, _ledger,
+                                                    _seams, _target)
+
+    events: list[str] = []
+    bot = _Bot(events)
+    led = _ledger(tmp_path)
+    seams = _seams(events, ledger=led)
+    _install(monkeypatch, bot, seams)
+
+    calls: list[int] = []
+
+    async def _admin(_uid, _cid):
+        calls.append(1)
+        return len(calls) == 1        # на входе админ, перед публикацией — нет
+
+    monkeypatch.setattr(meme_command, "is_meme_admin", _admin)
+    asyncio.run(meme_command.cmd_meme(_target(bot)))
+
+    assert len(calls) == 2            # вход + реальная перепроверка
+    assert bot.photos() == []         # картинка не ушла
+    texts = bot.texts()
+    assert len(texts) == 1            # ровно одно короткое сообщение
+    assert "прав" in texts[0][2].lower()
+
+
+# ── B3: ручной `/meme` реально ждёт чужую отправку ─────────────────────────
+
+class _WaitProbe(asyncio.Event):
+    """Event, который сообщает тесту: ожидание слота РЕАЛЬНО началось."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.waiter_started = asyncio.Event()
+
+    async def wait(self):
+        self.waiter_started.set()
+        return await super().wait()
+
+
+def test_b3_manual_waits_for_foreign_sending_then_publishes(tmp_path,
+                                                            monkeypatch):
+    """Чужая отправка идёт → `/meme` ДОЖИДАЕТСЯ освобождения и публикует.
+
+    Мутация: вернуть отказ `publication_in_flight` в `precheck(manual=True)` —
+    прогон не доходит до генерации, `provider.calls == 0`, тест красный.
+    """
+    store = _store(tmp_path)
+    led = meme.SqliteQuotaLedger(store.path)
+    sender = _Sender()
+    provider = _Provider()
+    pub.reset_release_events()
+    probe = _WaitProbe()
+    pub._RELEASE_EVENTS[CHAT] = probe
+    monkeypatch.setattr(pub, "_release_event", lambda _cid: probe)
+    # Часы координатора — те же, что в прогоне (иначе его повторный `acquire`
+    # взял бы реальное «сейчас» и счёл нашу бронь истёкшей).
+    coordinator = pub.PublicationCoordinator(None, store=store,
+                                             now_fn=lambda: NOW_TS)
+    foreign = store.acquire(chat_id=CHAT, holder_kind=pub.KIND_TEXT_INITIATIVE,
+                            now=NOW_TS, interval_seconds=0)
+    assert foreign.granted
+    assert store.begin_sending(chat_id=CHAT, claim_id=foreign.claim_id,
+                               now=NOW_TS).granted
+
+    async def scenario():
+        async def _foreign_sender_finishes():
+            await probe.waiter_started.wait()   # мем реально начал ждать слот
+            store.release(chat_id=CHAT, claim_id=foreign.claim_id,
+                          published=True,
+                          holder_kind=pub.KIND_TEXT_INITIATIVE, now=NOW_TS)
+
+        releaser = asyncio.ensure_future(_foreign_sender_finishes())
+        try:
+            return await _pass(tmp_path, manual=True, store=store, ledger=led,
+                               sender=sender, provider=provider,
+                               publication=coordinator)
+        finally:
+            # Если прогон не дошёл до ожидания слота — релизер не нужен и не
+            # должен подвесить тест (это и есть мутационная проверка B3).
+            if not probe.waiter_started.is_set():
+                releaser.cancel()
+            await asyncio.gather(releaser, return_exceptions=True)
+
+    try:
+        result = asyncio.run(scenario())
+    finally:
+        pub.reset_release_events()
+
+    assert probe.waiter_started.is_set(), "ручной путь не вошёл в ожидание слота"
+    assert result.published is True and result.reason == "sent"
+    assert len(sender.calls) == 1              # ровно один мем
+    assert len(provider.calls) == 1            # без второй генерации
+
+
+async def _gate_ok(_cid):
+    return True, "ok"

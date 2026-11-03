@@ -747,9 +747,18 @@ class PublicationCoordinator:
         })
         if manual:
             # Ручной запрос приоритетен: интервал и маркер его не ограничивают.
-            if state == "sending" and not _expired(row.get("expires_at"), stamp):
-                out.update({"ok": False, "reason": REASON_IN_FLIGHT,
-                            "detail": DETAIL_CLAIM_HELD})
+            # Чужая АКТИВНАЯ отправка — НЕ повод отказывать ДО генерации: тот же
+            # `acquire` дождётся освобождения брони через существующий
+            # release-event (предел `MANUAL_IN_FLIGHT_WAIT_SECONDS`) и возьмёт
+            # слот. Отказ на precheck терял бы готовый мем и требовал второго
+            # `/meme`, что запрещено (§1.2.3/§3.4 ТЗ).
+            in_flight = bool(state == "sending"
+                             and not _expired(row.get("expires_at"), stamp))
+            out["in_flight"] = in_flight
+            if in_flight:
+                # Диагностика честная: слот занят, но ручной путь его ЖДЁТ.
+                out["detail"] = DETAIL_CLAIM_HELD
+                out["waits_for_slot"] = True
             return out
         if manual_active:
             out.update({"ok": False, "reason": REASON_CONFLICT,

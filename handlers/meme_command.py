@@ -73,6 +73,8 @@ _FAILURE_TEXT = {
                           "актуальность."),
     "source_material_gone": ("Исходные сообщения этого мема удалены из чата — "
                              "отправлять нечего."),
+    # B2 (P0 corrective): права отозваны после старта генерации.
+    "rights_revoked": "Права на отправку мема в этом чате отозваны.",
 }
 #: Ничего конкретного сказать нельзя — общая короткая фраза без внутренностей.
 _GENERIC_FAILURE = "Мем не получился. Попробуйте позже."
@@ -171,13 +173,19 @@ async def claim_manual_priority(chat_id: int) -> int:
         return 0
 
 
-async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = ""):
+async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = "",
+                              permission_check=None):
     """Один ручной проход существующего пайплайна (``manual=True``).
 
     ``manual=True`` обходит суточную квоту, кулдаун, минимум сообщений,
     случайный триггер, тихие часы, in-flight и гейт публикации; НЕ обходит
     RBAC, готовность image-модуля/провайдера, наличие журнала, разрешимость
     бюджета и контракт доставки (arch §4).
+
+    ``permission_check`` — РЕАЛЬНАЯ перепроверка прав автора ПЕРЕД публикацией
+    (B2): обработчик передаёт сюда тот же ``is_meme_admin``, что и на входе.
+    Права, отозванные за время генерации, дают свой код ``rights_revoked``, а
+    не общий «publish blocked».
 
     ``request_ref`` — id сообщения ``/meme``: попадает в снапшот источника и
     в события попытки (run/correlation). Сам мем уходит НОВЫМ сообщением:
@@ -195,6 +203,7 @@ async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = ""):
         "sender": _sender(bot),
         "ledger": meme.open_ledger(_db) if _db is not None else None,
         "request_ref": str(request_ref or ""),
+        "permission_check": permission_check,
     }
     params.update(_pipeline_seams)
     return await meme.consider_chat(_db, int(chat_id), **params)
@@ -237,8 +246,15 @@ async def cmd_meme(message: types.Message) -> None:
 
     bot = _bot if _bot is not None else getattr(message, "bot", None)
     request_ref = str(getattr(message, "message_id", 0) or "")
+    # B2: та же проверка прав, что и на входе, но уже ПЕРЕД публикацией —
+    # отозванные за время генерации права дают свой код, а не общий гейт.
+    async def _permission_check() -> bool:
+        return await is_meme_admin(user_id, chat_id)
+
     try:
-        result = await run_manual_pipeline(chat_id, bot, request_ref=request_ref)
+        result = await run_manual_pipeline(chat_id, bot,
+                                           request_ref=request_ref,
+                                           permission_check=_permission_check)
     except Exception as exc:
         # Пайплайн обязан деградировать сам; сюда приходит только сбой моста
         # (журнал/БД) — в чат уходит одно короткое сообщение, без внутренностей.

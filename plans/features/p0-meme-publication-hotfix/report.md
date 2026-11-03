@@ -1,12 +1,17 @@
 # P0 — готовый мем не отменяется из-за нового сообщения (+ P0.5 пустой потолок = авто)
 
 - Ветка: `fix/p0-publication-stale`, база: `7536df96`
+- Кандидаты: `b95b7363` (P0/P0.5) → **корректирующий коммит после ревью** (B1/B2/B3,
+  см. §8 ниже). Ревью: `plans/features/p0-meme-publication-hotfix/review.md`
+  (Needs Fixes), решение Architect по B1:
+  `plans/features/p0-meme-publication-hotfix/arch/deferred-publication.md`.
 - Источник требований: `plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md`
   §1.1–§1.4 (P0 и P0.5). P1 (перекомпоновка UI «Модули → Инициатива») —
   отдельный трек, здесь НЕ делался.
 - Область: `services/meme_initiative.py`, `services/initiative_observer.py`
-  (ярлыки), `handlers/meme_command.py`, `web/api/routes.py`, минимальное
-  состояние карточки в `web/app.js`; тесты.
+  (ярлыки), `services/publication_coordination.py` (только B3),
+  `handlers/meme_command.py`, `web/api/routes.py`, минимальное состояние
+  карточки в `web/app.js`; тесты. Схема БД не менялась, новых таблиц нет.
 - Деплой не выполнялся.
 
 ## 1. Инцидент и корень проблемы
@@ -165,7 +170,9 @@ Runtime: при `auto` числового предела НЕТ — директ
 4. Два воркера и рестарт: ровно одна публикация, один платный вызов, квота 1,
    уникальный `provider_called` остаётся durable.
 5. Ручной приоритет: `wait_for_sending` = существующий предел; чужой `claimed`
-   перехватывается; успех = только изображение.
+   перехватывается; успех = только изображение. **Обновлено после ревью (B3):**
+   реальное ожидание слота (`test_b3_manual_waits_for_foreign_sending_then_publishes`,
+   детерминированная точка синхронизации без sleeps).
 6. События: цепочка/ссылки/режим/время/факт доставки, `image_ready` ≠
    `publication_sent`; исключение отправки = `delivery_unknown`.
 7. Авто-потолок: пустой = авто (нет директивы, нет обрезки, prompt > 800
@@ -174,6 +181,13 @@ Runtime: при `auto` числового предела НЕТ — директ
 8. API/витрина: пусто → авто (глобально и с чатовым override), save/reload,
    auto↔fixed, `null`/`0`, некорректный ввод, отсутствие поля не стирает
    сохранённое.
+9. **B1 (10 инвариантов Architect):** не теряется; одна доставка; без второй
+   генерации; рестарт; квота не дважды; права/модуль своими кодами; честное
+   истечение; дубль невозможен; `delivery_unknown` не переотправляется; журнал
+   не спамится.
+10. **B2:** реальный ростер прав (юнит + отзыв после генерации), ручная
+   перепроверка RBAC, обработчик передаёт реальный хук (2 вызова).
+11. **B3:** чужой `sending` → ожидание → одна публикация, без второй генерации.
 
 Мутационная проверка (временно возвращал старое поведение, затем откатывал):
 
@@ -181,16 +195,26 @@ Runtime: при `auto` числового предела НЕТ — директ
   (`*_new_messages_do_not_cancel_ready_meme`, `..._topic_changed`);
 - вернуть `if not budget.known: skipped(length_limit_unknown)` → падает
   `test_auto_ceiling_generates_without_invented_limit`;
-- `image_prompt_fits` без проверки L → падает `image_prompt_fits_is_exact`.
+- `image_prompt_fits` без проверки L → падает `image_prompt_fits_is_exact`;
+- **B1:** убрать `defer_generated_meme` из ветки отказа брони → падают 11
+  тестов `test_b1_*` (артефакт теряется — ровно дефект B1);
+- **B2:** отключить проверку прав на обоих путях → падают
+  `test_b2_rights_revoked_during_generation_blocks_direct_publication`,
+  `test_b2_manual_permission_is_rechecked_before_publication`,
+  `test_b2_handler_passes_real_permission_hook`;
+- **B3:** вернуть отказ `publication_in_flight` в `precheck(manual=True)` →
+  падает `test_b3_manual_waits_for_foreign_sending_then_publishes`
+  («ручной путь не вошёл в ожидание слота»).
 
 Результаты прогонов (Windows, `py -3 -m pytest`, без sleeps):
 
-- `tests/test_p0_meme_publication_hotfix.py` — 28 passed.
-- наборы мемов/инициативы/API/JS: `test_evol014_meme_initiative`,
-  `test_evol014_ui`, `test_initiative_coordination`, `test_meme_command_autodelete`,
-  `test_meme_init_diagnostics`, `test_meme_joke_speech_layers`,
-  `test_meme_pipeline_api`, `test_meme_pipeline_stages`,
-  `test_p0_meme_image_only`, `test_p0_meme_publication_hotfix` — 231 passed.
+- `tests/test_p0_meme_publication_hotfix.py` — **47 passed** (было 28):
+  +13 B1-инвариантов, +4 B2, +1 B3, +1 по вердикту «два job_id».
+- 8 наборов мемов/инициативы/API (`test_initiative_coordination`,
+  `test_evol014_meme_initiative`, `test_meme_pipeline_stages`,
+  `test_evol014_ui`, `test_meme_pipeline_api`, `test_meme_init_diagnostics`,
+  `test_p0_meme_image_only`, `test_meme_command_autodelete`) — **194 passed**.
+- Совместный прогон 9 наборов (8 выше + hotfix) — **241 passed**, exit 0.
 - `tests/test_webapp_api.py` + `tests/test_webapp_js_unit.py` — 203 passed,
   2 failed; оба падения (`round1021_ui_audit`: `grid: auto-fit minmax(320px,1fr)`
   и `round1024_image_module`: «вкладок 28») относятся к `web/index.html`,
@@ -209,7 +233,8 @@ Runtime: при `auto` числового предела НЕТ — директ
   LLM и ДО провайдера; бронь берётся после генерации, `sending` — ровно перед
   sender.
 - `manual` приоритет через существующий `wait_for_sending` и перехват чужого
-  `claimed`; RBAC по-прежнему проверяет обработчик.
+  `claimed`; RBAC по-прежнему проверяет обработчик (плюс перепроверка перед
+  публикацией — B2).
 - Контракт доставки: успех = РОВНО одно изображение, без caption/промпта/
   второго сообщения; журнал выводов и аналитика сохраняются.
 - Идемпотентность: тот же `job_id` не даёт дубля и второй генерации; неизвестный
@@ -218,6 +243,11 @@ Runtime: при `auto` числового предела НЕТ — директ
   в `0`/`800`/`NaN`; `T` считается только production-renderer'ом.
 - События в фактах терминальной строки и `delivery.events` в API — источник для
   вкладки «Публикации»/«Диагностика».
+- **B1:** отложенный артефакт не выбрасывается и не перегенерируется; одна
+  активная строка на чат; доставка только через существующий тик мема и через
+  существующую бронь (`mark_running` CAS + `acquire` + `begin_sending`).
+- **B2:** перед публикацией перепроверяются реальный ростер/права, тумблеры,
+  исходный материал и гейт; intent-lifecycle зафиксирован как N/A с причиной.
 
 ## 7. Найденное попутно
 
@@ -229,15 +259,139 @@ Runtime: при `auto` числового предела НЕТ — директ
   test_js_unit_round1021_ui_audit` и `::test_js_unit_round1024_image_module`
   падают на базе (ожидают разметку/число вкладок в `web/index.html`, которого в
   файле нет). К этой правке отношения не имеют.
-- `related-nonblocking`: durable-хранилища готового изображения в проекте нет,
-  поэтому автоматический мем, проигравший бронь ПОСЛЕ генерации, не отправляет
-  картинку позже (архитектурное решение `arch §3.3/§3.5`: «проигравший не
-  отправляет уже сгенерированную картинку ни сейчас, ни позже»). Реализовано:
-  точный код + durable-факт «генерация прошла, публикация отложена», квота не
-  списывается второй раз; ручной `/meme` в этом же случае ДОЖИДАЕТСЯ слота.
-  Очередь отложенных артефактов потребовала бы нового хранилища/retention и
-  вынесена за пределы P0.
+- `related-nonblocking` (ЗАКРЫТО в этом коммите): durable-хранилище готового
+  артефакта теперь есть — `task_jobs` (`kind="meme.pending_publish"`) + байты в
+  `var/meme_pending/<job_id>.bin`; см. §8.
 - `related-nonblocking`: `source_material_gone` срабатывает только когда не
   осталось НИ ОДНОГО исходного сообщения снапшота (частичное удаление не
   блокирует: порог — это было бы изобретённое правило). Ошибка чтения БД →
   не блокируем (готовый мем не отменяется по догадке).
+- `unrelated/pre-existing (наблюдение, воспроизведено БЕЗ этого файла тестов)`:
+  в совместных прогонах 8–9 файлов изредка падает ОДИН тест из
+  `tests/test_initiative_coordination.py::test_t4_diagnostics_*`, каждый раз
+  другой. Причина видна в логе: `op=random_state` / `random_draw_journal` →
+  `ValueError: no active connection` — процесс-глобальный singleton
+  `_service` (`mca_random_source.get_service`) остаётся привязан к уже закрытому
+  `DatabaseService` другого теста того же файла (`get_service` не перебиндивает,
+  пока `_service.db` не None). Доказательства непричастности этого диффа:
+  (а) `mca_random_source`/`initiative_diagnostics` в диффе отсутствуют;
+  (б) изолированный прогон файла — 6/6 зелёных;
+  (в) тот же набор БЕЗ `tests/test_p0_meme_publication_hotfix.py` дал ровно такое
+  же падение (`..._refuses_on_foreign_claim`, 1 failed / 193 passed);
+  (г) отдельная проверка (`probe_bind.py`) показала, что дефер/доставка/закрытие
+  моих `DatabaseService` singleton НЕ привязывают (`service after close: None`).
+  Своя доля загрязнения всё равно закрыта: в hotfix-файле добавлен autouse
+  `_release_random_source_singleton` (сброс после каждого теста). Чужой файл не
+  правил — вне области P0.
+
+## 8. Корректирующий коммит после ревью: B1 / B2 / B3
+
+Ревью `review.md` вернуло `Needs Fixes` по трём пунктам. Все три закрыты, каждый
+доказан тестом, который падает при откате фикса (мутации в §5).
+
+### B1 — готовый авто-мем не выбрасывается (arch/deferred-publication.md)
+
+Реализовано ровно по решению Architect:
+
+- **Метаданные** — строка существующей `task_jobs` (v14, миграция НЕ нужна):
+  `owner="meme.initiative"`, `kind="meme.pending_publish"`,
+  `coalesce_key="meme:pending_publish:<chat_id>"` (unique partial v14 → одна
+  активная запись на чат), `payload` — компактный JSON без текстов сообщений
+  (`chat_id`, `run_id`, `created_at`, `expires_at`, `sha256`, `size`, `mime`,
+  `deferred_reason/detail`, `msg_ids/msg_count/first_id/last_id/snapshot_digest`,
+  `prompt_origin`, `purpose`, `mode`), `deadline_at`, `attempt`, `result_ref` —
+  путь к байтам (заполняется сразу после `enqueue`, т.к. сам `enqueue` эту
+  колонку не принимает; `finish` теперь передаёт `result_ref` явно, иначе
+  терминальный переход стирал бы путь).
+- **Байты** — `var/meme_pending/<job_id>.bin`, атомарная запись
+  temp-file → `os.chmod(0600)` → `os.replace`; каталог переопределяется
+  `MEME_PENDING_DIR` (прецедент `cover_style_assets.assets_dir()`, `var/` в
+  `.gitignore`, деплой `git pull --ff-only` не пачкается).
+- **Ретенция** = `cfg.cooldown_seconds` (существующее число, дефолт 6 ч ≥
+  межтипового интервала 1800 с); `cooldown ≤ 0` не даёт «мгновенно мёртвого»
+  артефакта — берётся существующий `DEFAULT_COOLDOWN_SECONDS`. Новых TTL нет.
+- **Драйвер ретрая** — существующий тик мема: `on_initiative_cycle` ПЕРВЫМ
+  вызывает `deliver_deferred_all` (перебирает активные записи всех чатов, не
+  зависит от ротации `MAX_CHATS_PER_PASS`); нового планировщика/воркера нет.
+- **Exactly-once**: стражи (тумблеры → ростер/права → исходный материал →
+  publish-гейт → тихие часы) → `mark_running` CAS → `acquire` →
+  `begin_sending` → sender → `_record_meme_output` + `release(published=True)` →
+  `finish(completed)` → файл удалён. Отказ слота → `requeue`, файл сохранён,
+  строк журнала нет. Исключение sender'а → терминал `delivery_unknown`, файла
+  нет, повтора нет. `interrupted` от существующего watchdog →
+  `delivery_unknown` («crash после отправки» не переотправляется).
+- **Анти-перегенерация**: при активной отложенной записи авто-проход не
+  генерирует (`detail="deferred_pending"`) и не пишет строк журнала.
+- **Только авто**: `manual=True` не откладывает (ручной путь ждёт слот сам).
+- **Новые коды только два**: `rights_revoked`, `deferred_publication_expired`
+  (оба с русскими ярлыками в `initiative_observer.REASON_LABELS`). Новых имён
+  событий нет — используется закрытый `MEME_EVENTS`, принадлежность отложенному
+  пути видна в `detail` (`deferred|…`) и `run_id` = исходный `jid`.
+- **Image-backend на поздней отправке НЕ проверяется** (байты уже есть; блокировать
+  оплаченный артефакт из-за здоровья провайдера запрещено §1.2.5).
+
+### B2 — реальная перепроверка прав перед публикацией
+
+- `_default_rights_check(db, chat_id)` — настоящий ростер кандидатов
+  (`_candidate_chat_ids`: PG `chat_profiles` / durable SQLite
+  `get_smart_chat_ids`); чата нет в ростере → `rights_revoked`
+  (`chat_not_in_roster`). Нечитаемый ростер/нет БД → не блокируем (доказать
+  отзыв нельзя), в фактах `detail="roster_unavailable"`.
+- Ручной путь: обработчик передаёт в пайплайн тот же `is_meme_admin`, что и на
+  входе (`permission_check`); отказ → `rights_revoked`
+  (`permission_denied`) + одно короткое сообщение «Права на отправку мема в
+  этом чате отозваны.». Проверка стоит ПОСЛЕ генерации и ПЕРЕД броней, поэтому
+  тест доказывает именно «права отозваны за время генерации».
+- Жизненный цикл intent — **N/A с причиной в коде и в записи**:
+  `facts.publish.intent_lifecycle = {"status": "n/a", "reason":
+  "meme_has_no_intent_binding"}` (у мема свой `run_id` и снапшот источника, он
+  не привязан к intent-записи). Синтетическая строка контекста больше не
+  выдаётся за проверку. То же зафиксировано в отложенном пути.
+- И прямой, и отложенный путь используют одну и ту же проверку прав/ростера.
+
+### B3 — ручной `/meme` реально ждёт чужую отправку
+
+- `publication_coordination.precheck(manual=True)`: при чужом `sending` больше
+  НЕ отказывает (`ok=True`, диагностика `in_flight=True`,
+  `waits_for_slot=True`, `detail=claim_held`), поэтому прогон доходит до
+  генерации и до существующего `acquire(wait_for_sending=MANUAL_IN_FLIGHT_WAIT_SECONDS)`.
+- Ожидание — существующий durable-механизм (release-event + одна повторная
+  попытка), новых таймеров нет. Правка именно в
+  `services/publication_coordination.py` (B3 требовал её: отказ случался на
+  `precheck`, до генерации, и пайплайн не мог «дождаться»).
+- Отложенный B1-путь при этом остаётся честным: ручной запрос имеет приоритет
+  (`MANUAL_PRIORITY_SECONDS`), отложенная запись просто остаётся `queued`.
+
+### Вердикт по «два разных `job_id` публикуют дважды»
+
+Проверено на реальном коде: **это не дубль-путь, а два законных прохода.**
+
+- У авто-мема РОВНО ОДНА точка входа — `initiative_observer._meme_phase` →
+  `meme.on_initiative_cycle` (тест
+  `test_single_entry_point_for_automatic_memes` сканирует AST всех
+  `services/*.py` и `handlers/*.py` и требует один вызов). Она живёт внутри
+  singleflight-задачи `initiative.observe`
+  (`OBSERVE_COALESCE_KEY="initiative.observe:global"`,
+  `services/initiative_observer.py:79-81,1039-1055`): второй проход не
+  стартует, `enqueue` вернёт `job_id` уже активной задачи.
+- Второй последовательный проход с новым `job_id` ограничен собственным
+  кулдауном механизма и суточной квотой: `test_two_different_job_ids_are_rate_limited_not_deduped`
+  показывает `cooldown_active` и НОЛЬ вызовов провайдера на втором проходе при
+  дефолтном кулдауне (6 ч).
+- Две публикации при двух `job_id` воспроизводятся только при
+  `cooldown_seconds=0` (тестовая конфигурация) — это следствие конфигурации, а
+  не отсутствие дедупликации; новая сущность дедупа не вводилась.
+- Старый тест `test_two_workers_in_one_chat_publish_exactly_once` — это проверка
+  РЕПЛЕЯ одного `job_id` (так и назван в комментарии), а не двух воркеров;
+  переименование/уточнение оставлено на P1-чистку документации.
+
+### Хранилище и уборка (факты)
+
+- Схема БД: дельта ноль (`task_jobs` v14 уже есть; новый `kind` — значение
+  колонки; новых таблиц/колонок/индексов нет).
+- Один файл ≤ `IMAGE_MAX_BYTES` (9 MiB), одна активная запись на чат ⇒ верхняя
+  граница — `9 MiB × число чатов`, фактически сотни КБ.
+- Файл удаляется в КАЖДОМ терминальном переходе (completed/failed/cancelled);
+  строки убирает существующий `TaskJobStore.prune` (активные не трогает).
+- Откат = только код: строки после revert остаются `queued` и инертны, файлы —
+  в git-ignored `var/meme_pending/`.
