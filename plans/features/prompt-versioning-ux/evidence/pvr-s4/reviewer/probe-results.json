@@ -1,0 +1,568 @@
+{
+ "notes": {
+  "editor_key": "prompts.summary_cover_style",
+  "root_state": {
+   "promptHistory": "undefined",
+   "phWhen": "undefined",
+   "loadPromptHistory": "undefined",
+   "toggles": 1,
+   "cardsInEditor": 1,
+   "panels": 0
+  },
+  "card": {
+   "state": "Действует в этом чате · изменён вручную · 03.11 23:42",
+   "scope": "этот чат · Чат A",
+   "raw": false
+  },
+  "details_menu_open": {
+   "n": 8,
+   "sample": [
+    "блок: initiative.meme.joke",
+    "ключ: prompts.meme_joke",
+    "область: чат -100500",
+    "печать кода: fac:deadbeefcafe",
+    "заводская ревизия: fac:deadbeefcafe"
+   ]
+  },
+  "details_after_click": {
+   "menus": 0,
+   "detailBlocks": 0,
+   "lines": 0,
+   "reveals": false
+  },
+  "paging": {
+   "walked": [
+    50,
+    100,
+    131
+   ],
+   "end": true,
+   "n": 131,
+   "uniq": true,
+   "last": [
+    130,
+    131
+   ]
+  },
+  "view_body": {
+   "rev": "rev-001",
+   "len": 34,
+   "exact": true
+  },
+  "diff": {
+   "add": 1,
+   "del": 1,
+   "ctx": 1,
+   "meta": 2
+  },
+  "rows": {
+   "retired": [
+    {
+     "status": "retired",
+     "rev": "rev-007",
+     "activate": false,
+     "assign": false,
+     "view": true,
+     "reason": "retired: версия снята с регистрации — читать и сравнивать можно, применять и назначать базовой нельзя."
+    }
+   ],
+   "incompat": [
+    {
+     "status": "incompatible",
+     "rev": "rev-009",
+     "activate": false,
+     "assign": false,
+     "view": true,
+     "reason": "Несовместима с текущей схемой <2>: читать и сравнивать можно, применять нельзя."
+    }
+   ],
+   "event": [
+    {
+     "status": "inactive",
+     "rev": "",
+     "activate": false,
+     "assign": false,
+     "view": false,
+     "reason": ""
+    }
+   ],
+   "active": [
+    {
+     "status": "active",
+     "rev": "rev-002",
+     "activate": false,
+     "assign": true,
+     "view": true,
+     "reason": ""
+    }
+   ]
+  },
+  "activate_refused": {
+   "result": "Версия снята с регистрации (retired). Активная версия не изменилась.",
+   "active": [
+    "rev-002"
+   ],
+   "target": "rev-004"
+  },
+  "assign": {
+   "result": "Базовая версия изменена, действующий текст пока прежний.",
+   "same_text": true
+  },
+  "copy_global_chat_scope": 49,
+  "dirty": {
+   "badge": true,
+   "effective": true,
+   "effText": "(пусто)"
+  },
+  "tab_switch": {
+   "dialogs": [
+    "Есть несохранённые изменения (1) для «Чат A». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+    "Есть несохранённые изменения (1) для «Чат A». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)"
+   ],
+   "kept": true
+  },
+  "chat_switch_cancel": {
+   "dialogs": [
+    "Есть несохранённые изменения (1) для «Чат A». Переключить область и потерять их?"
+   ],
+   "kept": true
+  },
+  "chat_switch_accept": {
+   "dialogs": [
+    "Есть несохранённые изменения (1) для «Чат A». Переключить область и потерять их?"
+   ],
+   "draft_survived": false,
+   "value": ""
+  },
+  "module_cards_1366": {
+   "bars": 23,
+   "cards": 0,
+   "barKeys": [
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_critique_directive",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.checkup_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt",
+    "prompts.webpage_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.meme_image",
+    "prompts.meme_joke"
+   ],
+   "hscroll": 0
+  },
+  "panel_1366": {
+   "n": 1,
+   "w": 560,
+   "h": 768,
+   "left": 806,
+   "top": 0,
+   "vw": 1366,
+   "vh": 768,
+   "hscroll": 0,
+   "rows": 50,
+   "focusInside": true
+  },
+  "module_cards_390": {
+   "bars": 23,
+   "cards": 0,
+   "barKeys": [
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_critique_directive",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.checkup_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt",
+    "prompts.webpage_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.meme_image",
+    "prompts.meme_joke"
+   ],
+   "hscroll": 0
+  },
+  "panel_390": {
+   "n": 1,
+   "w": 390,
+   "h": 844,
+   "left": 0,
+   "top": 0,
+   "vw": 390,
+   "vh": 844,
+   "hscroll": 0,
+   "rows": 50,
+   "focusInside": true
+  },
+  "memes_1536": {
+   "joke": {
+    "top": 907,
+    "w": 558
+   },
+   "image": {
+    "top": 907,
+    "w": 558
+   },
+   "cards": 2,
+   "oneComponent": 2,
+   "raw": false,
+   "hscroll": 0
+  },
+  "joke_hint_1536": "Как подставляется приколПрикол автоматически добавится после шаблона: отдельная метка {joke} не нужна, менять текст шаблона не требуется.",
+  "memes_390": {
+   "joke": {
+    "top": 1827,
+    "w": 340
+   },
+   "image": {
+    "top": 2166,
+    "w": 340
+   },
+   "cards": 2,
+   "oneComponent": 2,
+   "raw": false,
+   "hscroll": 0
+  },
+  "joke_hint_390": "Как подставляется приколПрикол автоматически добавится после шаблона: отдельная метка {joke} не нужна, менять текст шаблона не требуется.",
+  "speech_hub": {
+   "cards": [],
+   "hasCore": true
+  },
+  "speech_open_core": false,
+  "speech_core": {
+   "hasTextarea": false,
+   "unifiedCard": 0,
+   "histBtn": 0,
+   "legacyDetails": false
+  },
+  "speech_core_legacy_history": null
+ },
+ "results": [
+  [
+   true,
+   "нет корневого состояния второй истории",
+   ""
+  ],
+  [
+   true,
+   "в редакторе ровно одна карточка",
+   1
+  ],
+  [
+   true,
+   "панели в DOM нет до открытия",
+   0
+  ],
+  [
+   true,
+   "состояние карточки человекочитаемо",
+   "Действует в этом чате · изменён вручную · 03.11 23:42"
+  ],
+  [
+   true,
+   "в свёрнутой карточке нет act:/fac:/sha/revision_id",
+   ""
+  ],
+  [
+   true,
+   "технические ID доступны в раскрываемом меню «...»",
+   {
+    "n": 8,
+    "sample": [
+     "блок: initiative.meme.joke",
+     "ключ: prompts.meme_joke",
+     "область: чат -100500",
+     "печать кода: fac:deadbeefcafe",
+     "заводская ревизия: fac:deadbeefcafe"
+    ]
+   }
+  ],
+  [
+   false,
+   "кнопка «Подробности и диагностика» реально что-то раскрывает",
+   {
+    "menus": 0,
+    "detailBlocks": 0,
+    "lines": 0,
+    "reveals": false
+   }
+  ],
+  [
+   true,
+   "лента листается до конца (131 записей)",
+   131
+  ],
+  [
+   true,
+   "порядок непрерывный, дублей нет",
+   ""
+  ],
+  [
+   true,
+   "показан честный конец истории",
+   ""
+  ],
+  [
+   true,
+   "тело версии показано дословно и целиком",
+   ""
+  ],
+  [
+   true,
+   "просмотр не пересохранил промпт",
+   ""
+  ],
+  [
+   true,
+   "diff красит только изменённые строки (+/-), контекст нейтрален",
+   ""
+  ],
+  [
+   true,
+   "retired: ни «Применить», ни «Назначить», есть причина",
+   {
+    "status": "retired",
+    "rev": "rev-007",
+    "activate": false,
+    "assign": false,
+    "view": true,
+    "reason": "retired: версия снята с регистрации — читать и сравнивать можно, применять и назначать базовой нельзя."
+   }
+  ],
+  [
+   true,
+   "несовместимая: нет «Применить», есть причина",
+   {
+    "status": "incompatible",
+    "rev": "rev-009",
+    "activate": false,
+    "assign": false,
+    "view": true,
+    "reason": "Несовместима с текущей схемой <2>: читать и сравнивать можно, применять нельзя."
+   }
+  ],
+  [
+   true,
+   "событие журнала без revision_id: нет «Применить»",
+   ""
+  ],
+  [
+   true,
+   "у действующей версии нет «Применить»",
+   ""
+  ],
+  [
+   true,
+   "отказ сервера показан честно",
+   "Версия снята с регистрации (retired). Активная версия не изменилась."
+  ],
+  [
+   true,
+   "после отказа активная версия не подменена",
+   ""
+  ],
+  [
+   true,
+   "назначение базовой говорит правду",
+   "Базовая версия изменена, действующий текст пока прежний."
+  ],
+  [
+   true,
+   "назначение базовой не изменило действующий текст",
+   ""
+  ],
+  [
+   true,
+   "в чатовой области есть «Скопировать глобально»",
+   ""
+  ],
+  [
+   true,
+   "«Вернуть исходную из кода» бьёт в свой endpoint",
+   ""
+  ],
+  [
+   true,
+   "«Снять назначение» бьёт в свой endpoint",
+   ""
+  ],
+  [
+   true,
+   "черновик помечен «черновик не сохранён»",
+   ""
+  ],
+  [
+   true,
+   "действующий текст показан отдельно от черновика",
+   {
+    "badge": true,
+    "effective": true,
+    "effText": "(пусто)"
+   }
+  ],
+  [
+   true,
+   "переключение вкладки сохранило черновик без вопросов",
+   [
+    "Есть несохранённые изменения (1) для «Чат A». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+    "Есть несохранённые изменения (1) для «Чат A». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)"
+   ]
+  ],
+  [
+   true,
+   "отказ сохранил черновик",
+   ""
+  ],
+  [
+   true,
+   "смена чата спросила подтверждение",
+   [
+    "Есть несохранённые изменения (1) для «Чат A». Переключить область и потерять их?"
+   ]
+  ],
+  [
+   true,
+   "карточки модулей монтируют тот же компонент (1366)",
+   23
+  ],
+  [
+   true,
+   "панель в DOM ровно одна (1366)",
+   ""
+  ],
+  [
+   true,
+   "нет горизонтального скролла страницы (1366)",
+   0
+  ],
+  [
+   true,
+   "на десктопе панель боковая, читаемой ширины",
+   560
+  ],
+  [
+   true,
+   "карточки модулей монтируют тот же компонент (390)",
+   23
+  ],
+  [
+   true,
+   "панель в DOM ровно одна (390)",
+   ""
+  ],
+  [
+   true,
+   "нет горизонтального скролла страницы (390)",
+   0
+  ],
+  [
+   true,
+   "на мобильном панель полноэкранная",
+   [
+    390,
+    390,
+    844,
+    844
+   ]
+  ],
+  [
+   true,
+   "фокус переведён в панель",
+   true
+  ],
+  [
+   true,
+   "Escape закрывает панель",
+   0
+  ],
+  [
+   true,
+   "у двух промптов мемов по карточке версий (1536)",
+   2
+  ],
+  [
+   true,
+   "сырой «{joke}: N» отсутствует (1536)",
+   ""
+  ],
+  [
+   true,
+   "нет горизонтального скролла в мемах (1536)",
+   0
+  ],
+  [
+   true,
+   "мемы рядом на широком экране",
+   ""
+  ],
+  [
+   true,
+   "подсказка {joke}=0 человеческая (1536)",
+   "Как подставляется приколПрикол автоматически добавится после шаблона: отдельная метка {joke} не нужна, менять текст шаблона не требуется."
+  ],
+  [
+   true,
+   "у двух промптов мемов по карточке версий (390)",
+   2
+  ],
+  [
+   true,
+   "сырой «{joke}: N» отсутствует (390)",
+   ""
+  ],
+  [
+   true,
+   "нет горизонтального скролла в мемах (390)",
+   0
+  ],
+  [
+   true,
+   "мемы столбиком на мобильном",
+   ""
+  ],
+  [
+   true,
+   "подсказка {joke}=0 человеческая (390)",
+   "Как подставляется приколПрикол автоматически добавится после шаблона: отдельная метка {joke} не нужна, менять текст шаблона не требуется."
+  ],
+  [
+   false,
+   "редактор «Характер» доступен с карточкой",
+   ""
+  ],
+  [
+   true,
+   "в «Характере» НЕТ единой карточки версий",
+   0
+  ],
+  [
+   true,
+   "в «Характере» НЕТ единой «Истории версий»",
+   0
+  ]
+ ]
+}

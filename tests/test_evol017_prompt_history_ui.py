@@ -307,15 +307,39 @@ def test_catalog_lists_internal_prompts_without_bodies(client):
 
 
 def test_editor_page_contains_history_area():
+    """PVR-S4: «История версий» — ОДНА панель на все редакторы.
+
+    Разметка панели живёт в общем шаблоне компонента `prompt-version-card`
+    (x-template), а каждый редактор монтирует этот же компонент: библиотека
+    «Промпты», полосы карточек модулей, два промпта мемов, блок речи,
+    раздел «Характер» и каталог. Вторая похожая реализация панели запрещена
+    контрактом §6.
+    """
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     editor = html.split("data-prompt-editor", 1)[1].split("data-prompt-meta", 1)[0]
-    assert "История версий" in editor
-    assert "data-prompt-history" in editor
-    assert "data-prompt-history-toggle" in editor
+    assert "<prompt-version-card" in editor, "редактор монтирует единый компонент"
+    tpl = html.split('id="prompt-version-card-tpl"', 1)[1].split("</script>", 1)[0]
+    assert "История версий" in tpl
+    assert "data-prompt-history" in tpl
+    assert "data-prompt-history-toggle" in tpl
+    assert "data-prompt-history-versions" in tpl
+    assert "data-prompt-history-result" in tpl
+    # Один шаблон на все поверхности: библиотека, 2 полосы модулей, 2 мема,
+    # каталог регистрации, блок речи, раздел «Характер» (PVR-S4 B1).
+    assert html.count("<prompt-version-card") == 8
+    # PVR-S4 B1: «Характер» (prompt-field core.personality /
+    # core.personality.compact) — тот же компонент, без legacy-списка.
+    core = html.split("speechSection === 'core' && speechCore", 1)[1] \
+               .split("speechSection === 'style' && speechStyle", 1)[0]
+    assert "<prompt-version-card" in core
+    assert "speechCore.block_ids" in core
+    assert "data-speech-core-more" not in core
     assert "data-prompt-catalog" in html
     js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
-    assert "импортировано при переходе" in js
-    assert "Включить сохранённую версию" in js
+    # Мёртвый обработчик второго UI истории удалён вместе с блоком.
+    assert "rollbackSpeechBlock" not in js
+    assert "импортирована" in js
+    assert "Применить эту версию" in js
     assert "window.confirm" in js
     assert "Активная версия не изменилась" in js
     css = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")

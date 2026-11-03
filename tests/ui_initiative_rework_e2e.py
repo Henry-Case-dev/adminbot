@@ -711,6 +711,31 @@ def make_api_handler():
             return send(payload)
         if path.endswith("/api/status"):
             return send(_status())
+        # PVR-S4: единый компонент версий запрашивает историю каждого промпта.
+        # Заглушка отдаёт «действует заводская ревизия» — состояние карточки
+        # (человеческая фраза) проверяется как реальный контракт.
+        if "/api/prompts/" in path and path.endswith("/versions"):
+            key = path.split("/api/prompts/", 1)[1][: -len("/versions")]
+            return send({
+                "known": True, "block_id": key, "pg_key": key,
+                "scope": "global", "chat_id": None, "hidden": False,
+                "manageable": True, "journal_available": True,
+                "can_activate": True, "factory_revision": "fac-test",
+                "sealed_revision": "fac-test", "factory_matches_active": True,
+                "active": {"revision_id": "rev-fac", "origin": "factory",
+                           "sha256_12": "aaaaaaaaaaaa", "chars": 10,
+                           "created_at": "2026-11-03T20:42:00+00:00",
+                           "source": "from_release"},
+                "baseline": {"source": "factory", "baseline": None,
+                             "cleared_at": None, "cleared_by": ""},
+                "capabilities": {"can_assign_baseline": True,
+                                 "can_clear_baseline": False,
+                                 "can_restore_baseline": False,
+                                 "can_copy_to_global": False},
+                "entries": [], "revisions": [], "activations": [],
+                "page": {"next_cursor": "", "has_more": False, "returned": 0},
+                "supported_schema_compat": [],
+            })
         if path.endswith("/api/access/me"):
             return send({"is_global_admin": True, "is_local_admin": True,
                          "effective_permissions": None})
@@ -1218,11 +1243,15 @@ def run_memes(browser, width, height, label, shots):
         body = STATE["post_body"] or {}
         check(body.get("prompt_image") == "", label,
               "снятие override не отправлено пустой строкой: %r" % (body,))
+        # PVR-S4: источник показывается человеческой фразой в единой карточке
+        # версий (сырой бейдж источника и `{joke}: N` убраны из мета-строки).
         src = page.evaluate(
-            "() => ((document.querySelector('[data-meme-prompt-image-source]')"
-            " || {}).textContent || '').trim()")
-        check("заводской" in src, label,
-              "после снятия override источник не «заводской»: %r" % src)
+            "() => { const c = document.querySelector("
+            "'[data-pv-key=\"prompts.meme_image\"]');"
+            " return c ? ((c.querySelector('[data-pv-state]') || {})"
+            ".textContent || '').trim() : ''; }")
+        check("Исходный из кода" in src, label,
+              "после снятия override источник не «Исходный из кода»: %r" % src)
         shot(page, shots, "memes_saved_%s" % label)
     finally:
         ctx.close()

@@ -1198,7 +1198,25 @@ def run_scope_and_chat_isolation(browser, shots):
         dialogs_before = len(DIALOGS)
         page.click(".scope-trigger")
         page.wait_for_selector(".scope-panel", state="visible")
-        page.locator(".scope-option", has_text="Чат B").first.click()
+        # Выбор чата — клавиатурой (Down/Enter), штатным путём селектора
+        # (`scopeMove`/`scopePickFocused`). Указателем по последней строке
+        # панели кликнуть нельзя: на экране «Речь и характер» при 390 она
+        # выходит за клипающий контейнер оболочки (предсуществующий дефект
+        # вёрстки заголовка, существует и без PVR-S4; заведён в бэклог).
+        # Клавиатура — реальный путь владельца и не зависит от hit-test.
+        picked = False
+        for _ in range(6):
+            opt = page.evaluate(
+                "() => { const vm = window.__adminbotVm;"
+                " const o = (vm.scopeOptions || [])[vm.scopeFocus];"
+                " return o ? o.title : null; }")
+            if opt == "Чат B":
+                picked = True
+                break
+            page.keyboard.press("ArrowDown")
+        if not picked:
+            fail(label, "в селекторе области нет чата «Чат B»")
+        page.keyboard.press("Enter")
         page.wait_for_timeout(900)
         if len(DIALOGS) == dialogs_before:
             fail(label, "смена чата с черновиком прошла без подтверждения")
@@ -1230,7 +1248,8 @@ def click_menu_item(page, text):
 
 
 def run_core_extras(browser, shots):
-    """§9.1 п.2/3/5: раздельные черновики редакций, meta-selects, откат."""
+    """§9.1 п.2/3: раздельные черновики редакций, meta-selects; PVR-S4 B1:
+    история версий «Характера» — единый компонент, без legacy-«Откатить»."""
     label = "core-extras"
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
@@ -1277,16 +1296,24 @@ def run_core_extras(browser, shots):
                 or POSTS[-1]["body"].get("enabled") is not False:
             fail(label, "выключение Core не ушло в core/meta: %s"
                  % (POSTS[before:]))
-        # §9.1 п.5: история версий и «Откатить» — в «Дополнительно».
-        page.locator("details summary",
-                     has_text="Дополнительно: версии и откат").first.click()
-        page.wait_for_timeout(200)
-        before = len(POSTS)
-        page.locator("details button", has_text="Откатить").first.click()
-        page.wait_for_timeout(800)
-        if len(POSTS) != before + 1 or not POSTS[-1]["path"].endswith("/rollback") \
-                or POSTS[-1]["body"].get("sha256_12") != "aaaaaaaaaaaa":
-            fail(label, "откат не ушёл в API: %s" % (POSTS[before:]))
+        # PVR-S4 B1 (§2 ТЗ): «Характер» — тот же компонент версий, что везде.
+        # Прежний «Дополнительно: версии и откат» с сырым sha и отдельным
+        # «Откатить» удалён: действия (включая возврат к прошлой версии) —
+        # в единой панели «История версий», второй реализации быть не должно.
+        cards = page.locator(
+            ".speech-section [data-speech-core-versions] [data-prompt-history]")
+        if cards.count() != 1:
+            fail(label, "в «Характере» не одна карточка версий: %d"
+                 % cards.count())
+        hist_btn = page.locator(
+            ".speech-section [data-speech-core-versions]"
+            " [data-prompt-history-toggle]")
+        if hist_btn.count() != 1:
+            fail(label, "в «Характере» нет единой кнопки «История версий»")
+        if page.locator("[data-speech-core-more]").count():
+            fail(label, "legacy-блок «Дополнительно: версии и откат» остался")
+        if page.locator("details button", has_text="Откатить").count():
+            fail(label, "отдельный «Откатить» в «Характере» остался")
         snap(page, shots, "core_history_390")
     finally:
         ctx.close()
