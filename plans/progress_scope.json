@@ -385,6 +385,16 @@
       "coverage_complete": true,
       "source_note": "Полный редизайн визуализации когнитивной карты: 160 ID (139 CMV-* + 21 гейт §13), 183 обязательства, пакеты CMV-A..E, граф срезов с барьером P1 (web/app.js, web/index.html, web/static/app.css — serialize). План-гейт: 0 ошибок. Три пункта COG-MAP S4 переходят сюда. Старт возможен только после мержа P1.",
       "updated": "2026-11-03"
+    },
+    {
+      "id": "evol-reply-context-integrity-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
+      "source_sha256": "C6AA5CD87E8A61528CF53CE6DBA1A93F9DCC47456C29E1BDD2E69FFE182909D3",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "FINAL v5. Место в очереди определяют PM + Architect по зависимостям FactCheck/Direct/Observer/Writer/Memory/GraphRAG/Experience. Активные задания не прерываются, общие файлы не правятся конкурентно. Требуется карта требований (120 сценариев) и решения Architect по data-flow.",
+      "updated": "2026-11-03"
     }
   ],
   "owner_inputs": [
@@ -920,6 +930,17 @@
       ],
       "reconciled": true,
       "note": "Новый отдельный UI/UX-пакет: полный редизайн визуализации когнитивной карты (виджет «Статус» + полноэкранный режим). Не менять данные и функциональность бота; существующий vis-network, существующий graph API, один владелец жизненного цикла графа; LOD/коллизии в экранных координатах относительно fitScale с гистерезисом; объективная визуальная приёмка на реальных 702/2400, реальные до/после снимки на одних данных, кадры/видео анимации, FPS, 20 циклов embedded↔fullscreen без утечек; мобильный fullscreen и bottom sheet; production-проверка с совпадающим SHA. | Карта 160 ID и slice-graph созданы, план-гейт 0 ошибок; барьер P1 зафиксирован в графе."
+    },
+    {
+      "id": "OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5",
+      "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
+      "source_sha256": "C6AA5CD87E8A61528CF53CE6DBA1A93F9DCC47456C29E1BDD2E69FFE182909D3",
+      "kind": "new_task",
+      "target_task_ids": [
+        "evol-reply-context-integrity-01"
+      ],
+      "reconciled": false,
+      "note": "FINAL v5 (заменяет v1-v4): FactCheck target/claim адресация и семантика вне Reply, необязательные медиа (FC-MEDIA-OPTIONAL-01), честные технические статусы (FC-EVIDENCE-STATUS-01), глобальная граница чистой речи для всех пользовательских ответов (GLOBAL-OUTPUT-BOUNDARY-01), самокоррекция Direct (DIRECT-SELF-CORRECTION-01) и CONTEXT-FIDELITY-01: удаление служебных ID из речи НЕ должно снижать полноту контекстных связей для LLM-этапов. 120 обязательных сценариев приёмки; запрещены regex-чистка, новые LLM-агенты, дополнительные бюджеты и перегенерации."
     }
   ]
 }
