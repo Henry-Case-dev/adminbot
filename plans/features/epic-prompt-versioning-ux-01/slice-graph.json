@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-slices-v1",
-  "note": "EPIC-PROMPT-VERSIONING-UX-01 (OI-2026-11-04-EPIC-PROMPT-VERSIONING-UX-01). Map: plans/features/epic-prompt-versioning-ux-01/requirements-map.json. 57 обязательных строк / 8 срезов. Backend-волна (S1) не пересекается по файлам с двумя активными лейнами RC v5 (services/canonical_context|media_marker|thread_chain, services/factcheck*|handlers/factcheck.py) и может стартовать сразу. Внутри пакета реальная параллельность ограничена: S1/S2/S3 делят services/prompt_release_policy.py, S1/S3 делят web/api/routes.py, S4 — единственный писатель web/app.js|index.html|static/app.css (сериализация против EPIC-CM-VISUAL-01 CMV-A/B/D). docs/AGENTS (S5) и tests (S6) не конфликтуют ни с одной backend-строкой.",
+  "note": "EPIC-PROMPT-VERSIONING-UX-01 (OI-2026-11-04-EPIC-PROMPT-VERSIONING-UX-01). Map: plans/features/epic-prompt-versioning-ux-01/requirements-map.json. 58 обязательных строк / 8 срезов. Владение: PVR-GOAL-01 — PVR-S7-VERIFY (эпик-цель доказуема только приёмкой после S4+S6; решение координатора 2026-11-04), подтверждение назначения базовой в UI — отдельная строка PVR-UX-BASECONFIRM-01 в PVR-S4-UX. Backend-волна (S1) не пересекается по файлам с двумя активными лейнами RC v5 (services/canonical_context|media_marker|thread_chain, services/factcheck*|handlers/factcheck.py) и может стартовать сразу. Внутри пакета реальная параллельность ограничена: S1/S2/S3 делят services/prompt_release_policy.py, S1/S3 делят web/api/routes.py, S4 — единственный писатель web/app.js|index.html|static/app.css (сериализация против EPIC-CM-VISUAL-01 CMV-A/B/D). docs/AGENTS (S5) и tests (S6) не конфликтуют ни с одной backend-строкой.",
   "waves": {
     "W0": ["PVR-S0-GUARD"],
     "W1": ["PVR-S1-WRITE"],
@@ -22,7 +22,7 @@
       "acceptance": "До первой правки снят защищённый эталон: sha256 эффективных значений всех 38 PG-управляемых промпт-значений (global + chat overrides) и заводских редакций реестра, отдельно и явно для prompts.meme_joke и prompts.meme_image; в отчёте зафиксированы фактический HEAD, активные лейны и deployed SHA. Повторный снимок после релиза даёт те же хеши, дифф текстов пуст (кроме метаданных/событий).",
       "risk": "R0",
       "next_role": "Builder",
-      "req_ids": ["PVR-GOAL-01", "PVR-HEAD-01", "PVR-BYTES-01", "PVR-INV-01"],
+      "req_ids": ["PVR-HEAD-01", "PVR-BYTES-01", "PVR-INV-01"],
       "why_one_slice": "Это один наблюдаемый результат — доказанный паритет байтов до/после; без него нельзя ни начать правки, ни закрыть пакет."
     },
     {
@@ -105,7 +105,7 @@
         "PVR-UX-MEME-01", "PVR-UX-SCOPE-01", "PVR-UX-DRAFT-01",
         "PVR-UX-JOKE-01", "PVR-UX-JOKE-02", "PVR-UX-NOBLOAT-01",
         "PVR-UX-REASON-01", "PVR-HISTUI-01", "PVR-HISTUI-02",
-        "PVR-HISTUI-03", "PVR-HISTUI-05"
+        "PVR-HISTUI-03", "PVR-HISTUI-05", "PVR-UX-BASECONFIRM-01"
       ],
       "why_one_slice": "web/app.js — один большой файл с единственным Vue-инстансом: параллельные UI-писатели гарантированно конфликтуют, а «одинаковый компонент на каждом экране» — это одно наблюдаемое свойство, а не набор независимых экранов."
     },
@@ -155,7 +155,7 @@
       "acceptance": "Независимый Reviewer на принятом кандидате проходит все блоки §6: бэкенд (версия от любого API, полнота, rollback/forward, diff, baseline, reset/inherit, история после рестарта, pin против релиза, 409/503 без потери текста, PG backup/restore, batch), мемы (общий редактор, отсутствие обхода meme-settings, render_image_prompt X Y / X {joke} Y, placeholders=0, 800 от effective template, байтовая идентичность текстов), фронтенд (Playwright + Browser Use: десктоп и 390px WebView, скриншоты и взаимодействия), отрицательные случаи; в evidence приложены артефакты, а отчёт на русском содержит SHA, тесты, скриншоты и показатели.",
       "risk": "R3",
       "next_role": "Reviewer",
-      "req_ids": ["PVR-REV-01", "PVR-REV-02", "PVR-REV-03", "PVR-REV-04", "PVR-EXEC-01"],
+      "req_ids": ["PVR-GOAL-01", "PVR-REV-01", "PVR-REV-02", "PVR-REV-03", "PVR-REV-04", "PVR-EXEC-01"],
       "why_one_slice": "Это одна приёмочная сессия Reviewer на одном кандидате; разбиение по блокам §6 создало бы несколько вердиктов на одном и том же коде."
     }
   ],

@@ -7,7 +7,12 @@ MAD2 2026: past-only context ≈ full; SIGIR 2026: длинный контекс
 """
 import logging
 
-from services.canonical_context import format_context_item, resolve_item_id
+from services.canonical_context import (
+    format_context_item,
+    format_speech_item,
+    resolve_item_id,
+    speech_projection_enabled,
+)
 from services.database import row_get
 from services.media_marker import media_context_enabled, row_media_marker
 from services.target_marking import is_target_row
@@ -36,6 +41,16 @@ _REPLY_CHAINS_OMITTED = "…часть цепочки не показана ({co
 
 def _reply_chains_omitted_note(count: int) -> str:
     return _REPLY_CHAINS_OMITTED.format(count=int(count))
+
+
+# То же правило для САМОГО окна: при обрезке в бюджет вытесняются самые старые
+# строки before (якорь/свежие сохраняются), и это тоже не должно быть молчаливым
+# (§5.4 «реальное отсутствие помечается как неполнота», §8 п.5).
+_CHAT_CONTEXT_OMITTED = "…часть окна не показана ({count})"
+
+
+def _window_omitted_note(count: int) -> str:
+    return _CHAT_CONTEXT_OMITTED.format(count=int(count))
 
 
 def _lines_len(lines) -> int:
@@ -110,7 +125,8 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                         trigger_message_id=None, reply_chains: str = "",
                         anchor_message_id=None,
                         media_blocks: dict | None = None,
-                        media_for_captioned: bool = False) -> str:
+                        media_for_captioned: bool = False,
+                        projection=None) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов).
@@ -138,6 +154,12 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     R1023F2-11: для окон, превышающих бюджет, усечение может отличаться от
     до-F2 алгоритма (теперь бюджет строго ≤ ``max_chars``, включая обёртку);
     при ``reply_chains=""`` и помещающемся окне вывод функционально прежний.
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.2): ``projection`` — общий
+    ``SpeechProjection`` прогона. Задан → строки рендерятся РЕЧЕВОЙ функцией
+    `format_speech_item` (метка прогона в слоте ID, «Имя (U1)» в авторе,
+    абсолютное время/`Переслано:`/маркер цели без изменений). ``None`` или
+    рубильник OFF → прежний сырой канон байт-в-байт.
     """
     wrapper = ("<chat_context " + _CONTEXT_NOTE + ">\n", "\n</chat_context>")
     content_budget = max(0, max_chars - len(wrapper[0]) - len(wrapper[1]))
@@ -159,7 +181,8 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             except Exception:
                 tg_id = 0
         if not text and media_enabled:
-            text = row_media_marker(row, item_id=item_id)
+            text = row_media_marker(row, item_id=item_id,
+                                    projection=projection)
             # Rework R1 (H-2, review T-5124): прод-шов единого renderer'а D9 —
             # блок фасада (OCR/описание/pending, два времени) поверх старого
             # маркера. media_blocks=None (гейт OFF/ошибка) → прежний путь
@@ -186,11 +209,22 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                           if row_get(row, "is_forward") else None)
         is_marked = is_target_row(row, remaining_trigger)
         is_anchor = is_target_row(row, anchor_message_id)
-        line = format_context_item(
-            ts=row_get(row, "timestamp"), author=name,
-            item_id=item_id,
-            forward_source=forward_source, text=text, kind="msg",
-            is_target=is_marked)
+        if projection is not None and speech_projection_enabled():
+            # Речевая проекция (§4.2 п.2): тот же автор/время/forward/маркер,
+            # но в слоте ID — метка прогона, а рядом с ником — `U`-метка
+            # (одноимённые участники не сливаются, §5.4/§13 сц.97).
+            line = format_speech_item(
+                ts=row_get(row, "timestamp"), author=name,
+                author_uid=row_get(row, "user_id"),
+                item_id=item_id,
+                forward_source=forward_source, text=text, kind="msg",
+                is_target=is_marked, projection=projection)
+        else:
+            line = format_context_item(
+                ts=row_get(row, "timestamp"), author=name,
+                item_id=item_id,
+                forward_source=forward_source, text=text, kind="msg",
+                is_target=is_marked)
         if is_marked:
             remaining_trigger = None
         rendered.append((line, is_anchor))
@@ -204,49 +238,86 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             return 0
         return len("\n".join(rendered[i][0] for i in indices))
 
-    selected: list[int] = []
-    # 1) Якорь — высший приоритет (сохраняем, если влезает хотя бы один).
-    if anchor_idx is not None and len(rendered[anchor_idx][0]) <= content_budget:
-        selected.append(anchor_idx)
+    def _distribute(budget: int) -> tuple[list[int], str]:
+        """Набрать окно/цепочку в ``budget`` (= ``content_budget`` без резерва).
 
-    def _reserve_chain() -> tuple[str, int]:
-        if not (reply_chains and selected):
-            return "", 0
-        remaining = content_budget - _join_len(selected) - 1
-        if remaining <= 0:
-            return "", 0
-        out = _truncate_reply_chains(
-            reply_chains, min(_REPLY_CHAINS_MAX_CHARS, remaining))
-        return out, ((1 + len(out)) if out else 0)
+        Порядок прежний (R1023F2-10): якорь → свежие ``after`` → цепочка →
+        ближние к якорю ``before``; первыми вытесняются самые старые ``before``.
+        Функция ЧИСТАЯ относительно проекции (метки выдаются рендером строк
+        выше, здесь только длины), поэтому допускается второй проход с
+        бюджетом, уменьшенным на пометку неполноты."""
+        picked: list[int] = []
+        # 1) Якорь — высший приоритет (сохраняем, если влезает хотя бы один).
+        if anchor_idx is not None and len(rendered[anchor_idx][0]) <= budget:
+            picked.append(anchor_idx)
 
-    # 2) При наличии якоря цепочка резервируется СРАЗУ (R1023F2-10: сохраняем
-    #    якорь/цепочку/свежие after; старые before вытесняются первыми).
-    chain_out, chain_tail = _reserve_chain()
-    # 3) `after` — от свежайшего к якорю (keep-end): старые after вытесняются.
-    after_indices = (range(n - 1, anchor_idx, -1) if anchor_idx is not None
-                     else range(n - 1, -1, -1))
-    for i in after_indices:
-        if _join_len(selected + [i]) + chain_tail <= content_budget:
-            selected.append(i)
+        def _reserve_chain() -> tuple[str, int]:
+            if not (reply_chains and picked):
+                return "", 0
+            remaining = budget - _join_len(picked) - 1
+            if remaining <= 0:
+                return "", 0
+            out = _truncate_reply_chains(
+                reply_chains, min(_REPLY_CHAINS_MAX_CHARS, remaining))
+            return out, ((1 + len(out)) if out else 0)
+
+        # 2) При наличии якоря цепочка резервируется СРАЗУ (R1023F2-10:
+        #    сохраняем якорь/цепочку/свежие after; старые before вытесняются).
+        out_chain, tail = _reserve_chain()
+        # 3) `after` — от свежайшего к якорю (keep-end).
+        after_indices = (range(n - 1, anchor_idx, -1) if anchor_idx is not None
+                         else range(n - 1, -1, -1))
+        for i in after_indices:
+            if _join_len(picked + [i]) + tail <= budget:
+                picked.append(i)
+            else:
+                break
+        # Без якоря (fallback-окно) цепочка резервируется после набора окна.
+        if not out_chain and anchor_idx is None:
+            out_chain, tail = _reserve_chain()
+        # 4) `before` — от ближнего к якорю: первыми вытесняются самые старые.
+        before_indices = (range(anchor_idx - 1, -1, -1)
+                          if anchor_idx is not None else range(0))
+        for i in before_indices:
+            candidate_len = _join_len(sorted(picked + [i])) + tail
+            if candidate_len <= budget:
+                picked.append(i)
+            else:
+                break
+        return picked, out_chain
+
+    # §5.4 (CONTEXT-FIDELITY-01 п.153) / §8 п.5: вытеснение строк окна
+    # бюджетом не должно быть МОЛЧАЛИВЫМ — и объявление не должно исчезать
+    # именно тогда, когда места мало (иначе неполнота снова молчит, только
+    # уже по другой причине). Поэтому место под пометку РЕЗЕРВИРУЕТСЯ ДО
+    # распределения бюджета: первый проход выясняет, была ли обрезка, второй
+    # набирает окно в уменьшенном бюджете, а N в пометке — точное число
+    # реально вытесненных строк. Верхняя граница длины пометки (N ≤ n-1)
+    # даёт одним проходом гарантию, что она влезет.
+    selected, chain_out = _distribute(content_budget)
+    omitted = n - len(selected)
+    note = ""
+    if omitted > 0:
+        reserve = len(_window_omitted_note(n - 1)) + 1     # + "\n" перед окном
+        if reserve < content_budget:
+            selected, chain_out = _distribute(content_budget - reserve)
+            if not selected:
+                return ""
+            omitted = n - len(selected)
+            note = _window_omitted_note(omitted) if omitted > 0 else ""
         else:
-            break
-    # Без якоря (fallback-окно) цепочка резервируется после набора окна.
-    if not chain_out and anchor_idx is None:
-        chain_out, chain_tail = _reserve_chain()
-    # 4) `before` — от ближнего к якорю: первыми вытесняются самые старые.
-    before_indices = (range(anchor_idx - 1, -1, -1)
-                      if anchor_idx is not None else range(0))
-    for i in before_indices:
-        candidate_len = _join_len(sorted(selected + [i])) + chain_tail
-        if candidate_len <= content_budget:
-            selected.append(i)
-        else:
-            break
+            # Бюджет меньше самой пометки: объявлять нечем — фиксируем факт
+            # в логе (единственный возможный случай молчания).
+            logger.warning(
+                "[chat_context] окно усечено без пометки — бюджет меньше "
+                "пометки | omitted=%d | budget=%d", omitted, max_chars)
     if not selected:
         return ""
     body = "\n".join(rendered[i][0] for i in sorted(selected))
     if chain_out:
         body = body + "\n" + chain_out
+    if note:
+        body = f"{note}\n{body}"
     return wrapper[0] + body + wrapper[1]
 
 
@@ -316,7 +387,8 @@ async def build_chat_context(db, rows, *, chat_id: int,
                              max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                              trigger_message_id=None, reply_chains: str = "",
                              anchor_message_id=None,
-                             media_for_captioned: bool = False) -> str:
+                             media_for_captioned: bool = False,
+                             projection=None) -> str:
     """Прод-сборка контекста (единственная точка шва H-2): окна чата для
     direct/autonomous-потребителей (smartsearch/factcheck) с media-блоками
     renderer'а D9 под гейтом. Гейт OFF → ``format_chat_context`` на тех же
@@ -331,7 +403,8 @@ async def build_chat_context(db, rows, *, chat_id: int,
         rows, max_chars=max_chars, trigger_message_id=trigger_message_id,
         reply_chains=reply_chains, anchor_message_id=anchor_message_id,
         media_blocks=media_blocks,
-        media_for_captioned=bool(media_for_captioned))
+        media_for_captioned=bool(media_for_captioned),
+        projection=projection)
 
 
 # ── ASAP-VISION-SYNC-01 §4.4: актуальная ревизия медиа для потребителя ──────

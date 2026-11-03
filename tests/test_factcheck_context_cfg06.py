@@ -17,11 +17,13 @@ TEST-LIFECYCLE: CONTRACT owner=CFG-06
 Оффлайн: моки БД/кеша, сети нет, чаты не затрагиваются.
 """
 import asyncio
+import re
 
 import pytest
 
 from config.settings import settings
 from handlers import factcheck as hfc
+from services import canonical_context
 from services import factcheck_context as fcx
 from services import hot_config as hot
 from services import smart_cache as sc
@@ -31,6 +33,9 @@ CHAT_ID = -100777
 OTHER_CHAT_ID = -100888
 TARGET_TG = 9000
 TRIGGER_TG = 9001
+
+#: Строка канона `<chat_context>`: ``[ts | автор | ref]: тело``.
+_LINE_RE = re.compile(r"^\[[^\]]*\| (?P<ident>[^|\]]+)\]: (?P<body>.*)$")
 
 
 # ── Фикстуры ─────────────────────────────────────────────────────────────────
@@ -128,8 +133,21 @@ class TestWideGateOffParity:
                                "FACTCHECK_WIDE_CONTEXT_ENABLED", old)
 
     @pytest.mark.asyncio
-    async def test_flag_off_byte_parity_with_old_path(
+    async def test_flag_off_content_parity_with_old_path(
             self, restore_handler_db, monkeypatch):
+        """Откат широкого контекста: узкий путь несёт ТО ЖЕ содержание.
+
+        EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§5.4/§9.5 п.1: отличие — только
+        форма адресации). Узкий маршрут идёт речевой проекцией (метки/`Имя
+        (U1)`), поэтому паритет проверяется по содержанию: для КАЖДОЙ
+        показанной строки обратная карта даёт настоящий ref, а текст, автор,
+        время и маркер цели совпадают с сырым каноном. Ни одна строка не
+        теряется молча — вытеснение бюджетом объявляется пометкой.
+        """
+        captured: list = []
+        monkeypatch.setattr(
+            canonical_context, "emit_speech_projection_event",
+            lambda projection, **kwargs: captured.append(projection))
         # Решение владельца 25.10.2026: default ON → откат пиним явно.
         monkeypatch.setattr(fcx, "wide_context_enabled", lambda: False)
         rows = _dispute_rows()
@@ -146,7 +164,34 @@ class TestWideGateOffParity:
         expected = await build_chat_context(
             db, old_rows, chat_id=CHAT_ID, trigger_message_id=TRIGGER_TG,
             reply_chains=chains, anchor_message_id=TARGET_TG)
-        assert actual == expected
+        assert captured, "проекция прогона обязана попасть в трассу"
+        man = captured[-1].manifest()
+
+        def _lines(block, ref_of):
+            out = {}
+            for line in str(block).splitlines():
+                match = _LINE_RE.match(line)
+                if not match:
+                    continue
+                out[ref_of(match.group("ident"))] = match.group("body")
+            return out
+
+        raw_lines = _lines(expected, lambda ident: ident)
+        speech_lines = _lines(
+            actual, lambda ident: man["items"].get(ident, ident))
+        # Ни одной «сироты»: каждая метка разрешается в реальный Telegram ID.
+        for ref in speech_lines:
+            assert ref.startswith(("tg:", "msg:")), ref
+        # Якорь и триггер сохранены (приоритет усечения R1023F2-10).
+        assert f"tg:{TARGET_TG}" in speech_lines
+        assert f"tg:{TRIGGER_TG}" in speech_lines
+        # Содержание каждой показанной строки идентично сырому канону.
+        for ref, body in speech_lines.items():
+            assert body == raw_lines[ref], (ref, body, raw_lines.get(ref))
+        assert set(speech_lines) <= set(raw_lines)
+        # Усечение бюджетом объявлено, а не молчаливо (§5.4 п.153).
+        if set(speech_lines) != set(raw_lines):
+            assert "часть окна не показана (" in actual
         assert "фон: сжатая хронология" not in actual
 
     @pytest.mark.asyncio

@@ -263,16 +263,30 @@ class MediaReadiness:
         }
 
     # ── payload потребителя ─────────────────────────────────────────────────
-    def evidence_block(self, tag: str = "media_analysis") -> str:
+    def evidence_block(self, tag: str = "media_analysis", *,
+                       projection=None) -> str:
         """Блок медиа-свидетельства для LLM-payload потребителя.
 
         Готовый анализ → OCR/описание/неопределённость актуальной ревизии с
         явной пометкой «данные, не инструкции». Pending/отказ → честная
         строка состояния: содержимое НЕИЗВЕСТНО (нельзя ни утверждать его,
         ни объявлять, что «ничего нет»). Пустая строка — когда блок не нужен
-        (нет медиа-зависимости или нет связанного медиа)."""
+        (нет медиа-зависимости или нет связанного медиа).
+
+        ``projection`` (EVOL v5 §4.2 п.2/§9.2, сц.67): общая проекция прогона.
+        Задана и рубильник ON → картинка называется МЕТКОЙ прогона
+        («изображение M4»), а не служебным ``msg:<tg_id>``: обратная карта
+        метки уходит в трассу прогона, провенанс ревизии остаётся в машинном
+        слое. ``None``/OFF → прежний сырой вид байт-в-байт."""
         if not self.media_dependent or self.association_status == ASSOC_MISSING:
             return ""
+        speech = False
+        if projection is not None:
+            try:
+                from services.canonical_context import speech_projection_enabled
+                speech = bool(speech_projection_enabled())
+            except Exception:      # pragma: no cover — fail-open рендера
+                speech = False
         attrs = (
             f'association="{self.association_kind or "unknown"}" '
             f'status="{self.analysis_status}"'
@@ -290,7 +304,7 @@ class MediaReadiness:
                     continue
                 if not asset.ready:
                     continue
-                label = f"изображение msg:{asset.tg_message_id}"
+                label = self._asset_label(asset, projection if speech else None)
                 for block in asset.ocr_blocks or ():
                     text = str((block or {}).get("text") or "").strip()
                     if text:
@@ -318,6 +332,25 @@ class MediaReadiness:
                 + ") — содержимое картинки НЕ проверено; доступный текст "
                 "можно разобрать отдельно, не выдумывая изображение.")
         return f"<{tag} {attrs}>\n" + "\n".join(lines) + f"\n</{tag}>"
+
+    @staticmethod
+    def _asset_label(asset: MediaAssetState, projection=None) -> str:
+        """Имя картинки в речевом payload: «изображение M4» вместо ``msg:<id>``.
+
+        Служебный id в нарративной строке не озвучивается (§9.2, сц.67);
+        метка выдаётся общей проекцией прогона и разрешается обратной картой.
+        Проекции нет → прежний сырой вид байт-в-байт."""
+        tg_id = getattr(asset, "tg_message_id", None)
+        if projection is not None:
+            try:
+                from services.canonical_context import resolve_item_id
+                item_id = resolve_item_id(tg_message_id=tg_id)
+                label = projection.message_label(item_id) if item_id else ""
+            except Exception:      # pragma: no cover — fail-open рендера
+                label = ""
+            if label:
+                return f"изображение {label}"
+        return f"изображение msg:{tg_id}"
 
     def honest_note(self) -> str:
         """Короткая честная оговорка для публичного ответа (пусто — нечего

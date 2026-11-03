@@ -169,11 +169,15 @@ def _req(claim="в килякете выпало 120 мм осадков за с
 
 class TestSchemaFreeze:
     def test_request_fields_frozen(self):
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5 (M11): базовые поля и их
+        # порядок не изменились; аддитивно добавлены авторство запроса и имя
+        # (нужны резолверу медиа, иначе чужое фото «свой автор»).
         assert tuple(f.name for f in __import__("dataclasses").fields(
             orch.FactcheckRequest)) == (
             "chat_id", "trigger_tg_message_id", "target_tg_message_id",
             "target_text", "user_hint", "forward_source", "kind",
-            "source_type", "default_mode")
+            "source_type", "default_mode", "requester_user_id",
+            "requester_name")
 
     def test_plan_fields_frozen(self):
         import dataclasses
@@ -231,7 +235,11 @@ class TestSchemaFreeze:
         assert tuple(f.name for f in dataclasses.fields(ContextMessage)) == (
             "message_id", "tg_message_id", "chat_id", "author", "timestamp",
             "reply_to_tg_id", "is_forward", "forward_source", "text",
-            "verbatim")
+            "verbatim",
+            # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §5.4/§4.2 п.2 (аддитивно):
+            # без Telegram user id речевая проекция не может различить
+            # одноимённых участников, а машинный рендер поле не печатает.
+            "author_uid")
         assert tuple(f.name for f in dataclasses.fields(
             ConversationContext)) == ("chat_id", "target_tg_message_id",
                                       "trigger_tg_message_id", "messages",

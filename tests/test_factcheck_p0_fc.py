@@ -32,11 +32,13 @@ from services.factcheck_service import (
     ClaimMediaMaterial,
     RETRIEVAL_BUDGET,
     RETRIEVAL_INSUFFICIENT,
+    RETRIEVAL_NO_RESULTS,
     RETRIEVAL_NOT_RUN,
     RETRIEVAL_OK,
     RETRIEVAL_PROCESSING_FAILED,
     RETRIEVAL_SEARCH_FAILED,
     FactCheckService,
+    _RETRIEVAL_REASON,
     _server_parts,
     classify_retrieval,
     load_claim_media,
@@ -349,16 +351,38 @@ class TestFC06EmptyEvidence:
         assert verdict.factual_verdict != "refuted"
 
     def test_processing_failure_is_technical_not_absence(self):
+        """EVOL-REPLY-CONTEXT-INTEGRITY-01 §11.2 п.6 / ES-1.
+
+        «Материалы прочитаны, но проверяемых ссылок нет» — это ограничение
+        цитируемости, а НЕ сломанный парсер: техзаголовок «материалы не
+        удалось разобрать» здесь запрещён. Технический класс остаётся только
+        при реальной ошибке извлечения (`fetch_errors > 0`, п.3)."""
         outcome = fsp.RetrievalOutcome(
             evidence_map=None, search_text="нашли текст без ссылок",
             queries_attempted=1, queries_used=1, refs_collected=0,
             fetch_errors=0, budget_exhausted=False)
-        assert classify_retrieval(outcome) == RETRIEVAL_PROCESSING_FAILED
+        assert classify_retrieval(outcome) == RETRIEVAL_NO_RESULTS
+        assert _RETRIEVAL_REASON[RETRIEVAL_NO_RESULTS] == "insufficient_evidence"
+        parser_broken = fsp.RetrievalOutcome(
+            evidence_map=None, search_text="нашли текст без ссылок",
+            queries_attempted=1, queries_used=1, refs_collected=0,
+            fetch_errors=2, budget_exhausted=False)
+        assert classify_retrieval(parser_broken) == RETRIEVAL_PROCESSING_FAILED
         failed = fsp.RetrievalOutcome(
             evidence_map=None, search_text="", queries_attempted=2,
             queries_used=0, refs_collected=0, fetch_errors=0,
             budget_exhausted=False, provider_failures=2)
         assert classify_retrieval(failed) == RETRIEVAL_SEARCH_FAILED
+        empty = fsp.RetrievalOutcome(
+            evidence_map=None, search_text="", queries_attempted=2,
+            queries_used=0, refs_collected=0, fetch_errors=0,
+            budget_exhausted=False, empty_results=2)
+        assert classify_retrieval(empty) == RETRIEVAL_NO_RESULTS
+        irrelevant = fsp.RetrievalOutcome(
+            evidence_map=None, search_text="было, но не по теме",
+            queries_attempted=2, queries_used=0, refs_collected=0,
+            fetch_errors=0, budget_exhausted=False, irrelevant_results=2)
+        assert classify_retrieval(irrelevant) == RETRIEVAL_NO_RESULTS
 
 
 def _run(coro):
@@ -615,7 +639,13 @@ class TestF2EnvelopeEvidencePath:
     """F2: строки без URL не становятся evidence на envelope-пути."""
 
     @pytest.mark.asyncio
-    async def test_url_less_retrieval_is_processing_failed(self):
+    async def test_url_less_retrieval_is_not_citable_not_parser_break(self):
+        """EVOL-REPLY-CONTEXT-INTEGRITY-01 §11.2 п.6 / ES-2.
+
+        Envelope-ветка: «внутренний поиск что-то нашёл, ссылок нет» — честное
+        ограничение цитируемости. Заголовок «материалы не удалось разобрать»
+        запрещён (это не доказанный сбой парсера), и «Недостаточно данных» не
+        выдаётся за провал обработки."""
         env, _ = await tf.build_envelope(
             FakeDB(origin_row=_origin_row(COMPOSITE)),
             tf.InputRef(kind="reply", chat_id=CHAT_ID,
@@ -625,14 +655,32 @@ class TestF2EnvelopeEvidencePath:
             evidence_map=None, search_text=OFF_TOPIC_BLOCK,
             queries_attempted=1, queries_used=1, refs_collected=0,
             fetch_errors=0, budget_exhausted=False)
-        assert classify_retrieval(outcome) == RETRIEVAL_PROCESSING_FAILED
+        assert classify_retrieval(outcome) == RETRIEVAL_NO_RESULTS
         run = await _service().check_claim_envelope(env, retrieval=outcome)
         assert run.evidence_rows == ()                  # url=None не evidence
         assert run.verdict.factual_verdict == "insufficient_evidence"
+        # Технического reason-кода нет: доказательств не хватило, парсер цел.
+        assert run.verdict.reason in (None, "insufficient_evidence")
+        markup = _presentation_from_run(run)
+        assert "материалы не удалось разобрать" not in markup.lower()
+
+    @pytest.mark.asyncio
+    async def test_real_extract_failure_keeps_technical_headline(self):
+        """§11.2 п.3: техзаголовок остаётся, когда извлечение реально упало."""
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(COMPOSITE)),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=None, search_text=OFF_TOPIC_BLOCK,
+            queries_attempted=1, queries_used=1, refs_collected=0,
+            fetch_errors=3, budget_exhausted=False)
+        assert classify_retrieval(outcome) == RETRIEVAL_PROCESSING_FAILED
+        run = await _service().check_claim_envelope(env, retrieval=outcome)
         assert run.verdict.reason == "source_missing"
         markup = _presentation_from_run(run)
         assert "материалы не удалось разобрать" in markup.lower()
-        assert "Недостаточно данных для проверки" not in markup
 
     @pytest.mark.asyncio
     async def test_model_called_but_unbacked_positive_downgraded(self):

@@ -146,6 +146,43 @@ def _message_id_of(message):
     return getattr(message, "message_id", None)
 
 
+def alias_quote_author_resolver(aliases=None):
+    """Резолвер «user id → отображаемое имя» для автора выделенной цитаты.
+
+    Нужен именно ПРОДОВОЙ каскад, а не строка окна: у человека, чьё
+    сообщение цитируют, может не быть хода в собранном окне (EVOL v5 §8 п.4,
+    §13 сц.100/115). Алиасы — существующий ``summary_aliases``
+    (``alias → ник → username``); ``aliases=None`` → живой резолвер хода
+    (`LiveAliasView`, привязан middleware'ом).
+
+    Нет привязки имени → ``''``: речевая сторона печатает честное «автор
+    цитаты не определён», а не голую адресную метку (§9.2). Никогда не
+    бросает.
+    """
+    view = aliases
+
+    def _resolve(uid) -> str:
+        nonlocal view
+        try:
+            uid_int = int(uid)
+        except (TypeError, ValueError):
+            return ""
+        if uid_int <= 0:
+            return ""
+        try:
+            if view is None:
+                from services.summary_aliases import LiveAliasView
+                view = LiveAliasView()
+            name = view.canon_name("", user_id=uid_int)
+        except Exception:
+            logger.debug("thread_chain: quote author alias resolve failed",
+                         exc_info=True)
+            return ""
+        return str(name or "").strip()
+
+    return _resolve
+
+
 async def _get_bot_reply(db, chat_id: int, tg_message_id: int):
     """Текст бот-ответа из DB (ленивый TTL на чтении), fail-open → None."""
     try:

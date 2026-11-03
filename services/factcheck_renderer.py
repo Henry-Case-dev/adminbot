@@ -233,6 +233,27 @@ def critique_publishable(verdict: CheckedVerdict | None, *,
     return policy != CRITIQUE_POLICY_FORBIDDEN
 
 
+def headline_code(verdict: CheckedVerdict | None) -> str:
+    """§11.3: КОД финального заголовка (не текст) — для трассы прогона.
+
+    Порядок тот же, что в ``_content``: техническая причина прогона →
+    технические статусы частей → вердикт. Расхождение с ``_content``
+    невозможно по построению (одни и те же предикаты)."""
+    if verdict is None:
+        return ""
+    reason = str(verdict.reason_code or "")
+    if reason in _TECHNICAL_HEADLINE:
+        return f"technical:{reason}"
+    from_parts = _technical_headline_from_parts(verdict)
+    if from_parts:
+        statuses = _technical_statuses(verdict)
+        return f"parts:{statuses[0]}" if statuses else "parts:technical"
+    factual = str(verdict.factual_verdict or "")
+    if factual in _VERDICT_HEADLINE:
+        return f"verdict:{factual}"
+    return ""
+
+
 def _content(presentation: FactcheckPresentation,
              verdict: CheckedVerdict | None):
     """Единая контент-модель для HTML- и plain-сериализации.

@@ -711,7 +711,7 @@ async def test_b1_v1_gate_refusal_keeps_media_caveat(db, monkeypatch):
                                  unchecked_reason="provider_timeout",
                                  image_count=1))
 
-    async def _resolve(message, tgt):
+    async def _resolve(message, tgt, user_hint=None):
         return unverified
 
     monkeypatch.setattr(hfc, "_resolve_publication", _resolve)
@@ -960,7 +960,7 @@ async def test_p1_v1_pending_request_defers_and_resumes_once(db, monkeypatch):
         media=ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
                                  pending_count=1, image_count=1))
 
-    async def _resolve(message, tgt):
+    async def _resolve(message, tgt, user_hint=None):
         return pending_pub
 
     monkeypatch.setattr(hfc, "_resolve_publication", _resolve)
@@ -1078,7 +1078,7 @@ async def test_p1_fresh_request_after_ready_prevents_second_answer(db,
         media=ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
                                  pending_count=1, image_count=1))}
 
-    async def _resolve(message, tgt):
+    async def _resolve(message, tgt, user_hint=None):
         return state["publication"]
 
     monkeypatch.setattr(hfc, "_resolve_publication", _resolve)

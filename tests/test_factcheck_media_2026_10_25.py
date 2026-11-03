@@ -910,7 +910,11 @@ class TestOwnerClarification2ContextWindow:
         await _run(handler_env, service, db, target)
         claim = _claim_text(service)
         assert claim == "Объект сдан 12.10.2026 по данным мэрии"
-        assert handler_env.send_chunked_reply.await_args.args[3] == 77
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5 (M2/I5): единственная законная
+        # подмена цели — contextual, и цель-сообщение становится анкором;
+        # доставка Reply адресуется ТРИГГЕРУ (11), а не пустому сообщению,
+        # на которое отвечал пользователь.
+        assert handler_env.send_chunked_reply.await_args.args[3] == 11
         handler_env._fetch_context_with_gate.assert_not_awaited()
 
     @pytest.mark.asyncio

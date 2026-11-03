@@ -59,3 +59,25 @@
 - RC-CONTEXT-FIDELITY: сравнение внутренних структур, payload L1/LLM (включая Composer OFF и fallback), выбора модели и публичного текста на одном входе.
 - RC-TRACE-ACCEPT: одна трасса `trigger → target_resolution → thread_context → semantic_context → claim_selection → planner/search/verdict → delivery` плюс доказательство отсутствия запрещённых механизмов.
 - Деплой: обычный путь, проверка по SHA, production-equivalent доказательства; при отсутствии журнала — воспроизводимый fixture, а не «непроверяемо» (§14).
+
+## 6. Привязка волны потребителей (кандидат 44364e83) — что закрыто, а что нет
+
+- Кандидат `44364e83` (ветка rc/consumers, база b8ea1d8c, merge `ccfa6665`), вердикт Re-review 2 Approved,
+  артефакт `plans/features/evol/reports/rc-v5-consumers-review.md` (коммит вердикта 33b08401).
+- **Проверено на фактических payload'ах (10 строк VERIFIED):** RC-SPEECH-BOUNDARY — RC-GSB-CONTENT, -METADATA,
+  -ONE-DATA, -NO-GUESS, -MANIFEST, -TRACE-KEPT, -ALL-ROUTES, RC-GSB-NO-DIGIT-BAN (M00207);
+  RC-CONTEXT-FIDELITY — RC-CF-STABLE-IDS, RC-CF-SEAM.
+- **НЕ покрыто этой волной и не должно читаться как закрытое:** RC-DIRECT-SELFCORR (сценарии 71–96) — реализуется
+  отдельно, прямо сейчас, у него свой кандидат, ревью и приёмка. Плюс сценарии 53–70 и 97–120 требуют наблюдаемого
+  ответа/отправки, которых волна потребителей не давала: строки остаются PENDING с точной пометкой, что именно
+  наблюдалось (метки вместо ID, сохранённые связи, точный N при усечении) и чего не хватает.
+- **Единого проверенного кандидата на карту нет:** 44364e83 не потомок bfa26e60 (волны слиты отдельно: 01df5454,
+  затем ccfa6665). Поэтому map-level `candidate_commit` оставлен на bfa26e60, а обе привязки записаны в
+  `wave_bindings`. Гейт по этим срезам запускать с `--candidate 44364e83` и пиннингом на копии карты; для релиза
+  нужен один слитый и проверенный кандидат.
+- Гейт `--stage review --slice RC-SPEECH-BOUNDARY --candidate 44364e83`: 27 ошибок, все — «mandatory not VERIFIED»
+  (PENDING-строки выше); ошибок привязки доказательств/артефактов нет. RC-CONTEXT-FIDELITY — 47 таких же ошибок.
+- Бэклог волны (не блокирует): `msg:0` в защитном fallback метки медиа, дубль метки в маркере
+  («| M4]: [медиа: photo M4]»), молчаливый отброс reply_chains при нехватке места (pre-existing), честное «автор
+  цитаты не определён» на отложенном маршруте фактчека, а также качество тестовых фикстур (reply_to_id = id строки
+  БД вместо tg id; числовой fallback адресата).
