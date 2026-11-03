@@ -183,6 +183,10 @@ class TemporalClaimEnvelope:
     analysis_as_of: int
     related_asset_id: str | None = None
     related_analysis_revision: int | None = None
+    #: EVOL §1.5 (M3): сообщение, которому принадлежит Claim, когда цель и
+    #: Claim различаются (единственный законный случай — contextual-цель).
+    #: None = Claim принадлежит самой цели.
+    claim_anchor_tg_message_id: int | None = None
 
     @property
     def origin_known(self) -> bool:
@@ -261,6 +265,8 @@ class InputRef:
     attribution: dict = dataclasses.field(default_factory=dict)
     related_asset_id: str | None = None
     related_analysis_revision: int | None = None
+    #: M3: сообщение, которому принадлежит claim_text. None = сама цель.
+    claim_anchor_tg_message_id: int | None = None
 
     def __post_init__(self):
         if self.kind not in INPUT_KINDS:
@@ -531,11 +537,14 @@ async def build_envelope(
         date_source=date_source,
         date_precision=date_precision,
         date_timezone=None,
-        date_uncertainty=uncertainty,
-        requested_mode=mode,
+        date_uncertainty=uncertainty, requested_mode=mode,
         analysis_as_of=now,
         related_asset_id=ref.related_asset_id,
-        related_analysis_revision=ref.related_analysis_revision)
+        related_analysis_revision=ref.related_analysis_revision,
+        claim_anchor_tg_message_id=(
+            int(ref.claim_anchor_tg_message_id)
+            if ref.claim_anchor_tg_message_id not in (None, "", 0)
+            else int(ref.target_tg_message_id)))
     return envelope, None
 
 

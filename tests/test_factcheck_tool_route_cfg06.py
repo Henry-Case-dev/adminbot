@@ -22,11 +22,19 @@ from services import temporal_factcheck as tf
 
 CLAIM = "Байкал — самое глубокое озеро в мире"
 
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.5 п.4): служебный run/trace id
+# в результат инструмента (его читает модель) не входит — корреляция остаётся
+# в машинной трассе; содержательные опоры (автор тезиса, проверенные ссылки)
+# видны структурно.
+# §1.4 (BD-9/M7), вторая линия: tool-тезис приходит от LLM и может быть
+# пересказом/усечён — его происхождение и анкор обязаны быть видны в payload.
 _READY_KEYS = {"status", "reason", "claim", "claim_author",
                "factual_verdict", "temporal_status", "evaluated_period",
                "assessment_mode", "as_of", "date_source",
                "original_published_at", "repost_received_at", "uncertainty",
-               "evidence", "cache_hit", "verdict"}
+               "evidence", "cache_hit", "verdict",
+               "claim_origin", "target_source", "claim_anchor_tg_message_id",
+               "claim_truncated"}
 
 
 # ── Фикстуры/помощники ──────────────────────────────────────────────────────

@@ -47,11 +47,15 @@ CLAIM_PUBLIC = "Путин сказал, что в Килякете выпало
 # в результат инструмента (его читает модель) не входит — корреляция остаётся
 # в машинной трассе; содержательные опоры (автор тезиса, проверенные ссылки)
 # теперь видны структурно.
+# §1.4 (BD-9/M7), вторая линия: происхождение tool-тезиса и его анкор видны
+# в payload (пересказ LLM ≠ дословный Target).
 _READY_KEYS = {"status", "reason", "claim", "claim_author",
                "factual_verdict", "temporal_status", "evaluated_period",
                "assessment_mode", "as_of", "date_source",
                "original_published_at", "repost_received_at", "uncertainty",
-               "evidence", "cache_hit", "verdict"}
+               "evidence", "cache_hit", "verdict",
+               "claim_origin", "target_source", "claim_anchor_tg_message_id",
+               "claim_truncated"}
 
 
 # ── Фикстуры/помощники ──────────────────────────────────────────────────────

@@ -4143,7 +4143,14 @@ class ToolRouter:
         reply_src_id = getattr(ctx, "reply_source_message_id", None)
         claim_from_reply = bool(reply_text and reply_src_id is not None
                                 and tf.is_referential_claim(claim))
+        # BD-9 (§1.4/M7): происхождение тезиса tool-маршрута фиксируется
+        # явно: тезис пришёл от LLM (`tool_claim`) и мог быть усечён. Это
+        # допустимо для tool-ветки, но обязано быть видно в трассе, а не
+        # выглядеть как дословный текст цели.
+        claim_origin = "tool_claim"
+        claim_truncated = False
         if claim_from_reply:
+            claim_truncated = len(reply_text) > 300
             claim = reply_text[:300]      # bounded — как в дет. деривации
         target = args.get("target") if isinstance(args.get("target"),
                                                   dict) else {}
@@ -4312,7 +4319,18 @@ class ToolRouter:
             "evidence": evidence_payload,
             "cache_hit": False,
             "verdict": run.verdict_text[:2000],
+            # M7/BD-9: происхождение тезиса tool-ветки и его анкор. Без этих
+            # полей пересказ LLM выглядел бы как дословный Target.
+            "claim_origin": claim_origin,
+            "target_source": "tool",
+            "claim_anchor_tg_message_id": (
+                int(reply_src_id) if claim_from_reply and reply_src_id
+                else target_msg),
+            "claim_truncated": claim_truncated,
         }
+        tf.stage_event("target_resolve", "success",
+                       reason_code="tool_claim", chat_id=ctx.chat_id,
+                       pipeline_run_id=run_id)
         tf.stage_event("deliver", "success", chat_id=ctx.chat_id,
                        pipeline_run_id=run_id)
         return _json.dumps(payload, ensure_ascii=False)

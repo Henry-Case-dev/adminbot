@@ -313,6 +313,10 @@ class RetrievalPlan:
     claims: tuple[ClaimUnit, ...] = ()
     #: §3.1: ссылка на исходное сообщение/цитату (трассировка claim → пост)
     source_link: str = ""
+    #: EVOL §1.5 (M6): claim_id → сообщение/автор, которому принадлежит
+    #: проверяемая часть. Часть без установленной принадлежности остаётся с
+    #: пустым анкором (приписывать «наверное этому» запрещено).
+    claim_anchors: tuple[dict, ...] = ()
 
     def queries_for(self, claim_id: str) -> tuple[SearchQuery, ...]:
         """Запросы КОНКРЕТНОЙ части; непомеченные — только когда часть одна
@@ -731,6 +735,38 @@ def build_claim_units(items, claim: str, *, authors: tuple[str, ...] = (),
     return tuple(units)
 
 
+def _claim_anchor_map(items, units) -> tuple[dict, ...]:
+    """M6: claim_id → анкор/автор исходного фрагмента (без догадок).
+
+    Часть плана сопоставляется с claim-item по совпадению текста (пункт может
+    быть целым предложением части). Нет однозначного совпадения → анкор
+    пустой: приписывать часть «ближайшему» сообщению запрещено §4.3."""
+    rows: list[dict] = []
+    by_text = {}
+    for item in items or ():
+        text = str(getattr(item, "text", "") or "").strip().lower()
+        if text:
+            by_text[text] = item
+    for unit in units or ():
+        unit_text = str(getattr(unit, "text", "") or "").strip().lower()
+        item = by_text.get(unit_text)
+        if item is None:
+            for text, candidate in by_text.items():
+                if unit_text and (unit_text in text or text in unit_text):
+                    item = candidate
+                    break
+        rows.append({
+            "claim_id": str(getattr(unit, "claim_id", "") or ""),
+            "anchor_tg_message_id": (getattr(item, "anchor_tg_message_id", None)
+                                     if item is not None else None),
+            "author": (str(getattr(item, "author", "") or "")
+                       if item is not None else ""),
+            "source": (str(getattr(item, "source", "") or "")
+                       if item is not None else ""),
+        })
+    return tuple(rows)
+
+
 def adaptive_query_budget(claims_count: int, *, base: int = _MAX_QUERIES,
                           total: int | None = None) -> int:
     """§3.2: бюджет запросов зависит от числа существенных частей.
@@ -944,7 +980,8 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
         queries=tuple(queries), needs_web=True,
         needs_chat_history=needs_chat,
         needs_primary_fetch=True, dropped_privacy=dropped,
-        claim_text=claim, claims=tuple(units), source_link=source_link)
+        claim_text=claim, claims=tuple(units), source_link=source_link,
+        claim_anchors=_claim_anchor_map(items, units))
 
 
 
@@ -1142,6 +1179,10 @@ class RetrievalOutcome:
     stale_sources_dropped: int = 0
     refine_calls: int = 0
     budget_seconds: float = 0.0
+    #: §11.2 п.2 (ES-3): сколько кандидатов на открытие первоисточника
+    #: осталось без попытки именно из-за дедлайна стадии. Отдельный счётчик:
+    #: это не `source_extract_failed` и не «материалы не удалось разобрать».
+    fetch_skipped_deadline: int = 0
 
     @property
     def ok(self) -> bool:
@@ -1575,8 +1616,16 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
 
     # §3.3: URL ≠ доказательство — содержимое достаётся только для строк,
     # привязанных к своей части; превышение бюджета больше не маскируется.
+    # ES-3: кандидаты, не открытые ИМЕННО из-за дедлайна, считаются отдельно.
+    eligible_urls: list[str] = []
+    seen_urls: set[str] = set()
+    if plan.needs_primary_fetch:
+        for run in runs:
+            for ref, role, _n in run.bound.values():
+                if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES) \
+                        and ref.url and ref.url not in eligible_urls:
+                    eligible_urls.append(ref.url)
     if plan.needs_primary_fetch and loop.time() < deadline:
-        seen_urls: set[str] = set()
         fetched_total = 0
         for run in runs:
             if fetched_total >= _MAX_PRIMARY_FETCHES or loop.time() >= deadline:
@@ -1668,6 +1717,10 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         coverage.append(_finalize_claim(run))
 
     search_text = "\n\n".join(blocks)[:_SEARCH_TEXT_BUDGET_CHARS]
+    fetch_skipped = 0
+    if eligible_urls and loop.time() >= deadline:
+        # Дедлайн — фактическая причина, по которой открытие не состоялось.
+        fetch_skipped = len([u for u in eligible_urls if u not in seen_urls])
     return RetrievalOutcome(
         evidence_map=evidence_map, search_text=search_text,
         queries_attempted=counters["attempted"], queries_used=counters["used"],
@@ -1681,7 +1734,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         off_topic_sources_dropped=counters["off_topic"],
         stale_sources_dropped=counters["stale"],
         refine_calls=counters["refine"],
-        budget_seconds=budget)
+        budget_seconds=budget,
+        fetch_skipped_deadline=fetch_skipped)
 
 
 def _strong_binding_count(ref: EvidenceRef, runs: list[_ClaimRun]) -> int:

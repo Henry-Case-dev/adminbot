@@ -122,6 +122,10 @@ class FactcheckRequest:
     kind: str = "reply"              # reply | command | tool | ui | auto
     source_type: str = "text"
     default_mode: str = "contextual"
+    #: M11 (§1.5): авторство запроса — для проверки связи медиа с целью
+    #: (`media_readiness`). None = неизвестно (прежнее поведение резолвера).
+    requester_user_id: int | None = None
+    requester_name: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -651,10 +655,17 @@ async def deliver_deferred_factcheck(intent, states, bot=None) -> bool:
                        "unbound | chat=%s | target=%s", chat_id, target_id)
         return False
     req = FactcheckRequest(
-        chat_id=chat_id, trigger_tg_message_id=target_id,
+        chat_id=chat_id,
+        # BD-8 (§1.4): отложенное возобновление НЕ имеет сообщения-команды.
+        # Прежнее `trigger = target` ломало семантику маркера «текущая
+        # команда» и исключало из поиска не то сообщение. Честное значение —
+        # «команды нет».
+        trigger_tg_message_id=None,
         target_tg_message_id=target_id, target_text="",
         user_hint=(str(intent.get("question") or "").strip() or None),
-        kind="reply")
+        kind="reply",
+        requester_user_id=(int(intent["user_id"])
+                           if intent.get("user_id") else None))
     try:
         outcome = await run_factcheck(req, service=service, db=db, bot=bot,
                                       cache=_RUNTIME.get("cache"))
@@ -751,7 +762,16 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # вызовов нет; недоступность изображения — честная пометка, не «пусто».
     from services.factcheck_service import resolve_claim_publication
     publication = await resolve_claim_publication(
-        db, req.chat_id, req.target_tg_message_id, base_text=req.target_text)
+        db, req.chat_id, req.target_tg_message_id, base_text=req.target_text,
+        # M11 (§1.5): авторство и триггер передаются так же, как в handler.
+        # Без них `media_readiness._same_author` при неизвестной личности
+        # считает «свой автор», и чужое фото «уверенно» приписывается цели.
+        trigger_tg_message_id=req.trigger_tg_message_id,
+        requester_user_id=req.requester_user_id,
+        requester_name=req.requester_name,
+        target_source=("stored_reply"
+                       if str(req.kind or "reply") != "command"
+                       else "command_text"))
     media = publication.media
     claim_text = publication.text
     # ASAP-FC-ADMISSION-01 §2.1: ЯВНЫЙ запрос = пользователь/инструмент
@@ -766,26 +786,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                     len(media.caption), media.image_count,
                     bool(publication.notice()))
 
-    # 1. ResolveTimeAndProvenance — ВСЕГДА, дёшево (06H.3); unknown честно.
-    envelope = None
-    if db is not None and req.target_tg_message_id not in (None, "", 0):
-        try:
-            from services.temporal_factcheck import InputRef
-            envelope, reject_reason = await tf.build_envelope(
-                db, InputRef(kind=req.kind, chat_id=req.chat_id,
-                             target_tg_message_id=req.target_tg_message_id,
-                             trigger_tg_message_id=req.trigger_tg_message_id,
-                             hint=req.user_hint,
-                             # §3.3: собранный сверх сохранённой строки текст
-                             # (подпись другого элемента альбома/OCR) идёт в
-                             # claim только когда он реально есть — иначе
-                             # прежний путь «текст из БД» байт-в-байт.
-                             claim_text=(claim_text
-                                         if publication.augmented else None)),
-                default_mode=str(req.default_mode or "contextual"))
-        except Exception:
-            logger.warning("[factcheck_v2] envelope build failed", exc_info=True)
-            envelope = None
+    # 1. ResolveTimeAndProvenance — дёшево (06H.3); unknown честно.
+    #    M3/BD-2 (§1.5): envelope строится ПОСЛЕ разрешения цели и тезиса —
+    #    поиск/план и вердикт обязаны читать один и тот же текст. Прежняя
+    #    сборка ДО гейта давала вердикт по одному тексту, а поиск по другому.
 
     # 2. Контекст + suitability (внутри v2 подразумеваются — консолидация).
     #    ASAP-FC-ADMISSION-01: явный запрос пользователя передаётся в гейт —
@@ -802,27 +806,88 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     #     цели. Пустой текст цели при наличии окна — не «нечего проверять»:
     #     ищем тезис в уже собранном контексте тем же детерминированным
     #     механизмом (без нового LLM/поиска) и пересчитываем допуск.
-    if not target_resolved and ctx is not None:
+    #     M2 (§1.5): это ЕДИНСТВЕННАЯ законная подмена цели — contextual, и
+    #     она объявляется в публикации (источник/анкор/автор), а не только в
+    #     логе. Условие соответствует M2: у явной цели нет ни текста, ни
+    #     медиа-материала (иначе ждём/читаем изображение, см. 2c/2d ниже).
+    textual_target = bool(str(publication.text or "").strip())
+    media_material = bool(publication.has_image
+                          or publication.media.image_present
+                          or publication.media_group_id
+                          or publication.media_dependency() != "none")
+    contextual = False
+    if not textual_target and not media_material and ctx is not None:
         try:
-            found = fsg.find_context_claim(
-                ctx, trigger_tg_message_id=req.trigger_tg_message_id)
+            found, basis, _candidates = fsg._infer_source_claim(
+                ctx, trigger_tg_message_id=req.trigger_tg_message_id,
+                hint=req.user_hint,
+                reply_to_tg_id=publication.reply_to_tg_id)
         except Exception:
             logger.warning("[factcheck_v2] context claim lookup failed",
                            exc_info=True)
-            found = None
+            found, basis = None, "none"
         if found is not None:
             claim_text = str(found.text or "").strip()
             target_resolved = bool(claim_text)
+            contextual = bool(claim_text)
+            publication = dataclasses.replace(
+                publication, text=claim_text, caption_text=claim_text,
+                augmented=True, claim_origin="context_window",
+                claim_anchor_tg_message_id=found.tg_message_id,
+                claim_anchor_author=found.author,
+                claim_anchor_source=(found.source or "window"),
+                target_source="contextual",
+                target_tg_message_id=found.tg_message_id,
+                text_sufficient=True)
             logger.info("[factcheck_v2] claim from related material | "
-                        "chat=%s | source=%s | anchor=%s", req.chat_id,
-                        found.source, found.tg_message_id)
+                        "chat=%s | source=%s | basis=%s | anchor=%s", req.chat_id,
+                        found.source, basis, found.tg_message_id)
             decision = fsg.evaluate_suitability(
                 claim_text, req.user_hint, ctx,
                 target_ref={"chat_id": req.chat_id,
-                            "target_tg_message_id": req.target_tg_message_id,
+                            "target_tg_message_id":
+                                publication.target_tg_message_id,
                             "trigger_tg_message_id":
                                 req.trigger_tg_message_id},
                 explicit_request=explicit_request)
+
+    # 1b. Envelope — ПОСЛЕ разрешения цели/тезиса (M3/BD-2): вердикт,
+    #     план и поиск читают один текст; анкор Claim передаётся отдельно.
+    envelope = None
+    eff_target_tg = (publication.target_tg_message_id
+                     if publication.target_tg_message_id not in (None, "", 0)
+                     else req.target_tg_message_id)
+    if db is not None and eff_target_tg not in (None, "", 0):
+        try:
+            from services.temporal_factcheck import InputRef
+            envelope, reject_reason = await tf.build_envelope(
+                db, InputRef(kind=req.kind, chat_id=req.chat_id,
+                             target_tg_message_id=eff_target_tg,
+                             trigger_tg_message_id=req.trigger_tg_message_id,
+                             hint=req.user_hint,
+                             # §3.3/I3: в claim идёт РОВНО текст публикации —
+                             # тот же, что увидит вердикт.
+                             claim_text=(str(publication.text or "").strip()
+                                         or None),
+                             claim_anchor_tg_message_id=getattr(
+                                 publication, "claim_anchor_tg_message_id",
+                                 None)),
+                default_mode=str(req.default_mode or "contextual"))
+        except Exception:
+            logger.warning("[factcheck_v2] envelope build failed", exc_info=True)
+            envelope = None
+    # I3 (§1.5): расхождение текста вердикта и текста поиска — дефект, который
+    # обязан быть видно, а не «нормализован» подменой.
+    # I5: доставка Reply — реальный Telegram ID: при contextual-цели это
+    # триггер (цель как сообщение = анкор), иначе сама цель.
+    delivery_reply_to = (req.trigger_tg_message_id if contextual
+                         else req.target_tg_message_id)
+    _emit_target_trace(
+        publication, chat_id=req.chat_id,
+        trigger_tg_message_id=req.trigger_tg_message_id,
+        delivery_reply_to=delivery_reply_to,
+        envelope=envelope, route="orchestrator_v2",
+        extra={"contextual_target": contextual})
 
     feed = ctx.render_feed() if ctx is not None else ""
     media_context = publication.material_context()
@@ -870,7 +935,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                           else FACTCHECK_IMAGE_PENDING_PHRASES),
             where="media_pending", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, media_pending_text,
-                                 req.target_tg_message_id)
+                                 delivery_reply_to)
         tf.stage_event("deliver", "skipped",
                        reason_code="temporal_media_pending",
                        chat_id=req.chat_id)
@@ -903,7 +968,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         if notice:
             media_unchecked_text = f"{media_unchecked_text}\n\n{notice}"
         await send_chunked_reply(bot, req.chat_id, media_unchecked_text,
-                                 req.target_tg_message_id)
+                                 delivery_reply_to)
         tf.stage_event("deliver", "skipped", reason_code="vision_failed",
                        chat_id=req.chat_id)
         logger.info("[factcheck_v2] media unchecked — no_claim forbidden | "
@@ -930,7 +995,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             text = _guard_outbound(random.choice(FACTCHECK_NO_CLAIM_PHRASES),
                                    where="no_claim", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, text,
-                                 req.target_tg_message_id)
+                                 delivery_reply_to)
         tf.stage_event("deliver", "skipped", reason_code="no_claim_after_context",
                        chat_id=req.chat_id)
         return _finish(OUTCOME_NO_CLAIM, "v2_gate:no_claim")
@@ -948,7 +1013,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                 text = f"{text}\n\n{notice}"
         if text:
             await send_chunked_reply(bot, req.chat_id, text,
-                                     req.target_tg_message_id)
+                                     delivery_reply_to)
         tf.stage_event("deliver", "skipped",
                        reason_code="ambiguous_needs_clarification",
                        chat_id=req.chat_id)
@@ -963,7 +1028,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             random.choice(FACTCHECK_TARGET_UNAVAILABLE_PHRASES),
             where="target_unavailable", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, text,
-                                 req.target_tg_message_id)
+                                 delivery_reply_to)
         tf.stage_event("deliver", "skipped",
                        reason_code="unsafe_or_unavailable_target",
                        chat_id=req.chat_id)
@@ -992,7 +1057,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                     _guard_outbound(
                         random.choice(FACTCHECK_ATTRIBUTION_MISS_PHRASES),
                         where="attribution_miss", chat_id=req.chat_id),
-                    req.target_tg_message_id)
+                    delivery_reply_to)
                 tf.stage_event("deliver", "skipped",
                                reason_code="attribution_not_found",
                                chat_id=req.chat_id)
@@ -1034,6 +1099,26 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                     len(retrieval_plan.queries),
                     ",".join(q.intent for q in retrieval_plan.queries),
                     len(retrieval_plan.dropped_privacy))
+        # M6 (§1.5): каждая часть плана знает, какому сообщению/автору она
+        # принадлежит (или честно не знает — тогда анкор пустой).
+        anchors = tuple(getattr(retrieval_plan, "claim_anchors", ()) or ())
+        if anchors:
+            logger.info("[factcheck_v2] claim anchors | chat=%s | %s",
+                        req.chat_id,
+                        " | ".join(
+                            f"{row.get('claim_id')}:"
+                            f"{row.get('anchor_tg_message_id') or '-'}"
+                            for row in anchors))
+            try:
+                from services import mca_events
+                mca_events.emit_mca_event(
+                    "factcheck_claim_anchors", outcome="success",
+                    level="INFO", component="factcheck.claims",
+                    chat_id=req.chat_id,
+                    pipeline_run_id=pipeline_run_id,
+                    entity_ids={"claims": [dict(row) for row in anchors]})
+            except Exception:      # pragma: no cover — событие не рвёт прогон
+                logger.debug("[factcheck_v2] anchors event failed")
     retrieval_outcome = None
     if retrieval_plan is not None and retrieval_plan.needs_web:
         aggregator = getattr(service, "aggregator", None)
@@ -1088,10 +1173,13 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     if (not _notice and retrieval_outcome is not None
             and not getattr(retrieval_outcome, "refs_collected", 0)
             and getattr(retrieval_outcome, "search_text", "")
-            and verdict.reason_code is None):
+            and str(getattr(verdict, "reason_code", "") or "") in
+            ("", "insufficient_evidence")):
         # P0-FACTCHECK (§3.6): материалы найдены, но проверяемых ссылок нет —
         # вывод нельзя подавать как подтверждённый источниками. Технический
         # класс уже назван заголовком, когда reason_code есть.
+        # ES-4 (§11.2 п.6): оговорка нужна и при `insufficient_evidence` —
+        # это не техсбой, но цитируемость ограничена, и сказать об этом надо.
         _notice = _RETRIEVAL_NO_CITABLE_NOTICE
     # EVOL §5 (W5): настройка «Критический разнос» (chat → global → factory,
     # default ON внутри включённого фактчека; мастер-тумблер модуля не
@@ -1109,7 +1197,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         resolved=((critique_enabled, _critique_source)
                   if critique_enabled is not None else None))
     presentation = build_presentation(
-        verdict, reply_to_message_id=req.target_tg_message_id,
+        verdict, reply_to_message_id=delivery_reply_to,
         notice=_notice)
     # CFG-07C-G-хвост (07C.1): egress-guard на outbound-payload — после
     # Writer (check_claim*/кеш-хит), ДО сериализации renderer'ом. Renderer
@@ -1151,7 +1239,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                        if verdict.already_delivered else "telegram_html"),
         critical_section_enabled=critique_enabled,
         fallback_reason=("fallback_used" if verdict.fallback_used else ""),
-        trace_id=pipeline_run_id, pipeline_run_id=pipeline_run_id)
+        trace_id=pipeline_run_id, pipeline_run_id=pipeline_run_id,
+        media_state=publication.media_dependency(),
+        final_headline_code=_headline_code(verdict))
     return _finish(OUTCOME_VERDICT, f"v2:{verdict.route}", verdict_stage)
 
 
@@ -1249,6 +1339,22 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
         claims=tuple(getattr(retrieval, "claims", ()) or ()))
 
 
+def _headline_code(verdict) -> str:
+    """§11.3: код финального заголовка из renderer (fail-open)."""
+    try:
+        from services.factcheck_renderer import headline_code
+        return headline_code(verdict)
+    except Exception:      # pragma: no cover — трасса не рвёт доставку
+        return ""
+
+
+def _emit_target_trace(publication, **kwargs) -> dict:
+    """§10.3: трасса цели/медиа (единая реализация — factcheck_service)."""
+    from services.factcheck_service import emit_target_trace
+    kwargs.setdefault("route", "orchestrator_v2")
+    return emit_target_trace(publication, **kwargs)
+
+
 def _log_retrieval_metrics(chat_id: int, outcome) -> None:
     """Метрики единого retrieval-контура (06G.7): attempted/used/refs/
     fetch_errors/budget + причины пустого результата (§5.1/§5.3:
@@ -1259,13 +1365,16 @@ def _log_retrieval_metrics(chat_id: int, outcome) -> None:
     logger.info(
         "[factcheck_v2] retrieval | chat=%s | attempted=%d | used=%d | "
         "refs=%d | fetch_errors=%d | provider_failures=%d | empty=%d | "
-        "irrelevant=%d | budget_exhausted=%s | version=%s",
+        "irrelevant=%d | budget_exhausted=%s | fetch_skipped_deadline=%s | "
+        "version=%s",
         chat_id, outcome.queries_attempted, outcome.queries_used,
         outcome.refs_collected, outcome.fetch_errors,
         getattr(outcome, "provider_failures", 0),
         getattr(outcome, "empty_results", 0),
         getattr(outcome, "irrelevant_results", 0),
-        outcome.budget_exhausted, outcome.planner_version)
+        outcome.budget_exhausted,
+        getattr(outcome, "fetch_skipped_deadline", 0),
+        outcome.planner_version)
     try:
         from services import mca_events
         mca_events.emit_mca_event(
@@ -1280,7 +1389,9 @@ def _log_retrieval_metrics(chat_id: int, outcome) -> None:
             provider_failures=getattr(outcome, "provider_failures", 0),
             empty_results=getattr(outcome, "empty_results", 0),
             irrelevant_results=getattr(outcome, "irrelevant_results", 0),
-            planner_version=outcome.planner_version)
+            planner_version=outcome.planner_version,
+            entity_ids={"fetch_skipped_deadline": getattr(
+                outcome, "fetch_skipped_deadline", 0)})
     except Exception:      # события не рвут вердикт
         pass
 
@@ -1348,7 +1459,9 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
                                critical_section_enabled: bool | None,
                                fallback_reason: str = "",
                                trace_id: str = "",
-                               pipeline_run_id: str = "") -> dict:
+                               pipeline_run_id: str = "",
+                               media_state: str = "",
+                               final_headline_code: str = "") -> dict:
     """§6: одна трасса покрытия на ход — claim → запросы → провайдеры →
     кандидаты → открытые → роль/привязка → причина → показанные citation IDs,
     плюс компактный итог хода. Только метаданные: без текстов чатов, ссылок
@@ -1372,6 +1485,10 @@ async def _emit_claim_coverage(*, chat_id: int, outcome, verdict,
         "critical_section_enabled": bool(critical_section_enabled)
         if critical_section_enabled is not None else "",
         "fallback_reason": str(fallback_reason or ""),
+        # §11.3/§10.3: итоговый код заголовка и состояние медиа — из
+        # фактического прогона (пустое значение = «не установлено»).
+        "final_headline_code": str(final_headline_code or ""),
+        "media_state": str(media_state or ""),
         **styles,
     }
     try:
