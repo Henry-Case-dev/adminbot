@@ -419,7 +419,7 @@ async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
                     settings.CHAT_THREAD_MAX_DEPTH))
         chain = await collect_thread_chain(
             _db, chat_id, int(target_tg_message_id), int(depth or 0))
-        return render_reply_chains(chain)
+        return render_reply_chains(chain, chat_id=chat_id)
     except Exception:
         logger.warning("[factcheck] reply chain build failed | chat=%s",
                        chat_id, exc_info=True)

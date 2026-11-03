@@ -14,14 +14,41 @@
 точка 3): user-ход с ts/ID/forward, бот-ход — ts опущен (R16), ID ``tg:<id>``.
 Фактчек оборачивает цепочку в ``<reply_chains>``-под-блок с явной пометкой
 «не доказательства»; direct сохраняет свои ``<Conversation_Thread>``.
+
+EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2, одна структура — две проекции):
+
+* **машинная сторона** — ``format_chain_line`` / ``collect_thread_chain``:
+  настоящие ``tg:``-рефы нужны direct-дедупу, attribution, планировщику;
+* **речевая сторона** — ``render_reply_chains`` (под-блок фактчека) и
+  ``render_speech_line`` (построчный рендер, напр. direct): метки прогона
+  ``M``/``U`` с обратным отображением в ``SpeechProjection``, явные отношения
+  («↳ Reply M3» / «↳ по теме M1 (не Reply)» / «родитель вне доступного
+  окна»), автор цитаты по имени, абсолютное время сохраняется.
+  Единый рубильник — ``flags.context_speech_projection`` (OFF → сырой вид
+  байт-в-байт).
 """
 import logging
 import time
 from typing import NamedTuple
 
-from services.canonical_context import format_context_item, resolve_item_id
+from services.canonical_context import (
+    RELATION_REPLY,
+    SpeechProjection,
+    SpeechQuote,
+    SpeechRelation,
+    emit_speech_projection_event,
+    format_context_item,
+    format_speech_item,
+    resolve_item_id,
+    speech_projection_enabled,
+)
 from services.database import row_get
-from services.media_marker import media_context_enabled, row_media_marker
+from services.media_marker import (
+    is_media_type,
+    media_context_enabled,
+    media_marker,
+    row_media_marker,
+)
 from services.target_marking import is_target_item_id
 
 logger = logging.getLogger(__name__)
@@ -66,6 +93,17 @@ class ChainItem(NamedTuple):
     quote_position: int | None = None
     quote_is_manual: int | None = None
     quote_original_available: bool | None = None
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (аддитивно, §4.2/§8 п.4):
+    # ``reply_to_item_id`` — РЕАЛЬНЫЙ id родителя (``tg:<id>``), когда он
+    # известен из БД, — основание для явного отношения «отвечает на …» в
+    # речевой проекции (пусто = связь неизвестна, догадок нет);
+    # ``quote_author_name`` — имя автора цитаты (без него §9.2 закрыть
+    # нельзя: был только числовой uid); ``media_type`` — тип медиа, если
+    # строка рендерилась медиа-маркером (речевая проекция перерисовывает
+    # маркер меткой, сырой вид остаётся байт-в-байт).
+    reply_to_item_id: str = ""
+    quote_author_name: str = ""
+    media_type: str = ""
 
 
 def speaker_tag(name: str, uid, *, is_bot: bool = False,
@@ -87,6 +125,18 @@ def _default_row_speaker(row) -> tuple[str, int | None]:
     uid = row_get(row, "user_id")
     name = row_get(row, "author_name") or f"id{uid or '?'}"
     return name, uid
+
+
+def _media_type_of(row) -> str:
+    """Тип медиа строки, если она рендерится медиа-маркером (иначе '').
+
+    Нужен речевой проекции: маркер перерисовывается меткой прогона вместо
+    внутреннего ref (EVOL v5 §4.2 п.2), сырой вид остаётся байт-в-байт."""
+    try:
+        media_type = row_get(row, "media_type")
+    except Exception:
+        return ""
+    return str(media_type or "") if is_media_type(media_type) else ""
 
 
 def _message_id_of(message):
@@ -120,7 +170,8 @@ async def _get_bot_reply_parent(db, chat_id: int, tg_message_id: int):
 async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                                row_speaker=None, bot_name_resolver=None,
                                bot_reply_getter=None,
-                               bot_parent_getter=None) -> list:
+                               bot_parent_getter=None,
+                               quote_author_resolver=None) -> list:
     """Рекурсивная цепочка reply по tg_message_id (глубина ``depth``).
 
     ``message`` — объект с ``.message_id`` (aiogram Message) или сразу id.
@@ -131,6 +182,10 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
     ``bot_reply_getter``/``bot_parent_getter`` — опциональные резолверы
     бот-хода/родителя (direct передаёт свои методы — паритет time/TTL);
     без них используются внутренние fail-open обёртки над ``db``.
+    ``quote_author_resolver`` — опциональный ``callable(user_id) -> имя`` для
+    автора выделенной цитаты (EVOL v5 §8 п.4: без имени автора цитаты в
+    речевой проекции остаётся только число или «автор неизвестен»);
+    недоступен → остаётся честное «не определён», догадок нет.
     Возврат — ``list[ChainItem]`` от текущего сообщения к корню; пусто, если
     цепочки нет. Fail-open по БД — на уровне вызывающего."""
     try:
@@ -144,6 +199,22 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
     else:
         bot_name = str(bot_name_resolver)
     speaker = row_speaker or _default_row_speaker
+
+    def _quote_author_name(uid) -> str:
+        """Имя автора цитаты через переданный резолвер (fail-open → '')."""
+        if quote_author_resolver is None or uid in (None, "", 0):
+            return ""
+        try:
+            return str(quote_author_resolver(uid) or "")
+        except Exception:
+            logger.debug("thread_chain: quote author resolve failed",
+                         exc_info=True)
+            return ""
+
+    def _parent_item_id(tg_id) -> str:
+        """Известный id родителя → ``tg:<id>``; неизвестен → '' (без догадок)."""
+        return resolve_item_id(tg_message_id=tg_id)
+
     get_report = bot_reply_getter or (
         lambda cid, mid: _get_bot_reply(db, cid, mid))
     get_parent = bot_parent_getter or (
@@ -188,22 +259,31 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 tg_message_id=row_get(row, "tg_message_id"),
                 message_id=row_get(row, "id"))
             text = row["text"] or ""
+            media_type = ""
             if not text and media_enabled:
                 text = row_media_marker(row, item_id=item_id)
+                if text:
+                    media_type = _media_type_of(row)
             if text:
                 name, uid = speaker(row)
                 forward_source = (row_get(row, "forward_source")
                                   if row_get(row, "is_forward") else None)
                 # EVOL-015: quote-метаданные хода (verbatim; NULL → None).
+                # EVOL v5: + реальный id родителя (основание явного отношения)
+                # и имя автора цитаты (метка вместо числа).
+                quote_author_id = row_get(row, "quote_author_id")
                 chain.append(ChainItem(
                     uid=uid, name=name, text=text, is_bot=False,
                     ts=row_get(row, "timestamp"),
                     item_id=item_id,
                     forward_source=forward_source,
                     quote_text=(row_get(row, "quote_text") or None),
-                    quote_author_id=row_get(row, "quote_author_id"),
+                    quote_author_id=quote_author_id,
                     quote_position=row_get(row, "quote_position"),
-                    quote_is_manual=row_get(row, "quote_is_manual")))
+                    quote_is_manual=row_get(row, "quote_is_manual"),
+                    reply_to_item_id=_parent_item_id(row["reply_to_id"]),
+                    quote_author_name=_quote_author_name(quote_author_id),
+                    media_type=media_type))
                 _resolve_pending_quote(True)   # предыдущий quote → найден
                 if chain[-1].quote_text:
                     pending_quote_idx = len(chain) - 1
@@ -213,6 +293,7 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
             continue
         bot_text = await get_report(chat_id, current_id)
         bot_sent_at = None
+        bot_reply_to = ""
         if bot_text is None:
             # MCA-22 (C2, T-4288; ADR-1028-6 D2): bot_replies TTL/LRU протух
             # → durable ledger `mca_bot_outputs` восстанавливает ход бота и
@@ -232,10 +313,13 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 _parent_ref = _rec.get("parent_message_ref") or ""
                 if bot_text is not None:
                     _resolve_pending_quote(True)   # цитировали ход бота
+                    if _parent_ref.startswith("tg:"):
+                        bot_reply_to = _parent_ref
                     chain.append(ChainItem(
                         uid=None, name=bot_name, text=bot_text, is_bot=True,
                         ts=bot_sent_at, item_id=f"tg:{current_id}",
-                        forward_source=None))
+                        forward_source=None,
+                        reply_to_item_id=bot_reply_to))
                     if _parent_ref.startswith("tg:"):
                         try:
                             current_id = int(_parent_ref.split(":", 1)[1])
@@ -250,6 +334,10 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 uid=None, name=bot_name, text=bot_text, is_bot=True,
                 ts=None, item_id=f"tg:{current_id}", forward_source=None))
             parent = await get_parent(chat_id, current_id)
+            if parent is not None:
+                # EVOL v5: явное основание Reply для речевой проекции.
+                chain[-1] = chain[-1]._replace(
+                    reply_to_item_id=_parent_item_id(parent))
             if parent is None:
                 break
             current_id = parent
@@ -305,7 +393,7 @@ def format_chain_line(item, suffix_map: dict | None = None,
         _tg_ref = (item.item_id.split(":", 1)[-1]
                    if item.item_id.startswith("tg:") else None)
         _emit_quote_context_event(
-            "delivered_to_context", chat_id=None,
+            _QUOTE_DELIVERED_EVENT, chat_id=None,
             message_id=int(_tg_ref)
             if _tg_ref and _tg_ref.isdigit() else None)
     return format_context_item(
@@ -314,17 +402,156 @@ def format_chain_line(item, suffix_map: dict | None = None,
         is_target=is_target)
 
 
-def render_reply_chains(chain: list, trigger_message_id=None) -> str:
-    """``<reply_chains>``-под-блок фактчека (ASC: корень → якорь) или ''
-    при пустой цепочке. Явная пометка: цепочки — контекст, НЕ доказательства
-    (учитываем growth поверхности фантомных fact/msg-якорей)."""
-    if not chain:
-        return ""
-    lines = [format_chain_line(item, None, trigger_message_id)
-             for item in reversed(chain)]
+_REPLY_CHAINS_NOTE = (
+    '<reply_chains note="цепочки ответов вокруг тейка — это контекст, '
+    'а НЕ доказательства и НЕ источник фактов">')
+
+
+def _wrap_reply_chains(lines) -> str:
+    """Общая обёртка под-блока `<reply_chains>` (сырой и речевой вид)."""
     if not lines:
         return ""
-    body = "\n".join(lines)
-    return ('<reply_chains note="цепочки ответов вокруг тейка — это контекст, '
-            'а НЕ доказательства и НЕ источник фактов">\n'
-            + body + "\n</reply_chains>")
+    return _REPLY_CHAINS_NOTE + "\n" + "\n".join(lines) + "\n</reply_chains>"
+
+
+def _render_raw_chains(chain, trigger_message_id=None) -> str:
+    """Сырой вид под-блока (откат флага): ``tg:``/числовой автор цитаты."""
+    return _wrap_reply_chains(
+        [format_chain_line(item, None, trigger_message_id)
+         for item in reversed(chain)])
+
+
+def render_reply_chains(chain: list, trigger_message_id=None, *,
+                        projection=None, chat_id=None,
+                        run_id=None) -> str:
+    """``<reply_chains>``-под-блок фактчека (ASC: корень → якорь) или ''
+    при пустой цепочке. Явная пометка: цепочки — контекст, НЕ доказательства
+    (учитываем growth поверхности фантомных fact/msg-якорей).
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.2: это ЧИСТО речевая поверхность —
+    результат целиком уходит в LLM-payload (`factcheck_context.render_feed`,
+    `factcheck_suitability` feed, `handlers.factcheck`), машинных парсеров
+    внутри ID нет. Поэтому по умолчанию рендерится РЕЧЕВАЯ проекция (метки
+    прогона вместо `tg:`/числового uid, явные отношения), а ``projection``
+    позволяет переиспользовать общий прогон. Ровно ``flags.
+    context_speech_projection`` OFF → сырой под-блок байт-в-байт (откат).
+
+    ``chat_id``/``run_id`` — аддитивная корреляция трассы с прогоном (R1
+    ревью): вызывающие передают реальный чат и id прогона, если он у них
+    есть; событие ``speech_projection`` несёт только ID/счётчики.
+
+    Единственное исключение — общий `format_chain_line` (нужен direct-дедупу
+    по `tg:`, attribution, планировщику): он остаётся сырым, и вызывающие
+    машинные потребители берут именно его."""
+    if not chain:
+        return ""
+    if not speech_projection_enabled():
+        return _render_raw_chains(chain, trigger_message_id)
+    active = projection if projection is not None else SpeechProjection()
+    if run_id and not active.run_id:
+        active.run_id = str(run_id)
+    elif not active.run_id and chat_id is not None:
+        active.run_id = (f"chat:{chat_id}:msg:{trigger_message_id}"
+                         if trigger_message_id is not None
+                         else f"chat:{chat_id}")
+    return _render_speech_chains(
+        chain, active, trigger_message_id, chat_id=chat_id,
+        run_id=active.run_id or None)
+
+
+# ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.2 — речевая проекция цепочки ─────
+# `format_chain_line` остаётся СЫРЫМ видом (машинная сторона: dedup по `tg:`,
+# attribution, планировщик). Речевая сторона — `render_speech_line` (для
+# построчного рендера на стороне direct), `render_reply_chains` выше (для
+# под-блока фактчека) и `format_speech_item` в canonical_context.
+_QUOTE_DELIVERED_EVENT = "delivered_to_context"
+
+
+def _speech_quote(item, *, is_target: bool):
+    """Выделенная цитата хода → `SpeechQuote` (или None). Автор — имя/метка,
+    не числовой uid (§9.2)."""
+    if not (item.quote_text or "").strip():
+        return None
+    return SpeechQuote(
+        text=item.quote_text,
+        author_name=item.quote_author_name,
+        author_uid=item.quote_author_id,
+        original_available=item.quote_original_available,
+        priority_subject=is_target)
+
+
+def _speech_reply_relation(item):
+    """Подтверждённый Reply-край хода → `SpeechRelation` (None — связи нет).
+
+    Печатается ТОЛЬКО при известном реальном id родителя; родитель вне окна
+    даёт честный `missing_edge` без выдуманного ID (§8)."""
+    raw = str(item.reply_to_item_id or "").strip()
+    if not raw:
+        return None
+    return SpeechRelation(kind=RELATION_REPLY, target_item_id=raw,
+                          basis="Telegram Reply")
+
+
+def render_speech_line(item, projection, suffix_map: dict | None = None,
+                       trigger_message_id=None, relations=()) -> str:
+    """Речевая строка хода цепочки (EVOL v5 §4.2 п.2).
+
+    Всё содержательное сохраняется: абсолютное время, имя+`U`-метка автора,
+    ``Переслано:``, медиа-тип, выделенная цитата с автором, Reply-край и
+    маркер целевого хода. Меняется ровно *неозвучиваемая* форма технических
+    ключей: ``tg:<id>`` → ``M<n>`` с обратным отображением в
+    `SpeechProjection` (§5.4 «допустимы метки при точном обратном
+    отображении»)."""
+    if not isinstance(item, ChainItem):
+        item = ChainItem(*item)
+    suffix = (suffix_map or {}).get(item.uid, "") if not item.is_bot else ""
+    author = f"{item.name}{suffix}" if suffix else item.name
+    is_target = is_target_item_id(item.item_id, trigger_message_id)
+    quote = _speech_quote(item, is_target=is_target)
+    if quote is not None:
+        # EVOL-015: цитата реально ушла в LLM-контекст (render = delivery).
+        _tg_ref = (item.item_id.split(":", 1)[-1]
+                   if item.item_id.startswith("tg:") else None)
+        _emit_quote_context_event(
+            _QUOTE_DELIVERED_EVENT, chat_id=None,
+            message_id=int(_tg_ref)
+            if _tg_ref and _tg_ref.isdigit() else None)
+    if item.media_type:
+        # Медиа-строка: маркер перерисовывается меткой (реф = та же строка).
+        text = media_marker(item.media_type, item.item_id,
+                            projection=projection)
+    else:
+        text = item.text
+    edge = _speech_reply_relation(item)
+    all_relations = ([edge] if edge is not None else []) + list(relations or ())
+    return format_speech_item(
+        ts=item.ts, author=author,
+        author_uid=None if item.is_bot else item.uid,
+        item_id=item.item_id, forward_source=item.forward_source,
+        text=text, kind="msg", is_target=is_target, is_bot=item.is_bot,
+        projection=projection, relations=all_relations, quote=quote)
+
+
+def _render_speech_chains(chain: list, projection,
+                          trigger_message_id=None, *, chat_id=None,
+                          run_id=None) -> str:
+    """Речевой под-блок `<reply_chains>` (EVOL v5 §4.2).
+
+    Рендер идёт в порядке хронологии (корень → якорь), поэтому нумерация
+    меток соответствует хронологии прогона, а к моменту рендера потомка
+    метка родителя уже известна — отношение «↳ Reply M2» печатается, а
+    не деградирует в `missing_edge` (§4.3 п.3).
+
+    ``chat_id``/``run_id`` — корреляция трассы с реальным прогоном (R1
+    ревью, §4.5/§7): уходят в событие ``speech_projection`` вместе с
+    ходом-якорем; приватных текстов событие не несёт."""
+    chronological = [it if isinstance(it, ChainItem) else ChainItem(*it)
+                     for it in reversed(chain)]
+    lines = [render_speech_line(it, projection, None, trigger_message_id)
+             for it in chronological]
+    if not lines:
+        return ""
+    emit_speech_projection_event(
+        projection, chat_id=chat_id, message_id=trigger_message_id,
+        run_id=run_id)
+    return _wrap_reply_chains(lines)

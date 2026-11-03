@@ -7,8 +7,8 @@
 Формат (single dialect)::
 
     [медиа: {media_type}]              # реф неизвестен (R16 — опускаем)
-    [медиа: {media_type} tg:{id}]      # внутренний реф: Telegram id медиа-узла
-    [медиа: {media_type} msg:{id}]     # внутренний реф: внутренний id строки
+    [медиа: {media_type} {ref}]        # внутренний реф: tg:<id> / msg:<id>
+    [медиа: {media_type} {label}]      # речевая проекция: M<n> (EVOL v5 §4.2)
 
 ``{media_type}`` — словарь БД, совпадающий с ``handlers.summary._detect_media_type``
 (``video|photo|voice|audio|animation|sticker|document|other``). ``{id}`` —
@@ -16,9 +16,15 @@
 не попадают (R17). Неизвестный/битый ``media_type`` санитизируется до ``[a-z_]``
 (≤20), пусто → ``other`` — инъекция в каноническую строку невозможна.
 
+EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.2): медиа-узел — та же строка
+контекста, поэтому в РЕЧЕВОЙ проекции его ref заменяется меткой прогона
+(``[медиа: video M7]``) либо опускается, если рефа нет. Сырой вид
+(``tg:``/``msg:``) остаётся дефолтом — он нужен машинной стороне и
+откату (``flags.context_speech_projection`` OFF).
+
 Regex потребителя (F14)::
 
-    ^\\[медиа: (?P<media>[a-z_]{1,20})(?: (?P<ref>(?:tg|msg):\\d+))?\\]$
+    ^\\[медиа: (?P<media>[a-z_]{1,20})(?: (?P<ref>(?:tg|msg):\\d+|[MFU]\\d+))?\\]$
 
 Инвариант: при отсутствии медиа рендеры выводят байт-в-байт прежний результат —
 маркер появляется только когда строка несёт медиа.
@@ -27,6 +33,7 @@ import logging
 import re
 
 from config.settings import settings
+from services.canonical_context import SPEECH_LABEL_RE, speech_projection_enabled
 from services.database import row_get
 
 logger = logging.getLogger(__name__)
@@ -40,15 +47,18 @@ MEDIA_TYPES = frozenset({
 _MAX_TYPE_LEN = 20
 
 # Regex маркера — контракт для потребителя (F14 парсит одним regex без
-# корреляции с заголовком строки).
+# корреляции с заголовком строки). Речевая метка (`M7`) — валидный ref наряду
+# с внутренним (`tg:123`/`msg:9`).
 MEDIA_MARKER_RE = re.compile(
-    r"^\[медиа: (?P<media>[a-z_]{1,20})(?: (?P<ref>(?:tg|msg):\d+))?\]$")
+    r"^\[медиа: (?P<media>[a-z_]{1,20})"
+    r"(?: (?P<ref>(?:tg|msg):\d+|[MFU]\d+))?\]$")
 
 # Внутренний реф: ровно ``tg:<цифры>`` / ``msg:<цифры>`` (без URL/file_id).
 _REF_RE = re.compile(r"^(?:tg|msg):\d+$")
 
 # Санитизация типа: только строчные [a-z_] (срезаем переносы/скобки/иное).
 _TYPE_STRIP_RE = re.compile(r"[^a-z_]")
+
 
 
 def _sanitize_media_type(media_type) -> str:
@@ -74,23 +84,51 @@ def is_media_type(media_type) -> bool:
     return bool(token) and token != "text"
 
 
-def media_marker(media_type, item_id=None) -> str:
-    """Маркер медиа: ``[медиа: {type}]`` (+ `` tg:{id}``/`` msg:{id}`` при рефе).
+def _speech_label(projection, item_id, label):
+    """Речевая метка медиа-узла или ``None``, если речевой вид не активен.
 
-    ``item_id`` вне формата ``(tg|msg):<цифры>`` (пусто/None/URL) → реф
-    опускается (R16/R17). Никогда не бросает."""
+    ``None`` → маркер остаётся с внутренним ref (сырой вид / откат).
+    ``""`` → речевой вид без рефа (метки нет — узел без адресуемого id)."""
+    explicit = str(label or "").strip()
+    if explicit:
+        return explicit if SPEECH_LABEL_RE.match(explicit) else None
+    if projection is None:
+        return None
+    try:
+        if not speech_projection_enabled():
+            return None
+    except Exception:                       # pragma: no cover — шов недоступен
+        logger.debug("media_marker: speech flag unavailable", exc_info=True)
+        return None
+    return projection.message_label(item_id) or ""
+
+
+def media_marker(media_type, item_id=None, *, projection=None,
+                 label=None) -> str:
+    """Маркер медиа: ``[медиа: {type}]`` (+ ref при наличии).
+
+    Сырой вид (дефолт): `` tg:{id}``/`` msg:{id}`` — внутренний идентификатор
+    медиа-узла. Речевой вид (``projection`` либо явный ``label``): метка
+    прогона ``M7`` вместо внутреннего ref — при активном
+    ``flags.context_speech_projection``. ``item_id`` вне формата
+    ``(tg|msg):<цифры>`` (пусто/None/URL) → реф опускается (R16/R17).
+    Никогда не бросает."""
     token = _sanitize_media_type(media_type)
+    speech = _speech_label(projection, item_id, label)
+    if speech is not None:
+        return f"[медиа: {token} {speech}]" if speech else f"[медиа: {token}]"
     ref = str(item_id or "")
     if ref and _REF_RE.match(ref):
         return f"[медиа: {token} {ref}]"
     return f"[медиа: {token}]"
 
 
-def row_media_marker(row, item_id=None) -> str:
+def row_media_marker(row, item_id=None, *, projection=None) -> str:
     """Маркер строки ``smart_messages`` по колонке ``media_type`` (row_get).
 
     Нет медиа/``text``/пусто → ``""`` (вызывающий сохраняет прежний скип —
-    байт-в-байт). Никогда не бросает."""
+    байт-в-байт). ``projection`` → речевая метка вместо внутреннего ref.
+    Никогда не бросает."""
     try:
         media_type = row_get(row, "media_type")
     except Exception:
@@ -98,7 +136,7 @@ def row_media_marker(row, item_id=None) -> str:
         return ""
     if not is_media_type(media_type):
         return ""
-    return media_marker(media_type, item_id)
+    return media_marker(media_type, item_id, projection=projection)
 
 
 def message_media_type(message) -> str | None:
