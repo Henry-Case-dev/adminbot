@@ -203,6 +203,13 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # Отдельный файл-зона (прецедент memory_overview); RBAC — global admin.
     from web.api.initiative_vitality import initiative_vitality_router
     app.include_router(initiative_vitality_router, prefix="/api")
+    # P4 meme-pipeline-refactor-01 (`MEME-IIC-DIAG-UI`): честная диагностика
+    # ДВУХ механизмов инициативы для карточки мемов (два независимых блока
+    # text_initiative/meme + degraded, без склейки). Отдельный файл-зона
+    # (прецедент initiative_vitality/stories); routes.py не меняется,
+    # RBAC — доступ к конкретному чату.
+    from web.api.mechanism_diagnostics import mechanism_diagnostics_router
+    app.include_router(mechanism_diagnostics_router, prefix="/api")
     # UI-полировка TMA: прокси аватаров (GET /api/avatar/{kind}/{tid}) —
     # bot из services.web_runtime; отдельный router рядом с остальными.
     from web.api.avatars import avatar_router

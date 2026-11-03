@@ -321,6 +321,25 @@ def test_mechanism_diagnostics_endpoint_requires_chat_and_access(client):
     assert resp.status_code == 403
 
 
+def test_mechanism_diagnostics_lives_in_zone_router_not_routes_py():
+    """REGRESSION (L-F11S-1): новый маршрут — отдельный файл-зона.
+
+    `web/api/routes.py` держит набор маршрутов под byte-freeze F8/F11; новый
+    маршрут добавляется файлом-зоной (прецедент stories/oversight/speech) и
+    регистрируется в `web/app.py`. Если маршрут вернётся в `routes.py`,
+    routes-инвентарь `f8_baseline.json` перестанет быть ловушкой против
+    случайного нового endpoint'а.
+    """
+    from web.api.mechanism_diagnostics import mechanism_diagnostics_router
+    paths = {getattr(r, "path", "") for r in mechanism_diagnostics_router.routes}
+    assert paths == {DIAG[len("/api"):]}
+    routes_src = (ROOT / "web" / "api" / "routes.py").read_text(encoding="utf-8")
+    assert "mechanism-diagnostics" not in routes_src
+    app_src = (ROOT / "web" / "app.py").read_text(encoding="utf-8")
+    assert "include_router(mechanism_diagnostics_router, prefix=\"/api\")" \
+        in app_src
+
+
 def test_mechanism_diagnostics_endpoint_does_not_merge_blocks(
         client, monkeypatch):
     """Маршрут возвращает ровно то, что собрал сервис (без склейки/пересчёта)."""

@@ -116,6 +116,9 @@
 `tests/test_meme_pipeline_api.py` (утверждал `summary_target is None`).
 Фикстура `tests/js/evol_w4_diagnostics_ui_test.js` переведена на канонические имена.
 
+Это правка содержимого `routes.py`, поэтому sha256-пин F11 переиздан осознанно по процедуре
+L-F11S-1 (см. §8): набор маршрутов не изменился (Δ routes=0).
+
 ### 1.7 Видимая аналитика по стадиям (`MEME-ACC-12`)
 
 В блоке `data-meme-analytics` под счётчиками добавлен `data-meme-attempt-stages`:
@@ -138,15 +141,19 @@
 
 1. **Удаление алиасов** в `web/api/routes.py` — прямое требование чек-листа P2 §5.6
    (условие закрытия P4). `services/**` не тронут.
-2. **Новый read-only `GET /api/initiative/mechanism-diagnostics`** (`web/api/routes.py`).
-   Без него показ двух блоков невозможен: сборщик P9 живёт в сервисе и наружу нигде не
-   отдавался, а склейка на стороне UI запрещена (§6 P9). Эндпоинт:
+2. **Новый read-only `GET /api/initiative/mechanism-diagnostics`** — отдельный
+   файл-зона `web/api/mechanism_diagnostics.py` (не `routes.py`: новый маршрут в
+   `routes.py` запрещён конвенцией зон, см. §8). Без него показ двух блоков невозможен:
+   сборщик P9 живёт в сервисе и наружу нигде не отдавался, а склейка на стороне UI
+   запрещена (§6 P9). Эндпоинт:
    - права — как у чтения настроек мемов (`_require_chat_access`), без чата → 422;
    - читает `collect_mechanism_diagnostics(db, chat_id)` и возвращает ответ КАК ЕСТЬ
      (тест: подменённый сборщик возвращается байт-в-байт, ни склейки, ни переименований);
    - ничего не пишет, LLM не вызывает, новых таблиц/полей/событий нет.
-   Это единственное расширение заявленного write-scope (`web/index.html`, `web/app.js`,
-   `tests/test_evol014_ui.py`) — выношу на усмотрение PM/Reviewer.
+   Расширение заявленного write-scope (`web/index.html`, `web/app.js`,
+   `tests/test_evol014_ui.py`): `web/api/routes.py` (только снятие алиасов, требование
+   чек-листа P2 §5.6), новый файл-зона + строка регистрации в `web/app.py`, re-export в
+   `web/api/__init__.py`, два канонических пина F8/F11 и `tools/_meme_p4_reissue_f8.py`.
 
 Попутно исправлен связанный дефект карточки, без которого не выполнялась приёмка «после
 сохранения и перезагрузки страницы видны сохранённые значения»: данные карточки грузились
@@ -255,8 +262,88 @@ Browser Use (настоящий Chrome, живой стенд на тех же �
 `web/index.html`, `web/app.js` (+ ~750 строк: ярлыки, представления трёх блоков, черновик и
 сохранение промптов, поле-специфичные 422, watcher чата), `web/static/app.css` (+77 строк
 стилей полей, бюджета, стадий, блоков диагностики — на существующих токенах),
-`web/api/routes.py` (удалены алиасы, добавлен read-only эндпоинт диагностики),
+`web/api/routes.py` (только удалены алиасы `length_limit`),
+`web/api/mechanism_diagnostics.py` (новый файл-зона: 1 read-only маршрут диагностики),
+`web/api/__init__.py` + `web/app.py` (re-export и регистрация роутера),
 `tests/js/meme_ui_fields_test.js` (новый), `tests/ui_meme_ui_fields_e2e.py` (новый),
 `tests/test_webapp_js_unit.py`, `tests/test_evol014_ui.py`, `tests/test_meme_pipeline_api.py`,
-`tests/js/evol_w4_diagnostics_ui_test.js`. Миграций, изменений `services/**`, деплоя и живых
-отправок нет.
+`tests/js/evol_w4_diagnostics_ui_test.js`,
+`tests/test_round1025_f8_registry.py` + `tests/test_mca23_planned_vs_actual.py` +
+`tests/fixtures/round1025/f8_baseline.json` (re-pin по L-F11S-1, §8),
+`tools/_meme_p4_reissue_f8.py` (переиздание пинов, идемпотентное, `--check`). Миграций,
+изменений `services/**`, деплоя и живых отправок нет.
+
+## 8. Правка после ревью B1: пины F8/F11 (L-F11S-1)
+
+Ревью (`w-p4-review.md` B1) зафиксировало три красных теста на кандидате `0ccdd7fa`:
+`test_routes_file_unchanged`, `test_routes_set_unchanged`, `test_routes_pin_untouched`.
+Закрыто **вариантом (a)** — новый маршрут вынесен в отдельный файл-зону — плюс
+**осознанным переизданием ТОЛЬКО sha256-пина** (без изменения набора маршрутов).
+
+### 8.1 Почему (a), а не (b) целиком
+
+1. **Конвенция зон — часть процедуры заморозки.** `web/api/__init__.py` и комментарий в
+   самом пине говорят дословно: «роутер — отдельный файл зон (прецедент memory_agi/oversight);
+   регистрация — в web/app.py; `web/api/routes.py` не меняется», а
+   `tests/test_mca23_planned_vs_actual.py` — «routes.py byte-freeze: аддитивный endpoint
+   живёт в analytics.py». Набор маршрутов `routes.py` в F8 — это **tripwire против нового
+   маршрута в routes.py**; если разрешать ему расти «осознанно», ловушка слабеет: следующий
+   случайный маршрут тоже можно будет провести переизданием списка.
+2. **Прецедент P2 здесь не подходит по форме.** P2 переиздавал F8 при контентной правке
+   существующих эндпоинтов (Δ routes=0, новых маршрутов не было). Точно так же закрыт и
+   p0-admin-cache-toggle-save: «Δ routes=0, новых endpoint'ов нет». Наш случай отличается:
+   маршрут НОВЫЙ, а значит его место — зона, а не routes.py.
+3. **Минимальность.** Вариант (a) не трогает `routes`-инвентарь `f8_baseline.json` вообще
+   (55 путей, как было), переиздаётся ровно один sha256 и только потому, что снятие алиасов
+   (п.1.6) — принятое и протестированное поведение P4 (`test_meme_pipeline_api.py` прямо
+   запрещает алиасы; вернуть их = молча ослабить контракт). Байт-фриз `routes.py` при этом
+   остаётся честным: файл изменился, пин это и фиксирует.
+
+### 8.2 Что именно сделано
+
+- `web/api/mechanism_diagnostics.py` — новый файл-зона, ровно 1 маршрут
+  `GET /initiative/mechanism-diagnostics` (тот же URL `/api/initiative/mechanism-diagnostics`,
+  что ждёт `web/app.js`), права `_require_chat_access`, ответ сборщика как есть;
+  re-export в `web/api/__init__.py`, регистрация в `web/app.py` рядом с `initiative_vitality`.
+- `web/api/routes.py` — удалён только блок нового маршрута; снятие алиасов осталось.
+- `ROUTES_SHA256_F11` → `7ea62c3ee88b…` в каноне (`test_round1025_f8_registry.py`) и в
+  синхронной копии (`test_mca23_planned_vs_actual.py`); остальные четыре пина импортируют
+  канон и обновились автоматически. В оба пина дописан rationale-блок.
+- `tests/fixtures/round1025/f8_baseline.json` — обновлён `sha256["web/api/routes.py"]` и
+  запись в `superseded_by`; `routes`-список НЕ менялся (55 = 55).
+- `tools/_meme_p4_reissue_f8.py` — переиздание с проверками: идемпотентно (второй прогон →
+  «изменено: ничего»), `--check` → `CHECK OK: routes=55 (Δ=0)`, и он же ОТКАЗЫВАЕТСЯ
+  переиздавать, если набор маршрутов `routes.py` разошёлся с фикстурой (санкция Δ routes=0).
+
+### 8.3 Доказательство, что пины продолжают ловить случайную правку
+
+Разовый зонд (не durable, в `WorkspaceData/runs/`), `routes.py` восстановлен байт-в-байт:
+
+| проба | результат |
+|---|---|
+| дописан чужой `@api_router.get("/probe/drift")` | **3 failed** (набор маршрутов + оба sha-пина) |
+| дописан только комментарий (дрейф байт без маршрутов) | **2 failed** (оба sha-пина), routes-set зелёный |
+| байты восстановлены | **3 passed** |
+
+### 8.4 Найдено и исправлено в этой же правке (свой дефект полосы)
+
+`tests/js/evol_w4_diagnostics_ui_test.js` был КРАСНЫМ на кандидате `0ccdd7fa`: P4 добавил
+в `saveMemeSettings` вызов `this.loadMemeDiagnostics()` и `this.memeFieldErrorsFrom(e)`, а
+тестовая заглушка `ctx` этих методов не имела → `TypeError` (и он же маскировал реальную
+ошибку внутри `try`). Файл не был подключён ни к одной автоматике, поэтому регрессия прошла
+мимо гейта и всплыла только ручным прогоном. Исправлено: заглушка получила оба метода,
+плюс новое утверждение — после успешного сохранения диагностика перечитывается ровно один
+раз (а на пустом черновике — ни разу). Файл подключён в `tests/test_webapp_js_unit.py`
+(`test_js_unit_evol_w4_diagnostics`), чтобы такое больше не проходило незамеченным.
+
+### 8.5 Прогоны на исправленном кандидате
+
+| набор | результат |
+|---|---|
+| `test_round1025_f8_registry.py` + `test_mca23_planned_vs_actual.py` + `test_evol014_ui.py` | **69 passed**, 0 failed (до правки: 3 failed) |
+| `test_meme_pipeline_api` + `test_meme_pipeline_stages` + `test_meme_init_diagnostics` + `test_evol014_meme_initiative` + `test_initiative_speech_layers_chat_overrides` + `test_meme_command_autodelete` + `test_initiative_coordination` | **169 passed** |
+| `test_webapp_api` + `test_mca12_stories` + `test_mca17c_invariants` + `test_asap7_cover_preview` (соседние пины/зоны) | **214 passed** |
+| `test_webapp_js_unit` (весь файл) | 2 failed (`round1021` grid, `round1024` «вкладок 28») — те же пре-существующие, что на базе `a9f326f8`; новый `evol_w4` и лейновый `meme_ui_fields` зелёные |
+| node `meme_ui_fields_test.js` / `evol_w4_diagnostics_ui_test.js` | `MEME-UI-FIELDS-OK` / `EVOL-W4-UI-OK` |
+| e2e `tests/ui_meme_ui_fields_e2e.py` (1280 и 390) | **failures=0** |
+
