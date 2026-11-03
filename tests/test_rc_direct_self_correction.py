@@ -253,6 +253,34 @@ class TestCountingUnit:
         assert "- M3: ссылка/цитата на свою же прежнюю реплику" in frame
 
     @pytest.mark.asyncio
+    async def test_quote_of_bot_words_is_not_answer_to_participant(
+            self, speech_on):
+        """§12.2 п.3/п.9: цитата СЛОВ БОТА — ссылка на свои слова, а не ответ
+        другому участнику.
+
+        Регрессия ревью N2: раньше автор цитаты сравнивался с автором самой
+        реплики, поэтому собственная цитата бота попадала в «другого»."""
+        window = [
+            _row(4250, text="ты же сам говорил про три раза",
+                 quote="я насчитал три раза", quote_author=BOT_ID),
+        ]
+        payload, _ = await _payload(
+            window=window,
+            message=_trigger("ты сам это сказал",
+                             reply=_bot_msg(4470, "я насчитал три раза")))
+        frame = _frame(payload)
+        assert frame, payload
+        attrs = _attrs(frame)
+        assert attrs["refs_same"] == "0"
+        assert attrs["refs_bot"] == "1"
+        assert "ответов другим участникам 0" in frame
+        assert ("ссылок/цитат на твои прежние реплики (твои слова, не "
+                "другого участника) 1") in frame
+        assert re.search(r"- M\d+: ссылка/цитата на твою прежнюю реплику",
+                         frame)
+        assert "ответ/цитата другого участника" not in frame
+
+    @pytest.mark.asyncio
     async def test_three_real_questions_are_three(self, speech_on):
         """§13.72: три самостоятельных вопроса — это три, и они видны."""
         window = [
@@ -350,9 +378,45 @@ class TestRevisionAndPragmatics:
         assert 'semantic="1"' in frame
         assert "НЕ Telegram Reply" in frame
         assert "Telegram Reply (подтверждено транспортом)" not in frame
-        claim_label = re.search(r"оспаривают\): (M\d+)", frame).group(1)
+        claim_label = re.search(r"установлено\): (M\d+)", frame).group(1)
         assert projection.raw_of(claim_label) == "tg:4400"
         assert "в отчёте две строки" in frame
+
+    @pytest.mark.asyncio
+    async def test_plain_new_question_without_reply_does_not_claim_challenge(
+            self, speech_on):
+        """§12.2 п.1/п.6: личный чат, новый вопрос без Reply — возражение НЕ
+        заявлено; рамка честно говорит, что факт возражения не установлен.
+
+        Регрессия ревью B1: единственное основание семантической ветки —
+        хронология/личный чат, поэтому приписывать человеку позицию, которой
+        он не занимал, запрещено."""
+        db = OwnDB({}, outputs=[{
+            "tg_message_id": 4460, "content_text": "сегодня в Перми дождь",
+            "sent_at": TS + 50, "delivery_status": "delivered"}])
+        payload, _ = await _payload(
+            window=[_row(4330, text="вчера обсуждали планы", ts=TS)],
+            db=db,
+            message=_trigger("а сколько сейчас времени в Перми?",
+                             chat_type="private"))
+        frame = _frame(payload)
+        assert frame, payload
+        attrs = _attrs(frame)
+        assert attrs["link"] == "semantic"
+        # Чьи слова — факт; состояние возражения — НЕ установлено.
+        assert attrs["subject"] == "own_claim"
+        assert attrs["challenge"] == "unknown"
+        # Свой прошлый доставленный ответ назван честно (он существует).
+        assert "твой последний доставленный ответ" in frame
+        assert "сегодня в Перми дождь" in frame
+        # Заявленного спора с человеком в рамке нет.
+        assert "возражение" not in frame
+        assert "оспаривают" not in frame
+        assert "твоё прежнее утверждение (роль: твои слова, которые" \
+            not in frame
+        # Статус связи назван прямо, а не подразумевается.
+        assert "не установлено" in frame
+        assert "Reply нет" in frame
 
     @pytest.mark.asyncio
     async def test_two_equally_plausible_claims_ask_instead_of_guessing(
