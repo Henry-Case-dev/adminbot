@@ -1,0 +1,902 @@
+{
+ "library_1536": {
+  "label": "1536",
+  "style": "library",
+  "w": 1536,
+  "h": 900,
+  "before": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 150,
+    "bottom": 261,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5532,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  },
+  "apply": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 201,
+    "bottom": 312,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": -4685,
+    "bottom": -4574,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 4886,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_back": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 201,
+    "bottom": 312,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "baseline": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 173,
+    "bottom": 218,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 224,
+    "bottom": 335,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5545,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "after_wait": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 173,
+    "bottom": 218,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 224,
+    "bottom": 335,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5545,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "dismissed": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 173,
+    "bottom": 284,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5494,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  }
+ },
+ "speech_1536": {
+  "label": "1536",
+  "style": "speech",
+  "w": 1536,
+  "h": 900,
+  "before": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 150,
+    "bottom": 261,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5532,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  },
+  "apply": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 201,
+    "bottom": 312,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": -4685,
+    "bottom": -4574,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 4886,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_back": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 150,
+    "bottom": 195,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 150,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 697
+   },
+   "firstRow": {
+    "top": 201,
+    "bottom": 312,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5583,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "baseline": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 173,
+    "bottom": 218,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 224,
+    "bottom": 335,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5545,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "after_wait": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 173,
+    "bottom": 218,
+    "left": 977,
+    "right": 1536,
+    "h": 45
+   },
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 224,
+    "bottom": 335,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5545,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "dismissed": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 173,
+    "bottom": 847,
+    "left": 977,
+    "right": 1536,
+    "h": 674
+   },
+   "firstRow": {
+    "top": 173,
+    "bottom": 284,
+    "left": 989,
+    "right": 1524,
+    "h": 111
+   },
+   "scrollTop": 0,
+   "scrollHeight": 5494,
+   "vh": 900,
+   "vw": 1536,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  }
+ },
+ "library_390": {
+  "label": "390",
+  "style": "library",
+  "w": 390,
+  "h": 844,
+  "before": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 192,
+    "bottom": 371,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8915,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  },
+  "apply": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": -8134,
+    "bottom": -7955,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 8388,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_back": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "baseline": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "after_wait": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "dismissed": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 192,
+    "bottom": 371,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8867,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  }
+ },
+ "speech_390": {
+  "label": "390",
+  "style": "speech",
+  "w": 390,
+  "h": 844,
+  "before": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 192,
+    "bottom": 371,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8915,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  },
+  "apply": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": -8134,
+    "bottom": -7955,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 8388,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "scroll_back": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "baseline": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "after_wait": {
+   "has": true,
+   "text": "Базовая версия изменена, действующий текст пока прежний. ×",
+   "rect": {
+    "top": 192,
+    "bottom": 248,
+    "left": 0,
+    "right": 390,
+    "h": 55
+   },
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 254,
+    "bottom": 433,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8929,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": true,
+   "fullyInsideBody": true,
+   "insideWindow": true
+  },
+  "dismissed": {
+   "has": false,
+   "text": "",
+   "rect": null,
+   "body": {
+    "top": 192,
+    "bottom": 733,
+    "left": 0,
+    "right": 390,
+    "h": 541
+   },
+   "firstRow": {
+    "top": 192,
+    "bottom": 371,
+    "left": 8,
+    "right": 378,
+    "h": 179
+   },
+   "scrollTop": 0,
+   "scrollHeight": 8867,
+   "vh": 844,
+   "vw": 390,
+   "scrollY": 0,
+   "hitsCenter": null,
+   "fullyInsideBody": false,
+   "insideWindow": false
+  }
+ }
+}

@@ -1,0 +1,571 @@
+{
+ "total": 113,
+ "failed": 5,
+ "checks": [
+  {
+   "name": "1536/B1-one-card",
+   "ok": true,
+   "detail": "{'cards': 1, 'key': 'core.personality', 'variant': 'bar', 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика', 'legacy': 0, 'rollbackDocs': 0, 'detailLines': 0, 'histButtons': 1, 'panels': 0, 'state': 'Действует в этом чате · изменён вручную · 03.11 23:42'}"
+  },
+  {
+   "name": "1536/B1-key-full",
+   "ok": true,
+   "detail": "core.personality"
+  },
+  {
+   "name": "1536/B1-variant-bar",
+   "ok": true,
+   "detail": "bar"
+  },
+  {
+   "name": "1536/B1-history-button",
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "1536/B1-no-legacy-list",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1536/B1-no-rollback-anywhere",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1536/B2-collapsed-no-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика'}"
+  },
+  {
+   "name": "1536/card-state-visible",
+   "ok": true,
+   "detail": "Действует в этом чате · изменён вручную · 03.11 23:42"
+  },
+  {
+   "name": "1536/B1-first-page-50",
+   "ok": true,
+   "detail": "50"
+  },
+  {
+   "name": "1536/B1-single-panel",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "1536/B1-paging-beyond-50",
+   "ok": true,
+   "detail": "{'rows': 131, 'pages': 2}"
+  },
+  {
+   "name": "1536/B1-all-rows-unique",
+   "ok": true,
+   "detail": "{'uniq': 131, 'total': 131}"
+  },
+  {
+   "name": "1536/B1-end-marker",
+   "ok": true,
+   "detail": "Это вся доступная история — старее записей нет."
+  },
+  {
+   "name": "1536/B1-cursor-paging",
+   "ok": false,
+   "detail": "0"
+  },
+  {
+   "name": "1536/verbatim-body",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "1536/B2-menu-closed",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "1536/B2-details-open",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "1536/B2-details-lines",
+   "ok": true,
+   "detail": "8"
+  },
+  {
+   "name": "1536/B2-details-content",
+   "ok": true,
+   "detail": "Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 12345"
+  },
+  {
+   "name": "1536/B2-collapse-removes-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'open': False}"
+  },
+  {
+   "name": "1536/B4-visible-after-refresh",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "1536/B4-still-visible-later",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "1536/B4-server-confirmed-active",
+   "ok": true,
+   "detail": "{'want': 'rev-001', 'got': 'rev-001'}"
+  },
+  {
+   "name": "1536/B4-editor-reloaded",
+   "ok": true,
+   "detail": "{'textarea': 'текст версии rev-001\\nвторая строка'}"
+  },
+  {
+   "name": "1536/B4-dismiss-hides",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1536/B4-next-action-single-message",
+   "ok": true,
+   "detail": "{'n': 1, 't': 'Сервер подтвердил: действует выбранная версия («ручная»).×'}"
+  },
+  {
+   "name": "1536/draft-survives-refresh",
+   "ok": true,
+   "detail": "DRAFT-KEEP-MARKER"
+  },
+  {
+   "name": "1536/hscroll",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1366/B1-one-card",
+   "ok": true,
+   "detail": "{'cards': 1, 'key': 'core.personality', 'variant': 'bar', 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика', 'legacy': 0, 'rollbackDocs': 0, 'detailLines': 0, 'histButtons': 1, 'panels': 0, 'state': 'Действует в этом чате · изменён вручную · 03.11 23:42'}"
+  },
+  {
+   "name": "1366/B1-key-full",
+   "ok": true,
+   "detail": "core.personality"
+  },
+  {
+   "name": "1366/B1-variant-bar",
+   "ok": true,
+   "detail": "bar"
+  },
+  {
+   "name": "1366/B1-history-button",
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "1366/B1-no-legacy-list",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1366/B1-no-rollback-anywhere",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1366/B2-collapsed-no-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика'}"
+  },
+  {
+   "name": "1366/card-state-visible",
+   "ok": true,
+   "detail": "Действует в этом чате · изменён вручную · 03.11 23:42"
+  },
+  {
+   "name": "1366/B1-first-page-50",
+   "ok": true,
+   "detail": "50"
+  },
+  {
+   "name": "1366/B1-single-panel",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "1366/B1-paging-beyond-50",
+   "ok": true,
+   "detail": "{'rows': 131, 'pages': 2}"
+  },
+  {
+   "name": "1366/B1-all-rows-unique",
+   "ok": true,
+   "detail": "{'uniq': 131, 'total': 131}"
+  },
+  {
+   "name": "1366/B1-end-marker",
+   "ok": true,
+   "detail": "Это вся доступная история — старее записей нет."
+  },
+  {
+   "name": "1366/B1-cursor-paging",
+   "ok": false,
+   "detail": "0"
+  },
+  {
+   "name": "1366/verbatim-body",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "1366/B2-menu-closed",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "1366/B2-details-open",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "1366/B2-details-lines",
+   "ok": true,
+   "detail": "8"
+  },
+  {
+   "name": "1366/B2-details-content",
+   "ok": true,
+   "detail": "Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 12345"
+  },
+  {
+   "name": "1366/B2-collapse-removes-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'open': False}"
+  },
+  {
+   "name": "1366/B4-visible-after-refresh",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "1366/B4-still-visible-later",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "1366/B4-server-confirmed-active",
+   "ok": true,
+   "detail": "{'want': 'rev-001', 'got': 'rev-001'}"
+  },
+  {
+   "name": "1366/B4-editor-reloaded",
+   "ok": true,
+   "detail": "{'textarea': 'текст версии rev-001\\nвторая строка'}"
+  },
+  {
+   "name": "1366/B4-dismiss-hides",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "1366/B4-next-action-single-message",
+   "ok": true,
+   "detail": "{'n': 1, 't': 'Сервер подтвердил: действует выбранная версия («ручная»).×'}"
+  },
+  {
+   "name": "1366/draft-survives-refresh",
+   "ok": true,
+   "detail": "DRAFT-KEEP-MARKER"
+  },
+  {
+   "name": "1366/hscroll",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "390/B1-one-card",
+   "ok": true,
+   "detail": "{'cards': 1, 'key': 'core.personality', 'variant': 'bar', 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика', 'legacy': 0, 'rollbackDocs': 0, 'detailLines': 0, 'histButtons': 1, 'panels': 0, 'state': 'Действует в этом чате · изменён вручную · 03.11 23:42'}"
+  },
+  {
+   "name": "390/B1-key-full",
+   "ok": true,
+   "detail": "core.personality"
+  },
+  {
+   "name": "390/B1-variant-bar",
+   "ok": true,
+   "detail": "bar"
+  },
+  {
+   "name": "390/B1-history-button",
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "390/B1-no-legacy-list",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "390/B1-no-rollback-anywhere",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "390/B2-collapsed-no-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика'}"
+  },
+  {
+   "name": "390/card-state-visible",
+   "ok": true,
+   "detail": "Действует в этом чате · изменён вручную · 03.11 23:42"
+  },
+  {
+   "name": "390/B1-first-page-50",
+   "ok": true,
+   "detail": "50"
+  },
+  {
+   "name": "390/B1-single-panel",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "390/B1-paging-beyond-50",
+   "ok": true,
+   "detail": "{'rows': 131, 'pages': 2}"
+  },
+  {
+   "name": "390/B1-all-rows-unique",
+   "ok": true,
+   "detail": "{'uniq': 131, 'total': 131}"
+  },
+  {
+   "name": "390/B1-end-marker",
+   "ok": true,
+   "detail": "Это вся доступная история — старее записей нет."
+  },
+  {
+   "name": "390/B1-cursor-paging",
+   "ok": false,
+   "detail": "0"
+  },
+  {
+   "name": "390/verbatim-body",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "390/B2-menu-closed",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "390/B2-details-open",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "390/B2-details-lines",
+   "ok": true,
+   "detail": "8"
+  },
+  {
+   "name": "390/B2-details-content",
+   "ok": true,
+   "detail": "Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 12345"
+  },
+  {
+   "name": "390/B2-collapse-removes-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'open': False}"
+  },
+  {
+   "name": "390/B4-visible-after-refresh",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "390/B4-still-visible-later",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "390/B4-server-confirmed-active",
+   "ok": true,
+   "detail": "{'want': 'rev-001', 'got': 'rev-001'}"
+  },
+  {
+   "name": "390/B4-editor-reloaded",
+   "ok": true,
+   "detail": "{'textarea': 'текст версии rev-001\\nвторая строка'}"
+  },
+  {
+   "name": "390/B4-dismiss-hides",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "390/B4-next-action-single-message",
+   "ok": true,
+   "detail": "{'n': 1, 't': 'Сервер подтвердил: действует выбранная версия («ручная»).×'}"
+  },
+  {
+   "name": "390/draft-survives-refresh",
+   "ok": true,
+   "detail": "DRAFT-KEEP-MARKER"
+  },
+  {
+   "name": "390/hscroll",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "360/B1-one-card",
+   "ok": true,
+   "detail": "{'cards': 1, 'key': 'core.personality', 'variant': 'bar', 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика', 'legacy': 0, 'rollbackDocs': 0, 'detailLines': 0, 'histButtons': 1, 'panels': 0, 'state': 'Действует в этом чате · изменён вручную · 03.11 23:42'}"
+  },
+  {
+   "name": "360/B1-key-full",
+   "ok": true,
+   "detail": "core.personality"
+  },
+  {
+   "name": "360/B1-variant-bar",
+   "ok": true,
+   "detail": "bar"
+  },
+  {
+   "name": "360/B1-history-button",
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "360/B1-no-legacy-list",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "360/B1-no-rollback-anywhere",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "360/B2-collapsed-no-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'cardText': 'этот чат · Чат AДействует в этом чате · изменён вручную · 03.11 23:42\\ue28e История версий ⋯Подробности и диагностика'}"
+  },
+  {
+   "name": "360/card-state-visible",
+   "ok": true,
+   "detail": "Действует в этом чате · изменён вручную · 03.11 23:42"
+  },
+  {
+   "name": "360/B1-first-page-50",
+   "ok": true,
+   "detail": "50"
+  },
+  {
+   "name": "360/B1-single-panel",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "360/B1-paging-beyond-50",
+   "ok": true,
+   "detail": "{'rows': 131, 'pages': 2}"
+  },
+  {
+   "name": "360/B1-all-rows-unique",
+   "ok": true,
+   "detail": "{'uniq': 131, 'total': 131}"
+  },
+  {
+   "name": "360/B1-end-marker",
+   "ok": true,
+   "detail": "Это вся доступная история — старее записей нет."
+  },
+  {
+   "name": "360/B1-cursor-paging",
+   "ok": false,
+   "detail": "0"
+  },
+  {
+   "name": "360/verbatim-body",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "360/B2-menu-closed",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "360/B2-details-open",
+   "ok": true,
+   "detail": "{'menu': 0, 'open': True, 'lines': 8, 'text': 'Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 123456789abcприменённая заводская метка: fac:deadbeefcafe'}"
+  },
+  {
+   "name": "360/B2-details-lines",
+   "ok": true,
+   "detail": "8"
+  },
+  {
+   "name": "360/B2-details-content",
+   "ok": true,
+   "detail": "Подробности и диагностикаблок: core.personalityключ: character.coreобласть: чат -100500печать кода: fac:deadbeefcafeзаводская ревизия: fac:deadbeefcafeдействующая ревизия: rev-manual-2sha256/12: 12345"
+  },
+  {
+   "name": "360/B2-collapse-removes-raw",
+   "ok": true,
+   "detail": "{'lines': 0, 'open': False}"
+  },
+  {
+   "name": "360/B4-visible-after-refresh",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "360/B4-still-visible-later",
+   "ok": true,
+   "detail": "Сервер подтвердил: действует выбранная версия («ручная»).×"
+  },
+  {
+   "name": "360/B4-server-confirmed-active",
+   "ok": true,
+   "detail": "{'want': 'rev-001', 'got': 'rev-001'}"
+  },
+  {
+   "name": "360/B4-editor-reloaded",
+   "ok": true,
+   "detail": "{'textarea': 'текст версии rev-001\\nвторая строка'}"
+  },
+  {
+   "name": "360/B4-dismiss-hides",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "360/B4-next-action-single-message",
+   "ok": true,
+   "detail": "{'n': 1, 't': 'Сервер подтвердил: действует выбранная версия («ручная»).×'}"
+  },
+  {
+   "name": "360/draft-survives-refresh",
+   "ok": true,
+   "detail": "DRAFT-KEEP-MARKER"
+  },
+  {
+   "name": "360/hscroll",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "style/EXCEPTION",
+   "ok": false,
+   "detail": "send(\"click\", self._timeout, locals_to_params(locals()))\n  File \"C:\\Code\\Python\\adminbot\\.venv\\Lib\\site-packages\\playwright\\_impl\\_connection.py\", line 76, in send\n    return await self._connection.wrap_api_call(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Code\\Python\\adminbot\\.venv\\Lib\\site-packages\\playwright\\_impl\\_connection.py\", line 632, in wrap_api_call\n    raise rewrite_error(error, f\"{parsed_st['apiName']}: {error}\") from None\nplaywright._impl._errors.TimeoutError: Page."
+  }
+ ]
+}

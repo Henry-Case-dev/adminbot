@@ -1,0 +1,170 @@
+{
+ "speech_1536": {
+  "after_activate": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    5670,
+    5710,
+    989,
+    1524
+   ],
+   "bodyRect": [
+    150,
+    847
+   ],
+   "vh": 900,
+   "vw": 1536,
+   "scrollTop": 0,
+   "scrollH": 5572,
+   "inView": false,
+   "innerScrollVisible": false
+  },
+  "after_scroll_to_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    795,
+    835,
+    989,
+    1524
+   ],
+   "bodyRect": [
+    150,
+    847
+   ],
+   "vh": 900,
+   "vw": 1536,
+   "scrollTop": 4875,
+   "scrollH": 5572,
+   "inView": true,
+   "innerScrollVisible": true
+  }
+ },
+ "library_1536": {
+  "after_activate": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    5670,
+    5710,
+    989,
+    1524
+   ],
+   "bodyRect": [
+    150,
+    847
+   ],
+   "vh": 900,
+   "vw": 1536,
+   "scrollTop": 0,
+   "scrollH": 5572,
+   "inView": false,
+   "innerScrollVisible": false
+  },
+  "after_scroll_to_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    795,
+    835,
+    989,
+    1524
+   ],
+   "bodyRect": [
+    150,
+    847
+   ],
+   "vh": 900,
+   "vw": 1536,
+   "scrollTop": 4875,
+   "scrollH": 5572,
+   "inView": true,
+   "innerScrollVisible": true
+  }
+ },
+ "speech_390": {
+  "after_activate": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    9047,
+    9098,
+    8,
+    378
+   ],
+   "bodyRect": [
+    192,
+    733
+   ],
+   "vh": 844,
+   "vw": 390,
+   "scrollTop": 0,
+   "scrollH": 8918,
+   "inView": false,
+   "innerScrollVisible": false
+  },
+  "after_scroll_to_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    670,
+    721,
+    8,
+    378
+   ],
+   "bodyRect": [
+    192,
+    733
+   ],
+   "vh": 844,
+   "vw": 390,
+   "scrollTop": 8377,
+   "scrollH": 8918,
+   "inView": true,
+   "innerScrollVisible": true
+  }
+ },
+ "library_390": {
+  "after_activate": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    9047,
+    9098,
+    8,
+    378
+   ],
+   "bodyRect": [
+    192,
+    733
+   ],
+   "vh": 844,
+   "vw": 390,
+   "scrollTop": 0,
+   "scrollH": 8918,
+   "inView": false,
+   "innerScrollVisible": false
+  },
+  "after_scroll_to_end": {
+   "has": true,
+   "text": "Сервер подтвердил: действует выбранная версия («ручная»). ×",
+   "rect": [
+    670,
+    721,
+    8,
+    378
+   ],
+   "bodyRect": [
+    192,
+    733
+   ],
+   "vh": 844,
+   "vw": 390,
+   "scrollTop": 8377,
+   "scrollH": 8918,
+   "inView": true,
+   "innerScrollVisible": true
+  }
+ }
+}

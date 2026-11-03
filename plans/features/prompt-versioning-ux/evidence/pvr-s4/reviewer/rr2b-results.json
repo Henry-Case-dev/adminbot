@@ -1,0 +1,56 @@
+{
+ "total": 10,
+ "failed": 0,
+ "checks": [
+  {
+   "name": "cursor/first-page",
+   "ok": true,
+   "detail": "50"
+  },
+  {
+   "name": "cursor/load-more-requests",
+   "ok": true,
+   "detail": "['core.personality/versions?page_size=50&cursor=50', 'core.personality/versions?page_size=50&cursor=100']"
+  },
+  {
+   "name": "cursor/total",
+   "ok": true,
+   "detail": "{'rows': 131, 'entries': 131}"
+  },
+  {
+   "name": "style/areas",
+   "ok": true,
+   "detail": "['persona', 'style', 'profanity', 'examples', 'rules']"
+  },
+  {
+   "name": "style/no-version-card",
+   "ok": true,
+   "detail": "{'cards': 0, 'rows': 0, 'styleVisible': False, 'rollback': 0, 'histRows': 1, 'detailButtons': 0, 'rawShaInOpen': 0}"
+  },
+  {
+   "name": "style/no-rollback-button",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "name": "style/details-readonly",
+   "ok": true,
+   "detail": "{'buttons': 0, 'cards': 0}"
+  },
+  {
+   "name": "core/compact-key",
+   "ok": true,
+   "detail": "core.personality.compact"
+  },
+  {
+   "name": "core/full-key-back",
+   "ok": true,
+   "detail": "core.personality"
+  },
+  {
+   "name": "core/journal-down-honest",
+   "ok": true,
+   "detail": "{'rows': 0, 'err': 'Характер: полная редакция Закрыть область: этот чат · Чат A действует: наследуется от глобального исходный из кода: — базовый по выбору владельца: — Полный спис'}"
+  }
+ ]
+}
