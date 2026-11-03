@@ -38,6 +38,7 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_CLAR,
     PREV_CHAT_VERBALIZER_PA5W2,
     PREV_CHAT_VERBALIZER_EVR0,
+    PREV_CHAT_VERBALIZER_EVR1,
     PREV_CHAT_EVR0_SYSTEM_PROMPT,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_CHAT_W2_SYSTEM_PROMPT,
@@ -304,8 +305,11 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # байты R3b (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): первый откат снимает секцию
     # «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты 2.58.146 (PREV_CHAT_VERBALIZER_EVR0).
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (04.11.2026): первый откат
+    # снимает ТОЛЬКО секцию «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» → байты
+    # EVR1 (EVR0 + дисциплина доказательств); стек ступеней цел.
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_EVR0,
+        PREV_CHAT_VERBALIZER_EVR1,
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
@@ -874,7 +878,10 @@ class TestMca23Migration:
             (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): канон PA5W2 → канон с
             # секцией «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА».
-            (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (04.11.2026): канон
+            # EVR1 → канон с секцией «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ».
+            (PREV_CHAT_VERBALIZER_EVR1, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -896,11 +903,15 @@ class TestMca23Migration:
         SPEECH-CANON R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113
         (§3.1 + абзацы §4.2, PREV_CHAT_VERBALIZER_CLAR).
         POST-ASAP5 W2: первый откат снимает секцию расчётов → байты R3b
-        (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40)."""
+        (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
+        EVOL v5 §12.2 (04.11.2026): первый откат снимает ТОЛЬКО секцию
+        возражения/своего ответа → байты EVR1 (EVR0 + дисциплина
+        доказательств); стек ступеней цел."""
         assert ROLLBACK_MIGRATIONS[
             "prompts.direct_chat_verbalizer_system_prompt"] == [
                 (DIRECT_VERBALIZER_SYSTEM_PROMPT,
-                 PREV_CHAT_VERBALIZER_EVR0),
+                 PREV_CHAT_VERBALIZER_EVR1),
+                (PREV_CHAT_VERBALIZER_EVR1, PREV_CHAT_VERBALIZER_EVR0),
                 (PREV_CHAT_VERBALIZER_EVR0, PREV_CHAT_VERBALIZER_PA5W2),
                 (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)]
 
@@ -935,10 +946,13 @@ class TestMca23Migration:
         # ASAP-FC-VOICE-01 / B (02.11.2026): ревизия EVR3 (ef61a9dd6798,
         # правило статуса секции [ПРОФИЛЬ РЕШЕНИЙ]); байты L2 не менялись,
         # целевые байты отката 2.58.113 — прежние.
+        # EVOL v5 §12.2 (04.11.2026): L2-канон получил секцию «ВОЗРАЖЕНИЕ И
+        # СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» → 44736968bc76; байты L1 не менялись,
+        # целевые байты отката прежние (журнал ревизий, не лестница).
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("ef61a9dd6798", "68f0233d7050")
+            ("ef61a9dd6798", "44736968bc76")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

@@ -108,9 +108,14 @@ def test_l2_owner_paragraphs_byte_intact():
             cp._VERBALIZER_HISTORY_BOUNDARY_R3B,
             cp._VERBALIZER_HISTORY_BOUNDARY_R3B + "\n\n"
             + cp._VERBALIZER_TECH_REASONING_PA5W2, 1)
-    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == \
+    # волна 5: прежние байты до секции доказательств = EVR0; активный канон =
+    # байты EVR1 + секция «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» (v5 §12.2).
+    assert cp.PREV_CHAT_VERBALIZER_EVR1 == \
         cp.PREV_CHAT_VERBALIZER_EVR0 + "\n\n" \
         + cp._VERBALIZER_EVIDENCE_DISCIPLINE_EVR1
+    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == \
+        cp.PREV_CHAT_VERBALIZER_EVR1 + "\n\n" \
+        + cp._VERBALIZER_SELF_CORRECTION_RCA1
     assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT != prev
     assert hashlib.sha256(
         cp.PREV_CHAT_VERBALIZER_CLAR.encode("utf-8")).hexdigest()[:12] == \
@@ -238,7 +243,8 @@ def test_ladder_and_rollback_chain():
         (cp.PREV_DIRECT_L1_PLANNER_R3, cp.PREV_DIRECT_L1_PLANNER_CLAR)]
     assert pm.ROLLBACK_MIGRATIONS[L2_KEY] == [
         (cp.DIRECT_VERBALIZER_SYSTEM_PROMPT,
-         cp.PREV_CHAT_VERBALIZER_EVR0),
+         cp.PREV_CHAT_VERBALIZER_EVR1),
+        (cp.PREV_CHAT_VERBALIZER_EVR1, cp.PREV_CHAT_VERBALIZER_EVR0),
         (cp.PREV_CHAT_VERBALIZER_EVR0, cp.PREV_CHAT_VERBALIZER_PA5W2),
         (cp.PREV_CHAT_VERBALIZER_PA5W2, cp.PREV_CHAT_VERBALIZER_CLAR)]
     # новые слепки — известные каноны, не «кастом»; активные байты отличны
@@ -261,7 +267,8 @@ def test_labels_and_fingerprint_consistent():
     # EVOL W17: метка L1 — ревизия EVR2 (две фазы «саммари/проверка»).
     assert "l1-planner-decision-profile" in pr.factory_revision(
         "direct.base.l1_planner")
-    assert "l2-writer-evidence-discipline" in pr.factory_revision(
+    # EVOL v5 §12.2 (04.11.2026): метка L2 — ревизия с секцией возражения.
+    assert "l2-writer-self-correction-rca1" in pr.factory_revision(
         "direct.base.l2_writer")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")

@@ -64,6 +64,10 @@ BLOCK_PRIORITY: dict[str, int] = {
     "branch": P0,
     "episode": P0,
     "sandwich": P0,
+    # EVOL v5 §12.2 (DIRECT-SELF-CORRECTION-01): рамка возражения на СВОЙ
+    # прошлый ответ — P0: роли (своё утверждение / возражение / источник)
+    # не вытесняются под давлением окна, иначе поведение §12 откатывается.
+    "correction": P0,
     # P1
     "global_tail": P1,
     "thread": P1,
@@ -120,9 +124,13 @@ CANONICAL_ORDER: dict[str, int] = {
     "lore": 12,
     "nostalgia": 13,
     "mood": 14,
-    "current": 15,
-    "anchors": 16,
-    "sandwich": 17,
+    # EVOL v5 §12.2 (DIRECT-SELF-CORRECTION-01): слот рамки возражения —
+    # сразу перед текущей репликой («важное к концу»); относительный порядок
+    # прежних kind'ов сохранён (последующие сдвинуты на +1).
+    "correction": 15,
+    "current": 16,
+    "anchors": 17,
+    "sandwich": 18,
 }
 
 

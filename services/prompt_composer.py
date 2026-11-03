@@ -576,6 +576,11 @@ class PromptPlan:
     #: (``internal`` | ``writer``), и run-манифест проекции — аддитивно.
     context_representation: str = ""
     speech_projection: Mapping = field(default_factory=dict)
+    #: EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): КОД-факты рамки возражения
+    #: (``link``/``subject``/наличие первоисточника/семантическая привязка/
+    #: числа счёта) — защищённый prompt-manifest прогона. Текстов участников
+    #: здесь нет: только коды и счётчики (§9.4).
+    self_correction: Mapping = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -647,6 +652,10 @@ class PromptManifest:
     #: In-memory (owner-debug); в события уходят только типы/счётчики —
     #: `manifest_for_events`.
     speech_projection: Mapping = field(default_factory=dict)
+    #: EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): код-факты рамки возражения
+    #: (как установлен предмет, чьи слова, наличие первоисточника, единицы
+    #: счёта) — защищённая трасса прогона, без текстов.
+    self_correction: Mapping = field(default_factory=dict)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1002,6 +1011,7 @@ async def compose_speech_system(*, chat_id: int, writer: str,
                                 include_speech_base: bool | None = None,
                                 context_representation: str = "",
                                 speech_projection=None,
+                                self_correction=None,
                                 ) -> tuple[str, PromptManifest | None]:
     """ЕДИНАЯ точка сборки речевого system для любого публичного Writer'а.
 
@@ -1136,7 +1146,8 @@ async def compose_speech_system(*, chat_id: int, writer: str,
             user_parts=tuple(str(p) for p in (user_parts or ())),
             gates=_gates_now,
             context_representation=str(context_representation or ""),
-            speech_projection=dict(speech_projection or {}))
+            speech_projection=dict(speech_projection or {}),
+            self_correction=dict(self_correction or {}))
         manifest = compose_prompt(plan)
         return manifest.system, manifest
     except Exception:
@@ -2063,6 +2074,7 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         tokens_total=estimate_tokens(system),
         context_representation=str(plan.context_representation or ""),
         speech_projection=dict(plan.speech_projection or {}),
+        self_correction=dict(plan.self_correction or {}),
     )
     _remember(manifest)
     return manifest
@@ -2224,6 +2236,7 @@ def _fallback_manifest(plan: PromptPlan) -> PromptManifest:
         tokens_total=estimate_tokens(base),
         context_representation=str(plan.context_representation or ""),
         speech_projection=dict(plan.speech_projection or {}),
+        self_correction=dict(plan.self_correction or {}),
     )
 
 
@@ -2522,6 +2535,7 @@ def render_effective_layers(manifest: PromptManifest) -> dict:
                 (manifest.speech_projection or {}).get(
                     "suppressed_field_types") or ()),
         } if manifest.speech_projection else {},
+        "self_correction": dict(manifest.self_correction or {}),
         "versions": dict(manifest.versions or {}),
         "flags": dict(manifest.flags or {}),
         "conflicts": [dataclasses.asdict(c) for c in manifest.conflicts],
@@ -2567,6 +2581,7 @@ def manifest_for_events(manifest: PromptManifest) -> dict:
         "tokens_total": int(manifest.tokens_total or 0),
         "context_representation": str(manifest.context_representation or ""),
         "speech_manifest": speech_summary,
+        "self_correction": dict(manifest.self_correction or {}),
         "versions": dict(manifest.versions or {}),
         "flags": dict(manifest.flags or {}),
         "layers": [{
