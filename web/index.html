@@ -1764,38 +1764,370 @@
                     <div v-else class="text-xs text-gray-500 mt-1">
                       Пропусков пока не зафиксировано.
                     </div>
+                    <!-- P4 / MEME-ACC-12: четыре стадии пайплайна — по отдельности,
+                         со своим исходом, причиной и фактами этапа. -->
+                    <div class="mt-2" data-meme-attempt-stages>
+                      <div class="text-gray-500">Последняя попытка по стадиям:</div>
+                      <div v-if="!memeAttemptStages.length" class="text-gray-500"
+                           data-meme-attempt-empty>
+                        Попыток ещё не было — стадии показывать нечего.
+                      </div>
+                      <div v-else class="meme-stage-list">
+                        <div v-for="(row, idx) in memeAttemptStages"
+                             :key="'msa-' + idx" class="meme-stage-row"
+                             :data-meme-attempt-stage="row.stage">
+                          <div class="meme-stage-head">
+                            <span class="meme-stage-name">{{ row.stageLabel }}</span>
+                            <span class="badge"
+                                  :class="row.outcomeOk ? 'badge-ok' : 'badge-warn'"
+                                  :data-meme-attempt-outcome="row.outcome">{{ row.outcomeLabel }}</span>
+                            <span v-if="row.reasonCode" class="text-gray-500">
+                              {{ memeSkipLabel(row.reasonCode) }}
+                              <span class="meme-stage-code">{{ row.reasonCode }}</span>
+                            </span>
+                          </div>
+                          <div class="meme-stage-facts">
+                            <template v-if="row.templateChars != null">
+                              шаблон {{ row.templateChars }} симв.
+                            </template>
+                            <template v-if="row.jokeLimit != null">
+                              · бюджет прикола {{ row.jokeLimit }} симв.
+                            </template>
+                            <template v-if="row.summaryChars != null">
+                              · выжимка {{ row.summaryChars }} симв.
+                            </template>
+                            <template v-if="row.promptChars != null">
+                              · итоговый промпт {{ row.promptChars }} симв.
+                            </template>
+                            <template v-if="row.jokeChars != null">
+                              · прикол {{ row.jokeChars }} симв.
+                            </template>
+                            <span v-if="!row.hasFacts" class="text-gray-600">
+                              фактов этапа нет
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <!-- Шаблон картинки: заводской или ручной (один источник — реестр). -->
+                  <!-- P4 / MEME-JOKE-DIAG-UI: речевая сборка этапа B (ревизии и
+                       манифест). Тексты прикола, слоёв и персоны не показываются. -->
+                  <div class="mt-3 text-xs" data-meme-speech>
+                    <div class="font-bold mb-1">Диагностика прикола: речевая сборка</div>
+                    <div v-if="!memeSpeechView" class="text-gray-500" data-meme-speech-empty>
+                      Приколов ещё не было — фактических ревизий и манифеста нет.
+                    </div>
+                    <template v-else>
+                      <div class="text-gray-400">
+                        <span data-meme-speech-composer>{{ memeSpeechView.composerLabel }}</span>
+                        <span class="text-gray-600"> · system:
+                          <span class="font-mono" data-meme-speech-sha>{{ memeSpeechView.systemSha || '—' }}</span></span>
+                        <span class="text-gray-600"> · manifest:
+                          <span class="font-mono" data-meme-speech-manifest>{{ memeSpeechView.manifest || '—' }}</span></span>
+                        <span class="text-gray-600" data-meme-speech-joke>
+                          · прикол: {{ memeSpeechView.jokeChars == null ? '—' : memeSpeechView.jokeChars }} симв.
+                          из {{ memeSpeechView.jokeLimit == null ? '—' : memeSpeechView.jokeLimit }}<template
+                            v-if="memeSpeechView.jokeTrimmed"> (обрезан по бюджету)</template></span>
+                      </div>
+                      <div class="meme-diag-grid mt-1" data-meme-speech-revisions>
+                        <div v-for="rev in memeSpeechView.revisions" :key="'mrev-' + rev.key"
+                             class="meme-diag-row">
+                          <span class="meme-diag-key">{{ rev.label }}</span>
+                          <span class="font-mono" :data-meme-speech-rev="rev.key">{{ rev.value || 'нет' }}</span>
+                          <span v-if="rev.detail" class="text-gray-600">({{ rev.detail }})</span>
+                        </div>
+                      </div>
+                      <div class="text-gray-400 mt-1" data-meme-speech-humor>
+                        <template v-if="memeSpeechView.humorRendered">приём применён:
+                          <b>{{ memeSpeechView.technique || 'приём не назван' }}</b></template>
+                        <template v-else>приём не применён:
+                          {{ memeSkipLabel(memeSpeechView.humorSkip || 'humor_no_strategy') }}
+                          <span class="text-gray-600 font-mono">{{ memeSpeechView.humorStatus || '—' }}</span></template>
+                      </div>
+                      <div class="text-gray-500 mt-1" data-meme-speech-axes>
+                        Выключенные оси:
+                        {{ memeSpeechView.offAxes.length ? memeSpeechView.offAxes.join(', ')
+                           : 'все включены' }}
+                      </div>
+                      <div class="mt-1" data-meme-speech-layers>
+                        <div class="text-gray-500">Слои системного промпта:</div>
+                        <div v-for="(l, li) in memeSpeechView.layers" :key="'mlay-' + li"
+                             class="meme-diag-row" :data-meme-speech-layer="l.layer">
+                          <span class="meme-diag-key font-mono">{{ l.layer || '—' }}</span>
+                          <span class="text-gray-500 font-mono">{{ l.block || '—' }}</span>
+                          <span class="font-mono">{{ l.revision || '—' }}</span>
+                          <span class="text-gray-500">{{ l.chars == null ? '—' : (l.chars + ' симв.') }}</span>
+                          <span class="badge" :class="l.rendered ? 'badge-ok' : 'badge-muted'"
+                                :data-meme-speech-state="l.rendered ? 'rendered' : 'skip'">
+                            {{ l.rendered ? 'вошёл' : 'пропущен' }}</span>
+                          <span v-if="!l.rendered" class="text-gray-500">{{ memeSkipLabel(l.skip) }}</span>
+                        </div>
+                      </div>
+                      <div v-if="memeSpeechView.skipped.length" class="mt-1 text-gray-500"
+                           data-meme-speech-skipped>
+                        <span class="text-gray-500">Причины по слоям: </span>
+                        <span v-for="(s, si) in memeSpeechView.skipped" :key="'msp-' + si"
+                              :data-meme-speech-skip="s.code">{{ s.layer }} — {{ memeSkipLabel(s.code) }}<template
+                              v-if="si < memeSpeechView.skipped.length - 1">; </template></span>
+                      </div>
+                    </template>
+                  </div>
+                  <!-- Промпты мемов: ДВА РЕАЛЬНЫХ редактора (P4). Раньше шаблон
+                       был пассивным текстом и фактически недоступен для правки. -->
                   <div class="mt-3 text-xs" data-meme-prompt>
-                    <div class="font-bold mb-1">
-                      Шаблон промпта картинки
-                      <span class="badge"
-                            :class="memeSettingsView.promptImage.differs_from_factory
-                              ? 'badge-warn' : 'badge-muted'"
-                            data-meme-prompt-source>
-                        {{ memeSettingsView.promptImage.differs_from_factory
-                          ? 'изменён вручную' : 'заводской' }}
-                      </span>
-                      <span class="text-gray-600">· ревизия
-                        {{ memeSettingsView.promptImage.revision || '—' }}
-                        (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
+                    <div class="font-bold mb-1">Промпты мемов (редактируются здесь)</div>
+                    <div class="text-gray-500 mb-2">
+                      «Прикол» — задание модели на этапе B; «Шаблон картинки» —
+                      обрамление прикола на этапе C. Сохраняются той же кнопкой
+                      «Сохранить настройки мемов» (для выбранного чата).
                     </div>
-                    <div class="meme-prompt-text" data-meme-prompt-text>
-                      {{ memeSettingsView.promptImage.text || '(шаблон недоступен)' }}
+                    <div class="meme-prompt-field">
+                      <label class="meme-row" for="meme-prompt-joke">
+                        <span>Промпт генерации прикола</span>
+                        <span class="badge"
+                              :class="memeSettingsView.promptJoke.differs_from_factory
+                                ? 'badge-warn' : 'badge-muted'"
+                              data-meme-prompt-joke-source>
+                          {{ memePromptSourceLabel(memeSettingsView.promptJoke.source) }}
+                        </span>
+                        <span class="text-gray-600">· ревизия
+                          {{ memeSettingsView.promptJoke.revision || '—' }}
+                          (заводская: {{ memeSettingsView.promptJoke.factory_revision || '—' }})</span>
+                      </label>
+                      <textarea id="meme-prompt-joke" class="field meme-prompt-input"
+                                rows="3"
+                                v-model="memeDraft.prompt_joke"
+                                :aria-invalid="memeFieldError('prompt_joke') ? 'true' : 'false'"
+                                :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_joke') }"
+                                data-meme-prompt-joke></textarea>
+                      <div v-if="memeFieldError('prompt_joke')" class="meme-field-error"
+                           data-meme-prompt-error-joke>{{ memeFieldError('prompt_joke') }}</div>
+                      <div class="text-[10px] text-gray-600">
+                        {{ memePromptEmptyHint(memeSettingsView.promptJoke.source) }}
+                      </div>
                     </div>
-                    <div class="text-gray-500 mt-1">
-                      Эффективный потолок: {{ memeSettingsView.lengthLimit.known
-                        ? (memeSettingsView.lengthLimit.value + ' симв.') : 'неизвестен' }}
-                      · источник: {{ memeSettingsView.lengthLimit.source === 'explicit_override'
-                        ? 'явное переопределение'
-                        : (memeSettingsView.lengthLimit.source === 'admin_setting'
-                          ? 'настройка администратора'
-                          : (memeSettingsView.lengthLimit.source === 'model_capability'
-                            ? 'возможности модели' : 'неизвестен')) }}
-                      · цель выжимки: {{ memeSettingsView.lengthLimit.summary_target == null
-                        ? '—' : (memeSettingsView.lengthLimit.summary_target + ' симв.') }}
-                      <span class="text-gray-600">(считается ДО выжимки, без последующей обрезки)</span>
+                    <div class="meme-prompt-field mt-2">
+                      <label class="meme-row" for="meme-prompt-image">
+                        <span>Шаблон промпта картинки</span>
+                        <span class="badge"
+                              :class="memeSettingsView.promptImage.differs_from_factory
+                                ? 'badge-warn' : 'badge-muted'"
+                              data-meme-prompt-image-source>
+                          {{ memePromptSourceLabel(memeSettingsView.promptImage.source) }}
+                        </span>
+                        <span class="text-gray-600">· ревизия
+                          {{ memeSettingsView.promptImage.revision || '—' }}
+                          (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
+                        <span class="badge"
+                              :class="memeSettingsView.templateValid ? 'badge-muted' : 'badge-err'"
+                              data-meme-template-state>
+                          {{ memeSettingsView.templateValid
+                            ? ('{joke}: ' + memeSettingsView.templatePlaceholders)
+                            : 'шаблон невалиден' }}
+                        </span>
+                      </label>
+                      <textarea id="meme-prompt-image" class="field meme-prompt-input"
+                                rows="3"
+                                v-model="memeDraft.prompt_image"
+                                :aria-invalid="memeFieldError('prompt_image') ? 'true' : 'false'"
+                                :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_image') }"
+                                data-meme-prompt-image></textarea>
+                      <div v-if="memeFieldError('prompt_image')" class="meme-field-error"
+                           data-meme-prompt-error-image>{{ memeFieldError('prompt_image') }}</div>
+                      <div v-if="!memeSettingsView.templateValid" class="meme-field-error"
+                           data-meme-template-error>{{ memeSettingsView.templateError }}</div>
+                      <div class="text-[10px] text-gray-600">
+                        {{ memePromptEmptyHint(memeSettingsView.promptImage.source) }}
+                      </div>
                     </div>
+                    <!-- Три числа §3 ТЗ: одно число — одно имя (ceiling /
+                         template_chars / joke_budget). При `known === false`
+                         честно «неизвестен», а не 0. -->
+                    <div class="meme-budget mt-2" data-meme-budget>
+                      <div class="meme-budget-row">
+                        <span>Потолок итогового промпта:</span>
+                        <b data-meme-limit-ceiling>{{ memeSettingsView.ceilingText }}</b>
+                        <span v-if="memeSettingsView.lengthLimit.known === true" class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="meme-budget-row">
+                        <span>Длина шаблона картинки:</span>
+                        <b data-meme-limit-template>{{ memeSettingsView.templateCharsText }}</b>
+                        <span class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="meme-budget-row">
+                        <span>Доступно для прикола:</span>
+                        <b data-meme-limit-joke>{{ memeSettingsView.jokeBudgetText }}</b>
+                        <span v-if="memeSettingsView.lengthLimit.known === true" class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="text-gray-500 mt-1">
+                        источник потолка:
+                        {{ memeLengthSourceLabel(memeSettingsView.lengthLimit.source) }}
+                        <template v-if="memeSettingsView.placeholderLabel">
+                          · режим шаблона: {{ memeSettingsView.placeholderLabel }}
+                        </template>
+                        <span class="text-gray-600">(потолка у выжимки нет — этап A не обрезается)</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- P4 / MEME-IIC-DIAG-UI: ДВА отдельных блока диагностики.
+                       Никогда не склеиваются: каждый рисуется из своего блока
+                       ответа (`text_initiative` / `meme`), поля одного не
+                       подменяют показатели другого. -->
+                  <div class="mt-3 text-xs" data-meme-diag-section>
+                    <div class="font-bold mb-1">Диагностика инициатив по механизмам</div>
+                    <div v-if="memeDiagError" class="text-red-300" data-meme-diag-error>
+                      {{ memeDiagError }}
+                    </div>
+                    <div v-else-if="!memeDiagView" class="text-gray-500" data-meme-diag-empty>
+                      {{ memeDiagBusy ? 'Читаем диагностику…' : 'Диагностика недоступна — нет данных.' }}
+                    </div>
+                    <template v-else>
+                      <div v-if="memeDiagView.degraded.length" class="meme-diag-plaque"
+                           data-meme-diag-degraded>
+                        координация недоступна ({{ memeDiagView.degraded.join(', ') }}) —
+                        конфликт публикаций неизвестен, это не «конфликта нет»
+                      </div>
+                      <div class="meme-grid">
+                        <div v-for="item in memeDiagBlocks" :key="'mdg-' + item.key"
+                             class="meme-diag-block" :data-meme-diag="item.key">
+                          <div class="meme-diag-title">
+                            {{ item.title }}
+                            <span class="badge"
+                                  :class="item.block.isNoData ? 'badge-warn' : 'badge-muted'"
+                                  data-meme-diag-state>
+                              {{ item.block.isNoData ? 'нет данных' : 'данные есть' }}
+                            </span>
+                          </div>
+                          <div v-if="item.block.isNoData && item.block.noDataReasons.length"
+                               class="text-gray-500" data-meme-diag-nodata>
+                            почему: <span v-for="(r, ri) in item.block.noDataReasons"
+                                          :key="'mnd-' + ri">{{ r.label }}<template
+                                          v-if="ri < item.block.noDataReasons.length - 1">, </template></span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Последняя проверка</span>
+                            <span :data-meme-diag-last="item.key">{{ item.block.lastCheckText }}</span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Следующая проверка</span>
+                            <span>{{ item.block.nextCheckText }}
+                              <span v-if="item.block.nextCheckBasisLabel" class="text-gray-600">({{ item.block.nextCheckBasisLabel }})</span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Готовность</span>
+                            <span :data-meme-diag-ready="item.key">{{ item.block.readyLabel }}
+                              <span v-if="item.block.readyReasonLabel" class="text-gray-600">· {{ item.block.readyReasonLabel }}</span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Случайное решение</span>
+                            <span v-if="!item.block.random" class="text-gray-500"
+                                  :data-meme-diag-random="item.key">нет данных о жеребьёвке</span>
+                            <span v-else :data-meme-diag-random="item.key">
+                              {{ item.block.random.decisionLabel }}
+                              <span class="text-gray-600">· источник: {{ item.block.random.sourceLabel }}
+                                <template v-if="item.block.random.selectedSource"> (выбран: {{ item.block.random.selectedSource }})</template>
+                                · значение: {{ item.block.random.valueText }}
+                                · вероятность: {{ item.block.random.probabilityText }}</span>
+                              <span v-if="item.block.random.fallback" class="text-amber-300">
+                                · сработал резерв: {{ memeSkipLabel(item.block.random.fallbackReason) }}</span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Условия</span>
+                            <span v-if="!item.block.conditionsRows || !item.block.conditionsRows.length"
+                                  class="text-gray-500">нет данных</span>
+                            <span v-else class="text-gray-400">
+                              <span v-for="(c, ci) in item.block.conditionsRows"
+                                    :key="'mcond-' + ci">{{ c.key }}={{ c.value }}<template
+                                    v-if="ci < item.block.conditionsRows.length - 1"> · </template></span>
+                            </span>
+                          </div>
+                          <div v-if="item.block.stagesRows && item.block.stagesRows.length"
+                               class="meme-diag-row">
+                            <span class="meme-diag-key">Стадии из состояния</span>
+                            <span class="text-gray-400">
+                              <span v-for="(s, si) in item.block.stagesRows"
+                                    :key="'mstg-' + si">{{ s.label }}={{ s.value }}<template
+                                    v-if="si < item.block.stagesRows.length - 1"> · </template></span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Мешает сейчас</span>
+                            <span v-if="item.block.skip" :data-meme-diag-skip="item.key">
+                              {{ item.block.skip.label }}
+                              <span class="text-gray-600">({{ item.block.skip.originLabel }})</span>
+                            </span>
+                            <span v-else-if="item.block.isNoData" class="text-gray-500">нет данных</span>
+                            <span v-else class="text-gray-400">ничего не мешает</span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Запись прошлого прохода</span>
+                            <span v-if="item.block.skipRecorded" class="text-gray-400">
+                              {{ item.block.skipRecorded.label }}
+                              <span class="text-gray-600">({{ item.block.skipRecorded.originLabel }})</span>
+                            </span>
+                            <span v-else class="text-gray-500">нет данных</span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Свой кулдаун</span>
+                            <span :data-meme-diag-cooldown="item.key">
+                              {{ item.block.cooldown.ownText }}
+                              · остаток: {{ item.block.cooldown.remainingText }}
+                              <span v-if="item.block.cooldown.basisLabel" class="text-gray-600">({{ item.block.cooldown.basisLabel }}<template
+                                v-if="item.block.cooldown.basisAtText">: {{ item.block.cooldown.basisAtText }}</template>)</span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Своя квота дня</span>
+                            <span class="text-gray-400" :data-meme-diag-quota="item.key">
+                              <template v-if="item.block.quota.unlimited">без предела</template>
+                              <template v-else>лимит: {{ item.block.quota.limitText }}
+                                · израсходовано: {{ item.block.quota.usedText }}
+                                · осталось: {{ item.block.quota.remainingText }}</template>
+                              <span v-if="item.block.quota.limitReached" class="text-amber-300"> · предел достигнут</span>
+                            </span>
+                          </div>
+                          <div class="meme-diag-row">
+                            <span class="meme-diag-key">Публикации</span>
+                            <span :data-meme-diag-conflict="item.key">
+                              <template v-if="!item.block.publication">
+                                <span class="text-gray-500">бронь не проверялась</span>
+                              </template>
+                              <template v-else>
+                                <span :class="item.block.publication.degraded
+                                  ? 'text-amber-300'
+                                  : (item.block.publication.conflict === true
+                                    ? 'text-red-300' : 'text-gray-400')">{{ item.block.publication.conflictLabel }}</span>
+                                <span v-if="item.block.publication.claimedBy" class="text-gray-600">
+                                  · держит: {{ item.block.publication.claimedBy }}</span>
+                                <span v-if="item.block.publication.otherKind" class="text-gray-600">
+                                  · публиковал: {{ item.block.publication.otherKind }}
+                                  <template v-if="item.block.publication.otherAgeText"> {{ item.block.publication.otherAgeText }} назад</template>
+                                  <template v-if="item.block.publication.intervalText"> (интервал {{ item.block.publication.intervalText }})</template>
+                                </span>
+                                <span v-if="item.block.publication.manualPriorityUntilText" class="text-gray-600">
+                                  · приоритет ручного /meme до {{ item.block.publication.manualPriorityUntilText }}</span>
+                              </template>
+                            </span>
+                          </div>
+                          <div v-if="item.block.blocking" class="meme-diag-row">
+                            <span class="meme-diag-key">Ворота</span>
+                            <span class="text-gray-400" data-meme-diag-gates>
+                              <span v-for="(g, gi) in item.block.blocking.blocked"
+                                    :key="'mgate-' + gi">{{ g.label || g.gate }}<template
+                                    v-if="gi < item.block.blocking.blocked.length - 1"> · </template></span>
+                              <span v-if="!item.block.blocking.blocked.length" class="text-gray-500">ничего не блокирует</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="text-[10px] text-gray-600 mt-1">
+                        Показатели механизмов не суммируются и не подменяют друг
+                        друга: у каждого свой журнал, своя квота и свой кулдаун.
+                      </div>
+                    </template>
                   </div>
                   <!-- Публикация и перепроверка: будет ли результат отправлен. -->
                   <div class="mt-3 text-xs" data-meme-delivery>

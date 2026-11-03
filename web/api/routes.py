@@ -4034,13 +4034,10 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
                 "timezone_source": day.timezone_source,
                 "next_reset": day.next_reset_iso},
         # Три числа §3 ТЗ одной структурой: потолок итогового промпта (L),
-        # длина шаблона (T) и бюджет прикола (J = max(0, L - T)).
-        # `value`/`prefix_chars`/`summary_target` — совместимость с текущей
-        # карточкой (правка UI — полоса P4); значения те же, не дубликат счёта.
-        "length_limit": dict(budget.as_dict(),
-                             value=budget.ceiling,
-                             prefix_chars=budget.template_chars,
-                             summary_target=None),
+        # длина шаблона (T) и бюджет прикола (J = max(0, L - T)) — ровно те же
+        # имена, что у `MemeBudget`, без совместимых алиасов (P4 перевёл на них
+        # карточку): одно число — одно имя.
+        "length_limit": budget.as_dict(),
         "template": {
             "text": template,
             "source": str((prompts.get("image") or {}).get("source") or ""),

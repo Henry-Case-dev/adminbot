@@ -67,7 +67,8 @@ for (const name of ['loadExperiencePipeline', 'toggleExpStage',
                     'episodesApplyDeepLink', 'loadMemeSettings',
                     'saveMemeSettings', 'memeUnavailableLabel',
                     'memeStageLabel', 'memeSkipLabel',
-                    'episodePeriodLabel']) {
+                    'episodePeriodLabel', 'loadMemeDiagnostics',
+                    'memeFieldErrorsFrom']) {
   assert(methods && methods[name], 'methods.' + name + ' не найден');
 }
 
@@ -230,8 +231,9 @@ for (const name of ['loadExperiencePipeline', 'toggleExpStage',
                  attempts: [] },
     day: { bucket: '2026-10-31', timezone_name: 'Europe/Moscow',
            timezone_source: 'chat', next_reset: '2026-11-01T00:00:00+03:00' },
-    length_limit: { value: 1000, source: 'admin_setting', summary_target: 968,
-                    known: true, prefix_chars: 31, candidates: [] },
+    length_limit: { ceiling: 1000, source: 'admin_setting',
+                    template_chars: 31, joke_budget: 969,
+                    known: true, placeholder: 'append', candidates: [] },
     image_prefix: 'Создай мем с шрифтом импакт:',
     prompts: { image: { block_id: 'initiative.meme.image', text: 'шаблон',
                         source: 'factory', differs_from_factory: false,
@@ -396,11 +398,18 @@ async function memeSaveSection() {
     summarizer_model: '', quiet_hours: '', length_admin: 400,
   };
   const bodies = [];
+  const diagCalls = [];
   const ctx = {
     activeChatId: -100111, memeSettingsSaving: false, memeSettingsError: '',
     memeSettings: { settings: eff },
     memeDraft: methods.memeDraftFromSettings.call({}, { settings: eff }),
     memeDraftFromSettings: methods.memeDraftFromSettings,
+    // P4: после успешного сохранения карточка перечитывает диагностику
+    // (`loadMemeDiagnostics`) и умеет разложить 422 по полям
+    // (`memeFieldErrorsFrom`) — оба метода обязаны быть у компонента, иначе
+    // путь сохранения падает не TypeError'ом в бою, а тихо ломает карточку.
+    loadMemeDiagnostics: function () { diagCalls.push(1); },
+    memeFieldErrorsFrom: methods.memeFieldErrorsFrom,
     api: async function (url, opts) {
       bodies.push(JSON.parse(opts.body));
       return { settings: Object.assign({}, eff) };
@@ -411,11 +420,14 @@ async function memeSaveSection() {
   // (а) Ничего не менялось — запрос не отправляется вовсе.
   await methods.saveMemeSettings.call(ctx);
   assert.deepStrictEqual(bodies, []);
+  assert.deepStrictEqual(diagCalls, []);
 
   // (б) Изменено одно поле — уходит ровно оно.
   ctx.memeDraft.daily_limit = 5;
   await methods.saveMemeSettings.call(ctx);
   assert.deepStrictEqual(bodies, [{ daily_limit: 5 }]);
+  // Диагностика перечитана ровно один раз — после реального сохранения.
+  assert.deepStrictEqual(diagCalls, [1]);
 
   // (в) Снятие непустых значений — явная отправка пустого (наследование).
   ctx.memeSettings = { settings: Object.assign({}, eff, {

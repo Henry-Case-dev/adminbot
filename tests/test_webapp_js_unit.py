@@ -396,6 +396,32 @@ def test_js_unit_asap8_u084d_mini_lens_binding():
                          "asap8_u084d_mini_lens_binding_test.js"),
             ok_marker="MINI-LENS-BINDING-OK")
 
+def test_js_unit_meme_ui_fields():
+    """P4 `MEME-UI-FIELDS` (карточка «Инициатива → Мемы»): два РЕАЛЬНЫХ поля
+    промптов + сохранение/снятие переопределения, три числа бюджета из
+    канонических имён (unknown ≠ 0), 422 у поля, ярлык стадии `joke` и коды
+    причин, видимая аналитика по стадиям (MEME-ACC-12), диагностика речевой
+    сборки без текстов и два НЕЗАВИСИМЫХ блока диагностики механизмов
+    (null ≠ 0, «никогда», конфликт только из `publication`, degraded)."""
+    _run_js(os.path.join("tests", "js", "meme_ui_fields_test.js"),
+            ok_marker="MEME-UI-FIELDS-OK")
+
+
+def test_js_unit_evol_w4_diagnostics():
+    """EVOL-014/019/020/021 (Wave 4 UI) — сквозной JS-гейт карточки мемов и
+    диагностики: сохранение отправляет ТОЛЬКО изменённые поля (наследование
+    глобальных значений), пустой черновик не шлёт запрос, снятие значения
+    уходит явной пустой строкой, а после успешного сохранения карточка
+    перечитывает диагностику (`loadMemeDiagnostics`).
+
+    Почему включён в набор: P4 добавил в путь сохранения
+    `loadMemeDiagnostics`/`memeFieldErrorsFrom`, а сам файл нигде не
+    запускался автоматикой — регрессия прошла мимо гейта и была поймана
+    только ручным прогоном. Теперь она ловится здесь."""
+    _run_js(os.path.join("tests", "js", "evol_w4_diagnostics_ui_test.js"),
+            ok_marker="EVOL-W4-UI-OK")
+
+
 def test_js_unit_asap_ui02_delta():
     """ASAP-UI-02 §4.2/§10/§11 (L01958/L01971/L01950/L01940): ОДИН Back-стек
     (ровно один слой за Back, маршрут не меняется, BackButton доступен при

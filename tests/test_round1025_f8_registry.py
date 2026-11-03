@@ -158,7 +158,17 @@ ROUTES_SHA256_F11 = (
     # (неизвестное имя поля → 422 вместо тихого no-op). Новых endpoint'ов нет
     # (Δ routes=0), RBAC/маскировка/DDL не менялись, набор путей f8_baseline
     # не менялся. Хэш переутверждён осознанно (L-F11S-1).
-    "7d73904f024890dd133efec6fe6b9d67899bf2f08a53685ad5961a72e747d5b9")
+    # MEME-PIPELINE-REFactor-01 P4 (`MEME-IIC-DIAG-UI`, 03.11.2026,
+    # L-F11S-1 conscious requalification): контентная Δ в СУЩЕСТВУЮЩИХ
+    # GET/POST /api/initiative/meme-settings — сняты совместимые алиасы
+    # `length_limit.value`/`prefix_chars`/`summary_target` (карточка
+    # переведена на канонические имена MemeBudget: ceiling/template_chars/
+    # joke_budget; одно число — одно имя). Новый маршрут
+    # GET /api/initiative/mechanism-diagnostics добавлен НЕ здесь, а в
+    # отдельном файле-зоне web/api/mechanism_diagnostics.py, поэтому
+    # Δ routes=0 и routes-инвентарь f8_baseline не меняется. RBAC/
+    # маскировка/DDL не менялись. Хэш переутверждён осознанно (L-F11S-1).
+    "7ea62c3ee88bc7b701552d0b6ff1698eeee545aea9d2dfb11ebca7253fa9c2e7")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

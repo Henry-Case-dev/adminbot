@@ -2762,6 +2762,361 @@
     return who + ' — ' + (title || ('чат ' + chatId));
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // P4 `MEME-UI-FIELDS` (+`MEME-JOKE-DIAG-UI`, `MEME-IIC-DIAG-UI`) —
+  // карточка «Модули → Инициатива → Мемы».
+  //
+  // Человеческие ярлыки и ЧЕСТНЫЕ преобразования диагностики живут функциями
+  // уровня модуля: их вызывают computed карточки и одноимённые методы шаблона,
+  // поэтому «один код — одна подпись». Правила честности (P9 §3, P6 §9):
+  //   * `null`/`{}` — «нет данных», а не нули (и не 1970 год);
+  //   * `last_check_ts = null` — «никогда»; `cooldown.remaining_seconds = 0` —
+  //     законный ноль со своим `basis`;
+  //   * конфликт — ТОЛЬКО из `publication`; `coordination = "degraded"` —
+  //     «координация недоступна», а не «конфликта нет»;
+  //   * `random.performed = false` — жеребьёвка НЕ выполнялась;
+  //   * тексты прикола/выжимки/слоёв/персоны сюда не попадают вовсе (R17).
+  // ═══════════════════════════════════════════════════════════════════════
+  var MEME_STAGE_LABELS = {
+    considered: 'Рассмотрено',
+    eligible: 'Годно к генерации',
+    summary: 'Выжимка',
+    joke: 'Генерация прикола',
+    image_generation: 'Генерация картинки',
+    publish: 'Публикация',
+    failed: 'Ошибка',
+    skipped: 'Пропуск',
+  };
+  function memeStageLabelOf(stage) {
+    return MEME_STAGE_LABELS[stage] || (stage ? String(stage) : '—');
+  }
+  // Коды причин: пропуски пайплайна (meme_initiative.SKIP_*), причины
+  // пропуска речевых слоёв (prompt_composer) и маркеры «нет данных» (P9).
+  var MEME_REASON_LABELS = {
+    // пайплайн мемов
+    disabled_by_setting: 'выключено настройкой',
+    initiative_disabled: 'инициатива выключена',
+    image_module_off: 'модуль картинок выключен',
+    image_provider_not_configured: 'image-провайдер не настроен',
+    image_provider_unhealthy: 'image-провайдер недоступен',
+    random_unavailable: 'источник случайности недоступен',
+    no_random_hit: 'случайный порог не пройден',
+    cooldown_active: 'кулдаун',
+    summary_failed: 'выжимка не удалась',
+    joke_generation_failed: 'генерация прикола не удалась',
+    joke_empty: 'прикол получился пустым',
+    no_joke_budget: 'бюджета для прикола не осталось',
+    template_empty: 'шаблон картинки пуст',
+    image_generation_failed: 'генерация картинки не удалась',
+    publish_blocked: 'публикация заблокирована',
+    daily_quota_reached: 'суточная квота исчерпана',
+    low_activity: 'мало активности',
+    schema_absent: 'схемы журнала/брони нет',
+    length_limit_unknown: 'потолок длины неизвестен',
+    in_flight: 'уже выполняется',
+    quiet_hours: 'тихие часы',
+    cycle_exception: 'исключение цикла',
+    slot_released: 'бронь квоты освобождена',
+    publication_conflict: 'конфликт публикаций',
+    publication_in_flight: 'публикация уже идёт',
+    publication_stale: 'устаревшая бронь публикации',
+    publication_expired: 'бронь публикации истекла',
+    // причины пропуска речевых слоёв (P6)
+    no_l1_plan_in_genre: 'план L1 для жанра не строится',
+    self_model_folded_into_identity: 'правила о себе уже в Identity',
+    expression_examples_absent: 'примеров выражения нет',
+    channel_output_not_required: 'вывод канала здесь не нужен',
+    style_requests_absent: 'пожеланий по стилю нет',
+    lessons_absent: 'уроков опыта нет',
+    speech_absent: 'понимания речи нет',
+    samples_absent: 'образцов нет',
+    samples_disabled: 'образцы выключены',
+    expression_examples_disabled: 'примеры выражения выключены',
+    expression_absent: 'выражение не задано',
+    core_absent: 'характер не задан',
+    core_disabled: 'характер выключен',
+    core_read_error: 'характер не прочитан',
+    character_speech_disabled: 'речь персонажа выключена',
+    humor_disabled: 'юмор выключен',
+    humor_no_strategy: 'приём юмора не выбран',
+    humor_folded_into_speech_base: 'юмор уже в базовой речи',
+    persona_disabled: 'персона выключена',
+    identity_absent: 'персоны нет',
+    style_policy_disabled: 'правила стиля выключены',
+    style_policy_unavailable: 'правила стиля недоступны',
+    style_policy_read_error: 'правила стиля не прочитаны',
+    response_plan_absent: 'плана ответа нет',
+    response_plan_disabled: 'план ответа выключен',
+    compose_error: 'сборка не удалась',
+    // «нет данных» (P9, NO_DATA_*)
+    read_failed: 'источник не прочитан',
+    no_observer_payload: 'состояния прохода нет',
+    never_checked: 'проверок ещё не было',
+    no_decision_recorded: 'решение не записано',
+    no_random_trace: 'трассы жеребьёвки нет',
+    no_meme_state: 'состояния мемов нет',
+    no_attempts_journal: 'журнала попыток нет',
+    chat_not_selected: 'чат не выбран',
+    // гейты текстовой инициативы (initiative_observer.REASON_LABELS)
+    anti_flood: 'антифлуд',
+    min_gap: 'слишком часто',
+    low_messages: 'мало сообщений',
+    no_reply_target: 'некому отвечать',
+    muted: 'инициатива приглушена',
+    error_budget: 'бюджет ошибок исчерпан',
+    daily_cap: 'суточный лимит',
+    probability: 'случайный порог не пройден',
+    technical: 'техническая пауза',
+  };
+  function memeReasonLabelOf(code) {
+    return MEME_REASON_LABELS[code] || (code ? String(code) : '—');
+  }
+  var MEME_ORIGIN_LABELS = {
+    gate: 'ворота',
+    availability: 'доступность',
+    quota: 'квота',
+    cooldown: 'свой кулдаун',
+    quiet_hours: 'тихие часы',
+    publication: 'бронь публикации',
+    payload_state: 'запись прошлого прохода',
+    journal: 'журнал попыток',
+  };
+  var MEME_COOLDOWN_BASIS = {
+    last_provider_call: 'от последнего вызова провайдера',
+    no_prior_provider_call: 'вызовов провайдера ещё не было',
+    last_initiative_publication: 'от последней инициативной публикации',
+    no_prior_publication: 'инициативных публикаций ещё не было',
+  };
+  var MEME_NEXT_CHECK_BASIS = {
+    payload_state: 'из записанного состояния прохода',
+    cooldown: 'расчёт от собственного кулдауна',
+    eval_interval: 'интервал оценки',
+    every_pass: 'ближайший проход цикла',
+    unknown: 'не рассчитана',
+    never_checked: 'проверок ещё не было',
+    chat_not_selected: 'чат не выбран',
+  };
+  var MEME_NO_DRAW_LABELS = {
+    probability_one: 'порог случайности 100 % — жеребьёвка не нужна',
+    probability_zero: 'порог 0 % — жеребьёвка не нужна',
+    deferred: 'случайное решение отложено',
+    random_unavailable: 'источник случайности недоступен',
+  };
+  function memeDurationText(seconds) {
+    if (seconds == null) return '—';
+    var s = Math.max(0, Math.round(seconds));
+    if (s < 60) return s + ' с';
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + ' мин' + (s % 60 ? ' ' + (s % 60) + ' с' : '');
+    var h = Math.floor(m / 60);
+    return h + ' ч' + (m % 60 ? ' ' + (m % 60) + ' мин' : '');
+  }
+  // Один блок «случайного решения»: `performed=false` — не «случай сработал».
+  function memeDrawViewOf(raw) {
+    var r = (raw && typeof raw === 'object' && Object.keys(raw).length)
+      ? raw : null;
+    if (!r) return null;
+    var performed = r.performed === true;
+    var hit = (r.hit === true ? true : (r.hit === false ? false : null));
+    var noDraw = String(r.no_draw_reason || '');
+    var decision;
+    if (!performed) {
+      decision = 'жеребьёвка не выполнялась: '
+        + (MEME_NO_DRAW_LABELS[noDraw] || memeReasonLabelOf(
+          noDraw || String(r.reason || '')));
+    } else if (hit === true) {
+      decision = 'случай сработал';
+    } else if (hit === false) {
+      decision = 'случай не прошёл';
+    } else {
+      decision = 'исход не записан';
+    }
+    return {
+      performed: performed,
+      outcome: String(r.outcome || ''),
+      decisionLabel: decision,
+      hit: hit,
+      hitLabel: (hit == null ? '—' : (hit ? 'да' : 'нет')),
+      valueText: (r.value == null ? '—' : String(r.value)),
+      probabilityText: (r.probability == null
+        ? '—' : (Math.round(Number(r.probability) * 1000) / 10) + ' %'),
+      source: String(r.source || ''),
+      selectedSource: String(r.selected_source || ''),
+      sourceLabel: (String(r.source || '')
+        ? String(r.source) + ' (фактически)'
+        : 'источник не записан'),
+      selectedLabel: String(r.selected_source || ''),
+      fallback: r.fallback === true,
+      fallbackReason: String(r.fallback_reason || ''),
+      noDrawReason: noDraw,
+      purpose: String(r.purpose || ''),
+      attempts: (r.attempts == null ? null : r.attempts),
+    };
+  }
+  // ДВА блока диагностики строятся этой функцией независимо друг от друга:
+  // поля одного механизма физически не могут попасть в другой.
+  function memeMechanismViewOf(raw) {
+    var b = (raw && typeof raw === 'object') ? raw : {};
+    var present = Object.keys(b).length > 0;
+    var mechanism = String(b.mechanism || '');
+    var available = b.available === true;
+    var pub = (b.publication && typeof b.publication === 'object')
+      ? b.publication : null;
+    var degraded = !!(pub && (pub.degraded === true
+                              || pub.coordination === 'degraded'));
+    var cd = (b.cooldown && typeof b.cooldown === 'object') ? b.cooldown : {};
+    var quota = (b.quota && typeof b.quota === 'object') ? b.quota : {};
+    var skip = (b.skip && b.skip.code) ? b.skip : null;
+    var skipRec = (b.skip_recorded && b.skip_recorded.code)
+      ? b.skip_recorded : null;
+    var cond = (b.conditions && typeof b.conditions === 'object'
+                && Object.keys(b.conditions).length) ? b.conditions : null;
+    var stages = (b.stages && typeof b.stages === 'object'
+                  && Object.keys(b.stages).length) ? b.stages : null;
+    var blocked = (b.blocking && b.blocking.blocked) || [];
+    var warned = (b.blocking && b.blocking.warned) || [];
+    var conflict = (pub && pub.conflict === true ? true
+      : (pub && pub.conflict === false ? false : null));
+    var conflictLabel;
+    if (!pub) {
+      conflictLabel = 'бронь не проверялась';
+    } else if (degraded) {
+      conflictLabel = 'координация недоступна';
+    } else if (conflict === true) {
+      conflictLabel = 'конфликт: сейчас публикует другой механизм';
+    } else if (conflict === false) {
+      conflictLabel = 'конфликта нет';
+    } else {
+      conflictLabel = 'неизвестно';
+    }
+    var ownSeconds = (cd.own_seconds == null ? null : cd.own_seconds);
+    var remainingSeconds = (cd.remaining_seconds == null
+      ? null : cd.remaining_seconds);
+    return {
+      present: present,
+      mechanism: mechanism,
+      mechanismLabel: (mechanism === 'text_initiative'
+        ? 'Текстовая инициатива'
+        : (mechanism === 'meme' ? 'Мемы в инициативе'
+          : 'Механизм не указан')),
+      outputKind: String(b.output_kind || ''),
+      source: String(b.source || ''),
+      available: available,
+      isNoData: present ? !available : true,
+      dataState: String(b.data_state || ''),
+      noDataReasons: (b.no_data_reasons || []).map(function (code) {
+        return { code: code, label: memeReasonLabelOf(code) };
+      }),
+      ready: (b.ready === true ? true : (b.ready === false ? false : null)),
+      readyLabel: (b.ready === true ? 'может запуститься'
+        : (b.ready === false ? 'не может запуститься' : 'неизвестна')),
+      readyReasonLabel: (b.ready_reason
+        ? memeReasonLabelOf(b.ready_reason) : ''),
+      lastCheckTs: (b.last_check_ts == null ? null : b.last_check_ts),
+      // `null` = проверок не было НИКОГДА (0 из журнала означает то же).
+      lastCheckText: (b.last_check_ts == null
+        ? 'никогда' : _tsStatusLabel(b.last_check_ts, 'никогда')),
+      nextCheckTs: (b.next_check_ts == null ? null : b.next_check_ts),
+      nextCheckText: (b.next_check_ts == null
+        ? 'не рассчитана' : _tsStatusLabel(b.next_check_ts, 'не рассчитана')),
+      nextCheckBasisLabel: (MEME_NEXT_CHECK_BASIS[String(
+        b.next_check_basis || '')] || String(b.next_check_basis || '')),
+      random: memeDrawViewOf(b.random),
+      randomMissing: memeDrawViewOf(b.random) == null,
+      conditionsRows: (cond ? Object.keys(cond).sort().map(function (k) {
+        var v = cond[k];
+        return { key: k, value: (v === true ? 'да'
+          : (v === false ? 'нет' : String(v))) };
+      }) : null),
+      stagesRows: (stages ? Object.keys(stages).sort().map(function (k) {
+        var v = stages[k];
+        return { key: k, label: memeStageLabelOf(k),
+                 value: (v === true ? 'да'
+                   : (v === false ? 'нет' : String(v))) };
+      }) : null),
+      skip: (skip ? { code: skip.code, label: memeReasonLabelOf(skip.code),
+                      originLabel: (MEME_ORIGIN_LABELS[String(skip.origin || '')]
+                                    || String(skip.origin || '')) } : null),
+      skipRecorded: (skipRec ? {
+        code: skipRec.code, label: memeReasonLabelOf(skipRec.code),
+        originLabel: (MEME_ORIGIN_LABELS[String(skipRec.origin || '')]
+                      || String(skipRec.origin || '')) } : null),
+      cooldown: {
+        ownText: (ownSeconds == null
+          ? 'неизвестен (настройка не прочитана)'
+          : memeDurationText(ownSeconds)),
+        ownKnown: ownSeconds != null,
+        remainingText: (remainingSeconds == null
+          ? 'неизвестен' : memeDurationText(remainingSeconds)),
+        remainingKnown: remainingSeconds != null,
+        // Законный ноль остатка отличается от «неизвестно» и объясняется базисом.
+        basisLabel: (MEME_COOLDOWN_BASIS[String(cd.basis || '')]
+                     || String(cd.basis || '')),
+        basisAtText: (cd.basis_ts == null ? ''
+          : _tsStatusLabel(cd.basis_ts, '')),
+        scope: String(cd.scope || ''),
+      },
+      quota: {
+        available: quota.available === true,
+        limitText: (quota.limit == null ? 'неизвестен' : String(quota.limit)),
+        usedText: (quota.used == null ? 'неизвестно' : String(quota.used)),
+        remainingText: (quota.remaining == null
+          ? 'неизвестно' : String(quota.remaining)),
+        unlimited: quota.unlimited === true,
+        limitReached: quota.limit_reached === true,
+        nextResetText: String(quota.next_reset || ''),
+      },
+      publication: (pub ? {
+        available: pub.available === true,
+        coordination: String(pub.coordination || ''),
+        degraded: degraded,
+        conflict: conflict,
+        conflictLabel: conflictLabel,
+        conflictKnown: (conflict != null || !degraded) && !!pub,
+        stateLabel: String(pub.state || ''),
+        reasonLabel: (pub.reason ? memeReasonLabelOf(pub.reason) : ''),
+        degradedReasonLabel: (pub.degraded_reason
+          ? memeReasonLabelOf(pub.degraded_reason) : ''),
+        checkedAtText: (pub.checked_at == null ? ''
+          : _tsStatusLabel(pub.checked_at, '')),
+        holderKind: String(pub.holder_kind || ''),
+        claimedBy: String(pub.claimed_by || ''),
+        otherKind: String(pub.other_kind || ''),
+        otherAgeText: (pub.other_age_seconds == null
+          ? '' : memeDurationText(pub.other_age_seconds)),
+        intervalText: (pub.interval_seconds == null
+          ? '' : memeDurationText(pub.interval_seconds)),
+        manualPriorityUntilText: (pub.manual_priority_until == null
+          ? '' : _tsStatusLabel(pub.manual_priority_until, '')),
+      } : null),
+      blocking: (blocked.length || warned.length ? {
+        blocked: blocked.map(function (item) {
+          return { gate: String(item.gate || ''),
+                   label: (item.label || memeReasonLabelOf(item.reason_code)),
+                   status: String(item.status || '') };
+        }),
+        warned: warned.map(function (item) {
+          return { gate: String(item.gate || ''),
+                   label: (item.label || memeReasonLabelOf(item.reason_code)),
+                   status: String(item.status || '') };
+        }),
+      } : null),
+    };
+  }
+
+  // Разбор `detail` строки журнала (JSON фактов этапа) для видимой аналитики.
+  // Живёт на уровне модуля: разбор — не состояние карточки, и он не должен
+  // появляться в computed-блоке (там запрещены вызовы между computed).
+  function memeStageFacts(detail) {
+    var text = String(detail == null ? '' : detail).trim();
+    if (text.indexOf('{') !== 0) return {};
+    try {
+      var parsed = JSON.parse(text);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
   var app = Vue.createApp({
     data: function () {
       return {
@@ -3528,6 +3883,15 @@
         memeSettingsSaving: false,
         memeSettingsError: '',
         memeDraft: {},
+        // P4 (`MEME-UI-FIELDS`): поле-специфичные ошибки сохранения (422 от
+        // сервера показываются У ПОЛЯ, а не молча теряются в общем тосте).
+        memeFieldErrors: {},
+        // P4 (`MEME-IIC-DIAG-UI`): два независимых блока диагностики из
+        // GET /api/initiative/mechanism-diagnostics (текст и мемы — не
+        // склеиваются; при отсутствии данных блок честно пустой).
+        memeDiag: null,
+        memeDiagBusy: false,
+        memeDiagError: '',
         memoryHealthBusy: false,
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
@@ -6910,6 +7274,7 @@
         var limit = (q.limit == null ? s.daily_limit : q.limit);
         var spent = (q.spent == null ? null : q.spent);
         var remaining = (q.remaining == null ? null : q.remaining);
+        var tmpl = m.template || {};
         return {
           available: avail.available === true,
           unavailableReason: avail.reason || '',
@@ -6936,7 +7301,29 @@
           counters: counters,
           skipRows: skipRows,
           stages: m.delivery && m.delivery.stages ? m.delivery.stages : [],
+          // Три числа §3 ТЗ (канонические имена `MemeBudget`: ceiling /
+          // template_chars / joke_budget). `known === false` — потолок
+          // неизвестен: число НЕ подставляется (иначе «0» звучал бы как факт).
           lengthLimit: len,
+          ceilingText: (len.known === true
+            ? String(len.ceiling == null ? '—' : len.ceiling) : 'неизвестен'),
+          templateCharsText: (len.template_chars == null
+            ? '—' : String(len.template_chars)),
+          jokeBudgetText: (len.known === true ? String(len.joke_budget == null
+            ? '—' : len.joke_budget) : 'неизвестен'),
+          placeholderLabel: (len.placeholder === 'slot' ? 'подстановка {joke}'
+            : (len.placeholder === 'invalid' ? 'невалидный шаблон (2+ {joke})'
+              : (len.placeholder === 'append' ? 'прикол дописывается в конец'
+                : ''))),
+          templateValid: tmpl.valid !== false,
+          templateError: tmpl.error || '',
+          templatePlaceholders: (tmpl.placeholders == null
+            ? 0 : tmpl.placeholders),
+          // Промпты: редактор показывает ЭФФЕКТИВНЫЙ текст (слой чат →
+          // глобальный → заводской) и подпись слоя, а не «заводской/ручной».
+          // Подписи слоёв — методами (`memePromptSourceLabel`), как и у
+          // остальных человеческих ярлыков карточки.
+          promptJoke: prompts.joke || {},
           promptImage: prompts.image || {},
           promptSummary: prompts.summary || {},
           imagePrefix: m.image_prefix || '',
@@ -6946,6 +7333,165 @@
           settings: s,
           generatedAt: m.generated_at || null,
         };
+      },
+      // P4 (`MEME-JOKE-DIAG-UI`): диагностика речевой сборки этапа B из
+      // аддитивного `analytics.last_joke.speech` (P6). Показываются ТОЛЬКО
+      // ревизии, коды и числа: ни текста прикола, ни текстов слоёв, ни персоны
+      // и ни выжимки здесь нет (R17). Нет данных → `null` («приколов ещё не
+      // было»), а не нули.
+      memeSpeechView: function () {
+        var a = (this.memeSettings && this.memeSettings.analytics) || {};
+        var last = a.last_joke || {};
+        if (!last || !Object.keys(last).length) return null;
+        var speech = (last.speech && typeof last.speech === 'object')
+          ? last.speech : {};
+        var status = String(speech.humor_status || '');
+        var layers = (speech.layers || []).map(function (l) {
+          return {
+            layer: l.layer || '',
+            block: l.block || '',
+            revision: (l.revision == null ? '' : String(l.revision)),
+            chars: (l.chars == null ? null : l.chars),
+            rendered: l.rendered === true,
+            skip: l.skip || '',
+          };
+        });
+        var skipped = [];
+        var raw = (speech.skipped && typeof speech.skipped === 'object')
+          ? speech.skipped : {};
+        Object.keys(raw).forEach(function (layer) {
+          String(raw[layer] || '').split('|').forEach(function (code) {
+            if (code) skipped.push({ layer: layer, code: code });
+          });
+        });
+        return {
+          hasAttempt: true,
+          composer: String(speech.composer || ''),
+          composerLabel: (speech.composer === 'on'
+            ? 'собран единым композером'
+            : (speech.composer === 'failed'
+              ? 'композер недоступен — payload прежней сборки'
+              : 'сборка не записана')),
+          systemSha: String(speech.system_sha12 || ''),
+          manifest: String(speech.manifest || ''),
+          revisions: [
+            { key: 'core', label: 'Core',
+              value: String(speech.core || ''),
+              detail: String(speech.core_detail || '') },
+            { key: 'identity', label: 'Identity',
+              value: String(speech.identity || ''), detail: '' },
+            { key: 'expression', label: 'Expression',
+              value: String(speech.expression || ''), detail: '' },
+            { key: 'style_policy', label: 'Style Policy',
+              value: String(speech.style_policy || ''), detail: '' },
+            { key: 'humor', label: 'Humor Craft',
+              value: String(speech.humor || ''), detail: '' },
+          ],
+          technique: String(speech.technique || ''),
+          humorStatus: status,
+          humorRendered: status === 'rendered',
+          humorSkip: status.indexOf('skip:') === 0 ? status.slice(5) : '',
+          offAxes: speech.off_axes || [],
+          layers: layers,
+          skipped: skipped,
+          jokeChars: (last.chars == null ? null : last.chars),
+          jokeLimit: (last.limit == null ? null : last.limit),
+          jokeTemplateChars: (last.template_chars == null
+            ? null : last.template_chars),
+          jokeTrimmed: last.trimmed === true,
+          promptSource: String(last.source || ''),
+        };
+      },
+      // P4 / `MEME-ACC-12`: видимая аналитика ПО СТАДИЯМ одной (самой свежей)
+      // попытки — выжимка, прикол, картинка, публикация различимы, у каждой
+      // строки свой исход, причина и факты этапа (шаблон, потолок прикола,
+      // фактическая длина прикола). Нет журнала → [] («попыток ещё не было»).
+      memeAttemptStages: function () {
+        var a = (this.memeSettings && this.memeSettings.analytics) || {};
+        var rows = a.attempts || [];
+        if (!rows.length) return [];
+        var jobId = String(rows[0].job_id || '');
+        var same = rows.filter(function (r) {
+          return String(r.job_id || '') === jobId;
+        });
+        var order = (this.memeSettings && this.memeSettings.delivery
+          && this.memeSettings.delivery.stages) || [];
+        var idx = function (stage) {
+          var i = order.indexOf(stage);
+          return i < 0 ? order.length + 1 : i;
+        };
+        var parse = memeStageFacts;
+        var labels = {
+          passed: 'пройден', skipped: 'пропуск', failed: 'ошибка',
+          blocked: 'публикация заблокирована', published: 'опубликовано',
+        };
+        return same.sort(function (x, y) {
+          return idx(String(x.stage || '')) - idx(String(y.stage || ''));
+        }).map(function (r) {
+          var f = parse(r.detail);
+          var outcome = String(r.outcome || '');
+          var stage = String(r.stage || '');
+          // «Символы» у каждого этапа означают СВОЁ: у выжимки — её длину, у
+          // прикола — прикол, у картинки — итоговый промпт (+ длина прикола).
+          // Мешать их в одно поле нельзя: число получило бы чужую подпись.
+          var summaryChars = (stage === 'summary' && f.chars != null)
+            ? f.chars : null;
+          var promptChars = (stage === 'image_generation' && f.chars != null)
+            ? f.chars : null;
+          var jokeChars = (f.joke_chars != null
+            ? f.joke_chars
+            : ((stage === 'joke' && f.chars != null) ? f.chars : null));
+          return {
+            stage: stage,
+            stageLabel: memeStageLabelOf(stage),
+            outcome: outcome,
+            outcomeLabel: labels[outcome] || (outcome || '—'),
+            outcomeOk: outcome === 'passed' || outcome === 'published',
+            reasonCode: String(r.reason_code || ''),
+            ts: (r.ts == null ? null : r.ts),
+            templateChars: (f.template_chars == null ? null : f.template_chars),
+            jokeLimit: (stage === 'joke' && f.limit != null) ? f.limit : null,
+            summaryChars: summaryChars,
+            promptChars: promptChars,
+            jokeChars: jokeChars,
+            hasFacts: (summaryChars != null || promptChars != null
+                       || jokeChars != null
+                       || (stage === 'joke' && f.limit != null)
+                       || f.template_chars != null),
+            limitValue: (r.limit_value == null ? null : r.limit_value),
+            limitSource: String(r.limit_source || ''),
+            detail: (f.detail == null ? '' : String(f.detail)),
+          };
+        }, this);
+      },
+      // P4 (`MEME-IIC-DIAG-UI`): ДВА отдельных блока диагностики из
+      // GET /api/initiative/mechanism-diagnostics — никогда не склеиваются.
+      // `null`/`{}` = «нет данных» (не нули); `last_check_ts = null` =
+      // «никогда»; конфликт — ТОЛЬКО из `publication`; деградация координации
+      // не выдаётся за «конфликта нет».
+      memeDiagView: function () {
+        var d = this.memeDiag;
+        if (!d) return null;
+        return {
+          generatedAt: d.generated_at || null,
+          schemaVersion: d.schema_version || null,
+          degraded: d.degraded || [],
+          text: memeMechanismViewOf(d.text_initiative),
+          meme: memeMechanismViewOf(d.meme),
+        };
+      },
+      // Два блока диагностики как СПИСОК из двух независимых элементов:
+      // шаблон рисует каждый отдельным узлом (`data-meme-diag`), поэтому
+      // значения одного механизма физически не попадают в другой.
+      memeDiagBlocks: function () {
+        var d = this.memeDiag;
+        if (!d) return [];
+        return [
+          { key: 'text_initiative', title: 'Текстовая инициатива',
+            block: memeMechanismViewOf(d.text_initiative) },
+          { key: 'meme', title: 'Мемы в инициативе',
+            block: memeMechanismViewOf(d.meme) },
+        ];
       },
       // Последнее применение урока — событие/строка применений mca-16.
       expLastAppliedLabel: function () {
@@ -8005,6 +8551,16 @@
         if (v && this.lessonsData && !this.mca17cFunnel
             && !this.mca17cFunnelBusy) {
           this.oversightLoadFunnel();
+        }
+      },
+      // P4 (`MEME-UI-FIELDS`): карточка мемов — ПО ЧАТУ. Смена чата обязана
+      // перечитать её данные (иначе показывались бы настройки/промпты другого
+      // чата), а прямая ссылка на вкладку получает их сразу после того, как
+      // контекст чата стал известен при загрузке страницы.
+      activeChatId: function () {
+        if (typeof this.memeCardVisible === 'function'
+            && this.memeCardVisible()) {
+          this.loadMemeSettings();
         }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
@@ -11215,14 +11771,23 @@
         return a + ' — ' + this.fmtTs(end);
       },
       // ── EVOL-014 (Wave 4 UI): настройки мемов ────────────────────────────
+      // Видна ли карточка мемов сейчас (модуль «Инициатива», вкладка
+      // «Основные настройки») и выбран ли чат: только тогда её данные нужны.
+      memeCardVisible: function () {
+        var ws = this.workspace;
+        return !!(ws && ws.module && ws.module.id === 'mod_initiative'
+                  && ws.tab === 'settings' && this.activeChatId != null);
+      },
       loadMemeSettings: async function () {
         if (this.memeSettingsBusy) return;
         if (this.activeChatId == null) {
           this.memeSettings = null;
+          this.memeDiag = null;
           return;
         }
         this.memeSettingsBusy = true;
         this.memeSettingsError = '';
+        this.memeFieldErrors = {};
         var epoch = this.scopeEpoch;
         try {
           var data = await this.api('/api/initiative/meme-settings');
@@ -11238,11 +11803,42 @@
         } finally {
           if (this._scopeGuard(epoch)) this.memeSettingsBusy = false;
         }
+        // P4: два блока диагностики — отдельный запрос, отдельная ошибка:
+        // недоступная диагностика не скрывает настройки и промпты.
+        this.loadMemeDiagnostics();
+      },
+      // P4 (`MEME-IIC-DIAG-UI`): два НЕЗАВИСИМЫХ блока (текст и мемы).
+      loadMemeDiagnostics: async function () {
+        if (this.memeDiagBusy || this.activeChatId == null) return;
+        this.memeDiagBusy = true;
+        this.memeDiagError = '';
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/initiative/mechanism-diagnostics');
+          if (!this._scopeGuard(epoch)) return;
+          this.memeDiag = data || null;
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.memeDiag = null;
+          this.memeDiagError = (e && e.status === 403)
+            ? 'Нет доступа к диагностике этого чата'
+            : ((e && e.message) || 'диагностика недоступна');
+        } finally {
+          if (this._scopeGuard(epoch)) this.memeDiagBusy = false;
+        }
       },
       // Черновик — из эффективных значений сервера (не из дефолтов): поля
-      // показывают то, что реально действует в этом чате.
+      // показывают то, что реально действует в этом чате. Промпты прикола и
+      // картинки редактируются тем же черновиком (P4): значение — эффективный
+      // текст (`prompts.*.text`), пустая строка = снять чатовое
+      // переопределение (сервер удалит ключ, а не запишет пустоту).
       memeDraftFromSettings: function (data) {
         var s = (data && data.settings) || {};
+        var p = (data && data.prompts) || {};
+        var text = function (name) {
+          var view = p[name] || {};
+          return view.text == null ? '' : String(view.text);
+        };
         return {
           enabled: s.enabled === true,
           window_messages: s.window_messages == null ? '' : s.window_messages,
@@ -11252,7 +11848,49 @@
           summarizer_model: s.summarizer_model || '',
           quiet_hours: s.quiet_hours || '',
           length_limit: s.length_admin == null ? '' : s.length_admin,
+          prompt_joke: text('joke'),
+          prompt_image: text('image'),
         };
+      },
+      // 422 → ошибки КОНКРЕТНЫХ полей (не «что-то не сохранилось»).
+      // Источники: гейт шаблона (`detail` строкой с ключом каталога) и
+      // валидация Pydantic (`detail` списком с `loc: ["body", "<поле>"]`).
+      memeFieldErrorsFrom: function (err) {
+        var out = {};
+        // `ApiError(status, message)` кладёт серверный `detail` в `message`
+        // (строка или список Pydantic-ошибок).
+        var detail = (err && err.detail !== undefined)
+          ? err.detail : (err && err.message);
+        var fieldOf = function (key) {
+          var k = String(key || '');
+          if (k.indexOf('prompt_image') >= 0 || k.indexOf('meme_image') >= 0) {
+            return 'prompt_image';
+          }
+          if (k.indexOf('prompt_joke') >= 0 || k.indexOf('meme_joke') >= 0) {
+            return 'prompt_joke';
+          }
+          return '';
+        };
+        if (detail && Object.prototype.toString.call(detail) === '[object Array]') {
+          detail.forEach(function (item) {
+            var loc = (item && item.loc) || [];
+            var name = fieldOf(loc[loc.length - 1]);
+            if (name) out[name] = String((item && item.msg) || 'недопустимое значение');
+          });
+        } else if (detail) {
+          var text = String((detail && detail.message) || detail);
+          var known = ['prompt_image', 'prompt_joke'];
+          for (var i = 0; i < known.length; i++) {
+            if (text.indexOf(known[i]) >= 0) {
+              out[known[i]] = text;
+              return out;
+            }
+          }
+          // Ключ каталога без «prompt_»-имени (например `prompts.meme_image`).
+          var field = fieldOf(text);
+          if (field) out[field] = text;
+        }
+        return out;
       },
       saveMemeSettings: async function () {
         if (this.memeSettingsSaving || this.activeChatId == null) return;
@@ -11266,6 +11904,7 @@
         // поэтому отправка всех полей подряд материализовала бы каждый ключ и
         // чат потерял бы наследование глобальных значений после 1-го сохранения.
         var eff = (this.memeSettings && this.memeSettings.settings) || {};
+        var effPrompts = (this.memeSettings && this.memeSettings.prompts) || {};
         var body = {};
         var put = function (field, value, current) {
           if (value !== current) body[field] = value;
@@ -11282,6 +11921,13 @@
             num(eff.cooldown_seconds));
         put('min_messages', num(d.min_messages), num(eff.min_messages));
         put('length_limit', num(d.length_limit), num(eff.length_admin));
+        // Промпты: пустая строка уходит как есть — сервер снимает чатовое
+        // переопределение и возвращает слой ниже (не записывает пустоту).
+        put('prompt_joke', String(d.prompt_joke == null ? '' : d.prompt_joke),
+            String((effPrompts.joke || {}).text || ''));
+        put('prompt_image', String(d.prompt_image == null ? '' : d.prompt_image),
+            String((effPrompts.image || {}).text || ''));
+        this.memeFieldErrors = {};
         if (!Object.keys(body).length) {
           // Ничего не менялось: пустое тело сервер честно отклонил бы (422).
           this.toast('Настройки мемов не изменены', 'ok');
@@ -11297,13 +11943,37 @@
           this.memeSettings = data || this.memeSettings;
           this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
           this.toast('Настройки мемов сохранены для этого чата', 'ok');
+          this.loadMemeDiagnostics();
         } catch (e) {
-          this.memeSettingsError = (e && e.status === 403)
-            ? 'Нет права менять настройки этого чата'
-            : (e && e.status === 409
-              ? 'Конфликт версии (409) — обновите настройки'
-              : ((e && e.message) || 'не удалось сохранить'));
-          this.toast('Мемы: ' + this.memeSettingsError, 'err');
+          var fieldErrors = this.memeFieldErrorsFrom(e);
+          var labels = {
+            prompt_joke: 'Промпт прикола не сохранён',
+            prompt_image: 'Шаблон картинки не сохранён',
+          };
+          Object.keys(fieldErrors).forEach(function (field) {
+            fieldErrors[field] = (labels[field] || 'Поле не сохранено')
+              + ': ' + fieldErrors[field];
+          });
+          this.memeFieldErrors = fieldErrors;
+          // 422 по конкретному полю НЕ прячем в общий текст: поле показывает
+          // свою причину, общая строка остаётся только для прочих ошибок.
+          var onlyFields = Object.keys(fieldErrors).length > 0;
+          var detail = (e && e.detail !== undefined) ? e.detail : (e && e.message);
+          this.memeSettingsError = onlyFields
+            ? ''
+            : ((e && e.status === 403)
+              ? 'Нет права менять настройки этого чата'
+              : (e && e.status === 409
+                ? 'Конфликт версии (409) — обновите настройки'
+                : ((typeof detail === 'string' ? detail : '')
+                   || 'не удалось сохранить')));
+          if (onlyFields) {
+            this.toast(Object.keys(fieldErrors).map(function (f) {
+              return fieldErrors[f];
+            }).join(' · '), 'err');
+          } else {
+            this.toast('Мемы: ' + this.memeSettingsError, 'err');
+          }
         } finally {
           this.memeSettingsSaving = false;
         }
@@ -11324,41 +11994,49 @@
         };
         return ru[reason] || ('Причина: ' + (reason || 'неизвестна'));
       },
+      // P4: стадии карточки (ярлыки — один источник, `MEME_STAGE_LABELS`),
+      // включая этап `joke` («Генерация прикола») из P3/P6.
       memeStageLabel: function (stage) {
-        var ru = {
-          considered: 'Рассмотрено',
-          eligible: 'Годно к генерации',
-          summary: 'Выжимка',
-          image_generation: 'Генерация картинки',
-          publish: 'Публикация',
-          failed: 'Ошибка',
-          skipped: 'Пропуск',
-        };
-        return ru[stage] || stage || '—';
+        return memeStageLabelOf(stage);
       },
+      // P4: причины пропуска/ошибки — пайплайн мемов, речевые слои (P6) и
+      // маркеры «нет данных» (P9). Неизвестный код честно отдаётся кодом.
       memeSkipLabel: function (code) {
+        return memeReasonLabelOf(code);
+      },
+      memePromptSourceLabel: function (source) {
         var ru = {
-          disabled_by_setting: 'выключено настройкой',
-          initiative_disabled: 'инициатива выключена',
-          image_module_off: 'модуль картинок выключен',
-          image_provider_not_configured: 'image-провайдер не настроен',
-          image_provider_unhealthy: 'image-провайдер недоступен',
-          random_unavailable: 'источник случайности недоступен',
-          no_random_hit: 'случайный порог не пройден',
-          cooldown_active: 'кулдаун',
-          summary_failed: 'выжимка не удалась',
-          image_generation_failed: 'генерация картинки не удалась',
-          publish_blocked: 'публикация заблокирована',
-          daily_quota_reached: 'суточная квота исчерпана',
-          low_activity: 'мало активности',
-          schema_absent: 'схема квоты отсутствует',
-          length_limit_unknown: 'потолок длины неизвестен',
-          in_flight: 'уже выполняется',
-          quiet_hours: 'тихие часы',
-          cycle_exception: 'исключение цикла',
-          slot_released: 'бронь квоты освобождена',
+          chat: 'изменён для этого чата',
+          global: 'изменён глобально',
+          factory: 'заводской',
+          registry: 'изменён в реестре промптов',
+          explicit_override: 'явное переопределение',
+          unavailable: 'не прочитан',
         };
-        return ru[code] || code || '—';
+        return ru[source] || (source ? String(source) : 'источник неизвестен');
+      },
+      memeLengthSourceLabel: function (source) {
+        var ru = {
+          explicit_override: 'явное переопределение',
+          admin_setting: 'настройка администратора',
+          model_capability: 'возможности модели',
+          unknown: 'неизвестен',
+        };
+        return ru[source] || (source ? String(source) : 'неизвестен');
+      },
+      // P4: пустой текст поля промпта = «снять чатовое переопределение»
+      // (действует глобальный слой, затем заводской). Подпись честно говорит,
+      // что именно произойдёт, — это не «стереть промпт».
+      memePromptEmptyHint: function (source) {
+        if (source === 'factory') return 'пусто — заводской текст';
+        if (source === 'global') return 'пусто — вернуть глобальный текст';
+        if (source === 'registry') return 'пусто — вернуть текст реестра';
+        return 'пусто — снять чатовое переопределение';
+      },
+      // P4: причина отказа 422 у конкретного поля (показывается У поля).
+      memeFieldError: function (field) {
+        var errors = this.memeFieldErrors || {};
+        return errors[field] || '';
       },
       // Предупреждение о низком свободном месте (порог 2 ГБ).
       memoryStorageWarn: function () {
