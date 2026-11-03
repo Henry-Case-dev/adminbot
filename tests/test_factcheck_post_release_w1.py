@@ -280,10 +280,16 @@ class TestClassifyRetrieval:
                            empty_results=2)
         assert classify_retrieval(outcome) == RETRIEVAL_NO_RESULTS
 
-    def test_used_but_no_refs_is_processing_failed(self):
+    def test_used_but_no_refs_is_not_a_parser_break(self):
+        """EVOL-REPLY-CONTEXT-INTEGRITY-01 §11.2 п.6: сылка нет — это
+        ограничение цитируемости, а не доказанный сбой извлечения (§3.2 ES-1).
+        Технический класс остаётся только при реальных `fetch_errors`."""
         outcome = _outcome(queries_attempted=1, queries_used=1,
                            search_text="материалы без ссылок")
-        assert classify_retrieval(outcome) == RETRIEVAL_PROCESSING_FAILED
+        assert classify_retrieval(outcome) == RETRIEVAL_NO_RESULTS
+        broken = _outcome(queries_attempted=1, queries_used=1,
+                          search_text="материалы без ссылок", fetch_errors=1)
+        assert classify_retrieval(broken) == RETRIEVAL_PROCESSING_FAILED
 
     def test_budget_precedence_kept(self):
         outcome = _outcome(queries_attempted=1, budget_exhausted=True)

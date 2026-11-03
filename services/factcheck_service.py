@@ -624,20 +624,127 @@ class ClaimPublication:
     # нужен короткий вопрос-уточнение, а не «нечего проверять»).
     media_linked_adjacent: bool = False
     media_ambiguous: bool = False
+    # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5 (M1/M7), §10.3: одна правда о
+    # цели, происхождении тезиса и медиа-зависимости. Поля аддитивные; пустое
+    # значение = «резолвер этого не устанавливал» (никаких выдуманных флагов).
+    target_chat_id: int | None = None
+    target_tg_message_id: int | None = None
+    #: explicit_reply|stored_reply|forward|album|media|command_text|contextual|tool
+    target_source: str = ""
+    #: target_text|target_caption|target_media|target_transcript|command_text|
+    #: context_window|adjacent_media|tool_claim|external_claim
+    claim_origin: str = ""
+    claim_anchor_tg_message_id: int | None = None
+    claim_anchor_author: str | None = None
+    claim_anchor_source: str = "literal"   # literal|reply_to|topic|quote|media
+    #: у публикации есть самостоятельный проверяемый текст (§10.2)
+    text_sufficient: bool = False
+    association_attempted: bool = False
+    association_status: str = ""      # resolved|ambiguous|missing|not_attempted
+    association_reason: str = ""
+    association_candidates: tuple[int, ...] = ()
 
-    def notice(self) -> str:
-        parts: list[str] = []
-        if self.media_ambiguous:
-            parts.append("Не понял, какое изображение проверять: рядом "
-                         "несколько подходящих (или чужое фото без ответа на "
-                         "него) — ответь на нужное фото или пришли его сюда.")
+    def _notice_parts(self) -> list[tuple[str, str]]:
+        """(typed reason, текст) — единственный источник оговорок входа.
+
+        §10.3/§11.3: медиа-оговорка привязана к ФАКТИЧЕСКОЙ зависимости этой
+        проверки. `text_sufficient` — вторая стена к гейту `M9`: даже если
+        неоднозначность как-то выставлена, при достаточном тексте картинку у
+        пользователя не переспрашивают."""
+        parts: list[tuple[str, str]] = []
+        if self.media_ambiguous and not self.text_sufficient:
+            parts.append((
+                "ambiguous_no_text_claim",
+                "Не понял, какое изображение проверять: рядом несколько "
+                "подходящих (или чужое фото без ответа на него) — ответь на "
+                "нужное фото или пришли его сюда."))
         if self.album_incomplete:
-            parts.append("Элементы альбома прочитаны не полностью — проверено "
-                         "то, что сохранилось.")
+            parts.append((
+                "album_incomplete",
+                "Элементы альбома прочитаны не полностью — проверено то, что "
+                "сохранилось."))
         media_notice = self.media.notice()
         if media_notice:
-            parts.append(media_notice)
-        return " ".join(parts)
+            parts.append((self._media_notice_reason(), media_notice))
+        return parts
+
+    def _media_notice_reason(self) -> str:
+        """Причина медиа-оговорки из фактического состояния материала."""
+        if self.media.image_unchecked:
+            return "vision_unchecked"
+        if self.media.vision_failed:
+            return "vision_failed"
+        if self.media.truncated:
+            return "media_truncated"
+        if self.media.image_not_analyzed:
+            return "vision_pending"
+        return "media_other"
+
+    def notice(self) -> str:
+        return " ".join(text for _reason, text in self._notice_parts())
+
+    def notice_reason(self) -> str:
+        """Первая фактическая причина оговорки ('' = оговорки нет)."""
+        parts = self._notice_parts()
+        return parts[0][0] if parts else ""
+
+    def media_dependency_source(self) -> str:
+        """Почему проверка зависит/не зависит от медиа (§10.2/§10.3).
+
+        Значения — из фактического состояния публикации, а не из фразы
+        команды: ``explicit_reply_media``, ``album``, ``linked_media``,
+        ``adjacent_media_candidate``, ``text_claim_only``, ``unresolved``."""
+        if self.media_group_id:
+            return "linked_media" if self.media_linked_adjacent else "album"
+        if self.has_image or self.media.image_present:
+            return "explicit_reply_media"
+        if self.association_attempted:
+            return "adjacent_media_candidate"
+        if self.text_sufficient:
+            return "text_claim_only"
+        return "unresolved"
+
+    def target_kind(self) -> str:
+        """text|media|mixed|unresolved — по фактическому состоянию входа."""
+        has_media = bool(self.has_image or self.media.image_present
+                         or self.media.image_unchecked
+                         or self.association_status == "resolved")
+        has_text = bool(str(self.text or "").strip()) and self.text_sufficient
+        if has_text and has_media:
+            return "mixed"
+        if has_text:
+            return "text"
+        if has_media:
+            return "media"
+        return "unresolved"
+
+    def trace_fields(self) -> dict:
+        """§10.3: типизированная трасса входа — только коды/ID, без текстов."""
+        return {
+            "target_source": str(self.target_source or ""),
+            "target_kind": self.target_kind(),
+            "target_tg_message_id": self.target_tg_message_id,
+            "claim_origin": str(self.claim_origin or ""),
+            "claim_anchor_tg_message_id": self.claim_anchor_tg_message_id,
+            "claim_anchor_source": str(self.claim_anchor_source or ""),
+            "text_claim_resolved": bool(self.text_sufficient),
+            "media_expected": bool(self.has_image
+                                   or self.media_group_id
+                                   or self.association_attempted),
+            "media_dependency_source": self.media_dependency_source(),
+            "association_attempted": bool(self.association_attempted),
+            "association_status": str(self.association_status or ""),
+            "association_reason": str(self.association_reason or ""),
+            "association_candidates": len(self.association_candidates),
+            "linked_media_ids": (list(self.message_ids)
+                                 if (self.has_image or self.media_group_id
+                                     or self.association_status == "resolved")
+                                 else []),
+
+            "media_notice_emitted": bool(self.notice_reason()),
+            "media_notice_reason": self.notice_reason(),
+        }
+
 
     # ASAP-VISION-SYNC-01 §4: единая точка правды о медиа-зависимости для
     # обоих маршрутов фактчека (handler и v2-оркестратор). Пока анализ
@@ -691,6 +798,7 @@ async def resolve_claim_publication(
         trigger_tg_message_id: int | None = None,
         requester_user_id: int | None = None,
         requester_name: str = "",
+        target_source: str | None = None,
         allow_adjacent: bool = True) -> ClaimPublication:
     """Восстановить публикацию: durable элементы альбома + изображения.
 
@@ -879,32 +987,52 @@ async def resolve_claim_publication(
     # резолвером, что и остальные потребители: единственное фото ТОГО ЖЕ
     # автора рядом (чужое фото без структурной связи → честная
     # неоднозначность, а не приписывание).
+    #
+    # FC-MEDIA-OPTIONAL-01 §10.2 (M8): один предикат достаточности текста на
+    # все маршруты. Считается один раз по тексту самой публикации (до
+    # материала изображений) и используется и гейтом ниже, и трассой.
+    from services.factcheck_suitability import text_target_sufficient
+    text_sufficient = text_target_sufficient(caption_text or base)
     adjacent_ids: list[int] = []
     media_ambiguous = False
+    association_attempted = False
+    association_status = "not_attempted"
+    association_reason = ""
+    association_candidates: tuple[int, ...] = ()
     if (allow_adjacent and db is not None and chat_id is not None
             and not expected_ids and not hint_image):
-        anchor_id = tg_id if tg_id is not None else trigger_tg_message_id
-        if anchor_id:
-            try:
-                from services import media_readiness
-                resolved = await media_readiness.resolve_target_media(
-                    db, chat_id=int(chat_id), message_id=int(anchor_id),
-                    allow_adjacent=True,
-                    author_user_id=requester_user_id,
-                    author_name=str(requester_name or ""))
-            except Exception:
-                resolved = {}
-                logger.warning("[factcheck] adjacent media resolve failed | "
-                               "chat=%s", chat_id, exc_info=True)
-            if resolved.get("association_status") == "resolved":
-                adjacent_ids = [int(v) for v in
-                                (resolved.get("source_message_ids") or ())
-                                if v][:_MAX_ALBUM_ELEMENTS]
-            elif resolved.get("association_status") == "ambiguous":
-                media_ambiguous = True
-                logger.info("[factcheck] adjacent media ambiguous | chat=%s | "
-                            "candidates=%s", chat_id,
-                            len(resolved.get("source_message_ids") or ()))
+        if text_sufficient:
+            association_reason = "text_claim_sufficient"
+        else:
+            association_attempted = True
+            anchor_id = tg_id if tg_id is not None else trigger_tg_message_id
+            if anchor_id:
+                try:
+                    from services import media_readiness
+                    resolved = await media_readiness.resolve_target_media(
+                        db, chat_id=int(chat_id), message_id=int(anchor_id),
+                        allow_adjacent=True,
+                        author_user_id=requester_user_id,
+                        author_name=str(requester_name or ""))
+                except Exception:
+                    resolved = {}
+                    logger.warning("[factcheck] adjacent media resolve failed | "
+                                   "chat=%s", chat_id, exc_info=True)
+                association_status = str(
+                    resolved.get("association_status") or "missing")
+                association_reason = str(
+                    resolved.get("association_reason")
+                    or resolved.get("association_kind") or "")
+                association_candidates = tuple(
+                    int(v) for v in (resolved.get("source_message_ids") or ())
+                    if v)[:_MAX_ALBUM_ELEMENTS]
+                if association_status == "resolved":
+                    adjacent_ids = list(association_candidates)
+                elif association_status == "ambiguous":
+                    media_ambiguous = True
+                    logger.info("[factcheck] adjacent media ambiguous | "
+                                "chat=%s | candidates=%s", chat_id,
+                                len(association_candidates))
     if adjacent_ids:
         for extra_id in adjacent_ids:
             if extra_id not in image_ids:
@@ -954,6 +1082,29 @@ async def resolve_claim_publication(
             reply_to_tg_id = int(_row_value(target_row, "reply_to_id"))
         except (TypeError, ValueError):
             reply_to_tg_id = None
+    # M1/M7: цель и происхождение тезиса фиксируются из фактических данных
+    # резолвера (а не пересказа). `target_source` может прийти от вызывающего
+    # (handler знает вид триггера); иначе — структурный факт публикации.
+    resolved_source = str(target_source or "").strip()
+    if not resolved_source:
+        if media_group_id:
+            resolved_source = "linked_media" if attached_via_reply else "album"
+        elif has_image:
+            resolved_source = "media"
+        elif forward_source:
+            resolved_source = "forward"
+        else:
+            resolved_source = "explicit_reply"
+    if has_image and not caption_text:
+        resolved_origin = "target_media"
+    elif caption_text and base:
+        resolved_origin = "target_caption" if caption_text != base else "target_text"
+    elif caption_text:
+        resolved_origin = "target_caption"
+    elif media.text_suffix:
+        resolved_origin = "target_media"
+    else:
+        resolved_origin = ""
     return ClaimPublication(
         text=text, caption_text=caption_text, media=media,
         message_ids=tuple(image_ids), media_group_id=media_group_id,
@@ -961,7 +1112,18 @@ async def resolve_claim_publication(
         album_incomplete=album_incomplete, forward_source=forward_source,
         reply_to_tg_id=reply_to_tg_id,
         media_ambiguous=media_ambiguous,
-        media_linked_adjacent=bool(adjacent_ids))
+        media_linked_adjacent=bool(adjacent_ids),
+        target_chat_id=(int(chat_id) if chat_id not in (None, "", 0) else None),
+        target_tg_message_id=tg_id,
+        target_source=resolved_source,
+        claim_origin=resolved_origin,
+        claim_anchor_tg_message_id=tg_id,
+        claim_anchor_author=str(requester_name or "") or None,
+        text_sufficient=text_sufficient,
+        association_attempted=association_attempted,
+        association_status=association_status,
+        association_reason=association_reason,
+        association_candidates=association_candidates)
 
 
 # ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────
@@ -1034,14 +1196,22 @@ _TECHNICAL_RETRIEVAL_REASONS = frozenset({
 
 
 def classify_retrieval(retrieval) -> str:
-    """RetrievalOutcome → класс исхода (P0-FACTCHECK §3.6 + §5.1).
+    """RetrievalOutcome → класс исхода (§11.2, FC-EVIDENCE-STATUS-01).
+
+    Порядок условий заморожен контрактом (§3.3): технический статус
+    объявляется ТОЛЬКО по фактическому сбою стадии, а не по отсутствию
+    ссылок/релевантности.
 
     ``None`` → not_run (внутренний поиск ветки, прежний контракт). Есть
-    evidence → ok. Нет evidence, но метрики говорят о технической причине —
-    бюджет/недоступность провайдеров/потеря обработки; провайдеры ответили
-    пустой или нерелевантной выдачей → no_usable_results (НЕ «недоступны»,
-    §5.2); иначе — реальная недостаточность доказательств. Детерминированно,
-    без новых вызовов."""
+    evidence → ok. Дальше — по фактическим счётчикам стадии:
+
+    бюджет без единого результата → бюджет; провайдеры ответили пустой или
+    нерелевантной выдачей → «нет подходящих материалов» (НЕ «недоступны»,
+    §11.2 п.4/5); запросы упали/не выполнены → «поиск недоступен» (§11.2 п.1);
+    материалы были, но извлечение реально сломалось (``fetch_errors>0``) →
+    технический класс чтения источника (§11.2 п.3); материалы прочитаны, но
+    цитировать нечего → «недостаточно данных» + честная оговорка о
+    цитируемости (§11.2 п.6). Детерминированно, без новых вызовов."""
     if retrieval is None:
         return RETRIEVAL_NOT_RUN
     try:
@@ -1052,19 +1222,179 @@ def classify_retrieval(retrieval) -> str:
         failures = int(getattr(retrieval, "provider_failures", 0) or 0)
         empties = int(getattr(retrieval, "empty_results", 0) or 0)
         irrelevant = int(getattr(retrieval, "irrelevant_results", 0) or 0)
+        fetch_errors = int(getattr(retrieval, "fetch_errors", 0) or 0)
         if getattr(retrieval, "budget_exhausted", False) and used == 0:
             return RETRIEVAL_BUDGET
-        if used == 0 and (attempted > 0 or failures > 0 or empties > 0
-                          or irrelevant > 0):
-            if empties > 0 or irrelevant > 0:
-                # §5.2: провайдеры отвечали — «недоступны» объявлять нельзя
-                return RETRIEVAL_NO_RESULTS
+        if used == 0 and (empties > 0 or irrelevant > 0):
+            # §11.2 п.4/5: провайдеры ОТВЕТИЛИ — техсбоя нет
+            return RETRIEVAL_NO_RESULTS
+        if used == 0 and (attempted > 0 or failures > 0):
             return RETRIEVAL_SEARCH_FAILED
-        if used > 0:
+        if used > 0 and fetch_errors > 0:
+            # §11.2 п.3: единственный законный повод сказать «материалы не
+            # удалось разобрать» — реальная ошибка извлечения/парсинга.
             return RETRIEVAL_PROCESSING_FAILED
+        if used > 0:
+            # §11.2 п.6: материалы прочитаны, проверяемых ссылок нет.
+            return RETRIEVAL_NO_RESULTS
     except Exception:          # pragma: no cover — метрики не рвут вердикт
         return RETRIEVAL_NOT_RUN
     return RETRIEVAL_INSUFFICIENT
+
+
+#: §11.3: неизвестное значение не изображается нулём.
+_DIAG_UNKNOWN = "н/д"
+
+
+def _diag_count(value) -> int | str:
+    """Счётчик из реального значения; отсутствующее — «нет данных»."""
+    if value is None:
+        return _DIAG_UNKNOWN
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return _DIAG_UNKNOWN
+
+
+def evidence_diagnostics(*, retrieval, retrieval_state: str,
+                         evidence, verdict) -> dict:
+    """§11.3: диагностика ОДНОГО прогона из фактических значений.
+
+    Ничего не вычисляется «по аналогии»: если счётчика в этой ветке нет —
+    пишется «нет данных», а не 0. Текстов тезиса/чатов здесь нет (§7)."""
+    claims = tuple(getattr(retrieval, "claims", ()) or ())
+    known = retrieval is not None
+    fetch_errors = (int(getattr(retrieval, "fetch_errors", 0) or 0)
+                    if known else None)
+    opened = (sum(int(getattr(c, "opened", 0) or 0) for c in claims)
+              if known else None)
+    extract_attempts = (opened + (fetch_errors or 0)
+                        if opened is not None else None)
+    # Реальные счётчики стадии: один элемент `provider_status` = одна попытка
+    # провайдера; `candidates` = сколько строк выдачи было получено.
+    provider_attempts = (sum(len(tuple(getattr(c, "provider_status", ()) or ()))
+                             for c in claims) if known else None)
+    documents = (sum(int(getattr(c, "candidates", 0) or 0) for c in claims)
+                 if known else None)
+    citable = len([r for r in (evidence or ()) if r.get("url")])
+    return {
+        "source_query_count": _diag_count(
+            getattr(retrieval, "queries_attempted", None) if known else None),
+        "provider_attempts": _diag_count(provider_attempts),
+        "provider_failures": _diag_count(
+            getattr(retrieval, "provider_failures", None) if known else None),
+        "documents_retrieved": _diag_count(documents),
+        "queries_with_results": _diag_count(
+            getattr(retrieval, "queries_used", None) if known else None),
+        "extract_attempts": _diag_count(extract_attempts),
+        "extract_successes": _diag_count(opened),
+        "extract_failures": _diag_count(fetch_errors),
+        "empty_results": _diag_count(
+            getattr(retrieval, "empty_results", None) if known else None),
+        "irrelevant_results": _diag_count(
+            getattr(retrieval, "irrelevant_results", None) if known else None),
+        "off_topic_sources_dropped": _diag_count(
+            getattr(retrieval, "off_topic_sources_dropped", None)
+            if known else None),
+        "relevant_evidence_count": _diag_count(
+            getattr(retrieval, "refs_collected", None) if known else None),
+        "citable_evidence_count": citable,
+        "budget_exhausted": (bool(getattr(retrieval, "budget_exhausted", False))
+                             if known else _DIAG_UNKNOWN),
+        "fetch_skipped_deadline": _diag_count(
+            getattr(retrieval, "fetch_skipped_deadline", None)
+            if known else None),
+        "retrieval_class": str(retrieval_state or ""),
+        "technical_reason": str(getattr(verdict, "reason", "") or ""),
+    }
+
+
+def emit_evidence_diagnostics(*, chat_id: int | None, retrieval,
+                              retrieval_state: str, evidence, verdict,
+                              pipeline_run_id: str | None = None) -> dict:
+    """§11.3: одно событие диагностики на прогон (fail-open)."""
+    fields = evidence_diagnostics(retrieval=retrieval,
+                                  retrieval_state=retrieval_state,
+                                  evidence=evidence, verdict=verdict)
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "factcheck_diagnostics",
+            outcome="success" if evidence else "skipped", level="INFO",
+            component="factcheck.evidence", chat_id=chat_id,
+            pipeline_run_id=str(pipeline_run_id or "") or None,
+            entity_ids=fields)
+    except Exception:      # pragma: no cover — событие не рвёт вердикт
+        logger.debug("[factcheck] diagnostics event failed", exc_info=True)
+    return fields
+
+
+def envelope_retrieval_state(*, evidence, retrieval, results_text: str,
+                             internal_failure_cause: str | None) -> str:
+    """Класс исхода retrieval на envelope-пути (единая точка, §11.2).
+
+    Порядок заморожен контрактом §3.3: существует документированная
+    evidence-карта → ok; иначе — по фактическим метрикам стадии. Отдельно
+    (ES-2): «внутренний поиск что-то нашёл, ссылок нет» — это ограничение
+    цитируемости, а НЕ доказанный сбой парсинга."""
+    if evidence:
+        return RETRIEVAL_OK
+    if retrieval is not None:
+        return classify_retrieval(retrieval)
+    if str(results_text or "").strip():
+        return RETRIEVAL_NO_RESULTS
+    if internal_failure_cause in ("empty_results", "irrelevant_results"):
+        return RETRIEVAL_NO_RESULTS
+    if internal_failure_cause:
+        return RETRIEVAL_SEARCH_FAILED
+    return RETRIEVAL_NOT_RUN
+
+
+def emit_target_trace(publication, *, chat_id=None, trigger_tg_message_id=None,
+                      delivery_reply_to=None, envelope=None,
+                      extra: dict | None = None, route: str = "",
+                      component: str = "factcheck.target") -> dict:
+    """§10.3/§11.3: трасса цели/медиа/claim из фактического состояния.
+
+    Только коды и ID; текстов реплик, снимков и base64 здесь нет. Пустое
+    значение означает «резолвер этого не устанавливал» — не подставляем
+    правдоподобный флаг."""
+    fields: dict = {}
+    if publication is not None:
+        try:
+            fields.update(publication.trace_fields())
+        except Exception:      # pragma: no cover — трасса не рвёт ответ
+            logger.debug("[factcheck] trace fields failed", exc_info=True)
+    fields.update({
+        "route": str(route),
+        "trigger_tg_message_id": trigger_tg_message_id,
+        "delivery_reply_to": delivery_reply_to,
+    })
+    if envelope is not None and publication is not None:
+        # I3 (§1.5): вердикт и поиск читают РОВНО текст публикации.
+        fields["envelope_claim_matches_publication"] = bool(
+            str(getattr(envelope, "claim_text", "")) == str(publication.text))
+        fields["envelope_target_matches_publication"] = bool(
+            getattr(envelope, "target_tg_message_id", None)
+            == publication.target_tg_message_id)
+        fields["claim_anchor_tg_message_id"] = getattr(
+            envelope, "claim_anchor_tg_message_id", None)
+    if extra:
+        fields.update(extra)
+    try:
+        logger.info("[factcheck_target] %s | chat=%s | %s", route or "-",
+                    chat_id, " | ".join(f"{key}={fields[key]}"
+                                        for key in sorted(fields)))
+    except Exception:          # pragma: no cover
+        pass
+    try:
+        from services import mca_events
+        mca_events.emit_mca_event(
+            "factcheck_target", outcome="success", level="INFO",
+            component=component, chat_id=chat_id, entity_ids=fields)
+    except Exception:          # pragma: no cover — событие не рвёт ответ
+        logger.debug("[factcheck] target trace event failed", exc_info=True)
+    return fields
 
 
 def _server_parts(envelope, evidence) -> tuple:
@@ -1935,24 +2265,13 @@ class FactCheckService:
             usage_events.new_correlation_id()
         fallback_used = False
         verdict_reason = search_reason
-        # P0-FACTCHECK (§3.6): технический класс исхода retrieval. Раньше
-        # бюджет/недоступность провайдеров/потеря обработки не читались и
-        # любой пустой evidence давал «недостаточно доказательств».
-        if evidence:
-            retrieval_state = RETRIEVAL_OK
-        elif retrieval is not None:
-            retrieval_state = classify_retrieval(retrieval)
-        elif str(results or "").strip():
-            # F2: внутренний поиск что-то нашёл, но проверяемых ссылок нет.
-            retrieval_state = RETRIEVAL_PROCESSING_FAILED
-        elif internal_failure_cause in ("empty_results",
-                                        "irrelevant_results"):
-            # §5.1/§5.2: провайдеры ответили — «недоступны» не объявляем
-            retrieval_state = RETRIEVAL_NO_RESULTS
-        elif internal_failure_cause:
-            retrieval_state = RETRIEVAL_SEARCH_FAILED
-        else:
-            retrieval_state = RETRIEVAL_NOT_RUN
+        # P0-FACTCHECK (§3.6)/§11.2: технический класс исхода retrieval —
+        # единая функция (см. `envelope_retrieval_state`), а не «нет URL →
+        # поломка разбора».
+        retrieval_state = envelope_retrieval_state(
+            evidence=evidence, retrieval=retrieval,
+            results_text=str(results or ""),
+            internal_failure_cause=internal_failure_cause)
         if retrieval_state in _RETRIEVAL_REASON:
             verdict_reason = _RETRIEVAL_REASON[retrieval_state]
 
@@ -1972,6 +2291,17 @@ class FactCheckService:
         analysis_context = ("" if evidence
                             else _analysis_context_for_empty_evidence(
                                 retrieval_state))
+        if not evidence and retrieval_state == RETRIEVAL_NO_RESULTS and int(
+                getattr(retrieval, "queries_used", 0) or 0) > 0:
+            # §11.2 п.6/§11.3: материалы прочитаны, но цитируемых URL/выдержек
+            # нет — это ограничение ССЫЛОЧНОЙ доказательности. Writer обязан
+            # сказать именно это, а не «материалы не удалось разобрать».
+            analysis_context += (
+                "\n<analysis_context>\n"
+                "Ограничение ссылочной доказательности: материалы этой выдачи "
+                "прочитаны, но проверяемых URL/цитат в них не оказалось. Это "
+                "НЕ технический сбой поиска; ссылки в ответе не выдумывать.\n"
+                "</analysis_context>")
         # ASAP-FC-EVIDENCE-STYLE-02 §3.1: покрытие частей известно ДО вердикта
         # (retrieval уже отработал) — аналитик получает статус каждого пункта,
         # чтобы не смешивать технический сбой с «нет данных» и разбирать
@@ -2114,6 +2444,13 @@ class FactCheckService:
         if not verdict_text:
             verdict_text = self._temporal_fallback_text(
                 env, verdict, retrieval_state=retrieval_state)
+
+        # §11.3 (FC-EVIDENCE-STATUS-01): диагностика прогона из фактических
+        # счётчиков стадии — не из «нет URL». Неизвестное → «нет данных».
+        emit_evidence_diagnostics(
+            chat_id=env.chat_id, retrieval=retrieval,
+            retrieval_state=retrieval_state, evidence=evidence,
+            verdict=verdict, pipeline_run_id=correlation_id)
 
         return tf.TemporalRunResult(
             envelope=env, verdict=verdict, verdict_text=verdict_text,

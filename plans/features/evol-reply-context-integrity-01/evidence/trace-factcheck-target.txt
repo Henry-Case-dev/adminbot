@@ -1,0 +1,53 @@
+EVOL-REPLY-CONTEXT-INTEGRITY-01 §5.2 trace-factcheck-target (детерминированный прогон)
+source: одноразовый прогон (WorkspaceData/runs/rc-factcheck-trace/trace_run.py) на фикстуре этого среза
+
+[target_resolution] explicit text target
+  association_attempted=False
+  association_candidates=0
+  association_reason=text_claim_sufficient
+  association_status=not_attempted
+  claim_anchor_source=literal
+  claim_anchor_tg_message_id=771001
+  claim_origin=target_text
+  linked_media_ids=[]
+  media_dependency_source=text_claim_only
+  media_expected=False
+  media_notice_emitted=False
+  media_notice_reason=
+  target_kind=text
+  target_source=explicit_reply
+  target_tg_message_id=771001
+  text_claim_resolved=True
+[envelope]
+  reject_reason=None
+  envelope.claim_text == publication.text: True
+  envelope.target_tg_message_id=771001
+  envelope.claim_anchor_tg_message_id=771001
+[plan]
+  plan_built=True
+  claims=1
+  claim_text_matches_envelope=True
+  claim=c1 anchor_tg=771001 author= source=literal
+[claim_selection] empty target, real reply-parent
+  chosen_anchor=771001 basis=structural candidates=[771001]
+  author=Ирма (близкая чужая реакция tg=771002 не выбрана: True)
+[claim_selection] two comparable candidates
+  claim=None basis=ambiguous candidates=[9002, 9001]
+[media_dependency]
+  text target: association_attempted=False status=not_attempted notice=''
+  text-less command: text_sufficient=False association_attempted=True status=missing
+[evidence_status_matrix]
+  provider_down: class=search_failed reason=provider_unavailable headline=technical:provider_unavailable
+    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=2 queries_with_results=0 relevant_evidence_count=0 retrieval_class=search_failed source_query_count=2 technical_reason=
+  deadline: class=budget_exhausted reason=deadline_exceeded headline=technical:deadline_exceeded
+    budget_exhausted=True citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=budget_exhausted source_query_count=2 technical_reason=
+  extract_failed: class=processing_failed reason=source_missing headline=technical:source_missing
+    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=2 extract_failures=2 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=2 relevant_evidence_count=0 retrieval_class=processing_failed source_query_count=2 technical_reason=
+  empty_results: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
+    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=2 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
+  no_relevant: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
+    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=2 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
+  no_citable: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
+    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=2 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
+[evidence_status_matrix] internal search, no URLs (ES-2)
+  class=no_usable_results reason=insufficient_evidence

@@ -331,6 +331,27 @@ def has_checkable_core(text: str) -> bool:
     return len(tokenize_for_relevance(clean)) >= _CORE_MIN_TOKENS
 
 
+def text_target_sufficient(text: str) -> bool:
+    """Самостоятельный проверяемый текст цели (FC-MEDIA-OPTIONAL-01 §10.2).
+
+    Один предикат на все маршруты фактчека: «у цели есть собственный тезис»
+    решает, нужна ли вообще необязательная медиа-ассоциация. Переиспользует
+    существующие предикаты (`_COMMAND_TEXT_RE`, `is_conservatively_irrelevant`,
+    `has_checkable_core`) — нового классификатора нет.
+
+    `False` только когда текста нет, это сама команда «фактчек …» или
+    консервативный филлер: тогда цель действительно может нуждаться в медиа
+    (§10.2 «Unbound фактчек after media»)."""
+    clean = str(text or "").strip()
+    if not clean:
+        return False
+    if _COMMAND_TEXT_RE.match(clean):
+        return False
+    if is_conservatively_irrelevant(clean):
+        return False
+    return has_checkable_core(clean)
+
+
 def _is_referential(text: str) -> bool:
     """Референциальная/эллиптичная цель: содержание — в контексте."""
     clean = str(text or "").strip()
@@ -441,31 +462,57 @@ def _dispute_scores(ctx: ConversationContext,
 def _dominant_dispute(ctx: ConversationContext
                       ) -> tuple[ContextMessage | None, float, float]:
     """Доминирующий спор по ДИСКУССИОННЫМ маркерам (для референциальных
-    целей с пустым зондом — «ну и что там?»). Кандидат-тезис обязан иметь
-    структурный предикат (реакции «это бред» тезисами не становятся);
-    вес = маркеры в нём + маркеры/число прямых ответов.
+    целей с пустым зондом — «ну и что там?»).
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 §4.3 (BD-5): вес больше НЕ включает
+    «число прямых ответов» и «длину в словах» — эти критерии выбора
+    антецедента прямо запрещены. Структурные признаки берутся как факты
+    связи (тезис — не реакция; на него отвечают), а не как количество:
+
+    * сообщение-реакция (само является ответом внутри окна) антецедентом
+      быть не может — §13.13 «не создавать новый тезис из реакции»;
+    * вес = маркеры спора ×2 + предикат + claim-like + «на него есть ответ».
+
     → (сообщение|None, top_score, second_score)."""
-    messages = [m for m in ctx.messages
-                if m.tg_message_id != ctx.target_tg_message_id
-                and str(m.text or "").strip()]
+    target_tg = ctx.target_tg_message_id
+    messages = [m for m in ctx.messages if str(m.text or "").strip()]
     if not messages:
         return None, 0.0, 0.0
-    replies_to: dict[int, int] = {}
+    window_ids = {m.tg_message_id for m in messages}
+    replied: set[int] = set()
+    reaction_ids: set[int] = set()
     for m in messages:
-        if m.reply_to_tg_id:
-            replies_to[m.reply_to_tg_id] = replies_to.get(
-                m.reply_to_tg_id, 0) + 1
+        parent = m.reply_to_tg_id
+        if parent in (None, "", 0):
+            continue
+        try:
+            parent = int(parent)
+        except (TypeError, ValueError):
+            continue
+        replied.add(parent)
+        if parent in window_ids and m.tg_message_id != target_tg:
+            # сообщение, которое отвечает внутри окна, — реакция, не тезис
+            reaction_ids.add(m.tg_message_id)
     candidates = [m for m in messages
-                  if _claim_like_text(m.text)
-                  or len(tokenize_for_relevance(m.text)) >= 6]
+                  if m.tg_message_id != target_tg
+                  and m.tg_message_id not in reaction_ids
+                  and (_claim_like_text(m.text)
+                       or len(tokenize_for_relevance(m.text)) >= 6)
+                  # антецедент спора участвует в обсуждении: на него отвечают
+                  # ИЛИ он сам несёт дискуссионный маркер (не «сколько раз»)
+                  and (m.tg_message_id in replied
+                       or bool(_DISPUTE_MARKER_RE.search(str(m.text or ""))))]
     if not candidates:
         return None, 0.0, 0.0
     scored: list[tuple[ContextMessage, float]] = []
     for m in candidates:
         score = len(_DISPUTE_MARKER_RE.findall(str(m.text or ""))) * 2.0
-        score += replies_to.get(m.tg_message_id, 0) * 1.5
-        score += len(tokenize_for_relevance(m.text)) / 20.0
         if _has_predicate(m.text):
+            score += 1.0
+        if _claim_like_text(m.text):
+            score += 1.0
+        if m.tg_message_id in replied:
+            # структурный факт: на это сообщение отвечают (не «сколько раз»)
             score += 1.0
         scored.append((m, score))
     scored.sort(key=lambda pair: pair[1], reverse=True)
@@ -515,6 +562,9 @@ class ContextClaim:
     source: str                      # reply_to | window
     author: str | None = None
     tg_message_id: int | None = None
+    #: EVOL-REPLY-CONTEXT-INTEGRITY-01 §4.3: чем обоснован выбор антецедента
+    #: (``structural`` | ``topic`` | ``tiebreak``) — видно в трассе.
+    basis: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -526,6 +576,28 @@ class ContextProbe:
     window_before: int
     window_after: int
     chain_len: int = 0
+    #: Сопоставимые кандидаты без разрешения → вызывающий уточняет предмет,
+    #: а не выдаёт вердикт по угаданному тезису (§4.3, сценарий 10).
+    ambiguous: bool = False
+    candidates: tuple[int, ...] = ()
+    claim_basis: str = ""
+
+
+def _item_tg_message_id(item) -> int | None:
+    """Telegram ID хода цепочки из ``item_id`` (``tg:<id>``) либо ``None``.
+
+    ADR-1020-1 п.4: ``item_id`` бывает ``tg:<tg_message_id>``, ``msg:<id>``
+    (локальный id строки БД) или пустым. Анкором объявленного тезиса может
+    быть только реальный Telegram ID: ``msg:``/пусто — id достоверно
+    неизвестен, подставлять его нельзя (тезис получил бы чужую дату/автора)."""
+    raw = str(getattr(item, "item_id", "") or "")
+    if not raw.startswith("tg:"):
+        return None
+    try:
+        value = int(raw.split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        return None
+    return value or None
 
 
 def _claim_like_text(text: str) -> bool:
@@ -573,36 +645,142 @@ def is_conservatively_irrelevant(text: str) -> bool:
     return all(word in _FILLER_WORDS for word in words)
 
 
-def find_context_claim(ctx: ConversationContext | None, *,
-                       trigger_tg_message_id=None) -> ContextClaim | None:
-    """Ближайший к цели тезис в окне (детерминированно, без LLM).
+#: Два тезиса в одном всплеске рядом с целью — выбор неоднозначен (§4.3,
+#: сценарий 10): расстояния по tg-идентификатору различаются на 1 → уточнение.
+_ADJACENT_TIE_GAP = 1
+#: Неизвестный tg-идентификатор — «дальше любого известного» (детерминированно).
+_CONTEXT_DISTANCE_UNKNOWN = 10 ** 9
 
-    Цель и сообщения-команды «фактчек …» исключаются: команда — не
-    публикация. Расстояние — по ``tg_message_id``; при равенстве выбирается
-    более раннее сообщение. Текст подписи доступен в окне (W1 caption-фикс)."""
+
+def _infer_source_claim(ctx: ConversationContext | None, *,
+                        trigger_tg_message_id=None,
+                        hint: str | None = None,
+                        reply_to_tg_id: int | None = None
+                        ) -> tuple["ContextClaim | None", str, tuple[int, ...]]:
+    """Антецедент тезиса в окне: (claim|None, статус, id кандидатов).
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 §4.2/§4.3 (BD-4). Порядок решения
+    заморожен и НЕ содержит запрещённых критериев (минимум `abs(tg−target)`,
+    максимум слов, число ответов, частота терминов как правило выбора):
+
+    1. структурная цепочка — тезис связан с целью/триггером реальным
+       reply-ребром (это не «соседство», а факт адресации);
+    2. семантические кандидаты существующим `_dispute_scores` по стеммам
+       текста цели и хинта; сопоставимые (неразличимые) → уточнение;
+    3. разрешение ничьей по tg-близости — только среди РАВНЫХ по семантике
+       (обычно нулевой зонд: у пустой/реактивной цели нет своего текста),
+       и только если рядом нет второго сопоставимого тезиса;
+    4. два сопоставимых кандидата в одном всплеске → `ambiguous`
+       (вызывающий обязан уточнить, а не выдавать вердикт).
+
+    Статусы: ``structural`` | ``topic`` | ``tiebreak`` | ``ambiguous`` |
+    ``none``."""
     if ctx is None or not ctx.messages:
-        return None
-    target = ctx.target_tg_message_id
-    candidates = [m for m in ctx.messages
-                  if str(m.text or "").strip()
-                  and m.tg_message_id != target
-                  and m.tg_message_id != trigger_tg_message_id
-                  and not _COMMAND_TEXT_RE.match(str(m.text or ""))
-                  and _claim_like_text(m.text)]
+        return None, "none", ()
+    target_tg = ctx.target_tg_message_id
+    anchor_ids = {target_tg, trigger_tg_message_id}
+    candidates: list[ContextMessage] = []
+    for m in ctx.messages:
+        text = str(m.text or "").strip()
+        if not text or m.tg_message_id in anchor_ids:
+            continue
+        if _COMMAND_TEXT_RE.match(text):
+            continue                     # команда «фактчек …» — не публикация
+        if not _claim_like_text(text):
+            continue
+        candidates.append(m)
     if not candidates:
-        return None
+        return None, "none", ()
 
-    def _distance(m: ContextMessage):
+    def _ids(rows) -> tuple[int, ...]:
+        return tuple(int(m.tg_message_id) for m in rows
+                     if m.tg_message_id is not None)
+
+    def _claim_of(m: ContextMessage, source: str) -> ContextClaim:
+        return ContextClaim(text=str(m.text).strip(), source=source,
+                            author=m.author, tg_message_id=m.tg_message_id)
+
+    # 1. Структурная связь: цель/триггер отвечают именно на это сообщение.
+    #    `reply_to_tg_id` приходит от публикации: строка самой пустой цели в
+    #    окно не попадает (нет текста), поэтому реальное ребро берётся из
+    #    фактических данных цели, а не угадывается по порядку.
+    parents: set[int] = set()
+    if reply_to_tg_id not in (None, "", 0):
         try:
-            return abs(int(m.tg_message_id) - int(target))
+            parents.add(int(reply_to_tg_id))
         except (TypeError, ValueError):
-            return 10 ** 9
+            pass
+    for m in ctx.messages:
+        if m.tg_message_id not in anchor_ids:
+            continue
+        try:
+            parent = int(m.reply_to_tg_id)
+        except (TypeError, ValueError):
+            continue
+        if parent not in anchor_ids:
+            parents.add(parent)
+    structural = [m for m in candidates if m.tg_message_id in parents]
+    if len(structural) == 1:
+        return _claim_of(structural[0], "reply_to"), "structural", _ids(
+            structural)
+    if len(structural) > 1:
+        return None, "ambiguous", _ids(structural)
 
-    best = min(candidates, key=lambda m: (_distance(m),
-                                          m.tg_message_id or 0))
-    return ContextClaim(text=str(best.text).strip(), source="window",
-                        author=best.author,
-                        tg_message_id=best.tg_message_id)
+    # 2. Семантика: пересечение стеммов текста цели/хинта с сообщением.
+    def _distance(m: ContextMessage) -> int:
+        try:
+            return abs(int(m.tg_message_id) - int(target_tg))
+        except (TypeError, ValueError):
+            return _CONTEXT_DISTANCE_UNKNOWN
+
+    probe: set[str] = _stems(hint)
+    for m in ctx.messages:
+        if m.tg_message_id == target_tg:
+            probe |= _stems(m.text)
+            break
+    by_id = {m.tg_message_id: m for m in candidates}
+    scored = [(m, score) for m, score in (_dispute_scores(ctx, probe)
+                                          if probe else [])
+              if m.tg_message_id in by_id]
+    if scored:
+        top_msg, top_score = scored[0]
+        second_score = scored[1][1] if len(scored) > 1 else 0.0
+        separated = (top_score >= second_score * _AMBIGUITY_RATIO
+                     or top_score - second_score >= _AMBIGUITY_MARGIN)
+        if second_score > 0 and not separated:
+            return None, "ambiguous", _ids([m for m, _s in scored[:3]])
+        if separated and top_score >= _MIN_TOPIC_SCORE:
+            return (_claim_of(top_msg, "window"), "topic",
+                    (int(top_msg.tg_message_id),))
+        tied = [m for m, score in scored if score == top_score]
+        if len(tied) > 1:
+            return None, "ambiguous", _ids(tied[:3])
+
+    # 3. Ничья по семантике (обычно нулевой зонд): близость — только
+    #    детерминированное разрешение ничьей, не правило выбора темы.
+    ordered = sorted(candidates, key=lambda m: (_distance(m),
+                                                int(m.tg_message_id or 0)))
+    best = ordered[0]
+    if len(ordered) > 1:
+        runner = ordered[1]
+        if _distance(runner) - _distance(best) <= _ADJACENT_TIE_GAP:
+            return None, "ambiguous", _ids(ordered[:3])
+    return _claim_of(best, "window"), "tiebreak", (int(best.tg_message_id),)
+
+
+def find_context_claim(ctx: ConversationContext | None, *,
+                       trigger_tg_message_id=None,
+                       hint: str | None = None,
+                       reply_to_tg_id: int | None = None
+                       ) -> ContextClaim | None:
+    """Антецедент тезиса в окне (детерминированно, без LLM).
+
+    Возврат ``None`` — либо кандидатов нет вовсе, либо они сопоставимы:
+    вызывающий обязан уточнить предмет (угадывать запрещено, §4.3)."""
+    claim, _status, _ids = _infer_source_claim(
+        ctx, trigger_tg_message_id=trigger_tg_message_id, hint=hint,
+        reply_to_tg_id=reply_to_tg_id)
+    return claim
 
 
 async def resolve_context_claim(
@@ -610,6 +788,7 @@ async def resolve_context_claim(
         target_tg_message_id=None,
         trigger_tg_message_id=None,
         reply_to_tg_id: int | None = None,
+        hint: str | None = None,
         cache=None) -> ContextProbe | None:
     """Обязательная проверка окружения пустой цели (уточнение №2).
 
@@ -617,6 +796,10 @@ async def resolve_context_claim(
     W1 (``build_wide_context``: 200–300 сообщений, кап 500, кеш). Гейт
     ``wide_context_enabled`` здесь НАМЕРЕННО не читается: для пустой цели
     широкий контекст обязателен, флаг остаётся откатом для непустых целей.
+
+    Выбор антецедента — ``_infer_source_claim`` (§4.3): структурная связь →
+    семантика → детерминированная ничья; сопоставимые кандидаты дают
+    ``ambiguous=True`` (уточнение вместо угадывания).
 
     Возврат ``None`` — окружение собрать не удалось (пусто/сбой): это
     техническая причина, вызывающий обязан не выдавать её за «фактов нет»."""
@@ -652,9 +835,15 @@ async def resolve_context_claim(
                 if _COMMAND_TEXT_RE.match(str(item.text or "")):
                     continue                 # «фактчек …» — команда, не тезис
                 if _claim_like_text(item.text):
+                    # B2 (§4.1/§4.2/§5.3): объявленный тезис обязан нести СВОЙ
+                    # Telegram ID — иначе анкор пуст и envelope строится по
+                    # сообщению-реакции, приписывая тезису чужую дату/автора.
+                    tg_id = _item_tg_message_id(item)
+                    if tg_id is None:
+                        continue             # id достоверно неизвестен
                     chain_claim = ContextClaim(
                         text=str(item.text).strip(), source="reply_to",
-                        author=item.name)
+                        author=item.name, tg_message_id=tg_id)
                     break
             if chain_claim is not None and chain:
                 block = render_reply_chains(
@@ -666,8 +855,18 @@ async def resolve_context_claim(
                            "chat=%s", chat_id, exc_info=True)
     if ctx is None and chain_claim is None:
         return None
-    claim = chain_claim or find_context_claim(
-        ctx, trigger_tg_message_id=trigger_tg_message_id)
+    window_claim, basis, candidate_ids = _infer_source_claim(
+        ctx, trigger_tg_message_id=trigger_tg_message_id, hint=hint,
+        reply_to_tg_id=reply_to_tg_id)
+    if chain_claim is not None:
+        claim, basis, candidate_ids = chain_claim, "structural", (
+            (int(chain_claim.tg_message_id),)
+            if chain_claim.tg_message_id is not None else ())
+    else:
+        claim = window_claim
+    if claim is not None and not claim.basis:
+        claim = dataclasses.replace(claim, basis=basis)
+    ambiguous = bool(claim is None and basis == "ambiguous")
     return ContextProbe(
         feed=feed, claim=claim,
         window_messages=len(ctx.messages) if ctx is not None else 0,
@@ -675,7 +874,10 @@ async def resolve_context_claim(
         if ctx is not None else 0,
         window_after=int(ctx.window.get("after") or 0)
         if ctx is not None else 0,
-        chain_len=chain_len)
+        chain_len=chain_len,
+        ambiguous=ambiguous,
+        candidates=tuple(candidate_ids),
+        claim_basis=basis)
 
 
 def _contextual_item(ctx: ConversationContext, m: ContextMessage,
