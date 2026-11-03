@@ -210,6 +210,16 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # RBAC — доступ к конкретному чату.
     from web.api.mechanism_diagnostics import mechanism_diagnostics_router
     app.include_router(mechanism_diagnostics_router, prefix="/api")
+    # P1 «Инициатива» (рекомпоновка страницы: вкладки «Публикации» и
+    # «Диагностика»): единый журнал логических попыток публикации (текст и
+    # мемы) с фильтрами/пагинацией + трасса РОВНО одной попытки. Читает
+    # существующие журналы (meme_initiative_attempt / mca_events /
+    # mca_bot_outputs), ничего не пишет. Отдельный файл-зона (прецедент
+    # mechanism_diagnostics); routes.py не меняется, RBAC — доступ к чату.
+    from web.api.initiative_publications import (
+        initiative_publications_router,
+    )
+    app.include_router(initiative_publications_router, prefix="/api")
     # UI-полировка TMA: прокси аватаров (GET /api/avatar/{kind}/{tid}) —
     # bot из services.web_runtime; отдельный router рядом с остальными.
     from web.api.avatars import avatar_router

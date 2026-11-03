@@ -451,9 +451,16 @@ def snap(page, shots, name, segments=0):
 
 
 def open_card(page):
-    page.goto(BASE + "/#/modules/initiative/settings", wait_until="load")
+    # P1 (2026-11-03): карточка мемов живёт на СВОЕЙ вкладке «Мемы».
+    page.goto(BASE + "/#/modules/initiative/memes", wait_until="load")
     page.wait_for_selector("header.header-sticky", state="visible")
     page.wait_for_selector("[data-meme-prompt-joke]", state="visible")
+    page.wait_for_timeout(500)
+
+
+def open_tab(page, tab):
+    """Переход по ленте вкладок страницы «Инициатива» (без перезагрузки)."""
+    page.click('[data-workspace-tab="%s"]' % tab)
     page.wait_for_timeout(500)
 
 
@@ -537,6 +544,10 @@ PROBE = r"""
     },
     stages: stageRows,
     stagesEmpty: txt('[data-meme-attempt-empty]'),
+    attempt: {
+      ts: txt('[data-ini-attempt-ts]'),
+      result: txt('[data-ini-attempt-result]'),
+    },
     diag: {
       empty: txt('[data-meme-diag-empty]'),
       error: txt('[data-meme-diag-error]'),
@@ -633,32 +644,37 @@ def run_full(browser, width, height, label, shots):
                  % speech["skipped"])
         if "Придумай короткий абсурдный прикол" in speech["block"]:
             fail(label, "в диагностике напечатан текст промпта/прикола")
-        # 3. Видимая аналитика по стадиям: 4 этапа пайплайна различимы.
+        # 3. Видимая компактная «Последняя попытка»: 4 этапа различимы,
+        #    причина и факт реальной публикации — без «фактов этапа нет».
         stages = [r["stage"] for r in data["stages"]]
         if stages != ["summary", "joke", "image_generation", "publish"]:
             fail(label, "стадии попытки: %s" % stages)
         by = {r["stage"]: r for r in data["stages"]}
         if by.get("joke", {}).get("outcome") != "passed":
-            fail(label, "итог этапа прикола не показан")
-        joke_facts = by.get("joke", {}).get("facts") or ""
-        for want in ("шаблон 5", "бюджет прикола 395", "прикол 6"):
-            if want not in joke_facts:
-                fail(label, "факты этапа прикола не показаны (%r): %r"
-                     % (want, joke_facts))
-        if "выжимка 41" not in (by.get("summary", {}).get("facts") or ""):
-            fail(label, "длина выжимки не показана: %r"
-                 % by.get("summary", {}).get("facts"))
-        image_facts = by.get("image_generation", {}).get("facts") or ""
-        for want in ("итоговый промпт 23", "прикол 6"):
-            if want not in image_facts:
-                fail(label, "факты этапа картинки (%r): %r" % (want, image_facts))
+            fail(label, "итог этапа прикола не показан: %r"
+                 % by.get("joke", {}))
         if "Генерация прикола" not in (by.get("joke", {}).get("text") or ""):
             fail(label, "нет подписи этапа «Генерация прикола»: %r"
                  % by.get("joke", {}).get("text"))
         if "опубликовано" not in (by.get("publish", {}).get("text") or ""):
             fail(label, "исход публикации не показан: %r"
                  % by.get("publish", {}).get("text"))
-        # 4. Два РАЗДЕЛЬНЫХ блока диагностики, значения не подменяют друг друга.
+        attempt = data["attempt"]
+        if "реально опубликовано" not in (attempt.get("result") or ""):
+            fail(label, "факт реальной публикации не показан: %r" % attempt)
+        if not attempt.get("ts"):
+            fail(label, "timestamp последней попытки не показан")
+        if "фактов этапа нет" in json.dumps(data["stages"], ensure_ascii=False):
+            fail(label, "остался повтор «фактов этапа нет»")
+        # 4. Два РАЗДЕЛЬНЫХ блока диагностики — на вкладке «Диагностика»
+        #    (P1: полный debug в одном месте, в «Мемах» его нет).
+        open_tab(page, "diagnostics")
+        page.evaluate(
+            "() => { const d = document.querySelector('[data-meme-diag-section]');"
+            " if (d) d.open = true; }")
+        page.wait_for_selector("[data-meme-diag]", state="attached")
+        page.wait_for_timeout(400)
+        data = probe(page)
         if len(data["diag"]["blocks"]) != 2:
             fail(label, "блоков диагностики: %d" % len(data["diag"]["blocks"]))
         blocks = {b["key"]: b for b in data["diag"]["blocks"]}
@@ -692,6 +708,8 @@ def run_full(browser, width, height, label, shots):
             fail(label, "конфликт мемов: %r" % meme_block.get("conflict"))
         if data["diag"]["degraded"]:
             fail(label, "плашка деградации при coordination=ok")
+        # «Публикации» не дублируют строки стадий: там журнал попыток.
+        open_tab(page, "memes")
         snap(page, shots, "full_%s" % label)
     finally:
         ctx.close()
@@ -797,6 +815,23 @@ def run_degraded(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
     try:
         open_card(page)
+        # «Обзор» теперь несёт полосу координации — деградация видна там.
+        open_tab(page, "overview")
+        coord = page.evaluate(
+            "() => ({ state: (document.querySelector('[data-ini-coordination]')"
+            " || {}).getAttribute ? (document.querySelector('[data-ini-coordination]')"
+            ".getAttribute('data-ini-coord-state')) : null,"
+            " label: ((document.querySelector('[data-ini-coord-label]') || {})"
+            ".textContent || '').trim() })")
+        if coord.get("state") != "degraded":
+            fail(label, "обзор: координация не помечена degraded: %r" % coord)
+        # Полные блоки диагностики — на вкладке «Диагностика».
+        open_tab(page, "diagnostics")
+        page.evaluate(
+            "() => { const d = document.querySelector('[data-meme-diag-section]');"
+            " if (d) d.open = true; }")
+        page.wait_for_selector("[data-meme-diag]", state="attached")
+        page.wait_for_timeout(400)
         data = probe(page)
         notes.append({label + "-degraded": data["diag"]})
         if "координация недоступна" not in data["diag"]["degraded"]:

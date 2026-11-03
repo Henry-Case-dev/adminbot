@@ -303,7 +303,7 @@ def test_js_module_card_registered():
     js = APP_JS.read_text(encoding="utf-8")
     assert "id: 'mod_initiative'" in js
     assert "toggleKey: 'flags.initiative_enabled'" in js
-    assert "mod_initiative: ['overview', 'settings', 'limits']" in js
+    assert "mod_initiative: ['overview', 'text', 'memes', 'publications',\n                     'diagnostics']" in js
     # зеркала config-вкладки (TABS sources + порядок матрицы прав + иконка)
     assert "flags_intent" in js and "limits_intent" in js
     assert re.search(r"\{\s*id:\s*'mod_initiative',\s*icon:\s*'bolt'", js)

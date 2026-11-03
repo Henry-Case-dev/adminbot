@@ -250,6 +250,14 @@
       sources: [
         { category: 'flags', groups: ['flags_intent'] },
         { category: 'limits', groups: ['limits_intent'] },
+      ],
+      // P1 (2026-11-03): единственная generic-вкладка модуля — «Текстовая
+      // инициатива». Свои лимиты стоят рядом со своим механизмом, поэтому
+      // группа `limits_intent` получает секционный заголовок с единицами
+      // измерения вместо отдельной разрозненной вкладки «Лимиты».
+      sections: [
+        { id: 'text-limits', title: 'Частота и лимиты',
+          category: null, groups: ['limits_intent'] },
       ] },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
@@ -722,7 +730,14 @@
     mod_vision: ['overview', 'settings', 'models', 'limits'],
     // ASAP 7 F3 (§3.2): вкладки модуля «Инициатива» (flags_intent → settings,
     // limits_intent → limits; живой статус — на «Обзоре», intentModuleStatus).
-    mod_initiative: ['overview', 'settings', 'limits'],
+    // P1 (2026-11-03, рекомпоновка владельца): пять вкладок по смыслу —
+    // «Обзор» (состояние двух механизмов), «Текстовая инициатива» (её
+    // параметры/условия/лимиты/последнее решение), «Мемы» (весь мем-конвейер
+    // и два промпта), «Публикации» (общий журнал попыток) и «Диагностика»
+    // (трасса РОВНО одной попытки). Ключи групп каталога не меняются:
+    // flags_intent/limits_intent отображаются на вкладку «text».
+    mod_initiative: ['overview', 'text', 'memes', 'publications',
+                     'diagnostics'],
   };
   MODULES.forEach(function (m) {
     if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
@@ -734,11 +749,32 @@
     synthesizer: 'Синтезатор', verbalizer: 'Вербализатор', models: 'Модели',
     limits: 'Лимиты', testing: 'Тестирование',
     clusterizer: 'Кластеризатор', writer: 'Писатель',
+    // P1 «Инициатива» (2026-11-03): пять смысловых вкладок страницы.
+    text: 'Текстовая инициатива', memes: 'Мемы',
+    publications: 'Публикации', diagnostics: 'Диагностика',
     // ASAP-2 §13: две секции Summary (названия — по контракту (j) D11).
     hybrid: 'HYBRID SUMMARY', legacy: 'LEGACY SUMMARY FALLBACK',
     // EXTRA (ADR-1028-4 D12/§56): редактор обложечных стилей.
     styles: 'Стили обложки',
   };
+  // P1 «Инициатива»: старые адреса вкладок (`settings`/`limits`) не ломаются —
+  // они открывают «Текстовую инициативу», где теперь живут их параметры.
+  // Псевдоним действует ТОЛЬКО для этого модуля (у других `settings`/`limits`
+  // остаются своими вкладками).
+  var WORKSPACE_TAB_ALIAS = {
+    mod_initiative: { settings: 'text', limits: 'text' },
+  };
+  // Канонический id вкладки для маршрута/рендера: объявленный у модуля, иначе
+  // известный псевдоним модуля, иначе исходное значение (вызывающий сам решает
+  // про фолбэк на «Обзор»).
+  function _workspaceCanonicalTab(m, tab) {
+    if (!m || !tab) return tab;
+    var declared = m.tabs || [];
+    if (declared.indexOf(tab) >= 0) return tab;
+    var alias = WORKSPACE_TAB_ALIAS[m.id] || null;
+    if (alias && alias[tab]) return alias[tab];
+    return tab;
+  }
   // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
   // ASAP-speech-arch U-03 (§8): подпись Direct-вербализатора в UI описывает его
   // РОЛЬ (финальный ответ Writer), а не «личность». Ключ
@@ -2790,6 +2826,31 @@
   function memeStageLabelOf(stage) {
     return MEME_STAGE_LABELS[stage] || (stage ? String(stage) : '—');
   }
+  // Исходы строк журнала попыток: один словарь на все экраны «Инициативы»
+  // (обзор, «Мемы», «Публикации», «Диагностика») — разные подписи одного
+  // исхода запрещены, иначе один факт читался бы как два.
+  var MEME_OUTCOME_LABELS = {
+    passed: 'пройден',
+    skipped: 'пропуск',
+    failed: 'ошибка',
+    blocked: 'публикация заблокирована',
+    published: 'опубликовано',
+    say: 'сказать',
+    react: 'реакция',
+    silent: 'молчание',
+    cancelled: 'отменено',
+    decided: 'решение',
+    // P0-семантика публикаций: отложено координацией — НЕ ошибка и не отмена;
+    // «доставка неизвестна» и «неклассифицированное событие» — отдельные
+    // честные состояния (новый код виден кодом, строка не исчезает).
+    deferred: 'отложено',
+    delivery_unknown: 'доставка неизвестна',
+    other: 'неклассифицированное событие',
+  };
+  function memeOutcomeLabel(outcome) {
+    var code = String(outcome || '');
+    return MEME_OUTCOME_LABELS[code] || (code || '—');
+  }
   // Коды причин: пропуски пайплайна (meme_initiative.SKIP_*), причины
   // пропуска речевых слоёв (prompt_composer) и маркеры «нет данных» (P9).
   var MEME_REASON_LABELS = {
@@ -3883,6 +3944,10 @@
         memeSettingsSaving: false,
         memeSettingsError: '',
         memeDraft: {},
+        // P1 (ревью F3): черновик принадлежит КОНКРЕТНОМУ чату. Пока он
+        // изменён, повторный вход на вкладку/перечитывание настроек его НЕ
+        // перезаписывает; смена области предупреждает (dirty-guard).
+        memeDraftChat: null,
         // P4 (`MEME-UI-FIELDS`): поле-специфичные ошибки сохранения (422 от
         // сервера показываются У ПОЛЯ, а не молча теряются в общем тосте).
         memeFieldErrors: {},
@@ -3892,6 +3957,26 @@
         memeDiag: null,
         memeDiagBusy: false,
         memeDiagError: '',
+        // P1 «Инициатива» (рекомпоновка страницы): журнал ЛОГИЧЕСКИХ попыток
+        // публикации (текст и мемы) и трасса РОВНО одной попытки. Один
+        // запрос на вкладку; «Обзор» тяжёлый журнал НЕ грузит.
+        iniPub: {
+          rows: [], counts: {}, notes: [], available: null, busy: false,
+          error: '', nextOffset: null, loaded: false,
+          filters: { days: 7, kind: 'all', mode: 'all', outcome: 'all',
+                     reason: '' },
+        },
+        iniPubDetail: null,           // деталь выбранной попытки
+        iniPubDetailBusy: false,
+        iniPubDetailError: '',
+        iniPubFocus: '',              // attempt_id раскрытой/выбранной попытки
+        iniTrace: null,               // трасса для «Диагностики»
+        iniTraceBusy: false,
+        iniTraceError: '',
+        iniTraceOpen: {},             // раскрытые группы трассы
+        // Реальный результат последнего сохранения настроек мемов (не тост).
+        memeSaveResult: null,
+
         memoryHealthBusy: false,
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
@@ -4808,6 +4893,9 @@
             ? parsed.stage : _workspacePromptTabOf(m);
         } else {
           tab = parsed.tab || 'overview';
+          // P1 «Инициатива»: старые адреса вкладок (settings/limits) ведут на
+          // «Текстовую инициативу» — закладки не ломаются, параметры на месте.
+          tab = _workspaceCanonicalTab(m, tab);
           if (declared.indexOf(tab) < 0) tab = 'overview';
         }
         var stage = parsed.stage || '';
@@ -5055,7 +5143,11 @@
         // ASAP-2 round1027: секции Summary ('hybrid'/'legacy') несут свои
         // группы — включены в обход покрытия (иначе инвариант §9.3 теряет их).
         // ASAP-2.1 (T-3973): 'prep' удалён вместе с группами префильтра.
-        ['settings', 'models', 'limits', 'hybrid', 'legacy'].forEach(function (wt) {
+        // P1 (2026-11-03): список вкладок берётся из ОБЪЯВЛЕННЫХ у модуля
+        // (`m.tabs`), а не из жёсткого перечня: у «Инициативы» generic-группы
+        // теперь живут на смысловой вкладке «text», и инвариант покрытия
+        // обязан видеть реальную раскладку, а не прежние имена.
+        (m.tabs || []).forEach(function (wt) {
           if (!_workspaceTabApplicable(m, wt)) return;
           self._workspaceGroupsFor(m, wt).forEach(add);
         });
@@ -5337,6 +5429,13 @@
             // канонические секции (master → каталог, флаги инициативы →
             // семантические группы), не рендерятся пустыми карточками.
             return this._workspaceGroupsFor(m, 'settings')
+              .filter(function (g) { return (g.items || []).length; });
+          }
+          // P1 «Инициатива»: единственная вкладка с generic-параметрами —
+          // «Текстовая инициатива» (флаги и лимиты рядом со своим
+          // механизмом). Остальные вкладки — собственные секции.
+          if (m.id === 'mod_initiative' && wt === 'text') {
+            return this._workspaceGroupsFor(m, 'text')
               .filter(function (g) { return (g.items || []).length; });
           }
           return [];
@@ -7275,6 +7374,8 @@
         var spent = (q.spent == null ? null : q.spent);
         var remaining = (q.remaining == null ? null : q.remaining);
         var tmpl = m.template || {};
+        // P0.5 (§1.3 v2): у потолка ДВА состояния, и режим приходит с сервера
+        // (`mode`/`known`) — своё вычисление auto здесь не дублируется.
         return {
           available: avail.available === true,
           unavailableReason: avail.reason || '',
@@ -7345,6 +7446,17 @@
       // ревизии, коды и числа: ни текста прикола, ни текстов слоёв, ни персоны
       // и ни выжимки здесь нет (R17). Нет данных → `null` («приколов ещё не
       // было»), а не нули.
+      // P1 (ревью F3): «черновик изменён» — сравнение с эффективными
+      // значениями сервера. Нужно для (а) индикатора, (б) запрета молчаливой
+      // перезаписи при возврате на вкладку, (в) dirty-guard смены области.
+      memeDraftDirty: function () {
+        return this._memeDraftChangedFields() > 0;
+      },
+      // Сколько полей черновика реально отличаются от серверных значений
+      // (для правдивого текста подтверждения — никаких «(0)»).
+      memeDraftDirtyCount: function () {
+        return this._memeDraftChangedFields();
+      },
       memeSpeechView: function () {
         var a = (this.memeSettings && this.memeSettings.analytics) || {};
         var last = a.last_joke || {};
@@ -7373,6 +7485,11 @@
         return {
           hasAttempt: true,
           composer: String(speech.composer || ''),
+          // Честный источник истины: это запись пайплайна о фактической сборке
+          // (system sha12 совпадает с отправленным system-промптом — тест
+          // tests/test_meme_joke_speech_layers.py), а НЕ пересборка в UI.
+          sourceNote: 'источник: запись пайплайна о фактической сборке '
+            + '(system sha12 = отправленный system-промпт)',
           composerLabel: (speech.composer === 'on'
             ? 'собран единым композером'
             : (speech.composer === 'failed'
@@ -7498,6 +7615,753 @@
           { key: 'meme', title: 'Мемы в инициативе',
             block: memeMechanismViewOf(d.meme) },
         ];
+      },
+      // ═══ P1 «Инициатива» (2026-11-03): ОБЗОР — две равнозначные карточки ═══
+      // Одна карточка на механизм, одни и те же поля, разные источники:
+      // живое состояние — из `mechanism-diagnostics` (не из настроек!), факт
+      // последней публикации — из ledger/журнала попыток, право управления —
+      // из реального RBAC текущего пользователя (`canEditConfig`).
+      initiativeTextCard: function () {
+        var mod = this.intentModuleStatus();
+        var block = (this.memeDiagView || {}).text || null;
+        var vit = this.initiativeVitality || null;
+        var perChat = this.initiativePerChatItem;
+        var observer = null;
+        var self = this;
+        (this.initiativeFlagGroups || []).forEach(function (g) {
+          (g.items || []).forEach(function (it) {
+            if (it.key === 'flags.initiative_observer_enabled') observer = it;
+          });
+        });
+        var masterOn = mod ? (mod.effective === true) : null;
+        var observerOn = observer ? (observer.value === true) : null;
+        var chatOn = perChat ? (perChat.value === true) : null;
+        var chatScoped = this.activeChatId != null;
+        // ПЕРВИЧНЫЙ источник — вердикт самого механизма (его гейт): он один
+        // знает и мастер-флаг, и ось наблюдателя, и тумблер чата. Если блока
+        // нет, состояние собирается из осей, доступных текущей роли, и это
+        // честно помечено в подписи источника.
+        var effective = null;
+        var effOrigin = '';
+        if (block && !block.isNoData) {
+          var skipCode = (block.skip && block.skip.code) || '';
+          if (skipCode === 'initiative_disabled'
+              || skipCode === 'disabled_by_setting') {
+            effective = false;
+            effOrigin = 'гейт механизма';
+          } else if (block.ready === true) {
+            effective = true;
+            effOrigin = 'гейт механизма';
+          } else if (block.ready === false) {
+            effective = false;
+            effOrigin = 'гейт механизма';
+          }
+        }
+        if (effective === null && masterOn !== null) {
+          if (observerOn === null) {
+            // Ось наблюдателя не прочитана (нет прав на параметр) — состояние
+            // НЕ выводится из одного мастера: «неизвестно» честнее «включено».
+            effOrigin = 'мастер прочитан, ось наблюдателя — нет';
+          } else {
+            effective = masterOn && observerOn
+              && (!chatScoped || chatOn !== false);
+            effOrigin = 'мастер + оси';
+          }
+        }
+        var sends = (vit && vit.sends) || [];
+        var lastPub = sends.length ? sends[0].ts : null;
+        var lastDecision = (mod && mod.lastDecision) || null;
+        var decisionText = '';
+        if (lastDecision) {
+          var code = String(lastDecision.reason_code || '');
+          decisionText = (lastDecision.action ? String(lastDecision.action) : 'решение')
+            + (code ? (' · ' + memeReasonLabelOf(code)) : ' · без причины');
+        } else if (block && block.skipRecorded) {
+          decisionText = block.skipRecorded.label;
+        }
+        return {
+          key: 'text',
+          title: 'Текстовая инициатива',
+          tab: 'text',
+          tabLabel: 'Открыть настройки текста',
+          effective: effective,
+          effectiveLabel: (effective === null
+            ? 'состояние неизвестно'
+            : (effective ? 'включена' : 'выключена')),
+          sourceLabel: ((mod && mod.sourceLabel
+            ? ('источник: ' + mod.sourceLabel)
+            : 'источник не прочитан')
+            + (effOrigin ? (' · ' + effOrigin) : '')
+            + (observerOn === null ? ' · наблюдатель не прочитан' : '')),
+          canEditLabel: self.canEditConfig
+            ? (self.canEditConfig(INITIATIVE_MASTER_KEY)
+              ? 'менять можете вы: рубильник в каталоге «Модули»'
+              : 'меняет только глобальный админ (каталог «Модули»)')
+            : 'права не определены',
+          lastCheckText: (block ? block.lastCheckText : 'нет данных'),
+          lastOutcomeText: decisionText || 'решение не записано',
+          nextCheckText: (block ? block.nextCheckText : 'нет данных'),
+          nextCheckBasisLabel: (block ? block.nextCheckBasisLabel : ''),
+          nextDueText: (mod && mod.nextDue
+            ? _tsStatusLabel(mod.nextDue, '') : ''),
+          lastPublicationText: (lastPub
+            ? _tsStatusLabel(lastPub, '') : 'публикаций не было'),
+          cooldownText: (block ? block.cooldown.ownText : 'неизвестен'),
+          cooldownRemaining: (block ? block.cooldown.remainingText : 'неизвестен'),
+          quotaText: (block
+            ? (block.quota.unlimited
+              ? 'без предела (0 = без капа)'
+              : (block.quota.limitText + ' / сутки · израсходовано '
+                 + block.quota.usedText + ' · осталось '
+                 + block.quota.remainingText))
+            : 'неизвестна'),
+          waitingText: (block
+            ? (block.skip ? block.skip.label
+              : (block.ready === true ? 'ничего не мешает'
+                : (block.isNoData ? 'нет данных' : 'неизвестно')))
+            : 'нет данных'),
+          noData: !block || block.isNoData,
+        };
+      },
+      initiativeMemeCard: function () {
+        var block = (this.memeDiagView || {}).meme || null;
+        var st = this.memeSettingsView;
+        var mod = this.intentModuleStatus();
+        var attempts = (this.memeSettings && this.memeSettings.analytics
+                        && this.memeSettings.analytics.attempts) || [];
+        var lastPub = null;
+        for (var i = 0; i < attempts.length; i++) {
+          if (String(attempts[i].outcome || '') === 'published') {
+            lastPub = attempts[i].ts;
+            break;
+          }
+        }
+        var masterOn = mod ? (mod.effective === true) : null;
+        var ownOn = st ? st.memeEnabled : null;
+        // Первичный источник — гейт самого мем-механизма (он знает и мастер,
+        // и ось мемов, и тумблер чата, и доступность image-провайдера).
+        var effective = null;
+        var effOrigin = '';
+        if (block && !block.isNoData) {
+          var skipCode = (block.skip && block.skip.code) || '';
+          if (skipCode === 'initiative_disabled' || skipCode === 'disabled_by_setting'
+              || skipCode === 'image_module_off'
+              || skipCode === 'image_provider_not_configured'
+              || skipCode === 'image_provider_unhealthy') {
+            effective = false;
+            effOrigin = 'гейт механизма';
+          } else if (block.ready === true) {
+            effective = true;
+            effOrigin = 'гейт механизма';
+          } else if (block.ready === false) {
+            effective = false;
+            effOrigin = 'гейт механизма';
+          }
+        }
+        if (effective === null && masterOn !== null && ownOn !== null) {
+          effective = masterOn && ownOn;
+          effOrigin = 'мастер + ось мемов';
+        }
+        return {
+          key: 'meme',
+          title: 'Мемы',
+          tab: 'memes',
+          tabLabel: 'Открыть настройки мемов',
+          effective: effective,
+          effectiveLabel: (effective === null
+            ? 'состояние неизвестно'
+            : (effective ? 'включены' : 'выключены')),
+          sourceLabel: ((st
+            ? ('свойство чата: ' + (st.memeEnabled ? 'включено' : 'выключено')
+              + ' · ' + (st.initiativeEnabled
+                ? 'инициатива включена' : 'инициатива выключена'))
+            : 'настройки не прочитаны')
+            + (effOrigin ? (' · ' + effOrigin) : '')),
+          canEditLabel: (this.canEditConfig
+            ? (this.canEditConfig('flags.meme_initiative_enabled')
+              ? 'менять можете вы (вкладка «Мемы» этого чата)'
+              : 'меняет только админ этого чата')
+            : 'права не определены'),
+          lastCheckText: (block ? block.lastCheckText : 'нет данных'),
+          lastOutcomeText: (block
+            ? ((block.skipRecorded && block.skipRecorded.label)
+              || block.readyLabel)
+            : 'решение не записано'),
+          nextCheckText: (block ? block.nextCheckText : 'нет данных'),
+          nextCheckBasisLabel: (block ? block.nextCheckBasisLabel : ''),
+          nextDueText: '',
+          lastPublicationText: (lastPub
+            ? _tsStatusLabel(lastPub, '') : 'публикаций не было'),
+          cooldownText: (block ? block.cooldown.ownText : 'неизвестен'),
+          cooldownRemaining: (block ? block.cooldown.remainingText : 'неизвестен'),
+          quotaText: (st
+            ? (st.quotaText + ' · ' + st.remainingText
+              + (st.resetAt ? (' · сброс: ' + st.resetAt) : ''))
+            : 'неизвестна'),
+          waitingText: (block
+            ? (block.skip ? block.skip.label
+              : (block.ready === true ? 'ничего не мешает'
+                : (block.isNoData ? 'нет данных' : 'неизвестно')))
+            : 'нет данных'),
+          noData: !block || block.isNoData,
+        };
+      },
+      // Общая полоса «Координация отправки»: состояние ТОЛЬКО из API
+      // (`publication` двух блоков). Никакого клиентского отсчёта: остаток
+      // паузы — это `interval_seconds`/`other_age_seconds` с сервера.
+      initiativeCoordination: function () {
+        var d = this.memeDiagView;
+        if (!d) {
+          return { state: 'unknown', label: 'нет данных',
+                   detail: 'диагностика механизмов не прочитана', event: '' };
+        }
+        var blocks = [d.text, d.meme].filter(function (b) {
+          return b && b.publication;
+        });
+        if (!blocks.length) {
+          return { state: 'unknown', label: 'координация не проверялась',
+                   detail: 'ни один механизм не сообщил состояние брони',
+                   event: '' };
+        }
+        var degraded = d.degraded || [];
+        if (degraded.length) {
+          return { state: 'degraded', label: 'координация недоступна',
+                   detail: 'конфликт публикаций неизвестен (не «конфликта нет»)',
+                   event: degraded.join(', ') };
+        }
+        var manual = null;
+        var holder = null;
+        var other = null;
+        var checked = '';
+        blocks.forEach(function (b) {
+          var p = b.publication;
+          if (p.manualPriorityUntilText) manual = p.manualPriorityUntilText;
+          if (p.claimedBy) holder = p.claimedBy;
+          if (p.otherKind) other = p.otherKind;
+          if (p.checkedAtText) checked = p.checkedAtText;
+        });
+        var conflict = blocks.some(function (b) {
+          return b.publication.conflict === true;
+        });
+        if (manual) {
+          return { state: 'deferred',
+                   label: 'отложено: приоритет ручного /meme',
+                   detail: 'автоматический мем ждёт окна приоритета',
+                   event: 'до ' + manual };
+        }
+        if (conflict) {
+          return { state: 'waiting',
+                   label: 'ожидает другой механизм',
+                   detail: (holder ? ('бронь держит: ' + holder) : 'бронь занята')
+                     + (other ? (' · публиковал: ' + other) : ''),
+                   event: (blocks[0].publication.intervalText
+                     ? ('межтиповой интервал ' + blocks[0].publication.intervalText)
+                     : '') };
+        }
+        return { state: 'free', label: 'свободно',
+                 detail: 'ни один механизм не держит бронь публикации',
+                 event: checked ? ('проверено ' + checked) : '' };
+      },
+      // Последние ЗНАЧИМЫЕ события (3–5) — из уже загруженных источников:
+      // решения текста (`initiative-vitality`) и терминальные строки журнала
+      // мемов. Полный журнал живёт во вкладке «Публикации».
+      initiativeRecentEvents: function () {
+        var out = [];
+        var vit = this.initiativeVitality || null;
+        ((vit && vit.decisions) || []).forEach(function (row) {
+          out.push({
+            ts: row.ts,
+            kind: 'text_initiative',
+            kindLabel: 'Текст',
+            text: (row.action || 'решение') + (row.reason_label
+              ? (' · ' + row.reason_label) : ''),
+            code: row.reason_code || '',
+            attemptId: row.correlation_id ? ('text:' + row.correlation_id) : '',
+          });
+        });
+        var attempts = (this.memeSettings && this.memeSettings.analytics
+                        && this.memeSettings.analytics.attempts) || [];
+        var seen = {};
+        attempts.forEach(function (row) {
+          var job = String(row.job_id || '');
+          if (!job || seen[job]) return;
+          seen[job] = true;
+          var code = String(row.reason_code || '');
+          out.push({
+            ts: row.ts,
+            kind: 'meme',
+            kindLabel: 'Мемы',
+            text: memeStageLabelOf(row.stage) + ' · '
+              + (memeOutcomeLabel(row.outcome))
+              + (code ? (' · ' + memeReasonLabelOf(code)) : ''),
+            code: code,
+            attemptId: 'meme:' + job,
+          });
+        });
+        out = out.filter(function (e) { return !!e.ts; });
+        out.sort(function (a, b) { return b.ts - a.ts; });
+        return out.slice(0, 5).map(function (e) {
+          return Object.assign({}, e, { timeText: _tsStatusLabel(e.ts, '—') });
+        });
+      },
+      // «Последнее решение» текстовой инициативы: вероятность и РЕАЛЬНЫЙ
+      // источник случайности — только когда жеребьёвка действительно была
+      // (`random.performed`), иначе честная причина «draw не выполнялся».
+      initiativeLastDecision: function () {
+        var block = (this.memeDiagView || {}).text || null;
+        var vit = this.initiativeVitality || null;
+        var mod = this.intentModuleStatus();
+        var decision = (vit && vit.decisions && vit.decisions[0]) || null;
+        var random = block ? block.random : null;
+        return {
+          hasDecision: !!(decision || (mod && mod.lastDecision)),
+          timeText: decision && decision.ts
+            ? _tsStatusLabel(decision.ts, '—')
+            : ((mod && mod.lastDecision && mod.lastDecision.ts)
+              ? _tsStatusLabel(mod.lastDecision.ts, '—') : 'решений не было'),
+          actionText: decision
+            ? (decision.action || 'решение')
+            : ((mod && mod.lastDecision && mod.lastDecision.action) || '—'),
+          reasonText: decision
+            ? (decision.reason_label || 'без причины')
+            : ((block && block.skipRecorded && block.skipRecorded.label)
+              || 'причина не записана'),
+          randomLabel: (random ? random.decisionLabel : 'нет данных о жеребьёвке'),
+          probabilityText: (random ? random.probabilityText : '—'),
+          sourceLabel: (random ? random.sourceLabel : '—'),
+          noDrawReason: (random ? random.noDrawReason : ''),
+          performed: !!(random && random.performed),
+        };
+      },
+      // ═══ P1: вкладка «Мемы» — верхняя строка и компактная попытка ═══
+      memePageStatus: function () {
+        var st = this.memeSettingsView;
+        var block = (this.memeDiagView || {}).meme || null;
+        var attempts = (this.memeSettings && this.memeSettings.analytics
+                        && this.memeSettings.analytics.attempts) || [];
+        var readyTs = null;
+        var pubTs = null;
+        var skipCode = '';
+        for (var i = 0; i < attempts.length; i++) {
+          var row = attempts[i];
+          var stage = String(row.stage || '');
+          if (!readyTs && stage === 'image_generation'
+              && String(row.outcome || '') === 'passed') {
+            readyTs = row.ts;
+          }
+          if (!pubTs && String(row.outcome || '') === 'published') {
+            pubTs = row.ts;
+          }
+          if (!skipCode && row.reason_code) skipCode = String(row.reason_code);
+        }
+        return {
+          ownOn: !!(st && st.memeEnabled),
+          ownLabel: (st
+            ? (st.memeEnabled ? 'мемы включены для этого чата'
+              : 'мемы выключены для этого чата')
+            : 'настройки не прочитаны'),
+          sourceLabel: (st
+            ? ('эффективно: ' + (st.available ? 'доступно' : 'недоступно')
+              + (st.unavailableReason ? (' · ' + this.memeUnavailableLabel(st.unavailableReason)) : ''))
+            : ''),
+          statusLabel: (block
+            ? (block.skip ? block.skip.label
+              : (block.ready === true ? 'готов к запуску' : block.readyLabel))
+            : 'нет данных'),
+          quotaText: (st ? (st.quotaText + ' · ' + st.remainingText) : 'неизвестна'),
+          lastReadyText: (readyTs ? _tsStatusLabel(readyTs, '') : 'готовых картинок не было'),
+          lastPublishedText: (pubTs ? _tsStatusLabel(pubTs, '') : 'публикаций не было'),
+          skipReasonText: (skipCode ? memeReasonLabelOf(skipCode) : 'пропусков не было'),
+          skipCode: skipCode,
+        };
+      },
+      // Компактная «Последняя попытка»: ЧЕТЫРЕ стадии + timestamp + причина +
+      // факт публикации. Без столбца «Рассмотрено / фактов этапа нет».
+      memeLastAttempt: function () {
+        var rows = this.memeAttemptStages;
+        if (!rows || !rows.length) return null;
+        var st = this.memeSettingsView;
+        var jobId = String(((this.memeSettings || {}).analytics || {}).attempts
+          ? (((this.memeSettings.analytics.attempts)[0] || {}).job_id || '')
+          : '');
+        var published = null;
+        var reasonCode = '';
+        var ts = null;
+        rows.forEach(function (r) {
+          if (r.outcome === 'published') published = true;
+          if (r.reasonCode) reasonCode = r.reasonCode;
+          if (r.ts) ts = r.ts;
+        });
+        var stages = ['summary', 'joke', 'image_generation', 'publish'];
+        var byStage = {};
+        rows.forEach(function (r) { byStage[r.stage] = r; });
+        return {
+          ts: ts,
+          jobId: jobId,
+          timeText: ts ? _tsStatusLabel(ts, '—') : 'время не записано',
+          stages: stages.map(function (name) {
+            var hit = byStage[name];
+            return {
+              stage: name,
+              label: memeStageLabelOf(name),
+              done: !!hit,
+              ok: !!(hit && hit.outcomeOk),
+              outcome: hit ? hit.outcome : '',
+              outcomeLabel: hit ? hit.outcomeLabel : 'нет данных',
+              reasonCode: hit ? hit.reasonCode : '',
+            };
+          }),
+          reasonCode: reasonCode,
+          reasonLabel: (reasonCode ? memeReasonLabelOf(reasonCode) : ''),
+          published: published === true,
+          publishedLabel: (published === true
+            ? 'реально опубликовано'
+            : 'публикации не было'),
+          budgetText: (st ? (st.ceilingText + ' / ' + st.templateCharsText
+                            + ' / ' + st.jokeBudgetText) : ''),
+        };
+      },
+      // Ручной `/meme` — АДМИНСКАЯ команда (не авто-триггер): показываем
+      // фактические запуски из журнала попыток (`publish.manual === true`).
+      memeManualUsage: function () {
+        var attempts = (this.memeSettings && this.memeSettings.analytics
+                        && this.memeSettings.analytics.attempts) || [];
+        var runs = [];
+        attempts.forEach(function (row) {
+          var facts = memeStageFacts(row.detail);
+          var pub = facts.publish || facts.publication || {};
+          if (pub && pub.manual === true) {
+            runs.push({ ts: row.ts, outcome: String(row.outcome || ''),
+                        reason: String(row.reason_code || '') });
+          }
+        });
+        runs.sort(function (a, b) { return b.ts - a.ts; });
+        return {
+          command: '/meme',
+          adminOnly: true,
+          count: runs.length,
+          lastText: runs.length
+            ? (_tsStatusLabel(runs[0].ts, '') + ' · '
+               + memeOutcomeLabel(runs[0].outcome))
+            : 'не использовался',
+          last: runs.length ? runs[0] : null,
+        };
+      },
+      // ═══ P1: вкладка «Публикации» — строки журнала (без пустых деталей) ═══
+      iniPubRows: function () {
+        var rows = (this.iniPub && this.iniPub.rows) || [];
+        return rows.map(function (r) {
+          var code = String(r.reason_code || '');
+          var chainReasons = (r.reason_codes || []).filter(function (c) {
+            return c && c !== code;
+          });
+          return Object.assign({}, r, {
+            timeText: _tsStatusLabel(r.ts, '—'),
+            kindLabel: (r.kind === 'meme' ? 'Мемы' : 'Текст'),
+            stageLabel: (r.kind === 'meme'
+              ? memeStageLabelOf(r.stage) : (r.stage || '—')),
+            outcomeLabel: memeOutcomeLabel(r.outcome),
+            outcomeOk: (r.outcome === 'published'),
+            outcomeClass: (r.outcome === 'published' ? 'badge-ok'
+              : (r.outcome === 'deferred' ? 'badge-info'
+                : (r.outcome === 'delivery_unknown'
+                  || r.outcome === 'other' ? 'badge-muted'
+                  : 'badge-warn'))),
+            reasonText: (r.reason_label || (code ? memeReasonLabelOf(code) : '')),
+            // Незнакомое событие: сырое имя и его `outcome` — как есть.
+            otherText: (r.other_events || []).map(function (e) {
+              return String(e.name || '')
+                + (e.outcome ? (' · ' + String(e.outcome)) : '');
+            }).join(', '),
+            // Причины, которые реально были в цепочке (например конфликт
+            // координации, после которого мем всё-таки доставили).
+            chainReasonsText: chainReasons
+              .map(function (c) { return memeReasonLabelOf(c); })
+              .join(' · '),
+            deliveryLabel: (r.delivered === true ? 'доставлено'
+              : (r.delivered === false ? 'не доставлено' : 'неизвестно')),
+            deliveryClass: (r.delivered === true ? 'text-green-400'
+              : (r.delivered === false ? 'text-amber-300' : 'text-gray-500')),
+            modeLabel: (r.mode === 'manual' ? 'ручной /meme' : 'авто'),
+          });
+        });
+      },
+      // ═══ P1: вкладка «Диагностика» — группы РОВНО одной попытки ═══
+      iniTraceAttempt: function () {
+        var t = this.iniTrace;
+        return (t && t.attempt) || null;
+      },
+      iniTraceGroups: function () {
+        var t = this.iniTrace;
+        if (!t) return [];
+        var chain = t.chain || [];
+        var events = t.events || [];
+        var attempt = t.attempt || null;
+        var isMeme = !!(attempt && attempt.kind === 'meme');
+        var groups = [];
+        if (isMeme) {
+          var factsOf = function () {
+            var out = {};
+            chain.forEach(function (row) {
+              out[row.stage] = row.facts || {};
+            });
+            return out;
+          };
+          var facts = factsOf();
+          var eligible = facts.eligible || {};
+          var random = eligible.random || {};
+          var skipped = chain.length
+            ? (chain[chain.length - 1].facts || {}).random || {} : {};
+          var draw = (random && Object.keys(random).length ? random : skipped);
+          groups.push({
+            key: 'conditions',
+            title: 'Условия',
+            summary: (attempt ? (memeStageLabelOf(attempt.stage) + ' · '
+              + memeOutcomeLabel(attempt.outcome)) : 'нет данных'),
+            rows: [
+              { label: 'Порог окна', value: (chain.length
+                ? String(chain[0].window_messages == null
+                  ? '—' : chain[0].window_messages) : '—') },
+              { label: 'Потолок промпта', value: (chain.length
+                ? String(chain[0].limit_value == null
+                  ? '—' : chain[0].limit_value) : '—') },
+              { label: 'Источник потолка', value: (chain.length
+                ? (chain[0].limit_source || '—') : '—') },
+            ],
+          });
+          groups.push({
+            key: 'random',
+            title: 'Случайное решение',
+            summary: (draw && Object.keys(draw).length
+              ? ('вероятность ' + (draw.probability == null ? '—'
+                : (Math.round(Number(draw.probability) * 1000) / 10) + ' %'))
+              : 'жеребьёвки в этой попытке не было'),
+            rows: (draw && Object.keys(draw).length ? [
+              { label: 'Выполнена', value: (draw.performed === false ? 'нет' : 'да') },
+              { label: 'Источник', value: String(draw.source || draw.selected_source || '—') },
+              { label: 'Значение', value: String(draw.value == null ? '—' : draw.value) },
+              { label: 'Вероятность', value: (draw.probability == null ? '—'
+                : String(draw.probability)) },
+            ] : []),
+          });
+          groups.push({
+            key: 'context',
+            title: 'Контекст и снапшот',
+            summary: (chain.length && chain[0].window_messages != null
+              ? ('окно ' + chain[0].window_messages + ' сообщений')
+              : 'снапшот не записан'),
+            rows: [{ label: 'Окно сообщений', value: (chain.length
+              ? String(chain[0].window_messages == null
+                ? '—' : chain[0].window_messages) : '—') }],
+          });
+          groups.push({
+            key: 'stages',
+            title: 'Этапы генерации',
+            summary: chain.length + ' этап(ов) в журнале',
+            rows: chain.map(function (row) {
+              var f = row.facts || {};
+              var bits = [];
+              if (f.template_chars != null) bits.push('шаблон ' + f.template_chars);
+              if (f.limit != null) bits.push('бюджет прикола ' + f.limit);
+              if (f.chars != null) {
+                bits.push((row.stage === 'summary' ? 'выжимка '
+                  : (row.stage === 'image_generation' ? 'итоговый промпт ' : 'прикол '))
+                  + f.chars);
+              }
+              if (f.joke_chars != null && row.stage !== 'joke') {
+                bits.push('прикол ' + f.joke_chars);
+              }
+              return { label: memeStageLabelOf(row.stage),
+                       value: memeOutcomeLabel(row.outcome)
+                         + (row.reason_code
+                           ? (' · ' + memeReasonLabelOf(row.reason_code)) : '')
+                         + (bits.length ? (' · ' + bits.join(' · ')) : ''),
+                       ts: row.ts };
+            }),
+          });
+          var joke = facts.joke || {};
+          var speech = joke.speech || {};
+          var layers = (speech.layers || []).map(function (l) {
+            return { label: String(l.layer || '—'),
+                     value: (l.rendered === true ? 'вошёл' : 'пропущен')
+                       + (l.skip ? (' · ' + memeReasonLabelOf(l.skip)) : '')
+                       + ' · ревизия ' + String(l.revision || '—')
+                       + (l.chars == null ? '' : (' · ' + l.chars + ' симв.')) };
+          });
+          groups.push({
+            key: 'speech',
+            title: 'Речевые слои Core / Expression / Humor',
+            summary: (speech.composer
+              ? ('сборка: ' + (speech.composer === 'on' ? 'композер' : speech.composer)
+                + ' · Core ' + String(speech.core || '—')
+                + ' · Expression ' + String(speech.expression || '—')
+                + ' · Humor ' + String(speech.humor || '—'))
+              : 'речевая сборка не записана'),
+            rows: layers,
+            manifest: String(speech.manifest || ''),
+            // Безопасный срез манифеста: то, что РЕАЛЬНО записано о сборке
+            // (слой → ревизия/статус). Сырого текста промпта в журнале нет —
+            // это и сказано прямо, вместо выдачи id за «текст манифеста».
+            manifestText: (layers.length
+              ? layers.map(function (l) { return l.label + ' ← ' + l.value; })
+                .join('\n')
+                + (speech.manifest
+                  ? '\n\nid манифеста: ' + String(speech.manifest) : '')
+                + '\n\nИсточник: запись пайплайна о фактической сборке '
+                + '(system sha12 совпадает с отправленным провайдеру '
+                + 'system-промптом — проверяется тестом '
+                + 'test_meme_joke_speech_layers.py). Сырого текста промпта в '
+                + 'журнале нет (R17), поэтому показаны ревизии и статусы слоёв.'
+              : 'манифест не записан'),
+            // Что именно показывает индикатор «вошёл/пропущен».
+            sourceNote: 'запись пайплайна (system sha12), не пересборка в UI',
+            systemSha: String(speech.system_sha12 || ''),
+            humorStatus: String(speech.humor_status || ''),
+            technique: String(speech.technique || ''),
+          });
+          var pubFacts = facts.publish || facts.publication || {};
+          groups.push({
+            key: 'send',
+            title: 'Отправка и перепроверка',
+            summary: (attempt && attempt.delivered === true
+              ? ('доставлено · message_id '
+                + String(attempt.message_id == null ? '—' : attempt.message_id))
+              : ('не доставлено · ' + memeOutcomeLabel(attempt ? attempt.outcome : ''))),
+            rows: [
+              { label: 'Режим', value: (pubFacts.manual === true
+                ? 'ручной /meme (админ)' : 'автоматический') },
+              { label: 'Ворота публикации', value: String(pubFacts.gate || '—') },
+              { label: 'Бронь', value: (pubFacts.claim
+                ? String((pubFacts.claim || {}).state
+                  || (pubFacts.claim || {}).reason || '—') : '—') },
+              { label: 'message_id', value: (attempt && attempt.message_id != null
+                ? String(attempt.message_id) : '—') },
+            ],
+          });
+          // «События и ошибки»: у мема внешних событий в журнале нет — но
+          // исходы этапов и ошибки обязаны читаться здесь, а не выдумываться.
+          var errorRows = chain.filter(function (row) {
+            return row.outcome === 'failed' || row.outcome === 'blocked'
+              || row.reason_code;
+          }).map(function (row) {
+            return { label: memeStageLabelOf(row.stage),
+                     value: memeOutcomeLabel(row.outcome)
+                       + (row.reason_code
+                         ? (' · ' + memeReasonLabelOf(row.reason_code)
+                           + ' (' + row.reason_code + ')') : '') };
+          });
+          groups.push({
+            key: 'events',
+            title: 'События и ошибки',
+            summary: (errorRows.length
+              ? (errorRows.length + ' записей с исходом/причиной')
+              : 'ошибок не записано · журнал этапов без внешних событий'),
+            rows: errorRows,
+          });
+        } else {
+          groups.push({
+            key: 'events',
+            title: 'События и ошибки',
+            summary: (events.length ? (events.length + ' событие(й)')
+              : 'событий не записано'),
+            rows: events.map(function (ev) {
+              return {
+                label: _tsStatusLabel(ev.ts, '—') + ' · ' + ev.event_name,
+                value: (ev.stage ? (ev.stage + ' · ') : '')
+                  + memeOutcomeLabel(ev.outcome)
+                  + (ev.reason_code ? (' · ' + (ev.reason_label
+                    || memeReasonLabelOf(ev.reason_code))) : '')
+                  + (ev.error_type ? (' · ошибка: ' + ev.error_type) : ''),
+              };
+            }),
+          });
+        }
+        return groups;
+      },
+      // Человеческий ИТОГ раскрытой попытки: «генерация успешна, отправка
+      // отменена» — именно то различие, которое владелец не мог увидеть.
+      iniPubDetailSummary: function () {
+        var d = this.iniPubDetail;
+        if (!d) return '';
+        var chain = d.chain || [];
+        if (!chain.length) {
+          var events = d.events || [];
+          if (!events.length) return '';
+          var last = events[events.length - 1];
+          return 'событие: ' + last.event_name + ' · '
+            + memeOutcomeLabel(last.outcome)
+            + (last.reason_code
+              ? (' · ' + (last.reason_label
+                || memeReasonLabelOf(last.reason_code))) : '');
+        }
+        var generated = false;
+        var published = false;
+        var blocked = null;
+        chain.forEach(function (row) {
+          if (row.stage === 'image_generation' && row.outcome === 'passed') {
+            generated = true;
+          }
+          if (row.outcome === 'published') published = true;
+          if (row.outcome === 'skipped' || row.outcome === 'blocked'
+              || row.outcome === 'failed' || row.outcome === 'deferred'
+              || row.outcome === 'delivery_unknown') {
+            blocked = row;
+          }
+        });
+        if (published) return 'генерация успешна, публикация доставлена';
+        if (generated && blocked && blocked.outcome === 'deferred') {
+          return 'генерация успешна, отправка отложена координацией · '
+            + (blocked.reason_label
+              || memeReasonLabelOf(blocked.reason_code))
+            + (blocked.reason_code ? (' (' + blocked.reason_code + ')') : '');
+        }
+        if (generated && blocked) {
+          return 'генерация успешна, отправка отменена · '
+            + memeOutcomeLabel(blocked.outcome)
+            + (blocked.reason_code
+              ? (' · ' + (blocked.reason_label
+                || memeReasonLabelOf(blocked.reason_code))
+                + ' (' + blocked.reason_code + ')') : '');
+        }
+        if (generated) return 'генерация успешна, отправки в журнале нет';
+        return blocked
+          ? ('генерация не завершена · '
+            + memeOutcomeLabel(blocked.outcome)
+            + (blocked.reason_code
+              ? (' · ' + memeReasonLabelOf(blocked.reason_code)) : ''))
+          : 'исход в журнале не записан';
+      },
+      // ПОСЛЕДНЕЙ сборки (из журнала попыток), а не только лимит.
+      memeBudgetBlock: function () {
+        var st = this.memeSettingsView;
+        if (!st) return null;
+        var rows = this.memeAttemptStages || [];
+        var imageChars = null;
+        var jokeChars = null;
+        rows.forEach(function (r) {
+          if (r.stage === 'image_generation' && r.promptChars != null) {
+            imageChars = r.promptChars;
+          }
+          if (r.stage === 'joke' && r.jokeChars != null) jokeChars = r.jokeChars;
+        });
+        return {
+          ceilingText: st.ceilingText,
+          templateCharsText: st.templateCharsText,
+          jokeBudgetText: st.jokeBudgetText,
+          known: st.lengthLimit && st.lengthLimit.known === true,
+          // P0.5: режим приходит с сервера (`mode`/`known`), см. `memeSettingsView`.
+          autoMode: st.ceilingMode === 'auto',
+          modeText: st.ceilingModeText || '',
+          sourceLabel: this.memeLengthSourceLabel(
+            (st.lengthLimit || {}).source || ''),
+          placeholderLabel: st.placeholderLabel,
+          actualPromptChars: imageChars,
+          actualJokeChars: jokeChars,
+          templateValid: st.templateValid,
+          templateError: st.templateError,
+          overflow: (st.lengthLimit && st.lengthLimit.joke_budget != null
+            && Number(st.lengthLimit.joke_budget) <= 0),
+        };
       },
       // Последнее применение урока — событие/строка применений mca-16.
       expLastAppliedLabel: function () {
@@ -8564,9 +9428,16 @@
       // чата), а прямая ссылка на вкладку получает их сразу после того, как
       // контекст чата стал известен при загрузке страницы.
       activeChatId: function () {
-        if (typeof this.memeCardVisible === 'function'
-            && this.memeCardVisible()) {
+        // P1 «Инициатива»: смена чата перечитывает данные выбранной вкладки
+        // ОДИН раз (без параллельных опросов на каждый виджет).
+        if (this.memeCardVisible()) {
           this.loadMemeSettings();
+        } else if (this.initiativeDiagVisible()
+                   && typeof this.loadMemeDiagnostics === 'function') {
+          this.loadMemeDiagnostics();
+        }
+        if (typeof this.initiativeTabEnter === 'function') {
+          this.initiativeTabEnter(this.workspaceTab);
         }
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
@@ -8660,6 +9531,13 @@
             && typeof this.loadMemeSettings === 'function') {
           this.loadMemeSettings();
         }
+        // P1 «Инициатива»: вход на вкладку грузит РОВНО её данные (одним
+        // запросом); «Обзор» тяжёлый журнал попыток не запрашивает вовсе.
+        if (this.workspace && this.workspace.module
+            && this.workspace.module.id === 'mod_initiative'
+            && typeof this.initiativeTabEnter === 'function') {
+          this.initiativeTabEnter(tab);
+        }
       },
       // B05.3: пока открыт cover-editor — блокируем скролл app позади
       // оверлея (no behind-overlay scroll); guard сбрасывается вместе.
@@ -8707,6 +9585,12 @@
       // диагностика должны доставать корневой vm без хаков. Только чтение
       // ссылки, поведения не меняет.
       try { window.__adminbotVm = this; } catch (e) { /* не критично */ }
+      // P1 (ревью, FIX 2): закрытие/перезагрузка страницы теряет черновик
+      // мемов безвозвратно (он живёт только в памяти) — единственный случай,
+      // где предупреждение браузера честно уместно.
+      if (typeof this._bindMemeDraftUnloadGuard === 'function') {
+        this._bindMemeDraftUnloadGuard();
+      }
       _onHashChange = function () {
         // F1 (T-2396): неизвестный '#/…'-hash → канонический '#/' (replaceState),
         // launch-hash без '#/' игнорируем как раньше.
@@ -9692,9 +10576,13 @@
             return true;
           }
         }
-        // P0A-UX §6.4.2: черновики «Речи и характера» — тоже несохранённые
-        // правки (иначе смена чата молча теряла ввод и показывала чужой чат);
-        // dirty выставляется только реальным вводом (чистое состояние молчит).
+        // P1 (ревью, FIX 2): черновик промптов/настроек мемов НЕ участвует в
+        // общем `hasUnsavedEdits`. Причина: `hasUnsavedEdits` поднимает
+        // маршрутный guard при ЛЮБОЙ смене hash, то есть при переключении
+        // вкладки, где правки НЕ теряются (они живут в состоянии и не
+        // перезаписываются). Для мемов есть собственный guard —
+        // `_memeDraftLeaveGuard`, он спрашивает только там, где правки
+        // реально пропадут (смена области/чата), и говорит правду.
         var sd = this.speechDirty || {};
         if (sd.coreFull || sd.coreCompact || sd.style || sd.expression) {
           return true;
@@ -9725,13 +10613,16 @@
         var count = (typeof this.stickyDirtyCount === 'number'
                      && this.stickyDirtyCount > 0) ? this.stickyDirtyCount
           : ((this.dirtyItems || []).length + (this.dirtyKeyItems || []).length);
+        // Честный счётчик: если точное число неизвестно (например, правка
+        // живёт в собственном черновике), «(0)» не печатаем вовсе.
+        var countText = count > 0 ? (' (' + count + ')') : '';
         var scope = (typeof this.scopeTriggerTitle === 'string'
                      && this.scopeTriggerTitle)
           ? this.scopeTriggerTitle
           : (this.isChatContext && this.isChatContext()
               ? 'выбранный чат' : 'весь бот (global)');
-        var msg = 'Есть несохранённые изменения (' + count
-          + ') для «' + scope + '». ' + (actionLabel || 'Уйти и потерять их?');
+        var msg = 'Есть несохранённые изменения' + countText
+          + ' для «' + scope + '». ' + (actionLabel || 'Уйти и потерять их?');
         var proceed = true;
         try {
           proceed = (typeof window === 'undefined'
@@ -9739,6 +10630,45 @@
             || window.confirm(msg);
         } catch (e) { proceed = true; }
         return proceed;
+      },
+      // P1 (ревью, FIX 2): СОБСТВЕННЫЙ guard черновика мемов. Срабатывает
+      // ТОЛЬКО там, где правки действительно пропадут (смена области/чата и
+      // закрытие страницы), и говорит правду: сколько полей изменено, что
+      // именно произойдёт и как правки сохранить (реальная кнопка вкладки).
+      _memeDraftLeaveGuard: function (actionLabel) {
+        if (this.memeDraftDirty !== true) return true;
+        if (typeof window === 'undefined'
+            || typeof window.confirm !== 'function') return true;
+        var n = this.memeDraftDirtyCount || 0;
+        var scope = (typeof this.activeChatTitle === 'string'
+                     && this.activeChatTitle)
+          ? this.activeChatTitle
+          : (this.activeChatId != null ? ('чат ' + this.activeChatId)
+            : 'выбранная область');
+        var msg = 'В черновике мемов для «' + scope + '» есть несохранённые '
+          + 'правки' + (n > 0 ? (' (' + n + ')') : '') + '. '
+          + (actionLabel || 'Продолжить и потерять их?')
+          + ' Сохранить их можно кнопкой «Сохранить настройки мемов» '
+          + 'на вкладке «Мемы».';
+        try { return window.confirm(msg); } catch (e) { return true; }
+      },
+      // Закрытие/перезагрузка страницы — единственный случай, когда правки
+      // теряются безвозвратно (в памяти). Штатное сообщение браузера нельзя
+      // переписать, поэтому сам факт предупреждения — и есть честный сигнал.
+      _bindMemeDraftUnloadGuard: function () {
+        if (this._memeUnloadBound) return;
+        if (typeof window === 'undefined'
+            || typeof window.addEventListener !== 'function') return;
+        var self = this;
+        this._memeUnloadBound = true;
+        window.addEventListener('beforeunload', function (ev) {
+          if (self.memeDraftDirty !== true) return undefined;
+          if (ev) {
+            ev.preventDefault();
+            try { ev.returnValue = ''; } catch (e) { /* старый API */ }
+          }
+          return '';
+        });
       },
       setActiveChat: function (chatId) {
         var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
@@ -9750,6 +10680,16 @@
         // (юнит-тесты) считаются чистыми.
         if (typeof this._dirtyLeaveGuard === 'function'
             && !this._dirtyLeaveGuard('Переключить область и потерять их?')) {
+          return;
+        }
+        // P1 (ревью, FIX 2): черновик мемов проверяется СВОИМ guard-ом и
+        // только здесь — при смене области правки действительно теряются
+        // (черновик заменяется данными нового чата). Отказ = область не
+        // меняем, черновик цел.
+        if (typeof this._memeDraftLeaveGuard === 'function'
+            && !this._memeDraftLeaveGuard(
+              'Переключение чата заменит их данными другого чата.')) {
+          this.scopeOpen = false;
           return;
         }
         this.activeChatId = id;
@@ -11781,14 +12721,27 @@
       // «Основные настройки») и выбран ли чат: только тогда её данные нужны.
       memeCardVisible: function () {
         var ws = this.workspace;
-        return !!(ws && ws.module && ws.module.id === 'mod_initiative'
-                  && ws.tab === 'settings' && this.activeChatId != null);
+        if (!ws || !ws.module || ws.module.id !== 'mod_initiative') return false;
+        if (this.activeChatId == null) return false;
+        // P1: настройки/журнал мемов нужны «Обзору» (карточка механизма) и
+        // вкладке «Мемы». «Текстовая инициатива» обходится диагностикой
+        // механизмов (без лишнего чтения настроек мемов).
+        return ws.tab === 'overview' || ws.tab === 'memes';
+      },
+      // P1: диагностика ДВУХ механизмов нужна трём вкладкам (обзор/текст/мемы),
+      // но читается ОДНИМ запросом (single-flight в `loadMemeDiagnostics`).
+      initiativeDiagVisible: function () {
+        var ws = this.workspace;
+        if (!ws || !ws.module || ws.module.id !== 'mod_initiative') return false;
+        if (this.activeChatId == null) return false;
+        return ['overview', 'text', 'memes'].indexOf(ws.tab) >= 0;
       },
       loadMemeSettings: async function () {
         if (this.memeSettingsBusy) return;
         if (this.activeChatId == null) {
           this.memeSettings = null;
           this.memeDiag = null;
+          this.memeDraftChat = null;
           return;
         }
         this.memeSettingsBusy = true;
@@ -11798,8 +12751,17 @@
         try {
           var data = await this.api('/api/initiative/meme-settings');
           if (!this._scopeGuard(epoch)) return;
+          // F3: изменённый черновик этого же чата НЕ перезаписываем серверным
+          // ответом — иначе набранный текст молча пропадал при переходе
+          // «Мемы → Обзор → Мемы». Данные настроек обновляются всегда, черновик
+          // — только когда он чист или принадлежит другому чату.
+          var keepDraft = this.memeDraftDirty === true
+            && this.memeDraftChat === this.activeChatId;
           this.memeSettings = data || null;
-          this.memeDraft = this.memeDraftFromSettings(data);
+          if (!keepDraft) {
+            this.memeDraft = this.memeDraftFromSettings(data);
+            this.memeDraftChat = this.activeChatId;
+          }
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;
           this.memeSettings = null;
@@ -11832,6 +12794,231 @@
         } finally {
           if (this._scopeGuard(epoch)) this.memeDiagBusy = false;
         }
+      },
+      // ═══ P1 «Инициатива» (2026-11-03): вход на вкладку и журнал попыток ═══
+      // Одна точка входа на вкладку: каждый экран читает ровно свои данные,
+      // повторных опросов нет (у каждого загрузчика свой single-flight).
+      initiativeTabEnter: function (tab) {
+        var isInitiative = !!(this.workspace && this.workspace.module
+                              && this.workspace.module.id === 'mod_initiative');
+        if (!isInitiative) return;
+        if (tab === 'overview') {
+          if (this.activeChatId != null) this.loadMemeSettings();
+          this.loadInitiativeVitality();
+          return;
+        }
+        if (tab === 'text') {
+          if (this.activeChatId != null) this.loadMemeDiagnostics();
+          this.loadInitiativeVitality();
+          return;
+        }
+        if (tab === 'memes') {
+          if (this.activeChatId != null) this.loadMemeSettings();
+          return;
+        }
+        if (tab === 'publications') {
+          if (this.activeChatId != null && !this.iniPub.loaded) {
+            this.loadInitiativePublications(true);
+          }
+          return;
+        }
+        if (tab === 'diagnostics') {
+          this.iniTraceEnsure();
+        }
+      },
+      // Журнал логических попыток: серверные фильтры + пагинация по смещению.
+      // `reset` — новый фильтр/первый вход; иначе дописываем страницу.
+      loadInitiativePublications: async function (reset) {
+        var st = this.iniPub;
+        if (st.busy) return;
+        if (this.activeChatId == null) {
+          st.rows = [];
+          st.counts = {};
+          st.loaded = false;
+          st.error = '';
+          return;
+        }
+        st.busy = true;
+        st.error = '';
+        var offset = reset ? 0 : (st.nextOffset == null ? 0 : st.nextOffset);
+        var f = st.filters || {};
+        var q = '?days=' + encodeURIComponent(f.days == null ? 7 : f.days)
+          + '&kind=' + encodeURIComponent(f.kind || 'all')
+          + '&mode=' + encodeURIComponent(f.mode || 'all')
+          + '&outcome=' + encodeURIComponent(f.outcome || 'all')
+          + '&reason=' + encodeURIComponent(f.reason || '')
+          + '&offset=' + offset;
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/initiative/publications' + q);
+          if (!this._scopeGuard(epoch)) return;
+          st.available = data && data.available !== false;
+          st.notes = (data && data.notes) || [];
+          st.counts = (data && data.counts) || {};
+          st.nextOffset = (data && data.next_offset != null)
+            ? data.next_offset : null;
+          var rows = (data && data.rows) || [];
+          st.rows = reset ? rows : st.rows.concat(rows);
+          st.loaded = true;
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          if (reset) st.rows = [];
+          st.counts = {};
+          st.nextOffset = null;
+          st.error = (e && e.status === 403)
+            ? 'Нет доступа к журналу этого чата'
+            : ((e && e.message) || 'журнал недоступен');
+        } finally {
+          if (this._scopeGuard(epoch)) st.busy = false;
+        }
+      },
+      // Смена фильтра: сбрасываем страницу и читаем заново (один запрос).
+      initiativePubSetFilter: function (field, value) {
+        var st = this.iniPub;
+        if (!st.filters) return;
+        st.filters[field] = value;
+        st.rows = [];
+        st.nextOffset = null;
+        st.loaded = false;
+        this.iniPubDetail = null;
+        this.iniPubFocus = '';
+        this.loadInitiativePublications(true);
+      },
+      initiativePubRefresh: function () {
+        this.iniPub.rows = [];
+        this.iniPub.nextOffset = null;
+        this.loadInitiativePublications(true);
+      },
+      initiativePubMore: function () {
+        if (this.iniPub.nextOffset == null) return;
+        this.loadInitiativePublications(false);
+      },
+      // Деталь попытки (по клику в журнале) — точная цепочка событий. Пустая
+      // деталь НЕ превращается в строку: раскрывается только там, где есть
+      // что показать (сервер вернул chain/events).
+      initiativePubOpen: async function (row) {
+        if (!row || !row.attempt_id) return;
+        if (this.iniPubFocus === row.attempt_id) {
+          this.iniPubFocus = '';
+          this.iniPubDetail = null;
+          return;
+        }
+        this.iniPubFocus = row.attempt_id;
+        this.iniPubDetail = null;
+        this.iniPubDetailError = '';
+        this.iniPubDetailBusy = true;
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/initiative/publications/detail'
+            + '?attempt_id=' + encodeURIComponent(row.attempt_id));
+          if (!this._scopeGuard(epoch)) return;
+          this.iniPubDetail = data || null;
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.iniPubDetailError = (e && e.message) || 'деталь недоступна';
+        } finally {
+          if (this._scopeGuard(epoch)) this.iniPubDetailBusy = false;
+        }
+      },
+      // «Подробная трасса» → вкладка «Диагностика» с этой же попыткой.
+      initiativeOpenTrace: function (attemptId) {
+        if (attemptId) this.iniPubFocus = String(attemptId);
+        this.openWorkspaceTab('diagnostics');
+      },
+      // Трасса РОВНО одной попытки для «Диагностики». Без выбора — самая
+      // свежая попытка из уже загруженного журнала (если он загружен).
+      iniTraceEnsure: function () {
+        var id = this.iniPubFocus;
+        if (!id) {
+          var rows = (this.iniPub && this.iniPub.rows) || [];
+          var meme = null;
+          var text = null;
+          for (var i = 0; i < rows.length; i++) {
+            if (!meme && rows[i].kind === 'meme') meme = rows[i];
+            if (!text && rows[i].kind === 'text_initiative') text = rows[i];
+          }
+          var pick = meme || text;
+          if (pick) id = pick.attempt_id;
+        }
+        if (!id) return;
+        this.loadInitiativeTrace(id);
+      },
+      loadInitiativeTrace: async function (attemptId) {
+        if (!attemptId || this.iniTraceBusy) return;
+        if (this.activeChatId == null) {
+          this.iniTrace = null;
+          this.iniTraceError = '';
+          return;
+        }
+        this.iniTraceBusy = true;
+        this.iniTraceError = '';
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/initiative/publications/detail'
+            + '?attempt_id=' + encodeURIComponent(attemptId));
+          if (!this._scopeGuard(epoch)) return;
+          this.iniTrace = data || null;
+          this.iniPubFocus = String(attemptId);
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.iniTrace = null;
+          this.iniTraceError = (e && e.status === 403)
+            ? 'Нет доступа к трассе этого чата'
+            : ((e && e.message) || 'трасса недоступна');
+        } finally {
+          if (this._scopeGuard(epoch)) this.iniTraceBusy = false;
+        }
+      },
+      // Раскрытие группы трассы (по умолчанию всё сжато: «сжатый view»).
+      iniTraceToggle: function (groupKey) {
+        var map = this.iniTraceOpen || {};
+        this.iniTraceOpen = Object.assign({}, map, {
+          [groupKey]: !map[groupKey],
+        });
+      },
+      // «Отменить изменения»: черновик возвращается к эффективным значениям
+      // сервера (ничего не пишется). Это ЕДИНСТВЕННЫЙ явный способ отказаться
+      // от правок — плюс подтверждение при смене области (dirty-guard).
+      initiativeDraftReset: function () {
+        this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
+        this.memeDraftChat = this.activeChatId;
+        this.memeFieldErrors = {};
+        this.memeSettingsError = '';
+        this.memeSaveResult = null;
+      },
+      // «Вернуть наследование»: пустая строка в поле промпта = снять чатовое
+      // переопределение (существующий контракт POST /api/initiative/
+      // meme-settings). Сохраняется ОДНОЙ общей кнопкой.
+      initiativePromptReset: function (field) {
+        if (field !== 'prompt_joke' && field !== 'prompt_image') return;
+        this.memeDraft[field] = '';
+        this.memeFieldErrors = Object.assign({}, this.memeFieldErrors,
+                                             { [field]: '' });
+      },
+      // Одна реализация на два computed: считает РАЗЛИЧАЮЩИЕСЯ поля черновика.
+      // Живёт в methods (а не в computed): её вызывают оба вычисляемых свойства.
+      _memeDraftChangedFields: function () {
+        var d = this.memeDraft || {};
+        var view = this.memeSettingsView;
+        if (!view) return 0;
+        var base = this.memeDraftFromSettings(this.memeSettings);
+        var same = function (a, b) {
+          return String(a == null ? '' : a) === String(b == null ? '' : b);
+        };
+        var keys = ['enabled', 'window_messages', 'daily_limit',
+                    'cooldown_seconds', 'min_messages', 'summarizer_model',
+                    'quiet_hours', 'length_limit', 'prompt_joke',
+                    'prompt_image'];
+        var changed = 0;
+        for (var i = 0; i < keys.length; i++) {
+          var key = keys[i];
+          if (key === 'enabled') {
+            if ((d.enabled === true) !== (base.enabled === true)) changed += 1;
+            continue;
+          }
+          if (!same(d[key], base[key])) changed += 1;
+        }
+        return changed;
       },
       // Черновик — из эффективных значений сервера (не из дефолтов): поля
       // показывают то, что реально действует в этом чате. Промпты прикола и
@@ -11962,6 +13149,7 @@
         this.memeFieldErrors = {};
         if (!Object.keys(body).length) {
           // Ничего не менялось: пустое тело сервер честно отклонил бы (422).
+          this.memeSaveResult = { ok: true, text: 'Изменений нет — сохранять нечего' };
           this.toast('Настройки мемов не изменены', 'ok');
           return;
         }
@@ -11974,6 +13162,15 @@
           });
           this.memeSettings = data || this.memeSettings;
           this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
+          this.memeDraftChat = this.activeChatId;
+          // Реальный результат: что именно и для какого чата записано.
+          var savedKeys = Object.keys(body);
+          this.memeSaveResult = {
+            ok: true,
+            text: 'Сохранено для этого чата: '
+              + savedKeys.slice(0, 8).join(', ')
+              + (savedKeys.length > 8 ? (' и ещё ' + (savedKeys.length - 8)) : ''),
+          };
           this.toast('Настройки мемов сохранены для этого чата', 'ok');
           this.loadMemeDiagnostics();
         } catch (e) {
@@ -12006,6 +13203,14 @@
           } else {
             this.toast('Мемы: ' + this.memeSettingsError, 'err');
           }
+          this.memeSaveResult = {
+            ok: false,
+            text: onlyFields
+              ? 'Не сохранено: ' + Object.keys(fieldErrors).map(function (f) {
+                return fieldErrors[f];
+              }).join(' · ')
+              : ('Не сохранено: ' + this.memeSettingsError),
+          };
         } finally {
           this.memeSettingsSaving = false;
         }
@@ -12035,6 +13240,50 @@
       // маркеры «нет данных» (P9). Неизвестный код честно отдаётся кодом.
       memeSkipLabel: function (code) {
         return memeReasonLabelOf(code);
+      },
+      // Исход строки журнала попытки: один словарь на все вкладки страницы
+      // (обзор, «Мемы», «Публикации», «Диагностика») — разные подписи одного
+      // исхода запрещены.
+      memeOutcomeLabel: function (outcome) {
+        return memeOutcomeLabel(outcome);
+      },
+      // Переход к generic-секции параметров по её id (кнопка «Перейти к
+      // лимитам»): секция рисуется общим рендерером ниже на этой же вкладке.
+      scrollToConfigGroup: function (groupId) {
+        if (!groupId || typeof document === 'undefined') return;
+        var el = document.getElementById('cfg-group-' + groupId);
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ block: 'start' });
+        }
+      },
+      // Экспорт безопасного среза трассы (коды/числа/ревизии; сырого текста
+      // чата в ответе API нет). Скачивается файлом, ничего не пишется на сервер.
+      initiativeTraceExport: function () {
+        var t = this.iniTrace;
+        if (!t) return;
+        var payload = {
+          exported_at: Math.floor(Date.now() / 1000),
+          chat_id: this.activeChatId,
+          attempt_id: (t.attempt || {}).attempt_id || this.iniPubFocus,
+          attempt: t.attempt || null,
+          chain: t.chain || [],
+          events: t.events || [],
+          delivery: t.delivery || null,
+          notes: t.notes || [],
+        };
+        var text = JSON.stringify(payload, null, 2);
+        if (typeof document === 'undefined') return;
+        var blob = new Blob([text], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'initiative-trace-'
+          + String(payload.attempt_id || 'attempt').replace(/[^A-Za-z0-9_.-]/g, '_')
+          + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       },
       memePromptSourceLabel: function (source) {
         var ru = {
@@ -13443,10 +14692,18 @@
             this.toast('Модуль не найден', 'warn');
             route = '#/modules';
             try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
-          } else if (wsParsed.tab
-                     && !_workspaceTabApplicable(wsm, wsParsed.tab)) {
-            route = '#/modules/' + wsParsed.slug;
-            try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+          } else if (wsParsed.tab) {
+            // P1 «Инициатива»: старый адрес вкладки канонизируется (settings →
+            // text), а НЕ выбрасывается на «Обзор»: закладка ведёт туда, где
+            // теперь живут параметры.
+            var canonTab = _workspaceCanonicalTab(wsm, wsParsed.tab);
+            if (!_workspaceTabApplicable(wsm, canonTab)) {
+              route = '#/modules/' + wsParsed.slug;
+              try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+            } else if (canonTab !== wsParsed.tab) {
+              route = '#/modules/' + wsParsed.slug + '/' + canonTab;
+              try { history.replaceState(null, '', route); } catch (e) { /* file:// */ }
+            }
           }
         }
         // D3/§48: вторая дверь `#/ai/prompts/<slug>[/<stage>]`. Неизвестный
@@ -18637,6 +19894,11 @@
       // не существуют в каталоге).
       workspaceGroupTab: function (m, grp) {
         if (!grp) return 'settings';
+        // P1 «Инициатива» (2026-11-03): параметры модуля живут на ОДНОЙ
+        // смысловой вкладке «Текстовая инициатива» (флаги — в «Включение и
+        // условия», лимиты — в «Частота и лимиты»). Ключи/группы каталога не
+        // меняются: это только раскладка витрины.
+        if (m && m.id === 'mod_initiative') return 'text';
         // ASAP-2 §13 (D11): секции Hybrid/Legacy — маппинг ПО ID групп
         // (прецедент 'prep'), независимо от категории: в 'hybrid' попадают
         // flags/limits/models(и keys-слоты этой же группы), в 'legacy' —
@@ -18722,6 +19984,13 @@
       workspaceTabHasContent: function (m, tabId) {
         if (!m) return false;
         if (!_workspaceTabApplicable(m, tabId)) return false;
+        // P1 «Инициатива»: все пять вкладок — собственные секции страницы
+        // (состояние двух механизмов, параметры текста, мем-конвейер, журнал
+        // попыток, трасса одной попытки). Пустых вкладок нет.
+        if (m.id === 'mod_initiative') {
+          return ['overview', 'text', 'memes', 'publications',
+                  'diagnostics'].indexOf(tabId) >= 0;
+        }
         if (tabId === 'overview') return true;
         // ASAP-2.1 (T-3973): 'prep' удалён; стадии §85 — честный placeholder.
         if (tabId === 'clusterizer' || tabId === 'writer') return true;

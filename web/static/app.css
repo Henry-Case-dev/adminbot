@@ -8153,3 +8153,251 @@ body > .sticky-save[data-save-panel] {
   .breadcrumb-link { position: relative; }
   .breadcrumb-link::after { content: ""; position: absolute; inset: -16px -8px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   P1 «Инициатива» (2026-11-03): рекомпоновка страницы «Модули → Инициатива».
+   Аддитивный слой: только новые классы `ini-*` и один модификатор ленты
+   вкладок. Стекло/цвета/анимации каркаса НЕ переопределяются; собственные
+   карточки используют те же hairline/radius-переменные, что и остальная
+   админка. Правила гридов держат `min-width:0`, чтобы длинный код причины
+   не растягивал страницу по горизонтали на мобильном.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Читаемая ширина контента на широком десктопе: страница не растягивается
+   на 2K-монитор, две колонки остаются рядом. */
+.ini-page { width: 100%; max-width: 1160px; margin-left: auto; margin-right: auto; }
+
+.ini-head {
+  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px; min-width: 0;
+}
+
+/* ── Две равнозначные карточки механизмов («Обзор») ─────────────────── */
+.ini-cards {
+  display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+.ini-card {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-3, 12px) var(--space-3, 12px) var(--space-2, 8px);
+  background: rgba(255, 255, 255, .02);
+  min-width: 0; display: flex; flex-direction: column; gap: 8px;
+}
+.ini-card__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ini-card > button { align-self: flex-start; }
+.ini-col .meme-row .field { max-width: 11rem; }
+.ini-col .meme-row > span:first-child { flex: 1 1 100%; }
+.ini-budget-grid { display: grid; gap: 2px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.ini-card__title { font-size: 1.06em; font-weight: 700; }
+
+/* ── Пары «ключ → значение» (одна сетка на всю страницу) ────────────── */
+.ini-facts {
+  display: grid; gap: 4px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  font-size: 0.91em; min-width: 0;
+}
+.ini-facts--inline {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  margin: 6px 0;
+}
+.ini-fact { display: block; min-width: 0; padding: 1px 0; }
+.ini-fact__k { display: block; color: #94a3b8; }
+.ini-fact__v { display: block; color: #cbd5e1; overflow-wrap: anywhere; min-width: 0; }
+
+/* ── Полоса «Координация отправки» ──────────────────────────────────── */
+.ini-coord {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; padding: 6px 10px;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  font-size: 0.91em; min-width: 0;
+}
+.ini-coord__label { font-weight: 700; color: #e2e8f0; }
+.ini-coord__detail { color: #94a3b8; overflow-wrap: anywhere; }
+.ini-coord__event { color: #64748b; }
+
+/* ── Последние события (3–5) ────────────────────────────────────────── */
+.ini-events { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.ini-event {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 5px 2px; min-height: 36px; background: none; border: 0;
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .06);
+  color: #cbd5e1; font-size: 0.91em; cursor: pointer;
+}
+.ini-event:hover { background: rgba(255, 255, 255, .04); }
+.ini-event:focus-visible { outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px; }
+.ini-event__time { color: #94a3b8; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.ini-event__text { overflow-wrap: anywhere; min-width: 0; }
+
+/* ── Секции внутри вкладки ──────────────────────────────────────────── */
+.ini-section { margin-top: 10px; }
+.ini-section__title {
+  font-size: 0.99em; font-weight: 700; color: #e2e8f0;
+  padding-bottom: 4px; margin-bottom: 6px;
+  border-bottom: var(--border-hairline, 1px) solid rgba(255, 255, 255, .08);
+}
+.ini-status {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: 6px 10px; font-size: 0.91em; min-width: 0;
+}
+
+/* ── «Мемы»: верхняя строка, две колонки, pipeline ──────────────────── */
+.ini-topline {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; margin-bottom: 4px;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px); font-size: 0.94em; min-width: 0;
+}
+.ini-topline__toggle { display: inline-flex; align-items: center; gap: 6px; }
+
+.ini-cols {
+  display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px; align-items: start;
+}
+.ini-col {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: 8px 12px; min-width: 0;
+}
+.ini-col__title { font-size: 0.96em; font-weight: 700; margin-bottom: 6px; }
+
+.ini-pipeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ini-pipeline__step {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 0; min-width: 0;
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .06);
+}
+.ini-pipeline__step:first-child { border-top: 0; }
+.ini-pipeline__idx {
+  width: 18px; height: 18px; border-radius: 50%; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.78em; color: #0b1220; background: #94a3b8; font-weight: 700;
+}
+.ini-pipeline__step--ok .ini-pipeline__idx { background: #34d399; }
+.ini-pipeline__step--warn .ini-pipeline__idx { background: #fbbf24; }
+.ini-pipeline__name { font-size: 0.94em; color: #cbd5e1; }
+.ini-pipeline__code { font-size: 0.81em; color: #94a3b8; overflow-wrap: anywhere; }
+
+/* ── Два промпта рядом (десктоп), вертикально (ниже 1200) ───────────── */
+.ini-prompts {
+  display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.ini-prompt__head {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 4px; min-width: 0;
+}
+.ini-prompt__title { font-size: 0.94em; font-weight: 700; color: #cbd5e1; }
+
+/* ── Компактная «Последняя попытка» ─────────────────────────────────── */
+.ini-stages {
+  display: grid; gap: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  font-size: 0.91em;
+}
+.ini-stage {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .08);
+  border-radius: var(--radius-md, 8px); padding: 4px 8px; min-width: 0;
+}
+.ini-stage__name { color: #94a3b8; }
+
+/* ── «Публикации»: фильтры, строки, деталь ──────────────────────────── */
+.ini-filters {
+  display: grid; gap: 8px; margin: 6px 0 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  min-width: 0;
+}
+.ini-filter { display: flex; flex-direction: column; gap: 2px; font-size: 0.87em; min-width: 0; }
+.ini-filter > span { color: #94a3b8; }
+.ini-filter .field { width: 100%; min-width: 0; }
+.ini-filter--wide { grid-column: span 2; }
+.ini-rows { display: flex; flex-direction: column; min-width: 0; }
+.ini-rows__item { min-width: 0; }
+.ini-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;
+  text-align: left; padding: 5px 2px; min-height: 40px; background: none;
+  border: 0; border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .06);
+  color: #cbd5e1; font-size: 0.91em; cursor: pointer; min-width: 0;
+}
+.ini-row:hover { background: rgba(255, 255, 255, .04); }
+.ini-row:focus-visible { outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px; }
+.ini-row__time { color: #94a3b8; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.ini-row__stage { color: #cbd5e1; flex: 0 0 auto; }
+.ini-row__reason { color: #94a3b8; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.ini-row__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #64748b; font-size: 0.81em;
+}
+.ini-detail {
+  border-left: 2px solid rgba(129, 140, 248, .35);
+  margin: 2px 0 8px 10px; padding: 6px 10px; min-width: 0;
+}
+.ini-chain { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ini-chain__step {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  font-size: 0.89em; color: #cbd5e1; min-width: 0;
+}
+.ini-chain__name { color: #94a3b8; }
+
+/* ── «Диагностика»: сжатые группы трассы ────────────────────────────── */
+.ini-attempt-input { width: min(320px, 100%); min-width: 0; }
+.ini-trace {
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .08);
+  min-width: 0;
+}
+.ini-trace__head {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 7px 2px; min-height: 38px; background: none; border: 0;
+  color: #e2e8f0; font-size: 0.94em; cursor: pointer; min-width: 0;
+}
+.ini-trace__head:hover { background: rgba(255, 255, 255, .04); }
+.ini-trace__head:focus-visible { outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px; }
+.ini-trace__title { font-weight: 700; flex: 0 0 auto; }
+.ini-trace__summary { color: #94a3b8; overflow-wrap: anywhere; min-width: 0; }
+.ini-trace__body {
+  padding: 2px 10px 8px; display: flex; flex-direction: column; gap: 3px;
+  font-size: 0.89em; min-width: 0;
+}
+.ini-pre {
+  margin: 4px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto;
+  background: rgba(255, 255, 255, .03); border-radius: var(--radius-md, 8px);
+  font-size: 0.84em; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+.ini-note {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 8px 0; padding: 6px 10px; font-size: 0.89em; color: #94a3b8;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px); min-width: 0;
+}
+
+/* ── Лента вкладок: прокрутка ВНУТРИ полосы (мобильный) ─────────────── */
+@media (max-width: 767px) {
+  .workspace-tabs--scroll {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; padding-bottom: 4px;
+    max-width: 100%;
+  }
+  .workspace-tabs--scroll > button { flex: 0 0 auto; white-space: nowrap; }
+}
+
+/* 768–1199: контекстным двум колонкам тесно — переходим в одну. */
+@media (max-width: 1199px) {
+  .ini-cards, .ini-cols, .ini-prompts { grid-template-columns: minmax(0, 1fr); }
+  .ini-filter--wide { grid-column: auto; }
+}
+
+/* Мобильный: тач-цели и отсутствие горизонтальной прокрутки страницы. */
+@media (max-width: 767px) {
+  .ini-page { max-width: 100%; }
+  .ini-event, .ini-row, .ini-trace__head { min-height: 44px; }
+  .ini-facts, .ini-facts--inline { grid-template-columns: minmax(0, 1fr); }
+  .ini-row__reason { flex-basis: 100%; }
+  .ini-attempt-input { width: 100%; }
+}
+.ini-row__chain { color: #64748b; }

@@ -1000,7 +1000,9 @@
                 <div v-if="moduleSourceText(workspaceModule)" class="text-[10px] text-gray-500 mt-1">
                   {{ moduleSourceText(workspaceModule) }}
                 </div>
-                <div class="flex gap-2 flex-wrap mt-3" role="tablist" data-workspace-tabs>
+                <div class="flex gap-2 flex-wrap mt-3 workspace-tabs"
+                     :class="{ 'workspace-tabs--scroll': workspaceModule && workspaceModule.id === 'mod_initiative' }"
+                     role="tablist" data-workspace-tabs>
                   <button v-for="wt in workspaceTabs" :key="'wt-' + wt.id" role="tab"
                           :data-workspace-tab="wt.id"
                           :aria-selected="workspaceTab === wt.id"
@@ -1011,7 +1013,8 @@
               </div>
 
               <!-- Обзор: реальные данные/состояние, без фиктивных чисел. -->
-              <div v-if="workspaceModule && workspaceTab === 'overview'"
+              <div v-if="workspaceModule && workspaceTab === 'overview'
+                            && workspaceModule.id !== 'mod_initiative'"
                    class="col-span-full card p-4" data-workspace-overview>
                 <div class="text-sm font-bold mb-1">Обзор модуля</div>
                 <div class="text-xs text-gray-400 mb-2">
@@ -1143,95 +1146,6 @@
                   <div v-else class="text-gray-500">
                     Журнал проверок с источниками доступен владельцу бота
                     («Аналитика» → «Память и интеллект»).
-                  </div>
-                </div>
-                <!-- ASAP 7 F3 (§3.3): живой гейт/статус модуля «Инициатива»
-                     на вкладке «Обзор» — requested/effective/source (module_registry),
-                     heartbeat-джоба, pending, последнее решение/пропуск,
-                     ближайший due. Источник — intent_snapshot().module
-                     (/api/status, аддитивный блок; честные состояния без
-                     маскировки нулями, контракт mca-12). -->
-                <div v-if="workspaceModule.id === 'mod_initiative'
-                            && intentModuleStatus()"
-                     class="mt-3 pt-2 border-t border-white/10 text-xs"
-                     data-initiative-status>
-                  <div class="flex flex-wrap gap-2 items-center mb-1">
-                    <span class="badge"
-                          :class="intentModuleStatus().effective ? 'badge-ok' : 'badge-warn'">
-                      {{ intentModuleStatus().effective ? 'Работает' : 'Не работает' }}
-                    </span>
-                    <span class="text-gray-500">
-                      requested: {{ intentModuleStatus().requested ? 'вкл' : 'выкл' }}
-                      ({{ intentModuleStatus().masterParam }})
-                    </span>
-                    <span class="text-gray-500">
-                      · source: {{ intentModuleStatus().sourceLabel }}
-                    </span>
-                  </div>
-                  <div class="text-gray-500">
-                    <!-- v6 C06A: раздельно гейт (enabled, hot) и ФАКТЫ:
-                         registered (джоба в планировщике), последний тик
-                         (durable-штамп, переживает рестарт), следующий тик.
-                         «Тик активен» только по гейту — больше не показываем
-                         (создавало ложное «работает» при незарегистрированной
-                         джобе, R1 RCA C06A). -->
-                    Heartbeat-гейт: {{ intentModuleStatus().heartbeat.enabled ? 'включён' : 'выключен' }}
-                    · джоба: {{ intentModuleStatus().heartbeatRegistered ? 'зарегистрирована' : 'НЕ зарегистрирована' }}
-                    <template v-if="intentModuleStatus().heartbeatLastTick">
-                      · последний тик: {{ fmtTs(intentModuleStatus().heartbeatLastTick.ts) }}<template v-if="intentModuleStatus().heartbeatLastTick.enabled === false"> (гейт был выключен)</template>
-                    </template>
-                    <template v-else>· тиков ещё не было</template>
-                    <template v-if="intentModuleStatus().heartbeatNextTick">
-                      · следующий тик: {{ fmtTs(intentModuleStatus().heartbeatNextTick) }}</template>
-                    ({{ intentModuleStatus().heartbeat.job }}, каждые
-                    {{ intentModuleStatus().heartbeat.tick_seconds }} с;
-                    тумблер применяется сразу, без рестарта).
-                    <template v-if="!intentModuleStatus().effective">
-                      Правка env {{ intentModuleStatus().envParam }} требует рестарта.
-                    </template>
-                  </div>
-                  <!-- v6 C06A: диагностическая формула F6 (4 состояния) +
-                       последний блокер — человекочитаемо. -->
-                  <div v-if="intentModuleStatus().stateLabel"
-                       class="mt-1 text-gray-400" data-initiative-state-label>
-                    {{ intentModuleStatus().stateLabel }}
-                    <template v-if="intentModuleStatus().topBlockReason">
-                      <span class="text-gray-600">· блокер:
-                        {{ topBlockLabel(intentModuleStatus().topBlockReason) }}</span>
-                    </template>
-                  </div>
-                  <!-- v6 C06A: воронка за 24ч — producers/created/due/
-                       decisions/writer/recheck/sent. Редкие/нулевые значения
-                       могут быть корректны — важна видимость стадии останова. -->
-                  <div v-if="intentModuleStatus().funnel"
-                       class="mt-1 flex flex-wrap gap-1" data-initiative-funnel>
-                    <span class="badge badge-muted">Продюсеры 24ч: {{ funnelProducersLabel(intentModuleStatus().funnel.producers_24h) || '0' }}</span>
-                    <span class="badge badge-muted">Создано: {{ intentModuleStatus().funnel.intents_created_24h }}</span>
-                    <span class="badge badge-muted">Due: {{ intentModuleStatus().funnel.due }}</span>
-                    <span class="badge badge-muted">Решений: {{ intentModuleStatus().funnel.decisions_24h }}</span>
-                    <span class="badge badge-muted">Writer: {{ intentModuleStatus().funnel.writer_generated_24h }}</span>
-                    <span class="badge badge-muted">Recheck: {{ intentModuleStatus().funnel.recheck_passed_24h }}</span>
-                    <span class="badge badge-muted">Отправлено: {{ intentModuleStatus().funnel.sent_24h }}</span>
-                  </div>
-                  <div class="mt-1">
-                    Ожидают решения: {{ intentModuleStatus().pending }}
-                    <template v-if="intentModuleStatus().nextDue">
-                      · ближайшая проверка: {{ fmtTs(intentModuleStatus().nextDue) }}
-                    </template>
-                  </div>
-                  <div v-if="intentModuleStatus().lastDecision" class="mt-1 text-gray-400">
-                    Последнее решение: {{ intentModuleStatus().lastDecision.outcome || '—' }}
-                    <template v-if="intentModuleStatus().lastDecision.reason_code">
-                      · причина: {{ intentModuleStatus().lastDecision.reason_code }}</template>
-                    <template v-if="intentModuleStatus().lastDecision.ts">
-                      · {{ fmtTs(intentModuleStatus().lastDecision.ts) }}</template>
-                  </div>
-                  <div v-if="intentModuleStatus().lastSkip" class="mt-1 text-gray-400">
-                    Последний пропуск/отсрочка: {{ intentModuleStatus().lastSkip.event }}
-                    <template v-if="intentModuleStatus().lastSkip.reason_code">
-                      · причина: {{ intentModuleStatus().lastSkip.reason_code }}</template>
-                    <template v-if="intentModuleStatus().lastSkip.ts">
-                      · {{ fmtTs(intentModuleStatus().lastSkip.ts) }}</template>
                   </div>
                 </div>
                 <!-- D09 (§18F, панели): «Сон» — последние прогоны и
@@ -1508,118 +1422,479 @@
                 </template>
               </div>
 
-              <!-- ═══ EVOL-014 (Wave 4 UI): мемы внутри «Инициативы» ═════════
-                   Своя ось (`flags.meme_initiative_enabled`) отдельно от
-                   текстовой инициативы; мастер модуля остаётся в каталоге —
-                   второго мастер-тумблера здесь нет. Всё — для ВЫБРАННОГО
-                   чата: окно, квота дня (0 = выключено) с остатком/сбросом/
-                   часовым поясом, кулдаун, минимум активности, тихие часы,
-                   модель выжимки, эффективный потолок длины с источником,
-                   шаблон картинки (заводской/ручной) и отношение к публикации.
-                   Аналитика — отдельно от текстовой инициативы. -->
-              <!-- ═══ EVOL-035/040 (W12): семантические группы тумблеров
-                   «Инициативы». Мастер-ключ здесь НЕ редактируется (только
-                   статус + вход в каталог); per-chat opt-in — отдельное явно
-                   подписанное действие; предохранители и диагностика — в
-                   «Дополнительно», чтобы нельзя было включить публикацию,
-                   трогая диагностику. Ключи/хранение/consumer не меняются. -->
+              <!-- ═══ P1 (2026-11-03, рекомпоновка владельца): «Инициатива» →
+                   «Обзор». Две РАВНОЗНАЧНЫЕ карточки механизмов (эффективное
+                   вкл/выкл, право управления, последняя и следующая проверка,
+                   последняя реальная публикация, свой кулдаун, дневная квота,
+                   текущая причина ожидания, вход в настройки), полоса
+                   «Координация отправки» (состояние ТОЛЬКО из API, без
+                   клиентского отсчёта) и 3–5 значимых событий со ссылкой в
+                   «Публикации». Тяжёлый журнал и трассы здесь НЕ грузятся. -->
               <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
-                        && workspaceTab === 'settings'"
-                   class="col-span-full card p-4" data-initiative-flags>
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <div class="text-sm font-bold">Что включено</div>
-                  <span class="text-xs text-gray-500">
-                    мастер-тумблер модуля — в каталоге «Модули»
-                  </span>
-                  <button type="button" class="btn-ghost text-xs ml-auto"
-                          data-initiative-master-link
-                          @click="backToModulesCatalog()">К каталогу →</button>
-                </div>
-                <div class="text-xs text-gray-400 mb-2">
-                  Ниже — отдельные оси модуля. Проверка перед отправкой не
-                  включает публикацию; диагностика сама ничего не отправляет.
-                </div>
-                <div v-if="initiativePerChatItem"
-                       class="initiative-flag-row" data-initiative-per-chat>
-                  <span class="initiative-flag-row__label">
-                    <span class="initiative-flag-row__title">Инициатива в этом чате</span>
-                    <span class="initiative-flag-row__hint">
-                      {{ scopeKind === 'global'
-                         ? 'Отдельная настройка чата: выберите чат, чтобы включить только его'
-                         : 'Действует только для выбранного чата, глобальные чаты не меняются' }}
+                        && workspaceTab === 'overview'"
+                   class="col-span-full card p-4 ini-page"
+                   data-workspace-overview data-initiative-overview>
+                <div class="ini-head">
+                  <div class="min-w-0">
+                    <div class="text-sm font-bold">Что происходит сейчас</div>
+                    <div class="text-xs text-gray-500">
+                      Состояние двух механизмов из живого API. Журнал доставок —
+                      «Публикации», техническая трасса — «Диагностика».
+                    </div>
+                  </div>
+                  <span class="flex-1"></span>
+                  <div class="flex flex-wrap items-center gap-2" data-module-overview-actions>
+                    <span class="text-xs text-gray-500" data-module-last-action>
+                      <template v-if="moduleLastEventLine(workspaceModule)">
+                        Последнее действие: {{ moduleLastEventLine(workspaceModule) }}
+                      </template>
+                      <template v-else>Последних действий в журнале нет</template>
                     </span>
-                  </span>
-                  <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
-                    <input type="checkbox" class="sr-only peer"
-                           :data-cfg-key="initiativePerChatItem.key"
-                           v-model="initiativePerChatItem.value"
-                           :disabled="!canEditConfig(initiativePerChatItem.key)"
-                           @change="saveConfigItem(initiativePerChatItem)">
-                    <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
-                  </label>
+                    <button type="button" class="btn-accent text-xs"
+                            data-module-primary-action
+                            @click="openWorkspaceTab('publications')">
+                      Все публикации →
+                    </button>
+                  </div>
                 </div>
-                <div class="initiative-flags mt-2">
-                  <div v-for="g in initiativePrimaryGroups" :key="'ifg-' + g.id"
-                       class="initiative-flag-group" :data-initiative-group="g.id">
-                    <div class="initiative-flag-group__title">{{ g.title }}</div>
-                    <div class="initiative-flag-group__note">{{ g.note }}</div>
-                    <div v-for="it in g.items" :key="'ifr-' + it.key"
-                           class="initiative-flag-row" :data-initiative-key="it.key">
+
+                <div v-if="activeChatId == null" class="ini-note" data-ini-overview-nochat>
+                  Механизмы работают по чату: выберите чат в шапке, чтобы увидеть
+                  его состояние и события.
+                </div>
+
+                <div class="ini-cards">
+                  <section class="ini-card" data-ini-card="text">
+                    <header class="ini-card__head">
+                      <span class="msr" aria-hidden="true">{{ iconGlyph('forum') }}</span>
+                      <span class="ini-card__title">{{ initiativeTextCard.title }}</span>
+                      <span class="badge shrink-0"
+                            :class="initiativeTextCard.effective === true ? 'badge-ok'
+                              : (initiativeTextCard.effective === false ? 'badge-muted' : 'badge-warn')"
+                            data-ini-effect="text">{{ initiativeTextCard.effectiveLabel }}</span>
+                    </header>
+                    <div class="ini-facts">
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Кто может изменить</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.canEditLabel }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Источник состояния</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.sourceLabel }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Последняя проверка</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.lastCheckText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Её исход</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.lastOutcomeText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Следующая проверка</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.nextCheckText }}
+                          <span v-if="initiativeTextCard.nextCheckBasisLabel"
+                                class="text-gray-600">({{ initiativeTextCard.nextCheckBasisLabel }})</span>
+                        </span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Последняя реальная публикация</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.lastPublicationText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Свой кулдаун</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.cooldownText }}
+                          · остаток: {{ initiativeTextCard.cooldownRemaining }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Дневная квота</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.quotaText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Ждёт сейчас</span>
+                        <span class="ini-fact__v">{{ initiativeTextCard.waitingText }}</span>
+                      </div>
+                    </div>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-ini-open="text" @click="openWorkspaceTab('text')">
+                      {{ initiativeTextCard.tabLabel }} →
+                    </button>
+                  </section>
+
+                  <section class="ini-card" data-ini-card="meme">
+                    <header class="ini-card__head">
+                      <span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span>
+                      <span class="ini-card__title">{{ initiativeMemeCard.title }}</span>
+                      <span class="badge shrink-0"
+                            :class="initiativeMemeCard.effective === true ? 'badge-ok'
+                              : (initiativeMemeCard.effective === false ? 'badge-muted' : 'badge-warn')"
+                            data-ini-effect="meme">{{ initiativeMemeCard.effectiveLabel }}</span>
+                    </header>
+                    <div class="ini-facts">
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Кто может изменить</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.canEditLabel }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Источник состояния</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.sourceLabel }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Последняя проверка</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.lastCheckText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Её исход</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.lastOutcomeText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Следующая проверка</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.nextCheckText }}
+                          <span v-if="initiativeMemeCard.nextCheckBasisLabel"
+                                class="text-gray-600">({{ initiativeMemeCard.nextCheckBasisLabel }})</span>
+                        </span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Последняя реальная публикация</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.lastPublicationText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Свой кулдаун</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.cooldownText }}
+                          · остаток: {{ initiativeMemeCard.cooldownRemaining }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Дневная квота</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.quotaText }}</span>
+                      </div>
+                      <div class="ini-fact">
+                        <span class="ini-fact__k">Ждёт сейчас</span>
+                        <span class="ini-fact__v">{{ initiativeMemeCard.waitingText }}</span>
+                      </div>
+                    </div>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-ini-open="memes" @click="openWorkspaceTab('memes')">
+                      {{ initiativeMemeCard.tabLabel }} →
+                    </button>
+                  </section>
+                </div>
+
+                <div class="ini-coord" data-ini-coordination
+                     :data-ini-coord-state="initiativeCoordination.state">
+                  <span class="ini-coord__label">Координация отправки</span>
+                  <span class="badge shrink-0"
+                        :class="initiativeCoordination.state === 'free' ? 'badge-ok'
+                          : (initiativeCoordination.state === 'degraded' ? 'badge-warn' : 'badge-info')"
+                        data-ini-coord-label>{{ initiativeCoordination.label }}</span>
+                  <span class="ini-coord__detail">{{ initiativeCoordination.detail }}</span>
+                  <span v-if="initiativeCoordination.event" class="ini-coord__event"
+                        data-ini-coord-event>{{ initiativeCoordination.event }}</span>
+                </div>
+
+                <div class="ini-events" data-ini-recent-events>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold">Последние значимые события</span>
+                    <span class="text-[10px] text-gray-600">без полного журнала</span>
+                    <span class="flex-1"></span>
+                    <button type="button" class="btn-ghost text-xs"
+                            data-ini-events-all
+                            @click="openWorkspaceTab('publications')">Все публикации →</button>
+                  </div>
+                  <div v-if="!initiativeRecentEvents.length"
+                       class="text-xs text-gray-500" data-ini-events-empty>
+                    За окно значимых событий нет.
+                  </div>
+                  <button v-for="e in initiativeRecentEvents"
+                          :key="'ini-ev-' + e.kind + '-' + e.ts + '-' + e.text"
+                          type="button" class="ini-event"
+                          :data-ini-event="e.kind"
+                          @click="openWorkspaceTab('publications')">
+                    <span class="ini-event__time">{{ e.timeText }}</span>
+                    <span class="badge badge-muted shrink-0">{{ e.kindLabel }}</span>
+                    <span class="ini-event__text">{{ e.text }}</span>
+                    <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- ═══ P1: «Инициатива» → «Текстовая инициатива» ═════════════
+                   Одна секция «Включение и условия» (гейт/статус, per-chat
+                   opt-in, семантические группы осей) и одна «Последнее
+                   решение» с объяснимой причиной (вероятность + реальный
+                   источник случайности, если жеребьёвка была). Настроек мемов
+                   здесь НЕТ — у них своя вкладка. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
+                        && workspaceTab === 'text'"
+                   class="col-span-full card p-4 ini-page" data-initiative-text>
+                <div class="ini-head">
+                  <div class="min-w-0">
+                    <div class="text-sm font-bold">Текстовая инициатива</div>
+                    <div class="text-xs text-gray-500">
+                      Включение, условия и собственные лимиты текста. Мемы
+                      настраиваются на вкладке «Мемы» и друг друга не выключают.
+                    </div>
+                  </div>
+                  <span class="flex-1"></span>
+                </div>
+
+                <div class="ini-section" data-initiative-section="enable">
+                  <div class="ini-section__title">Включение и условия</div>
+                  <!-- ASAP 7 F3 (§3.3): живой гейт/статус модуля — requested/
+                       effective/source (module_registry), heartbeat-джоба,
+                       pending, последнее решение/пропуск, ближайший due.
+                       Источник — intent_snapshot().module (/api/status,
+                       аддитивный блок; честные состояния без маскировки
+                       нулями, контракт mca-12). -->
+                  <div v-if="intentModuleStatus()" class="ini-status"
+                       data-initiative-status>
+                    <div class="flex flex-wrap gap-2 items-center mb-1">
+                      <span class="badge"
+                            :class="intentModuleStatus().effective ? 'badge-ok' : 'badge-warn'">
+                        {{ intentModuleStatus().effective ? 'Работает' : 'Не работает' }}
+                      </span>
+                      <span class="text-gray-500">
+                        requested: {{ intentModuleStatus().requested ? 'вкл' : 'выкл' }}
+                        ({{ intentModuleStatus().masterParam }})
+                      </span>
+                      <span class="text-gray-500">
+                        · source: {{ intentModuleStatus().sourceLabel }}
+                      </span>
+                    </div>
+                    <div class="text-gray-500">
+                      <!-- v6 C06A: раздельно гейт (enabled, hot) и ФАКТЫ:
+                           registered (джоба в планировщике), последний тик
+                           (durable-штамп, переживает рестарт), следующий тик.
+                           «Тик активен» только по гейту — больше не показываем
+                           (создавало ложное «работает» при незарегистрированной
+                           джобе, R1 RCA C06A). -->
+                      Heartbeat-гейт: {{ intentModuleStatus().heartbeat.enabled ? 'включён' : 'выключен' }}
+                      · джоба: {{ intentModuleStatus().heartbeatRegistered ? 'зарегистрирована' : 'НЕ зарегистрирована' }}
+                      <template v-if="intentModuleStatus().heartbeatLastTick">
+                        · последний тик: {{ fmtTs(intentModuleStatus().heartbeatLastTick.ts) }}<template v-if="intentModuleStatus().heartbeatLastTick.enabled === false"> (гейт был выключен)</template>
+                      </template>
+                      <template v-else>· тиков ещё не было</template>
+                      <template v-if="intentModuleStatus().heartbeatNextTick">
+                        · следующий тик: {{ fmtTs(intentModuleStatus().heartbeatNextTick) }}</template>
+                      ({{ intentModuleStatus().heartbeat.job }}, каждые
+                      {{ intentModuleStatus().heartbeat.tick_seconds }} с;
+                      тумблер применяется сразу, без рестарта).
+                      <template v-if="!intentModuleStatus().effective">
+                        Правка env {{ intentModuleStatus().envParam }} требует рестарта.
+                      </template>
+                    </div>
+                    <!-- v6 C06A: диагностическая формула F6 (4 состояния) +
+                         последний блокер — человекочитаемо. -->
+                    <div v-if="intentModuleStatus().stateLabel"
+                         class="mt-1 text-gray-400" data-initiative-state-label>
+                      {{ intentModuleStatus().stateLabel }}
+                      <template v-if="intentModuleStatus().topBlockReason">
+                        <span class="text-gray-600">· блокер:
+                          {{ topBlockLabel(intentModuleStatus().topBlockReason) }}</span>
+                      </template>
+                    </div>
+                    <!-- v6 C06A: воронка за 24ч — producers/created/due/
+                         decisions/writer/recheck/sent. Редкие/нулевые значения
+                         могут быть корректны — важна видимость стадии останова. -->
+                    <div v-if="intentModuleStatus().funnel"
+                         class="mt-1 flex flex-wrap gap-1" data-initiative-funnel>
+                      <span class="badge badge-muted">Продюсеры 24ч: {{ funnelProducersLabel(intentModuleStatus().funnel.producers_24h) || '0' }}</span>
+                      <span class="badge badge-muted">Создано: {{ intentModuleStatus().funnel.intents_created_24h }}</span>
+                      <span class="badge badge-muted">Due: {{ intentModuleStatus().funnel.due }}</span>
+                      <span class="badge badge-muted">Решений: {{ intentModuleStatus().funnel.decisions_24h }}</span>
+                      <span class="badge badge-muted">Writer: {{ intentModuleStatus().funnel.writer_generated_24h }}</span>
+                      <span class="badge badge-muted">Recheck: {{ intentModuleStatus().funnel.recheck_passed_24h }}</span>
+                      <span class="badge badge-muted">Отправлено: {{ intentModuleStatus().funnel.sent_24h }}</span>
+                    </div>
+                    <div class="mt-1">
+                      Ожидают решения: {{ intentModuleStatus().pending }}
+                      <template v-if="intentModuleStatus().nextDue">
+                        · ближайшая проверка: {{ fmtTs(intentModuleStatus().nextDue) }}
+                      </template>
+                    </div>
+                    <div v-if="intentModuleStatus().lastDecision" class="mt-1 text-gray-400">
+                      Последнее решение: {{ intentModuleStatus().lastDecision.outcome || '—' }}
+                      <template v-if="intentModuleStatus().lastDecision.reason_code">
+                        · причина: {{ intentModuleStatus().lastDecision.reason_code }}</template>
+                      <template v-if="intentModuleStatus().lastDecision.ts">
+                        · {{ fmtTs(intentModuleStatus().lastDecision.ts) }}</template>
+                    </div>
+                    <div v-if="intentModuleStatus().lastSkip" class="mt-1 text-gray-400">
+                      Последний пропуск/отсрочка: {{ intentModuleStatus().lastSkip.event }}
+                      <template v-if="intentModuleStatus().lastSkip.reason_code">
+                        · причина: {{ intentModuleStatus().lastSkip.reason_code }}</template>
+                      <template v-if="intentModuleStatus().lastSkip.ts">
+                        · {{ fmtTs(intentModuleStatus().lastSkip.ts) }}</template>
+                    </div>
+                  </div>
+
+                  <!-- ═══ EVOL-035/040 (W12): семантические группы тумблеров.
+                       Мастер-ключ здесь НЕ редактируется (только статус + вход в
+                       каталог); per-chat opt-in — отдельное явно подписанное
+                       действие; предохранители и диагностика — в «Дополнительно»,
+                       чтобы нельзя было включить публикацию, трогая диагностику.
+                       Ключи/хранение/consumer не меняются. -->
+                  <div data-initiative-flags class="mt-2">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <div class="text-xs font-bold">Что включено</div>
+                      <span class="text-xs text-gray-500">
+                        мастер-тумблер модуля — в каталоге «Модули»
+                      </span>
+                      <button type="button" class="btn-ghost text-xs ml-auto"
+                              data-initiative-master-link
+                              @click="backToModulesCatalog()">К каталогу →</button>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2">
+                      Ниже — отдельные оси модуля. Проверка перед отправкой не
+                      включает публикацию; диагностика сама ничего не отправляет.
+                    </div>
+                    <div v-if="initiativePerChatItem"
+                           class="initiative-flag-row" data-initiative-per-chat>
                       <span class="initiative-flag-row__label">
-                        <span class="initiative-flag-row__title">{{ it.title }}</span>
-                        <span class="initiative-flag-row__hint">{{ it.description }}</span>
+                        <span class="initiative-flag-row__title">Инициатива в этом чате</span>
+                        <span class="initiative-flag-row__hint">
+                          {{ scopeKind === 'global'
+                             ? 'Отдельная настройка чата: выберите чат, чтобы включить только его'
+                             : 'Действует только для выбранного чата, глобальные чаты не меняются' }}
+                        </span>
                       </span>
                       <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                         <input type="checkbox" class="sr-only peer"
-                               :data-cfg-key="it.key" v-model="it.value"
-                               :disabled="!canEditConfig(it.key)"
-                               @change="saveConfigItem(it)">
+                               :data-cfg-key="initiativePerChatItem.key"
+                               v-model="initiativePerChatItem.value"
+                               :disabled="!canEditConfig(initiativePerChatItem.key)"
+                               @change="saveConfigItem(initiativePerChatItem)">
                         <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
                       </label>
                     </div>
-                  </div>
-                </div>
-                <details class="mt-2" data-initiative-advanced>
-                  <summary class="cursor-pointer text-xs text-gray-500">
-                    Дополнительно: предохранители и диагностика
-                  </summary>
-                  <div class="initiative-flags mt-2">
-                    <div v-for="g in initiativeAdvancedGroups" :key="'ifga-' + g.id"
-                         class="initiative-flag-group" :data-initiative-group="g.id">
-                      <div class="initiative-flag-group__title">{{ g.title }}</div>
-                      <div class="initiative-flag-group__note">{{ g.note }}</div>
-                      <div v-for="it in g.items" :key="'ifra-' + it.key"
-                             class="initiative-flag-row" :data-initiative-key="it.key">
-                        <span class="initiative-flag-row__label">
-                          <span class="initiative-flag-row__title">{{ it.title }}</span>
-                          <span class="initiative-flag-row__hint">{{ it.description }}</span>
-                        </span>
-                        <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
-                          <input type="checkbox" class="sr-only peer"
-                                 :data-cfg-key="it.key" v-model="it.value"
-                                 :disabled="!canEditConfig(it.key)"
-                                 @change="saveConfigItem(it)">
-                          <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
-                        </label>
-                      </div>
-                      <div v-if="g.links.length" class="flex flex-wrap gap-2 mt-1">
-                        <template v-for="l in g.links" :key="'ifl-' + g.id + '-' + l.label">
-                          <a v-if="l.route" :href="l.route"
-                             class="btn-ghost text-xs">{{ l.label }} →</a>
-                          <button v-else type="button" class="btn-ghost text-xs"
-                                  @click="openSpeechSection('try')">{{ l.label }}</button>
-                        </template>
+                    <div class="initiative-flags mt-2">
+                      <div v-for="g in initiativePrimaryGroups" :key="'ifg-' + g.id"
+                           class="initiative-flag-group" :data-initiative-group="g.id">
+                        <div class="initiative-flag-group__title">{{ g.title }}</div>
+                        <div class="initiative-flag-group__note">{{ g.note }}</div>
+                        <div v-for="it in g.items" :key="'ifr-' + it.key"
+                               class="initiative-flag-row" :data-initiative-key="it.key">
+                          <span class="initiative-flag-row__label">
+                            <span class="initiative-flag-row__title">{{ it.title }}</span>
+                            <span class="initiative-flag-row__hint">{{ it.description }}</span>
+                          </span>
+                          <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                            <input type="checkbox" class="sr-only peer"
+                                   :data-cfg-key="it.key" v-model="it.value"
+                                   :disabled="!canEditConfig(it.key)"
+                                   @change="saveConfigItem(it)">
+                            <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                          </label>
+                        </div>
                       </div>
                     </div>
+                    <details class="mt-2" data-initiative-advanced>
+                      <summary class="cursor-pointer text-xs text-gray-500">
+                        Дополнительно: предохранители и диагностика
+                      </summary>
+                      <div class="initiative-flags mt-2">
+                        <div v-for="g in initiativeAdvancedGroups" :key="'ifga-' + g.id"
+                             class="initiative-flag-group" :data-initiative-group="g.id">
+                          <div class="initiative-flag-group__title">{{ g.title }}</div>
+                          <div class="initiative-flag-group__note">{{ g.note }}</div>
+                          <div v-for="it in g.items" :key="'ifra-' + it.key"
+                                 class="initiative-flag-row" :data-initiative-key="it.key">
+                            <span class="initiative-flag-row__label">
+                              <span class="initiative-flag-row__title">{{ it.title }}</span>
+                              <span class="initiative-flag-row__hint">{{ it.description }}</span>
+                            </span>
+                            <label class="ctl-toggle relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                              <input type="checkbox" class="sr-only peer"
+                                     :data-cfg-key="it.key" v-model="it.value"
+                                     :disabled="!canEditConfig(it.key)"
+                                     @change="saveConfigItem(it)">
+                              <span class="ctl-toggle__track"><span class="ctl-toggle__thumb"></span></span>
+                            </label>
+                          </div>
+                          <div v-if="g.links.length" class="flex flex-wrap gap-2 mt-1">
+                            <template v-for="l in g.links" :key="'ifl-' + g.id + '-' + l.label">
+                              <a v-if="l.route" :href="l.route"
+                                 class="btn-ghost text-xs">{{ l.label }} →</a>
+                              <button v-else type="button" class="btn-ghost text-xs"
+                                      @click="openSpeechSection('try')">{{ l.label }}</button>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
                   </div>
-                </details>
+                </div>
+
+                <div class="ini-section" data-initiative-section="decision">
+                  <div class="ini-section__title">Последнее решение</div>
+                  <div class="ini-facts" data-initiative-last-decision>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Когда</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.timeText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Действие</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.actionText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Причина</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.reasonText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Случайное решение</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.randomLabel }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Вероятность</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.probabilityText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Источник случайности</span>
+                      <span class="ini-fact__v">{{ initiativeLastDecision.sourceLabel }}</span>
+                    </div>
+                  </div>
+                  <div v-if="!initiativeLastDecision.performed"
+                       class="text-[10px] text-gray-600" data-initiative-no-draw>
+                    Жеребьёвка в последнем решении не выполнялась —
+                    вероятность показана, потому что она действует, но draw не
+                    вызывался (порог 0/100 % или отложенное решение).
+                  </div>
+                </div>
+
+                <div class="ini-section" data-initiative-section="limits">
+                  <div class="ini-section__title">Частота и лимиты</div>
+                  <div class="text-xs text-gray-400">
+                    Собственные лимиты текста (единицы указаны в названии
+                    параметра: секунды, разы в сутки, дни, число сообщений) —
+                    в секции «Частота и лимиты» сразу под этим блоком.
+                    Мемы имеют свою квоту и свой кулдаун на вкладке «Мемы».
+                  </div>
+                  <button type="button" class="btn-ghost text-xs mt-1"
+                          data-initiative-limits-link
+                          @click="scrollToConfigGroup('limits_intent')">
+                    Перейти к лимитам ↓
+                  </button>
+                </div>
               </div>
+
+              <!-- ═══ P1: «Инициатива» → «Мемы» ═════════════════════════════
+                   Верхняя строка (свой ON/OFF + эффективный источник, статус,
+                   квота дня, последний готовый/опубликованный результат,
+                   причина недавнего пропуска). Две смысловые колонки:
+                   «Триггер и расписание» и «Создание мема» (4 шага). Под
+                   pipeline — ДВА промпта рядом, один save и реальный результат.
+                   Ниже бюджет image prompt и компактная «Последняя попытка».
+                   Полная трасса — во вкладке «Диагностика» (не дублируется). -->
               <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
-                        && workspaceTab === 'settings'"
-                   class="col-span-full card p-4" data-meme-settings>
+                        && workspaceTab === 'memes'"
+                   class="col-span-full card p-4 ini-page" data-meme-settings>
                 <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Мемы в инициативе</div>
+                  <div class="text-sm font-bold">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span>
+                    Мемы в инициативе
+                  </div>
                   <span class="badge badge-muted">своя настройка, не мастер модуля</span>
+                  <span v-if="memeDraftDirty" class="badge badge-warn"
+                        data-meme-dirty>есть несохранённые изменения</span>
                   <button type="button" class="btn-ghost text-xs ml-auto"
                           :disabled="memeSettingsBusy"
                           aria-label="Обновить настройки мемов"
@@ -1628,9 +1903,9 @@
                 </div>
                 <div class="text-xs text-gray-400 mb-2">
                   Мемы — отдельный выход инициативы: выключение мемов не
-                  выключает текстовые инициативные реплики, а выключение
-                  модуля «Инициатива» останавливает и мемы. Генеральный
-                  тумблер модуля — в каталоге, здесь его нет.
+                  выключает текстовые инициативные реплики, а выключение модуля
+                  «Инициатива» останавливает и мемы. Генеральный тумблер модуля —
+                  в каталоге, здесь его нет.
                 </div>
                 <div v-if="activeChatId == null" class="text-xs text-gray-500"
                      data-meme-nochat>
@@ -1650,166 +1925,338 @@
                     <span>{{ memeUnavailableLabel(memeSettingsView.unavailableReason) }}</span>
                     <span class="text-gray-600">· код: {{ memeSettingsView.unavailableReason }}</span>
                   </div>
-                  <div class="meme-grid">
-                    <label class="meme-row">
-                      <input type="checkbox" class="ctl-check__box" v-model="memeDraft.enabled"
-                             data-meme-toggle>
-                      <span>Мемы включены в этом чате</span>
-                      <span class="text-gray-500">
-                        (по умолчанию {{ memeSettingsView.defaults.enabled ? 'включены' : 'выключены' }})
-                      </span>
+
+                  <!-- ── Верхняя строка механизма ─────────────────────────── -->
+                  <div class="ini-topline" data-ini-meme-topline>
+                    <label class="ini-topline__toggle">
+                      <input type="checkbox" class="ctl-check__box"
+                             v-model="memeDraft.enabled" data-meme-toggle>
+                      <span>{{ memePageStatus.ownLabel }}</span>
                     </label>
-                    <label class="meme-row">
-                      <span>Окно сообщений для выжимки</span>
-                      <input class="field w-24" type="number" min="1" max="5000"
-                             v-model="memeDraft.window_messages"
-                             data-meme-window>
-                    </label>
-                    <label class="meme-row">
-                      <span>Квота мемов в сутки (0 = выключено)</span>
-                      <input class="field w-24" type="number" min="0" max="50"
-                             v-model="memeDraft.daily_limit"
-                             data-meme-daily-limit>
-                    </label>
-                    <label class="meme-row">
-                      <span>Кулдаун между мемами, сек</span>
-                      <input class="field w-28" type="number" min="0" max="604800"
-                             v-model="memeDraft.cooldown_seconds"
-                             data-meme-cooldown>
-                    </label>
-                    <label class="meme-row">
-                      <span>Минимум сообщений для триггера</span>
-                      <input class="field w-24" type="number" min="0" max="500"
-                             v-model="memeDraft.min_messages"
-                             data-meme-min-messages>
-                    </label>
-                    <label class="meme-row">
-                      <span>Модель выжимки (пусто — общая)</span>
-                      <input class="field w-48" type="text" maxlength="120"
-                             v-model="memeDraft.summarizer_model"
-                             placeholder="наследовать"
-                             data-meme-summarizer>
-                    </label>
-                    <label class="meme-row">
-                      <span>Тихие часы (HH:MM-HH:MM)</span>
-                      <input class="field w-32" type="text" maxlength="11"
-                             v-model="memeDraft.quiet_hours"
-                             placeholder="не заданы"
-                             data-meme-quiet-hours>
-                    </label>
-                    <label class="meme-row">
-                      <span>Потолок длины промпта, симв. (пусто — авто)</span>
-                      <input class="field w-24" type="number" min="0" max="8000"
-                             v-model="memeDraft.length_limit"
-                             data-meme-length-limit>
-                    </label>
-                  </div>
-                  <div class="flex items-center gap-2 flex-wrap mt-2">
-                    <button type="button" class="btn-accent text-xs"
-                            :disabled="memeSettingsSaving"
-                            data-meme-save
-                            @click="saveMemeSettings()">
-                      {{ memeSettingsSaving ? 'Сохранение…' : 'Сохранить настройки мемов' }}
-                    </button>
-                    <span class="text-[10px] text-gray-500">
-                      Сохраняется для выбранного чата (локальное переопределение;
-                      глобальные значения не меняются).
+                    <span class="badge"
+                          :class="memePageStatus.ownOn ? 'badge-ok' : 'badge-muted'"
+                          data-ini-meme-effect>
+                      {{ memePageStatus.ownOn ? 'включены' : 'выключены' }}
+                    </span>
+                    <span class="text-xs text-gray-500" data-ini-meme-source>
+                      {{ memePageStatus.sourceLabel }}
+                      <template v-if="memeSettingsView && memeSettingsView.defaults">
+                        · по умолчанию
+                        {{ memeSettingsView.defaults.enabled ? 'включены' : 'выключены' }}
+                      </template>
+                    </span>
+                    <span class="flex-1"></span>
+                    <span class="text-xs" data-ini-meme-status>
+                      <span class="text-gray-500">статус:</span>
+                      {{ memePageStatus.statusLabel }}
                     </span>
                   </div>
-                  <!-- Квота дня: отдельная от текстовой инициативы. -->
-                  <div class="meme-quota mt-3" data-meme-quota>
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <b data-meme-quota-text>{{ memeSettingsView.quotaText }}</b>
-                      <span class="text-gray-400" data-meme-quota-remaining>
-                        {{ memeSettingsView.remainingText }}</span>
-                      <span class="text-gray-500" data-meme-quota-reset>
-                        · сброс: {{ memeSettingsView.resetAt || '—' }}
-                      </span>
-                      <span class="text-gray-500" data-meme-quota-tz>
-                        · часовой пояс: {{ memeSettingsView.timezone }}
-                        ({{ memeSettingsView.timezoneSource || 'источник неизвестен' }})
-                      </span>
+                  <div class="ini-facts ini-facts--inline" data-ini-meme-today>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Квота сегодня</span>
+                      <span class="ini-fact__v">{{ memePageStatus.quotaText }}</span>
                     </div>
-                    <div class="text-[10px] text-gray-600">
-                      Считаются только реальные попытки генерации (бронь до
-                      вызова провайдера); день считается в часовом поясе чата.
-                      <template v-if="!memeSettingsView.schemaPresent">
-                        Схема квоты ещё не применена — счётчик честно недоступен.
-                      </template>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Последний готовый результат</span>
+                      <span class="ini-fact__v">{{ memePageStatus.lastReadyText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Последняя публикация</span>
+                      <span class="ini-fact__v">{{ memePageStatus.lastPublishedText }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Недавний пропуск</span>
+                      <span class="ini-fact__v">
+                        {{ memePageStatus.skipReasonText }}
+                        <span v-if="memePageStatus.skipCode"
+                              class="text-gray-600 font-mono">· {{ memePageStatus.skipCode }}</span>
+                      </span>
                     </div>
                   </div>
-                  <!-- Аналитика: стадии и причины — отдельно от текстовой инициативы. -->
-                  <div class="meme-analytics mt-3" data-meme-analytics>
-                    <div class="text-xs font-bold mb-1">Аналитика мемов (не смешивается с текстовой инициативой)</div>
-                    <div class="flex flex-wrap gap-1">
-                      <span v-for="st in memeSettingsView.stages" :key="'mst-' + st"
-                            class="badge badge-muted" :data-meme-stage="st">
-                        {{ memeStageLabel(st) }}: {{ memeSettingsView.counters[st] || 0 }}
-                      </span>
-                      <span class="badge badge-muted">
-                        охват: {{ memeSettingsView.coverage === 'durable' ? 'журнал'
-                          : (memeSettingsView.coverage === 'schema_absent' ? 'схемы нет'
-                             : 'в памяти процесса') }}
-                      </span>
-                    </div>
-                    <div v-if="memeSettingsView.skipRows.length" class="mt-1 text-xs"
-                         data-meme-skip-reasons>
-                      <div class="text-gray-500">Причины пропусков:</div>
-                      <div v-for="sk in memeSettingsView.skipRows" :key="'msk-' + sk.code"
-                           class="text-gray-400">
-                        {{ memeSkipLabel(sk.code) }} · {{ sk.count }}
-                        <span class="text-gray-600 font-mono">{{ sk.code }}</span>
+
+                  <!-- ── Две смысловые колонки ────────────────────────────── -->
+                  <div class="ini-cols">
+                    <section class="ini-col" data-ini-meme-col="trigger">
+                      <div class="ini-col__title">Триггер и расписание</div>
+                      <div class="meme-grid">
+                        <label class="meme-row">
+                          <span>Окно сообщений для выжимки, сообщений</span>
+                          <input class="field w-24" type="number" min="1" max="5000"
+                                 v-model="memeDraft.window_messages"
+                                 data-meme-window>
+                        </label>
+                        <label class="meme-row">
+                          <span>Минимум сообщений для триггера, сообщений</span>
+                          <input class="field w-24" type="number" min="0" max="500"
+                                 v-model="memeDraft.min_messages"
+                                 data-meme-min-messages>
+                        </label>
+                        <label class="meme-row">
+                          <span>Свой кулдаун между мемами, секунд</span>
+                          <input class="field w-28" type="number" min="0" max="604800"
+                                 v-model="memeDraft.cooldown_seconds"
+                                 data-meme-cooldown>
+                        </label>
+                        <label class="meme-row">
+                          <span>Квота мемов в сутки, штук (0 = выключено)</span>
+                          <input class="field w-24" type="number" min="0" max="50"
+                                 v-model="memeDraft.daily_limit"
+                                 data-meme-daily-limit>
+                        </label>
+                        <label class="meme-row">
+                          <span>Тихие часы (HH:MM-HH:MM)</span>
+                          <input class="field w-32" type="text" maxlength="11"
+                                 v-model="memeDraft.quiet_hours"
+                                 placeholder="не заданы"
+                                 data-meme-quiet-hours>
+                        </label>
+                        <label class="meme-row">
+                          <span>Модель выжимки (пусто — общая)</span>
+                          <input class="field w-48" type="text" maxlength="120"
+                                 v-model="memeDraft.summarizer_model"
+                                 placeholder="наследовать"
+                                 data-meme-summarizer>
+                        </label>
                       </div>
-                    </div>
-                    <div v-else class="text-xs text-gray-500 mt-1">
-                      Пропусков пока не зафиксировано.
-                    </div>
-                    <!-- P4 / MEME-ACC-12: четыре стадии пайплайна — по отдельности,
-                         со своим исходом, причиной и фактами этапа. -->
-                    <div class="mt-2" data-meme-attempt-stages>
-                      <div class="text-gray-500">Последняя попытка по стадиям:</div>
-                      <div v-if="!memeAttemptStages.length" class="text-gray-500"
-                           data-meme-attempt-empty>
-                        Попыток ещё не было — стадии показывать нечего.
+                      <div class="meme-quota mt-2" data-meme-quota>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <b data-meme-quota-text>{{ memeSettingsView.quotaText }}</b>
+                          <span class="text-gray-400" data-meme-quota-remaining>
+                            {{ memeSettingsView.remainingText }}</span>
+                          <span class="text-gray-500" data-meme-quota-reset>
+                            · сброс: {{ memeSettingsView.resetAt || '—' }}
+                          </span>
+                          <span class="text-gray-500" data-meme-quota-tz>
+                            · часовой пояс: {{ memeSettingsView.timezone }}
+                            ({{ memeSettingsView.timezoneSource || 'источник неизвестен' }})
+                          </span>
+                        </div>
+                        <div class="text-[10px] text-gray-600">
+                          Считаются только реальные попытки генерации (бронь до
+                          вызова провайдера); день считается в часовом поясе чата.
+                          <template v-if="!memeSettingsView.schemaPresent">
+                            Схема квоты ещё не применена — счётчик честно недоступен.
+                          </template>
+                        </div>
                       </div>
-                      <div v-else class="meme-stage-list">
-                        <div v-for="(row, idx) in memeAttemptStages"
-                             :key="'msa-' + idx" class="meme-stage-row"
-                             :data-meme-attempt-stage="row.stage">
-                          <div class="meme-stage-head">
-                            <span class="meme-stage-name">{{ row.stageLabel }}</span>
-                            <span class="badge"
-                                  :class="row.outcomeOk ? 'badge-ok' : 'badge-warn'"
-                                  :data-meme-attempt-outcome="row.outcome">{{ row.outcomeLabel }}</span>
-                            <span v-if="row.reasonCode" class="text-gray-500">
-                              {{ memeSkipLabel(row.reasonCode) }}
-                              <span class="meme-stage-code">{{ row.reasonCode }}</span>
-                            </span>
-                          </div>
-                          <div class="meme-stage-facts">
-                            <template v-if="row.templateChars != null">
-                              шаблон {{ row.templateChars }} симв.
-                            </template>
-                            <template v-if="row.jokeLimit != null">
-                              · бюджет прикола {{ row.jokeLimit }} симв.
-                            </template>
-                            <template v-if="row.summaryChars != null">
-                              · выжимка {{ row.summaryChars }} симв.
-                            </template>
-                            <template v-if="row.promptChars != null">
-                              · итоговый промпт {{ row.promptChars }} симв.
-                            </template>
-                            <template v-if="row.jokeChars != null">
-                              · прикол {{ row.jokeChars }} симв.
-                            </template>
-                            <span v-if="!row.hasFacts" class="text-gray-600">
-                              фактов этапа нет
-                            </span>
-                          </div>
+                      <div class="mt-2 text-xs" data-ini-meme-conditions>
+                        <div class="text-gray-500 mb-1">Текущие условия (из API):</div>
+                        <div v-if="!memeDiagBlocks.length || !memeDiagBlocks[1].block.conditionsRows"
+                             class="text-gray-500">нет данных о выполненных условиях</div>
+                        <div v-else class="text-gray-400">
+                          <span v-for="(c, ci) in memeDiagBlocks[1].block.conditionsRows"
+                                :key="'inicond-' + ci">{{ c.key }}={{ c.value }}<template
+                                v-if="ci < memeDiagBlocks[1].block.conditionsRows.length - 1"> · </template></span>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="ini-col" data-ini-meme-col="create">
+                      <div class="ini-col__title">Создание мема</div>
+                      <ol class="ini-pipeline" data-ini-meme-pipeline>
+                        <li v-for="(st, si) in (memeLastAttempt ? memeLastAttempt.stages : [])"
+                            :key="'ini-pipe-' + st.stage"
+                            class="ini-pipeline__step"
+                            :class="st.done ? (st.ok ? 'ini-pipeline__step--ok' : 'ini-pipeline__step--warn') : ''"
+                            :data-ini-pipeline-step="st.stage">
+                          <span class="ini-pipeline__idx">{{ si + 1 }}</span>
+                          <span class="ini-pipeline__name">{{ st.label }}</span>
+                          <span class="badge shrink-0"
+                                :class="st.done ? (st.ok ? 'badge-ok' : 'badge-warn') : 'badge-muted'">
+                            {{ st.outcomeLabel }}
+                          </span>
+                          <span v-if="st.reasonCode" class="ini-pipeline__code">
+                            {{ memeSkipLabel(st.reasonCode) }}
+                          </span>
+                        </li>
+                      </ol>
+                      <div class="text-[10px] text-gray-600 mt-1">
+                        Шаги — из журнала последней попытки этого чата. Свежая
+                        трасса с фактами по каждому шагу — в «Диагностике».
+                      </div>
+                    </section>
+                  </div>
+
+                  <!-- ── ДВА промпта рядом: один save, реальный результат ─── -->
+                  <div class="ini-section mt-3" data-meme-prompt>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <div class="ini-section__title">Промпты мемов</div>
+                      <span class="text-[10px] text-gray-600">
+                        «Прикол» — задание модели на шаге B; «Шаблон изображения» —
+                        обрамление прикола на шаге C
+                      </span>
+                      <span class="flex-1"></span>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-meme-draft-reset
+                              :disabled="memeSettingsSaving"
+                              @click="initiativeDraftReset()">Отменить изменения</button>
+                      <button type="button" class="btn-accent text-xs"
+                              :disabled="memeSettingsSaving"
+                              data-meme-save
+                              @click="saveMemeSettings()">
+                        {{ memeSettingsSaving ? 'Сохранение…' : 'Сохранить настройки мемов' }}
+                      </button>
+                    </div>
+                    <div v-if="memeSaveResult" class="text-xs mt-1"
+                         :class="memeSaveResult.ok ? 'text-green-400' : 'text-red-300'"
+                         data-meme-save-state>{{ memeSaveResult.text }}</div>
+                    <div v-if="memeDraftDirty" class="text-xs mt-1 text-amber-300"
+                         data-meme-dirty-hint>
+                      Изменения не сохранены. При переключении вкладок они
+                      сохранятся; при смене чата или закрытии страницы приложение
+                      спросит подтверждение. Сохранить — кнопкой
+                      «Сохранить настройки мемов».
+                    </div>
+                    <div class="text-[10px] text-gray-600 mb-2">
+                      Сохраняется для выбранного чата (локальное переопределение;
+                      глобальные значения не меняются).
+                    </div>
+
+                    <div class="ini-prompts">
+                      <div class="meme-prompt-field" data-ini-prompt="joke">
+                        <div class="ini-prompt__head">
+                          <label for="meme-prompt-joke" class="ini-prompt__title">Промпт прикола</label>
+                          <span class="badge"
+                                :class="memeSettingsView.promptJoke.differs_from_factory
+                                  ? 'badge-warn' : 'badge-muted'"
+                                data-meme-prompt-joke-source>
+                            {{ memePromptSourceLabel(memeSettingsView.promptJoke.source) }}
+                          </span>
+                          <span class="text-gray-600">· ревизия
+                            {{ memeSettingsView.promptJoke.revision || '—' }}
+                            (заводская: {{ memeSettingsView.promptJoke.factory_revision || '—' }})</span>
+                        </div>
+                        <textarea id="meme-prompt-joke" class="field meme-prompt-input"
+                                  rows="4"
+                                  v-model="memeDraft.prompt_joke"
+                                  :aria-invalid="memeFieldError('prompt_joke') ? 'true' : 'false'"
+                                  :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_joke') }"
+                                  data-meme-prompt-joke></textarea>
+                        <div v-if="memeFieldError('prompt_joke')" class="meme-field-error"
+                             data-meme-prompt-error-joke>{{ memeFieldError('prompt_joke') }}</div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <button type="button" class="btn-ghost text-xs"
+                                  data-meme-prompt-reset-joke
+                                  @click="initiativePromptReset('prompt_joke')">Вернуть наследование</button>
+                          <span class="text-[10px] text-gray-600">
+                            {{ memePromptEmptyHint(memeSettingsView.promptJoke.source) }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div class="meme-prompt-field" data-ini-prompt="image">
+                        <div class="ini-prompt__head">
+                          <label for="meme-prompt-image" class="ini-prompt__title">Шаблон изображения</label>
+                          <span class="badge"
+                                :class="memeSettingsView.promptImage.differs_from_factory
+                                  ? 'badge-warn' : 'badge-muted'"
+                                data-meme-prompt-image-source>
+                            {{ memePromptSourceLabel(memeSettingsView.promptImage.source) }}
+                          </span>
+                          <span class="text-gray-600">· ревизия
+                            {{ memeSettingsView.promptImage.revision || '—' }}
+                            (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
+                          <span class="badge"
+                                :class="memeSettingsView.templateValid ? 'badge-muted' : 'badge-err'"
+                                data-meme-template-state>
+                            {{ memeSettingsView.templateValid
+                              ? ('{joke}: ' + memeSettingsView.templatePlaceholders)
+                              : 'шаблон невалиден' }}
+                          </span>
+                        </div>
+                        <textarea id="meme-prompt-image" class="field meme-prompt-input"
+                                  rows="4"
+                                  v-model="memeDraft.prompt_image"
+                                  :aria-invalid="memeFieldError('prompt_image') ? 'true' : 'false'"
+                                  :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_image') }"
+                                  data-meme-prompt-image></textarea>
+                        <div v-if="memeFieldError('prompt_image')" class="meme-field-error"
+                             data-meme-prompt-error-image>{{ memeFieldError('prompt_image') }}</div>
+                        <div v-if="!memeSettingsView.templateValid" class="meme-field-error"
+                             data-meme-template-error>{{ memeSettingsView.templateError }}</div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <button type="button" class="btn-ghost text-xs"
+                                  data-meme-prompt-reset-image
+                                  @click="initiativePromptReset('prompt_image')">Вернуть наследование</button>
+                          <span class="text-[10px] text-gray-600">
+                            {{ memePromptEmptyHint(memeSettingsView.promptImage.source) }}
+                          </span>
                         </div>
                       </div>
                     </div>
+
+                    <!-- Бюджет итогового image prompt: потолок, длина шаблона,
+                         доступно приколу, ФАКТИЧЕСКАЯ длина последней сборки.
+                         Потолок к выжимке не применяется. Пустое поле потолка
+                         = автоматический режим (не 0, не NaN, не «800»). -->
+                    <div class="meme-budget mt-2" data-meme-budget>
+                      <label class="meme-row" data-ini-length-field>
+                        <span>Потолок длины промпта, симв. (пусто — авто)</span>
+                        <input class="field w-24" type="number" min="0" max="8000"
+                               v-model="memeDraft.length_limit"
+                               :aria-invalid="memeFieldError('length_limit') ? 'true' : 'false'"
+                               data-meme-length-limit>
+                        <span class="text-[10px] text-gray-600">
+                          пусто — авто (определяет провайдер); число — фиксированный
+                          потолок
+                        </span>
+                      </label>
+                      <div v-if="memeFieldError('length_limit')" class="meme-field-error"
+                           data-meme-length-error>{{ memeFieldError('length_limit') }}</div>
+                      <div class="meme-budget-row">
+                        <span>Потолок итогового промпта:</span>
+                        <b data-meme-limit-ceiling>{{ memeBudgetBlock ? memeBudgetBlock.ceilingText : '—' }}</b>
+                        <span v-if="memeBudgetBlock && memeBudgetBlock.known"
+                              class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="meme-budget-row">
+                        <span>Длина шаблона картинки:</span>
+                        <b data-meme-limit-template>{{ memeBudgetBlock ? memeBudgetBlock.templateCharsText : '—' }}</b>
+                        <span class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="meme-budget-row">
+                        <span>Доступно для прикола:</span>
+                        <b data-meme-limit-joke>{{ memeBudgetBlock ? memeBudgetBlock.jokeBudgetText : '—' }}</b>
+                        <span v-if="memeBudgetBlock && memeBudgetBlock.known"
+                              class="text-gray-600">симв.</span>
+                      </div>
+                      <div class="meme-budget-row" data-meme-limit-actual>
+                        <span>Фактическая длина последней сборки:</span>
+                        <b>{{ memeBudgetBlock && memeBudgetBlock.actualPromptChars != null
+                              ? memeBudgetBlock.actualPromptChars : '—' }}</b>
+                        <span class="text-gray-600">симв. итогового промпта</span>
+                        <span v-if="memeBudgetBlock && memeBudgetBlock.actualJokeChars != null"
+                              class="text-gray-500">· прикол
+                          {{ memeBudgetBlock.actualJokeChars }} симв.</span>
+                      </div>
+                      <div class="text-gray-500 mt-1">
+                        источник потолка:
+                        {{ memeBudgetBlock ? memeBudgetBlock.sourceLabel : '—' }}
+                        <template v-if="memeBudgetBlock && memeBudgetBlock.placeholderLabel">
+                          · режим шаблона: {{ memeBudgetBlock.placeholderLabel }}
+                        </template>
+                        <span class="text-gray-600">(потолка у выжимки нет — шаг A не обрезается)</span>
+                      </div>
+                      <div v-if="memeBudgetBlock && memeBudgetBlock.overflow"
+                           class="meme-field-error" data-meme-budget-overflow>
+                        Шаблон съел весь потолок: приколу не осталось места —
+                        генерация остановится ДО вызова LLM/картинки
+                        (код: no_joke_budget).
+                      </div>
+                      <div v-else-if="memeBudgetBlock && memeBudgetBlock.autoMode"
+                           class="text-amber-300 text-[10px]"
+                           data-meme-budget-auto>
+                        Потолок не задан — режим «автоматически»: числовой предел
+                        определяет провайдер, искусственного лимита символов нет
+                        (никаких 0/800/NaN).
+                      </div>
+                    </div>
                   </div>
+
+                  <details class="ini-section mt-2" data-meme-speech-wrap>
+                    <summary class="cursor-pointer text-xs text-gray-400">
+                      Речевая сборка последнего прикола (ревизии и манифест)
+                    </summary>
                   <!-- P4 / MEME-JOKE-DIAG-UI: речевая сборка этапа B (ревизии и
                        манифест). Тексты прикола, слоёв и персоны не показываются. -->
                   <div class="mt-3 text-xs" data-meme-speech>
@@ -1851,6 +2298,8 @@
                       </div>
                       <div class="mt-1" data-meme-speech-layers>
                         <div class="text-gray-500">Слои системного промпта:</div>
+                        <div class="text-[10px] text-gray-600"
+                             data-meme-speech-source>{{ memeSpeechView.sourceNote }}</div>
                         <div v-for="(l, li) in memeSpeechView.layers" :key="'mlay-' + li"
                              class="meme-diag-row" :data-meme-speech-layer="l.layer">
                           <span class="meme-diag-key font-mono">{{ l.layer || '—' }}</span>
@@ -1872,109 +2321,494 @@
                       </div>
                     </template>
                   </div>
-                  <!-- Промпты мемов: ДВА РЕАЛЬНЫХ редактора (P4). Раньше шаблон
-                       был пассивным текстом и фактически недоступен для правки. -->
-                  <div class="mt-3 text-xs" data-meme-prompt>
-                    <div class="font-bold mb-1">Промпты мемов (редактируются здесь)</div>
-                    <div class="text-gray-500 mb-2">
-                      «Прикол» — задание модели на этапе B; «Шаблон картинки» —
-                      обрамление прикола на этапе C. Сохраняются той же кнопкой
-                      «Сохранить настройки мемов» (для выбранного чата).
+                  </details>
+                  <!-- ── Компактная «Последняя попытка» ──────────────────── -->
+                  <div class="ini-section mt-3" data-meme-attempt-stages
+                       data-ini-last-attempt>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <div class="ini-section__title">Последняя попытка</div>
+                      <span v-if="memeLastAttempt" class="text-xs text-gray-500"
+                            data-ini-attempt-ts>{{ memeLastAttempt.timeText }}</span>
+                      <span class="flex-1"></span>
+                      <button type="button" class="btn-ghost text-xs"
+                              data-ini-trace-link
+                              :disabled="!memeLastAttempt"
+                              @click="initiativeOpenTrace(memeLastAttempt && memeLastAttempt.jobId
+                                ? ('meme:' + memeLastAttempt.jobId) : '')">
+                        Подробная трасса →
+                      </button>
                     </div>
-                    <div class="meme-prompt-field">
-                      <label class="meme-row" for="meme-prompt-joke">
-                        <span>Промпт генерации прикола</span>
-                        <span class="badge"
-                              :class="memeSettingsView.promptJoke.differs_from_factory
-                                ? 'badge-warn' : 'badge-muted'"
-                              data-meme-prompt-joke-source>
-                          {{ memePromptSourceLabel(memeSettingsView.promptJoke.source) }}
-                        </span>
-                        <span class="text-gray-600">· ревизия
-                          {{ memeSettingsView.promptJoke.revision || '—' }}
-                          (заводская: {{ memeSettingsView.promptJoke.factory_revision || '—' }})</span>
-                      </label>
-                      <textarea id="meme-prompt-joke" class="field meme-prompt-input"
-                                rows="3"
-                                v-model="memeDraft.prompt_joke"
-                                :aria-invalid="memeFieldError('prompt_joke') ? 'true' : 'false'"
-                                :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_joke') }"
-                                data-meme-prompt-joke></textarea>
-                      <div v-if="memeFieldError('prompt_joke')" class="meme-field-error"
-                           data-meme-prompt-error-joke>{{ memeFieldError('prompt_joke') }}</div>
-                      <div class="text-[10px] text-gray-600">
-                        {{ memePromptEmptyHint(memeSettingsView.promptJoke.source) }}
-                      </div>
+                    <div v-if="!memeLastAttempt" class="text-gray-500"
+                         data-meme-attempt-empty>
+                      Попыток ещё не было — стадии показывать нечего.
                     </div>
-                    <div class="meme-prompt-field mt-2">
-                      <label class="meme-row" for="meme-prompt-image">
-                        <span>Шаблон промпта картинки</span>
-                        <span class="badge"
-                              :class="memeSettingsView.promptImage.differs_from_factory
-                                ? 'badge-warn' : 'badge-muted'"
-                              data-meme-prompt-image-source>
-                          {{ memePromptSourceLabel(memeSettingsView.promptImage.source) }}
-                        </span>
-                        <span class="text-gray-600">· ревизия
-                          {{ memeSettingsView.promptImage.revision || '—' }}
-                          (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
-                        <span class="badge"
-                              :class="memeSettingsView.templateValid ? 'badge-muted' : 'badge-err'"
-                              data-meme-template-state>
-                          {{ memeSettingsView.templateValid
-                            ? ('{joke}: ' + memeSettingsView.templatePlaceholders)
-                            : 'шаблон невалиден' }}
-                        </span>
-                      </label>
-                      <textarea id="meme-prompt-image" class="field meme-prompt-input"
-                                rows="3"
-                                v-model="memeDraft.prompt_image"
-                                :aria-invalid="memeFieldError('prompt_image') ? 'true' : 'false'"
-                                :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_image') }"
-                                data-meme-prompt-image></textarea>
-                      <div v-if="memeFieldError('prompt_image')" class="meme-field-error"
-                           data-meme-prompt-error-image>{{ memeFieldError('prompt_image') }}</div>
-                      <div v-if="!memeSettingsView.templateValid" class="meme-field-error"
-                           data-meme-template-error>{{ memeSettingsView.templateError }}</div>
-                      <div class="text-[10px] text-gray-600">
-                        {{ memePromptEmptyHint(memeSettingsView.promptImage.source) }}
+                    <template v-else>
+                      <div class="ini-stages" data-ini-attempt-stages>
+                        <div v-for="row in memeLastAttempt.stages"
+                             :key="'ini-att-' + row.stage"
+                             class="ini-stage"
+                             :data-meme-attempt-stage="row.stage">
+                          <span class="ini-stage__name">{{ row.label }}</span>
+                          <span class="badge shrink-0"
+                                :class="row.done ? (row.ok ? 'badge-ok' : 'badge-warn') : 'badge-muted'"
+                                :data-meme-attempt-outcome="row.outcome">
+                            {{ row.outcomeLabel }}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <!-- Три числа §3 ТЗ: одно число — одно имя (ceiling /
-                         template_chars / joke_budget). При `known === false`
-                         честно «неизвестен», а не 0. -->
-                    <div class="meme-budget mt-2" data-meme-budget>
-                      <div class="meme-budget-row">
-                        <span>Потолок итогового промпта:</span>
-                        <b data-meme-limit-ceiling>{{ memeSettingsView.ceilingText }}</b>
-                        <span v-if="memeSettingsView.lengthLimit.known === true" class="text-gray-600">симв.</span>
-                      </div>
-                      <div class="meme-budget-row">
-                        <span>Длина шаблона картинки:</span>
-                        <b data-meme-limit-template>{{ memeSettingsView.templateCharsText }}</b>
-                        <span class="text-gray-600">симв.</span>
-                      </div>
-                      <div class="meme-budget-row">
-                        <span>Доступно для прикола:</span>
-                        <b data-meme-limit-joke>{{ memeSettingsView.jokeBudgetText }}</b>
-                        <span v-if="memeSettingsView.lengthLimit.known === true" class="text-gray-600">симв.</span>
-                      </div>
-                      <div class="text-gray-500 mt-1">
-                        источник потолка:
-                        {{ memeLengthSourceLabel(memeSettingsView.lengthLimit.source) }}
-                        <template v-if="memeSettingsView.placeholderLabel">
-                          · режим шаблона: {{ memeSettingsView.placeholderLabel }}
+                      <div class="text-xs mt-1" data-ini-attempt-result>
+                        <span class="text-gray-500">Причина:</span>
+                        <template v-if="memeLastAttempt.reasonCode">
+                          {{ memeLastAttempt.reasonLabel }}
+                          <span class="text-gray-600 font-mono">· {{ memeLastAttempt.reasonCode }}</span>
                         </template>
-                        <span class="text-gray-600">(потолка у выжимки нет — этап A не обрезается)</span>
+                        <template v-else>причина не записана</template>
+                        <span class="text-gray-500"> · </span>
+                        <b :class="memeLastAttempt.published ? 'text-green-400' : 'text-amber-300'">
+                          {{ memeLastAttempt.publishedLabel }}
+                        </b>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- Ручной /meme: админская команда, не авто-триггер. -->
+                  <div class="ini-note" data-ini-meme-manual>
+                    <span class="badge badge-info">админская команда</span>
+                    <b class="font-mono">{{ memeManualUsage.command }}</b>
+                    <span class="text-gray-400">
+                      ручной запуск в обход кулдауна/квот (права и безопасная
+                      доставка сохраняются), не автоматический триггер.
+                    </span>
+                    <span class="text-gray-500">
+                      · использований в журнале: {{ memeManualUsage.count }}
+                      · последний раз: {{ memeManualUsage.lastText }}
+                    </span>
+                  </div>
+
+                  <!-- Компактная статистика мемов (не смешивается с текстом) -->
+                  <div class="meme-analytics mt-2" data-meme-analytics>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-bold">Статистика мемов</span>
+                      <span class="badge badge-muted" v-for="st in memeSettingsView.stages"
+                            :key="'mst-' + st" :data-meme-stage="st">
+                        {{ memeStageLabel(st) }}: {{ memeSettingsView.counters[st] || 0 }}
+                      </span>
+                      <span class="badge badge-muted">
+                        охват: {{ memeSettingsView.coverage === 'durable' ? 'журнал'
+                          : (memeSettingsView.coverage === 'schema_absent' ? 'схемы нет'
+                             : 'в памяти процесса') }}
+                      </span>
+                    </div>
+                    <div v-if="memeSettingsView.skipRows.length" class="mt-1 text-xs"
+                         data-meme-skip-reasons>
+                      <span class="text-gray-500">Причины пропусков: </span>
+                      <span v-for="(sk, ski) in memeSettingsView.skipRows.slice(0, 4)"
+                            :key="'msk-' + sk.code" class="text-gray-400">
+                        {{ memeSkipLabel(sk.code) }} · {{ sk.count }}<template
+                        v-if="ski < Math.min(4, memeSettingsView.skipRows.length) - 1">; </template>
+                      </span>
+                    </div>
+                    <div v-else class="text-xs text-gray-500 mt-1">
+                      Пропусков пока не зафиксировано.
+                    </div>
+                  </div>
+
+                  <!-- Публикация и перепроверка: будет ли результат отправлен. -->
+                  <div class="mt-2 text-xs" data-meme-delivery>
+                    <div class="font-bold mb-1">Публикация и перепроверка</div>
+                    <div class="text-gray-400">
+                      Мем проходит те же ворота, что и другие инициативные
+                      сообщения: сначала генерация картинки, затем проверка
+                      готовности к отправке. Если ворота публикации закрыты,
+                      картинка НЕ отправляется, а причина фиксируется отдельно.
+                      Мемы никогда не отключают текстовую инициативу
+                      ({{ memeSettingsView.delivery.blocks_text_initiative
+                        ? 'внимание: контракт нарушен' : 'подтверждено' }}).
+                    </div>
+                    <div class="text-gray-500 mt-1">
+                      Заблокированных публикаций в журнале:
+                      {{ memeSettingsView.delivery.publish_blocked_count || 0 }}
+                      <template v-if="memeSettingsView.quotaDisabled">
+                        · квота 0 — результат не будет отправлен вовсе
+                      </template>
+                      <template v-else-if="memeSettingsView.remaining === 0">
+                        · остаток квоты 0 — до сброса дня отправок не будет
+                      </template>
+                      <template v-else-if="!memeSettingsView.available">
+                        · функция недоступна — отправки не будет (см. причину выше)
+                      </template>
+                      <template v-else>
+                        · при прохождении ворот результат будет отправлен в чат
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <span class="hidden" data-ini-memes-end aria-hidden="true"></span>
+
+              <!-- ═══ P1: «Инициатива» → «Публикации» ═══════════════════════
+                   ОБЩИЙ журнал логических попыток (текст и мемы): одна строка
+                   на попытку, серверные фильтры (период/тип/режим/исход/
+                   причина), пагинация. Детали — по клику; пустая деталь не
+                   превращается в строку. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
+                        && workspaceTab === 'publications'"
+                   class="col-span-full card p-4 ini-page"
+                   data-initiative-publications>
+                <div class="ini-head">
+                  <div class="min-w-0">
+                    <div class="text-sm font-bold">Публикации</div>
+                    <div class="text-xs text-gray-500">
+                      Логические попытки двух механизмов: генерация и отправка
+                      показаны раздельно. Журнал этого чата.
+                    </div>
+                  </div>
+                  <span class="flex-1"></span>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs text-gray-500" data-ini-pub-counts>
+                      всего {{ iniPub.counts.total || 0 }}
+                      · текст {{ iniPub.counts.text || 0 }}
+                      · мемы {{ iniPub.counts.meme || 0 }}
+                      · опубликовано {{ iniPub.counts.published || 0 }}
+                    </span>
+                    <button type="button" class="btn-ghost text-xs"
+                            :disabled="iniPub.busy"
+                            aria-label="Обновить журнал публикаций"
+                            data-ini-pub-refresh
+                            @click="initiativePubRefresh()">⟳</button>
+                  </div>
+                </div>
+
+                <div v-if="activeChatId == null" class="ini-note" data-ini-pub-nochat>
+                  Журнал привязан к чату: выберите чат в шапке.
+                </div>
+
+                <div class="ini-filters" data-ini-pub-filters>
+                  <div class="ini-filter" data-ini-filter="chat">
+                    <span>Чат</span>
+                    <b class="text-gray-300">{{ scopeLabel }}</b>
+                    <span class="text-[10px] text-gray-600">меняется в шапке</span>
+                  </div>
+                  <label class="ini-filter">
+                    <span>Период</span>
+                    <select class="field" :value="iniPub.filters.days"
+                            data-ini-filter="days"
+                            @change="initiativePubSetFilter('days', $event.target.value)">
+                      <option value="1">сутки</option>
+                      <option value="7">7 дней</option>
+                      <option value="30">30 дней</option>
+                      <option value="0">всё</option>
+                    </select>
+                  </label>
+                  <label class="ini-filter">
+                    <span>Тип</span>
+                    <select class="field" :value="iniPub.filters.kind"
+                            data-ini-filter="kind"
+                            @change="initiativePubSetFilter('kind', $event.target.value)">
+                      <option value="all">все</option>
+                      <option value="text_initiative">текст</option>
+                      <option value="meme">мемы</option>
+                    </select>
+                  </label>
+                  <label class="ini-filter">
+                    <span>Режим</span>
+                    <select class="field" :value="iniPub.filters.mode"
+                            data-ini-filter="mode"
+                            @change="initiativePubSetFilter('mode', $event.target.value)">
+                      <option value="all">любой</option>
+                      <option value="auto">автоматический</option>
+                      <option value="manual">ручной /meme</option>
+                    </select>
+                  </label>
+                  <label class="ini-filter">
+                    <span>Исход</span>
+                    <select class="field" :value="iniPub.filters.outcome"
+                            data-ini-filter="outcome"
+                            @change="initiativePubSetFilter('outcome', $event.target.value)">
+                      <option value="all">любой</option>
+                      <option value="published">опубликовано</option>
+                      <option value="deferred">отложено (конфликт)</option>
+                      <option value="cancelled">отменено</option>
+                      <option value="skipped">пропуск</option>
+                      <option value="blocked">заблокировано</option>
+                      <option value="failed">ошибка</option>
+                      <option value="delivery_unknown">доставка неизвестна</option>
+                      <option value="other">неклассифицированное событие</option>
+                      <option value="silent">молчание</option>
+                    </select>
+                  </label>
+                  <label class="ini-filter ini-filter--wide">
+                    <span>Причина (код или текст)</span>
+                    <input class="field" type="text" maxlength="64"
+                           :value="iniPub.filters.reason"
+                           data-ini-filter="reason"
+                           placeholder="например publication_stale"
+                           @keyup.enter="initiativePubSetFilter('reason', $event.target.value)"
+                           @blur="initiativePubSetFilter('reason', $event.target.value)">
+                  </label>
+                </div>
+
+                <div v-if="iniPub.error" class="text-xs text-red-300"
+                     data-ini-pub-error>{{ iniPub.error }}</div>
+                <div v-else-if="iniPub.busy && !iniPub.rows.length"
+                     class="spinner my-2"></div>
+                <div v-else-if="!iniPub.rows.length" class="text-xs text-gray-500"
+                     data-ini-pub-empty>
+                  За выбранный период попыток нет.
+                </div>
+                <template v-else>
+                  <div class="ini-rows" data-ini-pub-rows>
+                    <div v-for="row in iniPubRows" :key="'inipub-' + row.attempt_id"
+                         class="ini-rows__item">
+                      <button type="button" class="ini-row"
+                              :data-ini-pub-row="row.attempt_id"
+                              :aria-expanded="iniPubFocus === row.attempt_id ? 'true' : 'false'"
+                              @click="initiativePubOpen(row)">
+                        <span class="ini-row__time">{{ row.timeText }}</span>
+                        <span class="badge badge-muted shrink-0">{{ row.kindLabel }}</span>
+                        <span class="ini-row__stage">{{ row.stageLabel }}</span>
+                        <span class="ini-row__reason">
+                          {{ row.reasonText || 'без причины' }}
+                          <span v-if="row.reason_code" class="ini-row__code">{{ row.reason_code }}</span>
+                          <span v-if="row.otherText" class="ini-row__chain"
+                                :data-ini-pub-other="row.attempt_id">
+                            · событие {{ row.otherText }}</span>
+                          <span v-if="row.chainReasonsText" class="ini-row__chain"
+                                :data-ini-pub-chain-reason="row.attempt_id">
+                            · в цепочке: {{ row.chainReasonsText }}</span>
+                        </span>
+                        <span class="badge shrink-0"
+                              :class="row.outcomeClass"
+                              :data-ini-pub-outcome="row.outcome">{{ row.outcomeLabel }}</span>
+                        <span class="shrink-0" :class="row.deliveryClass"
+                              :data-ini-pub-delivery="String(row.delivered)">
+                          {{ row.deliveryLabel }}
+                        </span>
+                        <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+                      </button>
+                      <div v-if="iniPubFocus === row.attempt_id" class="ini-detail"
+                           data-ini-pub-detail>
+                        <div v-if="iniPubDetailBusy" class="spinner my-1"></div>
+                        <div v-else-if="iniPubDetailError" class="text-xs text-red-300">
+                          {{ iniPubDetailError }}
+                        </div>
+                        <template v-else-if="iniPubDetail">
+                          <div v-if="iniPubDetailSummary"
+                               class="text-xs text-gray-300" data-ini-pub-summary>
+                            <b>{{ iniPubDetailSummary }}</b>
+                          </div>
+                          <div class="text-xs text-gray-500">
+                            режим: {{ row.modeLabel }}
+                            <template v-if="iniPubDetail.delivery">
+                              · доставка: message_id
+                              {{ iniPubDetail.delivery.message_id == null ? '—'
+                                 : iniPubDetail.delivery.message_id }}
+                            </template>
+                            <template v-if="row.chain_len">
+                              · этапов в журнале: {{ row.chain_len }}
+                            </template>
+                          </div>
+                          <ol v-if="iniPubDetail.chain && iniPubDetail.chain.length"
+                              class="ini-chain" data-ini-pub-stages>
+                            <li v-for="(step, si) in iniPubDetail.chain"
+                                :key="'inichain-' + si" class="ini-chain__step"
+                                :data-ini-chain-stage="step.stage">
+                              <span class="ini-chain__name">{{ memeStageLabel(step.stage) }}</span>
+                              <span class="badge shrink-0"
+                                    :class="step.outcome === 'passed' || step.outcome === 'published'
+                                      ? 'badge-ok' : (step.outcome === 'deferred'
+                                        ? 'badge-info' : 'badge-warn')">
+                                {{ memeOutcomeLabel(step.outcome) }}
+                              </span>
+                              <span v-if="step.reason_code" class="text-gray-400">
+                                {{ step.reason_label || memeSkipLabel(step.reason_code) }}
+                                <span class="font-mono text-gray-600">{{ step.reason_code }}</span>
+                              </span>
+                              <span v-if="step.outcome === 'published'"
+                                    class="text-green-400">· доставлено</span>
+                            </li>
+                          </ol>
+                          <!-- Цепочка событий попытки (§1.3): время, событие,
+                               причина, деталь и факт доставки. Показывается
+                               ВМЕСТЕ с этапами, а не вместо них. -->
+                          <template v-if="iniPubDetail.events && iniPubDetail.events.length">
+                            <div class="text-[10px] text-gray-500 mt-1">
+                              Цепочка событий попытки:
+                            </div>
+                            <ol class="ini-chain" data-ini-pub-events>
+                              <li v-for="(ev, ei) in iniPubDetail.events"
+                                  :key="'iniev-' + ei" class="ini-chain__step"
+                                  :data-ini-pub-event="ev.event_name">
+                                <span class="ini-chain__name">{{ fmtTs(ev.ts) }}</span>
+                                <span class="text-gray-300 font-mono">{{ ev.event_name }}</span>
+                                <span v-if="ev.reason_code" class="text-gray-400">
+                                  {{ ev.reason_label || memeSkipLabel(ev.reason_code) }}
+                                  <span class="font-mono text-gray-600">{{ ev.reason_code }}</span>
+                                </span>
+                                <span v-if="ev.detail" class="text-gray-500">· {{ ev.detail }}</span>
+                                <span v-if="ev.delivered === true" class="text-green-400">· доставлено</span>
+                                <span v-else-if="ev.delivered === false" class="text-amber-300">· не доставлено</span>
+                              </li>
+                            </ol>
+                          </template>
+                          <div v-if="(!iniPubDetail.chain || !iniPubDetail.chain.length)
+                                    && (!iniPubDetail.events || !iniPubDetail.events.length)"
+                               class="text-xs text-gray-500">
+                            Событий для этой попытки не записано.
+                          </div>
+                          <button type="button" class="btn-ghost text-xs mt-1"
+                                  data-ini-pub-trace
+                                  @click="initiativeOpenTrace(row.attempt_id)">
+                            Подробная трасса в «Диагностике» →
+                          </button>
+                        </template>
+                        <div v-else class="text-xs text-gray-500">нет данных для этой стадии</div>
                       </div>
                     </div>
                   </div>
-                  <!-- P4 / MEME-IIC-DIAG-UI: ДВА отдельных блока диагностики.
-                       Никогда не склеиваются: каждый рисуется из своего блока
-                       ответа (`text_initiative` / `meme`), поля одного не
-                       подменяют показатели другого. -->
-                  <div class="mt-3 text-xs" data-meme-diag-section>
-                    <div class="font-bold mb-1">Диагностика инициатив по механизмам</div>
+                  <div class="flex items-center gap-2 flex-wrap mt-2">
+                    <button v-if="iniPub.nextOffset != null" type="button"
+                            class="btn-ghost text-xs"
+                            :disabled="iniPub.busy"
+                            data-ini-pub-more
+                            @click="initiativePubMore()">
+                      {{ iniPub.busy ? 'Загрузка…' : 'Показать ещё' }}
+                    </button>
+                    <span v-else class="text-[10px] text-gray-600">журнал прочитан до конца</span>
+                    <span class="flex-1"></span>
+                    <span v-if="iniPub.notes && iniPub.notes.length"
+                          class="text-[10px] text-gray-600" data-ini-pub-notes>
+                      {{ iniPub.notes.join(' · ') }}
+                    </span>
+                  </div>
+                </template>
+              </div>
+
+              <!-- ═══ P1: «Инициатива» → «Диагностика» ═══════════════════════
+                   Инспектор РОВНО одной попытки: группы «условия», «случайное
+                   решение», «контекст/снапшот», «этапы генерации», «речевые
+                   слои Core/Expression/Humor», «send/recheck», «события и
+                   ошибки». По умолчанию сжато; ревизии/ID/manifest — при
+                   раскрытии. Плюс полные блоки состояния двух механизмов —
+                   это единственное место полного debug. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
+                        && workspaceTab === 'diagnostics'"
+                   class="col-span-full card p-4 ini-page"
+                   data-initiative-diagnostics>
+                <div class="ini-head">
+                  <div class="min-w-0">
+                    <div class="text-sm font-bold">Диагностика</div>
+                    <div class="text-xs text-gray-500">
+                      Трасса одной попытки и полное состояние механизмов. Сверху
+                      внизу — только факты из API: ни одного клиентского расчёта.
+                    </div>
+                  </div>
+                  <span class="flex-1"></span>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <input class="field ini-attempt-input" type="text"
+                           :value="iniPubFocus"
+                           data-ini-trace-input
+                           placeholder="meme:&lt;job_id&gt; или text:&lt;correlation&gt;"
+                           @keyup.enter="loadInitiativeTrace($event.target.value)">
+                    <button type="button" class="btn-ghost text-xs"
+                            :disabled="iniTraceBusy || !iniPubFocus"
+                            aria-label="Перечитать трассу попытки"
+                            data-ini-trace-load
+                            @click="loadInitiativeTrace(iniPubFocus)">↻</button>
+                    <button type="button" class="btn-ghost text-xs"
+                            :disabled="!iniTrace"
+                            data-ini-trace-export
+                            @click="initiativeTraceExport()">Экспорт JSON</button>
+                  </div>
+                </div>
+
+                <div v-if="activeChatId == null" class="ini-note" data-ini-trace-nochat>
+                  Трасса привязана к чату: выберите чат в шапке.
+                </div>
+                <div v-if="iniTraceError" class="text-xs text-red-300"
+                     data-ini-trace-error>{{ iniTraceError }}</div>
+                <div v-else-if="iniTraceBusy" class="spinner my-2"></div>
+                <div v-else-if="!iniTrace" class="text-xs text-gray-500"
+                     data-ini-trace-empty>
+                  Выберите попытку: откройте её в «Публикациях» или введите
+                  идентификатор выше.
+                </div>
+                <template v-else>
+                  <div class="ini-facts ini-facts--inline" data-ini-trace-head>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Попытка</span>
+                      <span class="ini-fact__v font-mono">{{ iniTraceAttempt
+                        ? iniTraceAttempt.attempt_id : '—' }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Механизм</span>
+                      <span class="ini-fact__v">{{ iniTraceAttempt
+                        && iniTraceAttempt.kind === 'meme' ? 'Мемы' : 'Текстовая инициатива' }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Исход</span>
+                      <span class="ini-fact__v">{{ iniTraceAttempt
+                        ? memeOutcomeLabel(iniTraceAttempt.outcome) : '—' }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Доставка</span>
+                      <span class="ini-fact__v">{{ iniTraceAttempt
+                        && iniTraceAttempt.delivered === true ? 'доставлено'
+                          : (iniTraceAttempt && iniTraceAttempt.delivered === false
+                            ? 'не доставлено' : 'неизвестно') }}</span>
+                    </div>
+                  </div>
+
+                  <div v-if="!iniTraceGroups.length" class="text-xs text-gray-500">
+                    Журнал этой попытки не содержит ни одной группы фактов.
+                  </div>
+                  <div v-for="g in iniTraceGroups" :key="'initg-' + g.key"
+                       class="ini-trace" :data-ini-trace-group="g.key">
+                    <button type="button" class="ini-trace__head"
+                            :aria-expanded="iniTraceOpen[g.key] ? 'true' : 'false'"
+                            @click="iniTraceToggle(g.key)">
+                      <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+                      <span class="ini-trace__title">{{ g.title }}</span>
+                      <span class="ini-trace__summary">{{ g.summary }}</span>
+                    </button>
+                    <div v-if="iniTraceOpen[g.key]" class="ini-trace__body">
+                      <div v-for="(r, ri) in g.rows" :key="'initr-' + g.key + '-' + ri"
+                           class="ini-fact">
+                        <span class="ini-fact__k">{{ r.label }}</span>
+                        <span class="ini-fact__v">{{ r.value }}</span>
+                      </div>
+                      <div v-if="g.key === 'speech'" class="mt-1 text-xs text-gray-500"
+                           data-ini-trace-manifest>
+                        <div class="text-gray-400" data-ini-trace-speech-source>
+                          {{ g.sourceNote }} — индикатор «вошёл/пропущен»
+                          отражает записанный факт сборки именно этого payload.
+                        </div>
+                        <div>манифест сборки:
+                          <span class="font-mono">{{ g.manifest || '—' }}</span></div>
+                        <div>system sha12:
+                          <span class="font-mono">{{ g.systemSha || '—' }}</span></div>
+                        <div>юмор: {{ g.humorStatus || '—' }}
+                          <template v-if="g.technique"> · приём: {{ g.technique }}</template></div>
+                        <template v-if="isGlobalAdmin">
+                          <details class="mt-1">
+                            <summary class="cursor-pointer text-gray-400">
+                              Безопасный срез манифеста сборки (слои и ревизии)
+                            </summary>
+                            <pre class="ini-pre" data-ini-trace-manifest-text>{{ g.manifestText }}</pre>
+                          </details>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Полное состояние механизмов: единственное место полного
+                     debug (в «Обзоре» — только сводка). -->
+                <details class="mt-3" data-meme-diag-section>
+                  <summary class="cursor-pointer text-xs text-gray-400">
+                    Полное состояние двух механизмов (технические поля)
+                  </summary>
+                  <div class="mt-2 text-xs">
                     <div v-if="memeDiagError" class="text-red-300" data-meme-diag-error>
                       {{ memeDiagError }}
                     </div>
@@ -2129,36 +2963,7 @@
                       </div>
                     </template>
                   </div>
-                  <!-- Публикация и перепроверка: будет ли результат отправлен. -->
-                  <div class="mt-3 text-xs" data-meme-delivery>
-                    <div class="font-bold mb-1">Публикация и перепроверка</div>
-                    <div class="text-gray-400">
-                      Мем проходит те же ворота, что и другие инициативные
-                      сообщения: сначала генерация картинки, затем проверка
-                      готовности к отправке. Если ворота публикации закрыты,
-                      картинка НЕ отправляется, а причина фиксируется отдельно.
-                      Мемы никогда не отключают текстовую инициативу
-                      ({{ memeSettingsView.delivery.blocks_text_initiative
-                        ? 'внимание: контракт нарушен' : 'подтверждено' }}).
-                    </div>
-                    <div class="text-gray-500 mt-1">
-                      Заблокированных публикаций в журнале:
-                      {{ memeSettingsView.delivery.publish_blocked_count || 0 }}
-                      <template v-if="memeSettingsView.quotaDisabled">
-                        · квота 0 — результат не будет отправлен вовсе
-                      </template>
-                      <template v-else-if="memeSettingsView.remaining === 0">
-                        · остаток квоты 0 — до сброса дня отправок не будет
-                      </template>
-                      <template v-else-if="!memeSettingsView.available">
-                        · функция недоступна — отправки не будет (см. причину выше)
-                      </template>
-                      <template v-else>
-                        · при прохождении ворот результат будет отправлен в чат
-                      </template>
-                    </div>
-                  </div>
-                </template>
+                </details>
               </div>
 
               <!-- §46/T-2700: вкладка «Тестирование» — РЕАЛЬНЫЙ применимый

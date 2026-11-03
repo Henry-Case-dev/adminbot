@@ -79,9 +79,11 @@ const computed = captured.computed;
 
 const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
 const APP_JS_SRC = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
-// Карточка мемов: от `data-meme-settings` до следующего блока вкладки.
+// Карточка мемов: от `data-meme-settings` до явного маркера конца карточки
+// (P1 2026-11-03: карточка живёт на СВОЕЙ вкладке «Мемы», поэтому границы
+// задаёт собственный маркер, а не следующий блок другой вкладки).
 const CARD_START = INDEX.indexOf('data-meme-settings');
-const CARD_END = CARD_START < 0 ? -1 : INDEX.indexOf('data-workspace-testing',
+const CARD_END = CARD_START < 0 ? -1 : INDEX.indexOf('data-ini-memes-end',
                                                     CARD_START);
 const CARD = CARD_START < 0 ? null : INDEX.slice(CARD_START, CARD_END);
 assert(CARD && CARD.length > 2000, 'карточка data-meme-settings не найдена');
@@ -698,12 +700,18 @@ function settingsPayload(extra) {
   // Устаревшая подпись «цель выжимки» больше не показывается.
   assert.strictEqual(CARD.indexOf('цель выжимки'), -1);
   assert.strictEqual(CARD.indexOf('считается ДО выжимки'), -1);
-  // Диагностика прикола, стадии и два блока механизмов.
+  // Диагностика прикола, стадии; ДВА блока механизмов живут в «Диагностике»
+  // (P1 2026-11-03: полный debug — на своей вкладке, в карточке мемов его нет).
   assert.ok(CARD.indexOf('data-meme-speech') >= 0);
   assert.ok(CARD.indexOf('data-meme-attempt-stages') >= 0);
-  assert.ok(CARD.indexOf('data-meme-diag') >= 0);
-  assert.ok(CARD.indexOf('data-meme-diag-degraded') >= 0);
-  assert.ok(CARD.indexOf('координация недоступна') >= 0);
+  assert.ok(INDEX.indexOf('data-meme-diag="') >= 0
+            || INDEX.indexOf('data-meme-diag>') >= 0
+            || INDEX.indexOf('data-meme-diag ') >= 0,
+            'нет блока диагностики механизма');
+  assert.ok(INDEX.indexOf('data-meme-diag-degraded') >= 0);
+  assert.ok(INDEX.indexOf('координация недоступна') >= 0);
+  assert.strictEqual(CARD.indexOf('data-meme-diag="'), -1,
+    'полный блок диагностики не дублируется в карточке «Мемов»');
   // Ошибка 422 у поля (оба поля).
   assert.ok(CARD.indexOf('data-meme-prompt-error-joke') >= 0);
   assert.ok(CARD.indexOf('data-meme-prompt-error-image') >= 0);
