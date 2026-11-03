@@ -3,7 +3,7 @@
   "source_path": "plans/current_task.md",
   "source_sha256": "81effe1278a0366c579a6aa06d941159c9646c972dadb50cff024c276580d1b8",
   "candidate_commit": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
-  "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
+  "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
   "strict_evidence": false,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -2029,8 +2029,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B130",
@@ -2044,8 +2064,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B131",
@@ -2059,8 +2099,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B132",
@@ -2074,8 +2134,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B133",
@@ -2089,8 +2169,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B134",
@@ -2104,8 +2204,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B135",
@@ -2119,8 +2239,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B136",
@@ -2134,8 +2274,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B137",
@@ -2149,8 +2309,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B138",
@@ -2164,8 +2344,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B139",
@@ -2179,8 +2379,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B140",
@@ -2194,8 +2414,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B141",
@@ -2209,8 +2449,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B142",
@@ -2224,8 +2484,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B143",
@@ -2239,8 +2519,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B144",
@@ -2254,8 +2554,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B145",
@@ -2269,8 +2589,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B146",
@@ -2284,8 +2624,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B147",
@@ -2299,8 +2659,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B148",
@@ -2314,8 +2694,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B149",
@@ -2329,8 +2729,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B150",
@@ -2344,8 +2764,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B151",
@@ -2359,8 +2799,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B152",
@@ -2374,8 +2834,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B153",
@@ -2389,8 +2869,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B154",
@@ -2404,8 +2904,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B155",
@@ -2419,8 +2939,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B156",
@@ -2434,8 +2974,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-B157",
@@ -2449,8 +3009,28 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
+        }
+      ],
+      "status_note": "Составляющая EVOL-033: приведена к статусу родителя (VERIFIED по w13 Re-check 3) с evidence композиции W15 (w15-composition-review-2.md, Approved Re-review 2)."
     },
     {
       "source_id": "MAN-EVOL-07",
@@ -8869,9 +9449,28 @@
           "artifact_branch": "evol/impl",
           "candidate_commit": "4af1f197db471fbc8335780693e5b64059d35b9e",
           "artifact_sha256": "0b64356c1d8b007964005848815547710a4ae235a0b08f480981e59c3c177caa"
+        },
+        {
+          "ref": "w15-composition-review-2.md — Re-review: композиция §D/§E.2 и адаптивность (Approved)",
+          "observation": "Reviewer: стенд композиции 110 замеров (27 состояний + 28 маршрутов §D-7 x 2), 30/30 объявленных селекторов, 1722 экземпляра, 60 адаптивных ячеек, 0 отказов; pytest 22 passed; база против кандидата — 45-67 узлов за вьюпортом против 0; реальный Chrome 390/320/195 + root font 32; вердикт: строка L00478 закрывается по поведению, привязка доказательств за PM (Re-review 2).",
+          "type": "test",
+          "artifact_path": "plans/features/evol/reports/w15-composition-review-2.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "70877e62d473b6d9bf1d1585d3ac8d3872ff859cd50bf40d160b389871f8868e"
+        },
+        {
+          "ref": "w15-ui-composition.md — отчёт/стенд композиции W15 (аудит)",
+          "observation": "Прогон стенда tools/ui_evol_w15_composition_e2e.py: 110 измеренных ячеек, 0 отказов, адаптивные кадры 320/360/390/600/768/1024/1440/1920 и low-height landscape; доказательства в plans/features/evol/audit/evidence/w15-composition/.",
+          "type": "test",
+          "artifact_path": "plans/features/evol/audit/w15-ui-composition.md",
+          "artifact_branch": "evol/impl",
+          "candidate_commit": "4af1f197",
+          "artifact_sha256": "887e2ee0de9fd6e3359f631b74dc2be1fbc2593cd75b4a37f3539cd52dedf071"
         }
       ],
-      "note": "ЗАКРЫТО ПО ПОВЕДЕНИЮ (Reviewer w15-composition-review-2.md, §9: «L00478 закрывается по поведению»). Клаузы: §D поэкранная композиция — 27 состояний, диф не меняет разметку, 0 отказов; §E.2 единые компоненты — 110 ячеек, 30/30 селекторов, инвариант литералов + мутации; §D-7 — 28 маршрутов × 2 вьюпорта, «ни один экран не исключён»; §C/§E.4 zoom 200 % и узкий вьюпорт — контракт владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow) + 27 ячеек и базовый прогон 45–67 → 0; §E.1/§E.4 — 3 записи VP9 и A/B преломления 1.86 %; §E.3 (loading/aria-busy, чекбоксы, hover/pressed/selected, back-stack) — ранее W14/S12. ЧЕСТНАЯ ОГОВОРКА: доказательством служит живой стенд (JSON) и независимые контрпримеры Reviewer'а; `test_webapp_evol_w16_adaptive.py::test_grids_clamp_min_track_to_available_width` и инвариант литералов НЕ считаются покрытием правил внутри @media (ревью 6.1, 6.2) — они приведены как регресс, не как доказательство. P3-ОСТАТКИ В БЭКЛОГ (не приёмка, строку не держат): (6.3) мёртвое объявление `.speech-area-nav__btn`; (6.4) дубль `.oversight-sort`; (6.5) кадры адаптива сняты в переходе (200 мс после закрытия drawer); (6.7) радиусы контролов/оверлеев всё ещё литеральные 9/10/12/14/16 px — пре-существующее, §E.2 покрывает роли карточка/строка/таблица/график; (6.8) нет видео для планшета/ландшафта (статичные кадры есть, записи — только 1280 и 390); профиль в drawer при 200 % текста достижим только после прокрутки drawer (допустимо по §3, но написано прямо)."
+      "note": "ЗАКРЫТО ПО ПОВЕДЕНИЮ (Reviewer w15-composition-review-2.md, §9: «L00478 закрывается по поведению»). Клаузы: §D поэкранная композиция — 27 состояний, диф не меняет разметку, 0 отказов; §E.2 единые компоненты — 110 ячеек, 30/30 селекторов, инвариант литералов + мутации; §D-7 — 28 маршрутов × 2 вьюпорта, «ни один экран не исключён»; §C/§E.4 zoom 200 % и узкий вьюпорт — контракт владельца OI-2026-11-02-NARROW-VIEWPORT (320 — полноценный минимум, ниже 320 и при 200 % — адаптивный reflow) + 27 ячеек и базовый прогон 45–67 → 0; §E.1/§E.4 — 3 записи VP9 и A/B преломления 1.86 %; §E.3 (loading/aria-busy, чекбоксы, hover/pressed/selected, back-stack) — ранее W14/S12. ЧЕСТНАЯ ОГОВОРКА: доказательством служит живой стенд (JSON) и независимые контрпримеры Reviewer'а; `test_webapp_evol_w16_adaptive.py::test_grids_clamp_min_track_to_available_width` и инвариант литералов НЕ считаются покрытием правил внутри @media (ревью 6.1, 6.2) — они приведены как регресс, не как доказательство. P3-ОСТАТКИ В БЭКЛОГ (не приёмка, строку не держат): (6.3) мёртвое объявление `.speech-area-nav__btn`; (6.4) дубль `.oversight-sort`; (6.5) кадры адаптива сняты в переходе (200 мс после закрытия drawer); (6.7) радиусы контролов/оверлеев всё ещё литеральные 9/10/12/14/16 px — пре-существующее, §E.2 покрывает роли карточка/строка/таблица/график; (6.8) нет видео для планшета/ландшафта (статичные кадры есть, записи — только 1280 и 390); профиль в drawer при 200 % текста достижим только после прокрутки drawer (допустимо по §3, но написано прямо).",
+      "status_note": "Композиция §D/§E.2 подтверждена W15 Re-review 2 (Approved) и выложена в 2.58.151 @ bd0f38ed (merge 4af1f197); привязка доказательств выполнена 03.11.2026."
     },
     {
       "source_id": "L00484",
@@ -48810,24 +49409,42 @@
   ],
   "source_note": "plans/current_task.md принадлежит владельцу и не отслеживается Git (файл в .gitignore и отсутствует в worktree), поэтому источник читается из основного репозитория C:\\Code\\Python\\adminbot\\plans\\current_task.md (2728 строк, sha256=b69802bfd67eb1c5807112bd8079c585fb5ab2051b523357faaeca7c58c72f62 на 01.11.2026). Гейт запускать из корня основного репозитория, --map указывает на карту в worktree.\n2026-11-01 (PM, привязка выката): привязано 12 строк к задеплоенному кандидату 6cf06db4 (содержимое c26d798b) - 8 дублей к уже VERIFIED канону (EVOL-036/040/042, w12-internals.md @26905a89 + deploy-2.58.146.md) и 4 обязательные строки (ER-39, ER-S13, ER-S18, ER-S34) с артефактами w13-evidence-routing.md, w8-vision-sync-wave2.md и тестами в дереве кандидата; осталось PENDING: 251 строк с назначенным слайсом (35 из них получили note с точной незакрытой частью) и 191 строк без слайса (context/duplicate).\n2026-11-01 (PM, привязка ревью): привязано 13 строк к ревью-принятому, но НЕ выпущенному кандидату 78a213e8 + 4c7c34b5 (ER-29 ×2, ER-S30 — reuse без сети; ER-41, ER-S46, ER-S43, ER-59/60/61/63/64, SC-41 ×2 — телеметрия/корпус/канон EVR1: метка l1-planner-external-claims-recheck, печать eb496e938c49, FACTORY_SET_SHA256_12 de8e77a2a3f4); прод по-прежнему 2.58.146 @ 6cf06db4, выкат 2.58.147 — следующее действие. Открыты: ER-09/ER-65/ER-S42 (нужен снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER). Итого PENDING: 429 строк, VERIFIED: 747.\n2026-11-02 (PM, релиз): выпущен 2.58.147 @ e18a86eb (release/2.58.147, bump-потомок 087c9a1c) — в нём ASAP-UI-02 delta (ea00266f: z-лестница, лист области, motion-токены, единый Back-stack, вход в палитру, scroll memory) и волны 3-5 ASAP-EVIDENCE-ROUTING-01 (78a213e8/4c7c34b5, канон EVR1 seal eb496e938c49); привязано 13 UI-строк (ASAP-UI-02-08, -15, -16T, -17B, -09S), 17 строк набора §12 (L01966-L01982) остаются PENDING с точной причиной, открыты также ER-09/ER-65/ER-S42 (снапшот отправленных сегментов), ER-S25, ER-54, ER-50/ER-S03/ER-S35 (EVOL-SRC-READER), EVOL-033, EVOL-COG-MAP. Итого VERIFIED 760 / PENDING 416 / READY_FOR_LIVE 10.\n2026-11-02 (PM, ER-65): привязаны ER-65, ER-S42, ER-09 к слитому снапшоту отправленных сегментов (merge 7b1d1b22, кандидат 371a97eb, вердикт 3774cfbd): 18 боевых стадий (composer ON) + 9 вторичных OFF, 27 стадий / 58 сегментов, байтовая воспроизводимость двумя процессами; границы — финальный текст модели и приём провайдером вне приёмки, Core/Expression заводские редакции, снимок на линии 2.58.147, будущий EVR2 заменит часть печатей канона. Итого VERIFIED 763 / PENDING 413 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-65/ER-S42/ER-09 перепривязаны к перегенерированному снимку a9fcf7f9 после канона EVR2 (27/58 не изменились; изменены system-байты L1 ×3 13965→15453, factcheck.single 5385→6226, analyst 2031→2872; печати `09f3d533d173`/`806d6cc6af77`/`d02776dec166`, FACTORY_SET `f84baaf69559`); привязаны ER-S25 и ER-54 к канону 9e22b04c (Reviewer Approved); прод остаётся 2.58.147 @ e18a86eb — EVR2 не выпущен. Решение владельца OI-2026-11-02-LIMITS-DECISION НЕ reconciled: клаузы (1)/(3)/(6) отображены на ER-08 и ER-14, клаузы (2) accounting/price_known, (4) metered_calls, (5) SLA 360/дедлайны и (7) процессная — без строки-владельца. Итого VERIFIED 765 / PENDING 411 / READY_FOR_LIVE 10.\n2026-11-02 (PM): ER-08 привязан как VERIFIED (Reviewer Re-review 2, Approved; мердж dfdabd60, дерево 613fae5d): контекст L1 из реального окна (112737 при 131072, кламп hot с `clamped_by_window`, голова+хвост, производный кап строки 1200), разделение `metered`/`cost_calls` (5/2), дедлайны 90→360 при SLA 360 с, честная неизвестная цена (`price_known=false`/`unknown_rows`). Зафиксирована ГРАНИЦА: середина реплики/цитаты >~1200 символов теряется (может молча отключить фазу проверки EVR2) — строка не формулируется как «reply защищён полностью»; зарегистрирован под-слайс ER-08-RC (потолок до 4096 по бюджету, нарезка по границам предложений, пропорциональная лестница; приёмка: цитата 3000/контрдовод на 1500 доставлен; 20×4096 в бюджет при 1600/5400/112737) без роста знаменателя. OI-2026-11-02-LIMITS-DECISION: все клаузы имеют владельца и доказательства → reconciled (флаг ставит Orchestrator). 613fae5d — релиз-кандидат 2.58.148; прод пока 2.58.147 @ e18a86eb. Итого VERIFIED 766 / PENDING 410 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг): карта переведена на текущий plans/current_task.md — sha256 `d652fef2e6c8f6ab72028503998a83ec905f78b2e643a09e5362359c53d1c2d2`, 2898 строк; добавлены 81 строк disposition=context для секции ASAP-FC-VOICE-01 (отдельный deliverable `asap-fc-voice-01`, снапшот plans/owner_inputs/2026-11-02-asap-fc-voice-01.md, карта plans/features/asap-fc-voice-01) — EVOL их не владеет, знаменатель EVOL не вырос (context исключён из обязательных), всего context-строк в карте 270. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM): слайс ER-08-RC принят (Re-review 4, Approved; merge 2e4bb194, тесты e8aa8331/953014f8/f4f1cfe4, нормализация 2317d26f; 35 тестов) и привязан в ER-08; формулировка про реплику заменена финальной (цитаты до ~4085 симв. без среза, на пределе ~99 % с сохранением головы/середины/хвоста; на hot-капе/полу 1600 кап 640, claim-first, доставка на 3-8 % ниже капа). Снимок ER-65 по payload не менялся (0 изменённых сегментов, изменены только source-дайджесты и snapshot_core, --check OK) — строки ER-65/ER-S42/ER-09 остаются валидными. RC не задеплоен; deployed_commit карты не менялся (e18a86eb, 2.58.147), прод по отчёту release/2.58.148 — 2.58.148 @ 6645ae8d (расхождение зафиксировано). Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз): прод 2.58.148 @ `6645ae8d` (release/2.58.148, отчёт `deploy-2.58.148.md` @ `40ffa9c4`): map-level `deployed_commit`/`deployed_release` переведены на этот релиз. В релиз вошли канон EVR2 (`9e22b04c`, активированы l1_planner rev:dc593e4f6264, analyst rev:d4d7fcba222f, single rev:d1ec63b8569c), ER-08 (`dfdabd60`) и визуальная приёмка EVOL-033 (`be51e9ed`). НЕ задеплоены: ER-08-RC (`2e4bb194`/`e8aa8331`/`953014f8`/`2317d26f`) и все позднейшие merge в evol/impl. 13 UI-строк оставлены с production-ссылкой на 2.58.147 (артефакт в 6645ae8d отсутствует, web/ с тех пор изменился) — в note зафиксировано, что привязка к 2.58.148 требует новой проверки. `plan_meta.l1_context_source` на проде NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, релиз 2.58.149): `deployed_commit` = `40d615f1`, `deployed_release` = 2.58.149 (отчёт `deploy-2.58.149.md` @ `d967f889`); активированы пять канонов, FACTORY_SET `630ca46dff76`. Строки ER-65 / ER-S42 / ER-09 перепривязаны к снимку после P0/P1 (11 из 58 сегментов изменены, 239657 символов, структура 27/58 и генератор без изменений логики). Прод-ограничения: `l1_context_source` и `l1_reply_*` NOT_OBSERVED. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, решение владельца OI-2026-11-02-NARROW-VIEWPORT): 320 CSS px — минимум полноценного мобильного интерфейса, ниже 320 и при 200 % текста — адаптивный reflow (drawer/сокращение подписей/вертикальный скролл при доступных критических контролах), без двухрядной шапки, нижнего навбара и «костылей под 195 px»; уменьшать шрифты/тач-цели ради теста запрещено. Основание приёмки обновлено у EVOL-033 (`L00478`, дубль `L00550`), EVOL-044 (`L00714`) и строк §12 ASAP-UI-02 (`L01966`, `L01967`, `L01980`); строки остаются PENDING до реализации и ревью. Пункт «zoom 200 %» переведён из вопроса владельцу в implementation requirement. Итого VERIFIED 766 / PENDING 491 / READY_FOR_LIVE 10.\n2026-11-02 (PM, SRC-READER): доказательства привязаны к `2618026e` (мердж `3650eb8f`, Re-review 2): 19 строк «закрываемых» и 5 строк «закрыто в части инструмента/payload» получили evidence (review/Builder/`tests/test_evol_source_reader.py`/`services/source_reader.py`), но остались PENDING из-за структурного правила: 27 строк делят один `req_id EVOL-SRC-READER` и одно acceptance, частичный перевод статуса гейт запрещает (26 ошибок, проверено). Закрыта `ER-50` (L02230, свой req_id). PENDING по живых проверках: L01206, L01211, L02360; не этот слайс: L01219, L01221, L02401. `deployed_commit` уже указывал на 2.58.149 (`40d615f1`) — правка не требовалась. Итого VERIFIED 767 / PENDING 490 / READY_FOR_LIVE 10.\n2026-11-02 (PM, split EVOL-SRC-READER): блок из 27 строк разбит по сценариям §1.5 — `EVOL-SRC-READER-S1`(3), `-S2`(3), `-S3`(3), `-S4`(2), `-S5`(3), `-S6`(3), `-S7`(1) с дословным текстом сценария владельца в acceptance, и две остаточные группы с исходным acceptance: `-R1`(5) — доказанные строки вне одного сценария, `-R2`(4) — живая маршрутизация LLM и промпт-канон другого владельца. Статусы: 23 VERIFIED (18 закрываемых + 5 «в части инструмента/payload»), 4 PENDING. Источники/доказательства/примечания сохранены. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S1): доказательства S1 привязаны к 12 строкам (`L01267`-`L01272` — данные/модель, `L01296`, `L01285`, `L01312`, `L01333`, `L01330`, `L01332` — частично) по кандидату `d69f9584` / merge `25725265`; статус всех 12 остаётся PENDING, потому что acceptance строк — готовый виджет на «Статусе» (S2..S4). Канонический модуль S1 — `web/api/cognitive_map.py` + одна строка `include_router` в `web/app.py`. Записано руководство Reviewer'а для S2: «показано X из Y» подавать нейтрально, `partial` — нормальное состояние реального чата, а не ошибка. Итого VERIFIED 790 / PENDING 467 / READY_FOR_LIVE 10.\n2026-11-02 (PM, визуальный контракт): `L00478` (EVOL-033) закрыта по поведению — Reviewer w15-composition-review-2 §9 (§D, §E.2, §D-7, §C/§E.4 zoom/узкий вьюпорт, §E.1/§E.4 видео/преломление; §E.3 ранее W14/S12) + контракт владельца OI-2026-11-02-NARROW-VIEWPORT; доказательства привязаны к merge `4af1f197`; 23 дубля закрыты вместе с ней. P3-остатки (6.3–6.8 и профиль в drawer при 200 % текста) записаны в бэклог, не как приёмка. §12: 15 PASS, 2 BLOCKED на EVOL-COG-MAP — строки `L01966`-`L01982` остаются PENDING до перепрогона после COG. `L01826` остаётся PENDING: контролы/оверлеи сохранили литеральные радиусы (ревью §6.7). Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.\n2026-11-02 (PM, COG-MAP S2): доказательства S2 (кандидат `9bd5818f`, merge `1eaa6c24`) привязаны к 26 строкам — §2.1 (`L01240`), §2.3 (`L01267`-`L01272`), §2.4 (`L01280`-`L01286`), §2.5-витрина и §4 контракта (`L01297`), §2.6 (`L01300`, `L01310`-`L01312`, `L01321`), §2.8 (`L01330`-`L01335`). Строки остаются PENDING: S3 (карточка узла/ребра, история, переходы) и S4 (мобильная композиция, жесты, BackButton, fullscreen safe-area, retirement легаси-графа, живые замеры прода) ещё не сделаны; 15 строк явно отложены с пометкой. Итого VERIFIED 814 / PENDING 443 / READY_FOR_LIVE 10.\n2026-11-02 (PM, переанкоринг FINAL v8): карта переведена на текущий plans/current_task.md - sha256 `81effe1278a0366c579a6aa06d941159c9646c972dadb50cff024c276580d1b8`, 4025 строк (было 2898). Владелец дописал секцию FINAL v8 `ASAP-EVOL-ANTICLICHE-MEMORY-ADMIN-UX-2026-11-02` (строки 2902-4025, внутри неё `EVOL-MEMORY-RELEVANCE-01` §14 и `ASAP-ADMIN-UI-RUNTIME-01` §15); Orchestrator уже зарегистрировал поставку как отдельную задачу `asap-evol-anticliche-memory-admin-ux` со своим снапшотом plans/owner_inputs/2026-11-02-anticliche-memory-admin-ux-spec.md и строгой картой (plan-гейт EXIT 0). Добавлено 514 строк disposition=context с причиной-ссылкой на эту задачу и её карту: EVOL их не владеет и не дублирует, знаменатель EVOL не вырос. Всего context-строк в карте 784. Итого VERIFIED 814 / PENDING 957 / READY_FOR_LIVE 10 (PENDING вырос только по context-строкам).",
   "deployed_release": {
-    "version": "2.58.149",
-    "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
-    "branch": "release/2.58.149",
-    "equivalent_branch": "evol/impl @ 5fc2ded58f7a2a022602a85fe0aa514401774aa4 (родитель bump-коммита)",
-    "deployed_at_utc": "2026-11-01T22:52:36Z",
-    "deploy_report": "plans/features/evol/audit/deploy-2.58.149.md",
-    "deploy_report_note": "Файл отчёта существует на ветке release/2.58.149 в коммите d967f889 (sha256 8154d8918e99c0b756f58fba3c7c237ef9238e2c68a1d0cc3f84710666f7275d); в дереве evol/impl его нет — путь машинно проверяем через Git-объект.",
-    "previous_production": "6645ae8d (2.58.148)",
-    "previous_release": {
-      "version": "2.58.148",
-      "commit": "6645ae8d287529303bff0eb608b4b9610efac97d",
-      "map_state": "2.58.148/6645ae8d"
+    "version": "2.58.151",
+    "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
+    "branch": "release/2.58.151",
+    "equivalent_branch": "evol/impl @ 06cfd722 (родитель bump-коммита; тот же снимок дерева + bump 2.58.144->2.58.151)",
+    "deployed_at_utc": "2026-11-03T03:54:08Z",
+    "host": "192.255.209.205",
+    "deploy_report": {
+      "path": "plans/features/meme-pipeline-refactor-01/deploy-2.58.151.md",
+      "branch": "release/2.58.151",
+      "commit": "00b6b5a35bbd62bf1b3665cfdc2a7f6df76b2ffa"
     },
-    "reviewed_candidate": "5fc2ded5 — четыре одобренные линии: P0 голос фактчека (c464dde3), P1 L1 decision-profile (73f55b58, фикс 0eec0996), UI S12 (778e64a3/be51e9ed), ER-08-RC (2e4bb194)",
-    "previous_reviewed_candidate": "613fae5d / 9e22b04c / dfdabd60 (2.58.148)",
-    "checks": "compileall rc=0; node 11/11 OK; pytest по 59 файлам четырёх линий: 1790 passed, 1 failed — пре-существующий и environment-dependent (test_verbilizer_response_modes_round1023::test_summary_kill_switch_off_prev_narrator), воспроизведён на baseline 6645ae8d",
-    "prod_observations": "/healthz 200 {\"status\":\"ok\",\"version\":\"2.58.149\"}; сервис active/running, MainPID=1178931, NRestarts=0 (172 с), ExecMainStatus=0; SQLite user_version=40 quick_check=ok; media 66 без изменений; FACTORY_SET_SHA256_12 = 630ca46dff76 и активированы пять канонов: verbalizer `factcheck-voice-historic-01` → rev:a124fc8074a9 (fac:d89b5d3196fa), analyst `factcheck-analyst-voice01-semantics` → rev:fd4fe7110feb (fac:9b3d10ff9101), single `factcheck-single-voice01` → rev:aba72f127099 (fac:719f9106455c), temporal → rev:c044cbccca7e, l1_planner → rev:bfb6c7eedfc4; журнал чистый (0 Traceback/ERROR).",
-    "note": "Прод переведён с 2.58.148 (6645ae8d) на 2.58.149 (40d615f1) 01.11.2026 22:52 UTC. ЧЕСТНЫЕ ОГРАНИЧЕНИЯ: `plan_meta.l1_context_source` и `l1_reply_*` на проде NOT_OBSERVED — в окне наблюдения не было живого диалогового хода; живой тон/выбор фазы моделью остаются post-deploy проверками. Откат: код — 6645ae8d, данные — /tmp/predeploy-258149.db, канон — activate_revision по журналу."
+    "note": "Выложен снимок интеграционной ветки: 2.58.151 физически принёс в прод линии EVOL-COG-MAP S1-S3, EVOL-SRC-READER, композицию EVOL-UI-FULLDOD (W15) и FINAL v8 AC-P0, хотя карта собрана под мем-релиз. Строки обновлены только там, где приёмка действительно закрыта существующими вердиктами ревью.",
+    "health": "200 local + 200 public на 2.58.151, NRestarts=0, один процесс",
+    "schema": "user_version 40 -> 41 (+ chat_publish_claim, аддитивно, 0 строк; 124 таблицы, negative deltas 0)",
+    "journal": "0 Traceback / 0 ERROR в двух окнах; 1 предсуществующий WARNING",
+    "live_observation": "живых прогонов UI/инициативы за окно выкладки не было (NOT_OBSERVED), не тестовые сообщения",
+    "previous": {
+      "version": "2.58.149",
+      "deployed_commit": "40d615f1011c2ed80badf8d8d430b696e16a4ea3",
+      "branch": "release/2.58.149",
+      "equivalent_branch": "evol/impl @ 5fc2ded58f7a2a022602a85fe0aa514401774aa4 (родитель bump-коммита)",
+      "deployed_at_utc": "2026-11-01T22:52:36Z",
+      "deploy_report": "plans/features/evol/audit/deploy-2.58.149.md",
+      "deploy_report_note": "Файл отчёта существует на ветке release/2.58.149 в коммите d967f889 (sha256 8154d8918e99c0b756f58fba3c7c237ef9238e2c68a1d0cc3f84710666f7275d); в дереве evol/impl его нет — путь машинно проверяем через Git-объект.",
+      "previous_production": "6645ae8d (2.58.148)",
+      "previous_release": {
+        "version": "2.58.148",
+        "commit": "6645ae8d287529303bff0eb608b4b9610efac97d",
+        "map_state": "2.58.148/6645ae8d"
+      },
+      "reviewed_candidate": "5fc2ded5 — четыре одобренные линии: P0 голос фактчека (c464dde3), P1 L1 decision-profile (73f55b58, фикс 0eec0996), UI S12 (778e64a3/be51e9ed), ER-08-RC (2e4bb194)",
+      "previous_reviewed_candidate": "613fae5d / 9e22b04c / dfdabd60 (2.58.148)",
+      "checks": "compileall rc=0; node 11/11 OK; pytest по 59 файлам четырёх линий: 1790 passed, 1 failed — пре-существующий и environment-dependent (test_verbilizer_response_modes_round1023::test_summary_kill_switch_off_prev_narrator), воспроизведён на baseline 6645ae8d",
+      "prod_observations": "/healthz 200 {\"status\":\"ok\",\"version\":\"2.58.149\"}; сервис active/running, MainPID=1178931, NRestarts=0 (172 с), ExecMainStatus=0; SQLite user_version=40 quick_check=ok; media 66 без изменений; FACTORY_SET_SHA256_12 = 630ca46dff76 и активированы пять канонов: verbalizer `factcheck-voice-historic-01` → rev:a124fc8074a9 (fac:d89b5d3196fa), analyst `factcheck-analyst-voice01-semantics` → rev:fd4fe7110feb (fac:9b3d10ff9101), single `factcheck-single-voice01` → rev:aba72f127099 (fac:719f9106455c), temporal → rev:c044cbccca7e, l1_planner → rev:bfb6c7eedfc4; журнал чистый (0 Traceback/ERROR).",
+      "note": "Прод переведён с 2.58.148 (6645ae8d) на 2.58.149 (40d615f1) 01.11.2026 22:52 UTC. ЧЕСТНЫЕ ОГРАНИЧЕНИЯ: `plan_meta.l1_context_source` и `l1_reply_*` на проде NOT_OBSERVED — в окне наблюдения не было живого диалогового хода; живой тон/выбор фазы моделью остаются post-deploy проверками. Откат: код — 6645ae8d, данные — /tmp/predeploy-258149.db, канон — activate_revision по журналу."
+    }
   },
   "delta_addenda": [
     {
@@ -48895,5 +49512,119 @@
       "mapped_at": "2026-11-01",
       "note": "v2.1 заменяет v1/v2 того же ID; разложено 199 инвентарных строк (§1-§10, 40 сценариев §9 отдельными строками SC-01..SC-40). P0 (история промптов, Cover Style), P1 (речь/модули/mobile/Status) и P2 (Избранное) задеплоены в 2.58.146 и приняты ревью (w15-ui-v21-review.md PASS) → VERIFIED; открыты живой прогон Test Style на боевом маршруте (SC-20, READY_FOR_LIVE), snapshot effective payload (SC-41) и итоговая строка SC-46."
     }
-  ]
+  ],
+  "release_composition": {
+    "note": "Релиз 2.58.151 был собран как мем-релиз, но выложен снимком evol/impl, поэтому в прод уехали и EVOL-линии. Здесь зафиксировано, что именно из evol-кода попало на прод, какими вердиктами это подтверждено и что осталось незакрытым. Мем-строки учитываются в plans/features/meme-pipeline-refactor-01/requirements-map.json (там же записано то же составное замечание).",
+    "lines": [
+      {
+        "slice": "EVOL-COG-MAP (W7-S1/S2/S3)",
+        "commits": [
+          "25725265 (S1, Approved Re-review 2)",
+          "1eaa6c24 (S2, Approved Re-review 2)",
+          "a9f326f8 (S3, Approved Re-review 3)"
+        ],
+        "rows_changed": 0,
+        "reason": "В карте срез EVOL-COG-MAP описан одним req_id с единой acceptance на всю карту, включая обязательства W7-S4. Пока S4 не сделан, ни одна из 41 required-строк не может стать VERIFIED; статус не подменялся частичным."
+      },
+      {
+        "slice": "EVOL-SRC-READER",
+        "commits": [
+          "49570c9e (Approved Re-review 2, кандидат 004d59f3)"
+        ],
+        "rows_changed": 0,
+        "reason": "50 строк уже VERIFIED с candidate-bound доказательствами; 6 PENDING сознательно оставлены: L01206/L01211/L02360 требуют живых проверок (LLM-маршрутизация, реальный репозиторий), L01219/L01221 относятся к промпт-канону другого слайса, L02401 — локальный файл пользователя."
+      },
+      {
+        "slice": "EVOL-UI-FULLDOD (композиция W15)",
+        "commits": [
+          "4af1f197 (Approved Re-review 2)"
+        ],
+        "rows_changed": 29,
+        "reason": "Reviewer прямо адъюдицировал L00478 («может закрываться по поведению, привязка — за PM»). Родитель EVOL-033 был VERIFIED ещё по w13 Re-check 3; 29 duplicate-строк §D, помеченных «обязанность включена в каноническую acceptance req EVOL-033», отставали в PENDING и приведены к статусу родителя (та же конвенция, что у 23 уже VERIFIED duplicates)."
+      },
+      {
+        "slice": "FINAL v8 AC-P0 (AntiCliche)",
+        "commits": [
+          "49d1fcde"
+        ],
+        "rows_changed": 0,
+        "reason": "Строк AC-P0 в этой карте нет: EVOL-контекст прямо помечает пакет как принадлежащий plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json. Код AC-P0 в проде, но привязка деплоя к той карте (сейчас AC-P0 10 VERIFIED / 13 PENDING, deployed_commit пуст) в этом проходе не заявлялась — это отдельная ограниченная задача для владельца той карты."
+      },
+      {
+        "slice": "ASAP-UI-02 (17 сценариев §12)",
+        "commits": [],
+        "rows_changed": 0,
+        "reason": "Код COG-MAP теперь в проде, поэтому сценарии №11/№12 больше не заблокированы реализацией, но 17-сценарный набор §12 (L01966-L01982) не перепрогонялся: все 17 строк остаются PENDING до перепрогона, как и остальные 16 PENDING строк среза (ASAP-UI-02-14 и др.)."
+      }
+    ]
+  },
+  "release_binding_2026_11_03": {
+    "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
+    "candidate_commit_map": "0b198ad2243cae28c86eef905e5d20e7ce059b3c",
+    "note": "Карта остаётся legacy strict_evidence=false с историческими кандидатами волн; deployed_commit обновлён на фактически выложенный bd0f38ed. Состав релиза не приравнивает эту карту к DONE: EVOL-RELEASE, EVOL-COG-MAP (S4) и живые проверки открыты."
+  },
+  "slice_deployment_binding": {
+    "EVOL-COG-MAP": {
+      "deployed": [
+        "25725265",
+        "1eaa6c24",
+        "a9f326f8"
+      ],
+      "verdicts": [
+        "plans/features/evol/reports/w7-s1-review.md — Approved (Re-review 2)",
+        "plans/features/evol/reports/w7-s2-review.md — Approved (Re-review 2)",
+        "plans/features/evol/reports/w7-s3-review.md — Approved (Re-review 3)"
+      ],
+      "rows_changed": 0,
+      "rows_pending": 41,
+      "open_stage": "W7-S4",
+      "open_scope": [
+        "мобильная композиция и жесты карты, fullscreen/BackButton/keyboard",
+        "производительность: живой замер ответа/рендера на реальной плотности (~356 узлов), «нарисовано/скрыто» и доля площади подписей",
+        "визуальные e2e (до/после) и retirement заголовка «Граф связей»",
+        "матрица degraded+empty / degraded+stale / degraded+renderer_failed в node-тесте и живом прогоне (contract §9.1)",
+        "условная вторая ось группировки по замеру компонент в S4 (contract §9.3)"
+      ],
+      "note": "Промежуточный факт «S1-S3 в проде и одобрены» зафиксирован здесь как fakt, а не как статус строк: единая acceptance среза включает S4, поэтому 41 required-строка остаётся PENDING."
+    },
+    "EVOL-SRC-READER": {
+      "deployed": [
+        "49570c9e"
+      ],
+      "verdict": "plans/features/evol/reports/w20-src-reader-review.md — Approved (Re-review 2, кандидат 004d59f3)",
+      "rows_changed": 0,
+      "rows_verified": 50,
+      "rows_pending": 6,
+      "pending_detail": {
+        "live_only": [
+          "L01206",
+          "L01211",
+          "L02360"
+        ],
+        "other_slice": [
+          "L01219",
+          "L01221"
+        ],
+        "user_local_file": [
+          "L02401"
+        ]
+      },
+      "note": "Живые проверки (реальный кейс репозитория, анонимная квота, secondary rate limit, маршрутизация в диалоге) остаются открытыми и не закрывались деплоем."
+    },
+    "EVOL-UI-FULLDOD": {
+      "deployed": [
+        "4af1f197"
+      ],
+      "verdict": "plans/features/evol/reports/w15-composition-review-2.md — Approved (Re-review 2); L00478 адъюдицирован",
+      "rows_changed": 29,
+      "note": "29 duplicate-строк §D приведены к статусу родителя EVOL-033 (VERIFIED по w13 Re-check 3) с evidence композиции W15."
+    },
+    "AC-P0": {
+      "deployed": [
+        "49d1fcde"
+      ],
+      "rows_changed": 0,
+      "note": "Строк в этой карте нет; карта пакета asap-evol-anticliche-memory-admin-ux не изменялась, привязка деплоя остаётся её задачей."
+    }
+  }
 }

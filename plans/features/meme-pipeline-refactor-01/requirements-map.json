@@ -14,7 +14,7 @@
     "MEME-UI-FIELDS": "e25bd479265a7521612ea53596b486934f57ef0c",
     "MEME-ANALYTICS-STAGES": "e25bd479265a7521612ea53596b486934f57ef0c"
   },
-  "deployed_commit": "",
+  "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -10836,5 +10836,105 @@
     "report": "plans/features/meme-pipeline-refactor-01/reports/pm-parent-binding-092734a6.md",
     "report_sha256": "6c4a665903ca272d5f9c198cedc4b3aadd8fbe66e80db1765bc2ca59a5523850",
     "note": "Принятые вердикты слайсов перенесены на merge-коммит: все слайс-кандидаты - предки 092734a6, тесты полосы прогнаны на 092734a6 (202 pytest-проверки + JS-наборы + DOM-прогон без падений)."
-  }
+  },
+  "deployed_release": {
+    "version": "2.58.151",
+    "deployed_commit": "bd0f38ed1bb08e9787c67c516b1ce76f1da42cb7",
+    "branch": "release/2.58.151",
+    "reviewed_candidate": "092734a685f30dcd5500beaba2169c2f6c177823",
+    "deployed_commit_parent": "06cfd722",
+    "tree_equivalence": "bd0f38ed = 06cfd722 (docs-биндинг P4 поверх проревьюенного 092734a6) + bump 2.58.144->2.58.151 (31 файл / 32 вхождения, тот же bump-набор, что 2.58.149/2.58.150). Продуктовые файлы отличаются только строками версии: /web/app.js на проде байт-в-байт равен файлу кандидата, /static/app.css и web/index.html совпадают после нормализации __APP_VERSION__ (2 и 16 подстановок).",
+    "deployed_at_utc": "2026-11-03T03:54:08Z",
+    "host": "192.255.209.205",
+    "deploy_report": {
+      "path": "plans/features/meme-pipeline-refactor-01/deploy-2.58.151.md",
+      "branch": "release/2.58.151",
+      "commit": "00b6b5a35bbd62bf1b3665cfdc2a7f6df76b2ffa",
+      "note": "Отчёт закоммичен на ветке release/2.58.151 (00b6b5a3); в evol/impl файла нет, поэтому путь не используется как evidence-артефакт strict-гейта."
+    },
+    "checks": {
+      "health_local": "200 {\"status\":\"ok\",\"version\":\"2.58.151\"} (127.0.0.1:8000, первая проба через 25 с после рестарта)",
+      "health_public": "200 {\"status\":\"ok\",\"version\":\"2.58.151\"} (https://admin-bot.duckdns.org)",
+      "service": "active/running, ExecMainStatus=0, NRestarts=0 (проверки 03:54/03:55/03:56/03:59 UTC), один процесс bot.py",
+      "schema": "user_version 40 -> 41; таблиц 123 -> 124 (+ chat_publish_claim, PK chat_id, 12 колонок, 0 строк); schema_migrations 29 -> 30, дублей нет; второй рестарт - no-op для схемы (v41 не применялся повторно)",
+      "migration_additivity": "сравнение 119 невиртуальных таблиц: 6 604 427 -> 6 604 535 строк, ни одной таблицы с отрицательной дельтой; quick_check=ok",
+      "media": "66 -> 66 без изменений",
+      "journal": "246 и 358 строк в двух окнах: Traceback 0, ERROR/CRITICAL 0, database is locked 0; 1 предсуществующий WARNING (embedding smart_archive superseded)",
+      "live_meme": "NOT_OBSERVED — естественного мем-хода и /meme в окне выкладки не было, тестовые сообщения в реальные чаты не отправлялись",
+      "live_initiative_cycle": "NOT_OBSERVED — воркер инициативы зарегистрирован в планировщике, тиков с публикацией за окно не было; броней в chat_publish_claim 0"
+    },
+    "rollback": "код release/2.58.150 = 345a2ed7 + снимок БД /tmp/predeploy-258151.db (1 679 773 696 Б, user_version 40, quick_check ok); откат схемы не требуется (v41 аддитивна и пуста, код v40 её не читает)"
+  },
+  "release_composition": {
+    "note": "Релиз 2.58.151 — снимок интеграционной ветки evol/impl (15 merge-коммитов с базы 5fc2ded5), поэтому в прод вместе с мем-стеком (P0/P1/P2/P3/P4/P6/P7/P8/P9) физически уехали 4 не-мемные линии. Мем-карта владеет только мем-строками; строки остальных линий учитываются в своих картах и в этом проходе сверялись по plans/features/evol/requirements-map.json (release_composition).",
+    "non_meme_lines": [
+      {
+        "slice": "EVOL-COG-MAP W7-S1/S2/S3",
+        "commits": [
+          "25725265",
+          "1eaa6c24",
+          "a9f326f8"
+        ],
+        "reviews": [
+          "plans/features/evol/reports/w7-s1-review.md (Approved, Re-review 2)",
+          "plans/features/evol/reports/w7-s2-review.md (Approved, Re-review 2)",
+          "plans/features/evol/reports/w7-s3-review.md (Approved, Re-review 3)"
+        ],
+        "map": "plans/features/evol/requirements-map.json",
+        "row_effect": "0 строк к VERIFIED: срез-приёмка требует W7-S4 (мобильная композиция/жесты, fullscreen/BackButton/keyboard, performance, визуальные e2e, снятие заголовка «Граф связей»), в карте evol 41 required остаётся PENDING"
+      },
+      {
+        "slice": "EVOL-SRC-READER",
+        "commits": [
+          "49570c9e"
+        ],
+        "reviews": [
+          "plans/features/evol/reports/w20-src-reader-review.md (Approved, Re-review 2, кандидат 004d59f3)"
+        ],
+        "map": "plans/features/evol/requirements-map.json",
+        "row_effect": "0 строк к VERIFIED (50 уже привязаны ранее); 6 PENDING остаются: 3 живые проверки, 2 не этого слайса, 1 локальный файл пользователя"
+      },
+      {
+        "slice": "EVOL-UI-FULLDOD (композиция W15)",
+        "commits": [
+          "4af1f197"
+        ],
+        "reviews": [
+          "plans/features/evol/reports/w15-composition-review-2.md (Approved, Re-review 2)"
+        ],
+        "map": "plans/features/evol/requirements-map.json",
+        "row_effect": "EVOL-033 подтверждён по поведению (L00478): родитель получил evidence композиции, 29 duplicate-строк приведены к статусу родителя"
+      },
+      {
+        "slice": "FINAL v8 AC-P0 (AntiCliche)",
+        "commits": [
+          "49d1fcde"
+        ],
+        "reviews": [
+          "plans/features/asap-evol-anticliche-memory-admin-ux/reports/w-ac-p0-review.md"
+        ],
+        "map": "plans/features/asap-evol-anticliche-memory-admin-ux/requirements-map.json",
+        "row_effect": "строк в мем-карте и в карте evol нет (EVOL прямо помечает пакет как чужой); на 03.11.2026 карта пакета: AC-P0 10 VERIFIED / 13 PENDING, deployed_commit пуст — привязка деплоя за владельцем этой карты, здесь не заявляется"
+      }
+    ]
+  },
+  "release_gate_runs": [
+    {
+      "invocation": "--map plans/features/meme-pipeline-refactor-01/requirements-map.json --stage release --candidate 092734a6... --deployed-commit bd0f38ed1bb0...",
+      "errors": 1,
+      "classes": [
+        "deployed commit missing or differs from reviewed candidate — гейт требует deployed == candidate, а выложен bump-коммит с тем же деревом (документированная конвенция: candidate = проревьюенный кандидат, deployed = релизный bump)"
+      ],
+      "evidence_errors": 0
+    },
+    {
+      "invocation": "--stage release --candidate bd0f38ed1bb0... --deployed-commit bd0f38ed1bb0...",
+      "errors": 329,
+      "classes": [
+        "candidate mismatch; map candidate_commit must match --candidate (1): candidate_commit карты = 092734a6, подмена на bump-коммит была бы ложной привязкой ревью",
+        "no evidence bound to reviewed candidate + no candidate-bound evidence points to an existing repo artifact (164 scoped-строки x 2 = 328): доказательства привязаны к проревьюенному 092734a6 и слайс-кандидатам"
+      ],
+      "evidence_errors": 0
+    }
+  ]
 }
