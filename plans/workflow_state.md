@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (waves A + factcheck) + queued: EPIC-CM-VISUAL-01, meme P4/P9
-Task source: plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md (509 lines, sha C6AA5CD8), plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, plans/owner_inputs/2026-11-03-epic-cm-visual-01.md
+Task: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (waves A + factcheck) + EPIC-PROMPT-VERSIONING-UX-01 (W0+W1) + queued EPIC-CM-VISUAL-01
+Task source: plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md, plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md, plans/owner_inputs/2026-11-03-epic-cm-visual-01.md
 Status: in_progress
 Primary phase: build
-Active feature: RC v5 — speech-projection seam (wave A) + factcheck target/media/evidence slices
-Active lanes: Builder rc/context-seam ses_e5ef544e4ffehriAbv1PIO1O3A (canonical_context, media_marker, thread_chain); Builder rc/factcheck ses_e5ef51496ffeJPQnJK2szQWatg (handlers/factcheck, factcheck_service/orchestrator/suitability/planner/renderer)
-Join barriers: seam merges first -> Direct/Tool/Summary/meme/lore consumers + prompt_composer manifest (blocked_by A); factcheck slice independent of A
-Last verified: prod 2.58.153 @ e52a06b2 (rollback ab662a75); epic branch e9d4b100 (merges of 2.58.152 + 2.58.153, release docs); RC map 285 obligations / 8 slices, plan gate EXIT 0 @f370ec59; contract e9d4b100 (9 target-break points BD-1..BD-9, media default allow_adjacent=True defect, evidence-status matrix, single speech seam); queue placement: after accepted FactCheck chain, before asap-fc-voice-01, sequential with anticliche/EP-E-DIALOGUE on direct_chat_service+prompt_composer
-Next unlocks: (1) seam merge -> consumers wave; (2) factcheck slice merge -> evidence/status rows; (3) Reviewer with 120 scenarios incl. actual payloads, Composer ON/OFF, fallback, restart; (4) release + live verification; (5) CM-VISUAL-01 package A after UI line free
+Active feature: RC v5 (seam + factcheck) and prompt versioning backend
+Active lanes: Builder rc/context-seam ses_e5ef544e4ffehriAbv1PIO1O3A; Builder rc/factcheck ses_e5ef51496ffeJPQnJK2szQWatg; Builder pv/write-layer ses_e5e9ee2f3ffeVty0vLfjvpWlyf
+Join barriers: seam -> consumers wave (Direct/Tool/Summary/meme/lore, prompt_composer manifest); factcheck slice independent; PV S0+S1 -> PV S2 baseline -> PV S3 history -> PV S4 UX (then CM-VISUAL barrier lifts)
+Last verified: prod 2.58.153 @ e52a06b2 (rollback ab662a75); epic ee/evol impl HEAD 28fe8c9d; RC map 285 obligations/8 slices plan gate 0; PV map 57 obligations/8 slices plan gate EXIT 0 @d86cd330; PV contract 2841a6ef (10 bypass paths, baseline=activation events, atomic write, runtime bypass guard); CM-VISUAL merge barrier fixed (PVR-S4 before CMV-A/B/D); registry reality: 112 blocks, 39 PG-managed, 73 code-only
+Next unlocks: (1) merge PV S0+S1 -> S2/S3; (2) RC seam merge -> consumers; (3) factcheck slice merge; (4) PV S4 UX -> lift CM-VISUAL barrier; (5) Reviewer 120 RC scenarios + PV negative matrix; (6) releases with byte-identity check of meme prompts
 Next execution: awaiting_children
-Review: pending (RC v5 not reviewed yet)
+Review: pending (RC v5, PV UX not reviewed)
 Deployment: verified (2.58.153 @ e52a06b2)
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh
-Updated: 2026-11-03T23:10:00+12:00
+Updated: 2026-11-04T00:32:00+12:00
