@@ -83,6 +83,12 @@ class _FakeConn:
             self.store.row["last_status"] = args[0]
         return "UPDATE 1"
 
+    async def fetch(self, sql, *args):
+        # AC-DATA: состояние источников читается списком строк.
+        if "FROM anticliche_source_state" in " ".join(sql.split()):
+            return []
+        return []
+
 
 class _FakePool:
     def __init__(self, conn):
@@ -416,6 +422,15 @@ def _worker(store: _Store, *, fetch=None, llm=None):
     return AntiClicheWorker(llm=llm, pg=_FakePg(store), fetch=fetch)
 
 
+def _wiki_body(text: str) -> str:
+    """Тело ответа Wikipedia action API (транспорт отдаёт JSON, не прозу).
+
+    AC-DATA §9.2 тест 8: невалидный JSON при HTTP 200 — `parse_error`,
+    поэтому фикстура использует настоящую форму ответа источника.
+    """
+    return json.dumps({"query": {"pages": {"1": {"extract": text}}}})
+
+
 class TestWorker:
     @pytest.mark.asyncio
     async def test_refresh_ok(self, monkeypatch):
@@ -425,7 +440,7 @@ class TestWorker:
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value=json.dumps(
             {"patterns": [{"phrase": "свежий штамп", "origin": "wiki"}]}))
-        fetch = AsyncMock(return_value="исходный текст справочника")
+        fetch = AsyncMock(return_value=_wiki_body("исходный текст справочника"))
         worker = _worker(store, fetch=fetch, llm=llm)
         result = await worker.refresh()
         assert result["status"] == "ok"
@@ -444,7 +459,7 @@ class TestWorker:
                      "last_status": "ok"}
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value="не json вообще")
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         result = await worker.refresh()
         assert result["status"] == "parse_error"
         assert store.row["patterns"][0]["phrase"] == "старое"
@@ -461,7 +476,9 @@ class TestWorker:
         worker = _worker(store, fetch=fetch, llm=AsyncMock())
         result = await worker.refresh()
         assert result["status"] == "fetch_error"
-        assert store.row["last_status"] == "fetch_error"
+        # AC-INV-08: честный код стадии источников и РЕАЛЬНАЯ версия набора.
+        assert store.row["last_status"] == "sources_unavailable"
+        assert result["version"] == 1
 
     @pytest.mark.asyncio
     async def test_refresh_llm_error(self, monkeypatch):
@@ -472,7 +489,7 @@ class TestWorker:
                      "version": 1, "last_status": "ok"}
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(side_effect=RuntimeError("llm down"))
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         result = await worker.refresh()
         assert result["status"] == "llm_error"
         assert store.row["last_status"] == "llm_error"
@@ -482,7 +499,7 @@ class TestWorker:
         monkeypatch.setattr(aw.worker_budget, "consume",
                             AsyncMock(return_value=False))
         store = _Store()
-        fetch = AsyncMock(return_value="text")
+        fetch = AsyncMock(return_value=_wiki_body("text"))
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value="{}")
         worker = _worker(store, fetch=fetch, llm=llm)
@@ -507,7 +524,7 @@ class TestWorker:
         }
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value='{"patterns": []}')
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         result = await worker.refresh()
         assert result["status"] == "empty"
         assert result["count"] == 0
@@ -530,7 +547,7 @@ class TestWorker:
                                         {"phrase": "надеюсь, помог"}]})
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value=echo)
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         result = await worker.refresh()
         assert result["status"] == "empty"
         assert store.row["patterns"][0]["phrase"] == "живая фраза"
@@ -546,7 +563,7 @@ class TestWorker:
         result = await aw.apply_manual(_FakePg(store),
                                        [{"phrase": "ручная фраза"}])
         assert result["status"] == "ok"
-        assert store.row["source"] == "manual"
+        assert store.row["source"] == "local/manual"
         assert store.row["patterns"][0]["phrase"] == "ручная фраза"
         # L3: ручная правка не двигает fetched_at.
         assert store.row["fetched_at"] == "2026-01-01T00:00:00+00:00"
@@ -764,7 +781,7 @@ class TestAnticlicheApi:
             json={"patterns": [{"phrase": "новая ручная фраза"}]})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["source"] == "manual"
+        assert body["source"] == "local/manual"
         assert body["count"] == 1
         assert api_client.store.row["patterns"][0]["phrase"] == "новая ручная фраза"
 

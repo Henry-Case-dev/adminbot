@@ -301,6 +301,62 @@ DDL_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_anticliche_cache_updated"
     " ON anticliche_cache (updated_at DESC)",
     "INSERT INTO anticliche_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING",
+    # ── ASAP-EVOL-ANTICLICHE (AC-DATA, arch §1): две записи состояния ───────
+    # 1) `anticliche_source_state` — последняя РЕАЛЬНАЯ проверка каждого
+    #    источника (конфиг источника остаётся код-реестром
+    #    `services/anticliche_sources.py`; здесь только состояние/включённость).
+    #    История проверок живёт событиями `mca_events` (component=anticliche),
+    #    отдельной таблицы истории нет.
+    # 2) `anticliche_snapshot` — immutable опубликованные версии банка
+    #    (`state='published'`) и единственная mutable строка черновика
+    #    (`state='draft'`). Читает AC-COMPILER/AC-API, пишет AC-PIPE.
+    #    `anticliche_cache.patterns` остаётся материализованным снимком
+    #    активной версии (LKG при недоступном snapshot).
+    # Обе таблицы идемпотентны (CREATE/INDEX IF NOT EXISTS), Δ SQLite = 0.
+    """
+    CREATE TABLE IF NOT EXISTS anticliche_source_state (
+        source_id               TEXT PRIMARY KEY,
+        enabled                 BOOLEAN NOT NULL DEFAULT true,
+        last_check_at           TIMESTAMPTZ,
+        last_status             TEXT NOT NULL DEFAULT 'unchecked',
+        last_http               INTEGER,
+        revision                TEXT NOT NULL DEFAULT '',
+        etag                    TEXT NOT NULL DEFAULT '',
+        checksum                TEXT NOT NULL DEFAULT '',
+        content_status          TEXT NOT NULL DEFAULT 'not_checked',
+        docs_fetched            INTEGER NOT NULL DEFAULT 0,
+        docs_parsed             INTEGER NOT NULL DEFAULT 0,
+        bytes_fetched           INTEGER NOT NULL DEFAULT 0,
+        last_success_fetch_at   TIMESTAMPTZ,
+        last_success_analysis_at TIMESTAMPTZ,
+        last_analysis_status    TEXT NOT NULL DEFAULT 'never',
+        next_attempt_at         TIMESTAMPTZ,
+        last_error_code         TEXT NOT NULL DEFAULT '',
+        last_error_detail       TEXT NOT NULL DEFAULT '',
+        consecutive_failures    INTEGER NOT NULL DEFAULT 0,
+        paused_reason           TEXT NOT NULL DEFAULT '',
+        last_check_id           TEXT NOT NULL DEFAULT '',
+        updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_anticliche_source_state_check"
+    " ON anticliche_source_state (last_check_at DESC NULLS LAST)",
+    """
+    CREATE TABLE IF NOT EXISTS anticliche_snapshot (
+        version              INTEGER PRIMARY KEY,
+        state                TEXT NOT NULL DEFAULT 'published',
+        compiler_version     TEXT NOT NULL DEFAULT '',
+        checksum             TEXT NOT NULL DEFAULT '',
+        source_revisions     JSONB NOT NULL DEFAULT '{}'::jsonb,
+        parent_version       INTEGER,
+        publisher            TEXT NOT NULL DEFAULT '',
+        published_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        effective_rule_count INTEGER NOT NULL DEFAULT 0,
+        rules                JSONB NOT NULL DEFAULT '[]'::jsonb
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_anticliche_snapshot_published"
+    " ON anticliche_snapshot (state, version DESC)",
     # ── Раунд 10.23 (F7 token-analytics, ADR-1023-7 D1/D2/D3) ──────────────
     # Телеметрия LLM-событий и таблица цен — в PG (web-API читает только PG;
     # SQLite остаётся v12 — AMEND к Part 1 §3.4). Изолированы от бюджетного

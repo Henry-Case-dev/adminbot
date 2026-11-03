@@ -77,7 +77,7 @@ class TestManualSemantics:
             object(), [{"phrase": "подводя итог"}, {"phrase": "a"}])
 
         assert result["status"] == "ok"
-        assert result["source"] == "manual"
+        assert result["source"] == "local/manual"
         assert result["count"] == 1
         assert result["saved"][0]["phrase"] == "подводя итог"
         assert result["dropped"]["invalid"]          # отчёт честный

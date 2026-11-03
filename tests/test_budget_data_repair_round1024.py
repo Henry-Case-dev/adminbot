@@ -604,7 +604,11 @@ class TestFlagBoundary:
         # NOTE (EVOL-016, 30.10.2026): +4 (журнал промптов prompt_revisions/
         # prompt_activations + 2 индекса — дословный JOURNAL_DDL, санкция
         # w2a-evol016.md §4 п.4); 54 → 58. SQLite v39 — книга схемы (no-op).
-        assert len(pg_db.DDL_STATEMENTS) == 58
+        # NOTE (AC-DATA, 03.11.2026): +4 (anticliche_source_state +
+        # anticliche_snapshot + 2 индекса; санкция arch/integration-decisions
+        # §1 — «2 новые PG-таблицы», владелец дельты AC-DATA); 58 → 62.
+        # SQLite DDL = 0.
+        assert len(pg_db.DDL_STATEMENTS) == 62
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc

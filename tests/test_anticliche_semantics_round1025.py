@@ -58,6 +58,12 @@ class _FakeConn:
             self.store.row["last_status"] = args[0]
         return "UPDATE 1"
 
+    async def fetch(self, sql, *args):
+        # AC-DATA: `anticliche_source_state` читается множеством строк.
+        if "FROM anticliche_source_state" in " ".join(sql.split()):
+            return list(getattr(self.store, "source_states", []))
+        return []
+
 
 class _FakePool:
     def __init__(self, conn):
@@ -117,7 +123,12 @@ def _worker(store, llm, fetch=None):
 
 
 async def _text():
-    return "текст"
+    """Тело ответа Wikipedia action API (транспорт отдаёт JSON, не прозу).
+
+    AC-DATA: невалидный JSON при HTTP 200 — это `parse_error` (§9.2 тест 8),
+    поэтому фикстура обязана быть настоящей формой ответа источника.
+    """
+    return json.dumps({"query": {"pages": {"1": {"extract": "текст"}}}})
 
 
 def _row(phrases, *, version=1):
