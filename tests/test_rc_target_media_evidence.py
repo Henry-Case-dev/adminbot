@@ -440,6 +440,30 @@ async def test_v2_passes_requester_identity_to_media_resolver(monkeypatch):
     assert captured.get("message_id") == TARGET_TG
 
 
+@pytest.mark.asyncio
+async def test_deferred_resume_has_no_phantom_trigger(monkeypatch):
+    """BD-8: у отложенного возобновления нет сообщения-команды.
+
+    Прежнее `trigger = target` ломало семантику маркера «текущая команда» и
+    исключало из поиска не то сообщение. RC-TGT-INVARIANT, RC-S041."""
+    captured = {}
+
+    async def fake_run(req, **kwargs):
+        captured["req"] = req
+        return orch.OUTCOME_VERDICT
+
+    monkeypatch.setattr(orch, "run_factcheck", fake_run)
+    monkeypatch.setattr(orch, "_RUNTIME",
+                        {"db": object(), "service": object(), "cache": None},
+                        raising=False)
+    ok = await orch.deliver_deferred_factcheck(
+        {"chat_id": CHAT_ID, "trigger_message_id": TARGET_TG,
+         "question": "проверь тезис"}, [], bot=AsyncMock())
+    assert ok is True
+    assert captured["req"].target_tg_message_id == TARGET_TG
+    assert captured["req"].trigger_tg_message_id is None
+
+
 # ── B. Медиа обязательно только при реальной зависимости ─────────────────────
 
 @pytest.mark.asyncio
