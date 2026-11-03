@@ -155,6 +155,10 @@ S3 обязан закрыть.
 | `node tests/js/routing_test.js`, `round1025_f11_status_grid_test.js`, `app_methods_dup_keys_guard_test.js`, `vue_mount_test.js`, `asap_ui02_delta_test.js` | `JS-UNIT-OK`, `F11-STATUS-GRID-OK`/`F11-HEARTBEAT-OK`, `METHODS-DUP-KEYS-OK` (1297 ключей, 0 дублей), `VUE-MOUNT-OK`, `ASAP-UI02-DELTA-OK` |
 | `py tools/ui_evol_w15_composition_e2e.py` (полный существующий стенд) | **`COG-MAP checks=293`, `FAILS=[]`, `EVOL-W15-COMPOSITION OK`** (110 измеренных ячеек композиции, 60 adaptive); подтверждено повторным прогоном с чистого состояния на верхушке ветки |
 
+Цифры выше — кампания исходного кандидата. После исправления блокера
+review-B1 числа сдвинулись: см. §15 (`checks=311`, 22 pytest в виджете,
+297 passed в затронутом наборе).
+
 Живые числа кампании (`evidence/cog-map-s3/cog-map-s3-measurements.json`):
 
 | Проверка | 390×844 | 1280×900 |
@@ -300,3 +304,82 @@ retirement остатков «Граф связей», живой read-only пр
 Оба пункта — косметика уже принятого кандидата; в код S3 они не вносились,
 чтобы не переоткрывать проверенный кандидат (в рабочем дереве в это время шла
 независимая мутационная проверка того же кандидата).
+
+## 15. Исправление блокера review-B1: один Esc — ровно один слой
+
+Ревью (`reports/w7-s3-review.md` §3) нашло настоящий дефект поведения: в окне
+записи, открытом из карточки, один Esc закрывал ДВА слоя — и окно записи, и
+карточку. Замеры ревью воспроизведены, причина найдена в самом обработчике, а
+не в проверке.
+
+**Причина.** `statusRecordKeydown` (`web/app.js`) закрывает окно записи сам, но
+не останавливал всплытие: событие доходило до глобального `_onKeydown`
+(`window`) → `escClose()` → `backStackClose()` и тот закрывал следующий слой —
+`cog-card`. До S3 под окном записи слоя не было, поэтому дефект не проявлялся.
+Палитра уже решала это тем же способом (`paletteKeydown` → `stopPropagation`),
+то есть правка не вводит второй стиль, а приводит окно записи к общему.
+
+**Правка (одна строка + комментарий, `web/app.js:14444`):**
+
+```js
+if (ev.key === 'Escape') {
+  ev.preventDefault();
+  if (ev.stopPropagation) ev.stopPropagation();   // ← добавлено
+  this.closeStatusRecord();
+  return;
+}
+```
+
+**Наблюдаемые состояния слоёв** (живой стенд, `card` = карточка узла,
+`record` = окно записи; одинаково на 390×844 и 1280×900):
+
+| Путь закрытия | До | После | Что закрылось |
+|---|---|---|---|
+| Esc, фокус в окне записи | `{card:true, record:true}` → **`{card:false, record:false}`** | `{card:true, record:true}` → `{card:true, record:false}` | только окно записи |
+| Esc ещё раз | — | `{card:true, record:false}` → `{card:false, record:false}` | только карточка |
+| крестик окна записи (✕) | не задет правкой | `{card:true, record:true}` → `{card:true, record:false}` | только окно записи |
+| `goBack()` (Back/BackButton) | не задет правкой | `{card:true, record:true}` → `{card:true, record:false}` | только окно записи |
+| Esc при ОДНОЙ карточке (прежнее поведение) | карточка закрыта | карточка закрыта, фокус в `cognition-graph` | без изменений |
+
+После закрытия окна карточка показывает ту же запись (`fact:…:11`), фокус
+возвращён на кнопку, из которой окно открыли, выбор узла и камера целы.
+
+**Регресс-проверки, чтобы дефект не вернулся молча:**
+
+1. Стенд `tools/ui_evol_w15_composition_e2e.py`, блок `(2b)`: сначала
+   утверждается, что фокус ДЕЙСТВИТЕЛЬНО внутри окна записи (иначе Esc пошёл бы
+   другим путём и проверка была бы пустой), затем последовательность
+   «Esc → окно закрыто, карточка открыта» → «Esc → карточка закрыта», затем
+   крестик и `goBack()` (тоже только окно). Состояния слоёв пишутся в
+   `w15-composition.json` (`cog_map.card[<ширина>].esc_layers/cross_layers/back_layers`).
+2. `tests/test_evol_cog_map_widget.py::test_record_window_esc_closes_only_its_own_layer`
+   — пин на причину: всплытие останавливается ДО закрытия окна; проверяется и
+   то, что глобальный обработчик действительно закрывает слой (иначе пин
+   бессмысленен), и что у палитры тот же приём.
+
+**Чувствительность (мутация, своей же правкой).** Возврат дефекта
+(`if (ev.stopPropagation) { }` вместо вызова) дал ровно состояние ревью на обоих
+вьюпортах: `{'open': {card:true, record:true}, 'esc1': {card:false, record:false}}`,
+стенд красный двумя отказами «ОДИН Esc закрыл и окно записи, и карточку»
+(`EVOL-W15-COMPOSITION FAIL`). После восстановления файла (SHA-256 совпал с
+исправленным) прогон снова зелёный.
+
+**Прогоны после правки (дерево = исправленный кандидат):**
+
+| Команда | Результат |
+|---|---|
+| `py tools/ui_evol_w15_composition_e2e.py` | **`COG-MAP checks=311`** (+9 проверок × 2 вьюпорта), `FAILS=[]`, `EVOL-W15-COMPOSITION OK`, 110 измеренных ячеек |
+| `pytest tests/test_evol_cog_map_widget.py -q` | **22 passed** (21 + новый пин) |
+| затронутый набор 10 файлов + виджет | **297 passed** |
+| `pytest tests/test_evol001_005_status_widgets.py test_webapp_asap_ui02_delta.py test_webapp_evol_w13_touch_portal.py test_webapp_evol_w10_sections.py test_webapp_evol_w12_internals.py test_webapp_evol_w7_nav.py -q` | **164 passed** |
+| node: `evol_cognitive_map_test.js` | S1=407, S2=97, S3=78 |
+| node: `routing`, `round1025_f11_status_grid`, `app_methods_dup_keys_guard`, `vue_mount`, `asap_ui02_delta`, `evol001_005_widgets`, `asap8_w2_shell_mobile_nav`, `evol_w12_internals`, `evol_w7_nav` | все `…-OK` |
+
+Побочный эффект прогонов: импорт `tools/ui_evol_w10_sections_e2e.py` снова
+перезаписал 24 файла `evidence/w10-sec-*` (§10.2); они восстановлены из `HEAD`
+байт-в-байт, в коммит не входят.
+
+**Чего эти проверки не доказывают:** физической клавиатуры телефона и
+BackButton Telegram (Esc/Back идут событиями и API); что Esc в окне записи,
+открытом не из карточки (`#/memory`), вёл себя иначе — он и раньше закрывал
+только окно записи, и это сохраняется.

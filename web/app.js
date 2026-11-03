@@ -14436,6 +14436,12 @@
         if (!ev) return;
         if (ev.key === 'Escape') {
           ev.preventDefault();
+          // W7-S3 (review B1): окно записи закрывает РОВНО свой слой. Без
+          // stopPropagation Esc всплывал до глобального `_onKeydown` (window),
+          // тот звал `escClose()` → `backStackClose()` и закрывал СЛЕДУЮЩИЙ
+          // слой — карточку узла, из которой окно и открыто (один Esc закрывал
+          // два слоя). Тот же приём, что у палитры (`paletteKeydown`).
+          if (ev.stopPropagation) ev.stopPropagation();
           this.closeStatusRecord();
           return;
         }

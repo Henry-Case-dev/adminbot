@@ -616,3 +616,30 @@ def test_card_layout_is_panel_on_desktop_and_sheet_on_mobile():
     assert "safe-area-inset-bottom" in mobile
     assert "data-glass=\"b\"" in _card_block(), \
         "материал карточки — существующий токен стекла"
+
+
+def test_record_window_esc_closes_only_its_own_layer():
+    """review-B1: Esc в окне записи закрывает РОВНО свой слой.
+
+    Поведение (последовательность состояний слоёв) доказывает живой стенд
+    `tools/ui_evol_w15_composition_e2e.py`; здесь закреплена ПРИЧИНА дефекта:
+    окно записи закрывается собственным обработчиком, поэтому обязано
+    остановить всплытие ДО закрытия. Иначе событие доходит до глобального
+    `_onKeydown` → `escClose()` → `backStackClose()` и закрывает следующий
+    слой — карточку узла, из которой окно и открыто.
+    """
+    handler = _block(APP_JS, "statusRecordKeydown: function (ev) {",
+                     "_trapTabKey(ev, ev.currentTarget, false);")
+    assert "ev.stopPropagation()" in handler, \
+        "Esc окна записи снова всплывает до глобального обработчика (два слоя за Esc)"
+    assert handler.index("ev.stopPropagation()") < handler.index(
+        "this.closeStatusRecord()"), \
+        "всплытие должно останавливаться ДО закрытия окна"
+    # Проверка осмысленна только пока глобальный обработчик закрывает слой.
+    win = _block(APP_JS, "_onKeydown = function (e) {",
+                 "window.addEventListener('keydown', _onKeydown);")
+    assert "_appVm.escClose()" in win
+    # Тот же приём у палитры — единый порядок, а не второй стиль.
+    palette = APP_JS[APP_JS.index("paletteKeydown: function (event) {"):]
+    palette = palette[:palette.index("_paletteHotkey: function (event) {")]
+    assert "event.stopPropagation()" in palette

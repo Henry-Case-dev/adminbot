@@ -2230,11 +2230,68 @@ def run_cog_map(browser, base, report, fails, out_dir):
            "%s: первоисточник не доведён до сообщения (%r)"
            % (label, trace_text))
         shot(pg, "w15-cog-card-source-%d" % w, "[data-sfeed-modal]")
-        pg.evaluate("() => window.__adminbotVm.closeStatusRecord()")
-        pg.wait_for_timeout(500)
-        back_from_record = probe_card()
-        ok(back_from_record["open"] and back_from_record["id"] == fact_coffee,
-           "%s: закрытие окна записи закрыло карточку" % label)
+
+        # ── (2b) один Esc / один крестик / один Back — ровно ОДИН слой ────
+        # Регресс review-B1: окно записи открыто ИЗ карточки и фокус внутри
+        # него (фокус-трап), поэтому Esc идёт и по обработчику окна, и — без
+        # stopPropagation — всплывал до глобального `_onKeydown`, который через
+        # `escClose()` → `backStackClose()` закрывал следующий слой, карточку.
+        # Проверяется ПОСЛЕДОВАТЕЛЬНОСТЬ состояний, а не отсутствие кода.
+        def layer_state():
+            st = probe_card()
+            return {"card": bool(st["open"]), "record": bool(st["recordOpen"])}
+
+        def record_focused():
+            return pg.evaluate(
+                "() => { const m = document.querySelector('[data-sfeed-modal]');"
+                " return !!(m && document.activeElement"
+                " && m.contains(document.activeElement)); }")
+
+        def open_source_again():
+            """Карточка того же узла (открыть, если закрыта) → «Открыть источник»."""
+            if not probe_card()["open"] and not click_node(fact_coffee):
+                return False
+            return card_action("source")
+
+        ok(record_focused(),
+           "%s: фокус не в окне записи — Esc проверил бы другой путь" % label)
+        esc_states = {"open": layer_state()}
+        pg.keyboard.press("Escape")
+        pg.wait_for_timeout(700)
+        esc_states["esc1"] = layer_state()
+        ok(esc_states["esc1"]["record"] is False,
+           "%s: Esc не закрыл окно записи (%s)" % (label, esc_states))
+        ok(esc_states["esc1"]["card"] is True,
+           "%s: ОДИН Esc закрыл и окно записи, и карточку (%s)"
+           % (label, esc_states))
+        pg.keyboard.press("Escape")
+        pg.wait_for_timeout(700)
+        esc_states["esc2"] = layer_state()
+        ok(esc_states["esc2"]["card"] is False,
+           "%s: второй Esc не закрыл карточку (%s)" % (label, esc_states))
+        ok(esc_states["esc2"]["record"] is False,
+           "%s: второй Esc снова открыл окно записи (%s)" % (label, esc_states))
+
+        # Крестик окна записи: закрывается только окно.
+        ok(open_source_again(), "%s: источник не открылся повторно" % label)
+        pg.click('[data-sfeed-modal] button[aria-label="Закрыть окно записи"]')
+        pg.wait_for_timeout(700)
+        cross_state = layer_state()
+        ok(cross_state == {"card": True, "record": False},
+           "%s: крестик окна записи закрыл не только окно (%s)"
+           % (label, cross_state))
+
+        # Back (BackButton телефона и кнопка «назад» в UI): тоже только окно.
+        ok(open_source_again(), "%s: источник не открылся повторно" % label)
+        pg.evaluate("() => window.__adminbotVm.goBack()")
+        pg.wait_for_timeout(900)
+        back_from_record = layer_state()
+        ok(back_from_record == {"card": True, "record": False},
+           "%s: Back при открытом окне записи закрыл не только окно (%s)"
+           % (label, back_from_record))
+        ok(probe_card()["id"] == fact_coffee,
+           "%s: после закрытия окна карточка показывает другую запись (%r)"
+           % (label, probe_card()["id"]))
 
         # ── (3) «История изменений»: конкретная версия, а не раздел ────────
         pg.evaluate("() => window.__adminbotVm.closeCogCard()")
@@ -2503,6 +2560,11 @@ def run_cog_map(browser, base, report, fails, out_dir):
             "edge": opened_edge, "bare": bare, "memory": mem, "memory_miss": miss,
             "honest": solo, "back": after_back, "fullscreen": full_after,
             "keyboard": kb_after, "errors": errs[:5],
+            # Порядок слоёв «окно записи поверх карточки»: состояния до/после
+            # каждого способа закрытия (review-B1, регресс одного Esc).
+            "esc_layers": esc_states,
+            "cross_layers": cross_state,
+            "back_layers": back_from_record,
         }
         ctx.close()
     section["card"] = card_report
