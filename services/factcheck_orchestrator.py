@@ -41,6 +41,7 @@ import logging
 import random
 import re
 
+from services.canonical_context import emit_speech_projection_event
 from services.smartmodule_utils import (
     _reply,
     react_moai,
@@ -932,6 +933,15 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         projection, relations = fsg._semantic_link(ctx, ctx_claim, ctx_basis)
         feed = ctx.render_feed(projection=projection,
                                relations_by_item=relations)
+        # §9.4 / §13 сц.109: метки этого фида обязаны иметь обратную карту в
+        # защищённой трассе — как на остальных маршрутах
+        # (`handlers/factcheck.py:428`, `factcheck_context.render_feed`-путь).
+        # Без события «метка → реальный ID» ответ модели не проверяем.
+        if projection is not None:
+            emit_speech_projection_event(
+                projection, chat_id=req.chat_id,
+                message_id=req.target_tg_message_id,
+                run_id=getattr(projection, "run_id", None))
     media_context = publication.material_context()
     if media_context:
         feed = f"{feed}\n\n{media_context}".strip()

@@ -62,6 +62,7 @@ from services.canonical_context import (
     RELATION_SEMANTIC,
     SpeechProjection,
     SpeechRelation,
+    emit_speech_projection_event,
     resolve_item_id,
 )
 from services.factcheck_context import (
@@ -935,6 +936,14 @@ async def resolve_context_claim(
         projection, relations = _semantic_link(ctx, claim, basis)
         feed = ctx.render_feed(projection=projection,
                                relations_by_item=relations)
+        # §9.4 / §13 сц.109: этот фид с метками уходит в payload (обратная
+        # карта «метка → реальный ID» должна быть и в защищённой трассе), как
+        # на остальных маршрутах с речевой проекцией.
+        if projection is not None:
+            emit_speech_projection_event(
+                projection, chat_id=ctx.chat_id,
+                message_id=ctx.target_tg_message_id,
+                run_id=getattr(projection, "run_id", None))
     if chain_block:
         feed = f"{feed}\n\n{chain_block}".strip()
     ambiguous = bool(claim is None and basis == "ambiguous")
