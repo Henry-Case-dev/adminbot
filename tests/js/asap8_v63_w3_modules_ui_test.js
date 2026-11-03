@@ -416,8 +416,8 @@ function writes(ctx) {
       ],
     });
     const settingsGroups = methods._workspaceGroupsFor.call(
-      wsCtx, ini, 'settings');
-    const limitsGroups = methods._workspaceGroupsFor.call(wsCtx, ini, 'limits');
+      wsCtx, ini, 'text');
+    const limitsGroups = methods._workspaceGroupsFor.call(wsCtx, ini, 'text');
     // §5 v2.1 (26905a89): per-chat гейт «Инициатива в этом чате» рендерится
     // ОДНОЙ собственной строкой карточки (data-initiative-per-chat) с
     // подписью области; в generic-сетке настроек того же ключа НЕТ —
@@ -428,7 +428,7 @@ function writes(ctx) {
     assert.strictEqual(settingsKeys.indexOf('initiative.enabled'), -1,
       'B01.4: ключ гейта не дублируется в generic-сетке «Основных настроек»');
     assert.ok(settingsGroups.some(function (g) { return g.id === 'flags_intent'; }),
-      'B01.4: группа flags_intent остаётся на «Основных настройках»');
+      'B01.4: группа flags_intent остаётся в generic-сетке механизма');
     assert.strictEqual((INDEX.match(/data-initiative-per-chat/g) || []).length, 1,
       'B01.4: per-chat гейт — ровно одна собственная строка в карточке');
     assert.ok(INDEX.indexOf('Инициатива в этом чате') >= 0,

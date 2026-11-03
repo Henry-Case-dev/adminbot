@@ -97,7 +97,10 @@ def test_applyroute_handles_unknown_slug():
     assert "route = '#/ai/prompts';" in block, \
         "неизвестный slug библиотеки → #/ai/prompts (без белого экрана)"
     # T-2700: пустая вкладка «Тестирование» не рендерится (стат. применимость).
-    assert "_workspaceTabApplicable(wsm, wsParsed.tab)" in block
+    # P1 «Инициатива» (2026-11-03): вкладка сначала канонизируется (старый
+    # адрес settings/limits → смысловая вкладка), затем проверяется
+    # применимость — проверка «неприменимая вкладка → обзор» остаётся.
+    assert "_workspaceTabApplicable(wsm, canonTab)" in block
 
 
 def test_prompt_library_second_door_and_testing_tab():

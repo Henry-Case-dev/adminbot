@@ -175,8 +175,16 @@ PROTECTED.forEach(function (rel) {
 /* ── Только web/index.html меняется в оптике ────────────────────────────── */
 const changed = execFileSync('git', ['diff', '--name-only', 'HEAD', '--', 'web/'],
   { cwd: ROOT }).toString().split('\n').filter(Boolean);
+const ALLOWED = [
+  'web/index.html', 'web/static/app.css', 'web/app.js',
+  // P1 «Инициатива» (2026-11-03): страница получила собственный read-only
+  // журнал попыток (вкладки «Публикации»/«Диагностика») — аддитивный
+  // api-модуль и его регистрация. Оптика (стекло/фон/линза) не тронута:
+  // защищённые файлы проверяются побайтово выше.
+  'web/app.py', 'web/api/initiative_publications.py',
+];
 changed.forEach(function (rel) {
-  assert.ok(['web/index.html', 'web/static/app.css', 'web/app.js'].indexOf(rel) >= 0,
+  assert.ok(ALLOWED.indexOf(rel) >= 0,
     'unexpected optics file changed: ' + rel);
 });
 
