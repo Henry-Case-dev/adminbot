@@ -2806,6 +2806,303 @@ def _reply_total_chars(message, alias_resolver=None, nickname_fn=None) -> int:
     return len((head + text).strip())
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (DIRECT-SELF-CORRECTION-01):
+# рамка возражения на СОБСТВЕННЫЙ прошлый ответ.
+#
+# Задача — сделать в реальном payload различимыми ЧЕТЫРЕ роли: текущая реплика
+# человека (counter-argument), своё оспариваемое утверждение (assistant_claim),
+# первоисточник/цитата и структурный счёт обсуждаемых реплик. Никакой
+# семантической классификации намерения и никакого списка «триггерных фраз»
+# здесь нет: основание — ТОЛЬКО проверяемые транспорт/структура/БД-факты
+# (Telegram Reply, цитата, авторство, хронология, reply-links, наличие
+# сообщения в видимом окне). Поэтому рамка появляется ровно там, где связь
+# подтверждена, и честно молчит там, где её нет (§13 сц.71–96).
+#
+# `link` — КАК установлен предмет (это разные вещи и путать их запрещено):
+#   * ``telegram_reply`` — подтверждённый транспортный Reply (§12.2 п.1);
+#   * ``semantic``       — привязка по времени/структуре БЕЗ Reply;
+#   * ``ambiguous``      — несколько одинаково подходящих своих реплик;
+#   * ``unresolved``     — Reply есть, а содержимое предмета не восстановлено.
+# `subject` — ЧЬИ слова оспариваются: ``own_claim`` | ``participant`` |
+# ``unresolved`` (§12.2 п.9: за свои слова, чужие не присваивать).
+CORRECTION_LINK_REPLY = "telegram_reply"
+CORRECTION_LINK_SEMANTIC = "semantic"
+CORRECTION_LINK_AMBIGUOUS = "ambiguous"
+CORRECTION_LINK_UNRESOLVED = "unresolved"
+CORRECTION_SUBJECT_OWN = "own_claim"
+CORRECTION_SUBJECT_PARTICIPANT = "participant"
+CORRECTION_SUBJECT_UNKNOWN = "unresolved"
+#: Сколько строк счёта показывать (выборка данных, не бюджет инструкций) и
+#: кап текста собственной оспариваемой реплики (паритет с Current_Question).
+_CORRECTION_MAX_ROWS = 8
+_CORRECTION_OWN_TEXT_CAP = 800
+#: Контрактный разбор СВОЕГО маркера (не текста участников): атрибуты кодов —
+#: единственный машинный слой рамки, из него собирается диагностика/манифест.
+_CORRECTION_FRAME_ATTR_RE = re.compile(
+    r'<Correction_Frame\s([^>]*?)/?>')
+_CORRECTION_ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
+
+
+def _correction_question_count(text) -> int:
+    """Механический счёт вопросительных знаков в реплике человека.
+
+    Это ФАКТ о тексте (сколько вопросительных предложений), а не догадка о
+    смысле: §12.2 п.3 требует не выдавать число сообщений за число вопросов,
+    поэтому единица счёта должна быть видна модели явно."""
+    return str(text or "").count("?")
+
+
+async def _correction_last_own_outputs(db, chat_id: int, message,
+                                       limit: int = 4) -> list[dict]:
+    """Последние ДОСТАВЛЕННЫЕ собственные ответы до текущей реплики.
+
+    Источник — существующий ledger собственных output'ов (`mca_bot_outputs`,
+    §12.3 «история собственных ответов»); второго хранилища нет. Порядок —
+    по `sent_at`/`output_id` DESC, ограничен `limit` (bounded-выборка).
+    Недоступно/пусто → ``[]`` (честно без рамки, без догадок)."""
+    try:
+        rows = await db.list_recent_bot_outputs(chat_id, limit=max(1, limit))
+    except Exception:
+        logger.debug("direct: own outputs read failed | chat=%s", chat_id,
+                     exc_info=True)
+        return []
+    trig_ts = getattr(message, "date", None)
+    trig_unix = None
+    if trig_ts is not None:
+        try:
+            trig_unix = int(trig_ts.timestamp())
+        except Exception:
+            trig_unix = None
+    result = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("delivery_status") or "") not in ("", "delivered"):
+            continue
+        if not str(row.get("content_text") or "").strip():
+            continue
+        sent_at = row.get("sent_at")
+        try:
+            sent_unix = int(sent_at) if sent_at is not None else None
+        except (TypeError, ValueError):
+            sent_unix = None
+        if trig_unix is not None and sent_unix is not None \
+                and sent_unix > trig_unix:
+            continue                       # не «прошлый» ответ (часы/гонка)
+        result.append(row)
+    return result
+
+
+def _correction_own_ref(record: dict) -> str:
+    """Ledger-строка → канонический ref сообщения (``tg:<id>``) или ''."""
+    tg_id = record.get("tg_message_id") if isinstance(record, dict) else None
+    try:
+        tg_id = int(tg_id) if tg_id not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        tg_id = None
+    return resolve_item_id(tg_message_id=tg_id) if tg_id else ""
+
+
+def _correction_reference_kind(row, *, by_tg_id: dict) -> tuple[str, str]:
+    """Вид видимой реплики человека по СТРУКТУРЕ и её ссылка.
+
+    Возвращает ``(kind, target)``, где kind — ``standalone`` |
+    ``reference_same`` | ``reference_other`` | ``reference_outside``.
+    Решение принимается только по полям строки (reply_to_id, quote_*), без
+    чтения смысла текста."""
+    uid = row_get(row, "user_id")
+    quote_text = str(row_get(row, "quote_text") or "").strip()
+    quote_author = row_get(row, "quote_author_id")
+    if quote_text:
+        if quote_author not in (None, "") and str(quote_author) == str(uid):
+            return "reference_same", ""
+        return "reference_other", ""
+    parent_id = row_get(row, "reply_to_id")
+    if parent_id not in (None, "", 0):
+        parent_row = by_tg_id.get(str(parent_id))
+        if parent_row is None:
+            return "reference_outside", ""
+        parent_uid = row_get(parent_row, "user_id")
+        if parent_uid is not None and str(parent_uid) == str(uid):
+            return "reference_same", ""
+        return "reference_other", ""
+    return "standalone", ""
+
+
+def _correction_counting(rows: list, *, limit: int,
+                         projection) -> dict:
+    """Структурный счёт видимых реплик человека (§12.2 п.3).
+
+    Считаются РАЗНЫЕ вещи отдельно и не смешиваются: самостоятельные реплики
+    (в них — вопросительные предложения), ссылки/цитаты на прежние реплики
+    того же человека (упоминания, а не новые вопросы), ответы другим,
+    ссылки на сообщения вне окна. Текст участника не читается — только
+    транспортные поля и наличие сообщения в окне."""
+    by_tg_id = {}
+    for row in rows or []:
+        tg_id = _tg_id_of_row(row)
+        if tg_id is not None:
+            by_tg_id[str(tg_id)] = row
+    shown = list(rows or [])[-limit:] if limit > 0 else []
+    standalone = questions = ref_same = ref_other = ref_outside = 0
+    lines: list[str] = []
+    for row in shown:
+        kind, _target = _correction_reference_kind(row, by_tg_id=by_tg_id)
+        label = ""
+        try:
+            label = projection.message_label(
+                resolve_item_id(tg_message_id=_tg_id_of_row(row)))
+        except Exception:                                  # pragma: no cover
+            label = ""
+        prefix = f"{label}: " if label else ""
+        if kind == "standalone":
+            standalone += 1
+            q_count = _correction_question_count(row_get(row, "text"))
+            questions += q_count
+            suffix = (f" (вопросительных предложений: {q_count})"
+                      if q_count else "")
+            lines.append(f"{prefix}самостоятельная реплика{suffix}")
+        elif kind == "reference_same":
+            ref_same += 1
+            lines.append(f"{prefix}ссылка/цитата на свою же прежнюю реплику")
+        elif kind == "reference_other":
+            ref_other += 1
+            lines.append(f"{prefix}ответ/цитата другого участника")
+        else:
+            ref_outside += 1
+            lines.append(f"{prefix}ссылка на сообщение вне доступного окна")
+    return {
+        "standalone": standalone,
+        "questions": questions,
+        "references_same": ref_same,
+        "references_other": ref_other,
+        "references_outside": ref_outside,
+        "shown": len(shown),
+        "total": len(rows or []),
+        "lines": lines,
+    }
+
+
+def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
+                             trigger_name: str,
+                             claim_label: str = "", claim_text: str = "",
+                             claim_in_payload: bool = False,
+                             claim_source_present: bool = True,
+                             quote_text: str = "", participant_label: str = "",
+                             intervening: int = 0,
+                             other_claims: tuple = (),
+                             counting: dict | None = None,
+                             window_size: int = 0) -> str:
+    """Рендер рамки (роли — отдельными строками, не нарративная каша).
+
+    Текст собственной реплики НЕ дублируется, если она уже есть в цепочке
+    этого хода (§12.3 «не дублировать чат в каждом user-block»): в этом
+    случае роль адресуется меткой прогона."""
+    lines: list[str] = []
+    if subject == CORRECTION_SUBJECT_OWN:
+        claim_ref = claim_label or "не восстановлена"
+        head = (f"твоё прежнее утверждение (роль: твои слова, которые "
+                f"оспаривают): {claim_ref}")
+        if claim_in_payload:
+            head += " — эта реплика уже показана выше в цепочке"
+        elif claim_text:
+            head += f" — «{claim_text}»"
+        else:
+            head += " — текст не передан"
+        head += ("; это утверждение, а не доказательство собственной "
+                 "правоты")
+        lines.append(head)
+    elif subject == CORRECTION_SUBJECT_PARTICIPANT:
+        who = participant_label or "участник"
+        lines.append(f"предмет возражения (роль: слова человека, не твои): "
+                     f"{who}")
+    else:
+        lines.append("предмет возражения (роль): не установлен по "
+                     "доступным данным")
+
+    lines.append(f"возражение (роль: текущая реплика человека): "
+                 f"{trigger_label or 'текущая реплика'} — "
+                 f"{trigger_name or 'участник'}")
+
+    if link == CORRECTION_LINK_REPLY:
+        lines.append("связь возражения с предметом: Telegram Reply "
+                     "(подтверждено транспортом)")
+    elif link == CORRECTION_LINK_SEMANTIC:
+        tail = ("; между ними есть другие сообщения" if intervening else "")
+        lines.append("связь возражения с предметом: смысловая привязка по "
+                     "времени и структуре (НЕ Telegram Reply)" + tail)
+    elif link == CORRECTION_LINK_AMBIGUOUS:
+        extra = ""
+        if other_claims:
+            extra = ("; другие твои реплики в этом отрезке: "
+                     + ", ".join(str(item) for item in other_claims))
+        lines.append("связь возражения с предметом: несколько твоих реплик "
+                     "одинаково подходят (НЕ Telegram Reply)" + extra
+                     + "; если предмет не ясен, уточни, а не выбирай наугад")
+    else:
+        lines.append("связь возражения с предметом: не установлена честно "
+                     "(только по доступным данным)")
+
+    if quote_text:
+        lines.append(f"выделенный фрагмент, на который указал человек: "
+                     f"«{quote_text}»")
+
+    source_line = ("первоисточник: " + ("доступен в видимом окне"
+                                        if claim_source_present
+                                        else "в видимом окне отсутствует")
+                   + f"; реплик человека в окне: {int(window_size)}")
+    lines.append(source_line)
+
+    if counting and (counting.get("total") or counting.get("standalone")
+                     or counting.get("references_same")
+                     or counting.get("references_other")
+                     or counting.get("references_outside")):
+        lines.append(
+            "счёт по видимым репликам человека (единицы не смешиваются): "
+            f"самостоятельных реплик "
+            f"{counting['standalone']}, в них вопросительных предложений "
+            f"{counting['questions']}; ссылок/цитат на свои прежние реплики "
+            f"{counting['references_same']}; ответов другим участникам "
+            f"{counting['references_other']}; ссылок вне окна "
+            f"{counting['references_outside']}")
+        for item in counting.get("lines") or ():
+            lines.append(f"- {item}")
+        hidden = counting["total"] - counting["shown"]
+        if hidden > 0:
+            lines.append(f"- ещё {hidden} реплик не показаны (выборка)")
+    attrs = (f'link="{link}" subject="{subject}" '
+             f'own_in_payload="{1 if claim_in_payload else 0}" '
+             f'source_present="{1 if claim_source_present else 0}" '
+             f'semantic="{1 if link in (CORRECTION_LINK_SEMANTIC, CORRECTION_LINK_AMBIGUOUS) else 0}" '
+             f'window="{int(window_size)}" '
+             f'refs_same="{int((counting or {}).get("references_same") or 0)}" '
+             f'standalone="{int((counting or {}).get("standalone") or 0)}" '
+             f'questions="{int((counting or {}).get("questions") or 0)}"')
+    body = "".join("\n" + line for line in lines if line)
+    return f"<Correction_Frame {attrs}>{body}\n</Correction_Frame>"
+
+
+def _correction_frame_facts(blocks) -> dict:
+    """Код-факты рамки из уже собранных user-блоков (машинный слой маркера).
+
+    Читается ТОЛЬКО собственный тег рамки (атрибуты-коды), текст участников
+    не разбирается: постобработки готового текста здесь нет. Нет рамки → {}."""
+    for block in blocks or []:
+        text = str(block[-1] if isinstance(block, (tuple, list)) and block
+                   else block)
+        if "<Correction_Frame" not in text:
+            continue
+        found = _CORRECTION_FRAME_ATTR_RE.search(text)
+        if found is None:
+            return {}
+        attrs = dict(_CORRECTION_ATTR_RE.findall(found.group(1)))
+        if not attrs:
+            return {}
+        return attrs
+    return {}
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -6972,6 +7269,7 @@ class DirectChatService:
                                      user_parts: tuple[str, ...] = (),
                                      context_representation: str = "",
                                      speech_projection=None,
+                                     self_correction=None,
                                      ):
         """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
 
@@ -6996,7 +7294,8 @@ class DirectChatService:
             speech_block=speech_block, speech_skip=speech_skip,
             context_text=context_text, user_parts=user_parts,
             context_representation=context_representation,
-            speech_projection=speech_projection)
+            speech_projection=speech_projection,
+            self_correction=self_correction)
 
     async def _l2_write_answer(self, chat_id: int, query: str, *,
                                temperature, correlation_id=None,
@@ -7133,6 +7432,9 @@ class DirectChatService:
                     else "internal"),
                 speech_projection=(
                     speech.manifest() if speech is not None else {}),
+                # EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): код-факты рамки
+                # возражения — в защищённый манифест прогона (без текстов).
+                self_correction=_correction_frame_facts(user_blocks),
             )
             _pcomp.emit_layer_events_once(_c_manifest)
         else:
@@ -7259,6 +7561,29 @@ class DirectChatService:
             len(stats.get("hits") or []), bool(stats.get("fallback")))
         if not text.strip():
             return None
+        # ── EVOL v5 §12.4 (DIRECT-SELF-CORRECTION-01): какой ход ФАКТИЧЕСКИ
+        # дал итоговый ответ (сборка с рамкой возражения → writer/fallback).
+        # Отдельного семантического вердикта («признал / не признал») нет:
+        # непроверяемая самооценка LLM не хранится как проверенный факт.
+        if _correction_frame_facts(user_blocks):
+            try:
+                _mca_events.emit_mca_event(
+                    "direct_self_correction_delivery", outcome="success",
+                    component="direct_chat",
+                    stage=("l2_writer_fallback" if stats.get("fallback")
+                           else "l2_writer"),
+                    chat_id=int(chat_id), trace_id=correlation_id,
+                    reason_code=("fallback_engaged" if stats.get("fallback")
+                                 else "writer_generated"),
+                    usage_json={
+                        "context_representation": (
+                            "writer" if (speech is not None
+                                         and speech_projection_enabled())
+                            else "internal"),
+                        "composer": bool(_c_on),
+                    })
+            except Exception:                              # pragma: no cover
+                pass
         # §6 `postprocess_changed`: raw-флаги хода — только флаги/числа
         # (bounded LRU по correlation_id), сравнение — на style-pass/egress.
         _expression_record_raw(chat_id=chat_id, correlation_id=correlation_id,
@@ -7912,6 +8237,22 @@ class DirectChatService:
             mood = self._build_mood_block(_message_user_text(message))
             if mood:
                 blocks.append(("mood", mood))
+        # ── EVOL v5 §12.2 (DIRECT-SELF-CORRECTION-01): рамка возражения ────
+        # Собирается ПОСЛЕ цепочки/окна (метки прогона уже выданы — одна и та
+        # же реплика адресуется одинаково во всех блоках), ставится перед
+        # <Current_Question> («важное к концу») и является P0-блоком: под
+        # давлением окна роли возражения не вытесняются.
+        try:
+            correction_block, _correction = await self._build_correction_frame(
+                chat_id=chat_id, message=message, window=window, chain=chain,
+                projection=projection, suffix_map=suffix_map)
+        except Exception:
+            logger.warning(
+                "direct: correction frame build failed — без рамки | chat=%s",
+                chat_id, exc_info=True)
+            correction_block = ""
+        if correction_block:
+            blocks.append(("correction", correction_block))
         # Раунд 8 (D1/T-798): <Current_Question> — текущее сообщение после
         # среза префикса «бот/@ник»; кап по символам; пусто → без блока.
         # ADD-TR.2: текст — text/caption (см. _render_current_question).
@@ -7974,7 +8315,7 @@ class DirectChatService:
         # иначе реальная global-доля 0.30×(budget−fixed) может быть меньше
         # safe_budget(global_cap), а проверка «budget < caps» это пропустит.
         _uncuttable_kinds = ("target", "relations", "protected", "lore",
-                             "current", "sandwich")
+                             "current", "sandwich", "correction")
         fixed_est = sum(count_tokens(text) for kind, text in blocks
                         if kind in _uncuttable_kinds)
         await self._check_context_config_invariant(chat_id, budget_tokens,
@@ -10587,7 +10928,7 @@ class DirectChatService:
         if adaptive and count_external:
             budget = max(1, budget_cap - external - reserve)
         uncuttable = ("target", "relations", "protected", "lore", "current",
-                      "sandwich")
+                      "sandwich", "correction")
         fixed_tokens = sum(count_tokens(text) for kind, text in blocks
                            if kind in uncuttable)
         effective = max(1, budget - fixed_tokens)
@@ -11555,6 +11896,184 @@ class DirectChatService:
 
     # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
     #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
+
+    # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (DIRECT-SELF-CORRECTION-01) ─
+
+    async def _build_correction_frame(self, *, chat_id: int, message,
+                                      window: list, chain: list,
+                                      projection, suffix_map=None
+                                      ) -> tuple[str, dict]:
+        """Рамка возражения на свой прошлый ответ → ``(block, facts)``.
+
+        Основание — только проверяемые факты (§12.2 п.1, §12.3): подтверждённый
+        Telegram Reply, цитата, авторство из транспорта, история собственных
+        доставленных ответов (ledger) и структура видимого окна. Семантика
+        текста не угадывается: нет подтверждённой связи — рамки нет, и это
+        честный исход, а не «первый попавшийся предмет».
+
+        Рубильник — существующий ``flags.context_speech_projection`` (§6.2:
+        новых рубильников не вводится): OFF → прежний payload байт-в-байт.
+        """
+        empty: tuple[str, dict] = ("", {})
+        if projection is None or not speech_projection_enabled() or \
+                self.db is None:
+            return empty
+        trig_tg = getattr(message, "message_id", None)
+        if trig_tg is None:
+            return empty
+        bot_id = getattr(self, "bot_id", None)
+        rows = [row for row in (window or [])
+                if not is_target_row(row, trig_tg)]
+        try:
+            trig_label = projection.message_label(
+                resolve_item_id(tg_message_id=trig_tg))
+        except Exception:                                  # pragma: no cover
+            trig_label = ""
+        trig_user = getattr(message, "from_user", None)
+        trig_uid = getattr(trig_user, "id", None)
+        trig_name = ""
+        try:
+            trig_name = projection.person_label(
+                trig_uid, str(getattr(trig_user, "first_name", "") or ""))
+        except Exception:                                  # pragma: no cover
+            trig_name = str(getattr(trig_user, "first_name", "") or "")
+        counting = _correction_counting(
+            rows, limit=_CORRECTION_MAX_ROWS, projection=projection)
+        window_size = len(rows)
+        chain_ids = {str(getattr(item, "item_id", "") or "")
+                     for item in (chain or ())}
+        chain_ids.discard("")
+
+        reply = getattr(message, "reply_to_message", None)
+        link = subject = ""
+        claim_label = claim_text = quote_text = participant_label = ""
+        claim_in_payload = False
+        source_present = True
+        intervening = 0
+        other_claims: tuple = ()
+
+        if reply is not None:
+            reply_tg = getattr(reply, "message_id", None)
+            reply_from = getattr(reply, "from_user", None)
+            reply_uid = getattr(reply_from, "id", None)
+            reply_is_bot = bool(isinstance(reply_uid, int)
+                                and bot_id is not None
+                                and int(reply_uid) == int(bot_id))
+            reply_text = str(getattr(reply, "text", None)
+                             or getattr(reply, "caption", None) or "").strip()
+            _quote_obj = getattr(message, "quote", None)
+            _quote_raw = (getattr(_quote_obj, "text", None)
+                          if _quote_obj is not None else None)
+            if isinstance(_quote_raw, str) and _quote_raw.strip():
+                quote_text = _quote_raw.strip()
+            if reply_is_bot:
+                link = CORRECTION_LINK_REPLY
+                subject = CORRECTION_SUBJECT_OWN
+                if reply_tg is not None:
+                    claim_label = projection.message_label(
+                        resolve_item_id(tg_message_id=reply_tg))
+                    claim_in_payload = (
+                        resolve_item_id(tg_message_id=reply_tg) in chain_ids)
+                    source_present = claim_in_payload or bool(reply_text)
+                claim_text = reply_text
+            elif reply_uid is not None:
+                link = CORRECTION_LINK_REPLY
+                subject = CORRECTION_SUBJECT_PARTICIPANT
+                try:
+                    participant_label = projection.person_label(
+                        reply_uid, str(
+                            getattr(reply_from, "first_name", "") or ""))
+                except Exception:                      # pragma: no cover
+                    participant_label = str(
+                        getattr(reply_from, "first_name", "") or "")
+                if reply_tg is not None:
+                    claim_label = projection.message_label(
+                        resolve_item_id(tg_message_id=reply_tg))
+            else:
+                link = CORRECTION_LINK_UNRESOLVED
+                subject = CORRECTION_SUBJECT_UNKNOWN
+                source_present = False
+        else:
+            # Без Reply: предмет — СВОЯ последняя доставленная реплика, если
+            # обращение к боту структурно подтверждено (личный чат, обращение
+            # по имени-роли, либо бот говорил последним). Иначе — молчание.
+            own = await _correction_last_own_outputs(
+                self.db, int(chat_id), message)
+            if not own:
+                return empty
+            last = own[0]
+            sent_at = last.get("sent_at")
+            try:
+                sent_unix = int(sent_at) if sent_at is not None else None
+            except (TypeError, ValueError):
+                sent_unix = None
+            for row in rows:
+                ts = row_get(row, "timestamp")
+                try:
+                    if sent_unix is not None and int(ts or 0) > sent_unix:
+                        intervening += 1
+                except (TypeError, ValueError):
+                    continue
+            is_private = (getattr(getattr(message, "chat", None), "type",
+                                  None) == "private")
+            addressed = is_private or bool(
+                _PEER_PREFIX_RE.match(_message_user_text(message)))
+            if not addressed and intervening:
+                return empty
+            link = (CORRECTION_LINK_AMBIGUOUS if (len(own) > 1 and intervening)
+                    else CORRECTION_LINK_SEMANTIC)
+            subject = CORRECTION_SUBJECT_OWN
+            claim_ref = _correction_own_ref(last)
+            claim_text = str(last.get("content_text") or "").strip()
+            claim_in_payload = bool(claim_ref and claim_ref in chain_ids)
+            claim_label = (projection.message_label(claim_ref)
+                           if claim_ref else "")
+            source_present = True          # текст своей реплики восстановлен
+            if link == CORRECTION_LINK_AMBIGUOUS:
+                labels = []
+                for extra in own[1:3]:
+                    extra_ref = _correction_own_ref(extra)
+                    if not extra_ref:
+                        continue
+                    try:
+                        labels.append(projection.message_label(extra_ref))
+                    except Exception:                  # pragma: no cover
+                        continue
+                other_claims = tuple(item for item in labels if item)
+
+        block = _render_correction_frame(
+            link=link, subject=subject, trigger_label=trig_label,
+            trigger_name=trig_name,
+            claim_label=claim_label,
+            claim_text=escape_xml_text(claim_text[:_CORRECTION_OWN_TEXT_CAP])
+            if claim_text else "",
+            claim_in_payload=claim_in_payload,
+            claim_source_present=source_present,
+            quote_text=escape_xml_text(quote_text[:_CORRECTION_OWN_TEXT_CAP])
+            if quote_text else "",
+            participant_label=participant_label,
+            intervening=intervening, other_claims=other_claims,
+            counting=counting, window_size=window_size)
+        facts = _correction_frame_facts([block])
+        # §12.4: воспроизводимое основание ответа — в СУЩЕСТВУЮЩУЮ диагностику
+        # (mca_events), только ID/коды/счётчики; полной переписки нет. Статус
+        # НЕ заявляет «self-corrected»: проверяемого основания для такой
+        # самооценки нет, поэтому кодируется только ФАКТ установленной связи.
+        _reason = {
+            CORRECTION_LINK_AMBIGUOUS: "quote_ambiguous",
+            CORRECTION_LINK_UNRESOLVED: "quote_unresolved",
+        }.get(link, "quote_resolved")
+        try:
+            _mca_events.emit_mca_event(
+                "direct_self_correction", outcome="success",
+                component="direct_chat", stage="context",
+                chat_id=int(chat_id),
+                message_id=(int(trig_tg)
+                            if isinstance(trig_tg, int) else None),
+                reason_code=_reason, usage_json=dict(facts))
+        except Exception:                                  # pragma: no cover
+            logger.debug("direct: self-correction event failed", exc_info=True)
+        return block, facts
 
     @staticmethod
     def _history_window(window: list, trigger_message_id) -> list:

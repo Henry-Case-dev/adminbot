@@ -349,7 +349,11 @@ class TestComposerRegistration:
         # слот сразу после episode, последующие сдвинуты на +1
         order = comp.CANONICAL_ORDER
         assert order["history_supplement"] == order["episode"] + 1
-        assert order["rag"] == 4 and order["sandwich"] == 17
+        # EVOL v5 §12.2 (04.11.2026): новый P0-слот "correction" (рамка
+        # возражения) встал перед "current" → последующие сдвинуты на +1;
+        # относительный порядок прежних kind'ов не изменился (ниже).
+        assert order["rag"] == 4 and order["sandwich"] == 18
+        assert order["correction"] + 1 == order["current"]
         # относительный порядок прежних kind'ов сохранён
         legacy = ["map", "branch", "episode", "rag", "global_head",
                   "global_middle", "global_tail", "thread", "target",

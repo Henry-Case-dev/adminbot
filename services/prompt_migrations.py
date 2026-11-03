@@ -54,6 +54,7 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_VERBALIZER_CLAR,
     PREV_CHAT_VERBALIZER_EVR0,
+    PREV_CHAT_VERBALIZER_EVR1,
     PREV_CHAT_EVR0_SYSTEM_PROMPT,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
@@ -242,7 +243,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # W2 ведёт на канон с секцией «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»
         # (опираться на доставленное, не заявлять проверку без проверки,
         # пустой результат ≠ не существует, шутка ≠ отчёт со ссылками).
-        (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_EVR0, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (04.11.2026): байты прода,
+        # активные после EVR0 (EVR0 + дисциплина доказательств), ведут на
+        # канон с секцией «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ». Только
+        # точное совпадение байт; кастом владельца ступень не трогает.
+        (PREV_CHAT_VERBALIZER_EVR1, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -544,7 +550,8 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # технических расчётов — на активные байты R3b (PREV_CHAT_VERBALIZER_
     # PA5W2 = §3.1 + абзацы §4.2 + граница истории); стек ступеней цел.
     "prompts.direct_chat_verbalizer_system_prompt":
-        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_EVR0),
+        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_EVR1),
+         (PREV_CHAT_VERBALIZER_EVR1, PREV_CHAT_VERBALIZER_EVR0),
          (PREV_CHAT_VERBALIZER_EVR0, PREV_CHAT_VERBALIZER_PA5W2),
          (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)],
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,

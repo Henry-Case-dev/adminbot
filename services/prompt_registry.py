@@ -142,7 +142,13 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # заявлять проверку без проверки, пустой результат ≠ не существует, не
     # превращать шутку в отчёт со ссылками). Прежние байты —
     # PREV_CHAT_VERBALIZER_EVR0 (ступень + откат).
-    "direct.base.l2_writer": "l2-writer-evidence-discipline",
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (DIRECT-SELF-CORRECTION-01,
+    # 04.11.2026): секция «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» (прежний ответ
+    # — утверждение, а не доказательство; единица счёта не подменяется молча;
+    # прагматика насмешки ≠ буквальный вопрос; без выдуманного знания об
+    # алгоритме; за свои слова; характер сохранён). Прежние байты —
+    # PREV_CHAT_VERBALIZER_EVR1 (ступень миграции + откат).
+    "direct.base.l2_writer": "l2-writer-self-correction-rca1",
     "direct.base.synthesizer": "synthesizer-r1023",
     # P0-CORRECTIVE (25.10.2026, §1.1 corrective): маршрутизация L1 по
     # материалу просьбы, а не по объекту оценки: разбор уже сказанного →
@@ -379,7 +385,8 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
 #: хеши не выдумывались. Источник проверки — ``seal_integrity()``.
 FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.tool_phase": ("toolphase-runtime-evidence", "7a5aea1b73a4"),
-    "direct.base.l2_writer": ("l2-writer-evidence-discipline", "68f0233d7050"),
+    "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
+                              "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
     "direct.base.l1_planner": ("l1-planner-decision-profile",
                                "ef61a9dd6798"),
@@ -2849,7 +2856,11 @@ def factory_set_fingerprint() -> str:
 #:     метка ``meme-joke-evol014``, печать ``2f30ca1f9a6b``).
 #: Было ``630ca46dff76``, стало ``54ac2b8ac34b``. Переутверждено осознанно
 #: (SOUL-AMD.3.2): ни один другой канон не менялся.
-FACTORY_SET_SHA256_12 = "54ac2b8ac34b"
+#: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (04.11.2026): набор изменился
+#: осознанно — ``direct.base.l2_writer`` получил секцию «ВОЗРАЖЕНИЕ И СВОЙ
+#: ПРЕДЫДУЩИЙ ОТВЕТ» (метка ``l2-writer-self-correction-rca1``).
+#: Было ``54ac2b8ac34b``, стало ``e9dc109330a8``.
+FACTORY_SET_SHA256_12 = "e9dc109330a8"
 
 
 
