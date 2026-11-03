@@ -586,6 +586,58 @@ class TestLastKnownGood:
         assert store.cache_row["last_status"] == "sources_unavailable"
 
     @pytest.mark.asyncio
+    async def test_llm_error_keeps_published_version(self, monkeypatch):
+        """LKG при сбое модели: версия та же, набор не затёрт."""
+        from unittest.mock import AsyncMock
+        monkeypatch.setattr(aw.worker_budget, "consume",
+                            AsyncMock(return_value=True))
+        store = _StateStore()
+        store.cache_row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живой штамп"}],
+            "source": "wikipedia", "source_url": "u", "version": 12,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+            "updated_at": "2026-09-01T00:00:00+00:00", "last_status": "ok"}
+        source = _source()
+        llm = AsyncMock()
+        llm.generate_worker = AsyncMock(side_effect=RuntimeError("model down"))
+        worker = _worker_with_sources(
+            store, [source],
+            _transport({source.url: "Достаточно длинный текст справочника "
+                                    "о шаблонных оборотах."}), llm=llm)
+        result = await worker.refresh(force=True)
+        assert result["status"] == "llm_error"
+        assert result["version"] == 12
+        assert result["rules"] == 1
+        assert store.cache_row["version"] == 12
+        assert store.cache_row["patterns"][0]["phrase"] == "живой штамп"
+        assert store.cache_row["last_status"] == "llm_error"
+
+    @pytest.mark.asyncio
+    async def test_llm_parse_error_keeps_published_version(self, monkeypatch):
+        """LKG при невалидном JSON модели: версия та же, анализ не «завершён»."""
+        from unittest.mock import AsyncMock
+        monkeypatch.setattr(aw.worker_budget, "consume",
+                            AsyncMock(return_value=True))
+        store = _StateStore()
+        store.cache_row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живой штамп"}],
+            "source": "wikipedia", "source_url": "u", "version": 4,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+            "updated_at": "2026-09-01T00:00:00+00:00", "last_status": "ok"}
+        source = _source()
+        llm = AsyncMock()
+        llm.generate_worker = AsyncMock(return_value="не json вообще")
+        worker = _worker_with_sources(
+            store, [source],
+            _transport({source.url: "Достаточно длинный текст справочника "
+                                    "о шаблонных оборотах."}), llm=llm)
+        result = await worker.refresh(force=True)
+        assert result["status"] == "parse_error"
+        assert result["version"] == 4
+        assert store.cache_row["version"] == 4
+        assert store.cache_row["patterns"][0]["phrase"] == "живой штамп"
+
+    @pytest.mark.asyncio
     async def test_failure_after_success_keeps_last_success_timestamps(self):
         """Тест 17 §9.2: исторические успехи переживают сбой и «рестарт»."""
         store = _StateStore()
