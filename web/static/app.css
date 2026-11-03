@@ -1622,6 +1622,77 @@
     .cog-state .btn-ghost { margin-left: 6px; }
     .cog-state .btn-ghost:first-child { margin-left: 0; }
     .cog-completeness { font-variant-numeric: tabular-nums; }
+    /* ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ════════════════════════
+       Desktop — выдвижная панель справа; телефон — нижний лист. Это СЛОЙ, а не
+       экран: карта остаётся читаемой, камера/зум/фильтры не меняются. Материал
+       — существующий токен стекла (`data-glass="b"`), своего рендерера нет. */
+    .cog-card {
+      position: fixed; z-index: var(--z-modal);
+      top: calc(var(--header-h, 56px) + 10px); right: 12px;
+      width: 344px; max-width: calc(100vw - 24px);
+      max-height: calc(100dvh - var(--header-h, 56px) - 28px);
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 12px 14px; overflow-y: auto;
+      border-radius: 14px;
+      color: #e2e8f0; font-size: 12px;
+    }
+    .cog-card__head { display: flex; align-items: center; gap: 6px; }
+    .cog-card__scope { font-size: 10px; color: #94a3b8; }
+    .cog-card__title {
+      font-size: 13px; font-weight: 600; line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .cog-card__text {
+      font-size: 12px; color: #cbd5e1; line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .cog-card__text.is-absent { color: #94a3b8; font-style: italic; }
+    .cog-card__facts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cog-card__fact { font-size: 10px; color: #94a3b8; }
+    .cog-card__section {
+      display: flex; flex-direction: column; gap: 2px;
+      border-top: 1px solid rgba(255,255,255,.06); padding-top: 6px;
+    }
+    .cog-card__label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+      color: #7c8aa0;
+    }
+    .cog-card__row { display: flex; gap: 8px; align-items: baseline; }
+    .cog-card__key { flex: 0 0 96px; color: #94a3b8; font-size: 11px; }
+    .cog-card__value { flex: 1 1 auto; overflow-wrap: anywhere; }
+    .cog-card__hint { color: #64748b; font-size: 10px; }
+    /* Подсказка в заголовке секции не наследует КАПС и разрядку: иначе
+       «связи записанные в данных» читается как одна фраза. */
+    .cog-card__label-hint {
+      text-transform: none; letter-spacing: 0; margin-left: 4px;
+      font-size: 10px; color: #64748b;
+    }
+    .cog-card__absent { color: #94a3b8; font-size: 11px; }
+    .cog-card__link {
+      display: block; width: 100%; text-align: left; background: none;
+      border: 0; padding: 3px 0; color: #cbd5e1; font-size: 11px;
+      cursor: pointer; overflow-wrap: anywhere;
+    }
+    .cog-card__link:hover { color: #f8fafc; }
+    .cog-card__links--collapsed .cog-card__link:nth-child(n+3) { display: none; }
+    .cog-card__actions {
+      display: flex; flex-direction: column; gap: 4px;
+      border-top: 1px solid rgba(255,255,255,.06); padding-top: 6px;
+    }
+    .cog-card__action { display: flex; flex-wrap: wrap; gap: 6px; }
+    @media (max-width: 767px) {
+      /* Телефон: нижний лист — управляемый, а не «второй экран»: карта над
+         листом остаётся видимой (§2.7 «не уничтожает видимость карты»). */
+      .cog-card {
+        top: auto; right: 0; left: 0; bottom: 0;
+        width: auto; max-width: none; max-height: 52dvh;
+        border-radius: 14px 14px 0 0;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      }
+      /* Тач-цели действий не меньше 44 px (coarse pointer). */
+      .cog-card__link { padding: 6px 0; }
+      .cog-card__action .btn-ghost { min-height: 40px; }
+    }
     @media (max-width: 479px) {
       .cog-legend { gap: 3px 9px; font-size: 9.5px; }
       .cog-legend__swatch { width: 9px; height: 9px; flex: 0 0 9px; }

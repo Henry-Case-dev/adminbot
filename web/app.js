@@ -2215,6 +2215,10 @@
     if (vm.scopeOpen) ids.push('scope');
     if (vm.drawerOpen) ids.push('drawer');
     if (vm.oversightMobileOpen) ids.push('oversight-subtabs');
+    // W7-S3: карточка узла/ребра — слой НАД сценой карты и ПОД окном записи
+    // (окно открывается из карточки, поэтому закрывается первым) и под
+    // полным экраном карты (Back в полном экране сначала закрывает карточку).
+    if (vm.cogCardOpen) ids.push('cog-card');
     if (vm.graphFullVisible) ids.push('graph-full');
     if (vm.execDetailOpen) ids.push('exec-detail');
     if (vm.dossierOpen) ids.push('dossier');
@@ -2260,6 +2264,7 @@
       case 'scope': close('closeScope'); return true;
       case 'drawer': close('closeDrawer'); return true;
       case 'oversight-subtabs': close('oversightMobileClose'); return true;
+      case 'cog-card': close('closeCogCard'); return true;
       case 'graph-full': close('closeGraphFull'); return true;
       case 'exec-detail': close('closeExecDetail'); return true;
       case 'dossier': close('closeDossier'); return true;
@@ -3710,6 +3715,15 @@
         graphDetail: null,
         graphNeighbors: [],
         graphFullOpen: false,   // fallback при IA_V2_ENABLED=false (шторка)
+        // W7-S3: карточка узла/ребра. Модель строит адаптер (`nodeCard`/
+        // `edgeCard`) — здесь только состояние показа: что открыто, развёрнуты
+        // ли связи, честная заметка после перехода в «Память». Ни одного
+        // сетевого запроса открытие карточки не делает.
+        cogCard: null,
+        cogCardLinksExpanded: false,
+        // Что именно просили открыть в каталоге «Памяти» (название/тип узла):
+        // по этому полю считается честная заметка «записи в каталоге нет».
+        cogMemoryTarget: null,
         // control
         controlLocked: false,
         controlLockSeconds: 0,
@@ -7332,6 +7346,56 @@
         if (this.cogStatus.kind !== 'ready') return false;
         return this._cogClientState().viewEmpty === true;
       },
+      // W7-S3: карточка — отдельный слой Back-стека (`backStackLayers` читает
+      // именно это поле, других признаков в проекте не заводится).
+      cogCardOpen: function () {
+        return !!(this.cogCard && this.cogCard.kind);
+      },
+      // Чат/область записи — человеческим именем существующего списка чатов
+      // (`chatTitleFor`), глобальная область названа явно. Пусто, если область
+      // в payload не определена (не выдумываем «весь бот»).
+      cogCardScopeLabel: function () {
+        var card = this.cogCard;
+        if (!card || card.kind !== 'node') return '';
+        if (card.scope === 'global' || card.chatId == null) return 'общая область';
+        var title = (typeof this.chatTitleFor === 'function')
+          ? this.chatTitleFor(card.chatId) : '';
+        return title ? ('чат: ' + title) : ('чат ' + card.chatId);
+      },
+      // Человеческое название происхождения записи. Метод `_statusOriginLabel`
+      // вызывается ЗДЕСЬ, а не из шаблона: Vue не отдаёт в шаблон свойства с
+      // префиксом `_` (зарезервировано движком) — иначе карточка падала бы.
+      cogCardOriginLabel: function () {
+        var card = this.cogCard;
+        if (!card || card.kind !== 'node') return '';
+        var origin = card.provenance ? card.provenance.origin : null;
+        if (!origin) return '';
+        var label = (typeof this._statusOriginLabel === 'function')
+          ? this._statusOriginLabel(origin) : '';
+        return label || String(origin);
+      },
+      // Честная заметка после перехода в «Память»: каталог читает СВОИ
+      // источники (лента досье/участники/убеждения), поэтому записи карты там
+      // может не быть. Молчать об этом нельзя — пользователь искал бы пустоту.
+      cogMemoryNote: function () {
+        var target = this.cogMemoryTarget;
+        if (!target || !target.query) return '';
+        var query = String(target.query).trim().toLowerCase();
+        var items = this.memoryCatalogItems || [];
+        var found = false;
+        for (var i = 0; i < items.length; i += 1) {
+          if (String(items[i].title || '').trim().toLowerCase() === query) {
+            found = true;
+            break;
+          }
+        }
+        if (found) return '';
+        if (!items.length) {
+          return 'каталог «Памяти» ещё не загружен — запись «'
+            + target.query + '» пока не найдена';
+        }
+        return 'записи «' + target.query + '» в каталоге «Памяти» сейчас нет';
+      },
       // F11 (§19/D5): «Новые факты» — стабильный ключ (позиция скролла не
       // сбрасывается); время/тип показываются ТОЛЬКО если есть в ответе
       // (follow-up F11-FU-DOSSIER-TS — не выдумываем).
@@ -7450,11 +7514,17 @@
         (g.edges || []).slice(0, 200).forEach(function (e, i) {
           var from = nodeLabel[String(e.from)] || String(e.from);
           var to = nodeLabel[String(e.to)] || String(e.to);
+          // W7-S3 (визуальная окрестность): «Открыть в Памяти» ведёт сюда, и
+          // здесь не должно быть машинной строки (`derived_from`) — та же
+          // человеческая подпись типа, что в карточке (`CognitiveMap`).
+          var C = window.CognitiveMap;
+          var relationText = (C && typeof C.relationLabel === 'function')
+            ? C.relationLabel(e.relation) : (e.relation || '');
           out.push({
             key: 'rel|' + i + '|' + e.from + '|' + e.to + '|' + (e.relation || ''),
             type: 'relations', typeLabel: 'связь', source: 'graph', item: e,
             title: from + ' → ' + to,
-            body: e.relation || e.label || 'Тип связи не указан.',
+            body: relationText || e.label || 'Тип связи не указан.',
             status: e.derived === true
               ? 'производная связь (по ссылке в данных)'
               : 'связь графа памяти',
@@ -14366,6 +14436,12 @@
         if (!ev) return;
         if (ev.key === 'Escape') {
           ev.preventDefault();
+          // W7-S3 (review B1): окно записи закрывает РОВНО свой слой. Без
+          // stopPropagation Esc всплывал до глобального `_onKeydown` (window),
+          // тот звал `escClose()` → `backStackClose()` и закрывал СЛЕДУЮЩИЙ
+          // слой — карточку узла, из которой окно и открыто (один Esc закрывал
+          // два слоя). Тот же приём, что у палитры (`paletteKeydown`).
+          if (ev.stopPropagation) ev.stopPropagation();
           this.closeStatusRecord();
           return;
         }
@@ -20227,6 +20303,10 @@
           this.stopStatusPolling();
           this.stopCognitionPolling();   // F5-Q3: вне «Статуса» — стоп
           this.destroyCognitionGraph();  // R10.11-5: нет stale-инстанса
+          // W7-S3: карточка принадлежит карте «Статуса» — вместе с сетью
+          // уходит и слой (иначе он висел бы над другим разделом).
+          this.cogCard = null;
+          this.cogCardLinksExpanded = false;
         }
         // MCA-12: превью «Истории памяти» — на «Статусе»; ПОЛНЫЙ виджет
         // (EVOL-026, W10) — в «Аналитике → Память и интеллект»; поллинг один
@@ -28011,6 +28091,9 @@
             { aliases: aliases });
           this.cognitionMapVisMissing = false;
           this.cognitionMapFailed = false;
+          // W7-S3: карточка живёт на тех же данных — обновляем/закрываем её
+          // молча (фокус и камера не трогаются, запросов не добавляется).
+          if (typeof this._cogRefreshCard === 'function') this._cogRefreshCard();
         } catch (e) {
           // Данные не пришли: прежняя карта остаётся (и честно помечается
           // устаревшей по `generated_at`); пустой «красивый» граф не рисуем.
@@ -28384,10 +28467,28 @@
             var id = params && params.nodes && params.nodes[0];
             if (id != null) self.graphSelectNode(id);
             self.graphApplySelectionLabels((params && params.nodes) || []);
+            // Программное выделение (поиск/сосед/история) карточку не
+            // открывает — но открытую обновляет на новую запись.
+            if (id != null) self._cogSyncCard(id);
           });
           net.on('deselectNode', function () {
             self.graphClearDetail();
             self.graphApplySelectionLabels([]);
+          });
+          // W7-S3: клик по узлу/ребру открывает карточку. Это ДЕЙСТВИЕ
+          // пользователя (программное `selectNodes` события `click` не даёт),
+          // поэтому поиск и переходы карточку не «прыгают» сами.
+          net.on('click', function (params) {
+            if (!params) return;
+            if (params.nodes && params.nodes.length) {
+              self.openCogNodeCard(params.nodes[0]);
+              return;
+            }
+            if (params.edges && params.edges.length) {
+              self._cogOpenEdgeKeepingNode(params.edges[0]);
+              return;
+            }
+            if (self.cogCardOpen) self.closeCogCard();
           });
           net.on('zoom', function (zp) {
             var scale = (zp && typeof zp.scale === 'number') ? zp.scale : 1;
@@ -28601,12 +28702,242 @@
       },
       // «Открыть в Памяти» из карты: существующий каталог знаний (никакого
       // нового экрана/маршрута — L01298 «понятная страница, а не приборная
-      // панель»). Контекст узла и кнопки карточки — S3.
-      openMemoryFromCogMap: function () {
-        this.memoryCatalogQuery = '';
+      // панель»). W7-S3: контекст узла сохраняется — поиск каталога
+      // предзаполняется названием и типом записи; если такой записи в каталоге
+      // нет, это называется честно (`cogMemoryNote`), а не выдаётся за переход.
+      openMemoryFromCogMap: function (card) {
+        var target = null;
+        if (card && card.kind === 'node') {
+          var act = this._cogCardFind(card, 'memory');
+          if (act && act.enabled && act.target) target = act.target;
+        }
+        this.memoryCatalogQuery = target ? String(target.query || '') : '';
+        this.memoryCatalogType = target ? (target.memoryType || 'all') : 'all';
+        this.cogMemoryTarget = target
+          ? { query: String(target.query || ''),
+              memoryType: target.memoryType || 'all' }
+          : null;
+        if (typeof this.loadMemoryCatalog === 'function') this.loadMemoryCatalog();
         if (typeof this.navTo === 'function') this.navTo('#/memory');
         else if (typeof this.navigateTo === 'function') this.navigateTo('#/memory');
         else this.route = '#/memory';
+      },
+      // ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ═══════════════════════
+      // Модель строит адаптер (`nodeCard`/`edgeCard`) — здесь только показ и
+      // АДРЕСНЫЕ переходы. Открытие карточки не делает запросов, не двигает
+      // камеру и не пересоздаёт сеть: это слой поверх сцены.
+      _cogCardFind: function (card, id) {
+        var list = (card && card.actions) || [];
+        for (var i = 0; i < list.length; i += 1) {
+          if (list[i].id === id) return list[i];
+        }
+        return null;
+      },
+      openCogNodeCard: function (nodeId, opts) {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || typeof C.nodeCard !== 'function' || !model || nodeId == null) {
+          return null;
+        }
+        var node = (model.byId || {})[String(nodeId)] || null;
+        if (!node) return null;      // узла нет в модели — карточку не рисуем
+        var prev = this.cogCard;
+        // Раскрытый список связей принадлежит ПОКАЗАННОЙ записи: обновление
+        // той же самой записи (поллинг, «Показать связи» → программное
+        // выделение → `selectNode` → `_cogSyncCard`) не должно его сворачивать,
+        // иначе кнопка отменяет собственное действие.
+        var same = !!(prev && prev.kind === 'node'
+          && String(prev.id) === String(node.id));
+        this.cogCard = C.nodeCard(node, model);
+        if (!same) this.cogCardLinksExpanded = false;
+        if (!(opts && opts.silent)) this._cogFocusCard();
+        return this.cogCard;
+      },
+      openCogEdgeCard: function (edgeId, opts) {
+        var C = window.CognitiveMap;
+        var model = this.cognitionGraphData || null;
+        if (!C || typeof C.edgeCard !== 'function' || !model || edgeId == null) {
+          return null;
+        }
+        var edge = null;
+        var list = model.edges || [];
+        for (var i = 0; i < list.length; i += 1) {
+          if (list[i].id === String(edgeId)) { edge = list[i]; break; }
+        }
+        if (!edge) return null;
+        var prevEdge = this.cogCard;
+        var sameEdge = !!(prevEdge && prevEdge.kind === 'edge'
+          && String(prevEdge.id) === String(edge.id));
+        this.cogCard = C.edgeCard(edge, model);
+        if (!sameEdge) this.cogCardLinksExpanded = false;
+        if (!(opts && opts.silent)) this._cogFocusCard();
+        return this.cogCard;
+      },
+      // Перезагрузка данных (polling/смена чата) не должна оставлять карточку
+      // с записью, которой в новой области нет: она закрывается молча, а не
+      // показывает чужой чат.
+      _cogRefreshCard: function () {
+        var card = this.cogCard;
+        if (!card) return;
+        var model = this.cognitionGraphData || null;
+        if (!model) return;
+        if (card.kind === 'edge') {
+          var found = null;
+          var edges = model.edges || [];
+          for (var i = 0; i < edges.length; i += 1) {
+            if (edges[i].id === card.id) { found = edges[i]; break; }
+          }
+          if (!found) { this.cogCard = null; return; }
+          this.openCogEdgeCard(found.id, { silent: true });
+          return;
+        }
+        if (!(model.byId || {})[card.id]) {
+          this.cogCard = null;
+          return;
+        }
+        this.openCogNodeCard(card.id, { silent: true });
+      },
+      // Программное выделение (поиск, сосед, история): карточка сама не
+      // открывается, но открытая — показывает новую запись.
+      _cogSyncCard: function (nodeId) {
+        if (!this.cogCardOpen) return;
+        if (this.cogCard.kind === 'node') {
+          this.openCogNodeCard(nodeId, { silent: true });
+        }
+      },
+      _cogCardEl: function () {
+        var ref = this.$refs ? this.$refs.cogCardPanel : null;
+        if (Array.isArray(ref)) ref = ref[ref.length - 1];
+        return ref || null;
+      },
+      _cogFocusCard: function () {
+        var self = this;
+        if (typeof this.$nextTick !== 'function') return;
+        this.$nextTick(function () {
+          var el = self._cogCardEl();
+          if (el && typeof el.focus === 'function') _focusFirstIn(el);
+        });
+      },
+      // Сцена карты — единственный focusable-элемент графа: Enter открывает
+      // карточку ВЫБРАННОГО узла, Esc закрывает её через общий back-stack и
+      // возвращает фокус сюда. Второго «портала» не заводится.
+      openCogSelectedCard: function () {
+        var id = this._cogSelectedId;
+        if (id == null) {
+          this.toast('Сначала выберите узел на карте', 'warn');
+          return;
+        }
+        this.openCogNodeCard(id);
+      },
+      closeCogCard: function () {
+        var had = this.cogCardOpen;
+        this.cogCard = null;
+        this.cogCardLinksExpanded = false;
+        // Фокус возвращается на сцену с выбранным узлом: карточка — слой, а
+        // не новый экран; камера/зум/фильтры не трогаются вовсе.
+        if (!had) return;
+        var scene = this._cogGraphEl();
+        if (!scene || typeof scene.focus !== 'function') return;
+        try { scene.focus({ preventScroll: true }); } catch (e) {
+          try { scene.focus(); } catch (e2) { /* нет DOM */ }
+        }
+      },
+      cogCardKeydown: function (ev) {
+        if (!ev) return;
+        // Esc обслуживает общий back-stack (единственная реализация порядка
+        // слоёв); здесь — только честная ловушка Tab внутри карточки.
+        _trapTabKey(ev, ev.currentTarget, false);
+      },
+      // `ev` — РЕАЛЬНЫЙ инициатор (нажатая кнопка карточки). Он нужен окну
+      // записи: `openStatusRecord` запоминает `ev.currentTarget` и только так
+      // возвращает фокус на ту же кнопку после закрытия. Без него фокус уходил
+      // на BODY (кнопка «Открыть источник» теряла фокус после Esc/крестика/Back).
+      cogCardAction: function (id, ev) {
+        var card = this.cogCard;
+        if (!card) return;
+        var act = this._cogCardFind(card, id);
+        if (!act) return;
+        if (!act.enabled) {
+          // Никаких декоративных кнопок: неработающее действие говорит почему.
+          this.toast(act.reason || 'действие недоступно', 'warn');
+          return;
+        }
+        if (id === 'source') { this.openCogSource(ev); return; }
+        if (id === 'history') { this.openCogHistory(); return; }
+        if (id === 'memory') { this.openMemoryFromCogMap(card); return; }
+        if (id === 'links') { this.cogShowLinks(); }
+      },
+      _cogTimeValue: function (card, key) {
+        var times = (card && card.times) || [];
+        for (var i = 0; i < times.length; i += 1) {
+          if (times[i].key === key) return times[i].value;
+        }
+        return null;
+      },
+      // «Открыть источник»: существующее окно записи ТОЙ ЖЕ записи + адресный
+      // drill первоисточника (`statusRecordDrill`: attribution/trace по
+      // chat_id+tg_message_id). Прямая `t.me`-ссылка не выдумывается.
+      // `ev` — нажатая кнопка карточки: окно записи возвращает фокус ИМЕННО
+      // на неё (`statusRecordReturnFocus`), а не на BODY.
+      openCogSource: function (ev) {
+        var card = this.cogCard;
+        var act = this._cogCardFind(card, 'source');
+        if (!act || !act.enabled || !act.target) return;
+        var t = act.target;
+        var prov = (card && card.provenance) || {};
+        this.openStatusRecord(t.source, {
+          id: t.factId,
+          chat_id: t.chatId,
+          tg_message_id: t.messageId,
+          name: card.title,
+          fact: card.text || card.title,
+          status: card.status || null,
+          origin: prov.origin || null,
+          supersedes: prov.versionOf,
+          created_at: this._cogTimeValue(card, 'savedAt'),
+          event_at: this._cogTimeValue(card, 'occurredAt'),
+          confirmed_at: this._cogTimeValue(card, 'confirmedAt'),
+        }, ev);
+        // Первоисточник — тем же существующим drill окна записи; запрос идёт
+        // по действию пользователя, а не при открытии карточки.
+        if (typeof this.statusRecordDrill === 'function') this.statusRecordDrill();
+      },
+      // «История изменений»: переход к КОНКРЕТНОЙ записи изменения из payload
+      // (ребро `revised_by` / узел `evolution_event`), а не в раздел.
+      openCogHistory: function () {
+        var card = this.cogCard;
+        var act = this._cogCardFind(card, 'history');
+        if (!act || !act.enabled || !act.target) return;
+        var targetId = act.target.id;
+        this._cogSelectNode(targetId);
+        this.openCogNodeCard(targetId, { silent: true });
+      },
+      _cogSelectNode: function (nodeId) {
+        var net = this.cognitionNetwork;
+        if (!net || nodeId == null) return;
+        try { net.selectNodes([nodeId]); } catch (e) { /* сеть уничтожена */ }
+        this.graphSelectNode(nodeId);
+        this.graphApplySelectionLabels([nodeId]);
+      },
+      // «Показать связи»: узел остаётся выбранным, его РЕАЛЬНЫЕ рёбра
+      // подсвечиваются в сцене, список связей раскрывается в карточке.
+      // Камера не меняется (это не «фокус на узле»).
+      cogShowLinks: function () {
+        var card = this.cogCard;
+        var act = this._cogCardFind(card, 'links');
+        if (!act || !act.enabled) return;
+        this.cogCardLinksExpanded = true;
+        if (card.kind === 'node') this._cogSelectNode(card.id);
+      },
+      // Клик по ребру снимает выделение узла средствами vis. Выбранная запись
+      // остаётся видимой: подсветка возвращается, карточка показывает связь
+      // (§2.4 ТЗ: «соседи слегка подсвечиваются»).
+      _cogOpenEdgeKeepingNode: function (edgeId) {
+        var keep = this._cogSelectedId
+          || ((this.cogCard && this.cogCard.kind === 'node') ? this.cogCard.id
+            : null);
+        this.openCogEdgeCard(edgeId);
+        if (keep != null) this.graphApplySelectionLabels([keep]);
       },
       // Клиентское состояние рендерера (отдельно от серверного `state`) +
       // единая видимая заметка `notice` (§9.1). Читает ТОЛЬКО реактивные

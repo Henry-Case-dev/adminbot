@@ -1,8 +1,8 @@
-"""EVOL-COG-MAP (W7-S2) — виджет «Когнитивной карты» на новом payload.
+"""EVOL-COG-MAP (W7-S2/S3) — виджет «Когнитивной карты» на новом payload.
 
-TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2)
-Контракт: `plans/features/evol/arch/cog-map-contract.md` §1/§4/§8 (слайс S2),
-исходник: `plans/current_task.md` §2.1–§2.6 (строки 1242–1302).
+TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2/S3)
+Контракт: `plans/features/evol/arch/cog-map-contract.md` §1/§4/§8/§9 (слайсы
+S2–S3), исходник: `plans/current_task.md` §2.1–§2.6 (строки 1242–1302).
 
 Что доказывается:
   * виджет «Статуса» читает `GET /api/memory/cognitive-map` и НЕ читает
@@ -16,6 +16,9 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-COG-MAP (W7-S2)
     включается по `totals > shown`, а не по `state`;
   * клиентские состояния (`loading/not_loaded/stale/renderer_failed`)
     отдельны от серверного `state` и отображаются честно;
+  * S3: карточка узла/ребра — один общий слой (панель справа / нижний лист),
+    поля только из payload, честное «не записано», четыре адресных перехода,
+    Back/Esc закрывают карточку первой, камера и выбор сохраняются;
   * старый маршрут `#/status/graph` и endpoint `/api/memory/graph` целы.
 
 Запуск: pytest tests/test_evol_cog_map_widget.py -q
@@ -55,6 +58,32 @@ MEMORY_API = _read("web/api/memory_agi.py")
 def _block(src: str, start: str, end: str) -> str:
     i = src.index(start)
     return src[i:src.index(end, i)]
+
+
+def _media_block(css: str, query: str, selector: str) -> str:
+    """Тело `@media <query>`, внутри которого реально описано `selector`.
+
+    В файле несколько одинаковых медиа-запросов; «первый попавшийся» проверял
+    бы чужой блок. Скобки считаем, чтобы срез не выходил за пределы запроса.
+    """
+    needle = "@media (%s) {" % query
+    pos = 0
+    while True:
+        pos = css.find(needle, pos)
+        if pos < 0:
+            raise AssertionError("@media (%s) с %s не найден" % (query, selector))
+        depth, end = 0, pos
+        for end in range(css.index("{", pos), len(css)):
+            if css[end] == "{":
+                depth += 1
+            elif css[end] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+        body = css[pos:end + 1]
+        if selector in body:
+            return body
+        pos = end + 1
 
 
 def _map_block(html: str) -> str:
@@ -399,3 +428,257 @@ def test_adapter_node_suite_runs():
     assert res.returncode == 0, res.stderr
     assert "EVOL-COG-MAP-S1-OK" in res.stdout
     assert "EVOL-COG-MAP-S2-OK" in res.stdout
+    assert "EVOL-COG-MAP-S3-OK" in res.stdout
+
+
+# ── 5. W7-S3: карточка узла/ребра, обоснование связи, адресные переходы ─────
+
+def _card_block() -> str:
+    start = INDEX.index('id="cog-card"')
+    return INDEX[start:INDEX.index("</template>", INDEX.index(
+        "data-cog-edge-provenance"))]
+
+
+def test_card_is_one_shared_layer():
+    """Карточка — ОДИН слой для встроенной карты и полного экрана."""
+    assert INDEX.count('id="cog-card"') == 1, \
+        "карточка размножена по разметке (два источника правды)"
+    block = _card_block()
+    assert 'role="dialog"' in block and 'aria-modal="true"' in block
+    assert 'tabindex="-1"' in block
+    assert '@keydown="cogCardKeydown($event)"' in block
+    assert 'data-cog-card-close' in block, "нет способа закрыть карточку"
+    assert ':data-cog-card="cogCard.kind"' in block
+    assert ':data-cog-card-id="cogCard.id"' in block
+    # Прежний встроенный бейдж-блок удалён: запись не показывается дважды.
+    assert "data-cog-detail" not in INDEX
+    # Модель карточки строит адаптер, а не шаблон.
+    assert "nodeCard: nodeCard" in ADAPTER and "edgeCard: edgeCard" in ADAPTER
+
+
+def test_card_shows_fields_from_payload_only():
+    """Разметка читает поля модели карточки; отсутствующее названо словами."""
+    block = _card_block()
+    for marker in ("cogCard.text || cogCard.textNote",
+                   "cogCard.timesNote",
+                   "cogCard.metrics.note",
+                   "cogCard.history.reason",
+                   "cogCard.justification.text",
+                   "cogCard.provenance.messageId",
+                   "cogCard.provenance.sourceIds",
+                   "cogCard.provenance.sourceRefs",
+                   "cogCardScopeLabel"):
+        assert marker in block, marker
+    # Три-четыре даты подписаны по отдельности (label приходит из адаптера).
+    assert ':data-cog-time="t.key"' in block
+    assert "{{ t.label }}" in block
+    # Метрики подписаны природой значения, а не «уверенностью».
+    assert "{{ m.nature }}" in block
+    assert "confidence" not in block and "freshness" not in block
+    # Ребро: обоснование берётся из payload, а не сочиняется в шаблоне.
+    assert ':data-cog-justification-recorded="cogCard.justification.recorded ? ' \
+           "'1' : '0'\"" in block
+
+
+def test_card_buttons_are_address_transitions_not_decorations():
+    """Четыре действия: цель — конкретный объект, у неработающего — причина."""
+    block = _card_block()
+    assert 'v-for="act in cogCard.actions"' in block
+    assert ':data-cog-action="act.id"' in block
+    assert ':disabled="!act.enabled"' in block
+    assert ':data-cog-action-reason="act.id"' in block, \
+        "неработающее действие молчит (декоративная кнопка)"
+    body = _block(APP_JS, "cogCardAction: function (id, ev) {",
+                  "openCogHistory: function () {")
+    for marker in ("openCogSource(ev)", "openCogHistory()",
+                   "openMemoryFromCogMap(card)", "cogShowLinks()"):
+        assert marker in body, marker
+    assert "act.reason || 'действие недоступно'" in body, \
+        "отказ действия не сообщается пользователю"
+    # «Открыть источник» — существующее окно записи ТОЙ ЖЕ записи + drill.
+    src = _block(APP_JS, "openCogSource: function (ev) {",
+                 "openCogHistory: function () {")
+    assert "this.openStatusRecord(t.source" in src
+    assert "statusRecordDrill" in src
+    assert "t.me/" not in src and "telegram.me" not in src, \
+        "выдуманная ссылка на сообщение"
+    # «История изменений» ведёт к конкретному узлу модели.
+    hist = _block(APP_JS, "openCogHistory: function () {",
+                  "_cogSelectNode: function")
+    assert "act.target.id" in hist
+    assert "openCogNodeCard(targetId" in hist
+
+
+def test_card_transitions_do_not_invent_or_request():
+    """Открытие карточки не делает запросов и не двигает камеру."""
+    for name, end in (("openCogNodeCard: function (nodeId, opts) {",
+                       "openCogEdgeCard: function (edgeId, opts) {"),
+                      ("openCogEdgeCard: function (edgeId, opts) {",
+                       "_cogRefreshCard: function () {")):
+        body = _block(APP_JS, name, end)
+        for banned in ("this.api(", "fetch(", "net.fit(", "net.focus(",
+                       "moveTo(", "_cogCaptureCamera()"):
+            assert banned not in body, (name, banned)
+    # Камера и фильтры при закрытии не сбрасываются: closeCogCard только
+    # снимает слой и возвращает фокус сцене.
+    close = _block(APP_JS, "closeCogCard: function () {",
+                   "cogCardKeydown: function (ev) {")
+    for banned in ("_cogCamera =", "fit(", "graphFilterGroup =",
+                   "cognitionMapCluster =", "renderCognitionGraph"):
+        assert banned not in close, banned
+    assert "_cogGraphEl()" in close and "focus(" in close, \
+        "фокус не возвращается на сцену с выбранным узлом"
+
+
+def test_memory_transition_keeps_node_context_and_is_honest():
+    body = _block(APP_JS, "openMemoryFromCogMap: function (card) {",
+                  "_cogCardFind: function (card, id) {")
+    assert "this.memoryCatalogQuery = target ? String(target.query || '')" in body
+    assert "this.memoryCatalogType = target ?" in body
+    assert "navTo('#/memory')" in body
+    note = _block(APP_JS, "cogMemoryNote: function () {",
+                  "// F11 (§19/D5)")
+    assert "в каталоге «Памяти» сейчас нет" in note
+    assert "ещё не загружен" in note
+    assert 'data-memory-from-cog' in INDEX, \
+        "честная заметка о отсутствии записи не показана пользователю"
+
+
+def test_memory_catalog_relation_uses_human_label():
+    """Каталог «Памяти» — адрес перехода из карточки: без машинных строк.
+
+    `derived_from` в списке связей каталога читается как обрывок кода и
+    обесценивает переход «Открыть в Памяти» из карточки.
+    """
+    body = _block(APP_JS, "// 3) Связи", "// 4) Контекст")
+    assert "C.relationLabel(e.relation)" in body
+    assert "body: e.relation ||" not in body, \
+        "каталог показывает машинный тип связи (derived_from)"
+
+
+def test_show_links_is_not_undone_by_reselection():
+    """«Показать связи» не сворачивает себя повторным показом записи.
+
+    Программное выделение узла (`selectNodes`) поднимает `selectNode`, а тот
+    обновляет открытую карточку. Безусловный сброс `cogCardLinksExpanded` там
+    означал бы, что кнопка отменяет собственное действие (живой прогон 390:
+    «Показать связи» не раскрыло список).
+    """
+    node = _block(APP_JS, "openCogNodeCard: function (nodeId, opts) {",
+                  "openCogEdgeCard: function (edgeId, opts) {")
+    edge = _block(APP_JS, "openCogEdgeCard: function (edgeId, opts) {",
+                  "_cogRefreshCard: function () {")
+    assert "if (!same) this.cogCardLinksExpanded = false;" in node
+    assert "if (!sameEdge) this.cogCardLinksExpanded = false;" in edge
+    for body in (node, edge):
+        # Ровно ОДИН сброс и только под условием «это другая запись».
+        assert body.count("cogCardLinksExpanded = false") == 1, \
+            "показ той же записи сворачивает раскрытые связи"
+    links = _block(APP_JS, "cogShowLinks: function () {",
+                   "// Клик по ребру снимает выделение")
+    assert "this.cogCardLinksExpanded = true;" in links
+    assert "_cogSelectNode(card.id)" in links
+
+
+def test_card_is_back_stack_layer_and_keyboard_reachable():
+    layers = _block(APP_JS, "function backStackLayers(vm) {",
+                    "// Закрывает РОВНО один (верхний) слой")
+    assert "if (vm.cogCardOpen) ids.push('cog-card');" in layers
+    assert layers.index("ids.push('record')") < layers.index("ids.push('cog-card')")
+    assert layers.index("ids.push('cog-card')") < layers.index(
+        "ids.push('graph-full')"), \
+        "Back в полном экране должен сначала закрывать карточку"
+    assert "case 'cog-card': close('closeCogCard'); return true;" in APP_JS
+    # Клавиатура: сцена — единственный focusable-элемент карты.
+    assert INDEX.count('data-cog-scene') == 2, \
+        "сцена встроенной карты и полного экрана должны быть одинаково доступны"
+    assert 'tabindex="0" data-cog-scene' in INDEX
+    assert '@keydown.enter.prevent="openCogSelectedCard()"' in INDEX
+    assert "openCogSelectedCard: function () {" in APP_JS
+    # Esc идёт общим путём (back-stack), второго обработчика не заводим.
+    assert "_trapTabKey(ev, ev.currentTarget, false)" in APP_JS
+
+
+def test_card_layout_is_panel_on_desktop_and_sheet_on_mobile():
+    assert ".cog-card {" in CSS
+    block = _block(CSS, ".cog-card {", ".cog-card__head {")
+    assert "position: fixed" in block
+    assert "right: 12px" in block, "desktop: панель справа, а не окно поверх всего"
+    assert "width: 344px" in block
+    assert "max-height: calc(100dvh" in block
+    mobile = _media_block(CSS, "max-width: 767px", ".cog-card {")
+    # «Та же сцена»: лист прижат к низу и не закрывает карту целиком
+    # (≈ половина экрана, остальное — прокручиваемое содержимое карточки).
+    assert "bottom: 0" in mobile and "max-height: 52dvh" in mobile, \
+        "телефон: нижний лист"
+    assert "top: auto" in mobile and "right: 0" in mobile, \
+        "на телефоне панель перестаёт быть правой панелью"
+    assert "safe-area-inset-bottom" in mobile
+    assert "data-glass=\"b\"" in _card_block(), \
+        "материал карточки — существующий токен стекла"
+
+
+def test_record_window_esc_closes_only_its_own_layer():
+    """review-B1: Esc в окне записи закрывает РОВНО свой слой.
+
+    Поведение (последовательность состояний слоёв) доказывает живой стенд
+    `tools/ui_evol_w15_composition_e2e.py`; здесь закреплена ПРИЧИНА дефекта:
+    окно записи закрывается собственным обработчиком, поэтому обязано
+    остановить всплытие ДО закрытия. Иначе событие доходит до глобального
+    `_onKeydown` → `escClose()` → `backStackClose()` и закрывает следующий
+    слой — карточку узла, из которой окно и открыто.
+    """
+    handler = _block(APP_JS, "statusRecordKeydown: function (ev) {",
+                     "_trapTabKey(ev, ev.currentTarget, false);")
+    assert "ev.stopPropagation()" in handler, \
+        "Esc окна записи снова всплывает до глобального обработчика (два слоя за Esc)"
+    assert handler.index("ev.stopPropagation()") < handler.index(
+        "this.closeStatusRecord()"), \
+        "всплытие должно останавливаться ДО закрытия окна"
+    # Проверка осмысленна только пока глобальный обработчик закрывает слой.
+    win = _block(APP_JS, "_onKeydown = function (e) {",
+                 "window.addEventListener('keydown', _onKeydown);")
+    assert "_appVm.escClose()" in win
+    # Тот же приём у палитры — единый порядок, а не второй стиль.
+    palette = APP_JS[APP_JS.index("paletteKeydown: function (event) {"):]
+    palette = palette[:palette.index("_paletteHotkey: function (event) {")]
+    assert "event.stopPropagation()" in palette
+
+
+def test_source_action_returns_focus_to_card_button():
+    """review-B2: окно записи из карточки возвращает фокус на «Открыть источник».
+
+    `plans/current_task.md:79` (EVOL-003) требует возврата фокуса на исходную
+    строку; из карточки исходная точка — нажатая кнопка действия. Поэтому
+    событие клика обязано дойти до `openStatusRecord` (он запоминает
+    `ev.currentTarget` и возвращает фокус ЕДИНСТВЕННЫМ механизмом —
+    `_restoreOverlayFocus`); без него фокус уходит на BODY.
+
+    Поведение доказано node-проверкой `tests/js/evol_cog_map_card_focus_test.js`
+    на настоящем `web/app.js`: Esc, крестик и `goBack()` возвращают фокус
+    именно на кнопку, карточка при этом остаётся открытой с той же записью.
+    Здесь же закреплена проводка разметки: без `$event` поведение недостижимо.
+    """
+    assert '@click="cogCardAction(act.id, $event)"' in _card_block(), \
+        "разметка не передаёт инициатора в действие карточки"
+    body = _block(APP_JS, "cogCardAction: function (id, ev) {",
+                  "openCogHistory: function () {")
+    assert "this.openCogSource(ev)" in body, \
+        "действие «Открыть источник» теряет событие клика"
+    src = _block(APP_JS, "openCogSource: function (ev) {",
+                 "openCogHistory: function () {")
+    assert "}, ev);" in src, \
+        "openStatusRecord вызван без инициатора — фокус вернётся на BODY"
+    # Возврат фокуса остаётся ОДНИМ механизмом (второго не заводим).
+    assert APP_JS.count("function _restoreOverlayFocus(") == 1
+    assert "_restoreOverlayFocus(back)" in _block(
+        APP_JS, "closeStatusRecord: function () {",
+        "statusRecordKeydown: function (ev) {")
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node недоступен — JS-unit пропущен")
+    res = subprocess.run(
+        [node, os.path.join("tests", "js", "evol_cog_map_card_focus_test.js")],
+        capture_output=True, text=True, timeout=90, cwd=ROOT)
+    assert res.returncode == 0, res.stderr
+    assert "EVOL-COG-MAP-CARD-FOCUS-OK" in res.stdout
