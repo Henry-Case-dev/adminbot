@@ -251,6 +251,49 @@ async def test_contextual_target_is_declared_with_anchor_and_author():
 
 
 @pytest.mark.asyncio
+async def test_handler_declares_contextual_target_in_trace(handler_env,
+                                                          monkeypatch):
+    """BD-1/M2: подмена цели не «маскируется под расширение публикации».
+
+    Хендлер обязан объявить contextual-цель (target_source, анкор, автор,
+    claim_origin) в публикации и в трассе, а Reply отправить на триггер.
+
+    RC-TGT-NO-REWRITE, RC-TGT-NO-FABRICATED-ID, RC-CLM-TARGETREF-CONTINUITY."""
+    captured: dict = {}
+
+    def _capture(publication, **kwargs):
+        captured["publication"] = publication
+        captured.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(fh, "_emit_target_trace", _capture)
+    window = [
+        _row(THESIS_TG, text=THESIS, author="Ирма"),
+        _row(TARGET_TG, text="", author="Ким", reply_to_id=THESIS_TG),
+    ]
+    db = FakeDb(rows_by_tg={TARGET_TG: _row(TARGET_TG, text="",
+                                            reply_to_id=THESIS_TG)},
+                around_rows=window)
+    service = _service()
+    fh.setup_factcheck(service, db)
+    bot = AsyncMock()
+    await fh.factcheck_handler(
+        _make_msg(text="фактчек", message_id=TRIGGER_TG,
+                  reply_to_message=_make_msg(message_id=TARGET_TG)), bot=bot)
+
+    publication = captured["publication"]
+    assert publication.text == THESIS                    # проверяется тезис
+    assert publication.target_source == "contextual"     # подмена объявлена
+    assert publication.target_tg_message_id == THESIS_TG  # цель = реальный анкор
+    assert publication.claim_origin == "context_window"
+    assert publication.claim_anchor_tg_message_id == THESIS_TG
+    assert publication.claim_anchor_author == "Ирма"
+    assert publication.text_sufficient is True
+    assert captured["delivery_reply_to"] == TRIGGER_TG   # Reply на команду
+    assert service.check_claim.await_args is not None    # вердикт по тезису
+
+
+@pytest.mark.asyncio
 async def test_antecedent_not_chosen_by_tg_distance():
     """BD-4 (§4.3): близкое «громкое» сообщение не становится тезисом.
 
@@ -273,6 +316,31 @@ async def test_antecedent_not_chosen_by_tg_distance():
     assert claim is not None
     assert claim.tg_message_id == THESIS_TG
     assert claim.source == "reply_to"
+
+
+@pytest.mark.asyncio
+async def test_semantic_antecedent_beats_nearest_by_tg_id():
+    """BD-4/M4: семантика важнее tg-близости; близость — только ничья.
+
+    RC-TGT-UNB-NOHEURISTIC, RC-TGT-SEM-STRUCT."""
+    window = [
+        _row(913001, text="Смета на ремонт моста завышена вдвое",
+             author="Ирма"),
+        _row(913704, text="Курс валют вырос до 95 рублей за неделю",
+             author="Ким"),
+        _row(TARGET_TG, text="", author="Лея"),
+    ]
+    db = FakeDb(rows_by_tg={TARGET_TG: _row(TARGET_TG, text="")},
+                around_rows=window)
+    # 913704 ближе к пустой цели по tg-id, 913001 — дальше, но по теме
+    assert (abs(913704 - TARGET_TG) < abs(913001 - TARGET_TG))
+    probe = await fsg.resolve_context_claim(
+        db, CHAT_ID, target_tg_message_id=TARGET_TG,
+        trigger_tg_message_id=TRIGGER_TG,
+        hint="смета на ремонт моста", cache=_NullCache())
+    assert probe is not None and probe.claim is not None
+    assert probe.claim.tg_message_id == 913001     # тема, а не ближайший id
+    assert probe.claim_basis == "topic"
 
 
 @pytest.mark.asyncio
@@ -357,6 +425,46 @@ def test_dominant_dispute_ignores_reply_count_and_length():
     assert decision.reason_code == fsg._REASON_AMBIGUOUS
     assert all(item.anchor_tg_message_id != 930010
                for item in decision.claim_items)
+
+
+def test_dispute_weight_has_no_reply_count_or_length_terms():
+    """BD-5 (§4.3): ни число ответов, ни длина текста не меняют вес тезиса.
+
+    RC-TGT-UNB-NOHEURISTIC, RC-TGT-SEMANTIC-CORE."""
+
+    def _ctx(replies: int, filler: str = ""):
+        rows = [
+            _row(950001, text="бред, это вброс", author="Ким"),
+            _row(950002, text=("неправда, ремонт дороги сдали " + filler).strip(),
+                 author="Лея"),
+            _row(TARGET_TG, text="", author="Лея"),
+        ]
+        for i in range(replies):
+            rows.append(_row(950100 + i, text="согласен", author="Лея",
+                             reply_to_id=950002))
+        messages = tuple(
+            fcx.ContextMessage(
+                message_id=int(r["id"]),
+                tg_message_id=int(r["tg_message_id"]), chat_id=CHAT_ID,
+                author=r["author_name"], timestamp=int(r["timestamp"]),
+                reply_to_tg_id=r["reply_to_id"], is_forward=False,
+                forward_source=None, text=r["text"] or "")
+            for r in rows)
+        return fcx.ConversationContext(
+            chat_id=CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG, messages=messages, window={})
+
+    one = fsg._dominant_dispute(_ctx(1))
+    six = fsg._dominant_dispute(_ctx(6))
+    long_text = fsg._dominant_dispute(_ctx(
+        1, filler="дорога объект приёмка акт сроки качество гравий асфальт"))
+    assert one[0] is not None and one[0].tg_message_id == 950001
+    # 6 ответов вместо одного — тот же вес: считается факт ответа, не счётчик
+    assert one[1] == pytest.approx(six[1])
+    assert one[2] == pytest.approx(six[2])
+    # длинный текст проигравшего не двигает его вес
+    assert one[1] == pytest.approx(long_text[1])
+    assert one[2] == pytest.approx(long_text[2])
 
 
 @pytest.mark.asyncio
