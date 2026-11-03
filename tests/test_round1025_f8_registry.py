@@ -188,8 +188,15 @@ ROUTES_SHA256_F11 = (
 # `prompt_release_policy.JOURNAL_DDL`; санкция интеграционной заметки
 # plans/features/evol/audit/w2a-evol016.md §4 п.4 — SERIALIZED-зона схемы).
 # Таблицы/сиды/роли не тронуты; SQLite v39 — только книга схемы.
+# AC-DATA (03.11.2026): pg_db.py re-pin осознанно (L-F11S-1). Аддитивная
+# дельта: +2 таблицы + 2 индекса в конец DDL_STATEMENTS —
+# `anticliche_source_state` (последняя реальная проверка источника) и
+# `anticliche_snapshot` (immutable опубликованные версии банка). Санкция:
+# plans/features/asap-evol-anticliche-memory-admin-ux/arch/
+# integration-decisions.md §1 («вердикт: 2 новые PG-таблицы + JSONB»,
+# SERIALIZED-зона `pg_db.py`, владелец дельты — AC-DATA). SQLite DDL = 0.
 PG_DB_SHA256_B07 = (
-    "96ab81492b7359d3ff5bd3286b3bdb8400538adee0a11ed40d98a8d296914e31")
+    "c41a19e4f05f686cb7b18497b04ab0122cb73634ef99f32b716dcf8543c915d3")
 
 # P0-followup / NOSTALGIA-FIX (18.10.2026, L-F11S-1): re-pin каталога —
 # изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение

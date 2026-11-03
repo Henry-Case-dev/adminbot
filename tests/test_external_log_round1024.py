@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 
 import pytest
@@ -18,6 +19,7 @@ from urllib.parse import quote
 
 import services.log_ring as log_ring
 from config.settings import Settings
+from services import anticliche_sources as asc
 from services import anticliche_worker as aw
 from services import bot_persona
 from services import dream_worker as dw
@@ -346,8 +348,10 @@ class TestAnticlicheFailureLogging:
             result = await worker.refresh()
         assert result["status"] == "fetch_error"
         trace = _find(caplog, "event=pipeline_step")
+        # AC-DATA: агрегированный код стадии — «источники недоступны»,
+        # причина каждого источника видна отдельно и не маскируется.
         assert any("component=anticliche" in m and "step=fetch" in m
-                   and "reason=fetch_error" in m for m in trace)
+                   and "reason=sources_unavailable" in m for m in trace)
         assert any(r.levelno == logging.ERROR for r in caplog.records
                    if "step=fetch" in r.getMessage())
 
@@ -360,7 +364,9 @@ class TestAnticlicheFailureLogging:
         llm = MagicMock()
         llm.generate_worker = AsyncMock(return_value="не json вообще")
         worker = aw.AntiClicheWorker(
-            llm=llm, pg=object(), fetch=AsyncMock(return_value="text"))
+            llm=llm, pg=object(),
+            fetch=AsyncMock(return_value=json.dumps(
+                {"query": {"pages": {"1": {"extract": "текст"}}}})))
         with caplog.at_level(logging.INFO):
             result = await worker.refresh()
         assert result["status"] == "parse_error"
@@ -391,7 +397,7 @@ class TestAnticlicheFailureLogging:
             async def get(self, *a, **kw):
                 return _Resp(500, text='{"error":"upstream"}')
 
-        monkeypatch.setattr(aw.httpx, "AsyncClient",
+        monkeypatch.setattr(asc.httpx, "AsyncClient",
                             lambda **kw: _Client())
         with caplog.at_level(logging.INFO):
             with pytest.raises(Exception):
@@ -412,7 +418,7 @@ class TestAnticlicheFailureLogging:
             async def get(self, *a, **kw):
                 return _Resp(204, text="")
 
-        monkeypatch.setattr(aw.httpx, "AsyncClient", lambda **kw: _Client())
+        monkeypatch.setattr(asc.httpx, "AsyncClient", lambda **kw: _Client())
         with caplog.at_level(logging.INFO):
             out = await aw.fetch_source("https://wiki.example/w/api.php?x=1")
         assert out == ""
@@ -531,7 +537,7 @@ class TestEgressEndToEnd:
                         text='{"e":"Bearer abcdefghijklmnop",'
                              '"k":"gsk_XYZ789000000"}')
 
-            monkeypatch.setattr(aw.httpx, "AsyncClient",
+            monkeypatch.setattr(asc.httpx, "AsyncClient",
                                 lambda **kw: _Client())
             with pytest.raises(Exception):
                 await aw.fetch_source("https://wiki.example/w/api.php?x=1")

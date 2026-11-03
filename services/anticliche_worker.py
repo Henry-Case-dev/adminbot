@@ -24,6 +24,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from config.settings import settings
 from services import anticliche_cache
+from services import anticliche_sources as sources_registry
 from services import hot_config as hot
 from services import worker_budget
 from services.agentic_events import emit_agentic_event
@@ -46,7 +47,9 @@ SOURCE_URL_DEFAULT = (
     "&explaintext=1&format=json&redirects=1"
     "&titles=Wikipedia%3ASigns_of_AI_writing"
 )
-_SOURCE_ID_MANUAL = "manual"
+# Стабильный id локального источника в реестре (§3.1): ручные выражения и
+# owner pinned. HTTP-статуса у него нет.
+_SOURCE_ID_MANUAL = "local/manual"
 MAX_SOURCE_CHARS = 60000
 REFRESH_DAYS = 7
 # F0.3 (раунд 10.25, ADR-1025-3 D2): bounded-цикл добора до ВМЕСТИМОСТИ.
@@ -97,7 +100,9 @@ _ANTICLICHE_COMPONENT = "anticliche.run"
 # существующие коды словаря; отсутствующего кода не изобретаем.
 _ANTICLICHE_TERMINAL = {
     "ok": ("success", None),
+    "partial_success": ("success", "provider_unavailable"),
     "empty": ("skipped", "no_new_contribution"),
+    "unchanged": ("skipped", "stage_skipped"),
     "fresh": ("skipped", "cooldown"),
     "disabled": ("skipped", "disabled"),
     "budget_skip": ("skipped", "budget_exceeded"),
@@ -123,8 +128,9 @@ def _emit(event_name: str, outcome: str, *, level: str = "INFO",
 def _normalize_stored(patterns) -> list[dict]:
     """F0.3: уже сохранённые паттерны → нормализованный список (для merge).
 
-    Сохраняет `code`/`origin`/`added_at` как есть; дедуп по нормализованной
-    фразе. НЕ применяет вместимость (её контролирует цикл добора)."""
+    Сохраняет `code`/`origin`/`added_at` и аддитивный провенанс AC-DATA
+    (`source`/`source_revision`) как есть; дедуп по нормализованной фразе.
+    НЕ применяет вместимость (её контролирует цикл добора)."""
     out: list[dict] = []
     seen: set[str] = set()
     if not isinstance(patterns, (list, tuple)):
@@ -136,12 +142,19 @@ def _normalize_stored(patterns) -> list[dict]:
         if not phrase or phrase in seen:
             continue
         seen.add(phrase)
-        out.append({
+        entry = {
             "code": item.get("code") or dynamic_rule_code(phrase),
             "phrase": phrase,
             "origin": _safe_origin(item.get("origin")),
             "added_at": item.get("added_at") or _now_iso(),
-        })
+        }
+        # AC-DATA §3.1: провенанс источника не теряется при слиянии.
+        for key in ("source", "source_revision", "status", "strategy",
+                    "family_id", "scope", "evidence"):
+            value = item.get(key)
+            if value not in (None, "", [], {}):
+                entry[key] = value
+        out.append(entry)
     return out
 
 # Промпт извлечения паттернов — код-константа, НЕ перечисляет сами клише
@@ -172,6 +185,27 @@ def _host_label(url: str) -> str:
         return urlsplit(str(url or "")).hostname or "source"
     except Exception:  # pragma: no cover — defensive
         return "source"
+
+
+def _check_brief(check: dict) -> dict:
+    """Краткая R17-safe выжимка проверки для ответа воркера/логов.
+
+    Никаких тел документов и фраз — только коды/числа/идентификаторы.
+    """
+    return {
+        "source_id": str(check.get("source_id") or ""),
+        "check_id": str(check.get("check_id") or ""),
+        "status": str(check.get("status") or ""),
+        "http_status": check.get("http_status"),
+        "content_status": str(check.get("content_status") or ""),
+        "docs_fetched": int(check.get("docs_fetched") or 0),
+        "docs_parsed": int(check.get("docs_parsed") or 0),
+        "revision": str(check.get("revision") or ""),
+        "changed": bool(check.get("changed")),
+        "error_code": str(check.get("error_code") or ""),
+        "next_attempt_at": check.get("next_attempt_at"),
+        "paused_reason": str(check.get("paused_reason") or ""),
+    }
 
 
 def _refresh_level(status: str) -> int:
@@ -335,37 +369,13 @@ def build_patterns(entries, *,
 
 
 async def fetch_source(url: str) -> str:
-    """Скачать текст источника (Wikipedia action API JSON → extract)."""
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        response = await client.get(
-            url, headers={"User-Agent": "adminbot-anticliche/1.0"})
-        status = int(getattr(response, "status_code", 0))
-        if status >= 400:
-            # F2/ADR-1024-1: статус + усечённое тело ошибки источника.
-            log_external_api(
-                logger, provider=_host_label(url), method="GET", url=url,
-                status=status, reason="fetch_http",
-                body=getattr(response, "text", ""), level=logging.ERROR)
-        elif not 200 <= status < 300:
-            # R1024F2-07: успешные 2xx (201/204…) ERROR'ом не шумим.
-            log_external_api(
-                logger, provider=_host_label(url), method="GET", url=url,
-                status=status, reason="fetch_unexpected",
-                body=getattr(response, "text", ""), level=logging.WARNING)
-        response.raise_for_status()
-        text = response.text
-        try:
-            data = response.json()
-        except ValueError:
-            data = None
-    if isinstance(data, dict):
-        pages = (data.get("query") or {}).get("pages") or {}
-        if isinstance(pages, dict):
-            for page in pages.values():
-                extract = page.get("extract") if isinstance(page, dict) else None
-                if isinstance(extract, str) and extract.strip():
-                    return extract[:MAX_SOURCE_CHARS]
-    return str(text or "")[:MAX_SOURCE_CHARS]
+    """Скачать текст источника (Wikipedia action API JSON → extract).
+
+    Транспорт один — `anticliche_sources.fetch_document`; здесь сохранена
+    прежняя сигнатура/поведение (текст или исключение) для совместимости.
+    """
+    text = await sources_registry.fetch_source_text(url)
+    return text[:MAX_SOURCE_CHARS]
 
 
 class AntiClicheWorker:
@@ -373,13 +383,21 @@ class AntiClicheWorker:
 
     def __init__(self, *, llm=None, pg=None, fetch=None, scheduler=None,
                  source_id: str = SOURCE_ID_DEFAULT,
-                 source_url: str = SOURCE_URL_DEFAULT):
+                 source_url: str = SOURCE_URL_DEFAULT,
+                 sources=None, transport=None):
         self._llm = llm
         self._pg = pg
+        # `fetch` — legacy-инъекция «url → текст» (тесты). Новый транспорт
+        # отдаёт TransportResponse со статусом/заголовками.
         self._fetch = fetch or fetch_source
+        self._transport = transport if transport is not None else fetch
+        self._sources = tuple(sources) if sources is not None else None
         self._scheduler = scheduler
         self._source_id = source_id
         self._source_url = source_url
+
+    def _registry(self):
+        return self._sources or sources_registry.all_sources()
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 
@@ -497,25 +515,94 @@ class AntiClicheWorker:
               duration_ms=int((time.monotonic() - started) * 1000))
         return result
 
+    # ── Stage A: независимые проверки источников (§3.3, §4.2) ──────────────
+
+    def _analysis_allowed(self, source_id: str | None) -> bool:
+        """Права/лицензия разрешают автоматический анализ этого источника."""
+        source = next((item for item in self._registry()
+                       if item.source_id == source_id), None)
+        return bool(source is not None and source.analysis_eligible)
+
+    def _due_sources(self, states: dict[str, dict]) -> tuple[list, list]:
+        """Кому разрешена попытка прямо сейчас (анти-storm на 403/429)."""
+        due: list = []
+        paused: list[dict] = []
+        for src in self._registry():
+            if not src.auto_check:
+                continue
+            state = states.get(src.source_id)
+            if not sources_registry.state_enabled(src, state):
+                continue
+            decision = sources_registry.attempt_decision(
+                state, policy=src.retry)
+            if decision.get("allowed"):
+                due.append(src)
+            else:
+                paused.append({"source_id": src.source_id,
+                               "reason": str(decision.get("reason") or ""),
+                               "wait_seconds": decision.get("wait_seconds")})
+        return due, paused
+
+    async def check_one(self, source_id: str, *, manual: bool = True,
+                        pg=None) -> dict:
+        """Явная проверка ОДНОГО источника: без LLM и без публикации.
+
+        «Проверить доступ» ≠ «Загрузить и проанализировать» (§3.3): этот путь
+        не вызывает модель, не меняет опубликованный набор и не обходит
+        robot-policy (тот же User-Agent, адрес и транспорт).
+        """
+        source = sources_registry.get_source(source_id)
+        if source is None:
+            source = next((item for item in self._registry()
+                           if item.source_id == source_id), None)
+        if source is None:
+            return {"source_id": str(source_id), "status": "unknown_source",
+                    "error_code": "unknown_source"}
+        target_pg = pg if pg is not None else (
+            self._pg if self._pg is not None
+            else anticliche_cache.get_runtime_pg())
+        states = await sources_registry.fetch_states(target_pg)
+        previous = states.get(source.source_id)
+        check = await sources_registry.check_source(
+            source, transport=self._transport, pg=target_pg,
+            state=previous, manual=manual)
+        await sources_registry.record_check(
+            target_pg, check, source=source, previous=previous)
+        sources_registry.emit_check_event(check)
+        trace_step(
+            logger, component="anticliche", step="source_check",
+            status="ok" if sources_registry.is_success(check.get("status"))
+            else "error",
+            reason=str(check.get("status") or ""),
+            extra={"source": source.source_id,
+                   "http": check.get("http_status"),
+                   "manual": bool(manual)})
+        return check
+
     async def _refresh_impl(self, *, source: str | None = None,
                             force: bool = False) -> dict:
-        """Полный цикл забора источника → LLM → запись. Никогда не бросает.
+        """Источники → LLM-анализ → запись набора (LKG при любой ошибке).
 
         F7/ADR-1024-3 D2: при `force=False` и свежем `fetched_at` (младше
         REFRESH_DAYS) прогон пропускается без fetch/LLM (`status="fresh"`).
 
+        Источники независимы: сбой одного не блокирует остальные; 403 policy
+        не ретраится автоматически; 429 уважает `Retry-After`. Ошибка
+        источника/LLM/PG оставляет активный набор и возвращает его РЕАЛЬНУЮ
+        версию (не ложный ``0``).
+
         Возврат (R17-safe: коды/числа/идентификаторы источника):
-        ``{status, count, version, source}``; ``status`` — ``ok|empty|
-        fetch_error|llm_error|parse_error|budget_skip|disabled|write_error|
-        fresh``.
+        ``{status, count, version, rules, source, sources, checks, paused}``;
+        ``status`` — ``ok|partial_success|empty|unchanged|fetch_error|
+        llm_error|parse_error|budget_skip|disabled|write_error|fresh``.
         """
-        source_id = source or self._source_id
+        source_hint = source or self._source_id
         if not anticliche_cache.enabled():
             trace_step(logger, component="anticliche", step="gate",
                        status="skip", reason="disabled",
-                       extra={"source": source_id})
+                       extra={"source": source_hint})
             return {"status": "disabled", "count": 0, "version": 0,
-                    "source": source_id}
+                    "source": source_hint}
         pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
 
         # F7/ADR-1024-3 D2: freshness-skip (рестарт-устойчиво, без job store).
@@ -527,167 +614,238 @@ class AntiClicheWorker:
                             version)
                 trace_step(logger, component="anticliche", step="gate",
                            status="skip", reason="fresh",
-                           extra={"source": source_id, "version": version})
+                           extra={"source": source_hint, "version": version})
                 return {"status": "fresh", "count": 0, "version": version,
-                        "source": source_id}
+                        "source": source_hint}
 
-        try:
-            text = await self._fetch(self._source_url)
-        except Exception as exc:
-            await anticliche_cache.mark_status(pg, "fetch_error")
-            logger.warning("[anticliche] fetch failed | error=%s",
-                           type(exc).__name__, exc_info=True)
+        # ── Stage A: SOURCE_FETCH — по источнику, независимо ────────────────
+        stored = await anticliche_cache.fetch_cache(pg)
+        current_version = int((stored or {}).get("version") or 0)
+        current_rules = len(_normalize_stored((stored or {}).get("patterns")))
+        states = await sources_registry.fetch_states(pg)
+        due, paused = self._due_sources(states)
+        checks: list[dict] = []
+        if due:
+            checks = await sources_registry.check_sources(
+                due, transport=self._transport, pg=pg, states=states,
+                manual=False)
+        counts = sources_registry.summarize_checks(checks)
+        usable = [c for c in checks
+                  if c.get("changed")
+                  and c.get("status") == sources_registry.STATUS_AVAILABLE
+                  and str(c.get("text") or "").strip()
+                  and self._analysis_allowed(c.get("source_id"))]
+        unchanged = [c for c in checks
+                     if c.get("status") == sources_registry.STATUS_UNCHANGED]
+        problems = [c for c in checks
+                    if sources_registry.is_problem(c.get("status"))]
+        base = {
+            "source": source_hint,
+            "version": current_version,
+            "rules": current_rules,
+            "sources": counts,
+            "checks": [_check_brief(c) for c in checks],
+            "paused": paused,
+        }
+
+        if not due and not paused:
+            # Нет ни одного включённого источника, участвующего в автоопросе.
+            trace_step(logger, component="anticliche", step="gate",
+                       status="skip", reason="no_enabled_sources",
+                       extra={"source": source_hint})
+            return {"status": "disabled", "count": 0, **base}
+
+        if not usable:
+            if unchanged:
+                await anticliche_cache.mark_status(pg, "unchanged")
+                logger.info("[anticliche] sources unchanged — LLM не "
+                            "вызывалась | version=%s", current_version)
+                trace_step(logger, component="anticliche", step="fetch",
+                           status="skip", reason="unchanged",
+                           extra={"sources": counts,
+                                  "version": current_version})
+                return {"status": "unchanged", "count": 0, **base}
+            if not checks:
+                # Все источники на cooldown (403 policy / Retry-After).
+                logger.info("[anticliche] all sources paused | paused=%d",
+                            len(paused))
+                trace_step(logger, component="anticliche", step="gate",
+                           status="skip", reason="sources_paused",
+                           extra={"paused": len(paused)})
+                return {"status": "fresh", "count": 0,
+                        "paused_count": len(paused), **base}
+            # Ни одного пригодного источника: LKG остаётся, версия не врёт.
+            await anticliche_cache.mark_status(pg, "sources_unavailable")
+            logger.warning("[anticliche] no usable source | problems=%d",
+                           len(problems))
             trace_step(logger, component="anticliche", step="fetch",
-                       status="error", reason="fetch_error",
-                       extra={"source": source_id,
-                              "error": type(exc).__name__})
-            return {"status": "fetch_error", "count": 0, "version": 0,
-                    "source": source_id}
+                       status="error", reason="sources_unavailable",
+                       extra={"problems": len(problems),
+                              "version": current_version})
+            return {"status": "fetch_error", "count": 0, **base}
 
-        # F0.3 (ADR-1025-3 D2): пакетное bounded-пополнение до ВМЕСТИМОСТИ.
-        # Партия за вызов ≤ per_run (в пределах выходного лимита модели);
-        # дедуп против уже сохранённых + внутри партии; «0 новых» = успех.
+        # ── Stage C-выход: bounded добор до ВМЕСТИМОСТИ, бюджет провайдера ──
         capacity = anticliche_cache.max_patterns()
         per_run = max_patterns_per_run()
         rounds_limit = max_rounds()
-        stored = await anticliche_cache.fetch_cache(pg)
         merged = _normalize_stored((stored or {}).get("patterns"))
         initial_count = len(merged)
         seen = {p["phrase"] for p in merged}
         new_total = 0
         duplicates_total = 0
         candidates_total = 0
-        final_status = "ok"
         applied_limit = 0
         rounds = 0
+        no_new = False
+        budget_stop = False
+        contributing: list[str] = []
         started = time.monotonic()
         _event("ANTI_CLICHE_UPDATE_START", capacity=capacity, per_run=per_run,
-               initial_count=initial_count, source=source_id)
+               initial_count=initial_count, source=source_hint,
+               sources=len(usable))
 
-        while len(merged) < capacity and rounds < rounds_limit:
-            want = min(per_run, capacity - len(merged))
-            # Review iter1 (L5): call списывается ровно перед LLM-вызовом.
-            try:
-                allowed = await worker_budget.consume(
-                    pg, "global", worker_budget.METRIC_CALLS)
-            except Exception:
-                allowed = True
-            if not allowed:
-                final_status = "budget_skip"
+        for item in usable:
+            if len(merged) >= capacity or rounds >= rounds_limit or budget_stop:
                 break
-            _event("ANTI_CLICHE_MODEL_REQUEST", round=rounds + 1,
-                   per_run=per_run, applied_limit=want,
-                   model=self._model_label())
-            t0 = time.monotonic()
-            try:
-                raw = await self._call_llm(text, limit=want)
-            except Exception as exc:
-                await anticliche_cache.mark_status(pg, "llm_error")
-                logger.warning("[anticliche] llm failed | error=%s",
-                               type(exc).__name__, exc_info=True)
-                trace_step(logger, component="anticliche", step="llm",
-                           status="error", reason="llm_error",
-                           extra={"source": source_id,
-                                  "error": type(exc).__name__})
-                _event("ANTI_CLICHE_UPDATE_FAILED", status="llm_error",
-                       reason="llm_error", model=self._model_label())
-                return {"status": "llm_error", "count": 0, "version": 0,
-                        "source": source_id}
-            duration_ms = int((time.monotonic() - t0) * 1000)
-            # Review iter1 (L5): токены — сразу после ответа LLM.
-            try:
-                await worker_budget.consume(
-                    pg, "global", worker_budget.METRIC_TOKENS,
-                    worker_budget.estimate_tokens(text)
-                    + worker_budget.estimate_tokens(raw))
-            except Exception:
-                pass
-            entries = parse_patterns(raw)
-            if entries is None:
-                await anticliche_cache.mark_status(pg, "parse_error")
-                logger.warning("[anticliche] parse failed — cache kept")
-                trace_step(logger, component="anticliche", step="parse",
-                           status="error", reason="parse_error",
-                           extra={"source": source_id,
-                                  "raw_len": len(str(raw or ""))})
-                _event("ANTI_CLICHE_PARSE_ERROR", round=rounds + 1,
-                       raw_len=len(str(raw or "")))
-                _event("ANTI_CLICHE_UPDATE_FAILED", status="parse_error",
-                       reason="parse_error", model=self._model_label())
-                return {"status": "parse_error", "count": 0, "version": 0,
-                        "source": source_id}
-            candidates = build_patterns(entries, max_patterns=want)
-            candidates_total += len(candidates)
-            _event("ANTI_CLICHE_MODEL_RESPONSE", round=rounds + 1,
-                   candidates=len(candidates), duration_ms=duration_ms,
-                   model=self._model_label())
-            round_new = [p for p in candidates if p["phrase"] not in seen]
-            round_dups = max(0, len(candidates) - len(round_new))
-            duplicates_total += round_dups
-            _event("ANTI_CLICHE_DEDUP_COMPLETE", candidates=len(candidates),
-                   duplicates=round_dups)
-            if not round_new:
-                final_status = "empty"          # «нет новых» — валидный успех
-                break
-            for p in round_new:
-                seen.add(p["phrase"])
-                merged.append(p)
-            new_total += len(round_new)
-            applied_limit = want
-            rounds += 1
-            if len(candidates) < want:
-                # модель вернула меньше запрошенного → источник исчерпан
-                break
-        if (new_total == 0 and rounds == 0 and final_status == "ok"
-                and len(merged) >= capacity):
-            # кэш уже полон — добор не нужен (не ошибка)
-            final_status = "ok"
+            src_id = str(item.get("source_id") or "")
+            revision = str(item.get("revision") or "")
+            text = str(item.get("text") or "")[:MAX_SOURCE_CHARS]
+            produced = 0
+            while len(merged) < capacity and rounds < rounds_limit:
+                want = min(per_run, capacity - len(merged))
+                # Review iter1 (L5): call списывается ровно перед LLM-вызовом.
+                try:
+                    allowed = await worker_budget.consume(
+                        pg, "global", worker_budget.METRIC_CALLS)
+                except Exception:
+                    allowed = True
+                if not allowed:
+                    budget_stop = True
+                    break
+                _event("ANTI_CLICHE_MODEL_REQUEST", round=rounds + 1,
+                       per_run=per_run, applied_limit=want,
+                       model=self._model_label(), source=src_id)
+                t0 = time.monotonic()
+                try:
+                    raw = await self._call_llm(text, limit=want)
+                except Exception as exc:
+                    await anticliche_cache.mark_status(pg, "llm_error")
+                    logger.warning("[anticliche] llm failed | error=%s",
+                                   type(exc).__name__, exc_info=True)
+                    trace_step(logger, component="anticliche", step="llm",
+                               status="error", reason="llm_error",
+                               extra={"source": src_id,
+                                      "error": type(exc).__name__})
+                    _event("ANTI_CLICHE_UPDATE_FAILED", status="llm_error",
+                           reason="llm_error", model=self._model_label(),
+                           source=src_id)
+                    return {"status": "llm_error", "count": 0, **base}
+                duration_ms = int((time.monotonic() - t0) * 1000)
+                # Review iter1 (L5): токены — сразу после ответа LLM.
+                try:
+                    await worker_budget.consume(
+                        pg, "global", worker_budget.METRIC_TOKENS,
+                        worker_budget.estimate_tokens(text)
+                        + worker_budget.estimate_tokens(raw))
+                except Exception:
+                    pass
+                entries = parse_patterns(raw)
+                if entries is None:
+                    await anticliche_cache.mark_status(pg, "parse_error")
+                    logger.warning("[anticliche] parse failed — cache kept")
+                    trace_step(logger, component="anticliche", step="parse",
+                               status="error", reason="parse_error",
+                               extra={"source": src_id,
+                                      "raw_len": len(str(raw or ""))})
+                    _event("ANTI_CLICHE_PARSE_ERROR", round=rounds + 1,
+                           raw_len=len(str(raw or "")), source=src_id)
+                    _event("ANTI_CLICHE_UPDATE_FAILED", status="parse_error",
+                           reason="parse_error", model=self._model_label(),
+                           source=src_id)
+                    return {"status": "parse_error", "count": 0, **base}
+                candidates = build_patterns(entries, max_patterns=want)
+                candidates_total += len(candidates)
+                _event("ANTI_CLICHE_MODEL_RESPONSE", round=rounds + 1,
+                       candidates=len(candidates), duration_ms=duration_ms,
+                       model=self._model_label(), source=src_id)
+                round_new = [p for p in candidates
+                             if p["phrase"] not in seen]
+                round_dups = max(0, len(candidates) - len(round_new))
+                duplicates_total += round_dups
+                _event("ANTI_CLICHE_DEDUP_COMPLETE", candidates=len(candidates),
+                       duplicates=round_dups, source=src_id)
+                if not round_new:
+                    no_new = True        # «нет новых» — валидный успех
+                    break
+                for p in round_new:
+                    p["source"] = src_id
+                    if revision:
+                        p["source_revision"] = revision
+                    seen.add(p["phrase"])
+                    merged.append(p)
+                new_total += len(round_new)
+                produced += len(round_new)
+                applied_limit = want
+                rounds += 1
+                if len(candidates) < want:
+                    # модель вернула меньше запрошенного → источник исчерпан
+                    break
+            if produced:
+                contributing.append(src_id)
 
         if new_total == 0:
             # Вырожденный/пустой результат НЕ затирает кэш (только ручной PUT).
-            version = int((stored or {}).get("version") or 0)
-            if final_status == "empty":
+            version = current_version
+            status = ("budget_skip" if budget_stop
+                      else "empty" if no_new else "ok")
+            if status == "empty":
                 await anticliche_cache.mark_status(pg, "empty")
                 logger.warning(
                     "[anticliche] no new patterns — cache kept | version=%s",
                     version)
                 trace_step(logger, component="anticliche", step="empty",
                            status="empty", reason="no_new",
-                           extra={"source": source_id, "version": version})
-            _event("ANTI_CLICHE_UPDATE_COMPLETE", status=final_status,
+                           extra={"source": source_hint, "version": version})
+            _event("ANTI_CLICHE_UPDATE_COMPLETE", status=status,
                    initial_count=initial_count, final_count=len(merged),
                    candidates=candidates_total, duplicates=duplicates_total,
                    saved=0, rounds=rounds,
                    duration_ms=int((time.monotonic() - started) * 1000))
-            return {"status": final_status, "count": 0, "version": version,
-                    "final_count": len(merged), "source": source_id}
+            return {**base, "status": status, "count": 0,
+                    "final_count": len(merged)}
 
+        source_label = ",".join(sorted(set(contributing))) or source_hint
         try:
             version = await anticliche_cache.write_patterns(
-                pg, merged, source=source_id, source_url=self._source_url,
+                pg, merged, source=source_label, source_url=self._source_url,
                 fetched_at=datetime.datetime.now(datetime.timezone.utc))
         except Exception as exc:
             logger.warning("[anticliche] write failed | error=%s (cache kept)",
                            type(exc).__name__, exc_info=True)
             trace_step(logger, component="anticliche", step="write",
                        status="error", reason="write_error",
-                       extra={"source": source_id,
+                       extra={"source": source_label,
                               "error": type(exc).__name__})
             _event("ANTI_CLICHE_UPDATE_FAILED", status="write_error",
                    reason="write_error", model=self._model_label())
-            return {"status": "write_error", "count": 0, "version": 0,
-                    "source": source_id}
+            return {**base, "status": "write_error", "count": 0}
         _event("ANTI_CLICHE_SAVE_COMPLETE", saved=new_total,
-               final_count=len(merged), version=version, rounds=rounds)
-        _event("ANTI_CLICHE_UPDATE_COMPLETE", status="ok",
+               final_count=len(merged), version=version, rounds=rounds,
+               sources=len(contributing))
+        # partial_success — честный итог, когда часть источников недоступна,
+        # но опубликованный набор пополнен (§4.3).
+        final_status = "partial_success" if problems else "ok"
+        if problems:
+            await anticliche_cache.mark_status(pg, "partial_success")
+        _event("ANTI_CLICHE_UPDATE_COMPLETE", status=final_status,
                initial_count=initial_count, final_count=len(merged),
                candidates=candidates_total, duplicates=duplicates_total,
                saved=new_total, applied_limit=applied_limit, rounds=rounds,
                capacity=capacity, per_run=per_run,
                duration_ms=int((time.monotonic() - started) * 1000))
-        return {"status": "ok", "count": new_total,
+        return {**base, "status": final_status, "count": new_total,
                 "final_count": len(merged), "version": version,
-                "source": source_id}
+                "published": True, "source": source_label}
 
     def _model_label(self) -> str:
         """F0.3: метка модели для события (R17-safe: не секрет/не фраза)."""

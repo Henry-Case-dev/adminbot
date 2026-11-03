@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from services import anticliche_cache
+from services import anticliche_sources
 from services import anticliche_worker
 from services import roles as roles_srv
 from services.negative_constraints import DYNAMIC_PHRASE_MAX
@@ -112,8 +113,100 @@ async def anticliche_refresh(
     return {
         "status": str(result.get("status") or ""),
         "count": int(result.get("count") or 0),
+        # AC-INV-08: при ошибке возвращается РЕАЛЬНАЯ действующая версия,
+        # а не ложный 0 (нули показываются только когда набора правда нет).
         "version": int(result.get("version") or 0),
+        "rules": int(result.get("rules") or 0),
         "source": str(result.get("source") or ""),
+        "sources": result.get("sources") or {},
+        "paused": result.get("paused") or [],
+        "published": bool(result.get("published")),
+    }
+
+
+# ── AC-DATA: read-only поверхность шести вкладок (UI — отдельный пакет) ─────
+async def _sources_payload(cache) -> dict:
+    """Единая сборка честного состояния источников (без выдуманных нулей)."""
+    states = await anticliche_sources.fetch_states(cache.pg)
+    views = anticliche_sources.build_views(
+        states, freshness_days=anticliche_worker.REFRESH_DAYS)
+    active = await anticliche_cache.read_active_version(cache.pg)
+    summary = anticliche_sources.summarize(views)
+    return {
+        "now": anticliche_sources.utc_now().isoformat(),
+        "freshness_days": anticliche_worker.REFRESH_DAYS,
+        "summary": summary,
+        "denominators": summary["denominators"],
+        "health": anticliche_sources.build_health(
+            views, active_version=active,
+            enabled=anticliche_cache.enabled(),
+            compiler=anticliche_sources.compiler_probe()),
+        "active_version": {
+            "status": active.get("status"),
+            "version": active.get("version"),
+            "rules": active.get("rules"),
+            "published_at": active.get("published_at"),
+            "bank_source": active.get("bank_source"),
+            "reason": active.get("reason"),
+        },
+        "sources": [v for v in views if v.get("counts_as_live")],
+        "local_sources": [v for v in views
+                          if v.get("transport") == "local"],
+        "references": [v for v in views
+                       if v.get("kind") == anticliche_sources.KIND_BIBLIO],
+        "lineage": anticliche_sources.independent_confirmations(),
+    }
+
+
+@anticliche_router.get("/anticliche/sources")
+async def anticliche_sources_list(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Вкладка «Источники»: статусы, свежесть, LKG-версия, четыре вида здоровья.
+
+    Read-only: проверки/правки — отдельные операции (AC-API).
+    """
+    cache = await _require_global_admin(request, user)
+    return await _sources_payload(cache)
+
+
+@anticliche_router.get("/anticliche/sources/{source_id}")
+async def anticliche_source_detail(
+    source_id: str,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Детали одного источника: пути, лицензия, retry policy, свежесть."""
+    cache = await _require_global_admin(request, user)
+    source = anticliche_sources.get_source(source_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="неизвестный источник")
+    states = await anticliche_sources.fetch_states(cache.pg)
+    view = anticliche_sources.source_view(
+        source, states.get(source.source_id),
+        freshness_days=anticliche_worker.REFRESH_DAYS)
+    return view
+
+
+@anticliche_router.get("/anticliche/health")
+async def anticliche_health(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Четыре независимых вида здоровья (§2.2), не один ``ok/error``."""
+    cache = await _require_global_admin(request, user)
+    states = await anticliche_sources.fetch_states(cache.pg)
+    views = anticliche_sources.build_views(
+        states, freshness_days=anticliche_worker.REFRESH_DAYS)
+    active = await anticliche_cache.read_active_version(cache.pg)
+    return {
+        "health": anticliche_sources.build_health(
+            views, active_version=active,
+            enabled=anticliche_cache.enabled(),
+            compiler=anticliche_sources.compiler_probe()),
+        "active_version": active,
+        "summary": anticliche_sources.summarize(views),
     }
 
 

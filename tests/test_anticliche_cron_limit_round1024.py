@@ -65,6 +65,12 @@ class _FakeConn:
             self.store.row["last_status"] = args[0]
         return "UPDATE 1"
 
+    async def fetch(self, sql, *args):
+        # AC-DATA: состояние источников читается списком строк.
+        if "FROM anticliche_source_state" in " ".join(sql.split()):
+            return []
+        return []
+
 
 class _FakePool:
     def __init__(self, conn):
@@ -115,6 +121,14 @@ def _reset_state():
 def _worker(store, *, fetch=None, llm=None, scheduler=None):
     return AntiClicheWorker(llm=llm, pg=_FakePg(store), fetch=fetch,
                             scheduler=scheduler)
+
+
+def _wiki_body(text: str) -> str:
+    """Тело ответа Wikipedia action API (транспорт отдаёт JSON, не прозу).
+
+    AC-DATA §9.2 тест 8: невалидный JSON при HTTP 200 — `parse_error`.
+    """
+    return json.dumps({"query": {"pages": {"1": {"extract": text}}}})
 
 
 # ── резолв лимита ───────────────────────────────────────────────────────────
@@ -252,7 +266,7 @@ class TestFreshness:
         monkeypatch.setattr(aw.worker_budget, "consume",
                             AsyncMock(return_value=True))
         store = self._fresh_store()
-        fetch = AsyncMock(return_value="text")
+        fetch = AsyncMock(return_value=_wiki_body("text"))
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value="{}")
         worker = _worker(store, fetch=fetch, llm=llm)
@@ -270,7 +284,7 @@ class TestFreshness:
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value=json.dumps(
             {"patterns": [{"phrase": "новая уникальная фраза"}]}))
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         result = await worker.refresh(force=True)
         assert result["status"] == "ok"
         assert store.row["version"] == 5
@@ -282,7 +296,7 @@ class TestFreshness:
         store = self._fresh_store()
         llm = AsyncMock()
         llm.generate_worker = AsyncMock(return_value="{}")
-        worker = _worker(store, fetch=AsyncMock(return_value="text"), llm=llm)
+        worker = _worker(store, fetch=AsyncMock(return_value=_wiki_body("text")), llm=llm)
         await worker.tick()
         assert llm.generate_worker.await_count == 0
 
@@ -300,4 +314,5 @@ class TestTickResilience:
         worker = _worker(store, fetch=AsyncMock(side_effect=RuntimeError("x")),
                          llm=AsyncMock())
         await worker.tick()          # не бросает
-        assert store.row["last_status"] == "fetch_error"
+        # AC-DATA: агрегированный честный код стадии источников.
+        assert store.row["last_status"] == "sources_unavailable"
