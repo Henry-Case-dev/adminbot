@@ -637,7 +637,8 @@ async def build_factcheck_context(db, chat_id: int, *,
             chain = await collect_thread_chain(
                 db, int(chat_id), int(target_tg_message_id),
                 int(depth or 0))
-            chain_block = render_reply_chains(chain, trigger_message_id)
+            chain_block = render_reply_chains(
+                chain, trigger_message_id, chat_id=int(chat_id))
         except Exception:
             logger.warning("[factcheck_context] reply chain failed | chat=%s",
                            chat_id, exc_info=True)

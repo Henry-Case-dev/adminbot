@@ -657,7 +657,8 @@ async def resolve_context_claim(
                         author=item.name)
                     break
             if chain_claim is not None and chain:
-                block = render_reply_chains(chain, trigger_tg_message_id)
+                block = render_reply_chains(
+                    chain, trigger_tg_message_id, chat_id=int(chat_id))
                 if block:
                     feed = f"{feed}\n\n{block}".strip()
         except Exception:
