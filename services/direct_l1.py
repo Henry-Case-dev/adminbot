@@ -39,6 +39,35 @@ from services import bot_persona
 # ER-08-RC (P2): границы предложений и детектор высокорисковых claim'ов —
 # СУЩЕСТВУЮЩИЕ примитивы evidence-слоя; своего парсера/справочника не заводим.
 from services.evidence_policy import _SENTENCE_SPLIT_RE, _high_risk
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.3/п.4): клаузы отношений берутся
+# из шва (`canonical_context`) — «второго форматтера» не появляется.
+from services.canonical_context import (
+    SPEECH_RELATION_MISSING_EDGE,
+    SPEECH_RELATION_REPLY,
+    resolve_item_id as _resolve_item_id,
+)
+
+
+def _speech_enabled() -> bool:
+    """Единый рубильник речевой проекции (EVOL v5 §6.2).
+
+    Читается только там, где план/окно ссылаются на сообщение; system-слои и
+    структура плана от него не зависят."""
+    try:
+        from services.canonical_context import speech_projection_enabled
+        return speech_projection_enabled()
+    except Exception:      # pragma: no cover — шов недоступен → сырой вид
+        return False
+
+
+def item_id_of_row(row) -> str:
+    """Строка окна → типизированный ref (``tg:<id>`` / ``msg:<db id>``)."""
+    try:
+        return _resolve_item_id(
+            tg_message_id=row.get("tg_message_id"),
+            message_id=row.get("id"))
+    except Exception:      # pragma: no cover — защита рендера
+        return ""
 
 logger = logging.getLogger(__name__)
 
@@ -1661,7 +1690,8 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
 
 def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
                         with_ids: bool = False, alias_resolver=None,
-                        line_chars: int | None = None) -> list[str]:
+                        line_chars: int | None = None,
+                        projection=None) -> list[str]:
     """§1.5: последние N сообщений окна → компактные строки
     ``имя: текст`` (кап на строку). Никогда не бросает.
 
@@ -1678,12 +1708,33 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
     ASAP 3 Corrective §4.2: ``alias_resolver`` — действующий per-chat
     резолвер; отображаемое имя строки резолвится по известному user_id
     (история/``author_name`` не переписываются). Без резолвера — прежний
-    формат (обратная совместимость тестов/вызовов)."""
+    формат (обратная совместимость тестов/вызовов).
+
+    ``projection`` (EVOL v5 §4.2 п.2/п.3): задана и рубильник ON → те же
+    строки, но адресация метками прогона: ``[M3] Имя (U1): текст ↳ Reply M2``.
+    Метки пред-регистрируются в хронологии окна (`SpeechProjection.reserve`),
+    поэтому Reply-край печатается и когда строка родителя идёт раньше; родитель
+    вне окна назван честно, id не выдумывается. ``None``/OFF → прежний формат
+    байт-в-байт."""
     lines: list[str] = []
+    speech = projection is not None and _speech_enabled()
     try:
         cap = int(line_chars) if line_chars else L1_WINDOW_LINE_CHARS
         rows = [r for r in (window or []) if isinstance(r, dict)]
-        for row in rows[-max(0, int(limit)):]:
+        visible = rows[-max(0, int(limit)):]
+        item_of_row: dict = {}
+        if speech:
+            item_ids = []
+            for row in visible:
+                item_id = item_id_of_row(row)
+                item_of_row[row.get("id")] = item_id
+                if item_id:
+                    item_ids.append(item_id)
+            try:
+                projection.reserve(item_ids)
+            except Exception:      # pragma: no cover — метки не рвут рендер
+                pass
+        for row in visible:
             raw_author = str(row.get("author_name") or "").strip()
             author = raw_author or "?"
             try:
@@ -1701,6 +1752,25 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
             if not body:
                 media = str(row.get("media_type") or "").strip()
                 body = f"[{media}]" if media else "[медиа]"
+            if speech:
+                item_id = item_of_row.get(row.get("id")) or ""
+                label = projection.label_of_item(item_id) if item_id else None
+                person = (projection.person_label(row_uid, author)
+                          if row_uid is not None else author)
+                prefix = f"[{label}] " if (with_ids and label) else ""
+                reply_mark = ""
+                if with_ids:
+                    reply_to = row.get("reply_to_id")
+                    if reply_to not in (None, "", 0, "0"):
+                        parent_item = item_of_row.get(reply_to)
+                        parent_label = (projection.label_of_item(parent_item)
+                                        if parent_item else None)
+                        reply_mark = " " + (
+                            SPEECH_RELATION_REPLY.format(label=parent_label)
+                            if parent_label else SPEECH_RELATION_MISSING_EDGE)
+                lines.append(f"{prefix}{person}: {clip_body(body, cap)}"
+                             f"{reply_mark}")
+                continue
             prefix = ""
             reply_mark = ""
             if with_ids:
@@ -1840,7 +1910,9 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         include_analysis: bool = False,
                         include_delta: bool = False,
                         modes_on: bool = True,
-                        social_hint: str = "") -> str:
+                        social_hint: str = "",
+                        projection=None,
+                        label_of=None) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -1909,17 +1981,48 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
             lines.append(f"если уместно, приём юмора: {strategy}")
         if include_delivery:
             # L1D: форма участия выбрана L1; Writer не меняет адресата/способ.
+            # EVOL v5 §4.2 п.3/п.4: в речевой проекции ссылка на сообщение —
+            # МЕТКА прогона (та же, что в окне), а не внутренний `msg:`/`user:`;
+            # цель вне показанного окна названа честно, id не выдумывается.
+            speech = projection is not None and _speech_enabled()
             delivery = str(getattr(plan, "delivery", "") or "")
             target_id = getattr(plan, "target_message_id", None)
             target_user = getattr(plan, "target_user_id", None)
             if delivery == "reply" and target_id:
-                lines.append(f"форма доставки: Telegram-reply на сообщение "
-                             f"[msg:{target_id}] - текст должен быть прямым "
-                             f"ответом именно на это сообщение")
+                target_label = ""
+                if speech and label_of is not None:
+                    try:
+                        target_label = str(label_of(target_id) or "")
+                    except Exception:      # pragma: no cover — резолвер метки
+                        target_label = ""
+                if speech and target_label:
+                    lines.append(
+                        f"форма доставки: Telegram-reply на сообщение "
+                        f"{target_label} - текст должен быть прямым "
+                        f"ответом именно на это сообщение")
+                elif speech:
+                    lines.append(
+                        "форма доставки: Telegram-reply на сообщение, которого "
+                        "нет в показанном окне (привязка техническая) - текст "
+                        "должен быть прямым ответом на него")
+                else:
+                    lines.append(f"форма доставки: Telegram-reply на сообщение "
+                                 f"[msg:{target_id}] - текст должен быть прямым "
+                                 f"ответом именно на это сообщение")
             elif target_user:
-                lines.append(f"смысловой адресат: [user:{target_user}] - "
-                             f"обратись к нему в тексте; технической "
-                             f"reply-привязки у реплики нет")
+                if speech:
+                    try:
+                        person = projection.person_label(target_user, "")
+                    except Exception:      # pragma: no cover
+                        person = ""
+                    lines.append(
+                        f"смысловой адресат: {person or 'участник'} - "
+                        f"обратись к нему в тексте; технической "
+                        f"reply-привязки у реплики нет")
+                else:
+                    lines.append(f"смысловой адресат: [user:{target_user}] - "
+                                 f"обратись к нему в тексте; технической "
+                                 f"reply-привязки у реплики нет")
             else:
                 lines.append("форма доставки: самостоятельная реплика в чат, "
                              "без reply-привязки")

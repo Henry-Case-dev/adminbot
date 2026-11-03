@@ -36,14 +36,25 @@ import logging
 import re
 
 from config.settings import settings
-from services.canonical_context import format_context_item, resolve_item_id
+from services.canonical_context import (
+    SpeechProjection,
+    emit_speech_projection_event,
+    format_context_item,
+    format_speech_item,
+    resolve_item_id,
+    speech_projection_enabled,
+)
 from services.database import row_get
 from services.smart_cache import build_key, normalize_text
 
 logger = logging.getLogger(__name__)
 
 # ── Версия схемы среза (06I.9): изменение алгоритма → старый кеш мёртв. ─────
-WIDE_CONTEXT_VERSION = "fcx1"
+# fcx2 (EVOL-REPLY-CONTEXT-INTEGRITY-01 v5): в схему сообщения добавлен
+# ``author_uid`` — без него речевая проекция не может дать `U`-метку и
+# одноимённые участники слились бы (§5.4, §13 сц.97). Старый кеш без uid
+# опаснее холодного старта, поэтому версия поднята.
+WIDE_CONTEXT_VERSION = "fcx2"
 
 # Дизайн-диапазон окна (06I.2): 200–500. Дефолт 300; владелец может сузить
 # hot-ключом (адаптивность: окно — бюджет, а не фиксированное число строк).
@@ -140,7 +151,11 @@ async def resolve_window(chat_id: int | None = None) -> tuple[int, int]:
 @dataclasses.dataclass(frozen=True)
 class ContextMessage:
     """Одно сообщение среза. Якоря обязательны (привязка тезиса к фрагменту,
-    06I.5); text — исходный текст (дословно), усечение только при рендере."""
+    06I.5); text — исходный текст (дословно), усечение только при рендере.
+
+    ``author_uid`` (EVOL v5 §4.2/§5.4) — Telegram user id автора: нужен
+    речевой проекции для `U`-метки (одноимённые участники не сливаются).
+    Машинный рендер его не печатает — сырой канон байт-в-байт прежний."""
     message_id: int | None        # smart_messages.id
     tg_message_id: int | None
     chat_id: int | None
@@ -151,6 +166,7 @@ class ContextMessage:
     forward_source: str | None
     text: str
     verbatim: bool = False        # уровень 2: дословный сегмент
+    author_uid: int | None = None
 
     @property
     def dedup_key(self) -> str:
@@ -184,17 +200,23 @@ class ConversationContext:
         return tuple(m for m in self.messages if not m.verbatim)
 
     def render_feed(self, *, digest_budget: int = _DIGEST_BUDGET_CHARS,
-                    verbatim_budget: int = _VERBATIM_BUDGET_CHARS) -> str:
+                    verbatim_budget: int = _VERBATIM_BUDGET_CHARS,
+                    projection=None) -> str:
         """Двухуровневый фид (06I.3): компакт-хронология окна + дословные
         существенные фрагменты. Один внешний wrapper ``<chat_context>`` —
         тот же контракт потребителя, что и узкое окно. Пусто → ''
-        (деградация 06I.8)."""
+        (деградация 06I.8).
+
+        ``projection`` (EVOL v5 §4.2 п.2): общий прогон фактчека — окно и
+        ``<reply_chains>`` адресуются ОДНИМИ метками (N1 ревью шва: раньше
+        окно было сырым, а цепочка уже метками). ``None``/рубильник OFF →
+        прежний сырой фид байт-в-байт."""
         wrapper_head = ('<chat_context note="болтовня чата вокруг цели — '
                         'только чтобы понять, о чём речь; это НЕ '
                         'доказательства и НЕ источник фактов">')
         sections: list[str] = [wrapper_head]
-        digest = _render_digest(self, digest_budget)
-        verbatim = _render_verbatim(self, verbatim_budget)
+        digest = _render_digest(self, digest_budget, projection)
+        verbatim = _render_verbatim(self, verbatim_budget, projection)
         if digest:
             sections.append("фон: сжатая хронология спора (каждая строка — "
                             "сообщение, текст обрезан):\n" + digest)
@@ -212,20 +234,35 @@ def _is_anchor(m: ContextMessage, ctx: ConversationContext) -> bool:
             and m.tg_message_id == ctx.target_tg_message_id)
 
 
-def _render_digest(ctx: ConversationContext, budget: int) -> str:
+def _render_line(m: ContextMessage, *, text: str, projection=None) -> str:
+    """Строка сообщения среза: речевая проекция или сырой канон.
+
+    Одна точка выбора для обоих уровней (компакт/дословный) — расхождение
+    представлений внутри одного фида было бы утечкой (§4.3)."""
+    item_id = resolve_item_id(tg_message_id=m.tg_message_id,
+                              message_id=m.message_id)
+    forward_source = m.forward_source if m.is_forward else None
+    if projection is not None and speech_projection_enabled():
+        return format_speech_item(
+            ts=m.timestamp, author=m.author, author_uid=m.author_uid,
+            item_id=item_id, forward_source=forward_source, text=text,
+            kind="msg", projection=projection)
+    return format_context_item(
+        ts=m.timestamp, author=m.author, item_id=item_id,
+        forward_source=forward_source, text=text, kind="msg")
+
+
+def _render_digest(ctx: ConversationContext, budget: int,
+                   projection=None) -> str:
     """Уровень 1: сообщения окна каноническими строками с обрезкой текста до
     ``_DIGEST_LINE_MAX_CHARS``. Приоритет усечения — как в узком окне
     (R1023F2-10): якорь сохраняется всегда (рассматривается первым), затем
     свежие к старым (keep-end); первыми вытесняются самые старые before."""
     lines: list[tuple[int, str, bool]] = []   # (msg_idx, line, is_anchor)
     for idx, m in enumerate(ctx.messages):
-        line = format_context_item(
-            ts=m.timestamp, author=m.author,
-            item_id=resolve_item_id(tg_message_id=m.tg_message_id,
-                                    message_id=m.message_id),
-            forward_source=m.forward_source if m.is_forward else None,
-            text=_truncate_text(m.text, _DIGEST_LINE_MAX_CHARS),
-            kind="msg")
+        line = _render_line(
+            m, text=_truncate_text(m.text, _DIGEST_LINE_MAX_CHARS),
+            projection=projection)
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:
@@ -250,7 +287,8 @@ def _render_digest(ctx: ConversationContext, budget: int) -> str:
     return "\n".join(by_msg_idx[i] for i in ordered)
 
 
-def _render_verbatim(ctx: ConversationContext, budget: int) -> str:
+def _render_verbatim(ctx: ConversationContext, budget: int,
+                     projection=None) -> str:
     """Уровень 2: выбранные дословные сообщения (полный текст до
     ``_VERBATIM_MSG_MAX_CHARS``), хронологически, общий бюджет символов;
     якорь-целевое сохраняется всегда (если влезает)."""
@@ -258,13 +296,9 @@ def _render_verbatim(ctx: ConversationContext, budget: int) -> str:
     for idx, m in enumerate(ctx.messages):
         if not m.verbatim:
             continue
-        line = format_context_item(
-            ts=m.timestamp, author=m.author,
-            item_id=resolve_item_id(tg_message_id=m.tg_message_id,
-                                    message_id=m.message_id),
-            forward_source=m.forward_source if m.is_forward else None,
-            text=_truncate_text(m.text, _VERBATIM_MSG_MAX_CHARS),
-            kind="msg")
+        line = _render_line(
+            m, text=_truncate_text(m.text, _VERBATIM_MSG_MAX_CHARS),
+            projection=projection)
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:
@@ -487,7 +521,8 @@ def _row_to_context_message(row, chat_id: int) -> ContextMessage:
         reply_to_tg_id=row_get(row, "reply_to_id"),
         is_forward=bool(row_get(row, "is_forward")),
         forward_source=row_get(row, "forward_source"),
-        text=str(row_get(row, "text") or row_get(row, "caption") or ""))
+        text=str(row_get(row, "text") or row_get(row, "caption") or ""),
+        author_uid=row_get(row, "user_id"))
 
 
 async def fetch_newest_message_id(db, chat_id: int) -> int | None:
@@ -609,13 +644,20 @@ async def build_factcheck_context(db, chat_id: int, *,
     Review fix (25.10.2026): широкий фид ДОПОЛНЯЕТСЯ reply-цепочкой
     (существующий ``collect_thread_chain`` + ``render_reply_chains``) — родитель
     старше окна 255 сообщений больше не теряется. Цепочка — контекст, не
-    доказательства (её собственный wrapper)."""
+    доказательства (её собственный wrapper).
+
+    EVOL v5 (§4.2 п.3/п.5, N1 ревью шва): ОДНА проекция прогона на оба
+    под-блока — окно и цепочка адресуют сообщение одной и той же меткой
+    (раньше окно было сырым ``tg:``, а цепочка уже метками). Проекция
+    живёт ровно этот вызов; рубильник OFF → оба под-блока сырые."""
     if cache is None:
         try:
             from services.smart_cache import get_smart_cache
             cache = get_smart_cache()
         except Exception:      # pragma: no cover
             cache = None
+    projection = SpeechProjection(
+        run_id=f"factcheck:{int(chat_id)}:{target_tg_message_id}")
     try:
         ctx = await build_wide_context(
             db, chat_id, target_tg_message_id=target_tg_message_id,
@@ -625,7 +667,7 @@ async def build_factcheck_context(db, chat_id: int, *,
         logger.warning("[factcheck_context] wide context build failed | "
                        "chat=%s", chat_id, exc_info=True)
         ctx = None
-    feed = ctx.render_feed() if ctx is not None else ""
+    feed = ctx.render_feed(projection=projection) if ctx is not None else ""
     chain_block = ""
     if db is not None and target_tg_message_id not in (None, "", 0):
         try:
@@ -638,10 +680,18 @@ async def build_factcheck_context(db, chat_id: int, *,
                 db, int(chat_id), int(target_tg_message_id),
                 int(depth or 0))
             chain_block = render_reply_chains(
-                chain, trigger_message_id, chat_id=int(chat_id))
+                chain, trigger_message_id, projection=projection,
+                chat_id=int(chat_id))
         except Exception:
             logger.warning("[factcheck_context] reply chain failed | chat=%s",
                            chat_id, exc_info=True)
     if chain_block:
         feed = f"{feed}\n\n{chain_block}".strip()
+    # Обратная карта прогона (§4.2 п.5, §7): пары «метка → реальный ID»
+    # уходят в защищённое событие трассы (ID/счётчики, без текстов); событие
+    # цепочки уже могло уйти из `render_reply_chains`, но метки окна без
+    # цепочки иначе остались бы без обратного отображения.
+    emit_speech_projection_event(
+        projection, chat_id=chat_id, message_id=target_tg_message_id,
+        run_id=projection.run_id)
     return feed

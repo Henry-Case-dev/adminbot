@@ -71,7 +71,13 @@ from services import mca_gates
 from services import mca_events as _mca_events
 from services import media_share
 from services import native_media
-from services.canonical_context import format_context_item, resolve_item_id
+from services.canonical_context import (
+    SpeechProjection,
+    format_context_item,
+    format_speech_item,
+    resolve_item_id,
+    speech_projection_enabled,
+)
 from services.media_send import send_media, send_quality_menu
 from services.persistent_throttling import (
     cooldown_refresh,
@@ -1225,7 +1231,8 @@ class ToolContext:
                  correlation_id: str | None = None,
                  native_media=None,
                  resolved_url: str | None = None,
-                 image_request_handled: bool = False) -> None:
+                 image_request_handled: bool = False,
+                 speech=None) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
@@ -1256,6 +1263,12 @@ class ToolContext:
         # direct_chat_service прокидывает image_pre_gate_fired). Читается
         # _generate_image ПЕРВЫМ делом → skipped/already_handled не сгенерирует.
         self.image_request_handled = bool(image_request_handled)
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.2/п.5): ОБЩАЯ проекция
+        # прогона хода (``SpeechProjection`` | None) — результаты инструментов
+        # (история/копание/факты) адресуют сообщения ТЕМИ ЖЕ метками, что
+        # остальной payload. None → сырой канон байт-в-байт (прежнее
+        # поведение, машинные потребители не затронуты).
+        self.speech = speech
         # P0 MEME-IMAGE-ONLY (owner 02.11.2026): «изображение уже доставлено в
         # чат на этом ходу» — отличает УСПЕШНУЮ доставку от простого
         # срабатывания пре-гейта (тот ставится и при отказе провайдера).
@@ -1980,6 +1993,9 @@ class ToolRouter:
         запросу»; флаг flags.dig_enabled=false → строка отключения."""
         if not hot.get("flags.dig_enabled", settings.DIG_ENABLED):
             return "Инструмент dig_into_lore отключен."
+        # EVOL v5 (§4.1 P5): результаты копания — тоже речевая поверхность
+        # (модель пересказывает их в ответе); берём ОБЩУЮ проекцию хода.
+        _speech = getattr(ctx, "speech", None)
         query = self._require_query(arguments, ctx)
         mode = str(arguments.get("mode") or "both").strip().lower()
         if mode not in ("messages", "facts", "both"):
@@ -2129,9 +2145,17 @@ class ToolRouter:
                         message_id=row.get("id"))
                     forward_source = (row.get("forward_source")
                                       if row.get("is_forward") else None)
-                    msg_lines.append(format_context_item(
-                        ts=ts, author=name, item_id=item_id,
-                        forward_source=forward_source, text=text, kind="msg"))
+                    if _speech is not None and speech_projection_enabled():
+                        msg_lines.append(format_speech_item(
+                            ts=ts, author=name,
+                            author_uid=row.get("user_id"), item_id=item_id,
+                            forward_source=forward_source, text=text,
+                            kind="msg", projection=_speech))
+                    else:
+                        msg_lines.append(format_context_item(
+                            ts=ts, author=name, item_id=item_id,
+                            forward_source=forward_source, text=text,
+                            kind="msg"))
                     if len(msg_lines) >= max_snippets:
                         break
             except asyncio.CancelledError:
@@ -2166,11 +2190,21 @@ class ToolRouter:
                     if not text or text in seen_texts:
                         continue
                     seen_texts.add(text)
-                    msg_lines.append(format_context_item(
-                        ts=cand.sent_at,
-                        author=self._resolve_name(
-                            {"user_id": cand.author_id, "author_name": ""}),
-                        item_id=cand.id, text=text, kind="msg"))
+                    if _speech is not None and speech_projection_enabled():
+                        msg_lines.append(format_speech_item(
+                            ts=cand.sent_at,
+                            author=self._resolve_name(
+                                {"user_id": cand.author_id,
+                                 "author_name": ""}),
+                            author_uid=cand.author_id,
+                            item_id=cand.id, text=text, kind="msg",
+                            projection=_speech))
+                    else:
+                        msg_lines.append(format_context_item(
+                            ts=cand.sent_at,
+                            author=self._resolve_name(
+                                {"user_id": cand.author_id, "author_name": ""}),
+                            item_id=cand.id, text=text, kind="msg"))
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -2220,13 +2254,24 @@ class ToolRouter:
                             # выдаются за дословные сообщения и независимые
                             # свидетельства; архивные убеждения помечены.
                             ts_render = ts if ts else None
-                            line = format_context_item(
-                                ts=ts_render,
-                                author=row.get("target_user"),
-                                item_id=resolve_item_id(
-                                    fact_id=row.get("id")),
-                                text=text, kind="fact",
-                                stale=bool(_stale_suffix(ts_render)))
+                            if _speech is not None and \
+                                    speech_projection_enabled():
+                                line = format_speech_item(
+                                    ts=ts_render,
+                                    author=row.get("target_user"),
+                                    item_id=resolve_item_id(
+                                        fact_id=row.get("id")),
+                                    text=text, kind="fact",
+                                    stale=bool(_stale_suffix(ts_render)),
+                                    projection=_speech)
+                            else:
+                                line = format_context_item(
+                                    ts=ts_render,
+                                    author=row.get("target_user"),
+                                    item_id=resolve_item_id(
+                                        fact_id=row.get("id")),
+                                    text=text, kind="fact",
+                                    stale=bool(_stale_suffix(ts_render)))
                             if str(row.get("status") or "") \
                                     == "archived_belief":
                                 line = f"{line} (архивное убеждение)"
@@ -4164,7 +4209,10 @@ class ToolRouter:
                     target_tg_message_id=target_msg,
                     trigger_tg_message_id=ctx.reply_to_message_id,
                     cache=get_smart_cache())
-                feed = fctx.render_feed() if fctx is not None else ""
+                feed = fctx.render_feed(
+                    projection=SpeechProjection(
+                        run_id=f"factcheck-tool:{int(ctx.chat_id or 0)}")) \
+                    if fctx is not None else ""
                 if decision is not None and decision.decision in (
                         fsg.DECISION_NO_CLAIM, fsg.DECISION_AMBIGUOUS):
                     skip_reason = decision.decision
@@ -4224,10 +4272,34 @@ class ToolRouter:
         scope = f"chat:{int(ctx.chat_id)}" if ctx.chat_id else "global"
         run_id = await tf.record_temporal_run(db, run, scope=scope)
         verdict = run.verdict
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.3 п.3/§4.1 P5):
+        # результат инструмента читает МОДЕЛЬ, поэтому в нём не должно быть
+        # служебных идентификаторов прогона (`run_id` — метаданные §9.2):
+        # корреляция уходит в машинный слой (`tf.stage_event(..., pipeline_run_id)`).
+        # Зато содержательные опоры — тезис, даты, автор тезиса и РЕАЛЬНЫЕ
+        # проверенные ссылки — видны структурно, а не только внутри текста
+        # вердикта: модель может на них сослаться, не пересказывая трассу.
+        attribution = dict(getattr(envelope, "attribution", None) or {})
+        claim_author = str(attribution.get("author") or "").strip() \
+            or str(getattr(envelope, "origin_display_name", "") or "").strip()
+        evidence_payload = []
+        for row in (run.evidence_rows or ()):
+            try:
+                item = {
+                    "url": str(row.get("url") or "").strip() or None,
+                    "published_at": row.get("published_at"),
+                    "source_kind": str(row.get("source_kind") or "").strip() or None,
+                    "excerpt": str(row.get("support") or "").strip()[:300] or None,
+                }
+            except AttributeError:
+                continue
+            if item["url"] or item["excerpt"]:
+                evidence_payload.append(item)
         payload = {
             "status": "ready",
             "reason": verdict.reason,
             "claim": envelope.claim_text[:400],
+            "claim_author": claim_author or None,
             "factual_verdict": verdict.factual_verdict,
             "temporal_status": verdict.temporal_status,
             "evaluated_period": verdict.evaluated_period,
@@ -4237,7 +4309,7 @@ class ToolRouter:
             "original_published_at": envelope.original_published_at,
             "repost_received_at": envelope.repost_received_at,
             "uncertainty": verdict.uncertainty,
-            "run_id": run_id,
+            "evidence": evidence_payload,
             "cache_hit": False,
             "verdict": run.verdict_text[:2000],
         }
@@ -4616,7 +4688,8 @@ class ToolRouter:
                                 ctx.chat_id)
                     return _HISTORY_EMPTY
             page = await asyncio.wait_for(
-                self._history_read_page(db, bound, after=None),
+                self._history_read_page(db, bound, after=None,
+                                        projection=getattr(ctx, "speech", None)),
                 timeout=_HISTORY_TOOL_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning("[tools] get_recent_history timeout | chat=%s",
@@ -4651,7 +4724,8 @@ class ToolRouter:
         return normalized
 
     async def _history_read_page(self, db, bound: dict, *,
-                                 after: tuple | None) -> dict:
+                                 after: tuple | None,
+                                 projection=None) -> dict:
         """Одна страница выборки: ASC-чтение вперёд от точки after по окну
         (keyset по timestamp+id через существующий reader wave 1), LIMIT
         _HISTORY_PAGE_ROWS целых сообщений. Тел больше страницы не читается и
@@ -4672,7 +4746,8 @@ class ToolRouter:
                        f"{_row_field(last, 'id')}")
         # P0-HA волна 4 (блокер 2 review-w4): строки страницы выборки несут
         # Telegram user_id (сравнение людей по uid, не по id сообщения).
-        lines = self._history_lines(rows, with_user_id=True)
+        lines = self._history_lines(rows, with_user_id=True,
+                                    projection=projection)
         return {"rows": rows, "lines": lines, "page_from": page_from,
                 "page_to": page_to,
                 "fetched": len(rows)}
@@ -4708,7 +4783,8 @@ class ToolRouter:
             "available": int(fields["available"]),  # захваченный available
             "exp": fields["exp"],
         }
-        page = await self._history_read_page(db, bound, after=after)
+        page = await self._history_read_page(
+            db, bound, after=after, projection=getattr(ctx, "speech", None))
         return self._format_history_page(bound, page,
                                          processed_before=processed_before,
                                          expected_remaining=expected_remaining,
@@ -4812,9 +4888,11 @@ class ToolRouter:
         rows = [dict(row) for row in rows]
         rows = [r for r in rows if int(r.get("timestamp") or 0) >= since]
         rows.sort(key=lambda r: int(r.get("timestamp") or 0))
-        return len(rows), self._history_lines(rows)
+        return len(rows), self._history_lines(
+            rows, projection=getattr(ctx, "speech", None))
 
-    def _history_lines(self, rows, *, with_user_id: bool = False) -> list[str]:
+    def _history_lines(self, rows, *, with_user_id: bool = False,
+                       projection=None) -> list[str]:
         """Строки smart_messages → канонические строки контекста (10.20,
         БЛОК 0, ADR-1020-1 ред. 3, точка 8): «[ts | Имя | ID | Переслано]:
         текст» (R16-каскад имён; пустой текст без медиа пропускается;
@@ -4825,7 +4903,12 @@ class ToolRouter:
         Telegram user_id тем же приёмом, что `_speaker_tag` («Имя [uid]»):
         анализ последних N различает одинаковые имена разных участников и
         сравнивает людей по uid, а не по id сообщения. Путь B (FTS-query) и
-        прочие вызовы — прежний формат (байт-паритет)."""
+        прочие вызовы — прежний формат (байт-паритет).
+
+        EVOL v5 (§4.1 P5 / §4.2 п.2): ``projection`` — общая проекция хода.
+        Тогда uid различается `U`-меткой (а не числом в скобках), а id
+        сообщения — меткой прогона; автор, абсолютная дата, `Переслано:` и
+        медиа-тип остаются. ``None``/рубильник OFF → сырой канон байт-в-байт."""
         lines: list[str] = []
         for row in rows or []:
             try:
@@ -4833,10 +4916,12 @@ class ToolRouter:
             except (TypeError, ValueError):
                 continue
             text = str(item.get("text") or "").strip()
+            media_type = ""
             if not text:
                 media = str(item.get("media_type") or "").strip()
                 if not media or media == "text":
                     continue
+                media_type = media
                 text = f"[медиа: {media}]"
             forward_source = (item.get("forward_source")
                               if item.get("is_forward") else None)
@@ -4845,6 +4930,22 @@ class ToolRouter:
                 uid = item.get("user_id")
                 if uid not in (None, "", 0):
                     author = f"{author} [{uid}]"
+            if projection is not None:
+                if speech_projection_enabled():
+                    item_id = resolve_item_id(
+                        tg_message_id=item.get("tg_message_id"),
+                        message_id=item.get("id"))
+                    if media_type:
+                        from services.media_marker import media_marker
+                        text = media_marker(media_type, item_id,
+                                            projection=projection)
+                    lines.append(format_speech_item(
+                        ts=item.get("timestamp"),
+                        author=self._resolve_name(item),
+                        author_uid=item.get("user_id"),
+                        item_id=item_id, forward_source=forward_source,
+                        text=text, kind="msg", projection=projection))
+                    continue
             lines.append(format_context_item(
                 ts=item.get("timestamp"), author=author,
                 item_id=resolve_item_id(

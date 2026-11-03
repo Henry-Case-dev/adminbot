@@ -175,7 +175,11 @@ class TestExplicitToolMode:
         payload = json.loads(raw)
         assert payload["status"] == "ready"
         assert payload["assessment_mode"] == "historical_truth"
-        stored = await db.get_factcheck_run(payload["run_id"])
+        # EVOL v5 (§9.2): run id не входит в результат инструмента.
+        assert "run_id" not in payload
+        listed = await db.list_factcheck_runs(chat_id=1, limit=1)
+        assert listed
+        stored = await db.get_factcheck_run(listed[0]["run_id"])
         assert stored["requested_mode"] == "historical_truth"
         assert stored["assessment_mode"] == "historical_truth"
         await db.close()

@@ -22,11 +22,11 @@ from services import temporal_factcheck as tf
 
 CLAIM = "Байкал — самое глубокое озеро в мире"
 
-_READY_KEYS = {"status", "reason", "claim", "factual_verdict",
-               "temporal_status", "evaluated_period", "assessment_mode",
-               "as_of", "date_source", "original_published_at",
-               "repost_received_at", "uncertainty", "run_id", "cache_hit",
-               "verdict"}
+_READY_KEYS = {"status", "reason", "claim", "claim_author",
+               "factual_verdict", "temporal_status", "evaluated_period",
+               "assessment_mode", "as_of", "date_source",
+               "original_published_at", "repost_received_at", "uncertainty",
+               "evidence", "cache_hit", "verdict"}
 
 
 # ── Фикстуры/помощники ──────────────────────────────────────────────────────
@@ -152,7 +152,12 @@ class TestV2OnToolRoute:
         assert set(payload) == _READY_KEYS
         assert payload["factual_verdict"] == "supported"
         assert payload["claim"] == CLAIM
-        assert payload["run_id"]
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.5 п.4): служебный
+        # идентификатор прогона — метаданные, в результат инструмента (его
+        # читает модель) он не входит; корреляция остаётся в машинной трассе.
+        assert "run_id" not in payload
+        runs = await db.list_factcheck_runs(chat_id=7, limit=1)
+        assert runs and runs[0]["run_id"]
 
     @pytest.mark.asyncio
     async def test_no_claim_skips_paid_search(self, monkeypatch, db, v2_on):

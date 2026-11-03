@@ -572,6 +572,10 @@ class PromptPlan:
     speech: Block | None = None
     user_parts: tuple[str, ...] = ()
     gates: GateState | None = None
+    #: EVOL v5 §4.5: представление контекста, фактически ушедшего в user-часть
+    #: (``internal`` | ``writer``), и run-манифест проекции — аддитивно.
+    context_representation: str = ""
+    speech_projection: Mapping = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -632,6 +636,17 @@ class PromptManifest:
     chat_id: int = 0
     run_id: str | None = None
     tokens_total: int = 0
+    #: EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.5/§9.4): КАКОЕ представление
+    #: контекста реально ушло в user-часть этого хода — ``internal`` (сырой
+    #: машинный канон с `tg:/msg:/fact:`) или ``writer`` (речевая проекция с
+    #: метками). Пусто — вызывающий не сообщил (речевые слои system его не
+    #: определяют). Манифест пишет ФАКТ, а не намерение (§9.3 п.7).
+    context_representation: str = ""
+    #: Run-манифест речевой проекции (``SpeechProjection.manifest()``): пары
+    #: «метка → реальный ID» и счётчики типов, без текстов (§7 «логи — ID, коды»).
+    #: In-memory (owner-debug); в события уходят только типы/счётчики —
+    #: `manifest_for_events`.
+    speech_projection: Mapping = field(default_factory=dict)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -985,6 +1000,8 @@ async def compose_speech_system(*, chat_id: int, writer: str,
                                 plan_skip: str = "",
                                 humor_skip: str = "",
                                 include_speech_base: bool | None = None,
+                                context_representation: str = "",
+                                speech_projection=None,
                                 ) -> tuple[str, PromptManifest | None]:
     """ЕДИНАЯ точка сборки речевого system для любого публичного Writer'а.
 
@@ -1011,6 +1028,11 @@ async def compose_speech_system(*, chat_id: int, writer: str,
     Никогда не бросает: сбой резолва слоя → слой пропущен по своей причине
     (резолверы fail-open), сбой самой сборки → возвращается база канала без
     слоёв владельца (``manifest=None``) с записью в лог.
+
+    ``context_representation``/``speech_projection`` (EVOL v5 §4.5): вызывающий
+    сообщает, какое представление контекста РЕАЛЬНО ушло в user-часть
+    (``internal``|``writer``) и run-манифест проекции. Аддитивно: пишется в
+    манифест рядом с ``user_parts``; на system-слои и размер промпта не влияет.
     """
     try:
         snapshot = await turn_snapshot(chat_id, run_id)
@@ -1112,7 +1134,9 @@ async def compose_speech_system(*, chat_id: int, writer: str,
                 "speech_understanding", speech_block, owner="l1",
                 source="code", skip_reason=speech_skip),
             user_parts=tuple(str(p) for p in (user_parts or ())),
-            gates=_gates_now)
+            gates=_gates_now,
+            context_representation=str(context_representation or ""),
+            speech_projection=dict(speech_projection or {}))
         manifest = compose_prompt(plan)
         return manifest.system, manifest
     except Exception:
@@ -2037,6 +2061,8 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         chat_id=chat_id,
         run_id=(str(plan.run_id) if plan.run_id else None),
         tokens_total=estimate_tokens(system),
+        context_representation=str(plan.context_representation or ""),
+        speech_projection=dict(plan.speech_projection or {}),
     )
     _remember(manifest)
     return manifest
@@ -2196,6 +2222,8 @@ def _fallback_manifest(plan: PromptPlan) -> PromptManifest:
         chat_id=int(plan.chat_id or 0),
         run_id=(str(plan.run_id) if plan.run_id else None),
         tokens_total=estimate_tokens(base),
+        context_representation=str(plan.context_representation or ""),
+        speech_projection=dict(plan.speech_projection or {}),
     )
 
 
@@ -2484,6 +2512,16 @@ def render_effective_layers(manifest: PromptManifest) -> dict:
                                         and grouped),
         "layers": layers,
         "tokens_total": int(manifest.tokens_total or 0),
+        "context_representation": str(manifest.context_representation or ""),
+        "speech_manifest": {
+            "representation": (manifest.speech_projection or {}).get(
+                "representation", ""),
+            "counts": dict((manifest.speech_projection or {}).get("counts")
+                           or {}),
+            "suppressed_field_types": list(
+                (manifest.speech_projection or {}).get(
+                    "suppressed_field_types") or ()),
+        } if manifest.speech_projection else {},
         "versions": dict(manifest.versions or {}),
         "flags": dict(manifest.flags or {}),
         "conflicts": [dataclasses.asdict(c) for c in manifest.conflicts],
@@ -2504,7 +2542,22 @@ def _diff_vs_previous(manifest: PromptManifest) -> dict | None:
 
 
 def manifest_for_events(manifest: PromptManifest) -> dict:
-    """R17-safe представление манифеста (только трасса/версии, §2 правило 4)."""
+    """R17-safe представление манифеста (только трасса/версии, §2 правило 4).
+
+    EVOL v5 §4.5: + фактическое представление контекста и СВОДКА проекции
+    (представление, счётчики, типы вытесненных полей) — без пар «метка →
+    ID» и без текстов: пары живут в защищённой трассе `speech_projection`
+    (§9.4), событие манифеста описывает только состав.
+    """
+    speech = dict(manifest.speech_projection or {})
+    speech_summary = {}
+    if speech:
+        speech_summary = {
+            "representation": speech.get("representation", ""),
+            "counts": dict(speech.get("counts") or {}),
+            "suppressed_field_types": list(
+                speech.get("suppressed_field_types") or ()),
+        }
     return {
         "manifest_id": manifest.manifest_id,
         "profile": manifest.profile,
@@ -2512,6 +2565,8 @@ def manifest_for_events(manifest: PromptManifest) -> dict:
         "chat_id": int(manifest.chat_id or 0),
         "run_id": manifest.run_id,
         "tokens_total": int(manifest.tokens_total or 0),
+        "context_representation": str(manifest.context_representation or ""),
+        "speech_manifest": speech_summary,
         "versions": dict(manifest.versions or {}),
         "flags": dict(manifest.flags or {}),
         "layers": [{

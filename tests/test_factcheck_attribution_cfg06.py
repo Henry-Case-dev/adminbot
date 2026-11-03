@@ -43,11 +43,15 @@ CLAIM_FOUND = "Вася сказал, что в Килякете выпало 12
 CLAIM_MISS = "Вася сказал, что в Килякете выпало 500 мм снега за ночь"
 CLAIM_PUBLIC = "Путин сказал, что в Килякете выпало 120 мм осадков за сутки"
 
-_READY_KEYS = {"status", "reason", "claim", "factual_verdict",
-               "temporal_status", "evaluated_period", "assessment_mode",
-               "as_of", "date_source", "original_published_at",
-               "repost_received_at", "uncertainty", "run_id", "cache_hit",
-               "verdict"}
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.5 п.4): служебный run/trace id
+# в результат инструмента (его читает модель) не входит — корреляция остаётся
+# в машинной трассе; содержательные опоры (автор тезиса, проверенные ссылки)
+# теперь видны структурно.
+_READY_KEYS = {"status", "reason", "claim", "claim_author",
+               "factual_verdict", "temporal_status", "evaluated_period",
+               "assessment_mode", "as_of", "date_source",
+               "original_published_at", "repost_received_at", "uncertainty",
+               "evidence", "cache_hit", "verdict"}
 
 
 # ── Фикстуры/помощники ──────────────────────────────────────────────────────

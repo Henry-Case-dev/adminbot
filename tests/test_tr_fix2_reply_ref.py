@@ -206,7 +206,12 @@ class TestReplyFactcheckClaim:
             payload = json.loads(raw)
             assert payload["status"] == "ready", payload
             assert payload["claim"] == CLAIM, payload
-            stored = await db.get_factcheck_run(payload["run_id"])
+            # EVOL v5 (§9.2/§9.5 п.4): run id — в машинном слое, не в
+            # результате инструмента.
+            assert "run_id" not in payload, payload
+            listed = await db.list_factcheck_runs(chat_id=CHAT_ID, limit=1)
+            assert listed, payload
+            stored = await db.get_factcheck_run(listed[0]["run_id"])
             assert stored["target_tg_message_id"] == PHOTO_ID, stored
             assert stored["claim_text"] == CLAIM, stored
         finally:

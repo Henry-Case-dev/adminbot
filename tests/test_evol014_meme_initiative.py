@@ -812,7 +812,15 @@ def test_meme_phase_runs_real_pipeline_and_journals_stages(
     assert summary_kwargs["module"] == "initiative"
     summary_body = json.loads(summary_messages[1]["content"])
     assert "target_chars" not in summary_body          # потолок снят с выжимки
-    assert [item["id"] for item in summary_body["messages"]] == list(range(6))
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.1 P7/§5.4: внутренний номер
+    # сообщения не едет в выжимку мема (её текст становится словами мема и
+    # картинкой) — в поле `id` стоит метка прогона, различимость сообщений
+    # сохранена порядком и меткой. Строка с id=0 адресации не имеет (R16) —
+    # метка пустая, id не выдумывается.
+    ids = [item["id"] for item in summary_body["messages"]]
+    assert [value for value in ids if value] == [
+        f"M{index}" for index in range(1, 6)]
+    assert all(not str(value).isdigit() for value in ids)
     joke_messages, joke_kwargs = llm.calls[1]
     assert joke_kwargs["step"] == "meme_joke"
     assert joke_kwargs["module"] == "initiative"

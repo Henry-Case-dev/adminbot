@@ -393,8 +393,12 @@ class TestFactCheckTool:
         assert payload["factual_verdict"] in (
             "supported", "refuted", "mixed", "insufficient_evidence")
         assert payload["cache_hit"] is False
-        assert payload["run_id"]
-        stored = await db.get_factcheck_run(payload["run_id"])
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.5 п.4): run id — метаданные,
+        # в результат инструмента не входит; ищем прогон в машинном слое БД.
+        assert "run_id" not in payload
+        listed = await db.list_factcheck_runs(chat_id=1, limit=1)
+        assert listed
+        stored = await db.get_factcheck_run(listed[0]["run_id"])
         assert stored["source_type"] == "free_text"
         assert stored["target_tg_message_id"] is None
         await db.close()

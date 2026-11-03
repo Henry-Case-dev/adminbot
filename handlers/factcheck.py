@@ -368,14 +368,33 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     try:
         rows = await _db.get_messages_around(
             chat_id, target_tg_message_id, b, a)
-        reply_chains = await _build_reply_chains(chat_id, target_tg_message_id)
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.3, N1): у этого прогона
+        # ОДНА проекция — узкое окно и под-блок цепочки адресуют сообщение
+        # одной и той же меткой (широкий фид строит свою в
+        # `factcheck_context.build_factcheck_context`). Рубильник OFF →
+        # прежний сырой канон байт-в-байт.
+        from services.canonical_context import (
+            SpeechProjection,
+            emit_speech_projection_event,
+        )
+        projection = SpeechProjection(
+            run_id=f"factcheck:{int(chat_id)}:{target_tg_message_id}")
+        reply_chains = await _build_reply_chains(
+            chat_id, target_tg_message_id, projection=projection)
         # Rework R1 (H-2): прод-шов renderer'а D9 (гейт внутри — OFF →
         # байт-в-байт прежний контекст).
-        return await build_chat_context(
+        block = await build_chat_context(
             _db, rows, chat_id=chat_id,
             trigger_message_id=trigger_message_id,
             reply_chains=reply_chains,
-            anchor_message_id=target_tg_message_id)
+            anchor_message_id=target_tg_message_id,
+            projection=projection)
+        # Обратная карта прогона (§4.2 п.5, §7 «логи — ID, коды»): пары
+        # «метка → реальный ID» остаются в защищённой трассе, без текстов.
+        emit_speech_projection_event(
+            projection, chat_id=chat_id, message_id=target_tg_message_id,
+            run_id=projection.run_id)
+        return block
     except Exception:
         logger.warning("[factcheck] chat context build failed | chat=%s",
                        chat_id, exc_info=True)
@@ -400,12 +419,15 @@ def _clamp_window(before, after) -> tuple[int, int]:
     return b, a
 
 
-async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
+async def _build_reply_chains(chat_id: int, target_tg_message_id,
+                              projection=None) -> str:
     """Цепочка реплаев для якоря общим util (F2). Fail-open → '' (нет цепочки/
     ошибка БД → под-блок опускается, прежнее поведение).
 
     R1023F2-02: глубина резолвится per-chat (``get_chat_param``) — тот же
-    контракт, что в ``direct_chat_service`` (паритет с direct, ADR-1023-2)."""
+    контракт, что в ``direct_chat_service`` (паритет с direct, ADR-1023-2).
+    ``projection`` (EVOL v5 §4.2 п.3): метки прогона вместо `tg:`/числового
+    uid; ``None``/рубильник OFF → прежний сырой вид."""
     if _db is None or target_tg_message_id in (None, "", 0):
         return ""
     from services.thread_chain import (          # локальный импорт — без циклов
@@ -419,7 +441,8 @@ async def _build_reply_chains(chat_id: int, target_tg_message_id) -> str:
                     settings.CHAT_THREAD_MAX_DEPTH))
         chain = await collect_thread_chain(
             _db, chat_id, int(target_tg_message_id), int(depth or 0))
-        return render_reply_chains(chain, chat_id=chat_id)
+        return render_reply_chains(chain, projection=projection,
+                                   chat_id=chat_id)
     except Exception:
         logger.warning("[factcheck] reply chain build failed | chat=%s",
                        chat_id, exc_info=True)

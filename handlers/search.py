@@ -12,6 +12,7 @@ Reply-таргеты (контракт R33-4): ВСЕ ответы (выжимк
 import logging
 import random
 import re
+import time
 
 from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -20,6 +21,10 @@ from config.settings import settings
 from services import command_prefix
 from services import command_registry
 from services import hot_config as hot
+from services.canonical_context import (
+    SpeechProjection,
+    emit_speech_projection_event,
+)
 from services.llm_client import LLMBadResponseError, LLMError
 from services.persistent_throttling import (
     cooldown_refresh,
@@ -90,8 +95,21 @@ async def _fetch_chat_context(chat_id: int, limit: int) -> str:
         # ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): поиск идёт по ВСЕЙ
         # публикации — фото с подписью тоже получает содержимое картинки
         # (OCR/описание или честный статус), иначе ответ строится по подписи.
-        return await build_chat_context(_db, rows, chat_id=chat_id,
-                                        media_for_captioned=True)
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.3 п.3 «ответы по инструментам
+        # и поиску»): окно поиска — речевая поверхность, поэтому строки идут
+        # через ОБЩУЮ проекцию этого запроса (метки/автор/«Переслано:» вместо
+        # `tg:`/uid); рубильник OFF → прежний сырой канон байт-в-байт.
+        projection = SpeechProjection(
+            run_id=f"search:{int(chat_id)}:{int(time.time())}")
+        block = await build_chat_context(_db, rows, chat_id=chat_id,
+                                         media_for_captioned=True,
+                                         projection=projection)
+        # Обратная карта прогона (§4.2 п.5): у поиска нет run-манифеста
+        # композера, поэтому единственный носитель пар «метка → ID» —
+        # защищённое событие трассы (только ID/счётчики, без текстов).
+        emit_speech_projection_event(projection, chat_id=chat_id,
+                                     run_id=projection.run_id)
+        return block
     except Exception:
         logger.warning("[smartsearch] chat context fetch failed | chat=%s",
                        chat_id, exc_info=True)

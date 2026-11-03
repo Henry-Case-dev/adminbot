@@ -30,9 +30,13 @@ import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from services.canonical_context import (
+    SpeechProjection,
+    emit_speech_projection_event,
     format_context_item,
+    format_speech_item,
     resolve_item_id,
     resolve_timezone,
+    speech_projection_enabled,
     split_context_header,
 )
 from services import mca_gates
@@ -111,8 +115,18 @@ class LoreCompilerService:
 
         graph = await self.db.lore_graph_slice(
             chat_id, clean, depth=2, max_facts=_LORE_GRAPH_MAX_FACTS)
-        graph_lines = self._trim(self._graph_facts(graph),
+        # EVOL v5 (§4.1 P4/§4.2 п.2): материал Летописца — речевая поверхность
+        # (рассказ публикуется в чат), поэтому строки фактов/диалогов идут
+        # через ОБЩУЮ проекцию прогона: метки вместо `fact:`/`tg:`/uid, но
+        # дата, автор, «Переслано:» и связи остаются.
+        speech = SpeechProjection(run_id=f"lore:{int(chat_id)}:{topic_key}")
+        graph_lines = self._trim(self._graph_facts(graph, speech),
                                  _LORE_GRAPH_MAX_SYMBOLS)
+        # Обратная карта прогона (§4.2 п.5): рассказ воспроизводится в чате,
+        # поэтому пары «метка → fact:/tg: → uid» остаются в защищённой трассе
+        # (ID/счётчики, без текстов и без приватных выдержек).
+        emit_speech_projection_event(speech, chat_id=int(chat_id),
+                                     run_id=speech.run_id)
 
         dense = _empty_dense()
         stats: dict = {}
@@ -151,7 +165,7 @@ class LoreCompilerService:
         # (макс. ts усечённых dialog-строк), а не по глобальным агрегатам
         # (иначе сообщения, не попавшие в окна/кап, выпадали из UPD навсегда).
         dialog_pairs = self._trim_pairs(
-            self._dialog_pairs(dense.get("dialogs") or []),
+            self._dialog_pairs(dense.get("dialogs") or [], speech),
             _LORE_DIALOG_MAX_SYMBOLS)
         dialog_lines = [line for line, _ in dialog_pairs]
         included_last_ts = max((ts for _, ts in dialog_pairs), default=0)
@@ -262,14 +276,18 @@ class LoreCompilerService:
 
     # ── рендер Шага А/Шага Б ──────────────────────────────────────────────
 
-    def _graph_facts(self, graph: dict) -> list[str]:
+    def _graph_facts(self, graph: dict, projection=None) -> list[str]:
         """Факты/Убеждения (по ``edge.fact_id``) + рёбра без факта — в
         каноническом виде ``format_context_item(kind="fact")``. Факты уже
         отсортированы БД ASC; рёбра-без-факта идут после, порядок по
         (source, target, relation) из БД — детерминизм (R16: пустые поля
-        опускаются, автор/ID не выдумываются)."""
+        опускаются, автор/ID не выдумываются).
+
+        ``projection`` — речевая проекция прогона (метка вместо `fact:`);
+        None/рубильник OFF → сырой канон байт-в-байт."""
         lines: list[str] = []
         covered: set = set()
+        speech = projection is not None and speech_projection_enabled()
         for fact in graph.get("facts") or []:
             text = str(fact.get("fact") or "").strip()
             if not text:
@@ -277,10 +295,17 @@ class LoreCompilerService:
             fact_id = int(fact.get("id") or 0)
             covered.add(fact_id)
             ts = int(fact.get("rag_ts") or 0) or None
-            lines.append(format_context_item(
-                ts=ts, author=fact.get("target_user"),
-                item_id=resolve_item_id(fact_id=fact_id), text=text,
-                kind="fact", stale=bool(_stale_suffix(ts))))
+            if speech:
+                lines.append(format_speech_item(
+                    ts=ts, author=fact.get("target_user"),
+                    item_id=resolve_item_id(fact_id=fact_id), text=text,
+                    kind="fact", stale=bool(_stale_suffix(ts)),
+                    projection=projection))
+            else:
+                lines.append(format_context_item(
+                    ts=ts, author=fact.get("target_user"),
+                    item_id=resolve_item_id(fact_id=fact_id), text=text,
+                    kind="fact", stale=bool(_stale_suffix(ts))))
         for edge in graph.get("edges") or []:
             if edge.get("fact_id") and int(edge["fact_id"]) in covered:
                 continue
@@ -295,7 +320,7 @@ class LoreCompilerService:
                 kind="fact"))
         return lines
 
-    def _dialog_pairs(self, dialogs: list) -> list[tuple[str, int]]:
+    def _dialog_pairs(self, dialogs: list, projection=None) -> list[tuple[str, int]]:
         """Окна диалогов (строго ASC от БД) → ``(каноническая строка, ts)``;
         пустой текст без медиа пропускается, медиа-событие — маркером
         (прецедент `tool_router._history_lines`). S10.20-5: ts нужен, чтобы
@@ -312,12 +337,27 @@ class LoreCompilerService:
                     text = f"[медиа: {media}]"
                 forward_source = (item.get("forward_source")
                                   if item.get("is_forward") else None)
-                line = format_context_item(
-                    ts=item.get("timestamp"), author=self._resolve_name(item),
-                    item_id=resolve_item_id(
-                        tg_message_id=item.get("tg_message_id"),
-                        message_id=item.get("id")),
-                    forward_source=forward_source, text=text, kind="msg")
+                item_id = resolve_item_id(
+                    tg_message_id=item.get("tg_message_id"),
+                    message_id=item.get("id"))
+                if projection is not None and speech_projection_enabled():
+                    if str(item.get("media_type") or "").strip() and \
+                            text.startswith("[медиа:"):
+                        from services.media_marker import media_marker
+                        text = media_marker(item.get("media_type"), item_id,
+                                            projection=projection)
+                    line = format_speech_item(
+                        ts=item.get("timestamp"),
+                        author=self._resolve_name(item),
+                        author_uid=item.get("user_id"), item_id=item_id,
+                        forward_source=forward_source, text=text, kind="msg",
+                        projection=projection)
+                else:
+                    line = format_context_item(
+                        ts=item.get("timestamp"),
+                        author=self._resolve_name(item),
+                        item_id=item_id,
+                        forward_source=forward_source, text=text, kind="msg")
                 try:
                     ts = int(item.get("timestamp") or 0)
                 except (TypeError, ValueError):
@@ -325,9 +365,9 @@ class LoreCompilerService:
                 pairs.append((line, ts))
         return pairs
 
-    def _dialog_lines(self, dialogs: list) -> list[str]:
+    def _dialog_lines(self, dialogs: list, projection=None) -> list[str]:
         """Строки окон (обёртка над ``_dialog_pairs`` — обратная совместимость)."""
-        return [line for line, _ in self._dialog_pairs(dialogs)]
+        return [line for line, _ in self._dialog_pairs(dialogs, projection)]
 
     # ── хелперы ───────────────────────────────────────────────────────────
 

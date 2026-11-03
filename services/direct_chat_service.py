@@ -138,14 +138,19 @@ from services.llm_client import (
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
 from services.canonical_context import (
+    SPEECH_LABEL_RE,
+    SpeechProjection,
     format_chat_time,
     format_context_item,
+    format_speech_item,
     resolve_item_id,
+    speech_projection_enabled,
+    split_context_header,
     strip_context_header,
 )
 from services.database import row_get
 from services.media_marker import (
-    media_context_enabled, media_marker, message_media_type)
+    MEDIA_MARKER_RE, media_context_enabled, media_marker, message_media_type)
 from services import native_media as native_media_module
 from services.payload_builder import build_messages
 from services.persistent_throttling import (
@@ -1062,6 +1067,29 @@ def _speaker_tag(name: str, uid, *, is_bot: bool = False,
     ``thread_chain.speaker_tag`` (F2). «{имя}{суффикс} [{uid}]» (бот —
     «{имя} [bot]»). uid None/0 → без скобки."""
     return thread_chain.speaker_tag(name, uid, is_bot=is_bot, suffix=suffix)
+
+
+def _context_line_dedup_key(line) -> str:
+    """Ключ дедупа строки контекста (R2 контракта §7.1) — СТРУКТУРНЫЙ.
+
+    Берётся типизированный ref из ЗАГОЛОВКА канонической строки
+    (``tg:123``/``msg:9``) либо метка речевой проекции (``M3``/``F2``) —
+    читаем адресную разметку собственного формата, а не угадываем по тексту
+    реплики (слово «M1» в чужих словах ключом не станет). Метка биективна
+    ref'у в рамках прогона (`SpeechProjection`), поэтому дедуп middle↔tail
+    одинаково точен в сыром и речевом виде. Пусто → строку не дедуплицируем.
+    """
+    header, _body = split_context_header(line)
+    if not header:
+        return ""
+    tokens = header.strip().lstrip("[").rstrip("]: ").split(" | ")
+    for token in tokens:
+        token = token.strip()
+        if token.startswith("tg:") or token.startswith("msg:"):
+            return token
+        if SPEECH_LABEL_RE.match(token):
+            return token
+    return ""
 
 
 def _collision_suffix(uid: int, username: str | None = None) -> str:
@@ -3338,6 +3366,12 @@ class DirectChatService:
         # присваивается ниже, в основном пути).
         _image_delivery: dict = {}
         tool_ctx = None
+        # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.3/п.5): ОДНА проекция
+        # прогона на весь payload хода (окно/ветка/тред/RAG/эпизоды/инструменты/
+        # манифест). Метки выдаются по первому появлению, обратная карта живёт
+        # этот ход и уходит в манифест прогона. Рубильник OFF/`None` → сырой
+        # машинный канон байт-в-байт (шов сам решает по флагу).
+        _speech_projection = SpeechProjection(run_id=str(correlation_id))
         try:
             # MCA-07 (T-3852): исключённые бюджетом блоки → EvidenceBundle.
             _excluded_blocks: list = []
@@ -3392,7 +3426,8 @@ class DirectChatService:
                 out_excluded=_excluded_blocks, out_fallback=_fallback_meta,
                 style_directives=style_directives,
                 extra_media_markers=_extra_media_markers,
-                history_sample=history_sample)
+                history_sample=history_sample,
+                projection=_speech_projection)
             # Медиа-свидетельство актуальной ревизии — отдельным блоком payload
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
@@ -4215,6 +4250,9 @@ class DirectChatService:
                                    # даже если модель его вызовет.
                                    image_request_handled=
                                    image_pre_gate_fired,
+                                   # EVOL v5: общая проекция прогона для
+                                   # речевых результатов инструментов.
+                                   speech=_speech_projection,
                                    # LORE-VERBATIM-GATE (P0-DELTA micro-fix):
                                    # «верни story ДОСЛОВНО» — только при
                                    # story-интенции (тот же гейт, что у
@@ -4856,6 +4894,7 @@ class DirectChatService:
                         time_line=time_line, evidence=_evidence,
                         lessons_block=_lessons_block,
                         speech_block=_speech_block,
+                        speech=_speech_projection,
                         fallback_budget_tokens=(
                             _fallback_meta.get("l2_fallback_budget")),
                         max_tokens=(longform_max_tokens
@@ -6919,7 +6958,9 @@ class DirectChatService:
                                      speech_block: str = "",
                                      speech_skip: str = "",
                                      context_text: str = "",
-                                     user_parts: tuple[str, ...] = ()
+                                     user_parts: tuple[str, ...] = (),
+                                     context_representation: str = "",
+                                     speech_projection=None,
                                      ):
         """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
 
@@ -6942,7 +6983,9 @@ class DirectChatService:
             style_block=style_block, style_skip=style_skip,
             lessons_block=lessons_block, lessons_skip=lessons_skip,
             speech_block=speech_block, speech_skip=speech_skip,
-            context_text=context_text, user_parts=user_parts)
+            context_text=context_text, user_parts=user_parts,
+            context_representation=context_representation,
+            speech_projection=speech_projection)
 
     async def _l2_write_answer(self, chat_id: int, query: str, *,
                                temperature, correlation_id=None,
@@ -6956,7 +6999,8 @@ class DirectChatService:
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
                                max_tokens=None, diag_out: dict | None = None,
-                               history_assembly_block: str = ""
+                               history_assembly_block: str = "",
+                               speech=None
                                ) -> tuple[str, str] | None:
         """ASAP 7 (F1, §1.2) + v6 D04 (§18C.4): L2 WRITER —
         Вербализатор-канал на ВСЕХ Direct-путях. Тот же prompt-канал/
@@ -6983,6 +7027,10 @@ class DirectChatService:
         (default "" → байт-паритет всех прежних потребителей). Передаётся
         швом хода ТОЛЬКО при активной выборке; аппендится в ФИНАЛЬНЫЙ
         system после scrub целиком.
+
+        ``speech`` (EVOL v5 §4.5): ОБЩАЯ проекция прогона — уходит в манифест
+        вместе с фактическим ``context_representation``; None (инициативный
+        путь без проекции) → ``internal`` без пар «метка → ID».
         """
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
@@ -7064,7 +7112,17 @@ class DirectChatService:
                 context_text=str(query or ""),
                 # user_parts манифеста = ровно то, что уйдёт в user (включая
                 # закрывающее требование последним блоком).
-                user_parts=tuple(parts + ([_closing] if _closing else ())))
+                user_parts=tuple(parts + ([_closing] if _closing else ())),
+                # EVOL v5 §4.5: ФАКТ представления контекста этого хода —
+                # речевая проекция (метки) на всех блоках выше либо сырой
+                # машинный канон (рубильник OFF / проекции нет).
+                context_representation=(
+                    "writer" if (speech is not None
+                                 and speech_projection_enabled())
+                    else "internal"),
+                speech_projection=(
+                    speech.manifest() if speech is not None else {}),
+            )
             _pcomp.emit_layer_events_once(_c_manifest)
         else:
             verbalizer_system = (
@@ -7694,7 +7752,8 @@ class DirectChatService:
                                   out_fallback: dict | None = None,
                                   style_directives: str = "",
                                   extra_media_markers: tuple = (),
-                                  history_sample: dict | None = None
+                                  history_sample: dict | None = None,
+                                  projection=None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -7738,7 +7797,8 @@ class DirectChatService:
         else:
             chain = await self._collect_thread_chain(chat_id, message)
         if self._is_reply_trigger(message) and len(chain) >= 2:
-            branch = self._render_branch(chain, suffix_map)
+            branch = self._render_branch(chain, suffix_map,
+                                         projection=projection)
             if branch:
                 blocks.append(("branch", branch))
         # F2: global считается раньше RAG (тело фона — для словарного дедупа).
@@ -7746,21 +7806,23 @@ class DirectChatService:
         if composer_mode:
             global_parts = await self._build_global_context_parts(
                 chat_id, window, roster, suffix_map,
-                trigger_message_id=trigger_message_id)
+                trigger_message_id=trigger_message_id,
+                projection=projection)
             global_ctx = "\n".join(
                 global_parts["head_lines"] + global_parts["tail_lines"])
         else:
             global_ctx = await self._build_global_context(
                 chat_id, window, roster, suffix_map,
                 trigger_message_id=trigger_message_id,
-                history_sample=history_sample)
+                history_sample=history_sample, projection=projection)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
         # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
         # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
         # граф-активацию/golden/self-echo) — дополнение вне диапазона,
         # помечается баннером (источник не выключается, метки остаются).
         rag_block, nostalgia_hint = await self._build_rag_block(
-            chat_id, message, global_ctx, history_sample=history_sample)
+            chat_id, message, global_ctx, history_sample=history_sample,
+            projection=projection)
         if rag_block:
             blocks.append(("rag", rag_block))
         if composer_mode:
@@ -7776,16 +7838,30 @@ class DirectChatService:
             blocks.append(("global", global_ctx))
         if composer_mode:
             thread = self._render_thread(chain, suffix_map, None,
-                                         trigger_message_id, truncate=False)
+                                         trigger_message_id, truncate=False,
+                                         projection=projection)
         else:
             thread = self._render_thread(chain, suffix_map,
-                                         await self._thread_limit(chat_id))
+                                         await self._thread_limit(chat_id),
+                                         projection=projection)
         if thread:
             blocks.append(("thread", thread))
         # Раунд 8 (C5/T-796): блок адресата — канон + uid запросившего.
-        target_block = (f"<Target_User>{escape_xml_text(target_name)}"
-                        f"{_speaker_tag('', target_user_id)}"
-                        f"</Target_User>")
+        # EVOL v5 §4.2 п.2/§5.4: адресат остаётся, но в речевой проекции его
+        # номер заменён `U`-меткой (та же, что в окне) — модель знает, К КОМУ
+        # обращается, не читая служебный id вслух (§7.2 контракта: «решить
+        # один раз и зафиксировать» — решено как «Имя (U1)»).
+        if projection is not None and speech_projection_enabled():
+            _target_label = projection.person_label(
+                target_user_id, target_name) if (target_user_id or
+                                                target_name) else ""
+            target_block = (f"<Target_User>{escape_xml_text(_target_label)}"
+                            f"</Target_User>") if _target_label else \
+                f"<Target_User>{escape_xml_text(target_name)}</Target_User>"
+        else:
+            target_block = (f"<Target_User>{escape_xml_text(target_name)}"
+                            f"{_speaker_tag('', target_user_id)}"
+                            f"</Target_User>")
         blocks.append(("target", target_block))
         # Раунд 9 (AGI Memory, B4/T-819, spec §3.1.4/Q3): <user_relations> —
         # СРАЗУ ПОСЛЕ ("target", …) и ДО protected/lore (гейты: глобальный
@@ -7829,7 +7905,8 @@ class DirectChatService:
         # среза префикса «бот/@ник»; кап по символам; пусто → без блока.
         # ADD-TR.2: текст — text/caption (см. _render_current_question).
         current = self._render_current_question(
-            message, extra_markers=extra_media_markers)
+            message, extra_markers=extra_media_markers,
+            projection=projection)
         # SPEECH-P0-A2 (§current-turn boundary): текущая реплика больше не
         # рендерится в истории (<Global_Context>), поэтому маркер «текущая
         # команда» (R1023F1) ставится там, где реплика реально подаётся —
@@ -7861,7 +7938,7 @@ class DirectChatService:
                 trigger_message_id=trigger_message_id,
                 out_excluded=out_excluded, out_fallback=out_fallback,
                 style_directives=style_directives,
-                history_sample=history_sample)
+                history_sample=history_sample, projection=projection)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -7938,7 +8015,7 @@ class DirectChatService:
     async def _build_global_context_parts(
             self, chat_id: int, window: list, roster: list | None = None,
             suffix_map: dict[int, str] | None = None,
-            trigger_message_id=None) -> dict:
+            trigger_message_id=None, projection=None) -> dict:
         """ASAP-3 (D3/D5/D6): части <Global_Context> БЕЗ self-усечения
         (композер вызывает вместо `_build_global_context`).
 
@@ -8019,7 +8096,8 @@ class DirectChatService:
                                     if len(post_rows) > tail_min else [])
             parts["tail_lines"] = [
                 self._context_row_line(
-                    row, suffix_map, trigger_message_id=trigger_message_id)
+                    row, suffix_map, trigger_message_id=trigger_message_id,
+                    projection=projection)
                 for row in parts["tail_rows"]]
         else:
             _g_limit = int(await _cp_g(
@@ -8031,7 +8109,8 @@ class DirectChatService:
             parts["tail_rows"] = tail_rows
             parts["tail_lines"] = [
                 self._context_row_line(
-                    row, suffix_map, trigger_message_id=trigger_message_id)
+                    row, suffix_map, trigger_message_id=trigger_message_id,
+                    projection=projection)
                 for row in tail_rows]
             if tail_rows:
                 _scope = ""
@@ -8059,7 +8138,8 @@ class DirectChatService:
     async def _build_old_episodes(
             self, chat_id: int, query: str, tail_rows: list,
             suffix_map: dict[int, str],
-            history_sample: dict | None = None) -> tuple[str, dict]:
+            history_sample: dict | None = None,
+            projection=None) -> tuple[str, dict]:
         """ASAP-3 (ADR-1028-2 D4, §9–§11): old verbatim episode retrieval.
 
         Вход — хиты ЕДИНОГО retrieval-контракта mca-07 (`mode="history"`,
@@ -8170,7 +8250,8 @@ class DirectChatService:
             if not span_rows:
                 continue
             lines = [self._context_row_line(row, suffix_map,
-                                            trigger_message_id=None)
+                                            trigger_message_id=None,
+                                            projection=projection)
                      for row in span_rows]
             for row in span_rows:
                 tg = _tg_id_of_row(row)
@@ -8204,7 +8285,8 @@ class DirectChatService:
             out_excluded: list | None,
             out_fallback: dict | None = None,
             style_directives: str = "",
-            history_sample: dict | None = None) -> list[str]:
+            history_sample: dict | None = None,
+            projection=None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -8220,7 +8302,7 @@ class DirectChatService:
         try:
             episode_block, episode_stats = await self._build_old_episodes(
                 chat_id, query, global_parts["tail_rows"], suffix_map,
-                history_sample=history_sample)
+                history_sample=history_sample, projection=projection)
         except Exception:
             logger.warning("direct: episode build failed — skip | chat=%s",
                            chat_id, exc_info=True)
@@ -8236,7 +8318,7 @@ class DirectChatService:
             (kind, text) for kind, text in blocks
             if kind != "thread" and text]
         middle_lines = self._compose_middle_lines(
-            global_parts, query, chain, roster)
+            global_parts, query, chain, roster, projection)
         candidates.append(("episode", episode_block))
         # P0-HA ISOLATION (§3): вне-диапазонная память (хиты за краями
         # выборки + продолжения эпизодов за краем) — ТОЛЬКО явно помеченным
@@ -8414,14 +8496,22 @@ class DirectChatService:
             kept_middle_lines: list[str] = []
             if mid_piece is not None and mid_piece.text and tail_p is not None \
                     and tail_p.text:
-                final_tail_tg = set(
-                    re.findall(r"tg:(\d+)", tail_p.text))
+                # R2 контракта (§7.1): ключ дедупа — структурный (типизированный
+                # ref `tg:`/`msg:` в сыром виде ЛИБО метка прогона в речевом),
+                # а не догадка по тексту. Метка биективна ref'у в рамках
+                # проекции (`SpeechProjection`), поэтому «та же метка» = «то же
+                # сообщение»; вытеснение по меткам не теряет и не дублирует.
+                final_tail_keys = set()
+                for ln in tail_p.text.split("\n"):
+                    key = _context_line_dedup_key(ln)
+                    if key:
+                        final_tail_keys.add(key)
                 kept_middle_lines = []
                 for ln in mid_piece.text.split("\n"):
                     if not ln.strip():
                         continue
-                    m = re.search(r"tg:(\d+)", ln)
-                    if m and m.group(1) in final_tail_tg:
+                    key = _context_line_dedup_key(ln)
+                    if key and key in final_tail_keys:
                         continue        # уже вербатим в выжившем tail
                     kept_middle_lines.append(ln)
                 mid_piece.text = "\n".join(kept_middle_lines)
@@ -8640,7 +8730,8 @@ class DirectChatService:
         return final_texts
 
     def _compose_middle_lines(self, global_parts: dict, query: str,
-                              chain: list, roster: list) -> list[str]:
+                              chain: list, roster: list,
+                              projection=None) -> list[str]:
         """D5: importance-aware top-K выбор unsummarized middle (bounded
         `CHAT_MIDDLE_MAX_MESSAGES`) из диапазона, не покрытого гарантированным
         floor'ом хвоста (candidates уже = post_rows[:-tail_min], см. parts).
@@ -8673,7 +8764,8 @@ class DirectChatService:
         for row in selected:
             if not (row["text"] or ""):
                 continue
-            lines.append(self._context_row_line(row, {}, None))
+            lines.append(self._context_row_line(row, {}, None,
+                                                projection=projection))
         return lines
 
     async def _summary_revision(self, chat_id: int) -> str | None:
@@ -9106,7 +9198,8 @@ class DirectChatService:
                          exc_info=True)
 
     def _render_current_question(self, message, extra_markers=(),
-                                 cap_chars: int | None = None) -> str:
+                                 cap_chars: int | None = None,
+                                 projection=None) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
         текущего сообщения после среза обращения «бот(@ник):»; cap
         limits.chat_current_question_max_chars (default 800); НЕ режется
@@ -9128,23 +9221,45 @@ class DirectChatService:
         семантических путей тем же блоком; ``extra_markers`` — доверенные
         маркеры способа (C) (резолв ранее присланного изображения,
         `_resolve_earlier_image_markers`), тот же диалект, что own/reply.
-        Пустые extra_markers → байт-в-байт прежний результат."""
+        Пустые extra_markers → байт-в-байт прежний результат.
+
+        EVOL v5 (§4.1 P1/§4.2 п.2): ``projection`` — общая проекция хода;
+        тогда медиа-маркер адресует сообщение МЕТКОЙ прогона
+        (``[медиа: video M7]``), а не ``tg:<id>``: служебный номер переставал
+        быть частью «слов участника». Сам факт медиа, его тип и привязка к
+        сообщению сохраняются. ``None``/рубильник OFF → прежний вид
+        байт-в-байт (L1 — машинная стадия — всегда сырой)."""
         stripped = _strip_direct_prefix(_message_user_text(message))
         markers: list[str] = []
+        speech = projection is not None and speech_projection_enabled()
         if media_context_enabled():
             own = message_media_type(message)
             if own:
                 markers.append(
-                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}"))
+                    media_marker(own, f"tg:{getattr(message, 'message_id', '')}",
+                                 projection=projection if speech else None))
             reply = getattr(message, "reply_to_message", None)
             reply_type = message_media_type(reply)
             if reply_type:
                 markers.append(
                     media_marker(
-                        reply_type, f"tg:{getattr(reply, 'message_id', '')}"))
+                        reply_type, f"tg:{getattr(reply, 'message_id', '')}",
+                        projection=projection if speech else None))
             for extra in extra_markers or ():
                 extra_text = str(extra or "")
-                if extra_text:
+                if not extra_text:
+                    continue
+                # EVOL v5 (§4.1 P1/§4.2 п.2): доверенный маркер способа (C)
+                # приходит в сыром диалекте (`[медиа: photo tg:123]`) — он же
+                # служит явным рефом для media-readiness. В речевой проекции
+                # тот же маркер перерисовывается МЕТКОЙ прогона (тип медиа и
+                # привязка к сообщению сохраняются, служебный номер уходит).
+                parsed = MEDIA_MARKER_RE.match(extra_text.strip())
+                if parsed is not None and parsed.group("ref"):
+                    markers.append(media_marker(
+                        parsed.group("media"), parsed.group("ref"),
+                        projection=projection if speech else None))
+                else:
                     markers.append(extra_text)
         if not stripped and not markers:
             return ""
@@ -9208,7 +9323,10 @@ class DirectChatService:
         ``_IMAGE_REF_KINDS``, старее текущего) → маркер того же диалекта,
         что own/reply; пусто/несколько/ошибка → ``()`` — цель НЕ выдумываем
         (уточнение — штатный clarify-путь L1/Writer). Fail-open, никогда
-        не бросает."""
+        не бросает. Диалект маркера — всегда сырой ``tg:<id>``: он же служит
+        явным рефом для media-readiness (`_prepare_turn_media_evidence`), а
+        речевая метка подставляется на границе payload
+        (`_render_current_question`)."""
         try:
             if not media_context_enabled():
                 return ()                      # kill-switch маркеров — паритет
@@ -11225,7 +11343,8 @@ class DirectChatService:
 
     async def _build_rag_block(self, chat_id: int, message,
                                global_ctx: str,
-                               history_sample: dict | None = None
+                               history_sample: dict | None = None,
+                               projection=None
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -11333,7 +11452,9 @@ class DirectChatService:
         # read-policy рангом, ПОСЛЕ дедупа/маркера «золотых» (сравнения шли
         # по исходному тексту факта) и ДО рендера.
         kept = [_mark_rag_fact(item, ranks) for item in kept]
-        content = build_rag_context(order_rag_facts_asc(kept), origin_labels=True)
+        content = build_rag_context(order_rag_facts_asc(kept),
+                                    origin_labels=True,
+                                    projection=projection)
         if not content:
             return "", ""
         # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
@@ -11436,7 +11557,8 @@ class DirectChatService:
                                     suffix_map: dict[int, str] | None = None,
                                     trigger_message_id=None,
                                     truncate: bool = True,
-                                    history_sample: dict | None = None
+                                    history_sample: dict | None = None,
+                                    projection=None
                                     ) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
         «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
@@ -11539,7 +11661,8 @@ class DirectChatService:
                 if not text:
                     continue
                 tail.append(self._context_row_line(
-                    row, suffix_map, trigger_message_id=trigger_message_id))
+                    row, suffix_map, trigger_message_id=trigger_message_id,
+                    projection=projection))
             window_tail_lines = len(tail)
         else:
             _g_limit = int(await _cp_g(
@@ -11552,7 +11675,8 @@ class DirectChatService:
                 if not text:
                     continue
                 tail.append(self._context_row_line(
-                    row, suffix_map, trigger_message_id=trigger_message_id))
+                    row, suffix_map, trigger_message_id=trigger_message_id,
+                    projection=projection))
             if not tail:
                 return ""
             # D5: метка verbatim-режима — по отобранной ветке окна
@@ -11657,23 +11781,44 @@ class DirectChatService:
         return name, uid
 
     def _context_row_line(self, row, suffix_map: dict[int, str],
-                          trigger_message_id=None) -> str:
+                          trigger_message_id=None, projection=None) -> str:
         """10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 2): каноническая строка
         сообщения окна (ярус A) — ts/автор/ID/forward из smart_messages-row;
         отсутствующие в источнике поля опускаются (R16, не выдумываем).
-        10.23 (F1): совпавший с триггером ``tg_message_id`` получает маркер."""
+        10.23 (F1): совпавший с триггером ``tg_message_id`` получает маркер.
+
+        EVOL v5 §4.2 п.2: ``projection`` — общая проекция прогона. Задана и
+        рубильник ON → речевая строка (`format_speech_item`): в слоте ID стоит
+        метка прогона, рядом с ником — `U`-метка (одноимённые не сливаются),
+        а абсолютное время, «Переслано:», дискриминатор-суффикс и маркер цели
+        остаются. ``None``/OFF → прежний сырой канон байт-в-байт (включая
+        `[uid]` в авторе — это машинная сторона дедупа/attribution)."""
         name, uid = self._row_speaker(row)
-        author = _speaker_tag(name, uid, suffix=suffix_map.get(uid, ""))
+        suffix = suffix_map.get(uid, "")
         forward_source = (row_get(row, "forward_source")
                           if row_get(row, "is_forward") else None)
+        item_id = resolve_item_id(
+            tg_message_id=row_get(row, "tg_message_id"),
+            message_id=row_get(row, "id"))
+        is_target = is_target_row(row, trigger_message_id)
+        text = row_get(row, "text") or ""
+        if projection is not None and speech_projection_enabled():
+            if not text:
+                # Медиа-строка: маркер перерисовывается меткой (§4.2 п.2).
+                text = row_media_marker(row, item_id=item_id,
+                                        projection=projection)
+            return format_speech_item(
+                ts=row_get(row, "timestamp"), author=f"{name}{suffix}",
+                author_uid=uid, item_id=item_id,
+                forward_source=forward_source, text=text, kind="msg",
+                is_target=is_target, projection=projection)
+        author = _speaker_tag(name, uid, suffix=suffix)
         return format_context_item(
             ts=row_get(row, "timestamp"), author=author,
-            item_id=resolve_item_id(
-                tg_message_id=row_get(row, "tg_message_id"),
-                message_id=row_get(row, "id")),
-            forward_source=forward_source, text=row_get(row, "text") or "",
+            item_id=item_id,
+            forward_source=forward_source, text=text,
             kind="msg",
-            is_target=is_target_row(row, trigger_message_id))
+            is_target=is_target)
 
     # ── <Conversation_Thread> / <Conversation_Branch> (Раунд 8: D3/T-800,
     #    D4/T-801 — цепочка сквозь бот-ответы, итог ветки без LLM) ──
@@ -11702,10 +11847,18 @@ class DirectChatService:
             bot_parent_getter=self._bot_reply_parent)
 
     def _chain_line(self, item, suffix_map: dict[int, str],
-                    trigger_message_id=None) -> str:
+                    trigger_message_id=None, projection=None) -> str:
         """10.20 (БЛОК 0, точка 3): каноническая строка хода цепочки (ярус A).
         F2 (10.23): делегат ``thread_chain.format_chain_line`` (единый рендер
-        с фактчеком); F1: ход-триггер получает маркер."""
+        с фактчеком); F1: ход-триггер получает маркер.
+
+        EVOL v5 §4.2 п.2: ``projection`` → речевая строка хода
+        (`thread_chain.render_speech_line`): метка прогона, `U`-метка автора
+        (бот — «(бот)»), явные отношения «↳ Reply M…»/«по теме»/«родитель вне
+        окна», автор цитаты по имени. ``None``/OFF → прежний сырой канон."""
+        if projection is not None and speech_projection_enabled():
+            return thread_chain.render_speech_line(
+                item, projection, suffix_map, trigger_message_id)
         return thread_chain.format_chain_line(
             item, suffix_map, trigger_message_id)
 
@@ -11727,7 +11880,7 @@ class DirectChatService:
 
     def _render_thread(self, chain: list, suffix_map: dict[int, str],
                        thread_limit=None, trigger_message_id=None,
-                       truncate: bool = True) -> str:
+                       truncate: bool = True, projection=None) -> str:
         """Рендер полной цепочки сверху-вниз (лимиты 64.7, keep-end —
         verbatim-диалог не участвует в importance-удержании E1).
         10.23 (F1): ход-триггер получает маркер.
@@ -11736,7 +11889,8 @@ class DirectChatService:
         (keep-end, без WARN `truncated`)."""
         if not chain:
             return ""
-        lines = [self._chain_line(item, suffix_map, trigger_message_id)
+        lines = [self._chain_line(item, suffix_map, trigger_message_id,
+                                  projection)
                  for item in reversed(chain)]
         body = "\n".join(lines)
         if not truncate:
@@ -11766,7 +11920,7 @@ class DirectChatService:
         return f"<Conversation_Thread>\n{escape_xml_text(body)}\n</Conversation_Thread>"
 
     def _render_branch(self, chain: list, suffix_map: dict[int, str],
-                       trigger_message_id=None) -> str:
+                       trigger_message_id=None, projection=None) -> str:
         """Раунд 8 (D4/T-801): <Conversation_Branch> — компактный итог
         reply-ветки: последние limits.chat_branch_context_hops (default 3)
         ходов уже собранной цепочки (без LLM, без повторного walk). Полный
@@ -11777,7 +11931,8 @@ class DirectChatService:
         hops = int(hot.get("limits.chat_branch_context_hops",
                            settings.CHAT_BRANCH_CONTEXT_HOPS) or 0) or 3
         fresh = list(reversed(chain[:max(1, hops)]))     # ASC: старое → новое
-        lines = [self._chain_line(item, suffix_map, trigger_message_id)
+        lines = [self._chain_line(item, suffix_map, trigger_message_id,
+                                  projection)
                  for item in fresh]
         body = "\n".join(lines)
         return (f"<Conversation_Branch>\n"
@@ -12083,12 +12238,28 @@ class DirectChatService:
             "</Initiative_Context>")
         # L1D: окно Writer с теми же [msg:N]/[user:UID] id, что видел L1, —
         # форма доставки из плана ссылается на конкретное сообщение.
+        # EVOL v5 (§4.2 п.2): в РЕЧЕВОМ payload Writer'а эти же строки несут
+        # метки прогона («[M3] Имя (U1): … ↳ Reply M2») — id остаются у L1
+        # (машинная сторона), а Writer видит, кто кому и на что отвечает.
+        _init_speech = SpeechProjection(run_id=str(correlation_id or ""))
         window_block = _l1.render_window_lines(
             window, 12, with_ids=True,
             # ASAP3-ACCEPT: частично собранный объект (tests/__new__) без DI
             # алиасов не должен ронять инициативу — тот же fail-open, что и в
             # _refresh_turn_aliases.
-            alias_resolver=getattr(self, "aliases", None))
+            alias_resolver=getattr(self, "aliases", None),
+            projection=_init_speech)
+        _init_labels: dict = {}
+        for _row in [r for r in (window or [])
+                     if isinstance(r, dict)][-12:]:
+            _item_id = _l1.item_id_of_row(_row)
+            _label = (_init_speech.label_of_item(_item_id)
+                      if _item_id else None)
+            if _label:
+                _init_labels[_row.get("id")] = _label
+
+        def _init_label_of(db_id):
+            return _init_labels.get(db_id, "")
         user_blocks = [context_block]
         if window_block:
             user_blocks.append("<Fresh_Chat_Window>\n" +
@@ -12128,7 +12299,10 @@ class DirectChatService:
                     settings, "SMART_VERBALIZER_MODES_ENABLED", True)),
                 # EVOL social: адресат повода/ветка — данные плана; пусто →
                 # байт-паритет инициативного Writer'а.
-                social_hint=_init_hint) \
+                social_hint=_init_hint,
+                # EVOL v5: форма доставки адресуется метками окна.
+                projection=_init_speech,
+                label_of=_init_label_of) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.1, сценарий 29): инициатива
@@ -12236,7 +12410,8 @@ class DirectChatService:
                 character_block=persona_block, response_plan=response_plan,
                 plan_block=plan_block, user_blocks=_initiative_blocks,
                 evidence=_initiative_evidence,
-                writer="initiative_writer", max_tokens=700)
+                writer="initiative_writer", max_tokens=700,
+                speech=_init_speech)
             # Bounded egress-guard того же класса/теми же средствами: ≤1
             # адресный lookup (разрешённый политикой), ≤1 регенерация тем же
             # Writer'ом, затем удаление только неподтверждённого предложения.
