@@ -174,11 +174,13 @@ def test_settings_quota_and_analytics_payload(client):
     # `value`/`prefix_chars`/`summary_target` удалены в P4 — одно число, одно
     # имя). Три числа §3 ТЗ считаются от эффективного шаблона.
     assert set(body["length_limit"]) == {
-        "ceiling", "source", "template_chars", "joke_budget", "known",
+        "ceiling", "source", "mode", "template_chars", "joke_budget", "known",
         "placeholder", "candidates"}
     assert body["length_limit"]["known"] is False      # модель не прочитана
+    assert body["length_limit"]["mode"] == "auto"      # P0.5: пусто = авто
     assert body["length_limit"]["ceiling"] is None
-    assert body["length_limit"]["joke_budget"] == 0
+    # В режиме АВТО числа бюджета нет: `null`, а не «0 символов».
+    assert body["length_limit"]["joke_budget"] is None
     assert isinstance(body["length_limit"]["template_chars"], int)
     assert body["template"]["text"] == body["prompts"]["image"]["text"]
     assert body["template"]["valid"] is True

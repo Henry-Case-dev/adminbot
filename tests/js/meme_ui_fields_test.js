@@ -149,16 +149,22 @@ function settingsPayload(extra) {
   assert.strictEqual(view.promptJoke.text, 'Придумай прикол');
   assert.strictEqual(view.promptImage.source, 'chat');
 
-  // Потолок неизвестен → «неизвестен» ДЛЯ обоих производных чисел, а длина
-  // шаблона остаётся фактом (она считается всегда).
+  // Потолок не задан (режим АВТО) → «не задан»/«определяет провайдер» ДЛЯ
+  // обоих производных чисел, а длина шаблона остаётся фактом (она считается
+  // всегда). Никаких «0 символов», NaN и подставных 771/800.
   const unknown = computed.memeSettingsView.call({
     memeSettings: settingsPayload({
-      length_limit: { ceiling: null, source: 'unknown', template_chars: 5,
-                      joke_budget: 0, known: false, placeholder: 'append' },
+      length_limit: { ceiling: null, source: 'auto', mode: 'auto',
+                      template_chars: 5, joke_budget: null, known: false,
+                      placeholder: 'append' },
     }) });
-  assert.strictEqual(unknown.ceilingText, 'неизвестен');
-  assert.strictEqual(unknown.jokeBudgetText, 'неизвестен');
+  assert.strictEqual(unknown.ceilingText, 'не задан');
+  assert.strictEqual(unknown.jokeBudgetText, 'определяет провайдер');
+  assert.strictEqual(unknown.ceilingModeText, 'автоматически');
+  assert.strictEqual(unknown.ceilingMode, 'auto');
   assert.strictEqual(unknown.templateCharsText, '5');
+  assert.strictEqual(view.ceilingModeText, 'фиксированный');
+  assert.strictEqual(view.ceilingMode, 'fixed');
   // Ни одного обращения к удалённым алиасам в коде карточки.
   assert.strictEqual(APP_JS_SRC.indexOf('lengthLimit.value'), -1);
   assert.strictEqual(APP_JS_SRC.indexOf('summary_target'), -1);
@@ -225,6 +231,75 @@ function settingsPayload(extra) {
   await methods.saveMemeSettings.call(same);
   assert.strictEqual(calls.length, 0, 'при отсутствии изменений POST не нужен');
   assert.ok(toasts.pop().indexOf('не изменены') >= 0);
+})();
+
+// ── 2b. P0.5: пустой потолок = АВТО (три состояния поля) ────────────────
+(async function () {
+  // Разбор ввода: пусто = авто (без ошибки), целое > 0 = фиксированный,
+  // дробное/текст/отрицательное = ТОЧНАЯ ошибка поля.
+  assert.strictEqual(methods.memeLengthError.call({}, ''), '');
+  assert.strictEqual(methods.memeLengthError.call({}, '   '), '');
+  assert.strictEqual(methods.memeLengthError.call({}, null), '');
+  assert.strictEqual(methods.memeLengthError.call({}, 0), '');
+  assert.strictEqual(methods.memeLengthError.call({}, '400'), '');
+  assert.strictEqual(methods.memeLengthError.call({}, 400), '');
+  assert.ok(methods.memeLengthError.call({}, '12.5').indexOf('целое') >= 0);
+  assert.ok(methods.memeLengthError.call({}, 'abc').indexOf('целое') >= 0);
+  assert.ok(methods.memeLengthError.call({}, '-5').indexOf('целое') >= 0);
+  assert.ok(methods.memeLengthError.call({}, '9000').indexOf('8000') >= 0);
+
+  const draft = methods.memeDraftFromSettings.call({}, settingsPayload());
+  // Снятие чатового потолка уходит ЯВНЫМ null: сервер снимет переопределение
+  // (наследование/авто), а не запишет 0. Потолок чата задан (400) — иначе
+  // «очистить» действительно ничего не меняло бы.
+  const withCeiling = settingsPayload();
+  withCeiling.settings = Object.assign({}, withCeiling.settings,
+                                       { length_admin: 400 });
+  let calls = [];
+  const cleared = {
+    activeChatId: -100, memeSettingsSaving: false, memeFieldErrors: {},
+    memeSettings: withCeiling,
+    memeDraft: Object.assign({}, methods.memeDraftFromSettings.call(
+      {}, withCeiling), { length_limit: '' }),
+    api: async function (url, opts) {
+      calls.push({ url, opts }); return settingsPayload();
+    },
+    toast: function () {}, _scopeGuard: function () { return true; },
+    memeDraftFromSettings: methods.memeDraftFromSettings,
+    memeFieldErrorsFrom: methods.memeFieldErrorsFrom,
+    memeLengthError: methods.memeLengthError,
+    loadMemeDiagnostics: function () {}, memeSettingsError: '',
+  };
+  await methods.saveMemeSettings.call(cleared);
+  assert.strictEqual(calls.length, 1);
+  let body = JSON.parse(calls[0].opts.body);
+  assert.deepStrictEqual(Object.keys(body), ['length_limit']);
+  assert.strictEqual(body.length_limit, null);
+
+  // Фиксированное значение уходит числом (auto → fixed).
+  calls = [];
+  const fixed = Object.assign({}, cleared, {
+    memeFieldErrors: {},
+    memeDraft: Object.assign({}, cleared.memeDraft, { length_limit: '512' }),
+  });
+  await methods.saveMemeSettings.call(fixed);
+  assert.strictEqual(calls.length, 1);
+  body = JSON.parse(calls[0].opts.body);
+  assert.strictEqual(body.length_limit, 512);
+
+  // Некорректный ввод НЕ отправляется и даёт точную ошибку, а не тихий null.
+  let badCalls = 0;
+  const toasts = [];
+  const bad = Object.assign({}, cleared, {
+    memeFieldErrors: {}, memeSettingsError: '',
+    memeDraft: Object.assign({}, draft, { length_limit: '12.5' }),
+    api: async function () { badCalls += 1; return {}; },
+    toast: function (msg) { toasts.push(String(msg)); },
+  });
+  await methods.saveMemeSettings.call(bad);
+  assert.strictEqual(badCalls, 0, 'некорректное значение не уходит на сервер');
+  assert.ok(String(bad.memeFieldErrors.length_limit).indexOf('целое') >= 0);
+  assert.ok(toasts.pop().indexOf('целое') >= 0, 'ошибка видна пользователю');
 })();
 
 // ── 3. 422 показывается У ПОЛЯ (громко, а не молча) ──────────────────────

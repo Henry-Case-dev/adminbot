@@ -67,8 +67,12 @@ _FAILURE_TEXT = {
     "publication_conflict": ("Публикация не сделана: в чате одновременно "
                              "идёт другой инициативный пост."),
     "publication_expired": ("Бронь публикации истекла — попробуйте ещё раз."),
-    "publication_stale": ("Переписка в чате изменилась за время генерации — "
-                          "мем не отправлен, попробуйте ещё раз."),
+    # P0 03.11.2026: готовый мем больше НЕ отменяется из-за нового сообщения
+    # в чате — этот текст остаётся только для исторического кода журнала.
+    "publication_stale": ("Готовый мем не отправлен: результат потерял "
+                          "актуальность."),
+    "source_material_gone": ("Исходные сообщения этого мема удалены из чата — "
+                             "отправлять нечего."),
 }
 #: Ничего конкретного сказать нельзя — общая короткая фраза без внутренностей.
 _GENERIC_FAILURE = "Мем не получился. Попробуйте позже."
@@ -167,13 +171,19 @@ async def claim_manual_priority(chat_id: int) -> int:
         return 0
 
 
-async def run_manual_pipeline(chat_id: int, bot):
+async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = ""):
     """Один ручной проход существующего пайплайна (``manual=True``).
 
     ``manual=True`` обходит суточную квоту, кулдаун, минимум сообщений,
     случайный триггер, тихие часы, in-flight и гейт публикации; НЕ обходит
     RBAC, готовность image-модуля/провайдера, наличие журнала, разрешимость
     бюджета и контракт доставки (arch §4).
+
+    ``request_ref`` — id сообщения ``/meme``: попадает в снапшот источника и
+    в события попытки (run/correlation). Сам мем уходит НОВЫМ сообщением:
+    сообщение команды удаляется до генерации (arch §10.1), поэтому reply-цели
+    у доставки нет — это ограничение существующего транспорта, а не отказ от
+    доставки готового мема.
 
     ``prompt_override`` не передаётся: шаблон берётся из слоёв настроек, иначе
     ``L`` считался бы без потолка модели (ревью P1, п.5).
@@ -184,6 +194,7 @@ async def run_manual_pipeline(chat_id: int, bot):
         "llm": _llm,
         "sender": _sender(bot),
         "ledger": meme.open_ledger(_db) if _db is not None else None,
+        "request_ref": str(request_ref or ""),
     }
     params.update(_pipeline_seams)
     return await meme.consider_chat(_db, int(chat_id), **params)
@@ -225,8 +236,9 @@ async def cmd_meme(message: types.Message) -> None:
     await claim_manual_priority(chat_id)
 
     bot = _bot if _bot is not None else getattr(message, "bot", None)
+    request_ref = str(getattr(message, "message_id", 0) or "")
     try:
-        result = await run_manual_pipeline(chat_id, bot)
+        result = await run_manual_pipeline(chat_id, bot, request_ref=request_ref)
     except Exception as exc:
         # Пайплайн обязан деградировать сам; сюда приходит только сбой моста
         # (журнал/БД) — в чат уходит одно короткое сообщение, без внутренностей.

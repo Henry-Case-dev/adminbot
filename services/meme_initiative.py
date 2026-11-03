@@ -18,8 +18,14 @@ MEME-PIPELINE-REFactor-01 (03.11.2026): пайплайн внутри ЭТОГО
   * этап A (выжимка) потолком длины НЕ ограничен: суммаризатор получает окно
     и системный промпт, никакой цели в символах и постфактум-обрезки;
   * этап B (прикол) — обязательный отдельный LLM-вызов по выжимке; длина
-    ограничивается здесь: ``J = max(0, L - T)`` уходит модели явной
-    инструкцией, защитная обрезка — только страховка от перелёта;
+    ограничивается здесь, но ТОЛЬКО при фиксированном потолке:
+    ``J = max(0, L - T)`` уходит модели явной инструкцией, защитная обрезка —
+    только страховка от перелёта;
+  * P0.5 (HOTFIX 03.11.2026, §1.4): пустой/``None``/``0`` потолок = АВТО.
+    Числового предела нет → директива длины не подставляется, прикол не
+    обрезается, выжимка не трогается. Фиктивные «800/0 символов» не
+    подставляются: если провайдер отклонит длину, это честный
+    ``image_generation_failed`` с его собственной причиной;
   * этап B — АВТОРСКАЯ речь: system собирает единый речевой композер
     (``compose_speech_system``), поэтому прикол придумывает персонаж в своём
     характере (Core/Identity/Expression/базовая речь/юмор/приём Humor Craft/
@@ -35,8 +41,18 @@ MEME-PIPELINE-REFactor-01 (03.11.2026): пайплайн внутри ЭТОГО
   * суточная квота — свой счётчик (не ``image_calls``): бронь до вызова
     провайдера, день — календарный в TZ чата (нет TZ → UTC с пометкой
     fallback). Нет таблицы → честный ``schema_absent``, без генерации;
-  * публикация следует publish/recheck-гейту. Гейт закрыт → картинка не
-    уходит в чат, причина пишется. Живых отправок из тестов нет.
+  * публикация НЕ проверяет «свежесть переписки» (§1.2 P0): новые сообщения,
+    реакции, ``latest_message_id``/watermark и обычный рост чата готовый мем
+    НЕ отменяют. На старте генерации фиксируется СНАПШОТ ИСТОЧНИКА (чат, run,
+    исходные сообщения и их версии, цель/режим) — это входной материал мема,
+    а не требование «чат замер». Перед отправкой перепроверяются только
+    содержательные условия: тумблеры, наличие исходных сообщений, техническая
+    пригодность output, существующая бронь/ledger и publish-гейт;
+  * стадии и публикация различаются событиями (``source_snapshot`` →
+    ``digest_ready`` → ``joke_ready`` → ``image_ready`` →
+    ``publication_requested`` → ``publication_deferred_conflict`` |
+    ``publication_sent`` | ``publication_cancelled``/``publication_failed`` |
+    ``delivery_unknown``): «генерация прошла» ≠ «отправка прошла»;
 """
 from __future__ import annotations
 
@@ -135,6 +151,9 @@ SKIP_PUBLISH = "publish_blocked"
 SKIP_QUOTA = "daily_quota_reached"
 SKIP_ACTIVITY = "low_activity"
 SKIP_SCHEMA = "schema_absent"
+#: P0.5 §1.4: исторический код «потолок неизвестен». Новым кодом НЕ
+#: эмитится: пустой потолок = АВТО (генерация без числового предела), а не
+#: пропуск. Оставлен ради ярлыка/чтения исторических строк журнала.
 SKIP_LENGTH_UNKNOWN = "length_limit_unknown"
 SKIP_IN_FLIGHT = "in_flight"
 SKIP_QUIET = "quiet_hours"
@@ -143,9 +162,16 @@ SKIP_QUIET = "quiet_hours"
 SKIP_CYCLE_EXCEPTION = "cycle_exception"
 #: Retry уже снятой брони (вызов провайдера достоверно не начинался).
 SKIP_SLOT_RELEASED = "slot_released"
+#: P0 §1.2.4: исходный материал мема реально исчез (все сообщения снапшота
+#: удалены из чата). Доказанная утрата валидности — не «чат изменился».
+SKIP_SOURCE_GONE = "source_material_gone"
 #: INIT-COORD (03.11.2026): координация публикаций двух механизмов.
 SKIP_PUBLICATION_CONFLICT = "publication_conflict"
 SKIP_PUBLICATION_IN_FLIGHT = "publication_in_flight"
+#: ИСТОРИЧЕСКИЙ код (P0, 03.11.2026): раньше означал «окно чата изменилось
+#: за время генерации». Такой проверки больше НЕТ (§1.2.2): готовый мем не
+#: отменяется из-за нового сообщения/watermark. Код остаётся в таксономии
+#: только для чтения старых строк журнала.
 SKIP_PUBLICATION_STALE = "publication_stale"
 SKIP_PUBLICATION_EXPIRED = "publication_expired"
 
@@ -156,10 +182,49 @@ SKIP_REASONS = (
     SKIP_JOKE_EMPTY, SKIP_NO_JOKE_BUDGET, SKIP_TEMPLATE_EMPTY,
     SKIP_IMAGE_FAILED, SKIP_PUBLISH, SKIP_QUOTA, SKIP_ACTIVITY, SKIP_SCHEMA,
     SKIP_LENGTH_UNKNOWN, SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION,
-    SKIP_SLOT_RELEASED, SKIP_PUBLICATION_CONFLICT,
+    SKIP_SLOT_RELEASED, SKIP_SOURCE_GONE, SKIP_PUBLICATION_CONFLICT,
     SKIP_PUBLICATION_IN_FLIGHT, SKIP_PUBLICATION_STALE,
     SKIP_PUBLICATION_EXPIRED,
 )
+
+# ── события попытки (§1.3 P0): стадии генерации ≠ доставка ──────────────────
+#: Снапшот входа конкретного мема (что именно сгенерировано и из чего).
+EVENT_SOURCE_SNAPSHOT = "source_snapshot"
+#: Выжимка готова (этап A).
+EVENT_DIGEST_READY = "digest_ready"
+#: Прикол готов (этап B).
+EVENT_JOKE_READY = "joke_ready"
+#: Картинка готова (этап C) — доставки ещё не было.
+EVENT_IMAGE_READY = "image_ready"
+#: Бронь взята: запрос на публикацию заявлен.
+EVENT_PUBLICATION_REQUESTED = "publication_requested"
+#: Публикацию отложил реальный конфликт координации (не «устаревание»).
+EVENT_PUBLICATION_DEFERRED = "publication_deferred_conflict"
+#: Изображение реально доставлено (единственный факт отправки).
+EVENT_PUBLICATION_SENT = "publication_sent"
+#: Отмена по содержательному терминальному условию (тумблер/источник/гейт).
+EVENT_PUBLICATION_CANCELLED = "publication_cancelled"
+#: Публикация технически невозможна (нет отправителя) — доставки не было.
+EVENT_PUBLICATION_FAILED = "publication_failed"
+#: Факт доставки НЕ подтверждён (и не опровергнут): существующий протокол.
+EVENT_DELIVERY_UNKNOWN = "delivery_unknown"
+
+MEME_EVENTS = (
+    EVENT_SOURCE_SNAPSHOT, EVENT_DIGEST_READY, EVENT_JOKE_READY,
+    EVENT_IMAGE_READY, EVENT_PUBLICATION_REQUESTED,
+    EVENT_PUBLICATION_DEFERRED, EVENT_PUBLICATION_SENT,
+    EVENT_PUBLICATION_CANCELLED, EVENT_PUBLICATION_FAILED,
+    EVENT_DELIVERY_UNKNOWN,
+)
+
+#: Режим попытки в событиях/снапшоте (ручной ``/meme`` vs авто-инициатива).
+MODE_MANUAL = "manual"
+MODE_AUTOMATIC = "automatic"
+#: Цель/причина попытки — часть снапшота источника (§1.2.1).
+PURPOSE_MANUAL = "meme_manual"
+PURPOSE_AUTOMATIC = "meme_initiative"
+#: Верхняя граница длины списка событий одной попытки (bounded JSON в журнале).
+MAX_EVENTS_PER_ATTEMPT = 24
 
 STAGE_CONSIDERED = "considered"
 STAGE_ELIGIBLE = "eligible"
@@ -505,10 +570,17 @@ async def load_settings(chat_id: int | None) -> MemeSettings:
 class MemeBudget:
     """Единственный расчёт бюджета: один и тот же для рантайма и витрины.
 
-    ``ceiling`` = L — эффективный потолок итогового image-prompt (минимум
-    кандидатов), ``template_chars`` = T — длина шаблона БЕЗ прикола,
-    ``joke_budget`` = J = max(0, L - T) — сколько символов остаётся приколу.
-    Инвариант: ``T + len(joke) <= L``.
+    Два РАЗНЫХ состояния (§1.4 P0.5), и они не смешиваются:
+
+    * ``known=True`` (режим ``fixed``) — есть числовой потолок L:
+      ``ceiling`` = L (минимум кандидатов), ``template_chars`` = T — длина
+      РЕАЛЬНО зарендеренного image prompt без прикола (production renderer,
+      вместе с разделителем), ``joke_budget`` = J = max(0, L - T) — сколько
+      символов остаётся приколу. Инвариант: ``T + len(joke) <= L``.
+    * ``known=False`` (режим ``auto``) — числового предела НЕТ: пустой
+      потолок не превращается ни в 0, ни в 800. ``joke_budget`` в отчётах —
+      ``None`` («определяет провайдер»), в рантайме директива длины не
+      подставляется и прикол не обрезается.
 
     ``placeholder``: ``slot`` (ровно один ``{joke}``), ``append`` (историческое
     «шаблон + пробел + прикол»), ``invalid`` (два и более плейсхолдера —
@@ -523,12 +595,20 @@ class MemeBudget:
     placeholder: str = "append"
     candidates: tuple[tuple[str, int], ...] = ()
 
+    @property
+    def mode(self) -> str:
+        """``fixed`` — фиксированный потолок, ``auto`` — его нет."""
+        return "fixed" if self.known else "auto"
+
     def as_dict(self) -> dict:
         return {
             "ceiling": self.ceiling,
             "source": self.source,
+            # Режим называется явно: витрина не угадывает «пусто» по 0/null.
+            "mode": self.mode,
             "template_chars": self.template_chars,
-            "joke_budget": self.joke_budget,
+            # Числа НЕТ — значит его и не показываем (никаких «0 символов»).
+            "joke_budget": int(self.joke_budget) if self.known else None,
             "known": self.known,
             "placeholder": self.placeholder,
             "candidates": [
@@ -558,15 +638,6 @@ def template_validation_error(template: str) -> str:
     return ""
 
 
-def template_chars(template: str) -> int:
-    """T — длина шаблона без прикола (с разделителем в append-режиме)."""
-    head = str(template or "")
-    if joke_placeholder_count(head) == 1:
-        return len(head.replace(JOKE_PLACEHOLDER, ""))
-    # Нет плейсхолдера (или он невалиден) — прикол дописывается через пробел.
-    return len(head) + 1
-
-
 def render_image_prompt(template: str, joke: str) -> str:
     """Итоговый prompt этапа C: шаблон + ПРИКОЛ (не выжимка).
 
@@ -580,6 +651,29 @@ def render_image_prompt(template: str, joke: str) -> str:
     return f"{head} {body}"
 
 
+def template_chars(template: str) -> int:
+    """T — длина РЕАЛЬНО зарендеренного prompt БЕЗ прикола (§1.4.3).
+
+    Считается production-renderer'ом (``render_image_prompt`` с пустым
+    приколом), а не длиной видимого textarea: постоянные части, разделитель
+    append-режима и скрытая обвязка входят в число так же, как попадают в
+    payload провайдеру. Второго расчёта «на глаз» нет.
+    """
+    return len(render_image_prompt(template, ""))
+
+
+def image_prompt_fits(prompt: str, budget: MemeBudget) -> bool:
+    """Факт: реально зарендеренный prompt укладывается в фиксированный L.
+
+    В режиме ``auto`` предела нет — проверять нечего (``True``). Проверка
+    стоит ПЕРЕД вызовом провайдера: испорченную (переполненную) шутку не
+    генерируем и не обрезаем «по живому».
+    """
+    if not budget.known or budget.ceiling is None:
+        return True
+    return len(str(prompt or "")) <= int(budget.ceiling)
+
+
 def resolve_meme_budget(*, model_chars: int | None,
                         admin: int | None,
                         explicit: int | None,
@@ -590,6 +684,10 @@ def resolve_meme_budget(*, model_chars: int | None,
     override, админская настройка и capability модели не смешиваются в
     безымянный бюджет. Потолок относится к ИТОГОВОМУ prompt (шаблон + прикол),
     а не к выжимке: J — это и есть «сколько остаётся приколу».
+
+    Нет ни одного положительного кандидата = РЕЖИМ АВТО (§1.4.1): ни 0, ни
+    NaN, ни подставное «800». Такой бюджет не блокирует пайплайн — он
+    означает «числового предела не задано».
     """
     candidates: list[tuple[str, int]] = []
     if explicit is not None and int(explicit) > 0:
@@ -607,7 +705,7 @@ def resolve_meme_budget(*, model_chars: int | None,
         mode = "invalid"
     chars = template_chars(template)
     if not candidates:
-        return MemeBudget(ceiling=None, source="unknown", template_chars=chars,
+        return MemeBudget(ceiling=None, source="auto", template_chars=chars,
                           joke_budget=0, known=False, placeholder=mode)
     source, value = min(candidates, key=lambda item: (item[1], item[0]))
     return MemeBudget(
@@ -616,9 +714,16 @@ def resolve_meme_budget(*, model_chars: int | None,
         placeholder=mode, candidates=tuple(candidates))
 
 
-def joke_instruction(prompt_text: str, limit: int) -> str:
-    """Промпт этапа B + явное ограничение длины (модель знает N ДО генерации)."""
+def joke_instruction(prompt_text: str, limit: int | None) -> str:
+    """Промпт этапа B (+ явное ограничение длины при фиксированном L).
+
+    ``limit is None`` = режим АВТО: директива не дописывается, фиктивного
+    «не более 0/800 символов» нет. Естественное требование «короткий прикол»
+    остаётся в самом редактируемом промпте.
+    """
     base = str(prompt_text or "").strip() or MEME_JOKE_PROMPT
+    if limit is None or int(limit) <= 0:
+        return base
     return f"{base}\n\n{JOKE_LENGTH_DIRECTIVE.format(n=int(limit))}"
 
 
@@ -1297,23 +1402,44 @@ def parse_attempt_facts(row: dict | str) -> dict:
 
 def _finish(result: AttemptResult, *, ledger, now_ts: int,
             settings: MemeSettings) -> AttemptResult:
+    """Записать журнал попытки (по строке на пройденный этап).
+
+    ``stage_facts["events"]`` — НЕ этап, а цепочка событий §1.3: она
+    дописывается в терминальную строку, а человеческий ``detail`` (код/факт
+    причины) сохраняется ВНУТРИ её JSON ключом ``detail``. Так «генерация
+    прошла» и «отправка прошла» остаются различимыми в одной строке журнала.
+    """
     stages = [stage for stage in STAGES
               if int((result.counters or {}).get(stage) or 0)]
-    if result.stage not in stages:
-        stages.append(result.stage)
+    if result.stage in stages:
+        stages.remove(result.stage)
+    # Терминальная строка — РЕАЛЬНЫЙ итоговый этап попытки (`result.stage`), а
+    # не последний счётчик: иначе причина/факты/события уезжали в строку
+    # «skipped», а строка «publish» оставалась без факта доставки.
+    stages.append(result.stage)
+    events = (result.stage_facts or {}).get("events")
     for stage in stages:
         terminal = stage == stages[-1]
-        facts = compact_facts((result.stage_facts or {}).get(stage))
-        # Терминальная строка сохраняет нынешний текстовый detail (код
-        # причины важнее фактов); пройденные этапы несут свой JSON фактов.
-        detail = (result.detail or facts) if terminal else facts
+        payload = dict((result.stage_facts or {}).get(stage) or {})
+        if terminal:
+            if events:
+                payload["events"] = [dict(item) for item in events
+                                     if isinstance(item, dict)]
+            if result.detail:
+                payload["detail"] = str(result.detail)
+        facts = compact_facts(payload)
+        # Терминальная строка несёт факты (вместе с кодом причины внутри
+        # JSON); пройденные этапы — свой JSON фактов.
+        detail = (facts or result.detail) if terminal else facts
+        outcome = (result.outcome if terminal
+                   else ("skipped" if stage == STAGE_SKIPPED else "passed"))
         row = {
             "attempt_id": uuid.uuid4().hex,
             "chat_id": int(result.chat_id),
             "job_id": result.job_id,
             "ts": int(now_ts),
             "stage": stage,
-            "outcome": result.outcome if terminal else "passed",
+            "outcome": outcome,
             "reason_code": result.reason if terminal else "",
             "detail": detail,
             "limit_source": result.limit.source if result.limit else "",
@@ -1344,27 +1470,129 @@ async def _default_messages(db, chat_id: int, limit: int) -> list[dict]:
     return out
 
 
-async def _default_watermark(db, chat_id: int) -> int | None:
-    """Watermark живого окна чата (`MAX(id)`), None — прочитать не удалось.
+# ── снапшот источника и его содержательная перепроверка (§1.2 P0) ───────────
+#: Предел числа id в одном IN(...)-запросе проверки исходных сообщений.
+SOURCE_CHECK_CHUNK = 400
 
-    Используется ровно одной проверкой: «окно изменилось, пока мем
-    генерировался» (INIT-COORD §3.4). Ошибка чтения → None: свежесть не
-    выдумывается ни в одну сторону.
+
+@dataclass(frozen=True)
+class SourceSnapshot:
+    """Входной материал КОНКРЕТНОГО мема, зафиксированный на старте генерации.
+
+    Это не требование «чат замер» (§1.2.1): новые сообщения, реакции,
+    ``latest_message_id`` и движение общего watermark снапшот не ломают и
+    публикацию не отменяют. Снапшот нужен, чтобы (а) знать, из чего именно
+    сделан мем, и (б) отличить реальную утрату валидности (исходные сообщения
+    удалены) от обычного роста переписки.
     """
-    if db is None:
-        return None
+
+    chat_id: int
+    run_id: str
+    mode: str
+    purpose: str
+    request_ref: str
+    message_ids: tuple[int, ...]
+    message_count: int
+    first_id: int | None
+    last_id: int | None
+    digest: str
+    captured_at: int
+
+    def as_dict(self) -> dict:
+        """Durable-вид (R17-safe): id/числа/коды, без текстов сообщений."""
+        return {
+            "chat_id": int(self.chat_id),
+            "run_id": str(self.run_id),
+            "mode": str(self.mode),
+            "purpose": str(self.purpose),
+            "request_ref": str(self.request_ref),
+            "message_count": int(self.message_count),
+            "first_id": self.first_id,
+            "last_id": self.last_id,
+            "digest": str(self.digest),
+            "captured_at": int(self.captured_at),
+        }
+
+
+def _message_ids(rows) -> tuple[int, ...]:
+    """id строк окна по возрастанию (без чужих чатов и без дублей)."""
+    ids: list[int] = []
+    for row in rows or ():
+        try:
+            value = int(row.get("id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if value not in ids:
+            ids.append(value)
+    ids.sort()
+    return tuple(ids)
+
+
+def build_source_snapshot(*, chat_id: int, rows, run_id: str, mode: str,
+                          purpose: str, request_ref: str = "",
+                          now_ts: int) -> SourceSnapshot:
+    """Зафиксировать источник мема: чат, run, сообщения/версии, цель, режим."""
+    ids = _message_ids(rows)
+    digest = hashlib.sha256()
+    for row in rows or ():
+        try:
+            text = str(row.get("text") or "")
+        except Exception:
+            text = ""
+        digest.update(f"{row.get('id')}:{_text_sha12(text)}\n".encode("utf-8"))
+    return SourceSnapshot(
+        chat_id=int(chat_id), run_id=str(run_id),
+        mode=str(mode), purpose=str(purpose),
+        request_ref=str(request_ref or ""),
+        message_ids=ids, message_count=len(ids),
+        first_id=(ids[0] if ids else None),
+        last_id=(ids[-1] if ids else None),
+        digest=digest.hexdigest()[:16], captured_at=int(now_ts))
+
+
+def _row_int(row, key: str) -> int:
+    """Число из строки результата SQL (Row/dict), 0 при отсутствии."""
+    if row is None:
+        return 0
     try:
-        raw = getattr(db, "db", db)
-        cursor = await raw.execute(
-            "SELECT COALESCE(MAX(id), 0) AS m FROM smart_messages "
-            "WHERE chat_id = ? AND import_key IS NULL", (int(chat_id),))
-        row = await cursor.fetchone()
-        if row is None:
-            return None
-        value = row["m"] if not isinstance(row, dict) else row.get("m")
-        return int(value or 0)
+        value = row.get(key) if isinstance(row, dict) else row[key]
     except Exception:
-        return None
+        return 0
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _default_source_check(db, chat_id: int, snapshot: SourceSnapshot
+                                ) -> tuple[bool, str, str]:
+    """Есть ли ещё исходный материал мема? ``(ok, код, detail)``.
+
+    Проверяется РОВНО факт «сообщения снапшота ещё существуют». Недоказуемые
+    вещи не блокируют: нет БД, пустой снапшот или ошибка чтения → ``ok``
+    (готовый мем не отменяется по догадке). Отмена возможна только когда
+    доказано, что НИ ОДНОГО исходного сообщения не осталось.
+    """
+    if db is None or not snapshot.message_ids:
+        return True, "", ""
+    raw = getattr(db, "db", db)
+    try:
+        remaining = 0
+        for start in range(0, len(snapshot.message_ids), SOURCE_CHECK_CHUNK):
+            chunk = snapshot.message_ids[start:start + SOURCE_CHECK_CHUNK]
+            placeholders = ",".join("?" for _ in chunk)
+            cursor = await raw.execute(
+                "SELECT COUNT(*) AS c FROM smart_messages "
+                f"WHERE chat_id = ? AND id IN ({placeholders})",
+                (int(chat_id), *chunk))
+            remaining += _row_int(await cursor.fetchone(), "c")
+    except Exception:
+        logger.debug("[meme] source check unreadable — не блокируем",
+                     exc_info=True)
+        return True, "", ""
+    if remaining > 0:
+        return True, "", ""
+    return False, SKIP_SOURCE_GONE, "source_messages_deleted"
 
 
 async def _default_publish_gate(db, chat_id: int, now_ts: int):
@@ -1411,12 +1639,13 @@ async def consider_chat(
         manual: bool = False,
         claim_store=None,
         publication=None,
-        watermark_reader: Callable[[int], Awaitable[int | None]] | None = None,
+        request_ref: str = "",
+        source_check: Callable[..., Awaitable[tuple]] | None = None,
 ) -> AttemptResult:
     """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов.
 
-    Три этапа в одном проходе: A выжимка (без потолка) → B прикол (здесь
-    работает J = max(0, L - T)) → C image prompt (шаблон + прикол).
+    Три этапа в одном проходе: A выжимка (без потолка) → B прикол (при
+    ФИКСИРОВАННОМ потолке работает J = max(0, L - T)) → C image prompt.
 
     ``manual=True`` — диагностический запуск (``/meme``): квота, кулдаун,
     минимум сообщений, случайный триггер, тихие часы, in-flight и гейт
@@ -1426,7 +1655,15 @@ async def consider_chat(
     ``claim_store``/``publication`` (INIT-COORD §3): бронь публикации. Без
     явной брони она открывается по тому же файлу, что и журнал квоты; таблицы
     нет → честный ``schema_absent`` (мем не отправляется без координации).
-    ``watermark_reader`` — шов чтения watermark окна для проверки свежести.
+
+    ``request_ref`` — id инициирующего запроса (сообщение ``/meme`` либо
+    инициативный job): попадает в снапшот источника и в события как
+    ``request_ref``. ``source_check`` — шов перепроверки исходного материала
+    (по умолчанию читает ``smart_messages`` снапшота).
+
+    Свежесть переписки НЕ проверяется (§1.2): готовый мем не отменяется из-за
+    новых сообщений/watermark. Отмена возможна только по содержательной
+    причине — и с точным кодом.
     """
     stamp = now or datetime.now(timezone.utc)
     if stamp.tzinfo is None:
@@ -1474,6 +1711,52 @@ async def consider_chat(
 
     day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
     jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
+    mode = MODE_MANUAL if manual else MODE_AUTOMATIC
+    purpose = PURPOSE_MANUAL if manual else PURPOSE_AUTOMATIC
+    events: list[dict] = []
+    facts["events"] = events
+
+    def emit(name: str, *, reason: str = "", detail: str = "",
+             source: str = "", delivered: bool | None = None) -> None:
+        """Событие попытки (§1.3): время, run, режим, источник, причина, факт
+        доставки и ссылка на предыдущий этап. Текстов сообщений здесь нет."""
+        if len(events) >= MAX_EVENTS_PER_ATTEMPT:
+            return
+        item = {"name": str(name), "at": int(ts), "run_id": str(jid),
+                "mode": str(mode), "purpose": str(purpose),
+                "source": str(source or ""), "reason": str(reason or ""),
+                "detail": str(detail or "")}
+        if delivered is not None:
+            item["delivered"] = bool(delivered)
+        if events:
+            item["after"] = str(events[-1].get("name") or "")
+        events.append(item)
+
+    def _cancel(reason_code: str, *, detail: str = "",
+                stage: str = STAGE_PUBLISH,
+                reason_event: str = EVENT_PUBLICATION_CANCELLED,
+                delivered: bool = False) -> AttemptResult:
+        """Терминальная отмена ПОСЛЕ генерации: причина честная, картинка не
+        выдаётся за отправленную. ``_finish`` пишет и события, и факты этапов.
+
+        Используется только на путях, где изображение уже готово (``budget``,
+        ``origin``, ``prompt`` и ``joke`` к этому моменту связаны).
+        """
+        counters[STAGE_PUBLISH] = counters.get(STAGE_PUBLISH, 0) + 1
+        counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
+        facts.setdefault(STAGE_PUBLISH, {})["delivery"] = (
+            "sent" if delivered else "not_sent")
+        emit(reason_event, reason=str(reason_code), detail=str(detail or ""),
+             delivered=delivered)
+        result = AttemptResult(
+            chat_id=int(chat_id), stage=stage, outcome="skipped",
+            reason=reason_code, detail=detail, job_id=jid, prompt=prompt,
+            published=False, generated=True, limit=budget,
+            prompt_origin=origin, counters=dict(counters),
+            stage_facts=dict(facts), joke=joke,
+            manually_triggered=bool(manual))
+        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+
     if not manual:
         view = quota_view(ledger, chat_id=int(chat_id), day=day,
                           limit=cfg.daily_limit)
@@ -1494,8 +1777,8 @@ async def consider_chat(
     # LLM-вызовов: если в чате только что публиковался другой механизм или
     # действует приоритет `/meme`, платить за генерацию незачем.
     coordinator = publication
+    from services import publication_coordination as pubmod
     if coordinator is None:
-        from services import publication_coordination as pubmod
         coordinator = pubmod.PublicationCoordinator(
             db, store=claim_store if claim_store is not None else
             pubmod.open_store(db, path=(ledger.path if ledger is not None
@@ -1565,10 +1848,10 @@ async def consider_chat(
     budget = resolve_meme_budget(
         model_chars=model_chars, admin=cfg.length_admin,
         explicit=cfg.length_override, template=template)
-    if not budget.known:
-        return skipped(SKIP_LENGTH_UNKNOWN, limit=budget, jid=jid)
-    if budget.joke_budget <= 0:
-        # J = 0: шаблон уже съел весь потолок. Честный пропуск ДО LLM-вызова.
+    if budget.known and budget.joke_budget <= 0:
+        # Фиксированный потолок и T уже съел его целиком: J = 0. Честный
+        # пропуск ДО LLM-вызова (испорченную шутку не генерируем).
+        # В режиме АВТО этого условия нет: предела просто не задано.
         return skipped(SKIP_NO_JOKE_BUDGET, limit=budget, jid=jid)
 
     # Guard «генерация уже идёт» — ДО платной выжимки: иначе чужая свежая
@@ -1579,12 +1862,19 @@ async def consider_chat(
     summary_prompt = await effective_meme_prompt(
         chat_id, SUMMARY_PROMPT_BLOCK_ID, factory=MEME_SUMMARY_SYSTEM_PROMPT)
     summary_system = str(summary_prompt.get("text") or MEME_SUMMARY_SYSTEM_PROMPT)
-    # ── INIT-COORD §3.4: watermark окна НА СТАРТЕ генерации. После получения
-    # брони он перечитывается: если чат успел поговорить, готовая картинка про
-    # устаревший контекст НЕ отправляется (`publication_stale`).
-    read_watermark = watermark_reader or (
-        lambda cid: _default_watermark(db, int(cid)))
-    window_watermark = await read_watermark(int(chat_id))
+    # ── СНАПШОТ ИСТОЧНИКА (§1.2.1): входной материал ИМЕННО этого мема.
+    # Чат при этом не обязан стоять на месте: снапшот фиксируется один раз и
+    # больше не сравнивается ни с watermark, ни с latest_message_id.
+    snapshot = build_source_snapshot(
+        chat_id=int(chat_id), rows=rows, run_id=jid, mode=mode,
+        purpose=purpose, request_ref=request_ref, now_ts=ts)
+    pub_facts: dict = facts.setdefault("publication", {})
+    if not isinstance(pub_facts, dict):
+        pub_facts = {}
+        facts["publication"] = pub_facts
+    pub_facts["source"] = snapshot.as_dict()
+    emit(EVENT_SOURCE_SNAPSHOT, source=str(summary_prompt.get("source") or ""),
+         detail=f"messages:{snapshot.message_count}")
 
     # ── этап A — выжимка: БЕЗ потолка длины (ни цели, ни обрезки) ───────────
     try:
@@ -1607,12 +1897,15 @@ async def consider_chat(
     counters[STAGE_SUMMARY] = 1
     facts[STAGE_SUMMARY] = {"chars": len(summary),
                             "source": summary_prompt.get("source")}
+    emit(EVENT_DIGEST_READY, source=str(summary_prompt.get("source") or ""),
+         detail=f"chars:{len(summary)}")
 
     # ── этап B — прикол: единственное место, где работает потолок длины ─────
     joke_prompt = await effective_meme_prompt(
         chat_id, JOKE_PROMPT_BLOCK_ID, factory=MEME_JOKE_PROMPT)
     instruction = joke_instruction(
-        str(joke_prompt.get("text") or MEME_JOKE_PROMPT), budget.joke_budget)
+        str(joke_prompt.get("text") or MEME_JOKE_PROMPT),
+        budget.joke_budget if budget.known else None)
     joke_speech: dict = {}
     try:
         if joke_generator is None:
@@ -1628,15 +1921,18 @@ async def consider_chat(
         return skipped(SKIP_JOKE_FAILED, stage=STAGE_FAILED,
                        detail=f"exception:{type(exc).__name__}", limit=budget,
                        jid=jid)
-    joke, trimmed = trim_joke(str(raw_joke or ""), budget.joke_budget)
+    joke, trimmed = trim_joke(str(raw_joke or ""),
+                              budget.joke_budget if budget.known else 0)
     if not joke:
         return skipped(SKIP_JOKE_EMPTY, stage=STAGE_FAILED, detail="empty_joke",
                        limit=budget, jid=jid)
     counters[STAGE_JOKE] = 1
     facts[STAGE_JOKE] = {
-        "limit": int(budget.joke_budget),
+        # В режиме АВТО числового предела нет: None, а не «0 символов».
+        "limit": int(budget.joke_budget) if budget.known else None,
         "template_chars": int(budget.template_chars),
         "ceiling": budget.ceiling,
+        "mode": budget.mode,
         "chars": len(joke),
         "trimmed": bool(trimmed),
         "source": str(joke_prompt.get("source") or ""),
@@ -1646,16 +1942,26 @@ async def consider_chat(
         # MEME-JOKE-SPEECH: фактические ревизии Core/Expression/юмора и
         # манифест сборки — аддитивно рядом с прежними ключами этапа.
         facts[STAGE_JOKE]["speech"] = joke_speech
+    emit(EVENT_JOKE_READY, source=str(joke_prompt.get("source") or ""),
+         detail=f"chars:{len(joke)}")
 
-    # ── этап C — итоговый prompt из шаблона и ПРИКОЛА (не выжимки) ──────────
+    # ── этап C — итоговый prompt из шаблона и ПРИКОЛА (не из выжимки) ───────
     prompt = render_image_prompt(template, joke)
     facts[STAGE_IMAGE] = {
         "chars": len(prompt),
         "template_chars": int(budget.template_chars),
+        "ceiling": budget.ceiling,
         "template_revision": str(image_prompt.get("factory_revision") or ""),
         "template_source": str(image_prompt.get("source") or ""),
         "joke_chars": len(joke),
     }
+    if not image_prompt_fits(prompt, budget):
+        # Инвариант T + len(прикол) <= L нарушен: провайдеру испорченный
+        # prompt НЕ уходит (это конфигурационная ошибка, а не «устаревание»).
+        return skipped(SKIP_NO_JOKE_BUDGET, stage=STAGE_FAILED,
+                       detail=f"prompt_over_ceiling:{len(prompt)}>"
+                              f"{budget.ceiling}",
+                       limit=budget, jid=jid)
 
     if manual:
         # Ручной запуск не тратит квоту: брони нет вовсе, строка попытки есть.
@@ -1692,6 +1998,11 @@ async def consider_chat(
         ok = bool(getattr(provider_result, "ok", False))
         reason = str(getattr(provider_result, "reason", "") or "")
         content = getattr(provider_result, "content", None)
+        if ok and content is None:
+            # «Провайдер ответил успехом», но изображения нет: публиковать
+            # нечего. Честная техническая причина, а не «устаревание».
+            ok = False
+            reason = reason or "empty_content"
     except Exception:
         logger.warning("[meme] image provider failed", exc_info=True)
         called = True
@@ -1717,27 +2028,75 @@ async def consider_chat(
     if not manual:
         ledger.mark(jid, "provider_called", "")
     counters[STAGE_IMAGE] = 1
+    try:
+        image_bytes = len(content) if content is not None else 0
+    except Exception:
+        image_bytes = 0
+    emit(EVENT_IMAGE_READY, source=str(origin),
+         detail=f"prompt:{len(prompt)}|bytes:{image_bytes}")
+
+    # ── СОДЕРЖАТЕЛЬНЫЕ проверки перед броней (§1.2.4). Свежесть переписки
+    # здесь НЕ проверяется: ни watermark, ни latest_message_id не сравниваются.
+    # Отмена — только по реальному терминальному условию, со своим кодом.
+    if not manual:
+        module_now = _as_bool(
+            await _param(int(chat_id), KEY_ENABLED, cfg.enabled), cfg.enabled)
+        if not module_now:
+            return _cancel(SKIP_DISABLED,
+                           detail="module_disabled_during_generation")
+        if not initiative_enabled():
+            return _cancel(SKIP_INITIATIVE_DISABLED,
+                           detail="initiative_disabled_during_generation")
+        if chat_enabled is not None and not await chat_enabled(int(chat_id)):
+            return _cancel(SKIP_INITIATIVE_DISABLED,
+                           detail="chat_gate_disabled_during_generation")
+    check_source = source_check
+    if check_source is None:
+        # Окно, прочитанное НЕ из `smart_messages` (диагностический шов
+        # `messages`/`message_reader`), в этой БД не проверить: утрату
+        # материала не выдумываем. Штатный авто-путь читает окно из БД.
+        from_db = message_reader is None and messages is None
+        if from_db:
+            async def check_source(cid, snap):
+                return await _default_source_check(db, int(cid), snap)
+        else:
+            async def check_source(cid, snap):
+                return True, "", ""
+    source_ok, source_code, source_detail = await check_source(
+        int(chat_id), snapshot)
+    pub_facts["source_ok"] = bool(source_ok)
+    if not source_ok:
+        return _cancel(str(source_code or SKIP_SOURCE_GONE),
+                       detail=str(source_detail or ""))
 
     # ── INIT-COORD §3.3/§3.5: атомарная бронь публикации ПЕРЕД гейтом и
     # отправкой. Проигравший не отправляет уже сгенерированную картинку ни
     # сейчас, ни позже; собственный кулдаун/квота при этом не сбрасываются.
+    # Ручной запрос приоритетен: он ДОЖИДАЕТСЯ освобождения чужой активной
+    # отправки существующим durable-механизмом (release-event), а не теряет
+    # уже готовую картинку.
     claim = await coordinator.acquire(
         int(chat_id), OUTPUT_KIND, holder_ref=jid, now=ts,
-        manual=bool(manual))
-    # Диагностика координации — в отдельный (не этапный) слот фактов: строка
-    # этапа publish остаётся ровно своим контрактом (gate/manual).
-    pub_facts = facts.setdefault("publication", {})
-    if not isinstance(pub_facts, dict):
-        pub_facts = {}
-        facts["publication"] = pub_facts
+        manual=bool(manual),
+        wait_for_sending=(float(pubmod.MANUAL_IN_FLIGHT_WAIT_SECONDS)
+                          if manual else 0.0))
     pub_facts["manual"] = bool(manual)
     pub_facts["claim"] = claim.as_dict()
+    if claim.recovered_delivery_unknown:
+        # Существующий протокол: прошлая бронь осталась в `sending`, доставка
+        # не доказана и не опровергнута — так и записываем, не выдавая за 0.
+        pub_facts["delivery"] = "unknown"
+        emit(EVENT_DELIVERY_UNKNOWN, reason="delivery_unknown",
+             detail=str(claim.detail or "delivery_unknown"))
     if not claim.granted:
         counters[STAGE_PUBLISH] = 1
         counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
         code = (SKIP_PUBLICATION_IN_FLIGHT
                 if claim.reason == "publication_in_flight"
                 else SKIP_PUBLICATION_CONFLICT)
+        facts.setdefault(STAGE_PUBLISH, {})["delivery"] = "not_sent"
+        emit(EVENT_PUBLICATION_DEFERRED, reason=code,
+             detail=str(claim.detail or claim.reason or ""), delivered=False)
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="skipped",
             reason=code, detail=str(claim.detail or claim.reason or ""),
@@ -1747,36 +2106,18 @@ async def consider_chat(
             manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
 
+    emit(EVENT_PUBLICATION_REQUESTED, source=str(origin),
+         detail=f"claim:{str(claim.claim_id or '')[:12]}")
+
     async def _drop_claim(reason_code: str, *, detail: str = "",
-                          stage: str = STAGE_PUBLISH) -> AttemptResult:
-        """Отмена после брони: аренда освобождается, watermark публикации НЕ
-        пишется (публикации не было), причина честная."""
+                          stage: str = STAGE_PUBLISH,
+                          reason_event: str = EVENT_PUBLICATION_CANCELLED,
+                          delivered: bool = False) -> AttemptResult:
         await coordinator.release(int(chat_id), claim.claim_id, published=False,
                                   holder_kind=OUTPUT_KIND, holder_ref=jid,
                                   now=ts)
-        counters[STAGE_PUBLISH] = 1
-        counters[STAGE_SKIPPED] = counters.get(STAGE_SKIPPED, 0) + 1
-        result = AttemptResult(
-            chat_id=int(chat_id), stage=stage, outcome="skipped",
-            reason=reason_code, detail=detail, job_id=jid, prompt=prompt,
-            published=False, generated=True, limit=budget,
-            prompt_origin=origin, counters=dict(counters),
-            stage_facts=dict(facts), joke=joke,
-            manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
-
-    # ── свежесть: окно чата изменилось, пока генерировали? ─────────────────
-    if window_watermark is not None:
-        current_watermark = await read_watermark(int(chat_id))
-        pub_facts["watermark"] = {
-            "at_generation": int(window_watermark),
-            "at_publish": (int(current_watermark)
-                           if current_watermark is not None else None),
-        }
-        if current_watermark is not None and \
-                int(current_watermark) != int(window_watermark):
-            return await _drop_claim(SKIP_PUBLICATION_STALE,
-                                     detail="window_changed")
+        return _cancel(reason_code, detail=detail, stage=stage,
+                       reason_event=reason_event, delivered=delivered)
 
     if manual:
         # Диагностика не соревнуется с авто-инициативой и не ждёт гейта.
@@ -1789,9 +2130,12 @@ async def consider_chat(
     facts[STAGE_PUBLISH]["manual"] = bool(manual)
     if not allowed or sender is None:
         # Честная причина: гейт мог быть открыт, а отправителя нет вообще.
-        detail = (str(gate_reason or SKIP_PUBLISH) if not allowed
-                  else "publisher_not_bound")
-        blocked = await _drop_claim(SKIP_PUBLISH, detail=detail)
+        if not allowed:
+            blocked = await _drop_claim(SKIP_PUBLISH,
+                                        detail=str(gate_reason or SKIP_PUBLISH))
+        else:
+            blocked = await _drop_claim(SKIP_PUBLISH, detail="publisher_not_bound",
+                                        reason_event=EVENT_PUBLICATION_FAILED)
         blocked.outcome = "blocked"
         return blocked
     # ── `claimed → sending` — единственное разрешение звать sender ─────────
@@ -1802,7 +2146,11 @@ async def consider_chat(
         code = (SKIP_PUBLICATION_IN_FLIGHT
                 if sending.reason == "publication_in_flight"
                 else SKIP_PUBLICATION_EXPIRED)
-        return await _drop_claim(code, detail=str(sending.detail or ""))
+        event = (EVENT_PUBLICATION_DEFERRED
+                 if sending.reason == "publication_in_flight"
+                 else EVENT_PUBLICATION_CANCELLED)
+        return await _drop_claim(code, detail=str(sending.detail or ""),
+                                 reason_event=event)
     try:
         # Доставка не меняется: sender получает ТОЛЬКО изображение; prompt и
         # прикол остаются внутренними (никогда не caption и не сообщение).
@@ -1813,6 +2161,13 @@ async def consider_chat(
         await coordinator.release(int(chat_id), claim.claim_id,
                                   published=False, holder_kind=OUTPUT_KIND,
                                   holder_ref=jid, now=ts)
+        # Отправка бросила исключение: доставка НЕ доказана и НЕ опровергнута.
+        # Врать «не отправлено» нельзя — используется существующий протокол
+        # неизвестного статуса, дальше решает ledger/бронь.
+        pub_facts["delivery"] = "unknown"
+        facts.setdefault(STAGE_PUBLISH, {})["delivery"] = "unknown"
+        emit(EVENT_DELIVERY_UNKNOWN, reason="delivery_unknown",
+             detail="send_failed")
         result = AttemptResult(
             chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="blocked",
             reason=SKIP_PUBLISH, detail="send_failed", job_id=jid,
@@ -1828,8 +2183,12 @@ async def consider_chat(
         correlation_id=jid, manual=bool(manual))
     pub_facts["output"] = {"ledger_id": ledger_output_id,
                            "tg_message_id": tg_message_id}
+    pub_facts["delivery"] = "sent"
+    facts.setdefault(STAGE_PUBLISH, {})["delivery"] = "sent"
     await coordinator.release(int(chat_id), claim.claim_id, published=True,
                               holder_kind=OUTPUT_KIND, holder_ref=jid, now=ts)
+    emit(EVENT_PUBLICATION_SENT, reason="sent",
+         detail=f"tg:{tg_message_id}", delivered=True)
     result = AttemptResult(
         chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="published",
         reason="sent", job_id=jid, prompt=prompt, published=True,
@@ -2293,6 +2652,22 @@ def _last_joke(rows: list[dict]) -> dict:
     return {}
 
 
+def _last_events(rows: list[dict]) -> list[dict]:
+    """События САМОЙ СВЕЖЕЙ попытки из журнала (§1.3, durable).
+
+    Строки идут свежими вперёд; события лежат в терминальной строке её JSON
+    фактов. Пусто → пустой список (витрина покажет «нет данных», не нули).
+    """
+    for row in rows:
+        if str(row.get("stage") or "") not in STAGES:
+            continue
+        parsed = parse_attempt_facts(row)
+        events = parsed.get("events")
+        if isinstance(events, list) and events:
+            return [dict(item) for item in events if isinstance(item, dict)]
+    return []
+
+
 def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
                        chat_id: int | None = None,
                        day: DayWindow | None = None,
@@ -2329,6 +2704,9 @@ def analytics_snapshot(ledger: SqliteQuotaLedger | None, *,
         # MEME-JOKE-SPEECH: аддитивная диагностика свежего прикола (слои и
         # фактические ревизии) для карточки «Инициатива → Мемы».
         "last_joke": _last_joke(rows),
+        # §1.3 P0: цепочка событий свежей попытки (source_snapshot →
+        # image_ready → publication_*): генерация и доставка различимы.
+        "events": _last_events(rows),
         "attempts": rows[:20],
         "quota": quota,
         "enabled_default": DEFAULT_ENABLED,
