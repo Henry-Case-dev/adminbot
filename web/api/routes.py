@@ -3898,6 +3898,58 @@ _MEME_QUIET_HOURS_RE = (
     r"^(?:(?:[01]?\d|2[0-3]):[0-5]\d-(?:[01]?\d|2[0-3]):[0-5]\d)?$"
 )
 
+#: Поля потолка длины: у них ТРИ состояния (см. `MemeSettingsUpdate`).
+_MEME_LENGTH_FIELDS = ("length_limit", "length_override")
+#: Верхняя граница, которую принимает форма (0/пусто = авто, не «нет длины»).
+_MEME_LENGTH_MAX = 8000
+_MEME_LENGTH_ERROR = ("Потолок длины: целое число больше нуля или пусто "
+                      "(авто)")
+
+
+def _meme_length_field_error(field: str, message: str) -> HTTPException:
+    """422 в форме Pydantic-списка: клиент показывает причину У ПОЛЯ."""
+    return HTTPException(status_code=422,
+                         detail=[{"loc": ["body", field], "msg": message}])
+
+
+def _parse_length_ceiling(field: str, value) -> int | None:
+    """Строгий разбор потолка длины: ``None`` = АВТО (§1.4.1).
+
+    Пусто/``null``/пробелы → авто (снятие чатового потолка). Положительное
+    целое → фиксированный потолок. Отрицательное, десятичное или текст →
+    точная ошибка поля, а не «тихо стало нулём». Исторический ``0`` читается
+    как авто (совместимость), но сам он здесь НЕ записывается: снятие
+    переопределения — отдельный путь сохранения.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise _meme_length_field_error(field, _MEME_LENGTH_ERROR)
+    if isinstance(value, (int, float)):
+        number = float(value)
+        if number != int(number):
+            raise _meme_length_field_error(
+                field, "Потолок длины: нужно целое число, а не дробное")
+        number = int(number)
+    else:
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            number = int(text)
+        except (TypeError, ValueError):
+            raise _meme_length_field_error(field, _MEME_LENGTH_ERROR)
+    if number < 0:
+        raise _meme_length_field_error(
+            field, "Потолок длины: число не может быть отрицательным")
+    if number == 0:
+        # Историческая совместимость: 0 читался как «не задано» — это авто.
+        return None
+    if number > _MEME_LENGTH_MAX:
+        raise _meme_length_field_error(
+            field, f"Потолок длины: не больше {_MEME_LENGTH_MAX} символов")
+    return int(number)
+
 
 class MemeSettingsUpdate(BaseModel):
     """Частичная правка настроек мемов (все поля опциональны).
@@ -3923,8 +3975,14 @@ class MemeSettingsUpdate(BaseModel):
     trigger_probability: float | None = Field(default=None, ge=0, le=1)
     summarizer_model: str | None = Field(default=None, max_length=120)
     quiet_hours: str | None = Field(default=None, max_length=11)
-    length_limit: int | None = Field(default=None, ge=0, le=8000)
-    length_override: int | None = Field(default=None, ge=0, le=8000)
+    # P0.5 (§1.4.1): ТРИ состояния, а не два. Поле, которого нет в теле =
+    # «не менять». Поле, пришедшее пустым (`null`/`""`/пробелы) = АВТО
+    # (снять чатовый потолок → наследование). Положительное целое =
+    # фиксированный потолок. Поэтому тип принимает и строку: пустое поле
+    # формы приходит строкой, а точную ошибку ввода даёт наш разбор
+    # (`_parse_length_ceiling`), а не общий текст валидатора.
+    length_limit: int | float | str | None = None
+    length_override: int | float | str | None = None
     # MEME-PIPELINE-REFactor-01 (§3 ТЗ, P2): два РЕДАКТИРУЕМЫХ промпта мемов.
     # Это чатовое переопределение ключей каталога `prompts.meme_joke` /
     # `prompts.meme_image` (уровень чата). Пустая строка = снять
@@ -4036,7 +4094,8 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
         # Три числа §3 ТЗ одной структурой: потолок итогового промпта (L),
         # длина шаблона (T) и бюджет прикола (J = max(0, L - T)) — ровно те же
         # имена, что у `MemeBudget`, без совместимых алиасов (P4 перевёл на них
-        # карточку): одно число — одно имя.
+        # карточку): одно число — одно имя. P0.5: `mode`/`known` различают
+        # «фиксированный потолок» и «авто» (в авто `joke_budget` = null).
         "length_limit": budget.as_dict(),
         "template": {
             "text": template,
@@ -4053,6 +4112,11 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
             "publish_blocked_count": int(skip_reasons.get(mi.SKIP_PUBLISH, 0)),
             "skip_reasons": skip_reasons,
             "stages": list(mi.STAGES),
+            # §1.3 P0: цепочка событий свежей попытки. Генерация и доставка
+            # различаются: `image_ready` — картинка готова, `publication_sent`
+            # — реально доставлено. Пусто → «нет данных», не нули.
+            "events": list(analytics.get("events") or ()),
+            "event_names": list(mi.MEME_EVENTS),
         },
         "schema_present": bool(ledger is not None and ledger.table_present()),
         "defaults": {
@@ -4127,8 +4191,21 @@ async def post_meme_settings(
     field_map = _meme_payload_field_map()
     patch: dict[str, Any] = {}
     removals: list[str] = []
+    # P0.5: отличаем «поля нет в теле» (не менять) от «поле пришло пустым»
+    # (авто = снять чатовое переопределение). `None` в теле — это решение
+    # пользователя, а не отсутствие решения.
+    provided = set(getattr(payload, "model_fields_set", set()) or ())
     for field, key in field_map.items():
         value = getattr(payload, field)
+        if field in _MEME_LENGTH_FIELDS:
+            if field not in provided:
+                continue
+            number = _parse_length_ceiling(field, value)
+            if number is None:
+                removals.append(key)
+            else:
+                patch[key] = int(number)
+            continue
         if value is None:
             continue
         if field in ("summarizer_model", "quiet_hours"):
@@ -4146,9 +4223,6 @@ async def post_meme_settings(
             patch[key] = text
         elif field == "enabled":
             patch[key] = bool(value)
-        elif field in ("length_limit", "length_override"):
-            # 0 = «не задано» (снять ограничение), а не «нулевой потолок».
-            patch[key] = int(value) if int(value) > 0 else None
         else:
             patch[key] = value
     if not patch and not removals:

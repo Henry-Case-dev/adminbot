@@ -475,7 +475,16 @@ async def test_manual_run_bypasses_quota_cooldown_and_closed_gate(
     # Маркер ручного запуска обязателен: gate=manual_bypass + manual=True.
     # Мутация: вернуть реальный гейт (или потерять маркер) → тест красный.
     facts = meme.parse_attempt_facts(published[0])
-    assert facts == {"gate": "manual_bypass", "manual": True}, facts
+    assert facts.get("gate") == "manual_bypass", facts
+    assert facts.get("manual") is True, facts
+    # P0 §1.3: терминальная строка несёт цепочку событий и ФАКТ доставки,
+    # а не только маркер гейта: генерация и отправка различимы.
+    assert facts.get("delivery") == "sent"
+    names = [item["name"] for item in facts.get("events") or []]
+    assert names[0] == meme.EVENT_SOURCE_SNAPSHOT
+    assert meme.EVENT_IMAGE_READY in names
+    assert names[-1] == meme.EVENT_PUBLICATION_SENT
+    assert "detail" not in facts or isinstance(facts.get("detail"), str)
     # Квота дня не потрачена: ручной запуск не создаёт бронь.
     assert led.status_counts(CHAT, NOW.date().isoformat()) == \
         {"provider_called": before["provider_called"]}
