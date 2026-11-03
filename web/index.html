@@ -2192,11 +2192,15 @@
                         <span>Потолок длины промпта, симв. (пусто — авто)</span>
                         <input class="field w-24" type="number" min="0" max="8000"
                                v-model="memeDraft.length_limit"
+                               :aria-invalid="memeFieldError('length_limit') ? 'true' : 'false'"
                                data-meme-length-limit>
                         <span class="text-[10px] text-gray-600">
-                          пусто — автоматически; число — фиксированный потолок
+                          пусто — авто (определяет провайдер); число — фиксированный
+                          потолок
                         </span>
                       </label>
+                      <div v-if="memeFieldError('length_limit')" class="meme-field-error"
+                           data-meme-length-error>{{ memeFieldError('length_limit') }}</div>
                       <div class="meme-budget-row">
                         <span>Потолок итогового промпта:</span>
                         <b data-meme-limit-ceiling>{{ memeBudgetBlock ? memeBudgetBlock.ceilingText : '—' }}</b>
@@ -2240,14 +2244,9 @@
                       <div v-else-if="memeBudgetBlock && memeBudgetBlock.autoMode"
                            class="text-amber-300 text-[10px]"
                            data-meme-budget-auto>
-                        Потолок не задан — режим «Автоматически»: числовой предел
-                        определяет провайдер, искусственного лимита символов нет.
-                      </div>
-                      <div v-else-if="memeBudgetBlock && memeBudgetBlock.unknownMode"
-                           class="text-amber-300 text-[10px]"
-                           data-meme-budget-unknown>
-                        Потолок не прочитан: фактическое значение определит сервер
-                        при генерации (это не 0 и не «запрет»).
+                        Потолок не задан — режим «автоматически»: числовой предел
+                        определяет провайдер, искусственного лимита символов нет
+                        (никаких 0/800/NaN).
                       </div>
                     </div>
                   </div>
