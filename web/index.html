@@ -1893,6 +1893,8 @@
                     Мемы в инициативе
                   </div>
                   <span class="badge badge-muted">своя настройка, не мастер модуля</span>
+                  <span v-if="memeDraftDirty" class="badge badge-warn"
+                        data-meme-dirty>есть несохранённые изменения</span>
                   <button type="button" class="btn-ghost text-xs ml-auto"
                           :disabled="memeSettingsBusy"
                           aria-label="Обновить настройки мемов"
@@ -2098,6 +2100,11 @@
                     <div v-if="memeSaveResult" class="text-xs mt-1"
                          :class="memeSaveResult.ok ? 'text-green-400' : 'text-red-300'"
                          data-meme-save-state>{{ memeSaveResult.text }}</div>
+                    <div v-if="memeDraftDirty" class="text-xs mt-1 text-amber-300"
+                         data-meme-dirty-hint>
+                      Изменения не сохранены: они сохранятся при переключении
+                      вкладок, но при смене чата приложение спросит подтверждение.
+                    </div>
                     <div class="text-[10px] text-gray-600 mb-2">
                       Сохраняется для выбранного чата (локальное переопределение;
                       глобальные значения не меняются).
@@ -2230,9 +2237,17 @@
                         генерация остановится ДО вызова LLM/картинки
                         (код: no_joke_budget).
                       </div>
-                      <div v-else-if="memeBudgetBlock && !memeBudgetBlock.known"
-                           class="text-amber-300 text-[10px]" data-meme-budget-unknown>
-                        Числовой предел не задан — длину определяет провайдер.
+                      <div v-else-if="memeBudgetBlock && memeBudgetBlock.autoMode"
+                           class="text-amber-300 text-[10px]"
+                           data-meme-budget-auto>
+                        Потолок не задан — режим «Автоматически»: числовой предел
+                        определяет провайдер, искусственного лимита символов нет.
+                      </div>
+                      <div v-else-if="memeBudgetBlock && memeBudgetBlock.unknownMode"
+                           class="text-amber-300 text-[10px]"
+                           data-meme-budget-unknown>
+                        Потолок не прочитан: фактическое значение определит сервер
+                        при генерации (это не 0 и не «запрет»).
                       </div>
                     </div>
                   </div>
@@ -2282,6 +2297,8 @@
                       </div>
                       <div class="mt-1" data-meme-speech-layers>
                         <div class="text-gray-500">Слои системного промпта:</div>
+                        <div class="text-[10px] text-gray-600"
+                             data-meme-speech-source>{{ memeSpeechView.sourceNote }}</div>
                         <div v-for="(l, li) in memeSpeechView.layers" :key="'mlay-' + li"
                              class="meme-diag-row" :data-meme-speech-layer="l.layer">
                           <span class="meme-diag-key font-mono">{{ l.layer || '—' }}</span>
@@ -2509,10 +2526,12 @@
                             @change="initiativePubSetFilter('outcome', $event.target.value)">
                       <option value="all">любой</option>
                       <option value="published">опубликовано</option>
+                      <option value="deferred">отложено (конфликт)</option>
                       <option value="cancelled">отменено</option>
                       <option value="skipped">пропуск</option>
                       <option value="blocked">заблокировано</option>
                       <option value="failed">ошибка</option>
+                      <option value="delivery_unknown">доставка неизвестна</option>
                       <option value="silent">молчание</option>
                     </select>
                   </label>
@@ -2549,9 +2568,12 @@
                         <span class="ini-row__reason">
                           {{ row.reasonText || 'без причины' }}
                           <span v-if="row.reason_code" class="ini-row__code">{{ row.reason_code }}</span>
+                          <span v-if="row.chainReasonsText" class="ini-row__chain"
+                                :data-ini-pub-chain-reason="row.attempt_id">
+                            · в цепочке: {{ row.chainReasonsText }}</span>
                         </span>
                         <span class="badge shrink-0"
-                              :class="row.outcomeOk ? 'badge-ok' : 'badge-warn'"
+                              :class="row.outcomeClass"
                               :data-ini-pub-outcome="row.outcome">{{ row.outcomeLabel }}</span>
                         <span class="shrink-0" :class="row.deliveryClass"
                               :data-ini-pub-delivery="String(row.delivered)">
@@ -2582,14 +2604,15 @@
                             </template>
                           </div>
                           <ol v-if="iniPubDetail.chain && iniPubDetail.chain.length"
-                              class="ini-chain">
+                              class="ini-chain" data-ini-pub-stages>
                             <li v-for="(step, si) in iniPubDetail.chain"
                                 :key="'inichain-' + si" class="ini-chain__step"
                                 :data-ini-chain-stage="step.stage">
                               <span class="ini-chain__name">{{ memeStageLabel(step.stage) }}</span>
                               <span class="badge shrink-0"
                                     :class="step.outcome === 'passed' || step.outcome === 'published'
-                                      ? 'badge-ok' : 'badge-warn'">
+                                      ? 'badge-ok' : (step.outcome === 'deferred'
+                                        ? 'badge-info' : 'badge-warn')">
                                 {{ memeOutcomeLabel(step.outcome) }}
                               </span>
                               <span v-if="step.reason_code" class="text-gray-400">
@@ -2600,19 +2623,32 @@
                                     class="text-green-400">· доставлено</span>
                             </li>
                           </ol>
-                          <ol v-else-if="iniPubDetail.events && iniPubDetail.events.length"
-                              class="ini-chain">
-                            <li v-for="(ev, ei) in iniPubDetail.events"
-                                :key="'iniev-' + ei" class="ini-chain__step">
-                              <span class="ini-chain__name">{{ fmtTs(ev.ts) }} · {{ ev.event_name }}</span>
-                              <span class="text-gray-400">{{ memeOutcomeLabel(ev.outcome) }}
-                                <template v-if="ev.reason_code"> ·
+                          <!-- Цепочка событий попытки (§1.3): время, событие,
+                               причина, деталь и факт доставки. Показывается
+                               ВМЕСТЕ с этапами, а не вместо них. -->
+                          <template v-if="iniPubDetail.events && iniPubDetail.events.length">
+                            <div class="text-[10px] text-gray-500 mt-1">
+                              Цепочка событий попытки:
+                            </div>
+                            <ol class="ini-chain" data-ini-pub-events>
+                              <li v-for="(ev, ei) in iniPubDetail.events"
+                                  :key="'iniev-' + ei" class="ini-chain__step"
+                                  :data-ini-pub-event="ev.event_name">
+                                <span class="ini-chain__name">{{ fmtTs(ev.ts) }}</span>
+                                <span class="text-gray-300 font-mono">{{ ev.event_name }}</span>
+                                <span v-if="ev.reason_code" class="text-gray-400">
                                   {{ ev.reason_label || memeSkipLabel(ev.reason_code) }}
-                                  <span class="font-mono text-gray-600">{{ ev.reason_code }}</span></template>
-                              </span>
-                            </li>
-                          </ol>
-                          <div v-else class="text-xs text-gray-500">
+                                  <span class="font-mono text-gray-600">{{ ev.reason_code }}</span>
+                                </span>
+                                <span v-if="ev.detail" class="text-gray-500">· {{ ev.detail }}</span>
+                                <span v-if="ev.delivered === true" class="text-green-400">· доставлено</span>
+                                <span v-else-if="ev.delivered === false" class="text-amber-300">· не доставлено</span>
+                              </li>
+                            </ol>
+                          </template>
+                          <div v-if="(!iniPubDetail.chain || !iniPubDetail.chain.length)
+                                    && (!iniPubDetail.events || !iniPubDetail.events.length)"
+                               class="text-xs text-gray-500">
                             Событий для этой попытки не записано.
                           </div>
                           <button type="button" class="btn-ghost text-xs mt-1"
@@ -2738,6 +2774,10 @@
                       </div>
                       <div v-if="g.key === 'speech'" class="mt-1 text-xs text-gray-500"
                            data-ini-trace-manifest>
+                        <div class="text-gray-400" data-ini-trace-speech-source>
+                          {{ g.sourceNote }} — индикатор «вошёл/пропущен»
+                          отражает записанный факт сборки именно этого payload.
+                        </div>
                         <div>манифест сборки:
                           <span class="font-mono">{{ g.manifest || '—' }}</span></div>
                         <div>system sha12:

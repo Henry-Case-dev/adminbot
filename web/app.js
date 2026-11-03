@@ -2840,6 +2840,10 @@
     silent: 'молчание',
     cancelled: 'отменено',
     decided: 'решение',
+    // P0-семантика публикаций: отложено координацией — НЕ ошибка и не отмена;
+    // «доставка неизвестна» — отдельное честное состояние.
+    deferred: 'отложено',
+    delivery_unknown: 'доставка неизвестна',
   };
   function memeOutcomeLabel(outcome) {
     var code = String(outcome || '');
@@ -3938,6 +3942,10 @@
         memeSettingsSaving: false,
         memeSettingsError: '',
         memeDraft: {},
+        // P1 (ревью F3): черновик принадлежит КОНКРЕТНОМУ чату. Пока он
+        // изменён, повторный вход на вкладку/перечитывание настроек его НЕ
+        // перезаписывает; смена области предупреждает (dirty-guard).
+        memeDraftChat: null,
         // P4 (`MEME-UI-FIELDS`): поле-специфичные ошибки сохранения (422 от
         // сервера показываются У ПОЛЯ, а не молча теряются в общем тосте).
         memeFieldErrors: {},
@@ -7364,6 +7372,8 @@
         var spent = (q.spent == null ? null : q.spent);
         var remaining = (q.remaining == null ? null : q.remaining);
         var tmpl = m.template || {};
+        // P0.5 (§1.3 v2): у потолка ДВА состояния, и режим приходит с сервера
+        // (`mode`/`known`) — своё вычисление auto здесь не дублируется.
         return {
           available: avail.available === true,
           unavailableReason: avail.reason || '',
@@ -7434,6 +7444,31 @@
       // ревизии, коды и числа: ни текста прикола, ни текстов слоёв, ни персоны
       // и ни выжимки здесь нет (R17). Нет данных → `null` («приколов ещё не
       // было»), а не нули.
+      // P1 (ревью F3): «черновик изменён» — сравнение с эффективными
+      // значениями сервера. Нужно для (а) индикатора, (б) запрета молчаливой
+      // перезаписи при возврате на вкладку, (в) dirty-guard смены области.
+      memeDraftDirty: function () {
+        var d = this.memeDraft || {};
+        var view = this.memeSettingsView;
+        if (!view) return false;
+        var base = this.memeDraftFromSettings(this.memeSettings);
+        var same = function (a, b) {
+          return String(a == null ? '' : a) === String(b == null ? '' : b);
+        };
+        var keys = ['enabled', 'window_messages', 'daily_limit',
+                    'cooldown_seconds', 'min_messages', 'summarizer_model',
+                    'quiet_hours', 'length_limit', 'prompt_joke',
+                    'prompt_image'];
+        for (var i = 0; i < keys.length; i++) {
+          var key = keys[i];
+          if (key === 'enabled') {
+            if ((d.enabled === true) !== (base.enabled === true)) return true;
+            continue;
+          }
+          if (!same(d[key], base[key])) return true;
+        }
+        return false;
+      },
       memeSpeechView: function () {
         var a = (this.memeSettings && this.memeSettings.analytics) || {};
         var last = a.last_joke || {};
@@ -7462,6 +7497,11 @@
         return {
           hasAttempt: true,
           composer: String(speech.composer || ''),
+          // Честный источник истины: это запись пайплайна о фактической сборке
+          // (system sha12 совпадает с отправленным system-промптом — тест
+          // tests/test_meme_joke_speech_layers.py), а НЕ пересборка в UI.
+          sourceNote: 'источник: запись пайплайна о фактической сборке '
+            + '(system sha12 = отправленный system-промпт)',
           composerLabel: (speech.composer === 'on'
             ? 'собран единым композером'
             : (speech.composer === 'failed'
@@ -8024,6 +8064,9 @@
         var rows = (this.iniPub && this.iniPub.rows) || [];
         return rows.map(function (r) {
           var code = String(r.reason_code || '');
+          var chainReasons = (r.reason_codes || []).filter(function (c) {
+            return c && c !== code;
+          });
           return Object.assign({}, r, {
             timeText: _tsStatusLabel(r.ts, '—'),
             kindLabel: (r.kind === 'meme' ? 'Мемы' : 'Текст'),
@@ -8031,7 +8074,16 @@
               ? memeStageLabelOf(r.stage) : (r.stage || '—')),
             outcomeLabel: memeOutcomeLabel(r.outcome),
             outcomeOk: (r.outcome === 'published'),
+            outcomeClass: (r.outcome === 'published' ? 'badge-ok'
+              : (r.outcome === 'deferred' ? 'badge-info'
+                : (r.outcome === 'delivery_unknown' ? 'badge-muted'
+                  : 'badge-warn'))),
             reasonText: (r.reason_label || (code ? memeReasonLabelOf(code) : '')),
+            // Причины, которые реально были в цепочке (например конфликт
+            // координации, после которого мем всё-таки доставили).
+            chainReasonsText: chainReasons
+              .map(function (c) { return memeReasonLabelOf(c); })
+              .join(' · '),
             deliveryLabel: (r.delivered === true ? 'доставлено'
               : (r.delivered === false ? 'не доставлено' : 'неизвестно')),
             deliveryClass: (r.delivered === true ? 'text-green-400'
@@ -8161,9 +8213,14 @@
                 .join('\n')
                 + (speech.manifest
                   ? '\n\nid манифеста: ' + String(speech.manifest) : '')
-                + '\n\nТекст промпта в журнале не хранится (R17) — показаны '
-                + 'ревизии и статусы слоёв, фактически ушедших в сборку.'
+                + '\n\nИсточник: запись пайплайна о фактической сборке '
+                + '(system sha12 совпадает с отправленным провайдеру '
+                + 'system-промптом — проверяется тестом '
+                + 'test_meme_joke_speech_layers.py). Сырого текста промпта в '
+                + 'журнале нет (R17), поэтому показаны ревизии и статусы слоёв.'
               : 'манифест не записан'),
+            // Что именно показывает индикатор «вошёл/пропущен».
+            sourceNote: 'запись пайплайна (system sha12), не пересборка в UI',
             systemSha: String(speech.system_sha12 || ''),
             humorStatus: String(speech.humor_status || ''),
             technique: String(speech.technique || ''),
@@ -8252,11 +8309,18 @@
           }
           if (row.outcome === 'published') published = true;
           if (row.outcome === 'skipped' || row.outcome === 'blocked'
-              || row.outcome === 'failed') {
+              || row.outcome === 'failed' || row.outcome === 'deferred'
+              || row.outcome === 'delivery_unknown') {
             blocked = row;
           }
         });
         if (published) return 'генерация успешна, публикация доставлена';
+        if (generated && blocked && blocked.outcome === 'deferred') {
+          return 'генерация успешна, отправка отложена координацией · '
+            + (blocked.reason_label
+              || memeReasonLabelOf(blocked.reason_code))
+            + (blocked.reason_code ? (' (' + blocked.reason_code + ')') : '');
+        }
         if (generated && blocked) {
           return 'генерация успешна, отправка отменена · '
             + memeOutcomeLabel(blocked.outcome)
@@ -8291,6 +8355,9 @@
           templateCharsText: st.templateCharsText,
           jokeBudgetText: st.jokeBudgetText,
           known: st.lengthLimit && st.lengthLimit.known === true,
+          // P0.5: режим приходит с сервера (`mode`/`known`), см. `memeSettingsView`.
+          autoMode: st.ceilingMode === 'auto',
+          modeText: st.ceilingModeText || '',
           sourceLabel: this.memeLengthSourceLabel(
             (st.lengthLimit || {}).source || ''),
           placeholderLabel: st.placeholderLabel,
@@ -10512,6 +10579,11 @@
         // P0A-UX §6.4.2: черновики «Речи и характера» — тоже несохранённые
         // правки (иначе смена чата молча теряла ввод и показывала чужой чат);
         // dirty выставляется только реальным вводом (чистое состояние молчит).
+        // P1 (ревью F3): черновик промптов/настроек мемов — те же правки:
+        // смена области обязана предупредить, а не стереть набранный текст.
+        try {
+          if (this.memeDraftDirty === true) return true;
+        } catch (e) { /* нет computed — считаем чисто */ }
         var sd = this.speechDirty || {};
         if (sd.coreFull || sd.coreCompact || sd.style || sd.expression) {
           return true;
@@ -12618,6 +12690,7 @@
         if (this.activeChatId == null) {
           this.memeSettings = null;
           this.memeDiag = null;
+          this.memeDraftChat = null;
           return;
         }
         this.memeSettingsBusy = true;
@@ -12627,8 +12700,17 @@
         try {
           var data = await this.api('/api/initiative/meme-settings');
           if (!this._scopeGuard(epoch)) return;
+          // F3: изменённый черновик этого же чата НЕ перезаписываем серверным
+          // ответом — иначе набранный текст молча пропадал при переходе
+          // «Мемы → Обзор → Мемы». Данные настроек обновляются всегда, черновик
+          // — только когда он чист или принадлежит другому чату.
+          var keepDraft = this.memeDraftDirty === true
+            && this.memeDraftChat === this.activeChatId;
           this.memeSettings = data || null;
-          this.memeDraft = this.memeDraftFromSettings(data);
+          if (!keepDraft) {
+            this.memeDraft = this.memeDraftFromSettings(data);
+            this.memeDraftChat = this.activeChatId;
+          }
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;
           this.memeSettings = null;
@@ -12844,9 +12926,11 @@
         });
       },
       // «Отменить изменения»: черновик возвращается к эффективным значениям
-      // сервера (ничего не пишется).
+      // сервера (ничего не пишется). Это ЕДИНСТВЕННЫЙ явный способ отказаться
+      // от правок — плюс подтверждение при смене области (dirty-guard).
       initiativeDraftReset: function () {
         this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
+        this.memeDraftChat = this.activeChatId;
         this.memeFieldErrors = {};
         this.memeSettingsError = '';
         this.memeSaveResult = null;
@@ -13002,6 +13086,7 @@
           });
           this.memeSettings = data || this.memeSettings;
           this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
+          this.memeDraftChat = this.activeChatId;
           // Реальный результат: что именно и для какого чата записано.
           var savedKeys = Object.keys(body);
           this.memeSaveResult = {

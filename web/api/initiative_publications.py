@@ -71,12 +71,49 @@ TEXT_EVENT_NAMES = (
     "initiative_recheck_passed",
     "initiative_writer_unavailable",
     "initiative_sent",
+    # P0 (`fix/p0-publication-stale`): координация публикаций текста пишет
+    # собственные события с префиксом `initiative_publication_*` — без них
+    # конфликты не попадали ни в список, ни в фильтр причины.
+    "initiative_publication_conflict",
+    "initiative_publication_claim",
 )
-#: Префикс будущих публикационных событий (P0-семантика): читаем по префиксу,
-#: чтобы новые коды не требовали правки этого файла.
-PUBLICATION_PREFIX = "publication_"
+#: Префиксы публикационных событий (P0-семантика): читаем по префиксу, чтобы
+#: новые коды не требовали правки этого файла.
+PUBLICATION_PREFIXES = ("publication_", "initiative_publication_")
+
+#: Виды публикационных событий: что именно они доказывают.
+#: `sent` — единственный факт отправки; `cancelled`/`failed` — терминальный
+#: отказ; `deferred` — отложено координацией (НЕ ошибка); `unknown` — доставка
+#: не подтверждена и не опровергнута; `requested` — только заявка на бронь.
+EVENT_SENT = "sent"
+EVENT_CANCELLED = "cancelled"
+EVENT_FAILED = "failed"
+EVENT_DEFERRED = "deferred"
+EVENT_UNKNOWN = "unknown"
+EVENT_REQUESTED = "requested"
+EVENT_INFO = "info"
+#: Терминальные виды: последний по времени побеждает решение.
+TERMINAL_EVENT_KINDS = (EVENT_SENT, EVENT_CANCELLED, EVENT_FAILED,
+                        EVENT_DEFERRED, EVENT_UNKNOWN)
 
 OUTCOME_PUBLISHED = "published"
+OUTCOME_DEFERRED = "deferred"
+OUTCOME_UNKNOWN = "delivery_unknown"
+
+#: Имя события → вид. Незнакомое `publication_*`/`initiative_publication_*`
+#: классифицируется по `outcome` (см. `_publication_kind`), поэтому новые
+#: коды P0 видны без правки списка.
+_PUBLICATION_NAME_KINDS = {
+    "publication_sent": EVENT_SENT,
+    "initiative_sent": EVENT_SENT,
+    "publication_cancelled": EVENT_CANCELLED,
+    "publication_failed": EVENT_FAILED,
+    "publication_deferred_conflict": EVENT_DEFERRED,
+    "initiative_publication_conflict": EVENT_DEFERRED,
+    "delivery_unknown": EVENT_UNKNOWN,
+    "publication_requested": EVENT_REQUESTED,
+    "initiative_publication_claim": EVENT_REQUESTED,
+}
 
 
 def _now() -> int:
@@ -108,13 +145,116 @@ def _reason_label(code: str) -> str:
 def _event_names_sql(names: tuple) -> tuple[str, list]:
     if not names:
         return "", []
-    return (" AND (event_name IN (" + ",".join("?" * len(names))
-            + ") OR event_name LIKE ?)"), [*names, PUBLICATION_PREFIX + "%"]
+    parts = ["event_name IN (" + ",".join("?" * len(names)) + ")"]
+    params: list = [*names]
+    for prefix in PUBLICATION_PREFIXES:
+        parts.append("event_name LIKE ?")
+        params.append(prefix + "%")
+    return " AND (" + " OR ".join(parts) + ")", params
+
+
+def _is_publication_event(name: str) -> bool:
+    text = _str(name)
+    return any(text.startswith(prefix) for prefix in PUBLICATION_PREFIXES)
+
+
+def _publication_kind(name: str, outcome: str) -> str:
+    """Вид публикационного события: имя важнее, `outcome` — уточнение.
+
+    Незнакомое имя (новый код P0) не теряется: `success` = отправлено,
+    `cancelled`/`failed`/`blocked` = терминальный отказ, иначе — информативное.
+    """
+    text = _str(name)
+    known = _PUBLICATION_NAME_KINDS.get(text)
+    if known:
+        return known
+    raw = _str(outcome).lower()
+    if raw in ("success", "sent", "published", "delivered", "ok"):
+        return EVENT_SENT
+    if raw in ("cancelled", "canceled", "failed", "blocked", "expired"):
+        return EVENT_CANCELLED
+    if raw == "deferred":
+        return EVENT_DEFERRED
+    if raw in ("unknown", "delivery_unknown"):
+        return EVENT_UNKNOWN
+    if text.startswith("publication_") and text.endswith("_conflict"):
+        return EVENT_DEFERRED
+    return EVENT_INFO
+
+
+def _kind_outcome(kind: str, reason_code: str) -> tuple[str, str]:
+    """Вид события → (outcome строки, reason_code)."""
+    if kind == EVENT_SENT:
+        return OUTCOME_PUBLISHED, _str(reason_code)
+    if kind == EVENT_DEFERRED:
+        return OUTCOME_DEFERRED, _str(reason_code)
+    if kind == EVENT_UNKNOWN:
+        return OUTCOME_UNKNOWN, _str(reason_code)
+    if kind == EVENT_CANCELLED:
+        return "cancelled", _str(reason_code)
+    if kind == EVENT_FAILED:
+        return "failed", _str(reason_code)
+    return "", _str(reason_code)
 
 
 async def _db(request: Request):
     from services import lore_runtime
     return lore_runtime.get_lore_db()
+
+
+def _event_chain(facts: dict) -> list[dict]:
+    """§1.3-цепочка попытки мема (`facts.events`, P0) — как есть, без правок.
+
+    Форма записи (P0): ``name``, ``at``, ``run_id``, ``mode``, ``source``,
+    ``reason``, ``detail`` (``"deferred|<detail>"`` для отложенных), ``after``,
+    опционально ``delivered``. Ничего не пересчитываем: это журнал пайплайна.
+    """
+    raw = facts.get("events") if isinstance(facts, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        out.append({
+            "event_name": _str(item.get("name")),
+            "ts": _int(item.get("at")),
+            "outcome": _str(item.get("reason")) or _str(item.get("name")),
+            "reason_code": _str(item.get("reason")),
+            "reason_label": (_reason_label(_str(item.get("reason")))
+                             if item.get("reason") else ""),
+            "stage": _str(item.get("source")) or "attempt",
+            "detail": _str(item.get("detail")),
+            "delivered": (None if item.get("delivered") is None
+                          else bool(item.get("delivered"))),
+            "after": _str(item.get("after")),
+            "level": "",
+            "error_type": "",
+        })
+    return out
+
+
+def _event_chain_reasons(facts: dict) -> list[str]:
+    """Все причины и имена публикационных событий цепочки (для фильтра)."""
+    out: list[str] = []
+    for item in _event_chain(facts):
+        for code in (item.get("reason_code"), item.get("event_name")):
+            text = _str(code)
+            if not text or text in out:
+                continue
+            if ("publication_" in text
+                    or text in _PUBLICATION_NAME_KINDS
+                    or text in ("delivery_unknown",)):
+                out.append(text)
+    return out
+
+
+def _event_chain_has_deferred(facts: dict) -> bool:
+    for item in _event_chain(facts):
+        if (_PUBLICATION_NAME_KINDS.get(item.get("event_name")) == EVENT_DEFERRED
+                or _str(item.get("detail")).startswith("deferred")):
+            return True
+    return False
 
 
 async def _meme_attempt_rows(db, chat_id: int) -> tuple[list[dict], str]:
@@ -163,6 +303,9 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
         published = False
         message_id = None
         manual = False
+        reason_codes: list[str] = []
+        events: list[dict] = []
+        deferred_seen = False
         for row in items:
             facts = {}
             try:
@@ -171,8 +314,15 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
             except Exception:
                 facts = {}
             outcome = _str(row.get("outcome"))
+            row_reason = _str(row.get("reason_code"))
             if outcome == OUTCOME_PUBLISHED:
                 published = True
+            for code in ([row_reason] + _event_chain_reasons(facts)):
+                if code and code not in reason_codes:
+                    reason_codes.append(code)
+            if _event_chain_has_deferred(facts):
+                deferred_seen = True
+            events.extend(_event_chain(facts))
             pub_facts = facts.get("publish")
             if not isinstance(pub_facts, dict):
                 pub_facts = facts.get("publication")
@@ -186,11 +336,21 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                 "stage": _str(row.get("stage")),
                 "ts": _int(row.get("ts")),
                 "outcome": outcome,
-                "reason_code": _str(row.get("reason_code")),
+                "reason_code": row_reason,
                 "facts": facts,
             })
         reason_code = _str(terminal.get("reason_code"))
         outcome = _str(terminal.get("outcome"))
+        # Отложенный реальным конфликтом координации мем — НЕ ошибка: пока
+        # нет терминального `sent`, он читается как «отложено». Терминальный
+        # `published` (доставка после ожидания) остаётся публикацией.
+        if (not published and deferred_seen
+                and outcome in ("skipped", "blocked", "failed")
+                and (not reason_code
+                     or "conflict" in reason_code
+                     or "deferred" in reason_code
+                     or reason_code in ("in_flight", "publication_in_flight"))):
+            outcome = OUTCOME_DEFERRED
         out.append({
             "attempt_id": "meme:" + job_id,
             "kind": KIND_MEME,
@@ -201,9 +361,14 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
             "outcome": outcome,
             "reason_code": reason_code,
             "reason_label": _reason_label(reason_code) if reason_code else "",
-            "delivered": True if published else False,
+            "delivered": (True if published
+                          else (None if outcome in (OUTCOME_DEFERRED,
+                                                    OUTCOME_UNKNOWN)
+                                else False)),
             "message_id": message_id,
             "chain_len": len(chain),
+            "reason_codes": reason_codes,
+            "events_len": len(events),
             "window_messages": (
                 _int(terminal.get("window_messages"), 0) or None),
             "limit_source": _str(terminal.get("limit_source")),
@@ -244,8 +409,26 @@ async def _delivered_outputs(db, chat_id: int, since_ts: int) -> list[dict]:
         return []
 
 
+def _sum_reason_codes(acc: dict, code: str) -> None:
+    """Накопитель причин попытки (для фильтра по причине и подсказок UI)."""
+    text = _str(code)
+    if not text:
+        return
+    codes = acc.setdefault("reason_codes", [])
+    if text not in codes:
+        codes.append(text)
+
+
 def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
-    """События текста + ledger доставки → логические попытки (без дублей)."""
+    """События текста + ledger доставки → логические попытки (без дублей).
+
+    Одна строка = один ``trace_id``. События обрабатываются в ХРОНОЛОГИЧЕСКОМ
+    порядке, и **последнее реальное публикационное событие главнее решения**:
+    оптимистичное «решение принято» не перетирает более позднюю отмену
+    отправки (``publication_stale``) и не выдаёт себя за доставку. Обратный
+    случай (решение «пропуск», затем ``publication_sent`` + запись в ledger)
+    читается как «опубликовано», а не «пропуск с delivered=true».
+    """
     by_corr: dict[str, dict] = {}
     for row in outputs:
         if _str(row.get("output_kind")) != TEXT_OUTPUT_KIND:
@@ -253,75 +436,91 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
         corr = _str(row.get("correlation_id"))
         if corr:
             by_corr[corr] = row
+
+    ordered = sorted(events, key=lambda r: (_int(r.get("ts")), _int(r.get("id"))))
     attempts: dict[str, dict] = {}
-    for row in events:
+    for row in ordered:
         name = _str(row.get("event_name"))
         corr = _str(row.get("trace_id"))
-        published_row = by_corr.get(corr) if corr else None
-        if name == "initiative_decided":
-            outcome = _str(row.get("outcome")) or "decided"
-            delivered = True if published_row else False
-            attempts["text:" + (corr or _str(row.get("id")))] = {
-                "attempt_id": "text:" + (corr or _str(row.get("id"))),
+        key = "text:" + (corr or _str(row.get("id")))
+        ts = _int(row.get("ts"))
+        reason = _str(row.get("reason_code"))
+        is_decision = name == "initiative_decided"
+        is_publication = (_is_publication_event(name)
+                          or name in ("initiative_sent", "delivery_unknown"))
+        kind = _publication_kind(name, row.get("outcome")) if is_publication else ""
+        if not is_decision and not is_publication:
+            # Писательские/перепроверочные события — только в трассу.
+            acc = attempts.get(key)
+            if acc is not None:
+                acc["chain_len"] += 1
+            continue
+        acc = attempts.get(key)
+        if acc is None:
+            acc = {
+                "attempt_id": key,
                 "kind": KIND_TEXT,
                 "job_id": corr,
                 "mode": "auto",
-                "ts": _int(row.get("ts")),
-                "stage": _str(row.get("stage")) or "decision",
-                "outcome": outcome,
-                "reason_code": _str(row.get("reason_code")),
-                "reason_label": (_reason_label(_str(row.get("reason_code")))
-                                 if row.get("reason_code") else ""),
-                "delivered": delivered,
-                "message_id": (
-                    None if not published_row
-                    else _int(published_row.get("tg_message_id"), 0) or None),
-                "chain_len": 1,
+                "ts": ts,
+                "stage": (_str(row.get("stage"))
+                          or ("decision" if is_decision else name)),
+                "outcome": "",
+                "reason_code": "",
+                "reason_label": "",
+                "delivered": None,
+                "message_id": None,
+                "chain_len": 0,
                 "window_messages": None,
                 "limit_source": "",
                 "limit_value": None,
+                "reason_codes": [],
             }
+            attempts[key] = acc
+        acc["chain_len"] += 1
+        acc["ts"] = max(_int(acc.get("ts")), ts)
+        _sum_reason_codes(acc, reason)
+        if kind == EVENT_REQUESTED:
+            # Заявка на бронь: строка попытки не создаётся, но в трассу и в
+            # набор причин (для фильтра) она входит.
             continue
-        # Публикационные/писательские события: отдельные строки, если решения
-        # по тому же correlation нет. Иначе они входят в его трассу.
-        if corr and ("text:" + corr) in attempts:
-            attempts["text:" + corr]["chain_len"] += 1
-            if published_row:
-                attempts["text:" + corr]["delivered"] = True
-                attempts["text:" + corr]["message_id"] = (
-                    _int(published_row.get("tg_message_id"), 0) or None)
-                attempts["text:" + corr]["outcome"] = OUTCOME_PUBLISHED
-                attempts["text:" + corr]["reason_code"] = ""
-                attempts["text:" + corr]["reason_label"] = ""
+        if is_decision:
+            # Решение описывает намерение, а не факт отправки: оно задаёт
+            # исход только пока нет терминального публикационного факта.
+            if not acc.get("_terminal"):
+                acc["outcome"] = _str(row.get("outcome")) or "decided"
+                acc["reason_code"] = reason
+                acc["reason_label"] = _reason_label(reason) if reason else ""
+                acc["delivered"] = (True if (corr and corr in by_corr)
+                                    else False)
+                acc["stage"] = acc["stage"] or "decision"
             continue
-        key = "text:" + (corr or _str(row.get("id")))
-        if key in attempts:
-            continue
-        outcome = _str(row.get("outcome")) or name
-        attempts[key] = {
-            "attempt_id": key,
-            "kind": KIND_TEXT,
-            "job_id": corr,
-            "mode": "auto",
-            "ts": _int(row.get("ts")),
-            "stage": _str(row.get("stage")) or name,
-            "outcome": outcome,
-            "reason_code": _str(row.get("reason_code")),
-            "reason_label": (_reason_label(_str(row.get("reason_code")))
-                             if row.get("reason_code") else ""),
-            "delivered": True if published_row else None,
-            "message_id": (
-                None if not published_row
-                else _int(published_row.get("tg_message_id"), 0) or None),
-            "chain_len": 1,
-            "window_messages": None,
-            "limit_source": "",
-            "limit_value": None,
-        }
-    # Доставки без события решения — тоже реальные публикации, не теряем.
+        # Публикационное событие: последнее по времени — истина об отправке.
+        outcome, code = _kind_outcome(kind, reason)
+        acc["_terminal"] = True
+        acc["outcome"] = outcome
+        acc["reason_code"] = code
+        acc["reason_label"] = _reason_label(code) if code else ""
+        acc["stage"] = _str(row.get("stage")) or name
+        if kind == EVENT_SENT:
+            acc["delivered"] = True
+        elif kind in (EVENT_CANCELLED, EVENT_FAILED):
+            acc["delivered"] = False
+        else:
+            acc["delivered"] = None
+
+    # Доставки без события решения и без публикационного события — тоже
+    # реальные публикации, не теряем.
     for corr, row in by_corr.items():
         key = "text:" + corr
-        if key in attempts:
+        acc = attempts.get(key)
+        if acc is not None:
+            acc["delivered"] = True
+            acc["message_id"] = _int(row.get("tg_message_id"), 0) or None
+            if not acc.get("_terminal"):
+                acc["outcome"] = OUTCOME_PUBLISHED
+                acc["reason_code"] = ""
+                acc["reason_label"] = ""
             continue
         attempts[key] = {
             "attempt_id": key,
@@ -339,8 +538,18 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
             "window_messages": None,
             "limit_source": "",
             "limit_value": None,
+            "reason_codes": [],
         }
-    return list(attempts.values())
+
+    out: list[dict] = []
+    for acc in attempts.values():
+        if not acc.get("outcome"):
+            # Строка без исхода (только информативные события) не рисуется:
+            # пустая деталь не должна становиться записью журнала.
+            continue
+        acc.pop("_terminal", None)
+        out.append(acc)
+    return out
 
 
 @initiative_publications_router.get("/initiative/publications")
@@ -390,9 +599,14 @@ async def list_publications(
         rows = [r for r in rows if r["outcome"] == outcome]
     reason_text = _str(reason).strip().lower()
     if reason_text:
+        # Фильтр по причине смотрит и на ТЕКУЩУЮ причину строки, и на причины
+        # всей цепочки (отложенный конфликт, а затем доставка — строка должна
+        # находиться по коду конфликта, хоть её исход уже `published`).
         rows = [r for r in rows
                 if reason_text in r["reason_code"].lower()
-                or reason_text in r["reason_label"].lower()]
+                or reason_text in _str(r.get("reason_label")).lower()
+                or any(reason_text in _str(code).lower()
+                       for code in (r.get("reason_codes") or []))]
     rows.sort(key=lambda r: (-_int(r["ts"]), r["attempt_id"]))
     total = len(rows)
     page = rows[offset:offset + limit]
@@ -412,6 +626,10 @@ async def list_publications(
             "published": sum(1 for r in rows
                              if r["outcome"] == OUTCOME_PUBLISHED),
             "not_delivered": sum(1 for r in rows if r["delivered"] is False),
+            "deferred": sum(1 for r in rows
+                            if r["outcome"] == OUTCOME_DEFERRED),
+            "unknown": sum(1 for r in rows
+                           if r["outcome"] == OUTCOME_UNKNOWN),
         },
         "rows": page,
         "next_offset": next_offset,
@@ -503,8 +721,17 @@ async def publication_detail(
                                     else _int(row.get("window_messages"))),
             })
         chain.sort(key=lambda r: (r["ts"], r["stage"]))
-        events = []
-        _ = detail
+        # §1.3-цепочка событий попытки (P0) — из фактов этапов, как записано
+        # пайплайном: время, run id (source), причина, detail, delivered,
+        # ссылка на предыдущий этап. Именно она показывает
+        # `publication_deferred_conflict` / `publication_cancelled` и т.п.
+        events: list[dict] = []
+        for entry in chain:
+            for item in _event_chain(entry.get("facts") or {}):
+                events.append(item)
+        events.sort(key=lambda e: e["ts"])
+        for ev in events:
+            ev["id"] = None
         return {
             "schema_version": 1,
             "available": True,

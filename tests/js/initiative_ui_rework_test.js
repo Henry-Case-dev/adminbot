@@ -274,4 +274,138 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     '«Обзор» запрашивает журнал публикаций (тяжёлые данные на первом экране)');
 })();
 
+// ── 7. F3: несохранённый черновик промптов не теряется ───────────────────
+(function () {
+  const settings = {
+    settings: { enabled: true, window_messages: 300, daily_limit: 3,
+                cooldown_seconds: 21600, min_messages: 8,
+                summarizer_model: '', quiet_hours: '', length_admin: null },
+    prompts: {
+      joke: { text: 'Серверный прикол', source: 'chat' },
+      image: { text: 'Мем: {joke}', source: 'chat' },
+    },
+  };
+  const clean = methods.memeDraftFromSettings(settings);
+  const view = computed.memeSettingsView.call({ memeSettings: settings });
+  const ctx = {
+    memeSettings: settings, memeSettingsView: view,
+    memeDraft: Object.assign({}, clean),
+    memeDraftFromSettings: methods.memeDraftFromSettings,
+  };
+  assert.strictEqual(computed.memeDraftDirty.call(ctx), false,
+    'чистый черновик помечен как изменённый');
+  ctx.memeDraft = Object.assign({}, clean, { prompt_joke: 'ЧЕРНОВИК 123' });
+  assert.strictEqual(computed.memeDraftDirty.call(ctx), true,
+    'набранный текст не помечается как несохранённая правка');
+  ctx.memeDraft = Object.assign({}, clean, { prompt_joke: 'Серверный прикол',
+                                             daily_limit: '5' });
+  assert.strictEqual(computed.memeDraftDirty.call(ctx), true,
+    'изменение числового поля не считается правкой');
+  // dirty обязан попасть в общий guard ухода со страницы (иначе смена чата
+  // молча стирает черновик).
+  const guardCtx = {
+    stickyDirtyCount: 0, dirtyItems: [], dirtyKeyItems: [],
+    saving: { size: 0 }, blockDrafts: {}, ownKeyDraft: '',
+    personaDraft: null, speechDirty: {}, speechSampleDraft: null,
+    dossierData: null, dossierDraft: '',
+    memeDraftDirty: true,
+  };
+  assert.strictEqual(methods.hasUnsavedEdits.call(guardCtx), true,
+    'dirty-черновик мемов не участвует в guard смены области');
+  guardCtx.memeDraftDirty = false;
+  // Повторный вход на вкладку не перезаписывает изменённый черновик.
+  const src = APP_JS.slice(APP_JS.indexOf('loadMemeSettings: async function'),
+                           APP_JS.indexOf('loadMemeDiagnostics: async function'));
+  assert.ok(src.indexOf('memeDraftDirty') >= 0
+            && src.indexOf('keepDraft') >= 0,
+    'перечитывание настроек не учитывает изменённый черновик');
+})();
+
+// ── 8. F5 (fwd-compat): пустой потолок ≠ 0 и читается в двух режимах ─────
+(function () {
+  function view(len) {
+    return computed.memeSettingsView.call({
+      memeSettings: {
+        settings: { enabled: true }, quota: {}, analytics: {},
+        availability: {}, defaults: {}, day: {}, template: {},
+        prompts: {}, delivery: { stages: [] }, length_limit: len,
+      },
+    });
+  }
+  // Сегодня backend присылает source="unknown" → прежняя подпись (поведение
+  // не меняется до ребейза на P0).
+  const unknown = view({ ceiling: null, source: 'unknown', known: false,
+                         template_chars: 5, joke_budget: 0 });
+  assert.strictEqual(unknown.ceilingText, 'неизвестен');
+  assert.strictEqual(unknown.jokeBudgetText, 'неизвестен');
+  assert.strictEqual(unknown.ceilingMode, 'unknown');
+  // P0.5: пусто = автоматический режим. Тот же код читает новый шейп без
+  // правок и НЕ показывает 0/NaN/800.
+  const auto = view({ ceiling: null, source: 'auto', known: false,
+                      template_chars: 5, joke_budget: 0 });
+  assert.strictEqual(auto.ceilingText, 'Автоматически');
+  assert.strictEqual(auto.ceilingMode, 'auto');
+  assert.strictEqual(auto.jokeBudgetText, 'определяет провайдер');
+  assert.ok(methods.memeLengthSourceLabel.call({}, 'auto').indexOf('автоматич')
+            >= 0, 'источник «auto» не подписан как автоматический режим');
+  const fixed = view({ ceiling: 400, source: 'model_capability',
+                       template_chars: 5, joke_budget: 395, known: true });
+  assert.strictEqual(fixed.ceilingText, '400');
+  assert.strictEqual(fixed.jokeBudgetText, '395');
+})();
+
+// ── 9. Публикации: отложенный конфликт не выдаётся за ошибку ─────────────
+(function () {
+  const view = computed.iniPubRows.call({
+    iniPub: { rows: [
+      { attempt_id: 'meme:5', kind: 'meme', ts: 1800000000, stage: 'publish',
+        outcome: 'deferred', reason_code: 'publication_conflict',
+        reason_label: '', delivered: null, mode: 'auto',
+        reason_codes: ['publication_conflict', 'publication_deferred_conflict'] },
+      { attempt_id: 'text:6', kind: 'text_initiative', ts: 1799999999,
+        stage: 'send', outcome: 'delivery_unknown',
+        reason_code: 'delivery_unknown', reason_label: '', delivered: null,
+        mode: 'auto', reason_codes: [] },
+    ] },
+  });
+  assert.strictEqual(view[0].outcomeLabel, 'отложено');
+  assert.strictEqual(view[0].outcomeClass, 'badge-info',
+    'отложенный конфликт подан как ошибка');
+  assert.strictEqual(view[0].deliveryLabel, 'неизвестно');
+  assert.ok(view[0].chainReasonsText.indexOf('конфликт') >= 0
+            || view[0].chainReasonsText.length > 0,
+    'причины цепочки не дошли до строки журнала');
+  assert.strictEqual(view[1].outcomeLabel, 'доставка неизвестна');
+  // Фильтр «причина» на сервере использует и причины цепочки — код должен
+  // присутствовать в разметке как подсказка строки.
+  assert.ok(INDEX.indexOf('data-ini-pub-chain-reason') >= 0,
+    'в строке журнала нет подсказки причин цепочки');
+  ['deferred', 'delivery_unknown'].forEach(function (v) {
+    assert.ok(new RegExp('<option value="' + v + '"').test(INDEX),
+      'в фильтре исхода нет «' + v + '»');
+  });
+})();
+
+// ── 10. Честная подпись источника «вошёл/пропущен» ───────────────────────
+(function () {
+  const speech = {
+    composer: 'on', system_sha12: 'abc', manifest: 'm1', core: 'r21',
+    expression: 'e1', humor: 'h1', humor_status: 'rendered',
+    layers: [{ layer: 'core', revision: 'r21', chars: 10, rendered: true,
+               skip: '' }],
+    skipped: {},
+  };
+  const view = computed.memeSpeechView.call({
+    memeSettings: { analytics: { last_joke: { chars: 6, limit: 395,
+                                              speech: speech } } },
+  });
+  assert.ok(view.sourceNote.indexOf('запись пайплайна') >= 0,
+    'источник факта не назван честно: ' + view.sourceNote);
+  assert.ok(view.sourceNote.indexOf('sha12') >= 0,
+    'подпись не привязывает факт к отправленному payload');
+  assert.ok(INDEX.indexOf('data-meme-speech-source') >= 0
+            && INDEX.indexOf('data-ini-trace-speech-source') >= 0,
+    'подпись источника не выведена в UI');
+})();
+
 console.log('INITIATIVE-UI-OK');

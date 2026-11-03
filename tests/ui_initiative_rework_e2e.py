@@ -97,13 +97,20 @@ window.Telegram = { WebApp: {
 STATE = {
     "post_body": None,
     "post_count": 0,
-    "prompt_joke": "Придумай короткий абсурдный прикол.",
-    "prompt_image": "Мем: {joke}",
-    "joke_source": "factory",
-    "image_source": "chat",
+    "prompts_by_chat": {},
+    "images_by_chat": {},
+    "joke_source_by_chat": {},
+    "image_source_by_chat": {},
     "requests": [],
     "axes_on": False,
+    "post_chat": None,
 }
+
+DEFAULT_JOKE = "Придумай короткий абсурдный прикол."
+DEFAULT_IMAGE = "Мем: {joke}"
+#: Два разных чата — доказательство, что данные перечитываются, а не липнут.
+CHAT_PROMPTS = {str(CHAT_A): "JOKE-A: прикол для чата A",
+                str(CHAT_B): "JOKE-B: прикол для чата B"}
 
 
 # ── стабы payload'ов ─────────────────────────────────────────────────────
@@ -158,9 +165,16 @@ def _attempt_rows():
     ]
 
 
-def _meme_settings():
+def _meme_settings(chat_id=None):
+    chat = CHAT_A if chat_id is None else int(chat_id)
+    spent = 1 if chat == CHAT_A else 0
+    joke = STATE["prompts_by_chat"].get(str(chat), CHAT_PROMPTS.get(str(chat), DEFAULT_JOKE))
+    image = STATE["images_by_chat"].get(str(chat), DEFAULT_IMAGE)
+    joke_source = ("chat" if STATE["joke_source_by_chat"].get(str(chat), True)
+                   else "factory")
+    image_source = STATE["image_source_by_chat"].get(str(chat), "factory")
     return {
-        "chat_id": CHAT_A, "generated_at": NOW,
+        "chat_id": chat, "generated_at": NOW,
         "settings": {"enabled": True, "window_messages": 300, "daily_limit": 3,
                      "cooldown_seconds": 21600, "min_messages": 8,
                      "summarizer_model": "", "quiet_hours": "",
@@ -169,8 +183,8 @@ def _meme_settings():
                          "initiative_enabled": True,
                          "image": {"available": True},
                          "blocks_text_initiative": False},
-        "quota": {"available": True, "reason": "ok", "limit": 3, "spent": 1,
-                  "remaining": 2, "timezone_name": "Europe/Moscow",
+        "quota": {"available": True, "reason": "ok", "limit": 3, "spent": spent,
+                  "remaining": 3 - spent, "timezone_name": "Europe/Moscow",
                   "next_reset": "2026-11-01T00:00:00+03:00"},
         "day": {"bucket": "2026-10-31", "timezone_name": "Europe/Moscow",
                 "timezone_source": "chat",
@@ -178,22 +192,22 @@ def _meme_settings():
         "length_limit": {"ceiling": 400, "source": "model_capability",
                          "template_chars": 5, "joke_budget": 395,
                          "known": True, "placeholder": "slot", "candidates": []},
-        "template": {"text": STATE["prompt_image"],
-                     "source": STATE["image_source"], "placeholders": 1,
+        "template": {"text": image,
+                     "source": image_source, "placeholders": 1,
                      "valid": True, "error": ""},
         "prompts": {
             "image": {"block_id": "initiative.meme.image",
-                      "text": STATE["prompt_image"],
-                      "source": STATE["image_source"],
-                      "differs_from_factory": True,
+                      "text": image,
+                      "source": image_source,
+                      "differs_from_factory": image_source == "chat",
                       "factory_revision": "fac-img", "revision": 4,
                       "setting_key": "prompts.meme_image"},
             "joke": {"block_id": "initiative.meme.joke",
-                     "text": STATE["prompt_joke"],
-                     "source": STATE["joke_source"],
-                     "differs_from_factory": STATE["joke_source"] == "chat",
+                     "text": joke,
+                     "source": joke_source,
+                     "differs_from_factory": joke_source == "chat",
                      "factory_revision": "fac-joke",
-                     "revision": 2 if STATE["joke_source"] == "chat" else 1,
+                     "revision": 2 if joke_source == "chat" else 1,
                      "setting_key": "prompts.meme_joke"},
             "summary": {"block_id": "initiative.meme.summary", "text": "s",
                         "differs_from_factory": False},
@@ -349,19 +363,33 @@ def _pub_rows():
          "mode": "auto", "ts": NOW, "stage": "publish", "outcome": "published",
          "reason_code": "sent", "reason_label": "отправлено",
          "delivered": True, "message_id": 4321, "chain_len": 4,
+         "reason_codes": ["sent"],
          "window_messages": 300, "limit_source": "model_capability",
-         "limit_value": 400},
+         "limit_value": 400, "events_len": 5},
+        # P0-семантика: отправку отложил реальный конфликт координации.
+        {"attempt_id": "meme:job-78", "kind": "meme", "job_id": "job-78",
+         "mode": "auto", "ts": NOW - 300, "stage": "publish",
+         "outcome": "deferred", "reason_code": "publication_conflict",
+         "reason_label": "публикацию отложил конфликт с другим механизмом",
+         "delivered": None, "message_id": None, "chain_len": 4,
+         "reason_codes": ["publication_conflict",
+                          "publication_deferred_conflict"],
+         "window_messages": 300, "limit_source": "model_capability",
+         "limit_value": 400, "events_len": 6},
         {"attempt_id": "meme:job-76", "kind": "meme", "job_id": "job-76",
          "mode": "auto", "ts": NOW - 600, "stage": "publish",
          "outcome": "skipped", "reason_code": "publication_stale",
          "reason_label": "устаревшая бронь публикации", "delivered": False,
-         "message_id": None, "chain_len": 4, "window_messages": 300,
+         "message_id": None, "chain_len": 4, "reason_codes":
+             ["publication_stale"],
+         "window_messages": 300,
          "limit_source": "model_capability", "limit_value": 400},
         {"attempt_id": "meme:job-75", "kind": "meme", "job_id": "job-75",
          "mode": "manual", "ts": NOW - 1200, "stage": "publish",
          "outcome": "published", "reason_code": "sent",
          "reason_label": "отправлено", "delivered": True, "message_id": 4300,
-         "chain_len": 4, "window_messages": 300, "limit_source": "manual",
+         "chain_len": 4, "reason_codes": ["sent"], "window_messages": 300,
+         "limit_source": "manual",
          "limit_value": None},
         {"attempt_id": "text:corr-1", "kind": "text_initiative", "job_id": "corr-1",
          "mode": "auto", "ts": NOW - 1800, "stage": "decision",
@@ -448,6 +476,45 @@ def _detail(attempt_id):
                             "message_id": 4321},
                 "chain": chain, "events": [],
                 "delivery": {"delivered": True, "message_id": 4321}}
+    if attempt_id.startswith("meme:job-78"):
+        # Отложено конфликтом: генерация прошла, отправка ждёт слота.
+        chain = _meme_chain_skipped()
+        chain[-1] = {"stage": "publish", "ts": NOW - 300, "outcome": "deferred",
+                     "reason_code": "publication_conflict",
+                     "reason_label": "публикацию отложил конфликт с другим "
+                                     "механизмом",
+                     "facts": {"publish": {"manual": False,
+                                           "claim": {"state": "released"},
+                                           "event_chain": True}},
+                     "limit_source": "model_capability", "limit_value": 400,
+                     "window_messages": 300}
+        events = [
+            {"id": None, "ts": NOW - 400, "event_name": "image_ready",
+             "stage": "attempt", "outcome": "image_ready", "reason_code": "",
+             "reason_label": "", "detail": "", "delivered": None,
+             "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 350, "event_name": "publication_requested",
+             "stage": "attempt", "outcome": "publication_requested",
+             "reason_code": "", "reason_label": "",
+             "detail": "claim_requested", "delivered": None, "level": "",
+             "error_type": ""},
+            {"id": None, "ts": NOW - 300,
+             "event_name": "publication_deferred_conflict", "stage": "deferred",
+             "outcome": "publication_deferred_conflict",
+             "reason_code": "publication_conflict",
+             "reason_label": "конфликт публикаций",
+             "detail": "deferred|slot_busy", "delivered": None, "level": "",
+             "error_type": ""},
+        ]
+        return {"schema_version": 1, "available": True, "notes": [],
+                "attempt": {"attempt_id": "meme:job-78", "kind": "meme",
+                            "job_id": "job-78", "mode": "auto",
+                            "ts": NOW - 300, "stage": "publish",
+                            "outcome": "deferred",
+                            "reason_code": "publication_conflict",
+                            "delivered": None, "message_id": None},
+                "chain": chain, "events": events,
+                "delivery": {"delivered": None, "message_id": None}}
     if attempt_id.startswith("meme:job-76"):
         return {"schema_version": 1, "available": True, "notes": [],
                 "attempt": {"attempt_id": "meme:job-76", "kind": "meme",
@@ -500,6 +567,11 @@ def make_api_handler():
         path = url.split("?")[0]
         qs = url.split("?")[1] if "?" in url else ""
         STATE["requests"].append(path + ("?" + qs if qs else ""))
+        headers = {k.lower(): v for k, v in (req.headers or {}).items()}
+        try:
+            chat_hdr = int(headers.get("x-chat-id") or CHAT_A)
+        except (TypeError, ValueError):
+            chat_hdr = CHAT_A
 
         def send(payload, status=200):
             route.fulfill(status=status, content_type="application/json",
@@ -512,16 +584,26 @@ def make_api_handler():
                 except Exception:  # noqa: BLE001
                     body = {}
                 STATE["post_body"] = body
+                STATE["post_chat"] = chat_hdr
                 STATE["post_count"] += 1
+                chat_key = str(chat_hdr)
                 if "prompt_joke" in body:
                     value = str(body["prompt_joke"])
-                    STATE["prompt_joke"] = value or "Придумай короткий абсурдный прикол."
-                    STATE["joke_source"] = "chat" if value else "factory"
+                    if value:
+                        STATE["prompts_by_chat"][chat_key] = value
+                        STATE["joke_source_by_chat"][chat_key] = True
+                    else:
+                        STATE["prompts_by_chat"].pop(chat_key, None)
+                        STATE["joke_source_by_chat"][chat_key] = False
                 if "prompt_image" in body:
                     value = str(body["prompt_image"])
-                    STATE["prompt_image"] = value or "Мем: {joke}"
-                    STATE["image_source"] = "chat" if value else "factory"
-            return send(_meme_settings())
+                    if value:
+                        STATE["images_by_chat"][chat_key] = value
+                        STATE["image_source_by_chat"][chat_key] = "chat"
+                    else:
+                        STATE["images_by_chat"].pop(chat_key, None)
+                        STATE["image_source_by_chat"][chat_key] = "factory"
+            return send(_meme_settings(chat_hdr))
         if path.endswith("/api/initiative/mechanism-diagnostics"):
             return send(_diag())
         if path.endswith("/api/initiative/publications/detail"):
@@ -548,6 +630,16 @@ def make_api_handler():
                         "", "all"):
                     mode = part.split("=", 1)[1]
                     rows = [r for r in rows if r["mode"] == mode]
+                if part.startswith("outcome=") and part.split("=", 1)[1] not in (
+                        "", "all"):
+                    outcome = part.split("=", 1)[1]
+                    rows = [r for r in rows if r["outcome"] == outcome]
+                if part.startswith("reason=") and part.split("=", 1)[1]:
+                    reason = part.split("=", 1)[1].lower()
+                    rows = [r for r in rows
+                            if reason in str(r.get("reason_code") or "").lower()
+                            or any(reason in str(c).lower()
+                                   for c in (r.get("reason_codes") or []))]
             page = rows[offset:offset + 2]
             return send({
                 "schema_version": 1, "generated_at": NOW, "chat_id": CHAT_A,
@@ -944,12 +1036,13 @@ MEMES_PROBE = r"""
 def run_memes(browser, width, height, label, shots):
     STATE["post_body"] = None
     STATE["post_count"] = 0
+    STATE["post_chat"] = None
     # Сброс значений стаба: иначе второй прогон (другой вьюпорт) видит уже
     # сохранённый текст и честно не отправляет его повторно.
-    STATE["prompt_joke"] = "Придумай короткий абсурдный прикол."
-    STATE["prompt_image"] = "Мем: {joke}"
-    STATE["joke_source"] = "factory"
-    STATE["image_source"] = "chat"
+    STATE["prompts_by_chat"] = {}
+    STATE["images_by_chat"] = {}
+    STATE["joke_source_by_chat"] = {}
+    STATE["image_source_by_chat"] = {}
     ctx, page = new_page(browser, width, height)
     try:
         open_page(page, "memes")
@@ -1009,6 +1102,11 @@ def run_memes(browser, width, height, label, shots):
         # Один POST на оба промпта + реальный результат сохранения.
         page.fill("textarea[data-meme-prompt-joke]", "Свой прикол: коротко.")
         page.fill("textarea[data-meme-prompt-image]", "Кадр мема: {joke}")
+        page.wait_for_timeout(250)
+        check(page.evaluate(
+            "() => !!document.querySelector('[data-meme-dirty]')"), label,
+            "после правки промптов нет индикатора несохранённых изменений")
+        shot(page, shots, "memes_dirty_%s" % label)
         page.click("[data-meme-save]")
         page.wait_for_timeout(800)
         body = STATE["post_body"] or {}
@@ -1144,6 +1242,60 @@ def run_publications(browser, width, height, label, shots):
             ".map((el) => el.getAttribute('data-ini-pub-row'))")
         check(all(r.startswith("text:") for r in rows_after), label,
               "фильтр «текст» вернул мемы: %r" % rows_after)
+        page.select_option('[data-ini-filter="kind"]', "all")
+        page.wait_for_timeout(700)
+        # F2: отложенный конфликтом мем читается как «отложено», а не ошибка,
+        # и причина цепочки видна в строке.
+        page.click('[data-ini-pub-row="meme:job-78"]')
+        page.wait_for_timeout(700)
+        deferred = page.evaluate(r"""
+        () => {
+          const row = document.querySelector('[data-ini-pub-row="meme:job-78"]');
+          const detail = document.querySelector('[data-ini-pub-detail]');
+          return {
+            text: row ? String(row.textContent).replace(/\s+/g, ' ').trim() : '',
+            outcome: row ? (row.querySelector('[data-ini-pub-outcome]') || {})
+              .getAttribute('data-ini-pub-outcome') : null,
+            detail: detail ? String(detail.textContent).replace(/\s+/g, ' ')
+              .trim() : '',
+            events: Array.from(document.querySelectorAll(
+              '[data-ini-pub-event]')).map((el) =>
+                el.getAttribute('data-ini-pub-event')),
+          };
+        }
+        """)
+        notes.append({label + "-deferred-row": deferred})
+        check(deferred["outcome"] == "deferred", label,
+              "отложенный конфликт не помечен `deferred`: %r" % deferred)
+        check("отложено" in deferred["text"], label,
+              "строка не подписана «отложено»: %r" % deferred["text"][:160])
+        check("не доставлено" not in deferred["text"], label,
+              "отложенный конфликт подан как недоставка: %r"
+              % deferred["text"][:160])
+        check("в цепочке" in deferred["text"], label,
+              "в строке нет причин цепочки (конфликт) : %r"
+              % deferred["text"][:160])
+        check("publication_deferred_conflict" in deferred["events"], label,
+              "в деталях нет события отложенного конфликта: %r"
+              % deferred["events"])
+        check("slot_busy" in deferred["detail"], label,
+              "деталь не показывает, на чём именно отложено: %r"
+              % deferred["detail"][:200])
+        check("отложена координацией" in (
+            page.evaluate("() => ((document.querySelector('[data-ini-pub-summary]')"
+                          " || {}).textContent || '')")), label,
+              "итог детали не называет отложение")
+        # Фильтр по причине конфликта находит отложенную попытку.
+        STATE["requests"] = []
+        page.select_option('[data-ini-filter="outcome"]', "deferred")
+        page.wait_for_timeout(700)
+        only_deferred = page.evaluate(
+            "() => Array.from(document.querySelectorAll('[data-ini-pub-row]'))"
+            ".map((el) => el.getAttribute('data-ini-pub-row'))")
+        check(only_deferred == ["meme:job-78"], label,
+              "фильтр исхода «отложено» вернул %r" % only_deferred)
+        page.select_option('[data-ini-filter="outcome"]', "all")
+        page.wait_for_timeout(600)
         check(data["overflow"] <= 1, label,
               "горизонтальная прокрутка: %d px" % data["overflow"])
         shot(page, shots, "publications_%s" % label)
@@ -1286,47 +1438,121 @@ def run_mobile_nav(browser, width, height, label, shots):
         ctx.close()
 
 
-# ── Сценарий 8: смена чата не ломает страницу ────────────────────────────
+# ── Сценарий 8: смена чата настоящим селектором (ревью F4) ────────────────
 def run_chat_switch(browser, width, height, label, shots):
-    STATE["requests"] = []
+    """Смена чата через РЕАЛЬНЫЙ селектор области.
+
+    Ревью показало, что прежний вариант искал несуществующие атрибуты
+    (`data-scope-toggle`/`data-scope-chat`) и потому ничего не проверял.
+    Теперь используется настоящий `.scope-trigger` → `.scope-option`, и
+    утверждается именно ПЕРЕЧИТЫВАНИЕ данных: промпт и квота другого чата,
+    отсутствие прежних значений на экране, предупреждение о несохранённом
+    черновике (dirty-guard) и отсутствие ошибок консоли.
+    """
+    STATE["prompts_by_chat"] = {}
+    STATE["images_by_chat"] = {}
+    STATE["joke_source_by_chat"] = {}
+    STATE["image_source_by_chat"] = {}
+    STATE["post_body"] = None
+    STATE["post_count"] = 0
+    STATE["axes_on"] = False
     ctx, page = new_page(browser, width, height)
     errs = []
+    dialogs = []
     page.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
+    page.on("dialog", lambda d: (dialogs.append(d.message), d.accept()))
     try:
         open_page(page, "memes")
-        page.wait_for_selector("[data-meme-prompt-joke]", state="visible")
+        page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
         page.wait_for_timeout(600)
-        STATE["requests"] = []
-        # Смена чата — через штатный селектор области.
-        opened = page.evaluate(r"""
-        () => {
-          const btn = document.querySelector('[data-scope-toggle]')
-            || document.querySelector('[data-scope-chip]');
-          if (btn) { btn.click(); return true; }
-          return false;
-        }
+        before = page.evaluate(r"""
+        () => ({
+          joke: document.querySelector('textarea[data-meme-prompt-joke]').value,
+          quota: ((document.querySelector('[data-meme-quota-text]') || {})
+            .textContent || '').trim(),
+          card: ((document.querySelector('[data-meme-settings]') || {})
+            .textContent || ''),
+          scope: ((document.querySelector('.scope-trigger .scope-name') || {})
+            .textContent || '').trim(),
+        })
         """)
-        if opened:
-            page.wait_for_timeout(400)
-            picked = page.evaluate(r"""
-            () => {
-              const items = Array.from(document.querySelectorAll(
-                '[data-scope-chat]'));
-              const target = items.find((el) => el.getAttribute('data-scope-chat')
-                === '%d');
-              if (target) { target.click(); return true; }
-              return false;
-            }
-            """ % CHAT_B)
-            page.wait_for_timeout(900)
-            if picked:
-                check(any("/api/initiative/meme-settings" in r
-                          for r in STATE["requests"]), label,
-                      "при смене чата карточка мемов не перечиталась: %r"
-                      % STATE["requests"][-4:])
-                still = page.evaluate(
-                    "() => !!document.querySelector('[data-meme-prompt-joke]')")
-                check(still, label, "после смены чата карточка мемов пропала")
+        notes.append({label + "-chat-switch-before": before})
+        check(before["joke"] == CHAT_PROMPTS[str(CHAT_A)], label,
+              "исходный промпт чата A не показан: %r" % before["joke"])
+        check("1 / 3" in before["quota"], label,
+              "квота чата A не показана: %r" % before["quota"])
+
+        # F3: несохранённая правка + уход на другую вкладку — не теряется.
+        page.fill("textarea[data-meme-prompt-joke]", "ЧЕРНОВИК 123")
+        page.wait_for_timeout(250)
+        dirty = page.evaluate(
+            "() => !!document.querySelector('[data-meme-dirty]')")
+        check(dirty, label, "индикатор несохранённых изменений не появился")
+        check(page.evaluate(
+            "() => !!document.querySelector('[data-meme-dirty-hint]')"), label,
+            "нет подсказки о судьбе несохранённых правок")
+        open_tab(page, "overview")
+        open_tab(page, "memes")
+        page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
+        page.wait_for_timeout(500)
+        kept = page.evaluate(
+            "() => document.querySelector('textarea[data-meme-prompt-joke]').value")
+        check(kept == "ЧЕРНОВИК 123", label,
+              "правка промпта потерялась при переключении вкладок: %r" % kept)
+        check(STATE["post_count"] == 0, label,
+              "переключение вкладок отправило POST (несохранённое сохранили молча)")
+
+        # Настоящий селектор области: .scope-trigger → .scope-option «Чат B».
+        page.click(".scope-trigger")
+        page.wait_for_selector(".scope-panel .scope-option", state="visible")
+        options = page.evaluate(r"""
+        () => Array.from(document.querySelectorAll('.scope-panel .scope-option'))
+          .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim())
+        """)
+        notes.append({label + "-scope-options": options})
+        check(any("Чат B" in o for o in options), label,
+              "в селекторе области нет чата B: %r" % options)
+        STATE["requests"] = []
+        page.click(".scope-panel .scope-option:has-text('Чат B')")
+        page.wait_for_timeout(1200)
+
+        # Dirty-guard обязан предупредить, а не стереть черновик молча.
+        check(bool(dialogs), label,
+              "при смене чата с несохранённым черновиком нет предупреждения")
+
+        after = page.evaluate(r"""
+        () => ({
+          joke: document.querySelector('textarea[data-meme-prompt-joke]').value,
+          quota: ((document.querySelector('[data-meme-quota-text]') || {})
+            .textContent || '').trim(),
+          card: ((document.querySelector('[data-meme-settings]') || {})
+            .textContent || ''),
+          scope: ((document.querySelector('.scope-trigger .scope-name') || {})
+            .textContent || '').trim(),
+          dirty: !!document.querySelector('[data-meme-dirty]'),
+        })
+        """)
+        notes.append({label + "-chat-switch-after": {
+            "joke": after["joke"], "quota": after["quota"],
+            "scope": after["scope"]}})
+        check("Чат B" in after["scope"], label,
+              "область не переключилась на чат B: %r" % after["scope"])
+        check(any("/api/initiative/meme-settings" in r
+                  for r in STATE["requests"]), label,
+              "карточка мемов не перечиталась после смены чата: %r"
+              % STATE["requests"][-5:])
+        check(after["joke"] == CHAT_PROMPTS[str(CHAT_B)], label,
+              "после смены чата промпт не перечитан: %r" % after["joke"])
+        check("0 / 3" in after["quota"], label,
+              "после смены чата квота не перечитана: %r" % after["quota"])
+        check(CHAT_PROMPTS[str(CHAT_A)] not in after["card"], label,
+              "на экране остались данные прежнего чата (промпт A)")
+        check("ЧЕРНОВИК 123" not in after["card"], label,
+              "черновик чата A утёк в контекст чата B")
+        check(not after["dirty"], label,
+              "после смены чата остался dirty-индикатор прежнего чата")
+        check(STATE["post_count"] == 0, label,
+              "смена чата что-то сохранила без явной команды")
         check(not errs, label, "ошибки консоли при смене чата: %r" % errs[:2])
         shot(page, shots, "chatswitch_%s" % label)
     finally:

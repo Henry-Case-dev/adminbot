@@ -8400,3 +8400,4 @@ body > .sticky-save[data-save-panel] {
   .ini-row__reason { flex-basis: 100%; }
   .ini-attempt-input { width: 100%; }
 }
+.ini-row__chain { color: #64748b; }
