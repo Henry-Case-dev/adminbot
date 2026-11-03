@@ -534,7 +534,11 @@ class TestAdtrEntryServiceMediaContext:
         await svc.handle(bot, msg, msg.from_user)
         content = svc.llm.messages[1]["content"]
         assert "расскажи про дроны" in content
-        assert "[медиа: photo tg:777]" in content
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.1 P1/§9.2: маркер медиа адресует
+        # сообщение меткой прогона (`[медиа: photo M1]`), а не служебным `tg:`.
+        # Сам факт медиа и его привязка к сообщению сохранены.
+        assert "[медиа: photo M" in content
+        assert "tg:" not in content
         assert bot.send_message.await_args.kwargs[
             "reply_to_message_id"] == 777
 
@@ -551,7 +555,10 @@ class TestAdtrEntryServiceMediaContext:
         msg.caption = None
         await svc.handle(bot, msg, msg.from_user)
         content = svc.llm.messages[1]["content"]
-        assert "[медиа: photo tg:777]" in content
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.1 P1/§9.2: привязка медиа
+        # сохранена, служебный `tg:` в речь не идёт (метка прогона).
+        assert "[медиа: photo M" in content
+        assert "tg:" not in content
         bot.send_message.assert_awaited()
 
     @pytest.mark.asyncio

@@ -7,7 +7,12 @@ MAD2 2026: past-only context ≈ full; SIGIR 2026: длинный контекс
 """
 import logging
 
-from services.canonical_context import format_context_item, resolve_item_id
+from services.canonical_context import (
+    format_context_item,
+    format_speech_item,
+    resolve_item_id,
+    speech_projection_enabled,
+)
 from services.database import row_get
 from services.media_marker import media_context_enabled, row_media_marker
 from services.target_marking import is_target_row
@@ -36,6 +41,16 @@ _REPLY_CHAINS_OMITTED = "…часть цепочки не показана ({co
 
 def _reply_chains_omitted_note(count: int) -> str:
     return _REPLY_CHAINS_OMITTED.format(count=int(count))
+
+
+# То же правило для САМОГО окна: при обрезке в бюджет вытесняются самые старые
+# строки before (якорь/свежие сохраняются), и это тоже не должно быть молчаливым
+# (§5.4 «реальное отсутствие помечается как неполнота», §8 п.5).
+_CHAT_CONTEXT_OMITTED = "…часть окна не показана ({count})"
+
+
+def _window_omitted_note(count: int) -> str:
+    return _CHAT_CONTEXT_OMITTED.format(count=int(count))
 
 
 def _lines_len(lines) -> int:
@@ -110,7 +125,8 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                         trigger_message_id=None, reply_chains: str = "",
                         anchor_message_id=None,
                         media_blocks: dict | None = None,
-                        media_for_captioned: bool = False) -> str:
+                        media_for_captioned: bool = False,
+                        projection=None) -> str:
     """rows — хронологический список строк smart_messages (sqlite3.Row с
     author_name/user_id/text). → '<chat_context …>…</chat_context>' или ''
     (пустое окно / нет текстов).
@@ -138,6 +154,12 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     R1023F2-11: для окон, превышающих бюджет, усечение может отличаться от
     до-F2 алгоритма (теперь бюджет строго ≤ ``max_chars``, включая обёртку);
     при ``reply_chains=""`` и помещающемся окне вывод функционально прежний.
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2 п.2): ``projection`` — общий
+    ``SpeechProjection`` прогона. Задан → строки рендерятся РЕЧЕВОЙ функцией
+    `format_speech_item` (метка прогона в слоте ID, «Имя (U1)» в авторе,
+    абсолютное время/`Переслано:`/маркер цели без изменений). ``None`` или
+    рубильник OFF → прежний сырой канон байт-в-байт.
     """
     wrapper = ("<chat_context " + _CONTEXT_NOTE + ">\n", "\n</chat_context>")
     content_budget = max(0, max_chars - len(wrapper[0]) - len(wrapper[1]))
@@ -159,7 +181,8 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             except Exception:
                 tg_id = 0
         if not text and media_enabled:
-            text = row_media_marker(row, item_id=item_id)
+            text = row_media_marker(row, item_id=item_id,
+                                    projection=projection)
             # Rework R1 (H-2, review T-5124): прод-шов единого renderer'а D9 —
             # блок фасада (OCR/описание/pending, два времени) поверх старого
             # маркера. media_blocks=None (гейт OFF/ошибка) → прежний путь
@@ -186,11 +209,22 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                           if row_get(row, "is_forward") else None)
         is_marked = is_target_row(row, remaining_trigger)
         is_anchor = is_target_row(row, anchor_message_id)
-        line = format_context_item(
-            ts=row_get(row, "timestamp"), author=name,
-            item_id=item_id,
-            forward_source=forward_source, text=text, kind="msg",
-            is_target=is_marked)
+        if projection is not None and speech_projection_enabled():
+            # Речевая проекция (§4.2 п.2): тот же автор/время/forward/маркер,
+            # но в слоте ID — метка прогона, а рядом с ником — `U`-метка
+            # (одноимённые участники не сливаются, §5.4/§13 сц.97).
+            line = format_speech_item(
+                ts=row_get(row, "timestamp"), author=name,
+                author_uid=row_get(row, "user_id"),
+                item_id=item_id,
+                forward_source=forward_source, text=text, kind="msg",
+                is_target=is_marked, projection=projection)
+        else:
+            line = format_context_item(
+                ts=row_get(row, "timestamp"), author=name,
+                item_id=item_id,
+                forward_source=forward_source, text=text, kind="msg",
+                is_target=is_marked)
         if is_marked:
             remaining_trigger = None
         rendered.append((line, is_anchor))
@@ -247,6 +281,20 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     body = "\n".join(rendered[i][0] for i in sorted(selected))
     if chain_out:
         body = body + "\n" + chain_out
+    # §5.4 (CONTEXT-FIDELITY-01 п.153): вытеснение строк окна бюджетом не
+    # должно быть МОЛЧАЛИВЫМ. Раунд 10.23 уже сохраняет якорь/свежие строки,
+    # но факт неполноты раньше не объявлялся — читаем реальное число
+    # вытесненных строк и пишем его той же короткой пометкой, что у цепочки.
+    omitted = n - len(selected)
+    if omitted > 0:
+        note = _window_omitted_note(omitted)
+        candidate = f"{note}\n{body}"
+        if len(candidate) + len(wrapper[0]) + len(wrapper[1]) <= max_chars:
+            body = candidate
+        else:
+            logger.warning(
+                "[chat_context] окно усечено без пометки — бюджет исчерпан | "
+                "omitted=%d | budget=%d", omitted, max_chars)
     return wrapper[0] + body + wrapper[1]
 
 
@@ -316,7 +364,8 @@ async def build_chat_context(db, rows, *, chat_id: int,
                              max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                              trigger_message_id=None, reply_chains: str = "",
                              anchor_message_id=None,
-                             media_for_captioned: bool = False) -> str:
+                             media_for_captioned: bool = False,
+                             projection=None) -> str:
     """Прод-сборка контекста (единственная точка шва H-2): окна чата для
     direct/autonomous-потребителей (smartsearch/factcheck) с media-блоками
     renderer'а D9 под гейтом. Гейт OFF → ``format_chat_context`` на тех же
@@ -331,7 +380,8 @@ async def build_chat_context(db, rows, *, chat_id: int,
         rows, max_chars=max_chars, trigger_message_id=trigger_message_id,
         reply_chains=reply_chains, anchor_message_id=anchor_message_id,
         media_blocks=media_blocks,
-        media_for_captioned=bool(media_for_captioned))
+        media_for_captioned=bool(media_for_captioned),
+        projection=projection)
 
 
 # ── ASAP-VISION-SYNC-01 §4.4: актуальная ревизия медиа для потребителя ──────

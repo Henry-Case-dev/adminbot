@@ -73,6 +73,17 @@ from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.1 P7/§4.2 п.2): речевая проекция
+# прогона для выжимки мема. Импорт ленивый-совместимый (модуль тянет
+# canonical_context только здесь), цикла нет: canonical_context не импортирует
+# meme_initiative.
+from services.canonical_context import (  # noqa: E402  (после logger)
+    SpeechProjection,
+    emit_speech_projection_event,
+    resolve_item_id,
+    speech_projection_enabled,
+)
+
 # ── заводские промпты (реестр: declare_prompt + печать) ─────────────────────
 #: Дословно, слово в слово. Шаблон этапа C: прикол подставляется на ``{joke}``,
 #: а если плейсхолдера нет — дописывается в хвост (историческое поведение).
@@ -2546,9 +2557,15 @@ async def consider_chat(
     # ── этап A — выжимка: БЕЗ потолка длины (ни цели, ни обрезки) ───────────
     try:
         if summarizer is None:
+            _summary_speech = SpeechProjection(run_id=str(jid))
             summary = await _default_summarize(
                 llm, rows, summary_system, chat_id=int(chat_id),
-                model=cfg.summarizer_model)
+                model=cfg.summarizer_model, projection=_summary_speech)
+            # Обратная карта прогона (§4.2 п.5): выжимка становится словами
+            # мема/картинкой, поэтому пары «метка → tg:/msg:» остаются в
+            # защищённой трассе (ID/счётчики, без текстов).
+            emit_speech_projection_event(_summary_speech, chat_id=int(chat_id),
+                                         run_id=_summary_speech.run_id)
         else:
             summary = await summarizer(int(chat_id), rows, summary_system)
     except Exception as exc:
@@ -2954,14 +2971,20 @@ JOKE_TIMEOUT_SECONDS = 30
 
 async def _default_summarize(llm, rows, system_prompt: str, *,
                              chat_id: int | None = None,
-                             model: str = "") -> str:
+                             model: str = "",
+                             projection=None) -> str:
     """Этап A: лёгкий контур выжимки — ОДИН вызов существующего LLM-клиента.
 
     Тяжёлый summary-pipeline (planner → writer → reviewer) не используется.
     Потолка длины здесь НЕТ (MEME-PIPELINE-REFactor-01 §1): в payload не
     уходит ``target_chars``, постфактум-обрезки тоже нет. Нет клиента/вызова —
     честный ``RuntimeError``, не тихая подстановка чужого текста.
-    """
+
+    EVOL v5 (§4.1 P7, §4.2 п.2/п.3): поле ``id`` сообщения — служебный ключ,
+    а выжимка становится словами мема/прикола (в т.ч. изображением), поэтому
+    в речевом режиме в нём стоит МЕТКА прогона (``M1``), а не внутренний id.
+    Различимость сообщений сохраняется (порядок и метка), номер строки БД —
+    нет. ``projection``/рубильник OFF → прежний payload байт-в-байт."""
     generate = getattr(llm, "generate", None) if llm is not None else None
     if generate is None:
         raise RuntimeError("summarizer_unavailable")
@@ -2973,9 +2996,17 @@ async def _default_summarize(llm, rows, system_prompt: str, *,
         # лёгких вызовов инициативы).
         logger.info("[meme] summarizer_model=%s не применяется общим "
                     "клиентом; фактическая модель=%s", model, effective_model)
+    speech = projection is not None and speech_projection_enabled()
     payload = {
         "messages": [
-            {"id": row.get("id"), "text": str(row.get("text") or "")[:500]}
+            {
+                "id": (
+                    projection.message_label(resolve_item_id(
+                        tg_message_id=row.get("tg_message_id"),
+                        message_id=row.get("id")))
+                    if speech else row.get("id")),
+                "text": str(row.get("text") or "")[:500],
+            }
             for row in rows
         ],
     }

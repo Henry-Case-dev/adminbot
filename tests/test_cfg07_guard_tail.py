@@ -423,11 +423,15 @@ class TestShortReplyAndPools:
 # 4. tool_route v2 (`fact_check`): NL-верdict чистится, JSON цел; OFF-паритет
 # ════════════════════════════════════════════════════════════════════════════
 
-_READY_KEYS = {"status", "reason", "claim", "factual_verdict",
-               "temporal_status", "evaluated_period", "assessment_mode",
-               "as_of", "date_source", "original_published_at",
-               "repost_received_at", "uncertainty", "run_id", "cache_hit",
-               "verdict"}
+# EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§9.2/§9.5 п.4): служебный run/trace id
+# в результат инструмента (его читает модель) не входит — корреляция остаётся
+# в машинной трассе; содержательные опоры (автор тезиса, проверенные ссылки)
+# теперь видны структурно.
+_READY_KEYS = {"status", "reason", "claim", "claim_author",
+               "factual_verdict", "temporal_status", "evaluated_period",
+               "assessment_mode", "as_of", "date_source",
+               "original_published_at", "repost_received_at", "uncertainty",
+               "evidence", "cache_hit", "verdict"}
 
 TOOL_CLAIM = "Байкал — самое глубокое озеро в мире"
 
