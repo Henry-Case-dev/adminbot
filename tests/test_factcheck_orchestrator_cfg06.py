@@ -169,11 +169,15 @@ def _req(claim="в килякете выпало 120 мм осадков за с
 
 class TestSchemaFreeze:
     def test_request_fields_frozen(self):
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5 (M11): базовые поля и их
+        # порядок не изменились; аддитивно добавлены авторство запроса и имя
+        # (нужны резолверу медиа, иначе чужое фото «свой автор»).
         assert tuple(f.name for f in __import__("dataclasses").fields(
             orch.FactcheckRequest)) == (
             "chat_id", "trigger_tg_message_id", "target_tg_message_id",
             "target_text", "user_hint", "forward_source", "kind",
-            "source_type", "default_mode")
+            "source_type", "default_mode", "requester_user_id",
+            "requester_name")
 
     def test_plan_fields_frozen(self):
         import dataclasses

@@ -47,7 +47,12 @@ _READY_KEYS = {"status", "reason", "claim", "factual_verdict",
                "temporal_status", "evaluated_period", "assessment_mode",
                "as_of", "date_source", "original_published_at",
                "repost_received_at", "uncertainty", "run_id", "cache_hit",
-               "verdict"}
+               "verdict",
+               # EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.4 (BD-9/M7): происхождение
+               # tool-тезиса и его анкор видны в payload (пересказ LLM ≠
+               # дословный Target).
+               "claim_origin", "target_source", "claim_anchor_tg_message_id",
+               "claim_truncated"}
 
 
 # ── Фикстуры/помощники ──────────────────────────────────────────────────────
