@@ -16027,6 +16027,23 @@
               «Сравнить» — «было → стало».
             </div>
             <div class="pv-panel__body scroll-thin">
+              <!-- PVR-S4 B4: подтверждение последнего действия — ПЕРВЫМ в теле
+                   панели и sticky, а не в конце 50-строчной ленты. Раньше блок
+                   стоял после списка, панель оставалась в scrollTop=0 и
+                   сообщение «Применить» физически не попадало в видимую
+                   область (замер: rect.top=5670 при теле 150..847 на 1536).
+                   Sticky держит его на виду и при прокрутке списка; список при
+                   действии не прокручивается. Закрывается явной кнопкой ×. -->
+              <div v-if="hist.result" class="pv-result pv-result--sticky"
+                   data-prompt-history-result
+                   role="status" aria-live="polite"
+                   :class="hist.result.ok ? 'text-emerald-300' : 'text-amber-300'">
+                <span data-pv-result-text>{{ hist.result.text }}</span>
+                <button type="button" class="btn-ghost text-xs pv-result__dismiss"
+                        data-pv-result-dismiss aria-label="Скрыть сообщение"
+                        title="Скрыть сообщение"
+                        @click="dismissResult()">×</button>
+              </div>
               <div v-if="hist.loading" class="text-xs text-gray-500"
                    data-pv-panel-loading>Загрузка истории…</div>
               <div v-else-if="hist.error" class="pv-warn" data-pv-panel-error>
@@ -16126,15 +16143,6 @@
                    data-prompt-history-diff><span v-for="(ln, i) in hist.diff"
                    :key="'pd' + i" :class="diffClass(ln)">{{ ln }}
 </span></pre>
-              <div v-if="hist.result" class="pv-result" data-prompt-history-result
-                   role="status" aria-live="polite"
-                   :class="hist.result.ok ? 'text-emerald-300' : 'text-amber-300'">
-                <span data-pv-result-text>{{ hist.result.text }}</span>
-                <button type="button" class="btn-ghost text-xs pv-result__dismiss"
-                        data-pv-result-dismiss aria-label="Скрыть сообщение"
-                        title="Скрыть сообщение"
-                        @click="dismissResult()">×</button>
-              </div>
             </div>
             <footer class="pv-panel__foot" data-pv-panel-actions>
               <button type="button" class="btn-ghost text-xs" data-pv-clear-baseline

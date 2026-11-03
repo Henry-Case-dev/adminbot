@@ -8554,6 +8554,18 @@ body > .sticky-save[data-save-panel] {
   font-size: var(--ctl-font-sm); padding: 6px 0; overflow-wrap: anywhere;
   display: flex; align-items: flex-start; gap: 8px;
 }
+/* PVR-S4 B4: подтверждение последнего действия живёт первым в прокручиваемом
+   теле панели и прилипает к его верху. Так оно видно сразу после «Применить»
+   (панель после перечитывания остаётся в scrollTop=0) и не уезжает, когда
+   владелец листает ленту. Фон непрозрачный — строки проходят ПОД блоком. */
+.pv-result--sticky {
+  position: sticky; top: 0; z-index: 3;
+  margin: 0 calc(var(--space-3) * -1) 6px;
+  padding: 8px var(--space-3);
+  background: #0A101C;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 6px 12px -8px rgba(2, 6, 23, .95);
+}
 .pv-result__dismiss {
   flex: 0 0 auto; min-height: 28px; min-width: 28px; line-height: 1;
   padding: 0 6px; opacity: .8;
@@ -8579,6 +8591,12 @@ body > .sticky-save[data-save-panel] {
 @media (max-width: 767px) {
   .pv-scrim { justify-content: stretch; }
   .pv-panel { width: 100vw; max-width: 100vw; border-left: 0; }
+  /* B4: на мобильном у тела панели padding-left меньше, чем padding-right —
+     компенсируем ровно столько, чтобы sticky-полоса шла от края до края. */
+  .pv-result--sticky {
+    margin-left: calc(var(--space-2) * -1); margin-right: calc(var(--space-3) * -1);
+    padding-left: var(--space-2); padding-right: var(--space-3);
+  }
   .pv-history-btn, .pv-more-btn,
   .pv-foot .btn-accent, .pv-foot .btn-ghost,
   .pv-row__actions .btn-ghost, .pv-panel__foot .btn-ghost { min-height: 44px; }

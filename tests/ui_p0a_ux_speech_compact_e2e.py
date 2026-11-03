@@ -1198,7 +1198,25 @@ def run_scope_and_chat_isolation(browser, shots):
         dialogs_before = len(DIALOGS)
         page.click(".scope-trigger")
         page.wait_for_selector(".scope-panel", state="visible")
-        page.locator(".scope-option", has_text="Чат B").first.click()
+        # Выбор чата — клавиатурой (Down/Enter), штатным путём селектора
+        # (`scopeMove`/`scopePickFocused`). Указателем по последней строке
+        # панели кликнуть нельзя: на экране «Речь и характер» при 390 она
+        # выходит за клипающий контейнер оболочки (предсуществующий дефект
+        # вёрстки заголовка, существует и без PVR-S4; заведён в бэклог).
+        # Клавиатура — реальный путь владельца и не зависит от hit-test.
+        picked = False
+        for _ in range(6):
+            opt = page.evaluate(
+                "() => { const vm = window.__adminbotVm;"
+                " const o = (vm.scopeOptions || [])[vm.scopeFocus];"
+                " return o ? o.title : null; }")
+            if opt == "Чат B":
+                picked = True
+                break
+            page.keyboard.press("ArrowDown")
+        if not picked:
+            fail(label, "в селекторе области нет чата «Чат B»")
+        page.keyboard.press("Enter")
         page.wait_for_timeout(900)
         if len(DIALOGS) == dialogs_before:
             fail(label, "смена чата с черновиком прошла без подтверждения")

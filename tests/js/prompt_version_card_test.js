@@ -239,6 +239,17 @@ function activeRow(origin, created, rev) {
   assert.strictEqual(c.hist.result, null, 'сообщение должно закрываться явно');
   assert.ok(TPL.indexOf('data-pv-result-dismiss') >= 0,
     'нужна кнопка закрытия сообщения (deliberate dismissal)');
+  // B4: сообщение обязано стоять ПЕРЕД списком внутри тела панели, иначе оно
+  // оказывается за 50 строками ленты и пользователь его не видит.
+  const bodyIdx = TPL.indexOf('pv-panel__body');
+  const resultIdx = TPL.indexOf('data-prompt-history-result');
+  const rowsIdx = TPL.indexOf('data-prompt-history-versions');
+  assert.ok(bodyIdx >= 0 && resultIdx > bodyIdx && rowsIdx > bodyIdx,
+    'блок подтверждения и список должны быть в теле панели');
+  assert.ok(resultIdx < rowsIdx,
+    'подтверждение стоит после списка версий — пользователь его не увидит');
+  assert.ok(TPL.indexOf('pv-result--sticky') >= 0,
+    'подтверждение должно быть закреплено вверху тела панели (sticky)');
   const fresh = ctx({ hist: { data: { entries: [] }, error: '', entries: [],
                                result: { ok: true, text: okText } } });
   CARD.methods.resetPanel.call(fresh);
