@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-03",
+  "updated": "2026-11-04",
   "tasks": [
     {
       "id": "soul-1",
@@ -397,6 +397,16 @@
       "coverage_complete": true,
       "source_note": "FINAL v5 (509 строк источника, 120 сценариев §13). Карта 285 обязательств по 8 срезам, slice-graph, план-гейт EXIT 0 @f370ec59; ARCHITECT_REQUIRED до Builder на 4 срезах. Размещение: после принятой FactCheck-цепочки (EVOL-FACTCHECK-CRITICAL, ASAP-FC-ADMISSION-01, ASAP-VISION-SYNC-01, ASAP-FC-EVIDENCE-STYLE-02), до asap-fc-voice-01; параллельно UI/мем-пакетам; последовательно с anticliche/EP-E-DIALOGUE по direct_chat_service.py + prompt_composer.py. Переоткрыты: REQ-DELTA-10-NO-INTERNAL-IDS, ASAP-FC-ES-STATUS, FC-05A, PA5-S7-AUTHORITY. CONTEXT-FIDELITY-01 (сохранение связей) имеет приоритет над чистотой речи.",
       "updated": "2026-11-03"
+    },
+    {
+      "id": "epic-prompt-versioning-ux-01",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
+      "source_sha256": "893621D84365CB201D41EC1EA1F4B63531075C4D19E05AFED78627654BFE3054",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "Место в очереди определяют PM + Architect с проверкой активных работ и пересечений с редизайном админки и мем-пакетом. Предполагаемая безопасная параллель: файлы prompt_* и web/** не пересекаются с активными срезами RC v5 (canonical_context/factcheck), но web/app.js сериализуется с EPIC-CM-VISUAL-01.",
+      "updated": "2026-11-04"
     }
   ],
   "owner_inputs": [
@@ -943,6 +953,17 @@
       ],
       "reconciled": true,
       "note": "FINAL v5 (заменяет v1-v4): FactCheck target/claim адресация и семантика вне Reply, необязательные медиа (FC-MEDIA-OPTIONAL-01), честные технические статусы (FC-EVIDENCE-STATUS-01), глобальная граница чистой речи для всех пользовательских ответов (GLOBAL-OUTPUT-BOUNDARY-01), самокоррекция Direct (DIRECT-SELF-CORRECTION-01) и CONTEXT-FIDELITY-01: удаление служебных ID из речи НЕ должно снижать полноту контекстных связей для LLM-этапов. 120 обязательных сценариев приёмки; запрещены regex-чистка, новые LLM-агенты, дополнительные бюджеты и перегенерации. | reconciled 03.11.2026: карта plans/features/evol-reply-context-integrity-01 (312 инвентарных + 43 ручных строк = 285 обязательных; 120 сценариев §13 как RC-S001-S120; §3-§12, запреты и CONTEXT-FIDELITY отдельными обязательными строками; 0 неклассифицированных), slice-graph 8 срезов / 4 волны, план-гейт EXIT 0 @f370ec59. Переоткрыты 4 строки. Обратную сверку источника выполнял PM."
+    },
+    {
+      "id": "OI-2026-11-04-PROMPT-VERSIONING-UX",
+      "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
+      "source_sha256": "893621D84365CB201D41EC1EA1F4B63531075C4D19E05AFED78627654BFE3054",
+      "kind": "new_task",
+      "target_task_ids": [
+        "epic-prompt-versioning-ux-01"
+      ],
+      "reconciled": false,
+      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер."
     }
   ]
 }
