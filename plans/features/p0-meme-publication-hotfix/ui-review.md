@@ -248,3 +248,200 @@ F1 закрыт и доказан. F2 закрыт для реальных им�
 4. Прогнать после ребейза: `pytest tests/test_initiative_publications_api.py tests/test_meme_joke_speech_layers.py tests/test_evol014_ui.py tests/test_evol014_meme_initiative.py tests/test_initiative_coordination.py`, `node tests/js/initiative_ui_rework_test.js`, `node tests/js/meme_ui_fields_test.js`, `py -3 tests/ui_meme_ui_fields_e2e.py`, `py -3 tests/ui_initiative_rework_e2e.py`.
 5. Перепроверить в UI на реальном ответе P0: бюджет в режиме `auto`, цепочку событий P0 в детали «Публикаций» и «Диагностике», коды `publication_cancelled`/`publication_deferred_conflict` в строке и фильтре причины.
 6. Только после этого - мерж и деплой штатным релизом (PET_PROJECT: без отдельного разрешения владельца).
+
+---
+
+# Re-review 3 (кандидат `01cc9693`, ветка `feat/initiative-ui-rework-v2`, база `ab662a75` = 2.58.152)
+
+Проверены три пункта из Re-review 2 и целостность ребейза. Мои артефакты - `evidence/ui/review3-2026-11-03/` (собственные скриншоты, скрипты, результаты прогонов, мутанты описаны в тексте).
+
+## Вердикт: Approved
+
+Все три прежние находки закрыты и доказаны моими сценариями; ребейз чистый (в `services/`, `handlers/`, `web/api/routes.py`, `config/` нет ни одного изменения); регрессия ранее доказанного не поехала. Замечания ниже - не блокирующие, часть из них уже была в бэклоге.
+
+## 1. Незнакомые события больше не стирают попытку - PROVEN
+
+Мой скрипт `probe_publications_api.py` на реальном SQLite (таблицы `mca_events` / `meme_initiative_attempt` / `mca_bot_outputs`), не тесты Builder-а:
+
+| Событие в журнале | Что вернул API |
+|---|---|
+| `initiative_publication_yielded`, outcome `skipped`, reason `publication_conflict` | строка есть: `outcome=deferred`, `reason_code=publication_conflict`, `delivered=null`, `chain_len=2` |
+| `publication_hold`, outcome `deferred` | строка есть: `deferred` + `publication_conflict` |
+| `publication_pending`, outcome `pending` | строка есть: `outcome=other`, `other_events=[{name: publication_pending, outcome: pending}]` |
+| `delivery_unknown`, outcome `unknown` | строка есть: `outcome=delivery_unknown`, `delivered=null`, `reason_label` «исход отправки неизвестен» |
+| `initiative_publication_flux_capacitor`, outcome `wobble` (имя, которого не ждали ни я, ни код) | строка есть: `outcome=other`, `other_events` с сырым именем и outcome |
+
+Фильтры: `outcome=other` находит `text:U3` и `text:U5`; `outcome=delivery_unknown` находит `text:U4`; `reason=publication_deferred_conflict` находит мем-попытку с этой причиной. В UI строка `other` подписана честно: бейдж «неклассифицированное событие», «· событие publication_pending · pending», «в цепочке: publication_pending», доставка «неизвестно» (скриншот `rr3_publications_other_row.png`); в фильтре исхода есть `deferred`, `delivery_unknown`, `other`, и выбор уходит на сервер параметром.
+
+## 2. Черновик и guard-ы - PROVEN
+
+Мой прогон `review_probe_ui3.py draft` (15 проверок, 0 падений):
+
+- чистая форма: индикатора нет, `beforeunload` не срабатывает (проверено синтетическим cancelable-событием: `defaultPrevented=false`);
+- после правки двух полей (промпт + окно сообщений): бейдж «есть несохранённые изменения», подсказка называет реальную кнопку «Сохранить настройки мемов», `beforeunload` уже предупреждает;
+- «Обзор» -> «Мемы» с черновиком: **ноль** подтверждений, оба поля целы (`ЧЕРНОВИК ЧАТА A`, `123`), индикатор на месте, POST не было;
+- смена чата с отказом: **ровно одно** подтверждение, текст «В черновике мемов для «Чат A» есть несохранённые правки (2). Переключение чата заменит их данными другого чата. Сохранить их можно кнопкой «Сохранить настройки мемов» на вкладке «Мемы».» (счётчик совпадает с числом изменённых полей, кнопка названа как на экране); после отказа область осталась «Чат A», черновик цел, данные нового чата не запрашивались;
+- смена чата с согласием: снова одно подтверждение, область «Чат B», черновик заменён данными B (`JOKE-B: прикол для чата B`), индикатор снят, утечки черновика A нет;
+- сохранение: «Сохранено для этого чата: prompt_joke», индикатор и подсказка исчезли, `beforeunload` замолчал, POST ровно один.
+
+## 3. Потолок говорит deployed-семантикой P0.5 - PROVEN
+
+Сверка кода: блок `length_limit` в `web/app.js` (строки 7410-7419) совпадает с deployed `ab662a75:web/app.js` выражение-в-выражение: `ceilingMode/ceilingModeText` из `len.mode === 'fixed' || len.known === true`, `ceilingText` = число или «не задан», `jokeBudgetText` = число или «определяет провайдер», `memeLengthSourceLabel.auto` = «не задан (авто)». Собственного вычисления auto больше нет, `unknownMode`/`data-meme-budget-unknown` удалены (проверено grep-ом), третьего состояния нет.
+
+Наблюдения в живом рендере (payload как у deployed `budget.as_dict()`):
+
+| Режим | Потолок | Доступно приколу | Блоки |
+|---|---|---|---|
+| `mode=auto`, `known=false` | «не задан» | «определяет провайдер» | `data-meme-budget-auto` есть, `unknown` нет, источник «не задан (авто)» |
+| `mode=fixed`, 400/395 | «400» | «395» | auto-блока нет |
+| `mode=fixed`, 1200/1195 | «1200» | «1195» | auto-блока нет |
+
+Неверный ввод: в поле потолка `12.5` -> после «Сохранить настройки мемов» появляется точная ошибка поля «Потолок длины: целое число больше нуля или пусто (авто)», `aria-invalid=true`, POST не отправлен (0). Пустое поле = авто (совместимость с историческим `0` остаётся на стороне API, UI её не переизобретает).
+
+## 4. Целостность ребейза - PROVEN
+
+- `git diff ab662a75..HEAD -- services handlers web/api/routes.py config` - **пусто**.
+- Новый бэкенд-путь ровно один: `web/api/initiative_publications.py` (новый файл) плюс аддитивное подключение роутера в `web/app.py` (только `include_router`, диф 10 строк). Других изменений под `web/api/` нет.
+- Модуль только читает: ни `INSERT`/`UPDATE`/`DELETE`, ни `commit(` в файле нет; работа идёт через `mi.open_ledger/attempts/parse_attempt_facts` и `db.db.execute` по SELECT-ам.
+- Пайплайн (`services/meme_initiative.py`, `services/initiative_observer.py`) не тронут, то есть поведение публикаций остаётся ровно тем, что уже развёрнуто в 2.58.152.
+
+## 5. Регрессия ранее доказанного - PROVEN
+
+| Что | Факт на `01cc9693` |
+|---|---|
+| Пять вкладок | «Обзор», «Текстовая инициатива», «Мемы», «Публикации», «Диагностика» |
+| Две равные карточки | 557+557 (1536), 536+536 (1366), в одну колонку на 768 и уже |
+| Полоса координации | состояние из API («свободно…»), между замерами не меняется |
+| Разделение настроек | на «Текстовой» 0 мем-полей, «Частота и лимиты» 15 полей; на «Мемах» 0 текстовых настроек, 2 редактора промптов, ровно 1 кнопка сохранения |
+| Подпись источника | «источник: запись пайплайна о фактической сборке (system sha12 = отправленный system-промпт)» |
+| Публикации | 6 фильтров, строки, пагинация (`next_offset`), пустой журнал = 0 строк + пустое состояние |
+| Диагностика | 7 групп, сжато по умолчанию, манифест скрыт до раскрытия, стены «фактов этапа нет» нет |
+| Адаптив | прокрутка страницы 0 px на 1536x960, 1366x768, 768x1024, 390x844, 360x740; лента вкладок 517/340 и 517/310 прокручивается внутри |
+| `services/**` | не тронуты (см. п.4) |
+| Тесты | `pytest` (публикации+мемы+evol014) 43 passed; `node tests/js/initiative_ui_rework_test.js`, `meme_ui_fields_test.js` - OK; `tests/ui_meme_ui_fields_e2e.py` и `tests/ui_initiative_rework_e2e.py` - failures=0 |
+
+## 6. Мои скриншоты (этот кандидат)
+
+- `rr3_auto_ceiling_1536.png` - мем-карточка в авто-режиме: «Потолок итогового промпта: не задан», «Доступно для прикола: определяет провайдер», «источник потолка: не задан (авто)», янтарный блок «Потолок не задан - режим «автоматически»…».
+- `rr3_publications_p0codes_1536.png` - журнал с реальными P0-кодами: строка «срок отложенной публикации истёк · publication_expired · в цепочке: publication_cancelled» (бейдж «отменено», «не доставлено») и строка «публикацию отложил конфликт… · в цепочке: publication_deferred_conflict» (бейдж «отложено», «неизвестно»).
+- `rr3_dirty_before_chat_switch_1536.png` + `rr3_after_chat_confirm_dismissed_1536.png`, `rr3_chat_switch_after.png` - состояние с несохранённым черновиком и после смены чата.
+- `rr3_publications_other_row.png`, `rr3_ceiling_fixed.png`, `rr3_ceiling_invalid.png` - дополнительные.
+
+Про подтверждение смены чата: это `window.confirm` браузера, он не является частью полотна страницы и в скриншот не попадает. Поэтому его текст снят из нативного dialog-события Playwright (приведён в п.2 дословно), а кадры показывают состояние до и после. Подменять его самодельным окном, чтобы «получить скриншот», я не стал - это была бы инсценировка.
+
+## 7. Какие утверждения доказанно умеют падать (мутации)
+
+| Мутация (вне репозитория) | Результат |
+|---|---|
+| `_kind_outcome` для вида `other` возвращает пустой outcome (прежнее поведение) | 5 падений: строки `text:U3` и `text:U5` исчезают из журнала, фильтр `other` пуст |
+| В копии `web/app.js` подписи потолка заменены на `0` и `800` (имитация «похожей» семантики) | 2 падения: «ceiling = '0'» и «joke = '800'» вместо «не задан» / «определяет провайдер» |
+| В копии `web/app.js` `memeDraftDirty` снова добавлен в общий `hasUnsavedEdits` | 3 падения: подтверждение на переключении вкладок, двойное подтверждение при смене чата, нет счётчика в тексте |
+| Ранее (Re-review 2): стаб отдаёт данные чата A на любой чат; клик по чату B убран | 1 и 5 падений e2e смены чата соответственно - тест не вакуумный |
+
+## 8. Некритичные замечания (не блокируют релиз)
+
+1. В янтарной подсказке авто-режима осталась фраза «(никаких 0/800/NaN)» - это язык ТЗ, для админ-панели терпимо, но выглядит технически.
+2. Вход на вкладку по-прежнему даёт два одинаковых GET `/api/initiative/mechanism-diagnostics` (было в Re-review 1/2, на пользователя не влияет, single-flight не даёт параллельных).
+3. В шапке страницы область показана видом (`ЧАТ`/`GLOBAL`), название чата - в верхнем селекторе (прежняя находка N1, косметика).
+4. В раскрытой группе «Речевые слои» те же слои перечислены дважды (строки и «безопасный срез манифеста») - внутри одного раскрытого блока.
+
+## 9. Готовность
+
+`01cc9693` готов к мержу и выпуску следующим релизом поверх 2.58.152: обязательных находок нет, ребейз чистый, регрессия цела, все три прежние находки закрыты и проверены моими сценариями. Перед выпуском - штатные шаги: мерж в релизную линию, bump версии, деплой и после деплоя быстрый смоук на проде (открыть «Инициативу»: пять вкладок, авто-потолок, одна реальная строка «Публикаций», «Диагностика» по одной попытке).
+
+---
+
+# Release verification 2.58.153 (артефакт `e52a06b2`)
+
+Проверка самого релизного артефакта, не отчёта DevOps. Ветка `release/2.58.153`, HEAD `e52a06b2b8cdcb6c01c83bda46d7a406596f2088`, база `ab662a75` (прод 2.58.152). Проверял в отдельном detached-worktree на `e52a06b2` (чистый), чтобы гонять тесты именно на артефакте.
+
+## Вердикт: CLEARED
+
+Можно деплоить как 2.58.153 поверх 2.58.152, откат - `ab662a75`, миграций нет.
+
+## 1. Идентичность дерева
+
+| Объект | Tree |
+|---|---|
+| одобренный кандидат `01cc9693` | `ecf58c1479cdcdf77bc74d79b91475352b4db7ef` |
+| релизный коммит до bump `09aaf121` | `ecf58c1479cdcdf77bc74d79b91475352b4db7ef` (совпадает) |
+| релиз `e52a06b2` (после bump) | `24de8c0a7f9e20e2a7b54bd3f5c1fcc128ec169f` |
+| прод `ab662a75` | `dddce7136df8d75be30f1022aedb50a59bd8c0ae` |
+
+Дерево кандидата и дерево релиза до bump идентичны байт-в-байт. Дерево релиза отличается только коммитом bump: 31 файл, 64 изменённые строки, и каждая из них содержит литерал `2.58.152`/`2.58.153` (проверял по строкам, не по названиям файлов).
+
+## 2. Диффы против прода
+
+`git diff ab662a75 e52a06b2 -- services handlers web/api/routes.py` - **пустой вывод, exit 0**.
+
+`git diff ab662a75 e52a06b2 -- config` - ровно одна строка:
+
+```
+-APP_VERSION = "2.58.152"   # ...(длинный исторический комментарий)...
++APP_VERSION = "2.58.153"   # ...(тот же комментарий)...
+```
+
+## 3. Дельта и классификация (115 файлов)
+
+| Группа | Файлов | Что именно |
+|---|---|---|
+| Одобренный UI-контент | 3 | `web/app.js` (+1301), `web/index.html` (+1727), `web/static/app.css` (+248) |
+| Новый read-only API + регистрация | 2 | `web/api/initiative_publications.py` (новый, 847 строк), `web/app.py` (+10, только `include_router`) |
+| Тесты | 37 | 3 новых (`test_initiative_publications_api.py`, `tests/js/initiative_ui_rework_test.js`, `tests/ui_initiative_rework_e2e.py`); 6 адаптированы с указанной причиной; 28 - только литерал версии |
+| Docs/evidence | 71 | `plans/features/p0-meme-publication-hotfix/**` (ui-report, скриншоты, скрипты), `plans/docs/param-registry-round1025.meta.md` (версия) |
+| Версия | 3 | `README.md`, `config/settings.py`, `plans/docs/param-registry-round1025.meta.md` |
+| **Прочее (other)** | **0** | - |
+
+Адаптации с причиной (проверял содержимое диффа, не только имя файла):
+
+- `tests/test_webapp_f5_round1025.py`: проверка применимости вкладки теперь на `canonTab` (вкладка сначала канонизируется); сам инвариант «неприменимая вкладка → обзор» на месте.
+- `tests/test_asap7_module_registry.py`: ожидаемый список вкладок `['overview','text','memes','publications','diagnostics']` вместо `['overview','settings','limits']`; остальные утверждения (иконка, `flags_intent`/`limits_intent`) сохранены.
+- `tests/js/asap8_v63_w3_modules_ui_test.js`: `settings`/`limits` → `text` в вызовах; проверки per-chat гейта и групп не удалены.
+- `tests/js/evol_glass_seam_test.js`: в список разрешённых изменённых web-файлов добавлены `web/app.py` и новый api-модуль; побайтовая проверка защищённых файлов оптики выше в файле не тронута.
+- `tests/js/meme_ui_fields_test.js` и `tests/ui_meme_ui_fields_e2e.py`: карточка мемов переехала на вкладку «Мемы» (границей стал явный маркер `data-ini-memes-end`, он существует ровно один раз), и добавлено новое утверждение - полный блок диагностики НЕ дублируется в карточке.
+- `tests/js/meme_ui_fields_test.js`: подписи потолка приняты по deployed P0.5.
+
+## 4. Новый backend-модуль: read-only, RBAC, изоляция
+
+Прочитал `web/api/initiative_publications.py` в дереве `e52a06b2` (779 строк) и `web/app.py`.
+
+- **Только чтение.** Ни одного `INSERT`/`UPDATE`/`DELETE`/`CREATE`/`ALTER`/`DROP`/`PRAGMA`/`user_version`/`commit(` в модуле; в `web/app.py` - тоже 0. Модуль не импортирует `services.database`/миграции (импорты: json, logging, time, typing, aiogram WebAppUser, fastapi, `web.api.deps`, `web.api.routes`).
+- **Два эндпоинта, оба GET:** `/api/initiative/publications` и `/api/initiative/publications/detail`. POST/PUT/PATCH/DELETE отсутствуют.
+- **RBAC - та же модель, что у существующих настроек.** Оба: `user: Depends(get_tma_user)` → `_chat_id_or_none(X-Chat-Id)` (без заголовка 422) → `await _require_chat_access(request, user, chat_id)` (403). Это дословно цепочка deployed `GET /api/initiative/meme-settings` в `web/api/routes.py`; отдельного «второго» способа авторизации нет.
+- **Читает только существующие журналы:** `meme_initiative_attempt` (через `mi.open_ledger`/`attempts(chat_id)`), `mca_events`, `mca_bot_outputs`. Новых таблиц/счётчиков/хранилищ не появляется.
+- **Утечка чужого чата невозможна:** все SQL-запросы фильтруются по `chat_id` (`SELECT * FROM mca_events WHERE ts >= ? AND chat_id = ?`, detail - `chat_id = ? AND (trace_id = ? OR entity_ids LIKE ?)`, доставка - `chat_id = ? AND correlation_id = ?`), а журнал мемов читается ledger-ом по `chat_id`. Плюс `_require_chat_access` не пускает к чужому чату.
+- **Мои проверки на реальных строках:** без initData - 401; без `X-Chat-Id` - 422; не-админ - 403 на обоих эндпоинтах; `detail?attempt_id=meme:J1` с `X-Chat-Id` другого чата - пустая попытка и пустая цепочка; при отсутствии БД - 200 с `available=false` и причиной, а не 500.
+
+## 5. Миграции: нет
+
+- `services/**` (там живут DDL, реестр миграций и `user_version`) - **нулевой дифф**.
+- `config/**` - только `APP_VERSION`.
+- Новый модуль и `web/app.py` не содержат DDL и не импортируют database/миграции.
+- В дельте нет ни одного изменения `PRAGMA user_version` / `MigrationStep` / `schema_migrations` в рантайм-коде (единственные `CREATE TABLE` в дельте - фикстура нового теста, создающая временную SQLite для проверки чтения).
+- Пины F8 на артефакте проходят: каталог и маркеры схемы не сдвинуты.
+
+## 6. Пины не ослаблены
+
+- `ROUTES_SHA256_F11` = `cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f`; `sha256(web/api/routes.py)` на артефакте = ровно это значение (проверил в процессе и тестом F8). `routes.py` не менялся, переутверждения не было.
+- Набор маршрутов: пин `FIXTURE["routes"]` (55 путей) равен фактическому - тест проходит на артефакте.
+- `ROUTES_SHA256_F11` и счётчики каталога (597) проверены на артефакте: `pytest tests/test_round1025_f8_registry.py tests/test_webapp_f11_round1025.py` - passed.
+- Перевыпуски пинов в релизе - только версионные литералы (31 файл / 32 строки), ни одна проверка не удалена; кандидатские адаптации перечислены выше и все с указанной причиной.
+
+## 7. В сборке только слайс P1-UI
+
+Вне `plans/` и `tests/`: `README.md`, `config/settings.py`, `web/api/initiative_publications.py`, `web/app.js`, `web/app.py`, `web/index.html`, `web/static/app.css`. Ни `services/`, ни `handlers/`, ни `tools/`, ни `config/` (кроме версии) не тронуты. В путях дельты нет файлов других эпиков; в 3656 добавленных строках `web/*` нет маркеров AC-DATA / anticliche / cog_map / cognitive / dominant / smart_cache (0 совпадений). Когнитивная карта и анти-клише не затронуты.
+
+## 8. Прогоны на самом артефакте (`e52a06b2`)
+
+| Проверка | Результат |
+|---|---|
+| `pytest tests/test_round1025_f8_registry.py tests/test_webapp_f11_round1025.py tests/test_asap7_module_registry.py tests/test_webapp_f5_round1025.py tests/test_initiative_publications_api.py` | 112 passed |
+| `node tests/js/initiative_ui_rework_test.js`, `meme_ui_fields_test.js`, `evol_glass_seam_test.js`, `asap8_v63_w3_modules_ui_test.js` | все OK |
+| `py -3 tests/ui_meme_ui_fields_e2e.py` | failures=0 |
+| `py -3 tests/ui_initiative_rework_e2e.py` | failures=0 |
+
+## 9. Условия выпуска и отката
+
+- Деплой: `git pull --ff-only` на `e52a06b2` + `systemctl restart admin_bot` (штатная процедура), версия в UI/`/healthz` должна стать 2.58.153.
+- Откат: вернуть `ab662a75` и перезапустить. Схема БД не менялась, отката данных не требуется: слайс ничего не пишет, новых таблиц/ключей/счётчиков нет.
+- После деплоя быстрый смоук (DevOps): открыть «Модули → Инициатива», увидеть пять вкладок, авто-потолок в «Мемах», хотя бы одну реальную строку в «Публикациях», трассу одной попытки в «Диагностике»; `GET /api/initiative/publications` под админом - 200, у обычного пользователя без доступа к чату - 403.
