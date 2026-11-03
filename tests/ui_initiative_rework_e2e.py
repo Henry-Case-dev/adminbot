@@ -1210,6 +1210,18 @@ def run_diagnostics(browser, width, height, label, shots):
                   "в раскрытой речевой сборке нет %r: %r" % (want, speech[:220]))
         check("вошёл" in speech or "пропущен" in speech, label,
               "нет индикатора вошёл/пропущен по слоям")
+        # Безопасный срез манифеста: содержимое слоёв, а не id под видом текста.
+        page.evaluate(
+            "() => { const d = Array.from(document.querySelectorAll("
+            "'[data-ini-trace-group=\"speech\"] details'))[0]; if (d) d.open = true; }")
+        page.wait_for_timeout(300)
+        manifest_text = page.evaluate(
+            "() => ((document.querySelector('[data-ini-trace-manifest-text]') || {})"
+            ".textContent || '').trim()")
+        for want in ("core ←", "манифест", "R17"):
+            check(want in manifest_text, label,
+                  "безопасный срез манифеста без %r: %r"
+                  % (want, manifest_text[:200]))
         # Раскрытие «Этапы генерации» показывает факты этапов.
         page.click('[data-ini-trace-group="stages"] .ini-trace__head')
         page.wait_for_timeout(300)

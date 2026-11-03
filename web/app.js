@@ -8153,6 +8153,17 @@
               : 'речевая сборка не записана'),
             rows: layers,
             manifest: String(speech.manifest || ''),
+            // Безопасный срез манифеста: то, что РЕАЛЬНО записано о сборке
+            // (слой → ревизия/статус). Сырого текста промпта в журнале нет —
+            // это и сказано прямо, вместо выдачи id за «текст манифеста».
+            manifestText: (layers.length
+              ? layers.map(function (l) { return l.label + ' ← ' + l.value; })
+                .join('\n')
+                + (speech.manifest
+                  ? '\n\nid манифеста: ' + String(speech.manifest) : '')
+                + '\n\nТекст промпта в журнале не хранится (R17) — показаны '
+                + 'ревизии и статусы слоёв, фактически ушедших в сборку.'
+              : 'манифест не записан'),
             systemSha: String(speech.system_sha12 || ''),
             humorStatus: String(speech.humor_status || ''),
             technique: String(speech.technique || ''),

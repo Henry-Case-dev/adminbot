@@ -2747,9 +2747,9 @@
                         <template v-if="isGlobalAdmin">
                           <details class="mt-1">
                             <summary class="cursor-pointer text-gray-400">
-                              Безопасный текст итогового prompt manifest
+                              Безопасный срез манифеста сборки (слои и ревизии)
                             </summary>
-                            <pre class="ini-pre" data-ini-trace-manifest-text>{{ g.manifest || 'манифест не записан' }}</pre>
+                            <pre class="ini-pre" data-ini-trace-manifest-text>{{ g.manifestText }}</pre>
                           </details>
                         </template>
                       </div>
