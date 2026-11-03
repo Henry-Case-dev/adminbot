@@ -31,7 +31,8 @@ import services.summary_l1_clusterizer as sl1
 import services.summary_legacy_fullwindow as lfw
 from services.summary_generator import SummaryGenerator
 
-pytestmark = pytest.mark.asap41
+pytestmark = pytest.mark.asap41  # noqa: E501
+pytestmark = [pytestmark, pytest.mark.usefixtures("prompt_journal")]
 
 CHAT = -100839
 CHAT2 = -100940

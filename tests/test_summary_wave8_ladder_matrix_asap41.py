@@ -35,7 +35,8 @@ from services.summary_generator import SummaryGenerator
 from services.summary_l2_writer import L2Result
 from services.summary_run_log import RunContext
 
-pytestmark = pytest.mark.asap41
+pytestmark = pytest.mark.asap41  # noqa: E501
+pytestmark = [pytestmark, pytest.mark.usefixtures("prompt_journal")]
 
 CHAT = -100777
 TITLE = "Лестница не роняет текст."

@@ -705,7 +705,6 @@ async def post_config(
     #   value_overrides — ЗНАЧЕНИЯ per-chat (root["overrides"]) — база merge.
     # Смешение этих пространств и было багом: одиночный save затирал значения.
     perm_overrides = dict(root.get("perm_overrides") or {})
-    value_overrides = dict(root.get("overrides") or {})
     patch_overrides = {}
     for item in payload.items:
         spec = get_by_pg_key(item.key)
@@ -756,35 +755,81 @@ async def post_config(
         patch_overrides[item.key] = value
     if not patch_overrides:
         raise HTTPException(status_code=422, detail="items пуст")
-    new_overrides = dict(value_overrides)
-    new_overrides.update(patch_overrides)
-    meta = dict(root.get("meta") or {})
-    meta["updated_by"] = user.id
-    try:
-        new_root = await _write_chat_overrides_with_retry(
-            chat_id, new_overrides, meta, cache,
-            expected_updated_at=payload.updated_at)
-    except chat_params.ChatParamsConflict as exc:
-        raise HTTPException(
-            status_code=409,
-            detail={"code": "conflict",
-                    "current_updated_at": exc.current_updated_at,
-                    "conflicting": getattr(exc, "conflicting", []) or [],
-                    "applied": []})
+    prompt_items: list = []
+    settings_overrides: dict = {}
+    for key, value in patch_overrides.items():
+        spec_block = _prompt_block_for_key(key)
+        if spec_block is None:
+            settings_overrides[key] = value
+        else:
+            prompt_items.append(prompt_policy.PromptWriteItem(
+                block_id=spec_block.block_id, text=str(value),
+                expected_updated_at=payload.updated_at))
+    new_root = None
+    prompt_result: dict = {}
+    if prompt_items:
+        # §3.5: промпты — ПЕРВЫМИ и одной транзакцией (CAS-токен — тот же
+        # payload.updated_at); только после них пишутся прочие настройки
+        # чата. Обратный порядок запрещён.
+        prompt_result = await _write_prompt_items(
+            cache, prompt_items, scope="chat", chat_id=chat_id, actor=user.id,
+            pg=cache.pg, reason="owner_edit")
+    if settings_overrides:
+        try:
+            # Полный набор overrides читается ПОСЛЕ записи промптов: иначе
+            # повторная запись namespace вернула бы прежние промптные байты.
+            fresh = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+            new_overrides = dict((fresh or {}).get("overrides") or {})
+            new_overrides.update(settings_overrides)
+            meta = dict((fresh or {}).get("meta") or {})
+            meta["updated_by"] = user.id
+            new_root = await _write_chat_overrides_with_retry(
+                chat_id, new_overrides, meta, cache,
+                expected_updated_at=(None if prompt_items
+                                     else payload.updated_at))
+        except chat_params.ChatParamsConflict as exc:
+            if prompt_items:
+                # §3.5: второй этап упал — честный частичный отчёт.
+                logger.warning("[api] config chat: промпты сохранены, "
+                               "остальные настройки отклонены | chat=%s",
+                               chat_id)
+                raise HTTPException(
+                    status_code=503,
+                    detail={"code": "partial_save",
+                            "message": "Промпты сохранены, остальные настройки "
+                                       "— нет: значение изменено другим путём",
+                            "applied": list(prompt_result.get("applied") or []),
+                            "rejected": [{"key": key, "reason": "conflict"}
+                                         for key in sorted(settings_overrides)],
+                            "current_updated_at": exc.current_updated_at,
+                            "prompt_snapshots":
+                                list(prompt_result.get("prompt_snapshots")
+                                     or [])})
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "conflict",
+                        "current_updated_at": exc.current_updated_at,
+                        "conflicting": getattr(exc, "conflicting", []) or [],
+                        "applied": []})
+    updated_at_out = (
+        getattr(new_root, "updated_at", None) if new_root is not None else None)
+    if not updated_at_out:
+        updated_at_out = (prompt_result.get("chat_updated_at")
+                          or await chat_params.get_chat_updated_at(chat_id))
     logger.info("[api] config chat updated | chat=%s | keys=%d | by=%s | "
                 "revalidated=%s",
                 chat_id, len(patch_overrides), user.id,
                 bool(getattr(new_root, "revalidated", False)))
-    snapshots = await _prompt_record_saved_snapshots(
-        cache, list(patch_overrides.items()), scope="chat", chat_id=chat_id,
-        actor=user.id)
     out_chat = {"updated": sorted(patch_overrides),
                 "chat_id": chat_id,
                 "revalidated": bool(getattr(new_root, "revalidated", False)),
-                "updated_at": (getattr(new_root, "updated_at", None)
-                               or await chat_params.get_chat_updated_at(chat_id))}
+                "updated_at": updated_at_out}
+    snapshots = list(prompt_result.get("prompt_snapshots") or [])
     if snapshots:
         out_chat["prompt_snapshots"] = snapshots
+    skipped_same = list(prompt_result.get("skipped_same") or [])
+    if skipped_same:
+        out_chat["skipped_same"] = skipped_same
     return out_chat
 
 
@@ -1104,6 +1149,32 @@ async def delete_chat_param(
     if key not in overrides:
         raise HTTPException(status_code=404,
                             detail=f"нет override: {key}")
+    spec_block = _prompt_block_for_key(key)
+    if spec_block is not None:
+        # §3.4: снятие чатового override промпта = журнальная операция
+        # (снимок последнего текста + событие chat_inherit_reset + удаление
+        # ключа в одной транзакции). Без журнала — 503 и ключ не снят.
+        try:
+            result = await _remove_prompt_override(
+                cache, spec_block, chat_id=chat_id, actor=user.id,
+                pg=cache.pg)
+        except prompt_policy.JournalUnavailable as exc:
+            logger.warning("[api] журнал промптов недоступен — override не "
+                           "снят | key=%s | reason=%s", key, exc)
+            raise HTTPException(status_code=503,
+                                detail=PROMPT_JOURNAL_UNAVAILABLE)
+        if not result.get("applied"):
+            raise HTTPException(
+                status_code=409,
+                detail=str(result.get("reason") or "не снято"))
+        logger.info("[api] prompt chat override reset | chat=%s | key=%s | "
+                    "revision=%s | by=%s", chat_id, key,
+                    result.get("revision_id", ""), user.id)
+        return {"reset": key, "chat_id": chat_id,
+                "prompt_snapshot": {
+                    "key": key,
+                    "revision_id": result.get("revision_id", "")},
+                "journal": "chat_inherit_reset"}
     overrides.pop(key, None)
     # D-3 (ревью Батча C): merge `meta`, НЕ затираем чужой meta (например,
     # `chat_settings_seed_version`) — иначе сид переприменит политику на рестарте.
@@ -1306,12 +1377,27 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
     if not prepared:
         raise HTTPException(status_code=422, detail="items пуст")
     # ── Проход 2: per-key optimistic + атомарная запись пакета ─────────────
+    # §3.5: промптные ключи пишутся ЕДИНЫМ журнальным слоем (одна транзакция,
+    # all-or-nothing по промптам) и ДО остальных настроек; непромптные —
+    # прежним путём байт-в-байт.
+    prompt_items = []
+    for entry in prepared:
+        spec_block = _prompt_block_for_key(entry["key"])
+        if spec_block is None:
+            continue
+        prompt_items.append(prompt_policy.PromptWriteItem(
+            block_id=spec_block.block_id, text=str(entry["value"]),
+            expected_updated_at=entry["token"]))
     to_write: list[tuple[str, object, str]] = []
     updated: list[str] = []
     conflicting: list[dict] = []
     revalidated = False
     tokens_used = False
+    prompt_result: dict = {}
     for entry in prepared:
+        if _prompt_block_for_key(entry["key"]) is not None:
+            tokens_used = tokens_used or entry["token"] is not None
+            continue                     # промпт — ниже, единым слоем
         token = entry["token"]
         if token is None:
             to_write.append((entry["key"], entry["value"], entry["category"]))
@@ -1350,29 +1436,56 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
             status_code=409,
             detail={"code": "conflict", "current_updated_at": None,
                     "conflicting": conflicting, "applied": []})
+    if prompt_items:
+        # Первый этап: промпты. Сбой журнала → 503, остальное НЕ пишется.
+        prompt_result = await _write_prompt_items(
+            cache, prompt_items, scope="global", actor=user.id,
+            reason="owner_edit")
+        for key in prompt_result["applied"] + prompt_result["skipped_same"]:
+            if key not in updated:
+                updated.append(key)
     if to_write:
-        set_many = getattr(cache, "set_many", None)
-        if set_many is not None:
-            await set_many(to_write)
-        else:
-            # Совместимость с лёгкими кэшами-двойниками без пакета.
-            for key, value, category in to_write:
-                await cache.set(key, value, category)
+        try:
+            set_many = getattr(cache, "set_many", None)
+            if set_many is not None:
+                await set_many(to_write)
+            else:
+                # Совместимость с лёгкими кэшами-двойниками без пакета.
+                for key, value, category in to_write:
+                    await cache.set(key, value, category)
+        except Exception as exc:
+            # §3.5: второй этап упал — честный частичный отчёт: промптные
+            # ключи уже сохранены (журнальная транзакция закоммичена),
+            # непромптные — отклонены. «Сохранено» ни для чего не выдумываем.
+            logger.warning("[api] config global: пакет настроек не сохранён | "
+                           "keys=%s", [row[0] for row in to_write],
+                           exc_info=True)
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "partial_save",
+                        "message": "Промпты сохранены, настройки — нет: "
+                                   "PostgreSQL недоступен (R6)",
+                        "applied": list(prompt_result.get("applied") or []),
+                        "rejected": [{"key": row[0],
+                                      "reason": type(exc).__name__}
+                                     for row in to_write],
+                        "prompt_snapshots":
+                            list(prompt_result.get("prompt_snapshots") or [])})
     for key in updated:
         logger.info("[api] config updated | key=%s | by=%s", key, user.id)
     # R10.9-4 (F5 round1014): смена base_url/model/key → health переспрашивается.
     _invalidate_provider_health(updated)
-    snapshots = await _prompt_record_saved_snapshots(
-        cache, [(entry["key"], entry["value"]) for entry in prepared
-                if entry["key"] in updated],
-        scope="global", chat_id=None, actor=user.id)
     out: dict = {"updated": updated}
     if tokens_used:
         # Аддитивно (R16): поле появляется только при per-key-токенах —
         # базовая форма ответа `{"updated": [...]}` не меняется.
         out["revalidated"] = revalidated
+    snapshots = list(prompt_result.get("prompt_snapshots") or [])
     if snapshots:
         out["prompt_snapshots"] = snapshots
+    skipped = list(prompt_result.get("skipped_same") or [])
+    if skipped:
+        out["skipped_same"] = skipped
     return out
 
 
@@ -3317,38 +3430,90 @@ def _prompt_journal_or_none(cache: ConfigCache):
         return None
 
 
-async def _prompt_record_saved_snapshots(cache: ConfigCache, items,
-                                         *, scope: str,
-                                         chat_id: int | None,
-                                         actor) -> list[dict]:
-    """После успешного POST /api/config: промпт реестра получает новый
-    immutable-снимок. Значение уже записал существующий путь — журнал только
-    фиксирует факт. Сбой журнала не откатывает сохранение. Пустой список,
-    если журнала нет (тестовый пул не asyncpg) — ответ /api/config не меняется."""
-    store = _prompt_journal_or_none(cache)
-    if store is None:
-        return []
-    recorded: list[dict] = []
-    for key, value in items:
-        spec = prompt_reg.by_pg_key(str(key))
-        if spec is None or not spec.pg_key or not isinstance(value, str):
-            continue
-        try:
-            result = await prompt_policy.record_manual_activation(
-                spec.block_id, value, scope=scope, chat_id=chat_id,
-                actor=str(actor or ""), reason="owner_edit",
-                kind="manual_edit", cache=cache, store=store)
-        except Exception:
-            logger.warning("[api] prompt snapshot not recorded | key=%s",
-                           key, exc_info=True)
-            continue
-        if result.get("recorded"):
-            recorded.append({
-                "key": spec.pg_key,
-                "revision_id": result.get("revision_id") or "",
-                "sha256_12": result.get("sha256_12") or "",
-            })
-    return recorded
+#: Текст отказа записи промпта, когда журнал версий недоступен (§3.3).
+#: Формулировка честная: значение НЕ сохранено (не «сохранено без истории»).
+PROMPT_JOURNAL_UNAVAILABLE = (
+    "Не сохранено: журнал версий промптов недоступен. Текст остался прежним.")
+
+#: Ключи пакета, которые пишутся единым журнальным слоем (§3.5).
+def _prompt_block_for_key(key: str):
+    """Блок реестра для config-ключа (``None`` — обычная настройка)."""
+    spec = prompt_reg.by_pg_key(str(key))
+    if spec is None or not spec.pg_key:
+        return None
+    return spec
+
+
+async def _write_prompt_items(cache: ConfigCache, items, *, scope: str,
+                              chat_id: int | None = None, actor=None,
+                              reason: str = "owner_edit",
+                              kind: str = "manual_edit", pg=None) -> dict:
+    """Единый слой записи значения промптов + отображение отказов на HTTP.
+
+    §3.3: журнал недоступен/лок занят → 503 и значение НЕ записано;
+    CAS-конфликт чата → 409 с `current_updated_at`; устаревший global-токен →
+    409 `FactoryConflict`; гейты значения → 422.
+    """
+    if not items:
+        return {"applied": [], "skipped_same": [], "rejected": [],
+                "prompt_snapshots": [], "chat_updated_at": None,
+                "journal_recorded": True}
+    store = _prompt_journal(cache)
+    try:
+        result = await prompt_policy.write_prompt_values(
+            items, scope=scope, chat_id=chat_id, cache=cache, store=store,
+            pg=pg, actor=actor, reason=reason, kind=kind)
+    except prompt_policy.JournalUnavailable as exc:
+        logger.warning("[api] журнал промптов недоступен — значения не "
+                       "записаны | scope=%s | chat=%s | reason=%s",
+                       scope, chat_id, exc)
+        raise HTTPException(status_code=503,
+                            detail=PROMPT_JOURNAL_UNAVAILABLE)
+    except prompt_policy.PromptJournalError as exc:
+        logger.error("[api] сбой журнала промптов — значения не записаны | "
+                     "scope=%s | chat=%s", scope, chat_id, exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail=PROMPT_JOURNAL_UNAVAILABLE)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": getattr(exc, "conflicting", []) or [],
+                    "applied": []})
+    except Exception as exc:
+        from services.prompt_factory import FactoryConflict
+        if isinstance(exc, FactoryConflict):
+            values = {str(getattr(item, "block_id", "")): item
+                      for item in items}
+            matched = values.get(str(exc.pg_key))
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "conflict", "current_updated_at": None,
+                        "conflicting": [{
+                            "key": exc.pg_key,
+                            "your_value": (getattr(matched, "text", None)
+                                           if matched is not None else None),
+                            "server_value": exc.current}],
+                        "applied": []})
+        raise
+    if result["rejected"]:
+        first = result["rejected"][0]
+        detail = f"{first['key']}: {first.get('reason', 'rejected')}"
+        if first.get("detail"):
+            detail = f"{detail} ({first['detail']})"
+        raise HTTPException(status_code=422, detail=detail)
+    return result
+
+
+async def _remove_prompt_override(cache: ConfigCache, spec_block, *,
+                                  chat_id: int, actor, pg=None,
+                                  reason: str = "chat_override_removed"
+                                  ) -> dict:
+    """Снять чатовый override промпта журнальным путём (§3.6)."""
+    return await prompt_policy.remove_prompt_override(
+        spec_block.block_id, chat_id=chat_id, actor=actor, cache=cache,
+        store=_prompt_journal(cache), pg=pg, reason=reason)
 
 
 async def _prompt_require_revision_view(request: Request, user: WebAppUser,
@@ -4236,24 +4401,91 @@ async def post_meme_settings(
         raise HTTPException(status_code=422, detail="нет изменений")
     if ctx.is_dm_owner:
         await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
+    # §3.4: промптные поля идут ЕДИНЫМ журнальным слоем (ревизия + событие
+    # активации + значение), прочие настройки — прежним путём
+    # `_write_chat_overrides_with_retry`. Обхода журнала у спец-эндпоинта
+    # больше нет (§1 п.1 ТЗ).
+    prompt_items: list = []
+    prompt_removals: list[str] = []
+    settings_patch: dict = {}
+    settings_removals: list[str] = []
+    for key, value in patch.items():
+        spec_block = _prompt_block_for_key(key)
+        if spec_block is None:
+            settings_patch[key] = value
+        else:
+            prompt_items.append(prompt_policy.PromptWriteItem(
+                block_id=spec_block.block_id, text=str(value),
+                expected_updated_at=payload.updated_at))
     for key in removals:
-        overrides.pop(key, None)
-    overrides.update(patch)
-    meta = dict(root.get("meta") or {})
-    meta["updated_by"] = user.id
-    try:
-        await _write_chat_overrides_with_retry(
-            chat_id, overrides, meta, cache,
-            expected_updated_at=payload.updated_at)
-    except chat_params.ChatParamsConflict as exc:
-        raise HTTPException(
-            status_code=409,
-            detail={"code": "conflict",
-                    "current_updated_at": exc.current_updated_at,
-                    "conflicting": getattr(exc, "conflicting", []) or [],
-                    "applied": []})
-    logger.info("[api] meme settings updated | chat=%s | keys=%s | by=%s",
-                chat_id, sorted(patch), user.id)
+        if _prompt_block_for_key(key) is not None:
+            prompt_removals.append(key)
+        else:
+            settings_removals.append(key)
+    prompt_result: dict = {}
+    prompt_snapshots: list[dict] = []
+    if prompt_items:
+        prompt_result = await _write_prompt_items(
+            cache, prompt_items, scope="chat", chat_id=chat_id, actor=user.id,
+            pg=cache.pg, reason="owner_edit")
+        prompt_snapshots = list(prompt_result.get("prompt_snapshots") or [])
+    for key in prompt_removals:
+        spec_block = _prompt_block_for_key(key)
+        try:
+            removed = await _remove_prompt_override(
+                cache, spec_block, chat_id=chat_id, actor=user.id,
+                pg=cache.pg)
+        except prompt_policy.JournalUnavailable as exc:
+            logger.warning("[api] журнал промптов недоступен — override не "
+                           "снят | key=%s | reason=%s", key, exc)
+            raise HTTPException(status_code=503,
+                                detail=PROMPT_JOURNAL_UNAVAILABLE)
+        if removed.get("applied"):
+            prompt_snapshots.append({"key": key,
+                                     "revision_id": removed.get("revision_id",
+                                                                "")})
+    if settings_patch or settings_removals:
+        try:
+            fresh = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+            fresh_overrides = dict((fresh or {}).get("overrides") or {})
+            for key in settings_removals:
+                fresh_overrides.pop(key, None)
+            fresh_overrides.update(settings_patch)
+            meta = dict((fresh or {}).get("meta") or {})
+            meta["updated_by"] = user.id
+            await _write_chat_overrides_with_retry(
+                chat_id, fresh_overrides, meta, cache,
+                expected_updated_at=(
+                    None if (prompt_items or prompt_removals)
+                    else payload.updated_at))
+        except chat_params.ChatParamsConflict as exc:
+            if prompt_items or prompt_removals:
+                # §3.5: промпты уже закоммичены — честный частичный отчёт.
+                raise HTTPException(
+                    status_code=503,
+                    detail={"code": "partial_save",
+                            "message": "Промпты сохранены, остальные настройки "
+                                       "— нет: значение изменено другим путём",
+                            "applied": list(prompt_result.get("applied") or []),
+                            "rejected": [{"key": key, "reason": "conflict"}
+                                         for key in sorted(settings_patch)],
+                            "current_updated_at": exc.current_updated_at,
+                            "prompt_snapshots": prompt_snapshots})
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "conflict",
+                        "current_updated_at": exc.current_updated_at,
+                        "conflicting": getattr(exc, "conflicting", []) or [],
+                        "applied": []})
+    logger.info("[api] meme settings updated | chat=%s | keys=%s | prompts=%s"
+                " | by=%s", chat_id, sorted(patch),
+                sorted(row["key"] for row in prompt_snapshots), user.id)
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
-    return await _meme_settings_payload(chat_id, db)
+    payload_out = await _meme_settings_payload(chat_id, db)
+    if prompt_snapshots:
+        payload_out["prompt_snapshots"] = prompt_snapshots
+    skipped_same = list(prompt_result.get("skipped_same") or [])
+    if skipped_same:
+        payload_out["skipped_same"] = skipped_same
+    return payload_out

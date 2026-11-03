@@ -29,7 +29,8 @@ from services.prompt_style_blocks import (
     compose_verbalizer_system,
 )
 
-pytestmark = pytest.mark.system2
+pytestmark = pytest.mark.system2  # noqa: E501
+pytestmark = [pytestmark, pytest.mark.usefixtures("prompt_journal")]
 
 
 class _FakeCache:

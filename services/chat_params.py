@@ -410,15 +410,36 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
                           # История при gates/keys-записи — отдельные fields
                           history_field: str = _HISTORY_FIELD,
                           record_history: bool = True,
+                          conn=None,
                           ) -> dict:
     """Атомарная запись патча в chat_params (spec §4.3).
 
     Одна транзакция: UPDATE (optimistic при expected_updated_at) + история
     field='chat_params' (+ NOTIFY). 0 строк → ChatParamsConflict(chat_id,
-    current_updated_at). Частичный успех исключён. Возвращает новый root."""
+    current_updated_at). Частичный успех исключён. Возвращает новый root.
+
+    ``conn`` (EPIC-PROMPT-VERSIONING-UX-01 §3.2 п.7): запись идёт на КОННЕКТЕ
+    ЖУРНАЛЬНОЙ транзакции — одна транзакция «значение + ревизия + событие».
+    Тогда вызывающий владеет commit/rollback, in-process lock и advisory-lock
+    сериализует журнал, а инвалидацию чат-кэша делает владелец транзакции
+    ПОСЛЕ commit. Поведение по умолчанию (``conn=None``) не меняется.
+    """
     from services.chat_lore_store import (
         ChatLorePgUnavailable as _PgUnavailable,
     )
+    if conn is not None:
+        lock = await _chat_write_lock(chat_id)
+        async with lock:
+            new_root, revalidated, updated_at_out = await _apply_chat_patch(
+                conn, chat_id, patch,
+                expected_updated_at=expected_updated_at,
+                changed_by=changed_by, history_field=history_field,
+                record_history=record_history)
+        # Кэш инвалидирует владелец транзакции после commit (§3.2 п.9):
+        # инвалидация до commit вернула бы читателям незакоммиченное.
+        return ChatParamsResult(_root_with_meta(new_root),
+                                revalidated=revalidated,
+                                updated_at=updated_at_out)
     pool = getattr(pg, "pool", None) if pg is not None else None
     if pool is None:
         raise _PgUnavailable("PostgreSQL недоступен (пул отсутствует)")
@@ -438,54 +459,11 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
                     logger.debug(
                         "[chat_params] advisory lock skipped | chat=%s",
                         chat_id)
-                row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
-                if row is None:
-                    raise ChatParamsConflict(chat_id, None)
-                old_raw = _load_chat_params(row.get("chat_params"))
-                old_root = _root_with_meta(old_raw)
-                new_root = _root_with_meta(old_root)
-                for ns in ("overrides", "gates", "keys", "perm_overrides",
-                           "meta"):
-                    if ns in patch and isinstance(patch[ns], dict):
-                        new_root[ns] = dict(patch[ns])
-                new_root["v"] = patch.get("v", 1)
-                if expected_updated_at is not None:
-                    sql = UPDATE_PARAMS_LOCKED_SQL
-                    args = (chat_id, json.dumps(new_root),
-                            _parse_ts(expected_updated_at))
-                else:
-                    sql = UPDATE_PARAMS_SQL
-                    args = (chat_id, json.dumps(new_root))
-                updated = await conn.fetchrow(sql, *args)
-                if updated is None:
-                    current = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
-                    cur_root = (_root_with_meta(
-                        _load_chat_params(current.get("chat_params")))
-                        if current is not None else {})
-                    if current is not None and _patch_already_applied(
-                            patch, cur_root):
-                        # D-409-1 (idempotent short-circuit): токен устарел,
-                        # но сервер УЖЕ содержит запрошенные значения —
-                        # операция выполнена, 409 не бросаем.
-                        revalidated = True
-                        new_root = cur_root
-                        updated_at_out = _iso(current.get("updated_at"))
-                    else:
-                        raise ChatParamsConflict(
-                            chat_id,
-                            _iso(current["updated_at"]) if current else None,
-                            conflicting=_diff_patch(patch, cur_root))
-                else:
-                    updated_at_out = _iso(updated.get("updated_at"))
-                    old_json = json.dumps(old_root, ensure_ascii=False,
-                                          sort_keys=True)
-                    new_json = json.dumps(new_root, ensure_ascii=False,
-                                          sort_keys=True)
-                    if record_history and old_json != new_json:
-                        await conn.execute(
-                            INSERT_HISTORY_SQL, chat_id, history_field,
-                            changed_by, old_json, new_json)
-                    await conn.execute(NOTIFY_SQL, str(chat_id))
+                new_root, revalidated, updated_at_out = await _apply_chat_patch(
+                    conn, chat_id, patch,
+                    expected_updated_at=expected_updated_at,
+                    changed_by=changed_by, history_field=history_field,
+                    record_history=record_history)
     cache = _chat_params_cache
     if cache is not None:
         try:
@@ -495,6 +473,86 @@ async def set_chat_params(chat_id: int, patch: dict, *, changed_by=None,
     return ChatParamsResult(_root_with_meta(new_root),
                             revalidated=revalidated,
                             updated_at=updated_at_out)
+
+
+def _assert_prompt_overrides_journaled(chat_id: int, old_root: dict,
+                                       new_root: dict) -> None:
+    """Страж обхода: изменённый ТЕКСТ промпта в overrides требует журнала.
+
+    Неизменённые ключи (полный набор overrides приходит в каждом патче) и
+    правки только документных полей Core (``detail_level``/``enabled``) не
+    считаются обходом — значение текста не меняется.
+    """
+    old_overrides = dict((old_root or {}).get("overrides") or {})
+    new_overrides = dict((new_root or {}).get("overrides") or {})
+    if old_overrides == new_overrides:
+        return
+    from services import prompt_release_policy as _policy
+    for key in sorted(set(old_overrides) | set(new_overrides)):
+        if old_overrides.get(key) == new_overrides.get(key):
+            continue
+        _policy.assert_prompt_write_allowed(
+            pg_key=str(key), scope="chat", chat_id=int(chat_id),
+            current=old_overrides.get(key), new=new_overrides.get(key))
+
+
+async def _apply_chat_patch(conn, chat_id: int, patch: dict, *,
+                            expected_updated_at: str | None,
+                            changed_by, history_field: str,
+                            record_history: bool) -> tuple[dict, bool, str | None]:
+    """Тело записи профиля на уже открытом коннекте (транзакция у владельца)."""
+    row = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+    if row is None:
+        raise ChatParamsConflict(chat_id, None)
+    old_raw = _load_chat_params(row.get("chat_params"))
+    old_root = _root_with_meta(old_raw)
+    new_root = _root_with_meta(old_root)
+    for ns in ("overrides", "gates", "keys", "perm_overrides",
+               "meta"):
+        if ns in patch and isinstance(patch[ns], dict):
+            new_root[ns] = dict(patch[ns])
+    new_root["v"] = patch.get("v", 1)
+    _assert_prompt_overrides_journaled(chat_id, old_root, new_root)
+    revalidated = False
+    updated_at_out: str | None = None
+    if expected_updated_at is not None:
+        sql = UPDATE_PARAMS_LOCKED_SQL
+        args = (chat_id, json.dumps(new_root),
+                _parse_ts(expected_updated_at))
+    else:
+        sql = UPDATE_PARAMS_SQL
+        args = (chat_id, json.dumps(new_root))
+    updated = await conn.fetchrow(sql, *args)
+    if updated is None:
+        current = await conn.fetchrow(SELECT_PROFILE_SQL, chat_id)
+        cur_root = (_root_with_meta(
+            _load_chat_params(current.get("chat_params")))
+            if current is not None else {})
+        if current is not None and _patch_already_applied(
+                patch, cur_root):
+            # D-409-1 (idempotent short-circuit): токен устарел,
+            # но сервер УЖЕ содержит запрошенные значения —
+            # операция выполнена, 409 не бросаем.
+            revalidated = True
+            new_root = cur_root
+            updated_at_out = _iso(current.get("updated_at"))
+        else:
+            raise ChatParamsConflict(
+                chat_id,
+                _iso(current["updated_at"]) if current else None,
+                conflicting=_diff_patch(patch, cur_root))
+    else:
+        updated_at_out = _iso(updated.get("updated_at"))
+        old_json = json.dumps(old_root, ensure_ascii=False,
+                              sort_keys=True)
+        new_json = json.dumps(new_root, ensure_ascii=False,
+                              sort_keys=True)
+        if record_history and old_json != new_json:
+            await conn.execute(
+                INSERT_HISTORY_SQL, chat_id, history_field,
+                changed_by, old_json, new_json)
+        await conn.execute(NOTIFY_SQL, str(chat_id))
+    return new_root, revalidated, updated_at_out
 
 
 async def set_gates_opt_in(chat_id: int, pg=None) -> None:

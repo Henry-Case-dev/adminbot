@@ -27,7 +27,8 @@ from services.summary_coverage_ledger import (
     stable_message_id,
 )
 
-pytestmark = pytest.mark.asap41
+pytestmark = pytest.mark.asap41  # noqa: E501
+pytestmark = [pytestmark, pytest.mark.usefixtures("prompt_journal")]
 
 CHAT_ID = -100555
 
