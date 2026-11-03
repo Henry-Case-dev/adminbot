@@ -168,7 +168,19 @@ ROUTES_SHA256_F11 = (
     # отдельном файле-зоне web/api/mechanism_diagnostics.py, поэтому
     # Δ routes=0 и routes-инвентарь f8_baseline не меняется. RBAC/
     # маскировка/DDL не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    "7ea62c3ee88bc7b701552d0b6ff1698eeee545aea9d2dfb11ebca7253fa9c2e7")
+    # P0.5-CEILING-AUTO + P0-PUBLICATION (03.11.2026, hotfix 2.58.152,
+    # кандидат 97390ee4, L-F11S-1 conscious requalification): контентная Δ в
+    # СУЩЕСТВУЮЩИХ GET/POST /api/initiative/meme-settings. Потолок длины читается
+    # в ТРЁХ состояниях: поля нет в теле = не менять; пусто/`null` = авто (снять
+    # чатовое переопределение, «наследование»); положительное целое =
+    # фиксированный потолок; исторический `0` = авто; мусор/дробь/отрицательное =
+    # точная 422 у конкретного поля (а не «тихо стало нулём»). Витрина мемов
+    # отдаёт `events`/`event_names` цепочки публикации (`image_ready` → реально
+    # доставлено `publication_sent`; пусто = «нет данных», не нули).
+    # Новых `@router`-маршрутов НЕТ (routes-инвентарь f8_baseline не меняется),
+    # RBAC/маскировка/DDL не менялись — менялось тело существующих обработчиков.
+    # Хэш переутверждён осознанно (L-F11S-1).
+    "cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -418,7 +430,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.144"
+        assert APP_VERSION == "2.58.152"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
