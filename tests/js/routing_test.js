@@ -27,6 +27,11 @@ global.Vue = {
   },
 };
 global.window = { location: { hash: '' }, addEventListener() {}, Telegram: null };
+// CMV-A (EPIC-CM-VISUAL-01): в браузере `cog-visual.js` грузится ДО app.js
+// (index.html), поэтому песочница повторяет тот же порядок — иначе карта
+// честно уходит в `not_loaded` и графические проверки теряют смысл.
+global.window.CogVisual = require(path.join(__dirname, '..', '..', 'web',
+  'static', 'cog-visual.js'));
 const _bodyChildren = [];
 global.document = {
   addEventListener() {},
@@ -1964,14 +1969,26 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.notStrictEqual(sA, sB, 'F2: degree по-прежнему в подписи');
 
     function makeNet() {
-      const calls = { focus: [], select: [], fit: [] };
+      const calls = { focus: [], select: [], fit: [], moveTo: [] };
       return {
         calls,
         focus(id, opts) { calls.focus.push([id, opts]); },
         selectNodes(ids) { calls.select.push(ids); },
         fit(anim) { calls.fit.push(anim); },
+        moveTo(opts) { calls.moveTo.push(opts); },
+        // CMV-A §4.1: камера обзора считается из ПОЗИЦИЙ и размера сцены.
+        getPositions() {
+          return { 'ent:1:1': { x: -100, y: -50 },
+                   'ent:1:3': { x: 100, y: 50 } };
+        },
+        getScale() { return 1; },
+        getViewPosition() { return { x: 0, y: 0 }; },
       };
     }
+    // Сцена измерена: 800×400 CSS-px (иначе камера обзора не считается).
+    const sceneEl = { clientWidth: 800, clientHeight: 400, isConnected: true };
+    const fitCamera = methods._cogApplyFit;
+    const computeFit = methods._cogComputeFit;
     // W7-S2: поиск идёт по НОРМАЛИЗОВАННОЙ модели (`CognitiveMap.searchNodes`),
     // поэтому фикстура прогоняется через реальный адаптер, а не подсовывается
     // сырым legacy-payload. Поведение (подстрока, циклический перебор,
@@ -1997,6 +2014,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         _graphSearchLastQ: '',
         toast() {}, renderCognitionGraph: async function () {},
         clearCognitionGraphSearch: methods.clearCognitionGraphSearch,
+        // CMV-A §4.1: камера обзора — `_cogApplyFit` по формуле от позиций.
+        _cogEl: sceneEl, _cogApplyFit: fitCamera, _cogComputeFit: computeFit,
         // W7-S2: найденный узел показывается и в панели подробностей.
         graphSelectNode: methods.graphSelectNode,
         graphNeighborsOf: methods.graphNeighborsOf,
@@ -2028,12 +2047,19 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(net.calls.focus[2][0], 'ent:1:1', 'F2: цикл замкнулся');
 
-    // Пустой ввод → без focus, сброс подсветки + fit().
+    // Пустой ввод → без focus, камера обзора через `moveTo` (CMV-A §4.1:
+    // не `vis.fit()` — его масштаб зависит от размеров узлов).
     net = makeNet();
     ctx = baseCtx(net, { graphSearchQuery: '   ' });
     await methods.searchCognitionGraph.call(ctx);
     assert.strictEqual(net.calls.focus.length, 0, 'F2: пусто → без focus');
-    assert.strictEqual(net.calls.fit.length, 1, 'F2: пусто → fit()');
+    assert.strictEqual(net.calls.fit.length, 0,
+      'CMV-A: vis.fit() не вызывается на сбросе');
+    assert.strictEqual(net.calls.moveTo.length, 1,
+      'CMV-A: сброс ставит камеру одним moveTo');
+    assert.ok(Math.abs(net.calls.moveTo[0].scale - Math.min(
+      800 / (1.1 * (200 + 24)), 400 / (1.1 * (100 + 24)))) < 1e-9,
+    'CMV-A: масштаб обзора = формула fitScaleRef от позиций');
     assert.strictEqual(ctx.graphSearchQuery, '', 'F2: пусто → сброс строки');
 
     // Нет совпадений → статус + toast(warn), сеть не ломается.
@@ -2047,7 +2073,7 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.ok(toasts.length === 1 && toasts[0][1] === 'warn',
       'F2: toast(warn) при отсутствии узла');
 
-    // reducedMotion → focus/fit без анимации.
+    // reducedMotion → focus/moveTo без анимации.
     net = makeNet();
     ctx = baseCtx(net, { graphSearchQuery: 'кот', reducedMotion: true });
     await methods.searchCognitionGraph.call(ctx);
@@ -2057,18 +2083,28 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     methods.clearCognitionGraphSearch.call({
       graphSearchQuery: 'q', graphSearchStatus: '', _graphSearchMatches: [],
       _graphSearchIdx: 0, _graphSearchLastQ: 'q',
-      cognitionNetwork: rmNet, reducedMotion: true });
-    assert.strictEqual(rmNet.calls.fit[0], false,
-      'F2: reducedMotion → fit без анимации');
+      cognitionNetwork: rmNet, reducedMotion: true,
+      _cogEl: sceneEl, _cogApplyFit: fitCamera, _cogComputeFit: computeFit,
+      _cogView: { nodes: [], edges: [] } });
+    assert.strictEqual(rmNet.calls.moveTo[0].animation, false,
+      'F2/CMV-A: reducedMotion → камера обзора без анимации');
 
-    // clearCognitionGraphSearch: selectNodes([]) + fit + сброс полей.
+    // clearCognitionGraphSearch: selectNodes([]) + камера обзора через moveTo
+    // (CMV-A §4.1: `vis.fit()` больше не единственный путь установки кадра).
     net = makeNet();
     methods.clearCognitionGraphSearch.call({
       graphSearchQuery: 'q', graphSearchStatus: 'old',
       _graphSearchMatches: [1], _graphSearchIdx: 3, _graphSearchLastQ: 'q',
-      cognitionNetwork: net, reducedMotion: false });
+      cognitionNetwork: net, reducedMotion: false,
+      _cogEl: sceneEl, _cogApplyFit: fitCamera, _cogComputeFit: computeFit,
+      _cogView: { nodes: [], edges: [] } });
     assert.deepStrictEqual(net.calls.select[0], [], 'F2: selectNodes([])');
-    assert.strictEqual(net.calls.fit.length, 1, 'F2: fit при сбросе');
+    assert.strictEqual(net.calls.fit.length, 0, 'CMV-A: fit при сбросе не зовётся');
+    assert.strictEqual(net.calls.moveTo.length, 1, 'CMV-A: moveTo при сбросе');
+    assert.deepStrictEqual(net.calls.moveTo[0].position, { x: 0, y: 0 },
+      'CMV-A: камера обзора в центр bbox');
+    assert.ok(net.calls.moveTo[0].animation !== false,
+      'CMV-A: анимированный сброс (не reducedMotion)');
 
     // Гонка lazy-load: нет инстанса → дождаться рендера и повторить.
     let rendered = 0;
@@ -2104,8 +2140,11 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'F4: physics.enabled=false после расстановки');
     assert.ok(jsSrc.indexOf('net.once(') >= 0,
       'F4: once (не on) — обработчики не копятся');
-    assert.ok(jsSrc.indexOf('physics: this.reducedMotion') >= 0,
-      'F4: reducedMotion → physics:false сохранён');
+    assert.ok(jsSrc.indexOf('physics: this.reducedMotion') < 0,
+      'CMV-A: reduced-motion больше не отменяет РАСКЛАДКУ (иначе — кольцо '
+      + 'узлов и «белый ковёр» рёбер, §7.3/§12.1 спеки)');
+    assert.ok(jsSrc.indexOf('updateInterval: 25, fit: false') >= 0,
+      'CMV-A: кадр обзора выставляем сами (stabilization.fit=false)');
 
     const FakeDataSet = function (rows) { this.rows = rows; };
     let netCreated = null;
@@ -2117,12 +2156,23 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       this.el = el; this.data = data; this.options = options;
       this.onceEvents = [];
       this.setOptionsCalls = [];
+      this.moveToCalls = [];
+      this.fitCalls = [];
       this.destroy = function () {};
       this.once = function (ev, cb) {
         self.onceEvents.push(ev);
         self['cb_' + ev] = cb;
       };
       this.setOptions = function (o) { self.setOptionsCalls.push(o); };
+      // CMV-A: камера обзора ставится `moveTo` по формуле от позиций.
+      this.moveTo = function (o) { self.moveToCalls.push(o); };
+      this.fit = function (a) { self.fitCalls.push(a); };
+      this.getPositions = function () {
+        return { 'fact:1:1': { x: -50, y: -25 },
+                 'fact:1:2': { x: 50, y: 25 } };
+      };
+      this.getScale = function () { return 1; };
+      this.getViewPosition = function () { return { x: 0, y: 0 }; };
       netCreated = self;
     }
     const prevVis = global.window.vis;
@@ -2144,8 +2194,11 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const baseCtx = {
       isGlobalAdmin: true, activeTab: 'status', reducedMotion: false,
       cognitionGraphData: cogModel,
-      $refs: { cognitionGraph: {} },
+      $refs: { cognitionGraph: { clientWidth: 800, clientHeight: 400,
+                                 isConnected: true } },
       cognitionNetwork: null, _cognitionGraphSig: null,
+      // Сцена измерена 800×400: камера обзора считается по формуле (§4.1).
+      _cogEl: { clientWidth: 800, clientHeight: 400, isConnected: true },
       ensureVisNetwork: methods.ensureVisNetwork,
       _graphSignature: methods._graphSignature,
       destroyCognitionGraph: methods.destroyCognitionGraph,
@@ -2155,8 +2208,20 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       _cogCreateNetwork: methods._cogCreateNetwork,
       _cogNodeRow: methods._cogNodeRow,
       _cogEdgeRow: methods._cogEdgeRow,
+      _cogRowOpts: methods._cogRowOpts,
       _cogRedraw: methods._cogRedraw,
+      _cogCameraOf: methods._cogCameraOf,
       _cogRestoreCamera: methods._cogRestoreCamera,
+      _cogApplyFit: methods._cogApplyFit,
+      _cogComputeFit: methods._cogComputeFit,
+      _cogRefreshFitScale: methods._cogRefreshFitScale,
+      _cogAttachSceneObservers: methods._cogAttachSceneObservers,
+      _cogOnSceneResize: methods._cogOnSceneResize,
+      _cogPauseScene: methods._cogPauseScene,
+      _cogResumeScene: methods._cogResumeScene,
+      _cogRequestFrame: methods._cogRequestFrame,
+      _cogPaintFrame: methods._cogPaintFrame,
+      _cogDebugCounters: methods._cogDebugCounters,
       _cogApplyHighlight: methods._cogApplyHighlight,
       _cogFallbackPosition: methods._cogFallbackPosition,
       _cogDrawLabels: methods._cogDrawLabels,
@@ -2176,6 +2241,29 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.deepStrictEqual(netCreated.setOptionsCalls,
       [{ physics: { enabled: false } }],
       'F4: stabilizationIterationsDone → physics off');
+    // CMV-A (§6.1/§8.1): камера «обзор» — ОДИН `moveTo` по нашей формуле от
+    // ПОЗИЦИЙ (spanX=100, spanY=50, сцена 800×400), а не `vis.fit()`.
+    assert.strictEqual(netCreated.fitCalls.length, 0,
+      'CMV-A: vis.fit() не вызывается на первом кадре');
+    assert.strictEqual(netCreated.moveToCalls.length, 1,
+      'CMV-A: камера обзора — ровно один moveTo');
+    assert.deepStrictEqual(netCreated.moveToCalls[0].position, { x: 0, y: 0 },
+      'CMV-A: камера обзора в центр bbox');
+    assert.strictEqual(netCreated.moveToCalls[0].animation, false,
+      'CMV-A: первый кадр без анимации');
+    assert.ok(Math.abs(netCreated.moveToCalls[0].scale - Math.min(
+      800 / (1.1 * (100 + 24)), 400 / (1.1 * (50 + 24)))) < 1e-9,
+    'CMV-A: масштаб = формула fitScaleRef (позиции, не размеры узлов)');
+    assert.strictEqual(baseCtx._cogFitScale, netCreated.moveToCalls[0].scale,
+      'CMV-A: fitScaleRef опубликован для LOD');
+    // Второе событие стабилизации не повторяет гашение физики и не двигает
+    // камеру второй раз (раньше settleView звался дважды → прыжок кадра).
+    netCreated.cb_stabilized();
+    assert.deepStrictEqual(netCreated.setOptionsCalls,
+      [{ physics: { enabled: false } }],
+      'CMV-A: физика гасится ОДИН раз на оба события');
+    assert.strictEqual(netCreated.moveToCalls.length, 1,
+      'CMV-A: повторное событие не двигает камеру');
 
     // B3-1: старый инстанс после destroy не получает setOptions (guard по
     // тождеству отсекает уничтоженную сеть), а НОВЫЙ инстанс — получает.
@@ -2184,6 +2272,11 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     methods.destroyCognitionGraph.call(baseCtx);
     assert.strictEqual(baseCtx.cognitionNetwork, null,
       'F4: destroy обнулил сеть');
+    // CMV-A (§1 контракта): сцена снесена ЦЕЛИКОМ, живых инстансов нет.
+    assert.strictEqual(baseCtx._cogScene || null, null,
+      'CMV-A: destroy снял владельца сцены');
+    assert.strictEqual(baseCtx._cogDebugCounters().netCount, 0,
+      'CMV-A: после destroy нет живых vis.Network');
     first.cb_stabilizationIterationsDone();  // старый инстанс: guard отсекает
     assert.strictEqual(first.setOptionsCalls.length, firstCalls,
       'B3-1: старый инстанс после destroy не получает setOptions');
@@ -2202,10 +2295,24 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const rmCtx = Object.assign({}, baseCtx, {
       reducedMotion: true, cognitionNetwork: null, _cognitionGraphSig: null });
     await methods.renderCognitionGraph.call(rmCtx);
-    assert.strictEqual(netCreated.options.physics, false,
-      'F4: reducedMotion → physics:false');
-    assert.strictEqual(netCreated.onceEvents.length, 0,
-      'F4: reducedMotion → без слушателей');
+    // CMV-A (§7.3/§12.1 спеки): `prefers-reduced-motion` НЕ отменяет раскладку —
+    // иначе узлы стоят кольцом и все рёбра идут через центр. Стабилизация идёт
+    // (разовый расчёт), а движение после неё гасится; камера — без анимации.
+    assert.ok(netCreated.options.physics,
+      'CMV-A: reducedMotion → раскладка считается (physics-объект, не false)');
+    assert.strictEqual(netCreated.options.physics.stabilization.fit, false,
+      'CMV-A: кадр обзора выставляем сами');
+    assert.deepStrictEqual(netCreated.onceEvents,
+      ['stabilizationIterationsDone', 'stabilized'],
+      'CMV-A: reducedMotion → те же слушатели терминации физики');
+    netCreated.cb_stabilizationIterationsDone();
+    assert.deepStrictEqual(netCreated.setOptionsCalls,
+      [{ physics: { enabled: false } }],
+      'CMV-A: reducedMotion → физика гасится после расстановки');
+    assert.strictEqual(netCreated.moveToCalls.length, 1,
+      'CMV-A: reducedMotion → камера обзора поставлена один раз');
+    assert.strictEqual(netCreated.moveToCalls[0].animation, false,
+      'CMV-A: reducedMotion → без анимации камеры');
     global.window.vis = prevVis;
     if (prevCog === undefined) delete global.window.CognitiveMap;
     else global.window.CognitiveMap = prevCog;
