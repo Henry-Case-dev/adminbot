@@ -12041,16 +12041,24 @@ class DirectChatService:
                         continue
                 other_claims = tuple(item for item in labels if item)
 
+        # Кап текста своей реплики/цитаты — потеря не молчит (R17: только числа).
+        _claim_capped = claim_text[:_CORRECTION_OWN_TEXT_CAP]
+        _quote_capped = quote_text[:_CORRECTION_OWN_TEXT_CAP]
+        for _kind, _before, _after in (
+                ("claim", len(claim_text), len(_claim_capped)),
+                ("quote", len(quote_text), len(_quote_capped))):
+            if _before > _after:
+                logger.warning(
+                    "direct: correction frame %s truncated | chat=%s | "
+                    "chars=%d -> %d", _kind, chat_id, _before, _after)
         block = _render_correction_frame(
             link=link, subject=subject, trigger_label=trig_label,
             trigger_name=trig_name,
             claim_label=claim_label,
-            claim_text=escape_xml_text(claim_text[:_CORRECTION_OWN_TEXT_CAP])
-            if claim_text else "",
+            claim_text=escape_xml_text(_claim_capped) if _claim_capped else "",
             claim_in_payload=claim_in_payload,
             claim_source_present=source_present,
-            quote_text=escape_xml_text(quote_text[:_CORRECTION_OWN_TEXT_CAP])
-            if quote_text else "",
+            quote_text=escape_xml_text(_quote_capped) if _quote_capped else "",
             participant_label=participant_label,
             intervening=intervening, other_claims=other_claims,
             counting=counting, window_size=window_size)

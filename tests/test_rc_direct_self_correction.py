@@ -314,6 +314,8 @@ class TestRevisionAndPragmatics:
     def test_canon_reads_indirect_critique_and_keeps_literal_questions(self):
         """§12.2 п.5/§13.78–79: намёк ≠ буквальный вопрос, но буквальный — да."""
         canon = chat_prompts.DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert "твой прежний ответ - это утверждение, а не доказательство" \
+            in canon.lower()
         assert "обратной связью о твоём поведении" in canon
         assert "отвечай буквально" in canon
         # Никакого списка триггерных фраз и слов инцидентного диалога.
@@ -504,3 +506,46 @@ class TestWiringAndObservability:
         assert calls == []
         # Никакой постобработки готового текста: в модуле нет правки ответа.
         assert not hasattr(dcs, "_rewrite_correction")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# §13.30/95: фактический LLM payload полного Direct-хода
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestRealHandlePayload:
+    @pytest.mark.asyncio
+    async def test_l2_payload_has_four_roles_and_canon(self, monkeypatch,
+                                                       speech_on):
+        """Полный ``handle()``: роли и канон в ФАКТИЧЕСКОМ payload Writer'а."""
+        from tests.test_asap7_direct_l1 import (
+            _FakeLLM, _bot_reply, _drive, _plan_json)
+
+        llm = _FakeLLM(l1=_plan_json(), l2="ладно, я смешал две вещи")
+        svc, react, bot, msg, user = _drive(
+            monkeypatch, "это так не работает",
+            reply=_bot_reply(7, "ты спрашивал про это трижды"), llm=llm,
+            real_user_content=True)
+        await svc.handle(bot, msg, user)
+
+        calls = llm.calls_of("l2_writer")
+        assert calls, "L2 должен был вызваться"
+        messages = calls[-1]["messages"]
+        system = "\n".join(str(m.get("content")) for m in messages
+                           if m.get("role") == "system")
+        user_content = "\n".join(str(m.get("content")) for m in messages
+                                 if m.get("role") == "user")
+        # Канон скилла — в системе реального вызова.
+        assert "ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ" in system
+        # Роли — в user-части фактического вызова.
+        assert "<Correction_Frame" in user_content
+        assert "твоё прежнее утверждение" in user_content
+        assert "возражение (роль: текущая реплика человека)" in user_content
+        assert "ты спрашивал про это трижды" in user_content
+        assert "связь возражения с предметом: Telegram Reply" in user_content
+        # Служебных id нет в самой рамке (остальной payload — отдельные блоки).
+        frame = _frame(user_content)
+        assert frame and not _REF_RE.search(frame)
+        # Ни второго сообщения-дубля.
+        assert user_content.count("ты спрашивал про это трижды") == 1
+        # Один вызов Writer'а (нет скрытой перегенерации).
+        assert len(calls) == 1
