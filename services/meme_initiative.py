@@ -60,11 +60,14 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import sqlite3
+import tempfile
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 from zoneinfo import ZoneInfo
 
@@ -165,6 +168,16 @@ SKIP_SLOT_RELEASED = "slot_released"
 #: P0 §1.2.4: исходный материал мема реально исчез (все сообщения снапшота
 #: удалены из чата). Доказанная утрата валидности — не «чат изменился».
 SKIP_SOURCE_GONE = "source_material_gone"
+#: B2 (§1.2.4/§3.3): право публикации в этом чате отозвано — чат больше не
+#: допустимая цель (нет в реальном ростере кандидатов), либо у автора ручного
+#: запроса больше нет прав. Свой код, не общий `publish_blocked`.
+SKIP_RIGHTS_REVOKED = "rights_revoked"
+#: B1 (§1.2.5): отложенный артефакт не доставлен за срок жизни (ретенция =
+#: собственный кулдаун механизма). Честный терминальный код, не тихая потеря.
+SKIP_DEFERRED_EXPIRED = "deferred_publication_expired"
+#: Факт «исход отправки неизвестен» (существующий ярлык/протокол координации).
+#: Не политика пропуска: так помечается только реально неизвестная доставка.
+REASON_DELIVERY_UNKNOWN = "delivery_unknown"
 #: INIT-COORD (03.11.2026): координация публикаций двух механизмов.
 SKIP_PUBLICATION_CONFLICT = "publication_conflict"
 SKIP_PUBLICATION_IN_FLIGHT = "publication_in_flight"
@@ -184,7 +197,7 @@ SKIP_REASONS = (
     SKIP_LENGTH_UNKNOWN, SKIP_IN_FLIGHT, SKIP_QUIET, SKIP_CYCLE_EXCEPTION,
     SKIP_SLOT_RELEASED, SKIP_SOURCE_GONE, SKIP_PUBLICATION_CONFLICT,
     SKIP_PUBLICATION_IN_FLIGHT, SKIP_PUBLICATION_STALE,
-    SKIP_PUBLICATION_EXPIRED,
+    SKIP_PUBLICATION_EXPIRED, SKIP_RIGHTS_REVOKED, SKIP_DEFERRED_EXPIRED,
 )
 
 # ── события попытки (§1.3 P0): стадии генерации ≠ доставка ──────────────────
@@ -1595,6 +1608,628 @@ async def _default_source_check(db, chat_id: int, snapshot: SourceSnapshot
     return False, SKIP_SOURCE_GONE, "source_messages_deleted"
 
 
+# ── B2: реальные права на публикацию (не мок гейта) ─────────────────────────
+async def _default_rights_check(db, chat_id: int) -> tuple[bool, str, str]:
+    """Допустима ли публикация в этом чате ПРЯМО СЕЙЧАС? ``(ok, код, detail)``.
+
+    Проверка идёт по РЕАЛЬНОМУ ростору кандидатов механизма
+    (``_candidate_chat_ids``: PG ``chat_profiles`` либо durable SQLite-список
+    ``smart_messages``), а не по синтетической строке контекста. Именно это
+    отличает настоящую перепроверку прав от мока publish-гейта (B2).
+
+    Недоказуемое не блокирует: нет БД/источник не читается → ``ok`` (готовый
+    мем не отменяется по догадке). Отказ возможен только когда ростер
+    прочитан и чата в нём нет.
+    """
+    if db is None:
+        return True, "", "roster_unavailable"
+    try:
+        ids = await _candidate_chat_ids(db)
+    except Exception:
+        logger.debug("[meme] rights roster unreadable — не блокируем",
+                     exc_info=True)
+        return True, "", "roster_unavailable"
+    try:
+        present = int(chat_id) in {int(item) for item in ids}
+    except (TypeError, ValueError):
+        return True, "", "roster_unavailable"
+    if present:
+        return True, "", ""
+    return False, SKIP_RIGHTS_REVOKED, "chat_not_in_roster"
+
+
+# ── B1 (arch/deferred-publication.md): durable доставка готового артефакта ───
+#: Значение колонки `task_jobs.kind` для отложенного мема. Схема НЕ меняется:
+#: используется существующая таблица v14 (`coalesce_key` + unique partial на
+#: активных статусах), как у `vision.pending_intent`/`initiative.observe`.
+DEFERRED_KIND = "meme.pending_publish"
+DEFERRED_OWNER = "meme.initiative"
+DEFERRED_COALESCE_PREFIX = "meme:pending_publish:"
+
+
+def deferred_coalesce_key(chat_id: int) -> str:
+    """Одна активная отложенная запись на чат (unique partial v14)."""
+    return f"{DEFERRED_COALESCE_PREFIX}{int(chat_id)}"
+
+
+def deferred_dir() -> Path:
+    """Managed-каталог байтов отложенных мемов (env-override допустим).
+
+    Прецедент — `services/cover_style_assets.py`: метаданные в БД, байты НЕ в
+    БД, каталог вне git-дерева деплоя (`var/`), чтобы `git pull --ff-only` не
+    пачкал рабочее дерево.
+    """
+    raw = os.getenv("MEME_PENDING_DIR", "").strip()
+    if raw:
+        return Path(raw)
+    return Path(__file__).resolve().parents[1] / "var" / "meme_pending"
+
+
+def deferred_file(job_id: str) -> Path:
+    return deferred_dir() / f"{str(job_id)}.bin"
+
+
+def save_deferred_artifact(job_id: str, content) -> dict:
+    """Записать байты готового мема: temp-файл → `os.replace`, режим 0600.
+
+    Атомарность обязательна: читатель не должен увидеть половину файла, а
+    падение процесса посреди записи не должно оставить «готовый» артефакт.
+    """
+    data = bytes(content or b"")
+    directory = deferred_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    target = deferred_file(job_id)
+    handle_fd, temp_path = tempfile.mkstemp(
+        dir=str(directory), prefix=".pending-", suffix=".tmp")
+    try:
+        with os.fdopen(handle_fd, "wb") as handle:
+            handle.write(data)
+        try:
+            os.chmod(temp_path, 0o600)
+        except OSError:
+            pass                      # Windows/ФС без POSIX-режимов
+        os.replace(temp_path, target)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
+    return {"path": str(target), "sha256": hashlib.sha256(data).hexdigest(),
+            "size": len(data)}
+
+
+def load_deferred_bytes(row: dict) -> bytes | None:
+    """Байты отложенного мема по `result_ref`. Нет файла → None (не гадаем)."""
+    raw = str((row or {}).get("result_ref") or "")
+    if not raw:
+        # Страховка: путь мог остаться только в payload (сбой UPDATE колонки).
+        raw = str(deferred_payload(row).get("path") or "")
+    if not raw:
+        return None
+    try:
+        return Path(raw).read_bytes()
+    except OSError:
+        return None
+
+
+def remove_deferred_bytes(result_ref) -> bool:
+    """Удалить файл артефакта (терминальный переход). Идемпотентно."""
+    raw = str(result_ref or "")
+    if not raw:
+        return False
+    try:
+        Path(raw).unlink()
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        logger.warning("[meme] deferred artifact not removed | path=%s", raw)
+        return False
+
+
+def deferred_retention_seconds(cfg) -> int:
+    """Ретенция отложенного артефакта = собственный кулдаун механизма.
+
+    Новых сроков не вводится (архитектурное решение §6): значение уже
+    существует и настраивается владельцем. Кулдаун ≤ 0 не даёт «мгновенно
+    мёртвого» артефакта — берётся существующий заводской дефолт.
+    """
+    value = int(getattr(cfg, "cooldown_seconds", 0) or 0)
+    return value if value > 0 else DEFAULT_COOLDOWN_SECONDS
+
+
+def _task_store(db):
+    """`TaskJobStore` для существующей таблицы `task_jobs` (или None).
+
+    Полноценный `DatabaseService` нужен только durable-пути: диагностические
+    прогоны с урезанной БД откладывание не поддерживают (и не выдают его за
+    поддержанное).
+    """
+    if db is None or getattr(db, "db", None) is None:
+        return None
+    if getattr(db, "write_transaction", None) is None:
+        return None
+    try:
+        from services.task_supervisor import TaskJobStore
+    except Exception:
+        logger.warning("[meme] task_jobs store unavailable", exc_info=True)
+        return None
+    return TaskJobStore(db)
+
+
+async def _deferred_rows(db, chat_id: int | None = None, *,
+                        include_stale: bool = False) -> list[dict]:
+    """Активные (и при нужде прерванные) отложенные записи.
+
+    Одна активная строка на чат гарантируется unique partial-индексом v14;
+    `interrupted` в индекс не входит, поэтому прерванная запись не мешает
+    новой, но обязана получить честный терминальный исход (иначе файл и
+    строка висели бы вечно).
+    """
+    if db is None or getattr(db, "db", None) is None:
+        return []
+    from services.task_supervisor import JOB_INTERRUPTED, JOB_QUEUED, JOB_RUNNING
+    statuses = [JOB_QUEUED, JOB_RUNNING]
+    if include_stale:
+        statuses.append(JOB_INTERRUPTED)
+    placeholders = ",".join("?" for _ in statuses)
+    sql = ("SELECT * FROM task_jobs WHERE kind = ? AND status IN ("
+           + placeholders + ")")
+    params: list = [DEFERRED_KIND, *statuses]
+    if chat_id is not None:
+        sql += " AND coalesce_key = ?"
+        params.append(deferred_coalesce_key(int(chat_id)))
+    sql += " ORDER BY created_at"
+    try:
+        cursor = await db.db.execute(sql, tuple(params))
+        return [dict(row) for row in await cursor.fetchall()]
+    except Exception:
+        logger.debug("[meme] deferred rows unreadable", exc_info=True)
+        return []
+
+
+async def deferred_active_row(db, chat_id: int) -> dict | None:
+    """Есть ли в чате уже отложенный (ещё не доставленный) мем."""
+    rows = await _deferred_rows(db, int(chat_id))
+    return rows[0] if rows else None
+
+
+def deferred_payload(row: dict) -> dict:
+    """Разобрать payload строки `task_jobs` (не JSON → пустой словарь)."""
+    raw = row.get("payload") if isinstance(row, dict) else None
+    if isinstance(raw, dict):
+        return dict(raw)
+    text = str(raw or "").strip()
+    if not text.startswith("{"):
+        return {}
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def deferred_wait_result(chat_id: int, row: dict, *, ts: int | None = None
+                         ) -> AttemptResult:
+    """Результат «ждём отложенный артефакт» — БЕЗ записи в журнал попыток.
+
+    Ожидание не является попыткой отправки: писать по строке на проход
+    означало бы фальшивую активность (12 строк/час). Состояние ожидания видно
+    в `task_jobs` (`attempt`, `reason_code`) и в состоянии прохода.
+    """
+    payload = deferred_payload(row)
+    job_id = str(row.get("job_id") or "")
+    return AttemptResult(
+        chat_id=int(chat_id), stage=STAGE_PUBLISH, outcome="skipped",
+        reason=SKIP_PUBLICATION_CONFLICT, detail="deferred_pending",
+        job_id=str(payload.get("run_id") or job_id), generated=False,
+        published=False,
+        counters={STAGE_CONSIDERED: 1, STAGE_PUBLISH: 1},
+        stage_facts={"publication": {
+            "deferred": {"job_id": job_id,
+                         "run_id": str(payload.get("run_id") or ""),
+                         "attempt": int(row.get("attempt") or 0),
+                         "expires_at": int(payload.get("expires_at") or 0),
+                         "awaiting_slot": True},
+            # Мем не привязан к intent-записи: фиксируем N/A с причиной (B2).
+            "intent_lifecycle": {"status": "n/a",
+                                 "reason": "meme_has_no_intent_binding"}}},
+        manually_triggered=False)
+
+
+async def defer_generated_meme(db, *, chat_id: int, content, snapshot,
+                               run_id: str, reason: str, detail: str,
+                               cfg, prompt_origin: str, now_ts: int) -> dict | None:
+    """Сохранить готовый авто-мем, которому не досталось слота публикации.
+
+    Возвращает компактные факты для журнала/диагностики либо ``None``, если
+    durable-путь недоступен (тогда поведение честно остаётся прежним).
+    Байты пишутся ДО строки очереди: если запись файла не удалась, откладывать
+    нечего и мы не выдаём «сохранено» за сохранённое.
+    """
+    store = _task_store(db)
+    if store is None:
+        return None
+    retention = deferred_retention_seconds(cfg)
+    job_id = uuid.uuid4().hex
+    try:
+        stored = save_deferred_artifact(job_id, content)
+    except Exception:
+        logger.warning("[meme] deferred artifact save failed | chat=%s",
+                       chat_id, exc_info=True)
+        return None
+    payload = {
+        "chat_id": int(chat_id),
+        "run_id": str(run_id),
+        "created_at": int(now_ts),
+        "expires_at": int(now_ts) + int(retention),
+        "sha256": str(stored["sha256"]),
+        "size": int(stored["size"]),
+        "mime": "image/png",
+        "deferred_reason": str(reason),
+        "deferred_detail": str(detail or ""),
+        "msg_ids": [int(item) for item in (snapshot.message_ids
+                                           if snapshot is not None else ())],
+        "msg_count": int(snapshot.message_count if snapshot is not None else 0),
+        "first_id": (snapshot.first_id if snapshot is not None else None),
+        "last_id": (snapshot.last_id if snapshot is not None else None),
+        "snapshot_digest": str(snapshot.digest if snapshot is not None else ""),
+        "prompt_origin": str(prompt_origin or ""),
+        "purpose": PURPOSE_AUTOMATIC,
+        "mode": MODE_AUTOMATIC,
+    }
+    try:
+        queued_id = await store.enqueue(
+            owner=DEFERRED_OWNER, kind=DEFERRED_KIND,
+            coalesce_key=deferred_coalesce_key(int(chat_id)),
+            payload=json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            deadline_at=int(payload["expires_at"]), job_id=job_id)
+    except Exception:
+        logger.warning("[meme] deferred enqueue failed | chat=%s", chat_id,
+                       exc_info=True)
+        remove_deferred_bytes(stored["path"])
+        return None
+    if str(queued_id) != job_id:
+        # В чате уже есть активный отложенный мем: второй не ставим (одна
+        # строка на чат). Свежий файл не теряем молча — удаляем дубль, старый
+        # артефакт остаётся в очереди.
+        remove_deferred_bytes(stored["path"])
+        return {"job_id": str(queued_id), "already_pending": True,
+                "reason": str(reason), "detail": str(detail or "")}
+    # `result_ref` (путь байтов) — существующая колонка очереди: указываем её
+    # после enqueue, чтобы строка без файла и файл без строки не разъезжались.
+    try:
+        async def _set_ref(conn):
+            return await conn.execute(
+                "UPDATE task_jobs SET result_ref = ? WHERE job_id = ?",
+                (str(stored["path"]), job_id))
+
+        await db.write_transaction(_set_ref, op_name="meme_deferred_ref")
+    except Exception:
+        logger.warning("[meme] deferred result_ref not set | job=%s", job_id,
+                       exc_info=True)
+    return {"job_id": job_id, "path": str(stored["path"]),
+            "sha256": str(stored["sha256"]), "size": int(stored["size"]),
+            "expires_at": int(payload["expires_at"]),
+            "retention_seconds": int(retention), "reason": str(reason),
+            "detail": str(detail or "")}
+
+
+async def deliver_deferred(db, chat_id: int, *, ledger=None, sender=None,
+                           publish_gate=None, publication=None,
+                           claim_store=None, chat_enabled=None,
+                           initiative_enabled=None, settings=None,
+                           now: datetime | None = None,
+                           now_ts: int | None = None,
+                           tz_name: str | None = None,
+                           tz_source: str | None = None,
+                           rights_check=None,
+                           source_check=None) -> AttemptResult | None:
+    """Одна попытка доставки отложенного мема чата (существующий тик мема).
+
+    Возвращает результат ТЕРМИНАЛЬНОГО перехода (строка журнала ровно одна
+    на переход) либо ``None``, если доставлять нечего или слот занят —
+    ожидание строк журнала не пишет.
+    """
+    rows = await _deferred_rows(db, int(chat_id), include_stale=True)
+    if not rows:
+        return None
+    cfg = settings if isinstance(settings, MemeSettings) else \
+        await load_settings(chat_id)
+    stamp = now or datetime.now(timezone.utc)
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    ts = int(now_ts if now_ts is not None else stamp.timestamp())
+    day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
+    result = None
+    for row in rows:
+        outcome = await _deliver_deferred_row(
+            db, row, cfg=cfg, stamp=stamp, ts=ts, day=day, ledger=ledger,
+            sender=sender, publish_gate=publish_gate, publication=publication,
+            claim_store=claim_store, chat_enabled=chat_enabled,
+            initiative_enabled=initiative_enabled, rights_check=rights_check,
+            source_check=source_check)
+        if outcome is not None:
+            result = outcome
+    return result
+
+
+async def deliver_deferred_all(db, *, chat_ids=None, **kwargs
+                               ) -> list[AttemptResult]:
+    """Перебрать ВСЕ активные отложенные мемы (не зависит от ротации ростера).
+
+    `chat_ids` — не фильтр доставки, а подсказка порядка: «голодный» чат не
+    должен ждать неделями только потому, что не попал в текущий проход.
+    """
+    rows = await _deferred_rows(db, None, include_stale=True)
+    if not rows:
+        return []
+    order: list[int] = []
+    for item in chat_ids or ():
+        try:
+            order.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    seen: list[int] = []
+    for row in rows:
+        payload = deferred_payload(row)
+        try:
+            chat_id = int(payload.get("chat_id"))
+        except (TypeError, ValueError):
+            continue
+        if chat_id not in seen:
+            seen.append(chat_id)
+    seen.sort(key=lambda cid: (order.index(cid) if cid in order
+                               else len(order), cid))
+    results: list[AttemptResult] = []
+    for chat_id in seen:
+        try:
+            result = await deliver_deferred(db, chat_id, **kwargs)
+        except Exception:
+            logger.warning("[meme] deferred delivery raised | chat=%s",
+                           chat_id, exc_info=True)
+            continue
+        if result is not None:
+            results.append(result)
+    return results
+
+
+async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
+                                stamp: datetime, ts: int, day: DayWindow,
+                                ledger=None, sender=None, publish_gate=None,
+                                publication=None, claim_store=None,
+                                chat_enabled=None, initiative_enabled=None,
+                                rights_check=None,
+                                source_check=None) -> AttemptResult | None:
+    """Стражи → CAS → бронь → отправка готового артефакта (без генерации).
+
+    Порядок — как в `arch/deferred-publication.md` §5: сначала дешёвые
+    содержательные проверки, дорогое (бронь/sender) — в конце. Никаких
+    повторных вызовов LLM/провайдера здесь нет и быть не может: байты уже
+    существуют, а здоровье image-backend не перепроверяется (это была бы
+    потеря оплаченного артефакта).
+    """
+    from services.task_supervisor import (JOB_CANCELLED, JOB_COMPLETED,
+                                          JOB_FAILED, JOB_INTERRUPTED)
+    store = _task_store(db)
+    if store is None:
+        return None
+    job_id = str(row.get("job_id") or "")
+    status = str(row.get("status") or "")
+    payload = deferred_payload(row)
+    result_ref = str(row.get("result_ref") or "")
+    try:
+        chat_id = int(payload.get("chat_id"))
+    except (TypeError, ValueError):
+        chat_id = 0
+    if not job_id or not chat_id:
+        logger.warning("[meme] deferred row without chat | job=%s", job_id)
+        return None
+    run_id = str(payload.get("run_id") or job_id)
+    expires_at = int(payload.get("expires_at")
+                     or row.get("deadline_at") or 0)
+
+    events: list[dict] = []
+    facts: dict = {"events": events, STAGE_PUBLISH: {}}
+
+    def emit(name: str, *, reason: str = "", detail: str = "",
+             delivered: bool | None = None) -> None:
+        if len(events) >= MAX_EVENTS_PER_ATTEMPT:
+            return
+        item = {"name": str(name), "at": int(ts), "run_id": run_id,
+                "mode": MODE_AUTOMATIC, "purpose": PURPOSE_AUTOMATIC,
+                "source": "deferred", "reason": str(reason or ""),
+                "detail": f"deferred|{detail}" if detail else "deferred"}
+        if delivered is not None:
+            item["delivered"] = bool(delivered)
+        if events:
+            item["after"] = str(events[-1].get("name") or "")
+        events.append(item)
+
+    async def _terminal(reason_code: str, *, detail: str,
+                        event: str = EVENT_PUBLICATION_CANCELLED,
+                        delivered: bool = False, delivery: str = "not_sent",
+                        job_status: str = JOB_CANCELLED) -> AttemptResult:
+        """Терминальный переход: строка журнала ровно одна, файл удалён.
+
+        ``result_ref`` передаётся явно: `TaskJobStore.finish` пишет колонку
+        целиком, и без аргумента путь к байтам был бы стёрт из строки.
+        """
+        facts[STAGE_PUBLISH]["delivery"] = delivery
+        facts[STAGE_PUBLISH]["deferred"] = {"job_id": job_id,
+                                            "run_id": run_id}
+        emit(event, reason=reason_code, detail=detail, delivered=delivered)
+        try:
+            await store.finish(job_id, status=job_status,
+                               reason_code=reason_code,
+                               result_ref=result_ref or None,
+                               error_code=detail or None)
+        except Exception:
+            logger.warning("[meme] deferred finish failed | job=%s", job_id,
+                           exc_info=True)
+        remove_deferred_bytes(result_ref)
+        result = AttemptResult(
+            chat_id=int(chat_id), stage=STAGE_PUBLISH,
+            outcome="published" if delivered else "skipped",
+            reason=reason_code, detail=detail, job_id=run_id,
+            published=bool(delivered), generated=True,
+            counters={STAGE_PUBLISH: 1}, stage_facts=facts,
+            manually_triggered=False)
+        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+
+    async def _wait(reason_code: str, detail: str) -> None:
+        """Слот/тихие часы: остаёмся `queued`, файл сохранён, строк нет."""
+        try:
+            await store.requeue(job_id, reason_code=reason_code)
+        except Exception:
+            logger.warning("[meme] deferred requeue failed | job=%s", job_id,
+                           exc_info=True)
+        logger.info("[meme] deferred waits | chat=%s | reason=%s | detail=%s",
+                    chat_id, reason_code, detail)
+        return None
+
+    # (0) Прерванный прогон (watchdog помечает `running` как `interrupted`):
+    # доставка не доказана — НЕ переотправляем, честный терминальный факт.
+    if status == JOB_INTERRUPTED:
+        return await _terminal(REASON_DELIVERY_UNKNOWN, detail="interrupted",
+                               event=EVENT_DELIVERY_UNKNOWN,
+                               delivery="unknown", job_status=JOB_FAILED)
+
+    # (1) Ретенция истекла — честный срок жизни данных, не тихая потеря.
+    if expires_at and ts >= int(expires_at):
+        return await _terminal(SKIP_DEFERRED_EXPIRED, detail="expired")
+
+    # (2) Байты обязаны существовать: нет файла — публиковать нечего.
+    content = load_deferred_bytes(row)
+    if content is None:
+        return await _terminal(SKIP_PUBLISH, detail="artifact_missing",
+                               job_status=JOB_FAILED)
+
+    # (3)-(5) Содержательные и правовые условия на момент РЕАЛЬНОЙ отправки.
+    module_now = _as_bool(
+        await _param(int(chat_id), KEY_ENABLED, cfg.enabled), cfg.enabled)
+    if not module_now:
+        return await _terminal(SKIP_DISABLED, detail="module_disabled")
+    if initiative_enabled is not None and not initiative_enabled():
+        return await _terminal(SKIP_INITIATIVE_DISABLED,
+                               detail="initiative_disabled")
+    if chat_enabled is not None and not await chat_enabled(int(chat_id)):
+        return await _terminal(SKIP_INITIATIVE_DISABLED,
+                              detail="chat_gate_disabled")
+    check_rights = rights_check or (
+        lambda cid: _default_rights_check(db, int(cid)))
+    rights_ok, rights_code, rights_detail = await check_rights(int(chat_id))
+    facts[STAGE_PUBLISH]["rights"] = {
+        "mode": "roster", "ok": bool(rights_ok),
+        "detail": str(rights_detail or "")}
+    if not rights_ok:
+        return await _terminal(str(rights_code or SKIP_RIGHTS_REVOKED),
+                               detail=str(rights_detail or ""))
+    # Мем не привязан к intent-записи (свой run_id и собственный снапшот):
+    # проверка жизненного цикла намерения для этого механизма N/A. Это факт
+    # записывается явно, а не имитируется синтетическим контекстом (B2).
+    facts[STAGE_PUBLISH]["intent_lifecycle"] = {
+        "status": "n/a", "reason": "meme_has_no_intent_binding"}
+    saved_ids = payload.get("msg_ids") or ()
+    snapshot = SourceSnapshot(
+        chat_id=int(chat_id), run_id=run_id, mode=MODE_AUTOMATIC,
+        purpose=PURPOSE_AUTOMATIC, request_ref=str(payload.get("run_id") or ""),
+        message_ids=tuple(int(item) for item in saved_ids),
+        message_count=int(payload.get("msg_count") or len(saved_ids)),
+        first_id=payload.get("first_id"), last_id=payload.get("last_id"),
+        digest=str(payload.get("snapshot_digest") or ""), captured_at=ts)
+    check_source = source_check or (
+        lambda cid, snap: _default_source_check(db, int(cid), snap))
+    source_ok, source_code, source_detail = await check_source(
+        int(chat_id), snapshot)
+    facts[STAGE_PUBLISH]["source_ok"] = bool(source_ok)
+    if not source_ok:
+        return await _terminal(str(source_code or SKIP_SOURCE_GONE),
+                               detail=str(source_detail or ""))
+
+    # (6) Публикационный гейт: тот же существующий шов, что у прямой отправки.
+    if publish_gate is None:
+        allowed, gate_reason = await _default_publish_gate(db, int(chat_id), ts)
+    else:
+        allowed, gate_reason = await publish_gate(int(chat_id))
+    facts[STAGE_PUBLISH]["gate"] = str(gate_reason or "")
+    if not allowed:
+        return await _terminal(SKIP_PUBLISH,
+                               detail=str(gate_reason or SKIP_PUBLISH))
+
+    # (7) Тихие часы — не терминал: остаёмся в очереди, строк журнала нет.
+    if quiet_hours_block(cfg.quiet_hours, stamp, day.timezone_name):
+        return await _wait(SKIP_QUIET, "quiet_hours")
+
+    # (8) CAS: только один проход может взять эту строку в работу.
+    if not await store.mark_running(job_id):
+        return None
+
+    coordinator = publication
+    from services import publication_coordination as pubmod
+    if coordinator is None:
+        coordinator = pubmod.PublicationCoordinator(
+            db, store=claim_store if claim_store is not None else
+            pubmod.open_store(db, path=(ledger.path if ledger is not None
+                                        else None)))
+    claim = await coordinator.acquire(
+        int(chat_id), OUTPUT_KIND, holder_ref=run_id, now=ts, manual=False,
+        wait_for_sending=0.0)
+    facts[STAGE_PUBLISH]["claim"] = claim.as_dict()
+    if claim.recovered_delivery_unknown:
+        # Прошлая отправка не доказана и не опровергнута: повтор дал бы дубль.
+        return await _terminal(REASON_DELIVERY_UNKNOWN,
+                               detail="recovered_delivery_unknown",
+                               event=EVENT_DELIVERY_UNKNOWN,
+                               delivery="unknown", job_status=JOB_FAILED)
+    if not claim.granted:
+        code = (SKIP_PUBLICATION_IN_FLIGHT
+                if claim.reason == "publication_in_flight"
+                else SKIP_PUBLICATION_CONFLICT)
+        return await _wait(code, str(claim.detail or claim.reason or ""))
+    emit(EVENT_PUBLICATION_REQUESTED, detail="claim_requested")
+    if sender is None:
+        await coordinator.release(int(chat_id), claim.claim_id,
+                                  published=False, holder_kind=OUTPUT_KIND,
+                                  holder_ref=run_id, now=ts)
+        return await _terminal(SKIP_PUBLISH, detail="publisher_not_bound",
+                               event=EVENT_PUBLICATION_FAILED)
+    sending = await coordinator.begin_sending(int(chat_id), claim.claim_id,
+                                             now=ts, manual=False)
+    facts[STAGE_PUBLISH]["sending"] = sending.as_dict()
+    if not sending.granted:
+        await coordinator.release(int(chat_id), claim.claim_id,
+                                  published=False, holder_kind=OUTPUT_KIND,
+                                  holder_ref=run_id, now=ts)
+        code = (SKIP_PUBLICATION_IN_FLIGHT
+                if sending.reason == "publication_in_flight"
+                else SKIP_PUBLICATION_EXPIRED)
+        return await _wait(code, str(sending.detail or ""))
+    try:
+        message = await sender(int(chat_id), content, "")
+    except Exception:
+        logger.warning("[meme] deferred publish failed", exc_info=True)
+        await coordinator.release(int(chat_id), claim.claim_id,
+                                  published=False, holder_kind=OUTPUT_KIND,
+                                  holder_ref=run_id, now=ts)
+        return await _terminal(REASON_DELIVERY_UNKNOWN, detail="send_failed",
+                               event=EVENT_DELIVERY_UNKNOWN,
+                               delivery="unknown", job_status=JOB_FAILED)
+    tg_message_id = getattr(message, "message_id", None)
+    ledger_output_id = await _record_meme_output(
+        db, chat_id=int(chat_id), tg_message_id=tg_message_id, sent_at=ts,
+        correlation_id=run_id, manual=False)
+    facts[STAGE_PUBLISH]["output"] = {"ledger_id": ledger_output_id,
+                                      "tg_message_id": tg_message_id}
+    await coordinator.release(int(chat_id), claim.claim_id, published=True,
+                              holder_kind=OUTPUT_KIND, holder_ref=run_id,
+                              now=ts)
+    return await _terminal("sent", detail=f"tg:{tg_message_id}",
+                           event=EVENT_PUBLICATION_SENT, delivered=True,
+                           delivery="sent", job_status=JOB_COMPLETED)
+
+
 async def _default_publish_gate(db, chat_id: int, now_ts: int):
     try:
         from services.direct_chat_service import build_fresh_recheck_context
@@ -1641,6 +2276,8 @@ async def consider_chat(
         publication=None,
         request_ref: str = "",
         source_check: Callable[..., Awaitable[tuple]] | None = None,
+        rights_check: Callable[..., Awaitable[tuple]] | None = None,
+        permission_check: Callable[[], Awaitable[bool]] | None = None,
 ) -> AttemptResult:
     """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов.
 
@@ -1659,7 +2296,10 @@ async def consider_chat(
     ``request_ref`` — id инициирующего запроса (сообщение ``/meme`` либо
     инициативный job): попадает в снапшот источника и в события как
     ``request_ref``. ``source_check`` — шов перепроверки исходного материала
-    (по умолчанию читает ``smart_messages`` снапшота).
+    (по умолчанию читает ``smart_messages`` снапшота). ``rights_check`` —
+    реальная проверка допустимости чата (по умолчанию ростер кандидатов),
+    ``permission_check`` — реальная перепроверка прав автора ручного запроса
+    (обработчик `/meme` передаёт сюда тот же RBAC, что и на входе).
 
     Свежесть переписки НЕ проверяется (§1.2): готовый мем не отменяется из-за
     новых сообщений/watermark. Отмена возможна только по содержательной
@@ -1698,6 +2338,12 @@ async def consider_chat(
             return skipped(SKIP_INITIATIVE_DISABLED)
         if not cfg.enabled:
             return skipped(SKIP_DISABLED)
+        # B1 / arch §8 п.4: в чате уже есть готовый, но ещё не доставленный
+        # мем → новый НЕ генерируем (иначе второй платный вызов за тот же
+        # результат). Строк журнала не пишем: ожидание — не попытка.
+        pending = await deferred_active_row(db, int(chat_id))
+        if pending is not None:
+            return deferred_wait_result(int(chat_id), pending, ts=ts)
 
     # Ниже — гейты, которые ручной запуск НЕ обходит: без рабочего image
     # backend мем физически не создать, без журнала некуда писать попытку.
@@ -2050,6 +2696,49 @@ async def consider_chat(
         if chat_enabled is not None and not await chat_enabled(int(chat_id)):
             return _cancel(SKIP_INITIATIVE_DISABLED,
                            detail="chat_gate_disabled_during_generation")
+    # B2 (§1.2.4/§3.3): права/допустимость чата перепроверяются на РЕАЛЬНОМ
+    # пути — ростер кандидатов для авто-мема и тот же RBAC обработчика для
+    # ручного `/meme`. Мок publish-гейта доказательством не считается.
+    if manual:
+        if permission_check is None:
+            pub_facts["rights"] = {"mode": "permission_hook", "ok": True,
+                                   "detail": "no_permission_hook"}
+        else:
+            try:
+                permitted = bool(await permission_check())
+            except Exception:
+                permitted = False
+            pub_facts["rights"] = {"mode": "permission_hook",
+                                   "ok": permitted,
+                                   "detail": "" if permitted
+                                   else "permission_denied"}
+            if not permitted:
+                return _cancel(SKIP_RIGHTS_REVOKED,
+                               detail="permission_denied")
+    else:
+        # Ростер доказывает права только если окно мема прочитано из ЭТОЙ БД:
+        # при диагностическом шве `messages`/`message_reader` чата в ней может
+        # не быть, и «нет в ростере» ничего не доказывает (как и у проверки
+        # исходного материала). Отсутствие данных не отменяет готовый мем.
+        roster_applicable = message_reader is None and messages is None
+        if not roster_applicable:
+            pub_facts["rights"] = {"mode": "roster", "ok": True,
+                                   "detail": "roster_not_applicable"}
+        else:
+            check_rights = rights_check or (
+                lambda cid: _default_rights_check(db, int(cid)))
+            rights_ok, rights_code, rights_detail = await check_rights(
+                int(chat_id))
+            pub_facts["rights"] = {"mode": "roster", "ok": bool(rights_ok),
+                                   "detail": str(rights_detail or "")}
+            if not rights_ok:
+                return _cancel(str(rights_code or SKIP_RIGHTS_REVOKED),
+                               detail=str(rights_detail or ""))
+    # Жизненный цикл intent: мем не привязан к intent-записи (свой run_id и
+    # собственный снапшот источника) — фиксируем N/A с причиной, а не
+    # имитируем проверку синтетической строкой контекста.
+    pub_facts["intent_lifecycle"] = {
+        "status": "n/a", "reason": "meme_has_no_intent_binding"}
     check_source = source_check
     if check_source is None:
         # Окно, прочитанное НЕ из `smart_messages` (диагностический шов
@@ -2095,6 +2784,18 @@ async def consider_chat(
                 if claim.reason == "publication_in_flight"
                 else SKIP_PUBLICATION_CONFLICT)
         facts.setdefault(STAGE_PUBLISH, {})["delivery"] = "not_sent"
+        # B1 (§1.2.5): готовый авто-мем НЕ выбрасывается — байты уходят в
+        # durable-очередь и доставляются существующим тиком при свободном слоте.
+        # Ручной `/meme` не откладывает: он ждёт слот сам (B3).
+        if not manual:
+            deferred = await defer_generated_meme(
+                db, chat_id=int(chat_id), content=content, snapshot=snapshot,
+                run_id=jid, reason=code,
+                detail=str(claim.detail or claim.reason or ""), cfg=cfg,
+                prompt_origin=origin, now_ts=ts)
+            if deferred:
+                pub_facts["deferred"] = deferred
+                facts.setdefault(STAGE_PUBLISH, {})["deferred"] = deferred
         emit(EVENT_PUBLICATION_DEFERRED, reason=code,
              detail=str(claim.detail or claim.reason or ""), delivered=False)
         result = AttemptResult(
@@ -2498,8 +3199,27 @@ async def on_initiative_cycle(db, chat_ids, *, state: dict | None = None,
     ``state`` — durable per-chat состояние механизма (payload прохода): туда
     пишется диагностика §7 (последняя/следующая проверка, причина, конфликт
     публикаций, собственный кулдаун). Новых таблиц диагностики нет.
+
+    B1 (``arch/deferred-publication.md`` §4): ПЕРВЫМ делом этот же проход
+    доставляет отложенные артефакты прошлых проходов (``deliver_deferred_all``)
+    — существующий тик мема и есть драйвер ретрая, второго планировщика нет.
     """
-    results = []
+    results: list[AttemptResult] = []
+    delivery_kwargs = {name: kwargs[name] for name in (
+        "ledger", "sender", "publish_gate", "publication", "claim_store",
+        "chat_enabled", "initiative_enabled", "settings", "now", "now_ts",
+        "tz_name", "tz_source", "rights_check", "source_check")
+        if name in kwargs}
+    try:
+        deferred = await deliver_deferred_all(
+            db, chat_ids=chat_ids, **delivery_kwargs)
+    except Exception:
+        logger.warning("[meme] deferred delivery phase raised — не валит "
+                       "проход", exc_info=True)
+        deferred = []
+    for result in deferred:
+        results.append(result)
+        await _note_state(state, result, kwargs)
     for chat_id in chat_ids or ():
         try:
             result = await consider_chat(db, int(chat_id), **kwargs)
