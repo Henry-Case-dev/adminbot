@@ -470,8 +470,20 @@ const INDEX = fs.readFileSync(
   assert.ok(CSS.indexOf('--glass-border') >= 0, 'T-1898: токен --glass-border');
   assert.ok(CSS.indexOf('backdrop-filter: var(--glass-blur)') >= 0,
     'T-1898/UPD3: backdrop-filter: blur(16px)');
-  assert.ok(CSS.indexOf('repeat(auto-fit, minmax(320px, 1fr))') >= 0,
-    'T-1899/UPD3: CSS Grid auto-fit minmax(320px)');
+  // W16 (контракт владельца §2): жёсткий пол 320 px снят — трек ограничен
+  // доступной шириной (`minmax(min(100%, 320px), 1fr)`), иначе при
+  // эффективной ширине <320 px сетка выезжает за вьюпорт. Инвариант:
+  // auto-fit + minmax(пол 320px, ОГРАНИЧЕННЫЙ шириной, 1fr) — и именно в
+  // правиле тройки. Жёсткая форма `minmax(320px, 1fr)` не принимается: это
+  // ровно то, что W16 снял (иначе пин зеленеет на возвращённом overflow).
+  const gridRule = CSS.match(
+    /\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{([^}]*)\}/);
+  assert.ok(gridRule,
+    'T-1899/UPD3: общее правило тройки .prov-grid/.module-list/.hub-grid');
+  assert.ok(
+    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*min\(\s*(?:100%\s*,\s*320px|320px\s*,\s*100%)\s*\)\s*,\s*1fr\s*\)\s*\)/
+      .test(gridRule[1]),
+    'T-1899/UPD3: CSS Grid auto-fit minmax(пол 320px, ограниченный шириной)');
   assert.ok(CSS.indexOf('justify-content: center') >= 0,
     'T-1899: центровка сетки');
   assert.ok(CSS.indexOf('details.advanced') >= 0, 'T-1902: рестайл аккордеона');

@@ -103,8 +103,12 @@ assert(groups.indexOf('flags_module_budgets') >= 0,
 // (mod_images) → 25→26. Python-инвариант TAB_RULES = 21 проверяется
 // pytest-пинами.
 // ASAP 7 F3/ASAP 8 F10 (re-pin): +mod_initiative → 28 вкладок.
-assert.strictEqual(data.tabs.length, 28, 'tma-menu-freeze: вкладок 28');
+// EVOL-031 (`28d55bd1`, released): вкладка `smart_cache` снята вместе с
+// Exact Match Cache / direct_dedup (TAB_RULES 23→22) → 28−1 = 27.
+assert.strictEqual(data.tabs.length, 27, 'tma-menu-freeze: вкладок 27 (−smart_cache)');
 const ids = data.tabs.map((t) => t.id);
+assert.strictEqual(ids.indexOf('smart_cache'), -1,
+  'EVOL-031: вкладка smart_cache снята и не вернулась');
 assert.strictEqual(ids.length, ids.filter((v, i) => ids.indexOf(v) === i).length,
   'дубли вкладок недопустимы');
 assert(ids.indexOf('mod_budgets') >= 0, 'вкладка mod_budgets на месте');

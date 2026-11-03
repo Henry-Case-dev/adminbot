@@ -818,7 +818,33 @@ class TestBounds:
                                              # Новых endpoint'ов/RBAC-правок нет;
                                              # routes.py НЕ менялся. Test-only
                                              # allowlist-дельта.
-                                             "web/api/gates.py"))
+                                             "web/api/gates.py",
+                                             # NOTE (PINS-258151, 03.11.2026 —
+                                             # тот же NOTE-санкционный прецедент:
+                                             # allowlist отставал от уже
+                                             # ВЫПУЩЕННОГО кода, не от новой
+                                             # несанкционированной правки):
+                                             # EVOL-COG-MAP (`770f53c1` W7-S1,
+                                             # ancestor release/2.58.151) —
+                                             # NEW файл-зона
+                                             # `web/api/cognitive_map.py`
+                                             # (свой router, регистрация в
+                                             # `web/app.py`; `web/api/routes.py`
+                                             # НЕ менялся — F11 byte-freeze
+                                             # держится) + клиентский адаптер
+                                             # `web/static/cognitive-map.js`;
+                                             # MEME-PIPELINE-REFACTOR-01 P4
+                                             # (`e25bd479`, ancestor
+                                             # release/2.58.151) — NEW файл-зона
+                                             # `web/api/mechanism_diagnostics.py`
+                                             # (маршрут диагностики мемов вынесен
+                                             # ИЗ routes.py, Δ routes=0;
+                                             # переиздание F11 — в
+                                             # tools/_meme_p4_reissue_f8.py).
+                                             # Иных web/-путей в diff нет.
+                                             "web/api/cognitive_map.py",
+                                             "web/static/cognitive-map.js",
+                                             "web/api/mechanism_diagnostics.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -941,8 +967,12 @@ class TestBounds:
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 570   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+                    if s.category is not None]) == 572   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
