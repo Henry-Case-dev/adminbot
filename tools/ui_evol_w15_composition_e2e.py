@@ -1440,6 +1440,16 @@ PROBE_COG_CARD = r"""
     activeEl: document.activeElement
       ? String(document.activeElement.className || document.activeElement.tagName)
       : '',
+    // Куда именно попал фокус: тег и id действия карточки (W7-S3 review-B2:
+    // после закрытия окна записи фокус обязан быть НА кнопке «Открыть
+    // источник», а не на BODY).
+    activeTag: document.activeElement
+      ? String(document.activeElement.tagName || '') : '',
+    activeAction: (() => {
+      const a = document.activeElement;
+      return (a && typeof a.getAttribute === 'function')
+        ? String(a.getAttribute('data-cog-action') || '') : '';
+    })(),
     memoryQuery: vm ? String(vm.memoryCatalogQuery || '') : '',
     memoryNote: (() => {
       const el = document.querySelector('[data-memory-from-cog]');
@@ -2253,6 +2263,27 @@ def run_cog_map(browser, base, report, fails, out_dir):
                 return False
             return card_action("source")
 
+        def records_state():
+            st = probe_card()
+            return {"tag": st["activeTag"], "action": st["activeAction"],
+                    "card": bool(st["open"]), "record": bool(st["recordOpen"]),
+                    "id": st["id"]}
+
+        def focus_back_ok(state, how):
+            """Фокус вернулся НА кнопку «Открыть источник» этой карточки."""
+            ok(state["tag"] == "BUTTON" and state["action"] == "source",
+               "%s: после %s фокус не на кнопке «Открыть источник» "
+               "(тег %r, действие %r) — это и есть возврат на BODY"
+               % (label, how, state["tag"], state["action"]))
+            ok(state["record"] is False,
+               "%s: после %s окно записи не закрыто (%s)"
+               % (label, how, state))
+            ok(state["card"] is True,
+               "%s: после %s закрылась и карточка (%s)" % (label, how, state))
+            ok(state["id"] == fact_coffee,
+               "%s: после %s карточка показывает другую запись (%r)"
+               % (label, how, state["id"]))
+
         ok(record_focused(),
            "%s: фокус не в окне записи — Esc проверил бы другой путь" % label)
         esc_states = {"open": layer_state()}
@@ -2264,6 +2295,8 @@ def run_cog_map(browser, base, report, fails, out_dir):
         ok(esc_states["esc1"]["card"] is True,
            "%s: ОДИН Esc закрыл и окно записи, и карточку (%s)"
            % (label, esc_states))
+        esc_focus = records_state()
+        focus_back_ok(esc_focus, "Esc")
         pg.keyboard.press("Escape")
         pg.wait_for_timeout(700)
         esc_states["esc2"] = layer_state()
@@ -2280,6 +2313,8 @@ def run_cog_map(browser, base, report, fails, out_dir):
         ok(cross_state == {"card": True, "record": False},
            "%s: крестик окна записи закрыл не только окно (%s)"
            % (label, cross_state))
+        cross_focus = records_state()
+        focus_back_ok(cross_focus, "крестика")
 
         # Back (BackButton телефона и кнопка «назад» в UI): тоже только окно.
         ok(open_source_again(), "%s: источник не открылся повторно" % label)
@@ -2289,6 +2324,8 @@ def run_cog_map(browser, base, report, fails, out_dir):
         ok(back_from_record == {"card": True, "record": False},
            "%s: Back при открытом окне записи закрыл не только окно (%s)"
            % (label, back_from_record))
+        back_focus = records_state()
+        focus_back_ok(back_focus, "Back")
         ok(probe_card()["id"] == fact_coffee,
            "%s: после закрытия окна карточка показывает другую запись (%r)"
            % (label, probe_card()["id"]))
@@ -2565,6 +2602,11 @@ def run_cog_map(browser, base, report, fails, out_dir):
             "esc_layers": esc_states,
             "cross_layers": cross_state,
             "back_layers": back_from_record,
+            # Куда вернулся фокус после каждого способа закрытия окна записи:
+            # ожидается {tag: BUTTON, action: source, card: true, id: факт}.
+            "esc_focus": esc_focus,
+            "cross_focus": cross_focus,
+            "back_focus": back_focus,
         }
         ctx.close()
     section["card"] = card_report

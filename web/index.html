@@ -13829,7 +13829,7 @@
                             :data-cog-action="act.id"
                             :disabled="!act.enabled"
                             :title="act.enabled ? '' : act.reason"
-                            @click="cogCardAction(act.id)">{{ act.label }}</button>
+                            @click="cogCardAction(act.id, $event)">{{ act.label }}</button>
                   </div>
                   <div v-for="act in cogCard.actions" :key="'car' + act.id">
                     <div v-if="!act.enabled" class="cog-card__absent"

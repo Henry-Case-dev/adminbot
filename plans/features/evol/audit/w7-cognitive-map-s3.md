@@ -341,8 +341,9 @@ if (ev.key === 'Escape') {
 | `goBack()` (Back/BackButton) | не задет правкой | `{card:true, record:true}` → `{card:true, record:false}` | только окно записи |
 | Esc при ОДНОЙ карточке (прежнее поведение) | карточка закрыта | карточка закрыта, фокус в `cognition-graph` | без изменений |
 
-После закрытия окна карточка показывает ту же запись (`fact:…:11`), фокус
-возвращён на кнопку, из которой окно открыли, выбор узла и камера целы.
+После закрытия окна карточка показывает ту же запись (`fact:…:11`), выбор узла
+и камера целы. Возврат фокуса на кнопку-инициатор в этой правке ещё НЕ был
+доказан (дефект review-B2, §15.1): здесь проверялись только слои.
 
 **Регресс-проверки, чтобы дефект не вернулся молча:**
 
@@ -383,3 +384,88 @@ if (ev.key === 'Escape') {
 BackButton Telegram (Esc/Back идут событиями и API); что Esc в окне записи,
 открытом не из карточки (`#/memory`), вёл себя иначе — он и раньше закрывал
 только окно записи, и это сохраняется.
+
+---
+
+## §15.1 Возврат фокуса из окна записи в карточку (review-B2, исправлено)
+
+**Дефект (замер ревьюера своими руками).** Из карточки «Открыть источник» →
+панель → Esc давала `document.activeElement === BODY`. Причина: `openCogSource`
+вызывал `openStatusRecord(source, item)` БЕЗ третьего аргумента `ev`, поэтому
+`statusRecordReturnFocus` оставался `null`, а `_restoreOverlayFocus(null)` не
+делает ничего; после удаления окна фокус падал на BODY. Строки виджетов
+«Статуса» событие передавали (`web/index.html:12308/12335/…`), расходился
+только путь из карточки. Прежняя формулировка «фокус возвращён на кнопку» была
+неверной для этого пути — теперь она подтверждена замером.
+
+**Проводка (единственный механизм, второй не заводился).**
+
+```
+web/index.html  @click="cogCardAction(act.id, $event)"
+web/app.js      cogCardAction: function (id, ev) → this.openCogSource(ev)
+web/app.js      openCogSource: function (ev) → openStatusRecord(t.source, {...}, ev)
+web/app.js      openStatusRecord: statusRecordReturnFocus = ev.currentTarget
+web/app.js      closeStatusRecord → _restoreOverlayFocus(back)   (без изменений)
+```
+
+**Замеренные состояния фокуса** (живой стенд, реальный Chromium, блок `(2b)`;
+`tag`/`action` = тег и `data-cog-action` активного элемента; одинаково на
+390×844 и 1280×900):
+
+| Способ закрытия окна записи | Активный элемент | Карточка | Запись |
+|---|---|---|---|
+| Esc (один) | `BUTTON` / `source` — кнопка «Открыть источник» | открыта | та же `fact:…:11` |
+| крестик (✕) окна записи | `BUTTON` / `source` | открыта | та же |
+| `goBack()` (Back/BackButton) | `BUTTON` / `source` | открыта | та же |
+| второй Esc | карточка закрыта, фокус на сцене `cognition-graph` | — | — |
+
+Значения — в `evidence/cog-map-s3/cog-map-s3-measurements.json`
+(`card_focus_b2`), стенд пишет их же в `cog_map.card[<ширина>].esc_focus/
+cross_focus/back_focus`.
+
+**Новая регресс-проверка (краснеет на BODY).**
+
+1. `tests/js/evol_cog_map_card_focus_test.js` — поведенческая: настоящий
+   `web/app.js` (methods из `Vue.createApp`) на поддельном DOM, который, как
+   браузер, уводит фокус с удалённого узла на BODY. Проверяются: инициатор
+   запомнен, первичный фокус внутри окна, и после Esc / крестика / `goBack()`
+   активный элемент — ИМЕННО кнопка `source`, окно закрыто, карточка открыта с
+   той же записью; плюс повторное открытие и «неработающее действие не
+   открывает окно». 41 проверка, маркер `EVOL-COG-MAP-CARD-FOCUS-OK`.
+2. `tests/test_evol_cog_map_widget.py::test_source_action_returns_focus_to_card_button`
+   — пины проводки разметки (`$event` в `@click`, `openCogSource(ev)`,
+   `}, ev);`) + запуск node-проверки, + утверждение, что возврат фокуса остаётся
+   ОДНИМ механизмом (`_restoreOverlayFocus` в единственном экземпляре).
+
+**Чувствительность (мутации своей же правкой, обе красные).**
+
+| Мутация | Результат |
+|---|---|
+| `openCogSource()` без `ev` (возврат дефекта) | node: `инициатор окна не запомнен…`; стенд: **`EVOL-W15-COMPOSITION FAIL`**, 6 отказов (2 вьюпорта × Esc/крестик/Back), тег активного элемента **`BODY`**, действие `''` |
+| `web/index.html`: `cogCardAction(act.id)` без `$event` | pytest `test_source_action_returns_focus_to_card_button` **FAILED** |
+
+После каждой мутации файл возвращён к исправленному виду, прогоны снова
+зелёные.
+
+**Прогоны после правки (дерево = исправленный кандидат):**
+
+| Команда | Результат |
+|---|---|
+| `py tools/ui_evol_w15_composition_e2e.py` | **`COG-MAP checks=335`** (+12 проверок × 2 вьюпорта), `FAILS=[]`, `EVOL-W15-COMPOSITION OK`, 110 измеренных ячеек |
+| `pytest tests/test_evol_cog_map_widget.py -q` | **23 passed** (22 + новый пин фокуса) |
+| затронутый набор 10 файлов + виджет | **298 passed** |
+| `pytest tests/test_evol001_005_status_widgets.py test_webapp_asap_ui02_delta.py test_webapp_evol_w13_touch_portal.py test_webapp_evol_w10_sections.py test_webapp_evol_w12_internals.py test_webapp_evol_w7_nav.py -q` | **164 passed** |
+| node: `evol_cognitive_map_test.js` | S1=407, S2=97, S3=78 |
+| node: `evol_cog_map_card_focus_test.js` | `EVOL-COG-MAP-CARD-FOCUS-OK checks=41` |
+| node: `routing`, `round1025_f11_status_grid`, `app_methods_dup_keys_guard`, `vue_mount`, `asap_ui02_delta`, `evol001_005_widgets`, `asap8_w2_shell_mobile_nav`, `evol_w12_internals`, `evol_w7_nav` | все `…-OK` |
+
+Побочные эффекты прогонов (не входят в коммит): импорт
+`tools/ui_evol_w10_sections_e2e.py` перезаписал `evidence/w10-sec-*`, наборы
+W12 — `evidence/w12-*`, полный прогон стенда — `w15-composition.json` и
+регенерированные скриншоты в `evidence/w15-composition/`; всё восстановлено из
+`HEAD` / удалено, закоммичены только исходники и курируемое измерение.
+
+**Визуальной дельты нет:** правка меняет только то, какой узел получает фокус
+после закрытия окна; разметка, размеры, цвета и анимации не тронуты, поэтому
+Browser Use-осмотр не требуется — движение фокуса измерено в реальном Chromium
+через Playwright (реальные клавиши/клики, а не синтетические события).

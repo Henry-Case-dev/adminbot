@@ -488,15 +488,15 @@ def test_card_buttons_are_address_transitions_not_decorations():
     assert ':disabled="!act.enabled"' in block
     assert ':data-cog-action-reason="act.id"' in block, \
         "неработающее действие молчит (декоративная кнопка)"
-    body = _block(APP_JS, "cogCardAction: function (id) {",
+    body = _block(APP_JS, "cogCardAction: function (id, ev) {",
                   "openCogHistory: function () {")
-    for marker in ("openCogSource()", "openCogHistory()",
+    for marker in ("openCogSource(ev)", "openCogHistory()",
                    "openMemoryFromCogMap(card)", "cogShowLinks()"):
         assert marker in body, marker
     assert "act.reason || 'действие недоступно'" in body, \
         "отказ действия не сообщается пользователю"
     # «Открыть источник» — существующее окно записи ТОЙ ЖЕ записи + drill.
-    src = _block(APP_JS, "openCogSource: function () {",
+    src = _block(APP_JS, "openCogSource: function (ev) {",
                  "openCogHistory: function () {")
     assert "this.openStatusRecord(t.source" in src
     assert "statusRecordDrill" in src
@@ -643,3 +643,42 @@ def test_record_window_esc_closes_only_its_own_layer():
     palette = APP_JS[APP_JS.index("paletteKeydown: function (event) {"):]
     palette = palette[:palette.index("_paletteHotkey: function (event) {")]
     assert "event.stopPropagation()" in palette
+
+
+def test_source_action_returns_focus_to_card_button():
+    """review-B2: окно записи из карточки возвращает фокус на «Открыть источник».
+
+    `plans/current_task.md:79` (EVOL-003) требует возврата фокуса на исходную
+    строку; из карточки исходная точка — нажатая кнопка действия. Поэтому
+    событие клика обязано дойти до `openStatusRecord` (он запоминает
+    `ev.currentTarget` и возвращает фокус ЕДИНСТВЕННЫМ механизмом —
+    `_restoreOverlayFocus`); без него фокус уходит на BODY.
+
+    Поведение доказано node-проверкой `tests/js/evol_cog_map_card_focus_test.js`
+    на настоящем `web/app.js`: Esc, крестик и `goBack()` возвращают фокус
+    именно на кнопку, карточка при этом остаётся открытой с той же записью.
+    Здесь же закреплена проводка разметки: без `$event` поведение недостижимо.
+    """
+    assert '@click="cogCardAction(act.id, $event)"' in _card_block(), \
+        "разметка не передаёт инициатора в действие карточки"
+    body = _block(APP_JS, "cogCardAction: function (id, ev) {",
+                  "openCogHistory: function () {")
+    assert "this.openCogSource(ev)" in body, \
+        "действие «Открыть источник» теряет событие клика"
+    src = _block(APP_JS, "openCogSource: function (ev) {",
+                 "openCogHistory: function () {")
+    assert "}, ev);" in src, \
+        "openStatusRecord вызван без инициатора — фокус вернётся на BODY"
+    # Возврат фокуса остаётся ОДНИМ механизмом (второго не заводим).
+    assert APP_JS.count("function _restoreOverlayFocus(") == 1
+    assert "_restoreOverlayFocus(back)" in _block(
+        APP_JS, "closeStatusRecord: function () {",
+        "statusRecordKeydown: function (ev) {")
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node недоступен — JS-unit пропущен")
+    res = subprocess.run(
+        [node, os.path.join("tests", "js", "evol_cog_map_card_focus_test.js")],
+        capture_output=True, text=True, timeout=90, cwd=ROOT)
+    assert res.returncode == 0, res.stderr
+    assert "EVOL-COG-MAP-CARD-FOCUS-OK" in res.stdout

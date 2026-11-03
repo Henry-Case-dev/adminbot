@@ -28848,7 +28848,11 @@
         // слоёв); здесь — только честная ловушка Tab внутри карточки.
         _trapTabKey(ev, ev.currentTarget, false);
       },
-      cogCardAction: function (id) {
+      // `ev` — РЕАЛЬНЫЙ инициатор (нажатая кнопка карточки). Он нужен окну
+      // записи: `openStatusRecord` запоминает `ev.currentTarget` и только так
+      // возвращает фокус на ту же кнопку после закрытия. Без него фокус уходил
+      // на BODY (кнопка «Открыть источник» теряла фокус после Esc/крестика/Back).
+      cogCardAction: function (id, ev) {
         var card = this.cogCard;
         if (!card) return;
         var act = this._cogCardFind(card, id);
@@ -28858,7 +28862,7 @@
           this.toast(act.reason || 'действие недоступно', 'warn');
           return;
         }
-        if (id === 'source') { this.openCogSource(); return; }
+        if (id === 'source') { this.openCogSource(ev); return; }
         if (id === 'history') { this.openCogHistory(); return; }
         if (id === 'memory') { this.openMemoryFromCogMap(card); return; }
         if (id === 'links') { this.cogShowLinks(); }
@@ -28873,7 +28877,9 @@
       // «Открыть источник»: существующее окно записи ТОЙ ЖЕ записи + адресный
       // drill первоисточника (`statusRecordDrill`: attribution/trace по
       // chat_id+tg_message_id). Прямая `t.me`-ссылка не выдумывается.
-      openCogSource: function () {
+      // `ev` — нажатая кнопка карточки: окно записи возвращает фокус ИМЕННО
+      // на неё (`statusRecordReturnFocus`), а не на BODY.
+      openCogSource: function (ev) {
         var card = this.cogCard;
         var act = this._cogCardFind(card, 'source');
         if (!act || !act.enabled || !act.target) return;
@@ -28891,7 +28897,7 @@
           created_at: this._cogTimeValue(card, 'savedAt'),
           event_at: this._cogTimeValue(card, 'occurredAt'),
           confirmed_at: this._cogTimeValue(card, 'confirmedAt'),
-        });
+        }, ev);
         // Первоисточник — тем же существующим drill окна записи; запрос идёт
         // по действию пользователя, а не при открытии карточки.
         if (typeof this.statusRecordDrill === 'function') this.statusRecordDrill();

@@ -1,7 +1,24 @@
 {
  "run": "py tools/ui_evol_w15_composition_e2e.py",
- "viewport_checks": 293,
+ "viewport_checks": 335,
  "fails": [],
+ "card_focus_b2": {
+  "note": "review-B2: окно записи, открытое ИЗ карточки, возвращает фокус на кнопку-инициатор «Открыть источник» (тег и data-cog-action активного элемента). Измерено на реальном Chromium (стенд, блок 2b); BODY здесь = наблюдавшийся дефект.",
+  "390": {
+   "esc_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"},
+   "cross_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"},
+   "back_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"}
+  },
+  "1280": {
+   "esc_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"},
+   "cross_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"},
+   "back_focus": {"tag": "BUTTON", "action": "source", "card": true, "record": false, "id": "fact:-1001234567890:11"}
+  },
+  "mutation": {
+   "change": "cogCardAction -> openCogSource() без $event (возврат дефекта)",
+   "result": "EVOL-W15-COMPOSITION FAIL: 6 отказов, на обоих вьюпортах после Esc/крестика/Back тег активного элемента BODY, действие ''"
+  }
+ },
  "cog_section": {
   "390": {
    "filtered_shown": 3,
