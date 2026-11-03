@@ -8401,3 +8401,163 @@ body > .sticky-save[data-save-panel] {
   .ini-attempt-input { width: 100%; }
 }
 .ini-row__chain { color: #64748b; }
+
+/* ═══ EPIC-PROMPT-VERSIONING-UX-01 (PVR-S4) ═══════════════════════════════
+   Единый компонент версий промпта (prompt-version-card). Визуальная система
+   сохранена: те же токены поверхности/границы, стекло и глубина, никакой
+   новой палитры. Панель истории — боковая на десктопе, полноэкранная на
+   мобильном; горизонтального скролла страницы не появляется ни на одном
+   брейкпоинте (1536/1366/768/390/360). */
+.pv { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.pv--bar { gap: 4px; }
+.pv--bar .pv-head { flex-wrap: wrap; }
+.pv--card { --pv-head-reserve: 56px; }
+.pv--card .pv-text {
+  width: 100%; min-width: 0;
+  /* Карточка версий добавляет над полем шапку и строку состояния — резерв
+     под них вычитается из уже существующего правила .ctl-editor-area, чтобы
+     при открытой клавиатуре поле не уходило под неё (EVOL-044). */
+  max-height: min(60dvh, calc(var(--vv-h, var(--app-usable-height, 100vh))
+    - 120px - var(--pv-head-reserve)));
+}
+.pv-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.pv-title { font-size: var(--ctl-font); font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.pv-scope { flex: 0 0 auto; }
+.pv-state { font-size: var(--ctl-font-sm); color: #CBD5E1; min-width: 0; overflow-wrap: anywhere; }
+.pv-state--inherit, .pv-state--muted { color: #94A3B8; }
+.pv-state--factory { color: #93C5FD; }
+.pv-state--chat, .pv-state--global, .pv-state--active { color: #A7F3D0; }
+.pv-state--baseline { color: #C4B5FD; }
+.pv-state--warn { color: #FCD34D; }
+.pv-dirty {
+  font-size: var(--ctl-font-sm); color: #FCD34D; border: 1px solid rgba(252, 211, 77, .4);
+  border-radius: var(--ctl-radius, 999px); padding: 1px 6px; white-space: nowrap;
+}
+.pv-history-btn, .pv-more-btn { min-height: 36px; }
+.pv-menu {
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  padding: 4px; border-radius: var(--ctl-radius); max-width: 100%; min-width: 0;
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+  background: rgba(15, 23, 42, .72);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.pv-menu .more-menu-item { text-align: left; min-height: 36px; }
+.pv-detail-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--ctl-font-sm);
+  color: #94A3B8; opacity: 1; overflow-wrap: anywhere; white-space: normal;
+}
+.pv-text--dirty {
+  border-color: rgba(252, 211, 77, .55) !important;
+  box-shadow: 0 0 0 1px rgba(252, 211, 77, .22) inset;
+}
+.pv-effective { font-size: var(--ctl-font-sm); color: #94A3B8; min-width: 0; }
+.pv-effective summary { cursor: pointer; min-height: 32px; }
+.pv-pre {
+  max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: var(--ctl-font-sm); line-height: 1.4; margin: 4px 0; padding: 6px; border-radius: var(--ctl-radius-sm, 8px);
+  background: rgba(2, 6, 23, .45);
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+}
+.pv-hint { font-size: var(--ctl-font-sm); color: #94A3B8; }
+.pv-hint summary { cursor: pointer; min-height: 32px; }
+.pv-hint__text { padding: 2px 0 4px; overflow-wrap: anywhere; }
+.pv-notice { font-size: var(--ctl-font-sm); overflow-wrap: anywhere; }
+.pv-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pv-foot .btn-accent, .pv-foot .btn-ghost { min-height: 36px; }
+.pv-grid { display: grid; grid-template-columns: 1fr; gap: 10px; min-width: 0; }
+@media (min-width: 1024px) {
+  .pv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+.pv-grid > * { min-width: 0; }
+/* ── Панель «История версий» ─────────────────────────────────────────── */
+.pv-scrim {
+  position: fixed; inset: 0; z-index: 90; display: flex; justify-content: flex-end;
+  background: rgba(2, 6, 23, .55);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.pv-panel {
+  display: flex; flex-direction: column; height: 100%; min-width: 0;
+  width: min(560px, 46vw); max-width: 100vw;
+  background: rgba(9, 14, 26, .94);
+  border-left: 1px solid var(--surface-border, rgba(255, 255, 255, .12));
+  box-shadow: -24px 0 48px rgba(0, 0, 0, .45);
+}
+.pv-panel__head {
+  display: flex; align-items: center; gap: 8px; padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+}
+.pv-panel__title {
+  flex: 1; min-width: 0; font-size: var(--ctl-font); font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pv-panel__meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 8px 12px 2px;
+  font-size: var(--ctl-font-sm); color: #94A3B8;
+}
+/* Смысловые части шапки разделены волосяной точкой — иначе строки
+   «слипаются» и метаданные читаются как сплошной текст. */
+.pv-panel__meta > * + *::before {
+  content: "·"; margin-right: 6px; color: #475569;
+}
+.pv-panel__legend { padding: 0 var(--space-3) var(--space-2); font-size: var(--ctl-font-sm); color: #64748B; }
+.pv-panel__body {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 0 var(--space-3) var(--space-3);
+}
+.pv-rows { display: flex; flex-direction: column; min-width: 0; }
+.pv-row {
+  min-width: 0; padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+.pv-row.is-active { background: rgba(16, 185, 129, .06); }
+.pv-row.is-baseline { box-shadow: inset 2px 0 0 rgba(196, 181, 253, .7); }
+.pv-row__main {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  font-size: var(--ctl-font-sm); color: #CBD5E1; min-width: 0;
+}
+.pv-row__order { font-variant-numeric: tabular-nums; color: #64748B; }
+.pv-row__when { color: #94A3B8; }
+.pv-row__actor, .pv-row__scope { color: #64748B; }
+.pv-row__actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.pv-row__actions .btn-ghost { min-height: 32px; }
+.pv-row__reason { font-size: var(--ctl-font-sm); color: #FCD34D; margin-top: 2px; overflow-wrap: anywhere; }
+.pv-row__view { margin-top: 4px; min-width: 0; }
+.pv-pre--full { max-height: 40vh; }
+.pv-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; }
+.pv-diff-title { font-size: var(--ctl-font-sm); color: #93C5FD; margin-top: 8px; }
+.pv-diff {
+  max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: var(--ctl-font-sm); line-height: 1.35; padding: 6px; border-radius: var(--ctl-radius-sm, 8px);
+  background: rgba(2, 6, 23, .5);
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+}
+.pv-diff__add { color: #6EE7B7; }
+.pv-diff__del { color: #FCA5A5; }
+.pv-diff__hunk, .pv-diff__meta { color: #93C5FD; }
+.pv-diff__ctx { color: #94A3B8; }
+.pv-result { font-size: var(--ctl-font-sm); padding: 6px 0; overflow-wrap: anywhere; }
+.pv-warn { font-size: var(--ctl-font-sm); color: #FCD34D; overflow-wrap: anywhere; }
+.pv-panel__foot {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--surface-border, rgba(255, 255, 255, .1));
+}
+.pv-panel__foot .btn-ghost { min-height: 36px; }
+.pv button:focus-visible, .pv-panel button:focus-visible { outline: 2px solid #2DD4BF; outline-offset: 2px; }
+/* Технические данные объекта правки — свёрнуто, не в основной карточке. */
+.prompt-editor-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px;
+  font-size: var(--ctl-font-sm); color: #64748B; min-width: 0;
+}
+.prompt-editor-meta summary { cursor: pointer; min-height: 32px; }
+.prompt-editor-meta > div { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.prompt-editor-meta code { overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .pv-scrim { justify-content: stretch; }
+  .pv-panel { width: 100vw; max-width: 100vw; border-left: 0; }
+  .pv-history-btn, .pv-more-btn,
+  .pv-foot .btn-accent, .pv-foot .btn-ghost,
+  .pv-row__actions .btn-ghost, .pv-panel__foot .btn-ghost { min-height: 44px; }
+  .pv-panel__head, .pv-panel__meta, .pv-panel__legend, .pv-panel__body,
+  .pv-panel__foot { padding-left: var(--space-2); padding-right: var(--space-3); }
+}

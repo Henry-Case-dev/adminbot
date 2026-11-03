@@ -431,3 +431,15 @@ def test_js_unit_asap_ui02_delta():
     _run_js(os.path.join("tests", "js", "asap_ui02_delta_test.js"),
             ok_marker="ASAP-UI02-DELTA-OK")
 
+
+def test_js_unit_prompt_version_card():
+    """PVR-S4 (EPIC-PROMPT-VERSIONING-UX-01): единый компонент версий промпта.
+
+    Человеческое состояние карточки (§2.1), гейты «Применить» с честными
+    причинами (§2.2 п.8), назначение базовой без смены действующего текста
+    (§4), догрузка истории по курсору без потолка 50 (§3.5) и подсказка
+    {joke} в трёх режимах (§6.4 arch).
+    """
+    _run_js(os.path.join("tests", "js", "prompt_version_card_test.js"),
+            ok_marker="PVR-S4-CARD-OK")
+
