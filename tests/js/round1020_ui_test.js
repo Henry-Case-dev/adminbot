@@ -473,10 +473,16 @@ const INDEX = fs.readFileSync(
   // W16 (контракт владельца §2): жёсткий пол 320 px снят — трек ограничен
   // доступной шириной (`minmax(min(100%, 320px), 1fr)`), иначе при
   // эффективной ширине <320 px сетка выезжает за вьюпорт. Инвариант:
-  // auto-fit + minmax(пол 320px, ограниченный шириной, 1fr).
+  // auto-fit + minmax(пол 320px, ОГРАНИЧЕННЫЙ шириной, 1fr) — и именно в
+  // правиле тройки. Жёсткая форма `minmax(320px, 1fr)` не принимается: это
+  // ровно то, что W16 снял (иначе пин зеленеет на возвращённом overflow).
+  const gridRule = CSS.match(
+    /\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{([^}]*)\}/);
+  assert.ok(gridRule,
+    'T-1899/UPD3: общее правило тройки .prov-grid/.module-list/.hub-grid');
   assert.ok(
-    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*(?:min\(\s*100%\s*,\s*320px\s*\)|320px)\s*,\s*1fr\s*\)\s*\)/
-      .test(CSS),
+    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*min\(\s*(?:100%\s*,\s*320px|320px\s*,\s*100%)\s*\)\s*,\s*1fr\s*\)\s*\)/
+      .test(gridRule[1]),
     'T-1899/UPD3: CSS Grid auto-fit minmax(пол 320px, ограниченный шириной)');
   assert.ok(CSS.indexOf('justify-content: center') >= 0,
     'T-1899: центровка сетки');

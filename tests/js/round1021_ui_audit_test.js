@@ -131,13 +131,13 @@ const CSS = fs.readFileSync(
   const gridRule = CSS.match(
     /\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{([^}]*)\}/);
   assert.ok(gridRule, 'grid: единое правило для prov/module/hub');
-  // Инвариант трека: auto-fit + minmax(пол,1fr), пол = 320 px, ограниченный
-  // доступной шириной (W16 / контракт владельца §2: жёсткий 320 px давал
-  // горизонтальный overflow при эффективной ширине <320 px). Прежняя
-  // проверка требовала байт-в-байт `minmax(320px, 1fr)` и потому краснела от
-  // санкционированного W16-ужесточения, ничего не проверяя по существу.
+  // Инвариант трека: auto-fit + minmax(пол 320px, ОГРАНИЧЕННЫЙ доступной
+  // шириной, 1fr) (W16 / контракт владельца §2: жёсткий 320 px давал
+  // горизонтальный overflow при эффективной ширине <320 px). Жёсткая форма
+  // `minmax(320px, 1fr)` не принимается — её W16 и снял, вернуть её шапкой
+  // (без min(…, 100%)) значит вернуть overflow.
   assert.ok(
-    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*(?:min\(\s*100%\s*,\s*320px\s*\)|320px)\s*,\s*1fr\s*\)\s*\)/
+    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*min\(\s*(?:100%\s*,\s*320px|320px\s*,\s*100%)\s*\)\s*,\s*1fr\s*\)\s*\)/
       .test(gridRule[1]),
     'grid: auto-fit minmax(пол 320px, ограниченный шириной, 1fr)');
   const mobileBlocks = CSS.match(

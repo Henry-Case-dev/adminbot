@@ -185,8 +185,9 @@ class TestLiquidGlassAndGrid:
         rule = re.search(
             r"\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{([^}]*)\}", CSS)
         assert rule, "нет общего правила тройки .prov-grid/.module-list/.hub-grid"
+        # Жёсткий `minmax(320px, 1fr)` (без min(…, 100%)) не принимается:
+        # W16 снял его именно из-за горизонтального overflow <320 px.
         assert any(form in rule.group(1) for form in (
-            "repeat(auto-fit, minmax(320px, 1fr))",
             "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
             "repeat(auto-fit, minmax(min(320px, 100%), 1fr))")), \
             "нет трека auto-fit + minmax(пол 320px, ограниченный шириной)"
