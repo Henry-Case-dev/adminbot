@@ -117,18 +117,30 @@ class _FakeCursor:
     async def fetchall(self):
         return self._rows
 
+    async def fetchone(self):
+        return self._rows[0] if self._rows else None
+
 
 class _FakeWindowDB:
-    """Мини-db для живого пути: путь SQLite + окно сообщений + watermark."""
+    """Мини-db для живого пути: путь SQLite + окно сообщений + снапшот.
 
-    def __init__(self, path, rows, watermark: int | None = None):
+    ``source_remaining`` — сколько исходных сообщений снапшота «осталось» в
+    чате (``None`` = удалённых нет, счётчик не используется). Никакого
+    watermark у этого двойника НЕТ: свежесть переписки больше не проверяется.
+    """
+
+    def __init__(self, path, rows, source_remaining: int | None = None):
         self.db_path = str(path)
         self._rows = [dict(row) for row in rows]
-        self._watermark = watermark
+        self._source_remaining = source_remaining
+        self.source_queries: list[tuple] = []
 
     async def execute(self, sql: str, params=()):
-        if "MAX(id)" in sql:
-            return _FakeCursor([{"m": self._watermark}])
+        if "COUNT(*)" in sql:
+            self.source_queries.append(tuple(params))
+            value = (len(self._rows) if self._source_remaining is None
+                     else int(self._source_remaining))
+            return _FakeCursor([{"c": value}])
         if not params:
             return _FakeCursor(list(self._rows))
         chat_id, limit = int(params[0]), int(params[-1])
@@ -138,17 +150,14 @@ class _FakeWindowDB:
 
 
 async def _meme_pass(tmp_path, *, store=None, sender=None, provider=None,
-                     gate=None, watermark=(5, 5), settings=None,
-                     messages=None, db=None, **kwargs):
-    """Один проход мем-пайплайна на реальном файле брони."""
-    store = store if store is not None else _store(tmp_path)
-    marks = list(watermark)
-    seen: list[int] = []
+                     gate=None, settings=None, messages=None, db=None,
+                     source_remaining: int | None = None, **kwargs):
+    """Один проход мем-пайплайна на реальном файле брони.
 
-    async def reader(_chat_id):
-        index = min(len(seen), len(marks) - 1)
-        seen.append(index)
-        return marks[index]
+    ``source_remaining`` — сколько исходных сообщений снапшота доступно на
+    момент публикации (проверка содержательной валидности, не «свежести»).
+    """
+    store = store if store is not None else _store(tmp_path)
 
     async def summarizer(_cid, _rows_arg, _system):
         return "хук"
@@ -156,11 +165,16 @@ async def _meme_pass(tmp_path, *, store=None, sender=None, provider=None,
     async def joke_generator(_cid, _summary, _instruction):
         return "прикол"
 
-    async def _gate(_cid):
-        return True, "ok"
-
     async def _gate_pair(_cid):
         return gate() if callable(gate) else (True, "ok")
+
+    rows = messages if messages is not None else _rows(CHAT)
+    if db is None and source_remaining is not None:
+        # Окно читается из мини-БД: тогда работает и проверка исходного
+        # материала (штатный путь авто-инициативы), а не шов `messages`.
+        db = _FakeWindowDB(tmp_path / "window.db", rows,
+                           source_remaining=source_remaining)
+        rows = None
 
     return await meme.consider_chat(
         db, CHAT, settings=settings if settings is not None else _settings(),
@@ -169,12 +183,12 @@ async def _meme_pass(tmp_path, *, store=None, sender=None, provider=None,
         initiative_enabled=lambda: True,
         image_status=IMAGE_OK,
         random_source=_Hit(),
-        messages=messages if messages is not None else _rows(CHAT),
+        messages=rows,
         summarizer=summarizer, joke_generator=joke_generator,
         image_provider=provider if provider is not None else _Provider(),
         publish_gate=_gate_pair,
         sender=sender if sender is not None else _Sender(),
-        claim_store=store, watermark_reader=reader, model_chars=200,
+        claim_store=store, model_chars=200,
         **kwargs)
 
 
@@ -766,24 +780,46 @@ def test_claim_ttl_expiry_allows_takeover(tmp_path):
     assert after.granted is True
 
 
-# ═══ 6. устаревший мем не отправляется после задержки ═══════════════════════
+# ═══ 6. изменение чата НЕ отменяет готовый мем (P0 03.11.2026) ═════════════
 
-def test_stale_meme_is_not_sent_after_delay(tmp_path):
-    """Окно чата изменилось за время генерации → отправки нет (§3.4)."""
+def test_chat_growth_does_not_cancel_a_ready_meme(tmp_path):
+    """Новые сообщения во время генерации → мем всё равно отправляется.
+
+    P0 §1.2.2: сравнение watermark/`latest_message_id` больше не является
+    основанием для `publication_stale`. Мутация: вернуть проверку watermark —
+    тест краснеет (публикации нет, причина `publication_stale`).
+    """
     store = _store(tmp_path)
     sender = _Sender()
     provider = _Provider()
     result = asyncio.run(_meme_pass(
         tmp_path, store=store, sender=sender, provider=provider,
-        watermark=(5, 9)))
-    assert result.published is False
-    assert result.reason == meme.SKIP_PUBLICATION_STALE
-    assert result.detail == "window_changed"
-    assert sender.calls == []              # картинка не ушла в чат
-    assert len(provider.calls) == 1        # но генерация состоялась
+        source_remaining=3))
+    assert result.published is True and result.reason == "sent"
+    assert result.reason != meme.SKIP_PUBLICATION_STALE
+    assert len(sender.calls) == 1
+    assert len(provider.calls) == 1          # одна генерация, не две
     snapshot = store.snapshot(CHAT)
-    # Бронь освобождена и НЕ помечена как публикация.
     assert snapshot["state"] == "released"
+    assert snapshot["last_publish_ts"] is not None
+    assert snapshot["last_publish_kind"] == meme.OUTPUT_KIND
+
+
+def test_source_material_gone_is_a_real_terminal_condition(tmp_path):
+    """Исходные сообщения мема удалены — точная причина, а не «устаревание»."""
+    store = _store(tmp_path)
+    sender = _Sender()
+    result = asyncio.run(_meme_pass(tmp_path, store=store, sender=sender,
+                                    source_remaining=0))
+    assert result.published is False
+    assert result.reason == meme.SKIP_SOURCE_GONE
+    assert result.detail == "source_messages_deleted"
+    assert sender.calls == []              # картинка не ушла в чат
+    assert result.generated is True        # но генерация состоялась
+    # Бронь даже не бралась: содержательная проверка стоит ДО неё, слот не
+    # занимается под публикацию, которой не будет.
+    snapshot = store.snapshot(CHAT)
+    assert snapshot.get("state") in (None, "")
     assert snapshot.get("last_publish_ts") is None
 
 
@@ -791,7 +827,7 @@ def test_fresh_window_still_publishes(tmp_path):
     store = _store(tmp_path)
     sender = _Sender()
     result = asyncio.run(_meme_pass(tmp_path, store=store, sender=sender,
-                                   watermark=(5, 5)))
+                                    source_remaining=3))
     assert result.published is True and result.reason == "sent"
     assert len(sender.calls) == 1
     snapshot = store.snapshot(CHAT)
@@ -904,8 +940,9 @@ def test_command_marks_priority_before_generation(monkeypatch):
         order.append("priority")
         return NOW_TS + pub.MANUAL_PRIORITY_SECONDS
 
-    async def _pipeline(chat_id, bot):
+    async def _pipeline(chat_id, bot, *, request_ref=""):
         order.append("pipeline")
+        assert request_ref == "5"          # id сообщения /meme в снапшоте/событиях
         return SimpleNamespace(published=True, reason="sent")
 
     async def _admin(_uid, _cid):
@@ -1044,8 +1081,7 @@ def test_meme_publication_is_visible_in_shared_ledger(tmp_path):
         await svc.initialize()
         try:
             sender = _Sender(message_id=4242)
-            result = await _meme_pass(tmp_path, sender=sender,
-                                      db=svc, watermark=(None, None))
+            result = await _meme_pass(tmp_path, sender=sender, db=svc)
             assert result.published is True
             recent = await svc.list_recent_bot_outputs(CHAT, limit=1)
             return recent, sender
@@ -1069,11 +1105,10 @@ def test_duplicate_job_does_not_create_second_output_row(tmp_path):
         await svc.initialize()
         try:
             store = _store(tmp_path)
-            await _meme_pass(tmp_path, store=store, db=svc,
-                             watermark=(None, None), job_id="job-dup")
+            await _meme_pass(tmp_path, store=store, db=svc, job_id="job-dup")
             # Второй прогон того же job: слот уже provider_called → пропуск.
             second = await _meme_pass(tmp_path, store=store, db=svc,
-                                      watermark=(None, None), job_id="job-dup")
+                                      job_id="job-dup")
             rows = await svc.db.execute(
                 "SELECT COUNT(*) AS c FROM mca_bot_outputs WHERE chat_id = ?",
                 (CHAT,))

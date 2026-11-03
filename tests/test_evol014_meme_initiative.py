@@ -388,8 +388,13 @@ def test_length_source_is_explicit():
     assert admin.source == "admin_setting"
     unknown = meme.resolve_meme_budget(
         model_chars=None, admin=None, explicit=None, template=PREFIX)
-    assert unknown.known is False and unknown.source == "unknown"
+    # P0.5 (§1.4.1): пустой потолок = РЕЖИМ АВТО, а не «неизвестный лимит»:
+    # числа нет, генерация не блокируется, `0` наружу не выдаётся за бюджет.
+    assert unknown.known is False and unknown.source == "auto"
+    assert unknown.mode == "auto"
     assert unknown.joke_budget == 0
+    assert unknown.as_dict()["joke_budget"] is None
+    assert unknown.as_dict()["ceiling"] is None
 
 
 # ── 5. заводской prompt дословно и через реестр ─────────────────────────────

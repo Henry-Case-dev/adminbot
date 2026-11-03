@@ -7302,15 +7302,21 @@
           skipRows: skipRows,
           stages: m.delivery && m.delivery.stages ? m.delivery.stages : [],
           // Три числа §3 ТЗ (канонические имена `MemeBudget`: ceiling /
-          // template_chars / joke_budget). `known === false` — потолок
-          // неизвестен: число НЕ подставляется (иначе «0» звучал бы как факт).
+          // template_chars / joke_budget). P0.5 (§1.3 v2): режим называется
+          // прямо — `mode`/`known` из API, а не угадывание по нулю. В авто
+          // числа НЕТ: «определяет провайдер», никаких 0/NaN/мнимых 800.
           lengthLimit: len,
+          ceilingMode: (len.mode === 'fixed' || len.known === true)
+            ? 'fixed' : 'auto',
+          ceilingModeText: (len.mode === 'fixed' || len.known === true)
+            ? 'фиксированный' : 'автоматически',
           ceilingText: (len.known === true
-            ? String(len.ceiling == null ? '—' : len.ceiling) : 'неизвестен'),
+            ? String(len.ceiling == null ? '—' : len.ceiling) : 'не задан'),
           templateCharsText: (len.template_chars == null
             ? '—' : String(len.template_chars)),
-          jokeBudgetText: (len.known === true ? String(len.joke_budget == null
-            ? '—' : len.joke_budget) : 'неизвестен'),
+          jokeBudgetText: (len.known === true
+            ? String(len.joke_budget == null ? '—' : len.joke_budget)
+            : 'определяет провайдер'),
           placeholderLabel: (len.placeholder === 'slot' ? 'подстановка {joke}'
             : (len.placeholder === 'invalid' ? 'невалидный шаблон (2+ {joke})'
               : (len.placeholder === 'append' ? 'прикол дописывается в конец'
@@ -11892,6 +11898,21 @@
         }
         return out;
       },
+      // P0.5 (§1.4.1): три состояния поля потолка. Пусто/пробелы = АВТО,
+      // положительное целое = фиксированный потолок, всё остальное (дробное,
+      // отрицательное, текст) = ТОЧНАЯ ошибка поля, а не тихий `null`.
+      memeLengthError: function (raw) {
+        if (raw === '' || raw === null || raw === undefined) return '';
+        var text = String(raw).trim();
+        if (!text) return '';
+        if (!/^\d+$/.test(text)) {
+          return 'Потолок длины: целое число больше нуля или пусто (авто)';
+        }
+        var n = parseInt(text, 10);
+        if (!(n > 0)) return '';
+        if (n > 8000) return 'Потолок длины: не больше 8000 символов';
+        return '';
+      },
       saveMemeSettings: async function () {
         if (this.memeSettingsSaving || this.activeChatId == null) return;
         var d = this.memeDraft || {};
@@ -11900,6 +11921,17 @@
           var n = parseInt(v, 10);
           return isNaN(n) ? null : n;
         };
+        // Пустое поле уходит ЯВНЫМ `null`: сервер снимает чатовый потолок
+        // (наследование/авто), а не пишет 0 и не оставляет прежнее значение.
+        var lengthError = this.memeLengthError
+          ? this.memeLengthError(d.length_limit) : '';
+        if (lengthError) {
+          this.memeFieldErrors = { length_limit: lengthError };
+          this.memeSettingsError = '';
+          // Точный текст ошибки ввода, а не «не сохранилось».
+          this.toast(lengthError, 'err');
+          return;
+        }
         // Отправляем ТОЛЬКО изменённые поля: сервер пишет per-chat override,
         // поэтому отправка всех полей подряд материализовала бы каждый ключ и
         // чат потерял бы наследование глобальных значений после 1-го сохранения.
@@ -12020,9 +12052,11 @@
           explicit_override: 'явное переопределение',
           admin_setting: 'настройка администратора',
           model_capability: 'возможности модели',
-          unknown: 'неизвестен',
+          // P0.5: пустой потолок = АВТО (наследование/оценка провайдера).
+          auto: 'не задан (авто)',
+          unknown: 'не задан (авто)',
         };
-        return ru[source] || (source ? String(source) : 'неизвестен');
+        return ru[source] || (source ? String(source) : 'не задан (авто)');
       },
       // P4: пустой текст поля промпта = «снять чатовое переопределение»
       // (действует глобальный слой, затем заводской). Подпись честно говорит,
