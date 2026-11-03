@@ -937,11 +937,24 @@ async def get_revision_source(revision_id: str, *, cache=None,
 
 async def list_versions(block_id: str, *, scope: str = "global",
                         chat_id: int | None = None, cache=None,
-                        store=None, actor=None) -> dict:
-    """Сводка «История версий»: активная ревизия, заводская, хронология."""
+                        store=None, actor=None, page_size: int | None = None,
+                        cursor: str | None = None,
+                        revisions_cursor: str | None = None,
+                        activations_cursor: str | None = None) -> dict:
+    """Сводка «История версий»: активная ревизия, заводская, хронология.
+
+    ``page_size``/``cursor`` — страница объединённой ленты (§3.5 ТЗ);
+    без них отдаётся первая страница размера по умолчанию. Потолка истории
+    нет: следующая страница берётся тем же курсором.
+    """
     from services import prompt_release_policy as prp
-    return await prp.list_versions(block_id, scope=scope, chat_id=chat_id,
-                                   cache=cache, store=store, actor=actor)
+    kwargs: dict = {"scope": scope, "chat_id": chat_id, "cache": cache,
+                    "store": store, "actor": actor, "cursor": cursor,
+                    "revisions_cursor": revisions_cursor,
+                    "activations_cursor": activations_cursor}
+    if page_size is not None:
+        kwargs["page_size"] = page_size
+    return await prp.list_versions(block_id, **kwargs)
 
 
 def meme_prompt_view(block_id: str, *, pg_value=None,

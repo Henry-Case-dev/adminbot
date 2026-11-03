@@ -775,25 +775,32 @@ def activation_plan(*, code_label: str, sealed_sha: str, text_sha12: str,
             PLAN_INTEGRITY_REJECT, "integrity_reject", "failed",
             "integrity_label_unchanged", code_revision,
             applied_factory_revision)
-    # 2) Первый запуск механизма: снять legacy-снимок, затем активировать.
-    if not has_import:
-        return ActivationPlan(PLAN_LEGACY_CUTOVER, "legacy_import", "",
-                              "cutover", code_revision,
-                              applied_factory_revision)
-    # 3) Рестарт с той же применённой ревизией: no-op — ручная правка и
-    #    откат, сделанные после этой ревизии, остаются активными.
+    # 2) Рестарт с той же применённой ревизией: no-op — ручная правка и
+    #    откат, сделанные после этой ревизии, остаются активными. Проверка
+    #    стоит ПЕРЕД pinned: иначе закреплённый scope писал бы событие на
+    #    каждом рестарте вместо истинного no-op.
     if applied_factory_revision == code_revision:
         return ActivationPlan(PLAN_NOOP, "deploy_activate", "skipped_same",
                               "restart_same_revision", code_revision,
                               applied_factory_revision)
-    # 4) Закреплённый владельцем scope (owner baseline): новая поставка кода
+    # 3) Закреплённый владельцем scope (owner baseline): новая поставка кода
     #    попадает в историю, но не перетирает ни baseline, ни активный ручной
     #    текст (§2.4 п.3). Указатель применённой метки двигается — следующий
     #    рестарт остаётся истинным no-op.
+    #    РЕВЬЮ PVR-S2 N1: эта ветка обязана стоять ВЫШЕ cutover. Иначе scope
+    #    с назначенной базовой, но без значения и без маркера импорта (ревизия
+    #    пришла через copy-to-global, а `capture_pre_versioning_values` нечего
+    #    было импортировать) уходил в `PLAN_LEGACY_CUTOVER` и первый размеченный
+    #    релиз писал заводской текст: pinned-защита молча не срабатывала.
     if pinned:
         return ActivationPlan(PLAN_ACTIVATE_PINNED, "deploy_activate",
                               "skipped_same", "factory_superseded_pinned",
                               code_revision, applied_factory_revision)
+    # 4) Первый запуск механизма: снять legacy-снимок, затем активировать.
+    if not has_import:
+        return ActivationPlan(PLAN_LEGACY_CUTOVER, "legacy_import", "",
+                              "cutover", code_revision,
+                              applied_factory_revision)
     # 5) Деплой с новой меткой: заводской текст становится активным даже
     #    поверх ручной правки (она остаётся ревизией в истории).
     return ActivationPlan(PLAN_ACTIVATE, "deploy_activate", "applied",
