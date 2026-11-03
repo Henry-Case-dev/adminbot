@@ -7,7 +7,10 @@
   §2.2 п.3–5 (полный список страницами, источник/автор/область/статус, полный
   текст отдельным запросом), §3.5 (без `HISTORY_MAX`/`LIMIT 50`, stable cursor,
   1000+ отзывчиво), §3.7 (тел в списках нет, RBAC global/чат), §4 (pin).
-- Ревью-замечания, закрытые здесь: `reports/pv-s2-review.md` N1 и N2.
+- Ревью-замечания, закрытые здесь: `reports/pv-s2-review.md` N1 и N2, плюс
+  `reports/pv-s3-review.md` B1 (статус строки-события совпадает со статусом её
+  ревизии) и N-3 (подпись `baseline_assign`). N-2 (счёт запросов) исправлен в
+  тексте этого отчёта.
 
 ## 1. Что изменено
 
@@ -18,7 +21,7 @@
 | `services/prompt_factory.py` | обёртка `list_versions` пробрасывает `page_size`/курсоры |
 | `web/api/routes.py` | `GET /api/prompts/{key}/versions`: параметры `page_size`, `cursor`, `revisions_cursor`, `activations_cursor`; 422 на испорченный курсор |
 | `web/api/speech.py` | история Speech-раздела читается из ЕДИНОГО журнала страницами (прежний bounded-журнал на 12 — только как честная граница при недоступном журнале); откат находит ревизию по `sha256_12` в журнале и отказывает для retired/несовместимой |
-| `tests/test_prompt_history_pagination.py` | новый durable-тест `TEST-LIFECYCLE: CONTRACT` (18 тестов) |
+| `tests/test_prompt_history_pagination.py` | новый durable-тест `TEST-LIFECYCLE: CONTRACT` (19 тестов) |
 
 DDL нет, второго журнала/реестра нет, новых LLM-вызовов/бюджетов нет, тексты
 промптов не менялись (`tests/test_evol018_prompt_audit.py` не в диффе и зелёный),
@@ -86,8 +89,11 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
 
 1. 1000 ревизий + 200 активаций: обход 12 страницами даёт все 1200 записей ровно
    по одному разу, порядок детерминирован, `page_size` соблюдён, верхняя запись —
-   самая новая, обход < 10 c (факт ≈ 0.02 c на in-memory сторе и 3 запроса/страницу
-   в PG).
+   самая новая, обход < 10 c (факт ≈ 0.02 c на in-memory сторе). Стоимость
+   страницы в PG — **4 обращения к стору**: два запроса в `list_history_page`
+   (ревизии + активации), плюс `list_revisions_page` и `list_activations_page`;
+   сверх этого — `ensure_journal` (идемпотентен), `read_applied` и
+   `read_baseline_event` на сам ответ. Отдельного запроса на строку истории нет.
 2. Непрерывные `order` 1..50, 51..100; страницы не пересекаются.
 3. Стабильность курсора: вставка 5 более новых записей между страницами → вторая
    страница равна срезу исходного снимка `[10:20]`, без дублей и сдвига.
@@ -108,6 +114,13 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
 13. N2: ответ = сохранённый `reason`.
 14. Speech: история из журнала, 50 строк при `page_size=50`, `has_more`, прежние
     ключи строки сохранены; bounded-журнал — только при недоступном журнале.
+15. B1 (после ревью PVR-S3): строка-событие наследует статус СВОЕЙ ревизии —
+    `manual_edit`/`baseline_assign` на снятой с регистрации версии дают
+    `retired`/`actionable=false` с причиной, событие на несовместимой версии —
+    `incompatible`/`actionable=false`; статус, признак действия и причина
+    совпадают со строкой той же ревизии в том же ответе (и в `entries[]`, и в
+    `activations[]`); подпись `baseline_assign` — «назначена базовая», токен
+    `source` остаётся контрактным `restored`.
 
 ### Мутации (каждая — отдельный прогон, файл восстановлен побайтово)
 
@@ -120,6 +133,7 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
 | Статус игнорирует `retired` | **CAUGHT** — 1 failed |
 | Курсор включительный (`<=`) → сдвиг страницы | **CAUGHT** — 1 failed |
 | Чат-фильтр отключён (утечка истории чата) | **CAUGHT** — 1 failed |
+| B1: событие не наследует retired/несовместимость своей ревизии | **CAUGHT** — 1 failed |
 | Speech-история снова ограничена 12 | **CAUGHT** — 1 failed |
 
 Скрипт повторного прогона: `plans/features/prompt-versioning-ux/evidence/pvr-s3/mutations.py`
@@ -130,8 +144,10 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
 
 | Набор | Итог |
 |---|---|
-| история/журнал: `test_prompt_baseline`, `test_prompt_history_pagination`, `test_prompt_migrations`, `test_prompt_versioning_enforcement`, `test_evol016_prompt_activation`, `test_evol016_prompt_journal_v39`, `test_evol017_prompt_history_ui`, `test_evol018_prompt_audit`, `test_asap_prompt_history_integrity` | **168 passed, 2 skipped** |
+| история/журнал: `test_prompt_baseline`, `test_prompt_history_pagination`, `test_prompt_migrations`, `test_prompt_versioning_enforcement`, `test_evol016_prompt_activation`, `test_evol016_prompt_journal_v39`, `test_evol017_prompt_history_ui`, `test_evol018_prompt_audit`, `test_asap_prompt_history_integrity` | **169 passed, 2 skipped** |
 | webapp/speech/мемы: `test_webapp_api`, `test_soul1_w6_speech_ui`, `test_soul1_factory_defaults`, `test_soul1_core_registry_api`, `test_meme_pipeline_api`, `test_evol014_meme_initiative`, `test_p0_persistfix_speech_chat_scope`, `test_initiative_speech_layers_chat_overrides`, `test_meme_joke_speech_layers`, `test_meme_init_diagnostics`, `test_p0_prompts_core`, `test_prompts_round1024`, `test_p0_meme_publication_hotfix`, `test_p0_meme_image_only` | **396 passed** |
+| повторная сверка после правки B1: `test_prompt_history_pagination` + `test_prompt_baseline` + `test_prompt_versioning_enforcement` | **73 passed** |
+| повторная сверка швов после B1: `test_webapp_api`, `test_soul1_w6_speech_ui`, `test_soul1_factory_defaults`, `test_soul1_core_registry_api`, `test_meme_pipeline_api`, `test_p0_prompts_core`, `test_prompts_round1024` | **252 passed** |
 
 Предсуществующих падений в этих наборах нет.
 
@@ -147,6 +163,8 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
 
 - `entries[]` + `page.next_cursor`/`has_more` — единственный список для панели
   «История версий»: порядок, источник, статус, причина, доступность тела.
+  Строка-событие наследует `status`/`actionable`/`reason_text` СВОЕЙ ревизии
+  (B1), поэтому подписи и кнопки можно брать из любой строки без сверки.
 - `status`/`status_label`/`actionable`/`reason_text` — для кнопок и honest-причин
   (`Посмотреть`/`Применить`/`Сравнить`/`Назначить базовой`/`Скопировать`).
 - `body_available` + существующий `/source` — тело только по клику.
@@ -168,3 +186,34 @@ no-op (`PLAN_NOOP`, ноль строк). Снимок текущих байто
   (номера не должны сдвигаться).
 - `revisions`/`activations` в ответе теперь страницы: старый UI без S4 видит
   самые новые записи и не листает вглубь; листание реализует S4.
+
+## 10. Правки после ревью PVR-S3 (B1 и N-3)
+
+**B1 — статус строки-события.** Раньше `_activation_history_row` заполнял
+`retired`/`schema_compat` значениями по умолчанию, поэтому событие на снятой с
+регистрации версии показывало `active`/`baseline` + `actionable=true`, а строка
+самой версии — `retired` + запрет действия. Теперь статус события считается по
+СВЯЗАННОЙ ревизии:
+
+- PG: `_PAGE_ACTIVATIONS_DESC_SQL` джойнит `prompt_revisions` по первичному
+  ключу `revision_id` и отдаёт `COALESCE(r.retired,false)` / `COALESCE(r.schema_compat,'')`
+  в той же странице; колонка `body` по-прежнему не выбирается. Новых запросов
+  нет — джойн внутри существующего страничного запроса;
+- `MemoryPromptJournal._history_rows` берёт те же поля из `self.revisions`
+  (in-memory, без запроса);
+- `_activation_history_row` прокидывает их в `HistoryRow`, а `_status_of_row`
+  считает `status`/`actionable`/`reason_text` уже по ревизии.
+
+Итог: строка события и строка её ревизии в одном ответе дают одинаковые
+`status`/`actionable`/`reason_text` — и в `entries[]`, и в `activations[]`
+(Speech-история читает `entries[]`, поэтому согласована автоматически).
+
+**N-3 — подпись источника у `baseline_assign`.** Токен `source` остаётся
+контрактным (`restored`, набор токенов §2.2 п.3 не расширялся), но человеческая
+подпись уточняется по `kind`: `baseline_assign` → «назначена базовая»,
+`baseline_clear` → «назначение базовой снято». «Восстановлена» остаётся только
+для событий, где текст действительно восстановлен.
+
+**Граница проверки.** PG-джойн проверен статически (текст SQL) и прогоном
+in-memory стора, повторяющего контракт страницы; на живом PostgreSQL не
+исполнялся — в окружении нет БД (прод-БД на VPS). Схема и DDL не менялись.

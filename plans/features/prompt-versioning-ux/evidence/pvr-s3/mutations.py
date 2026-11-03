@@ -73,9 +73,18 @@ MUTATIONS = [
 
     ("Чат-фильтр отключён (утечка истории чата)", PKG,
      [(b"            if r.block_id == block_id and _row_matches_chat(r, chat_id)]\n"
-       b"        acts = [HistoryRow(",
-       b"            if r.block_id == block_id]\n        acts = [HistoryRow(")],
+       b"        acts = []",
+       b"            if r.block_id == block_id]\n        acts = []")],
      f"{TEST}::test_chat_history_is_not_readable_through_another_chat"),
+
+    # B1 (ревью PVR-S3): событие обязано наследовать retired/несовместимость
+    # СВОЕЙ ревизии — иначе строка события и строка версии противоречат друг
+    # другу в одном списке и S4 предлагает «Применить» снятой версии.
+    ("B1: событие не наследует retired/несовместимость своей ревизии", PKG,
+     [(b"            linked = self.revisions.get(a.revision_id) "
+       b"if a.revision_id else None",
+       b"            linked = None")],
+     f"{TEST}::test_event_rows_agree_with_their_revision_state"),
 
     ("Speech-история снова ограничена 12", SPEECH,
      [(b"SPEECH_HISTORY_PAGE = 50", b"SPEECH_HISTORY_PAGE = 12")],
