@@ -2102,8 +2102,10 @@
                          data-meme-save-state>{{ memeSaveResult.text }}</div>
                     <div v-if="memeDraftDirty" class="text-xs mt-1 text-amber-300"
                          data-meme-dirty-hint>
-                      Изменения не сохранены: они сохранятся при переключении
-                      вкладок, но при смене чата приложение спросит подтверждение.
+                      Изменения не сохранены. При переключении вкладок они
+                      сохранятся; при смене чата или закрытии страницы приложение
+                      спросит подтверждение. Сохранить — кнопкой
+                      «Сохранить настройки мемов».
                     </div>
                     <div class="text-[10px] text-gray-600 mb-2">
                       Сохраняется для выбранного чата (локальное переопределение;
@@ -2531,6 +2533,7 @@
                       <option value="blocked">заблокировано</option>
                       <option value="failed">ошибка</option>
                       <option value="delivery_unknown">доставка неизвестна</option>
+                      <option value="other">неклассифицированное событие</option>
                       <option value="silent">молчание</option>
                     </select>
                   </label>
@@ -2567,6 +2570,9 @@
                         <span class="ini-row__reason">
                           {{ row.reasonText || 'без причины' }}
                           <span v-if="row.reason_code" class="ini-row__code">{{ row.reason_code }}</span>
+                          <span v-if="row.otherText" class="ini-row__chain"
+                                :data-ini-pub-other="row.attempt_id">
+                            · событие {{ row.otherText }}</span>
                           <span v-if="row.chainReasonsText" class="ini-row__chain"
                                 :data-ini-pub-chain-reason="row.attempt_id">
                             · в цепочке: {{ row.chainReasonsText }}</span>

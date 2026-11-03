@@ -2841,9 +2841,11 @@
     cancelled: 'отменено',
     decided: 'решение',
     // P0-семантика публикаций: отложено координацией — НЕ ошибка и не отмена;
-    // «доставка неизвестна» — отдельное честное состояние.
+    // «доставка неизвестна» и «неклассифицированное событие» — отдельные
+    // честные состояния (новый код виден кодом, строка не исчезает).
     deferred: 'отложено',
     delivery_unknown: 'доставка неизвестна',
+    other: 'неклассифицированное событие',
   };
   function memeOutcomeLabel(outcome) {
     var code = String(outcome || '');
@@ -7448,26 +7450,12 @@
       // значениями сервера. Нужно для (а) индикатора, (б) запрета молчаливой
       // перезаписи при возврате на вкладку, (в) dirty-guard смены области.
       memeDraftDirty: function () {
-        var d = this.memeDraft || {};
-        var view = this.memeSettingsView;
-        if (!view) return false;
-        var base = this.memeDraftFromSettings(this.memeSettings);
-        var same = function (a, b) {
-          return String(a == null ? '' : a) === String(b == null ? '' : b);
-        };
-        var keys = ['enabled', 'window_messages', 'daily_limit',
-                    'cooldown_seconds', 'min_messages', 'summarizer_model',
-                    'quiet_hours', 'length_limit', 'prompt_joke',
-                    'prompt_image'];
-        for (var i = 0; i < keys.length; i++) {
-          var key = keys[i];
-          if (key === 'enabled') {
-            if ((d.enabled === true) !== (base.enabled === true)) return true;
-            continue;
-          }
-          if (!same(d[key], base[key])) return true;
-        }
-        return false;
+        return this._memeDraftChangedFields() > 0;
+      },
+      // Сколько полей черновика реально отличаются от серверных значений
+      // (для правдивого текста подтверждения — никаких «(0)»).
+      memeDraftDirtyCount: function () {
+        return this._memeDraftChangedFields();
       },
       memeSpeechView: function () {
         var a = (this.memeSettings && this.memeSettings.analytics) || {};
@@ -8076,9 +8064,15 @@
             outcomeOk: (r.outcome === 'published'),
             outcomeClass: (r.outcome === 'published' ? 'badge-ok'
               : (r.outcome === 'deferred' ? 'badge-info'
-                : (r.outcome === 'delivery_unknown' ? 'badge-muted'
+                : (r.outcome === 'delivery_unknown'
+                  || r.outcome === 'other' ? 'badge-muted'
                   : 'badge-warn'))),
             reasonText: (r.reason_label || (code ? memeReasonLabelOf(code) : '')),
+            // Незнакомое событие: сырое имя и его `outcome` — как есть.
+            otherText: (r.other_events || []).map(function (e) {
+              return String(e.name || '')
+                + (e.outcome ? (' · ' + String(e.outcome)) : '');
+            }).join(', '),
             // Причины, которые реально были в цепочке (например конфликт
             // координации, после которого мем всё-таки доставили).
             chainReasonsText: chainReasons
@@ -9591,6 +9585,12 @@
       // диагностика должны доставать корневой vm без хаков. Только чтение
       // ссылки, поведения не меняет.
       try { window.__adminbotVm = this; } catch (e) { /* не критично */ }
+      // P1 (ревью, FIX 2): закрытие/перезагрузка страницы теряет черновик
+      // мемов безвозвратно (он живёт только в памяти) — единственный случай,
+      // где предупреждение браузера честно уместно.
+      if (typeof this._bindMemeDraftUnloadGuard === 'function') {
+        this._bindMemeDraftUnloadGuard();
+      }
       _onHashChange = function () {
         // F1 (T-2396): неизвестный '#/…'-hash → канонический '#/' (replaceState),
         // launch-hash без '#/' игнорируем как раньше.
@@ -10576,14 +10576,13 @@
             return true;
           }
         }
-        // P0A-UX §6.4.2: черновики «Речи и характера» — тоже несохранённые
-        // правки (иначе смена чата молча теряла ввод и показывала чужой чат);
-        // dirty выставляется только реальным вводом (чистое состояние молчит).
-        // P1 (ревью F3): черновик промптов/настроек мемов — те же правки:
-        // смена области обязана предупредить, а не стереть набранный текст.
-        try {
-          if (this.memeDraftDirty === true) return true;
-        } catch (e) { /* нет computed — считаем чисто */ }
+        // P1 (ревью, FIX 2): черновик промптов/настроек мемов НЕ участвует в
+        // общем `hasUnsavedEdits`. Причина: `hasUnsavedEdits` поднимает
+        // маршрутный guard при ЛЮБОЙ смене hash, то есть при переключении
+        // вкладки, где правки НЕ теряются (они живут в состоянии и не
+        // перезаписываются). Для мемов есть собственный guard —
+        // `_memeDraftLeaveGuard`, он спрашивает только там, где правки
+        // реально пропадут (смена области/чата), и говорит правду.
         var sd = this.speechDirty || {};
         if (sd.coreFull || sd.coreCompact || sd.style || sd.expression) {
           return true;
@@ -10614,13 +10613,16 @@
         var count = (typeof this.stickyDirtyCount === 'number'
                      && this.stickyDirtyCount > 0) ? this.stickyDirtyCount
           : ((this.dirtyItems || []).length + (this.dirtyKeyItems || []).length);
+        // Честный счётчик: если точное число неизвестно (например, правка
+        // живёт в собственном черновике), «(0)» не печатаем вовсе.
+        var countText = count > 0 ? (' (' + count + ')') : '';
         var scope = (typeof this.scopeTriggerTitle === 'string'
                      && this.scopeTriggerTitle)
           ? this.scopeTriggerTitle
           : (this.isChatContext && this.isChatContext()
               ? 'выбранный чат' : 'весь бот (global)');
-        var msg = 'Есть несохранённые изменения (' + count
-          + ') для «' + scope + '». ' + (actionLabel || 'Уйти и потерять их?');
+        var msg = 'Есть несохранённые изменения' + countText
+          + ' для «' + scope + '». ' + (actionLabel || 'Уйти и потерять их?');
         var proceed = true;
         try {
           proceed = (typeof window === 'undefined'
@@ -10628,6 +10630,45 @@
             || window.confirm(msg);
         } catch (e) { proceed = true; }
         return proceed;
+      },
+      // P1 (ревью, FIX 2): СОБСТВЕННЫЙ guard черновика мемов. Срабатывает
+      // ТОЛЬКО там, где правки действительно пропадут (смена области/чата и
+      // закрытие страницы), и говорит правду: сколько полей изменено, что
+      // именно произойдёт и как правки сохранить (реальная кнопка вкладки).
+      _memeDraftLeaveGuard: function (actionLabel) {
+        if (this.memeDraftDirty !== true) return true;
+        if (typeof window === 'undefined'
+            || typeof window.confirm !== 'function') return true;
+        var n = this.memeDraftDirtyCount || 0;
+        var scope = (typeof this.activeChatTitle === 'string'
+                     && this.activeChatTitle)
+          ? this.activeChatTitle
+          : (this.activeChatId != null ? ('чат ' + this.activeChatId)
+            : 'выбранная область');
+        var msg = 'В черновике мемов для «' + scope + '» есть несохранённые '
+          + 'правки' + (n > 0 ? (' (' + n + ')') : '') + '. '
+          + (actionLabel || 'Продолжить и потерять их?')
+          + ' Сохранить их можно кнопкой «Сохранить настройки мемов» '
+          + 'на вкладке «Мемы».';
+        try { return window.confirm(msg); } catch (e) { return true; }
+      },
+      // Закрытие/перезагрузка страницы — единственный случай, когда правки
+      // теряются безвозвратно (в памяти). Штатное сообщение браузера нельзя
+      // переписать, поэтому сам факт предупреждения — и есть честный сигнал.
+      _bindMemeDraftUnloadGuard: function () {
+        if (this._memeUnloadBound) return;
+        if (typeof window === 'undefined'
+            || typeof window.addEventListener !== 'function') return;
+        var self = this;
+        this._memeUnloadBound = true;
+        window.addEventListener('beforeunload', function (ev) {
+          if (self.memeDraftDirty !== true) return undefined;
+          if (ev) {
+            ev.preventDefault();
+            try { ev.returnValue = ''; } catch (e) { /* старый API */ }
+          }
+          return '';
+        });
       },
       setActiveChat: function (chatId) {
         var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
@@ -10639,6 +10680,16 @@
         // (юнит-тесты) считаются чистыми.
         if (typeof this._dirtyLeaveGuard === 'function'
             && !this._dirtyLeaveGuard('Переключить область и потерять их?')) {
+          return;
+        }
+        // P1 (ревью, FIX 2): черновик мемов проверяется СВОИМ guard-ом и
+        // только здесь — при смене области правки действительно теряются
+        // (черновик заменяется данными нового чата). Отказ = область не
+        // меняем, черновик цел.
+        if (typeof this._memeDraftLeaveGuard === 'function'
+            && !this._memeDraftLeaveGuard(
+              'Переключение чата заменит их данными другого чата.')) {
+          this.scopeOpen = false;
           return;
         }
         this.activeChatId = id;
@@ -12943,6 +12994,31 @@
         this.memeDraft[field] = '';
         this.memeFieldErrors = Object.assign({}, this.memeFieldErrors,
                                              { [field]: '' });
+      },
+      // Одна реализация на два computed: считает РАЗЛИЧАЮЩИЕСЯ поля черновика.
+      // Живёт в methods (а не в computed): её вызывают оба вычисляемых свойства.
+      _memeDraftChangedFields: function () {
+        var d = this.memeDraft || {};
+        var view = this.memeSettingsView;
+        if (!view) return 0;
+        var base = this.memeDraftFromSettings(this.memeSettings);
+        var same = function (a, b) {
+          return String(a == null ? '' : a) === String(b == null ? '' : b);
+        };
+        var keys = ['enabled', 'window_messages', 'daily_limit',
+                    'cooldown_seconds', 'min_messages', 'summarizer_model',
+                    'quiet_hours', 'length_limit', 'prompt_joke',
+                    'prompt_image'];
+        var changed = 0;
+        for (var i = 0; i < keys.length; i++) {
+          var key = keys[i];
+          if (key === 'enabled') {
+            if ((d.enabled === true) !== (base.enabled === true)) changed += 1;
+            continue;
+          }
+          if (!same(d[key], base[key])) changed += 1;
+        }
+        return changed;
       },
       // Черновик — из эффективных значений сервера (не из дефолтов): поля
       // показывают то, что реально действует в этом чате. Промпты прикола и

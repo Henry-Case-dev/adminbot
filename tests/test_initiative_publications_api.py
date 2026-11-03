@@ -264,6 +264,22 @@ def _build_journals(path: str) -> None:
          "decision", "window_closed", None),
         (NOW - 120, "info", "initiative_publication_conflict", "skipped", "T5",
          CHAT_A, "claim", "publication_conflict", None),
+        # ── U1–U4: коды, которых читатель не знал при написании ───────────
+        # Ни одно из этих событий не имеет права УДАЛИТЬ строку попытки.
+        (NOW - 1500, "info", "initiative_decided", "success", "U1", CHAT_A,
+         "decision", "", None),
+        (NOW - 1450, "info", "initiative_publication_yielded", "skipped", "U1",
+         CHAT_A, "claim", "publication_conflict", None),
+        (NOW - 1600, "info", "initiative_decided", "success", "U2", CHAT_A,
+         "decision", "", None),
+        (NOW - 1550, "info", "publication_hold", "deferred", "U2", CHAT_A,
+         "claim", "publication_conflict", None),
+        (NOW - 1700, "info", "initiative_decided", "success", "U3", CHAT_A,
+         "decision", "", None),
+        (NOW - 1650, "info", "publication_pending", "pending", "U3", CHAT_A,
+         "claim", "", None),
+        (NOW - 1750, "info", "delivery_unknown", "unknown", "U4", CHAT_A,
+         "send", "delivery_unknown", None),
     ]
     con.executemany(
         "INSERT INTO mca_events (ts, level, event_name, outcome, trace_id,"
@@ -393,6 +409,71 @@ def test_meme_delivered_after_deferral_reads_as_published(api):
     # реально был, поэтому он честно доступен в журнале.
     filtered = _rows(api, reason="publication_conflict")
     assert "meme:J4" in [r["attempt_id"] for r in filtered["rows"]]
+
+
+# ── Коды, неизвестные читателю, не удаляют строку и видны честно ──────────
+def test_unknown_publication_event_with_coordination_reason_is_deferred(api):
+    """U1: `initiative_publication_yielded` + skipped + publication_conflict.
+
+    Имя незнакомо, `outcome` незнаком — но причина координации: отправка
+    отложена, строка обязана остаться.
+    """
+    body = _rows(api)
+    row = _row(body, "text:U1")
+    assert row is not None, [r["attempt_id"] for r in body["rows"]]
+    assert row["outcome"] == "deferred", row
+    assert row["reason_code"] == "publication_conflict", row
+    assert row["delivered"] is None, row
+    filtered = _rows(api, reason="publication_conflict")
+    assert "text:U1" in [r["attempt_id"] for r in filtered["rows"]]
+
+
+def test_unknown_publication_event_with_deferred_outcome(api):
+    """U2: `publication_hold` + deferred — отложено, а не ошибка."""
+    row = _row(_rows(api), "text:U2")
+    assert row is not None
+    assert row["outcome"] == "deferred", row
+    assert row["delivered"] is None, row
+
+
+def test_unknown_publication_event_is_surfaced_as_other(api):
+    """U3: `publication_pending` + pending — строка есть, имя видно сырым."""
+    row = _row(_rows(api), "text:U3")
+    assert row is not None, "незнакомое событие удалило попытку из журнала"
+    assert row["outcome"] == "other", row
+    assert row["delivered"] is None, row
+    names = [e.get("name") for e in (row.get("other_events") or [])]
+    assert "publication_pending" in names, row
+    assert "publication_pending" in (row.get("reason_codes") or []), row
+    outcomes = [e.get("outcome") for e in (row.get("other_events") or [])]
+    assert "pending" in outcomes, row
+    # Фильтр по сырому имени тоже находит строку (код не потерян).
+    filtered = _rows(api, reason="publication_pending")
+    assert "text:U3" in [r["attempt_id"] for r in filtered["rows"]]
+
+
+def test_delivery_unknown_is_selected_and_filterable(api):
+    """U4: `delivery_unknown` — отдельный честный исход, а не «строки нет»."""
+    body = _rows(api)
+    row = _row(body, "text:U4")
+    assert row is not None, "delivery_unknown не попал в выборку"
+    assert row["outcome"] == "delivery_unknown", row
+    assert row["delivered"] is None, row
+    filtered = _rows(api, outcome="delivery_unknown")
+    assert "text:U4" in [r["attempt_id"] for r in filtered["rows"]]
+    detail = api.get(
+        "/api/initiative/publications/detail?attempt_id=text:U4",
+        headers=_hdr(ADMIN_ID, CHAT_A)).json()
+    assert "delivery_unknown" in [e["event_name"] for e in detail["events"]]
+
+
+def test_no_known_or_unknown_event_deletes_an_attempt(api):
+    """Инвариант: любое событие попытки оставляет её в журнале."""
+    body = _rows(api, days=7, limit=100)
+    ids = {r["attempt_id"] for r in body["rows"]}
+    for attempt in ("text:U1", "text:U2", "text:U3", "text:U4",
+                    "text:T4", "text:T5", "meme:J1"):
+        assert attempt in ids, (attempt, sorted(ids))
 
 
 def test_meme_detail_exposes_pipeline_event_chain(api):

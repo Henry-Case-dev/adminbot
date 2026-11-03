@@ -18,15 +18,18 @@
   цепочка событий»: выжимка → прикол → картинка → публикация);
 * ``mca_events`` — решения/отправки/ошибки текстовой инициативы
   (``initiative_decided``, ``initiative_recheck_passed``,
-  ``initiative_writer_unavailable`` и любые будущие ``publication_*``:
-  фильтр по префиксу, поэтому новые коды публикационной семантики видны
-  без правки этого файла);
+  ``initiative_writer_unavailable``, ``delivery_unknown`` и любые будущие
+  ``publication_*`` / ``initiative_publication_*``: фильтр по префиксу,
+  поэтому новые коды публикационной семантики видны без правки этого файла);
 * ``mca_bot_outputs`` — фактическая доставка (истина о том, что сообщение
   реально ушло: ``tg_message_id``, ``sent_at``, ``delivery_status``).
 
 Принципы (те же, что у соседней диагностики):
 * ``delivered`` = ``true|false|null``: ``null`` — «неизвестно», а не «нет»;
 * пустая стадия не превращается в строку: attempt без строк не рисуется;
+* **ни одно событие не удаляет попытку**: незнакомое публикационное имя
+  сохраняет строку и показывается как ``other`` с сырым именем и ``outcome``
+  (новый код P0 виден кодом, а не стирает запись);
 * наружу уходят коды/числа/ID; сырого текста чата в ответе нет — только
   факты этапов уже обрезаны ``compact_facts`` на стороне пайплайна;
 * ничего не бросает: нет БД/таблиц → ``available=false`` + причина.
@@ -76,6 +79,10 @@ TEXT_EVENT_NAMES = (
     # конфликты не попадали ни в список, ни в фильтр причины.
     "initiative_publication_conflict",
     "initiative_publication_claim",
+    # «Доставка не подтверждена и не опровергнута» — отдельный честный исход.
+    # Без этого имени строка не попадала даже в выборку: оно не подпадает ни
+    # под один префикс.
+    "delivery_unknown",
 )
 #: Префиксы публикационных событий (P0-семантика): читаем по префиксу, чтобы
 #: новые коды не требовали правки этого файла.
@@ -91,14 +98,23 @@ EVENT_FAILED = "failed"
 EVENT_DEFERRED = "deferred"
 EVENT_UNKNOWN = "unknown"
 EVENT_REQUESTED = "requested"
+EVENT_OTHER = "other"
 EVENT_INFO = "info"
-#: Терминальные виды: последний по времени побеждает решение.
+#: Терминальные виды: последний по времени побеждает решение. `other` тоже
+#: публикационное событие (пусть и незнакомое) — но он НЕ стирает строку и не
+#: выдаёт себя за известный исход: см. `_kind_outcome`.
 TERMINAL_EVENT_KINDS = (EVENT_SENT, EVENT_CANCELLED, EVENT_FAILED,
-                        EVENT_DEFERRED, EVENT_UNKNOWN)
+                        EVENT_DEFERRED, EVENT_UNKNOWN, EVENT_OTHER)
+
+#: Причины координации публикаций (P0): незнакомое ИМЯ события с такой
+#: причиной — это отложенная отправка, а не «неизвестно что».
+COORDINATION_REASONS = ("publication_conflict", "publication_in_flight",
+                        "publication_deferred_conflict")
 
 OUTCOME_PUBLISHED = "published"
 OUTCOME_DEFERRED = "deferred"
 OUTCOME_UNKNOWN = "delivery_unknown"
+OUTCOME_OTHER = "other"
 
 #: Имя события → вид. Незнакомое `publication_*`/`initiative_publication_*`
 #: классифицируется по `outcome` (см. `_publication_kind`), поэтому новые
@@ -158,11 +174,15 @@ def _is_publication_event(name: str) -> bool:
     return any(text.startswith(prefix) for prefix in PUBLICATION_PREFIXES)
 
 
-def _publication_kind(name: str, outcome: str) -> str:
+def _publication_kind(name: str, outcome: str, reason: str = "") -> str:
     """Вид публикационного события: имя важнее, `outcome` — уточнение.
 
-    Незнакомое имя (новый код P0) не теряется: `success` = отправлено,
-    `cancelled`/`failed`/`blocked` = терминальный отказ, иначе — информативное.
+    Незнакомое имя (новый код P0) НЕ теряется и НЕ стирает строку:
+    * известный `outcome` (`success`/`cancelled`/`deferred`/`unknown`…) —
+      берём его;
+    * незнакомый `outcome`, но причина координации — это отложенная отправка;
+    * иначе — `other`: строка остаётся, а сырое имя/`outcome` показываются
+      как есть (новый код виден кодом, а не исчезает из журнала).
     """
     text = _str(name)
     known = _PUBLICATION_NAME_KINDS.get(text)
@@ -177,13 +197,22 @@ def _publication_kind(name: str, outcome: str) -> str:
         return EVENT_DEFERRED
     if raw in ("unknown", "delivery_unknown"):
         return EVENT_UNKNOWN
-    if text.startswith("publication_") and text.endswith("_conflict"):
+    # Незнакомое ИМЯ при незнакомом outcome: честная попытка узнать
+    # координацию по причине (иначе — `other`, но строка сохраняется).
+    code = _str(reason)
+    if code in COORDINATION_REASONS or "conflict" in code:
         return EVENT_DEFERRED
-    return EVENT_INFO
+    if text.endswith("_conflict") or text.endswith("_deferred"):
+        return EVENT_DEFERRED
+    return EVENT_OTHER
 
 
 def _kind_outcome(kind: str, reason_code: str) -> tuple[str, str]:
-    """Вид события → (outcome строки, reason_code)."""
+    """Вид события → (outcome строки, reason_code).
+
+    Для `other` outcome НИКОГДА не пустой: строка с незнакомым событием
+    остаётся видимой (пустой outcome раньше выбрасывал попытку целиком).
+    """
     if kind == EVENT_SENT:
         return OUTCOME_PUBLISHED, _str(reason_code)
     if kind == EVENT_DEFERRED:
@@ -194,6 +223,8 @@ def _kind_outcome(kind: str, reason_code: str) -> tuple[str, str]:
         return "cancelled", _str(reason_code)
     if kind == EVENT_FAILED:
         return "failed", _str(reason_code)
+    if kind == EVENT_OTHER:
+        return OUTCOME_OTHER, _str(reason_code)
     return "", _str(reason_code)
 
 
@@ -448,7 +479,8 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
         is_decision = name == "initiative_decided"
         is_publication = (_is_publication_event(name)
                           or name in ("initiative_sent", "delivery_unknown"))
-        kind = _publication_kind(name, row.get("outcome")) if is_publication else ""
+        kind = (_publication_kind(name, row.get("outcome"), reason)
+                if is_publication else "")
         if not is_decision and not is_publication:
             # Писательские/перепроверочные события — только в трассу.
             acc = attempts.get(key)
@@ -475,6 +507,7 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
                 "limit_source": "",
                 "limit_value": None,
                 "reason_codes": [],
+                "other_events": [],
             }
             attempts[key] = acc
         acc["chain_len"] += 1
@@ -508,6 +541,15 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
             acc["delivered"] = False
         else:
             acc["delivered"] = None
+        if kind == EVENT_OTHER:
+            # Незнакомое событие: строка сохранена и честно подписана сырым
+            # именем/`outcome` — новый код P0 виден, а не стирает попытку.
+            others = acc.setdefault("other_events", [])
+            if len(others) < 5:
+                others.append({"name": name,
+                               "outcome": _str(row.get("outcome")),
+                               "reason": reason})
+            _sum_reason_codes(acc, name)
 
     # Доставки без события решения и без публикационного события — тоже
     # реальные публикации, не теряем.

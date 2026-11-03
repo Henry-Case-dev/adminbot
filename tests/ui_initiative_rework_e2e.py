@@ -384,6 +384,22 @@ def _pub_rows():
              ["publication_stale"],
          "window_messages": 300,
          "limit_source": "model_capability", "limit_value": 400},
+        # P1/FIX 1: незнакомое событие P0 — строка ЖИВА, имя показано сырым.
+        {"attempt_id": "text:U3", "kind": "text_initiative", "job_id": "U3",
+         "mode": "auto", "ts": NOW - 900, "stage": "claim",
+         "outcome": "other", "reason_code": "", "reason_label": "",
+         "delivered": None, "message_id": None, "chain_len": 2,
+         "reason_codes": ["publication_pending"],
+         "other_events": [{"name": "publication_pending",
+                           "outcome": "pending", "reason": ""}],
+         "window_messages": None, "limit_source": "", "limit_value": None},
+        # P1/FIX 1: «доставка неизвестна» — отдельный честный исход.
+        {"attempt_id": "text:U4", "kind": "text_initiative", "job_id": "U4",
+         "mode": "auto", "ts": NOW - 1000, "stage": "send",
+         "outcome": "delivery_unknown", "reason_code": "delivery_unknown",
+         "reason_label": "", "delivered": None, "message_id": None,
+         "chain_len": 1, "reason_codes": ["delivery_unknown"],
+         "window_messages": None, "limit_source": "", "limit_value": None},
         {"attempt_id": "meme:job-75", "kind": "meme", "job_id": "job-75",
          "mode": "manual", "ts": NOW - 1200, "stage": "publish",
          "outcome": "published", "reason_code": "sent",
@@ -1296,6 +1312,92 @@ def run_publications(browser, width, height, label, shots):
               "фильтр исхода «отложено» вернул %r" % only_deferred)
         page.select_option('[data-ini-filter="outcome"]', "all")
         page.wait_for_timeout(600)
+
+        # FIX 1 (ревью 2): незнакомое событие НЕ удаляет строку и показывается
+        # сырым именем; «доставка неизвестна» — отдельный исход и фильтруема.
+        page.select_option('[data-ini-filter="days"]', "0")
+        page.wait_for_timeout(800)
+        # Догружаем страницы штатной кнопкой, пока нужные строки не появились.
+        for _ in range(8):
+            present = page.evaluate(
+                "() => Array.from(document.querySelectorAll('[data-ini-pub-row]'))"
+                ".map((el) => el.getAttribute('data-ini-pub-row'))")
+            if "text:U3" in present and "text:U4" in present:
+                break
+            more = page.query_selector("[data-ini-pub-more]")
+            if not more:
+                break
+            more.click()
+            page.wait_for_timeout(600)
+        rows_all = page.evaluate(r"""
+        () => {
+          const out = {};
+          Array.from(document.querySelectorAll('[data-ini-pub-row]')).forEach((el) => {
+            const id = el.getAttribute('data-ini-pub-row');
+            out[id] = {
+              text: String(el.textContent || '').replace(/\s+/g, ' ').trim(),
+              outcome: (el.querySelector('[data-ini-pub-outcome]') || {})
+                .getAttribute ? el.querySelector('[data-ini-pub-outcome]')
+                  .getAttribute('data-ini-pub-outcome') : null,
+              badge: (el.querySelector('[data-ini-pub-outcome]') || {})
+                .className || '',
+              other: (el.querySelector('[data-ini-pub-other]') || {})
+                .textContent ? String(el.querySelector('[data-ini-pub-other]')
+                  .textContent).replace(/\s+/g, ' ').trim() : '',
+            };
+          });
+          return out;
+        }
+        """)
+        notes.append({label + "-other-row": rows_all.get("text:U3"),
+                      label + "-unknown-row": rows_all.get("text:U4")})
+        check("text:U3" in rows_all, label,
+              "незнакомое событие: строки попытки нет в журнале (%r)"
+              % list(rows_all)[:8])
+        if "text:U3" in rows_all:
+            u3 = rows_all["text:U3"]
+            check(u3["outcome"] == "other", label,
+                  "незнакомое событие не помечено как «other»: %r" % u3)
+            check("неклассифицированное событие" in u3["text"], label,
+                  "строка не названа честно: %r" % u3["text"][:140])
+            check("publication_pending" in u3["other"], label,
+                  "сырое имя события не показано: %r" % u3["other"])
+            check("pending" in u3["other"], label,
+                  "сырой outcome события не показан: %r" % u3["other"])
+            check("badge-warn" not in u3["badge"], label,
+                  "незнакомое событие подано как ошибка: %r" % u3["badge"])
+        check("text:U4" in rows_all, label,
+              "«доставка неизвестна» не появилась строкой")
+        if "text:U4" in rows_all:
+            check(rows_all["text:U4"]["outcome"] == "delivery_unknown", label,
+                  "исход delivery_unknown не передан: %r"
+                  % rows_all["text:U4"]["outcome"])
+            check("доставка неизвестна" in rows_all["text:U4"]["text"], label,
+                  "строка не подписана «доставка неизвестна»: %r"
+                  % rows_all["text:U4"]["text"][:140])
+        STATE["requests"] = []
+        page.select_option('[data-ini-filter="outcome"]', "delivery_unknown")
+        page.wait_for_timeout(700)
+        unknown_rows = page.evaluate(
+            "() => Array.from(document.querySelectorAll('[data-ini-pub-row]'))"
+            ".map((el) => el.getAttribute('data-ini-pub-row'))")
+        check(unknown_rows == ["text:U4"], label,
+              "фильтр исхода «доставка неизвестна» вернул %r" % unknown_rows)
+        page.select_option('[data-ini-filter="outcome"]', "all")
+        page.wait_for_timeout(500)
+        # Сырое имя события находится фильтром причины (код не потерян).
+        STATE["requests"] = []
+        page.fill('[data-ini-filter="reason"]', "publication_pending")
+        page.press('[data-ini-filter="reason"]', "Enter")
+        page.wait_for_timeout(800)
+        pending_rows = page.evaluate(
+            "() => Array.from(document.querySelectorAll('[data-ini-pub-row]'))"
+            ".map((el) => el.getAttribute('data-ini-pub-row'))")
+        check(pending_rows == ["text:U3"], label,
+              "фильтр причины по сырому имени вернул %r" % pending_rows)
+        page.fill('[data-ini-filter="reason"]', "")
+        page.press('[data-ini-filter="reason"]', "Enter")
+        page.wait_for_timeout(600)
         check(data["overflow"] <= 1, label,
               "горизонтальная прокрутка: %d px" % data["overflow"])
         shot(page, shots, "publications_%s" % label)
@@ -1459,8 +1561,16 @@ def run_chat_switch(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
     errs = []
     dialogs = []
+    STATE["dialog_accept"] = True
     page.on("pageerror", lambda e: errs.append("pageerror: " + str(e)[:200]))
-    page.on("dialog", lambda d: (dialogs.append(d.message), d.accept()))
+
+    def _on_dialog(d):
+        dialogs.append(d.message)
+        if STATE.get("dialog_accept"):
+            d.accept()
+        else:
+            d.dismiss()
+    page.on("dialog", _on_dialog)
     try:
         open_page(page, "memes")
         page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
@@ -1491,6 +1601,8 @@ def run_chat_switch(browser, width, height, label, shots):
         check(page.evaluate(
             "() => !!document.querySelector('[data-meme-dirty-hint]')"), label,
             "нет подсказки о судьбе несохранённых правок")
+        # FIX 2 (ревью 2): переключение вкладки НЕ спрашивает подтверждение —
+        # правки сохраняются, значит модалка «потерять их?» была бы ложью.
         open_tab(page, "overview")
         open_tab(page, "memes")
         page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
@@ -1499,6 +1611,9 @@ def run_chat_switch(browser, width, height, label, shots):
             "() => document.querySelector('textarea[data-meme-prompt-joke]').value")
         check(kept == "ЧЕРНОВИК 123", label,
               "правка промпта потерялась при переключении вкладок: %r" % kept)
+        check(not dialogs, label,
+              "переключение вкладок спрашивает подтверждение (%r) — правки при "
+              "этом НЕ теряются, модалка лжёт" % dialogs[:2])
         check(STATE["post_count"] == 0, label,
               "переключение вкладок отправило POST (несохранённое сохранили молча)")
 
@@ -1513,12 +1628,28 @@ def run_chat_switch(browser, width, height, label, shots):
         check(any("Чат B" in o for o in options), label,
               "в селекторе области нет чата B: %r" % options)
         STATE["requests"] = []
+        dialogs.clear()
         page.click(".scope-panel .scope-option:has-text('Чат B')")
         page.wait_for_timeout(1200)
 
-        # Dirty-guard обязан предупредить, а не стереть черновик молча.
-        check(bool(dialogs), label,
-              "при смене чата с несохранённым черновиком нет предупреждения")
+        # Ровно ОДНО подтверждение — и оно правдивое.
+        check(len(dialogs) == 1, label,
+              "при смене чата ожидалось ровно одно подтверждение, получено %r"
+              % dialogs[:3])
+        if dialogs:
+            msg = dialogs[0]
+            check("(1)" in msg, label,
+                  "в подтверждении нет числа изменённых полей: %r" % msg)
+            check("(0)" not in msg, label,
+                  "подтверждение показывает ложный «(0)»: %r" % msg)
+            check("Сохранить настройки мемов" in msg, label,
+                  "подтверждение не называет реальную кнопку сохранения: %r"
+                  % msg)
+            check("Чат A" in msg, label,
+                  "подтверждение не называет область правки: %r" % msg)
+            check("потерять" in msg.lower() or "заменит" in msg.lower(), label,
+                  "подтверждение не объясняет последствие: %r" % msg)
+        notes.append({label + "-chat-switch-dialog": dialogs[:1]})
 
         after = page.evaluate(r"""
         () => ({
@@ -1555,6 +1686,38 @@ def run_chat_switch(browser, width, height, label, shots):
               "смена чата что-то сохранила без явной команды")
         check(not errs, label, "ошибки консоли при смене чата: %r" % errs[:2])
         shot(page, shots, "chatswitch_%s" % label)
+
+        # Отказ в подтверждении НИЧЕГО не теряет: область остаётся чатом B,
+        # набранный в чате B текст — на месте, POST нет.
+        page.fill("textarea[data-meme-prompt-joke]", "ЧЕРНОВИК ЧАТА B")
+        page.wait_for_timeout(300)
+        dialogs.clear()
+        STATE["dialog_accept"] = False
+        page.click(".scope-trigger")
+        page.wait_for_selector(".scope-panel .scope-option", state="visible")
+        page.click(".scope-panel .scope-option:has-text('Чат A')")
+        page.wait_for_timeout(1200)
+        cancelled = page.evaluate(r"""
+        () => ({
+          value: document.querySelector('textarea[data-meme-prompt-joke]').value,
+          scope: ((document.querySelector('.scope-trigger .scope-name') || {})
+            .textContent || '').trim(),
+          dirty: !!document.querySelector('[data-meme-dirty]'),
+        })
+        """)
+        notes.append({label + "-chat-switch-cancel": {
+            "dialogs": dialogs[:1], "after": cancelled}})
+        check(len(dialogs) == 1, label,
+              "отказ от смены чата: ожидалось одно подтверждение, получено %r"
+              % dialogs[:2])
+        check("Чат B" in cancelled["scope"], label,
+              "после отказа область всё равно сменилась: %r" % cancelled["scope"])
+        check(cancelled["value"] == "ЧЕРНОВИК ЧАТА B", label,
+              "после отказа черновик потерян: %r" % cancelled["value"])
+        check(cancelled["dirty"], label,
+              "после отказа пропал индикатор несохранённых изменений")
+        check(STATE["post_count"] == 0, label,
+              "отказ от смены чата всё равно отправил POST")
     finally:
         ctx.close()
 

@@ -145,7 +145,7 @@
    "1536-pub": {
     "filters": 6,
     "rows": 2,
-    "counts": "всего 5 · текст 1 · мемы 4 · опубликовано 2"
+    "counts": "всего 7 · текст 3 · мемы 4 · опубликовано 2"
    }
   },
   {
@@ -158,6 +158,20 @@
      "publication_requested",
      "publication_deferred_conflict"
     ]
+   }
+  },
+  {
+   "1536-other-row": {
+    "text": "15.01.2027, 19:50:00Текстclaimбез причины · событие publication_pending · pending · в цепочке: publication_pendingнеклассифицированное событиенеизвестно",
+    "outcome": "other",
+    "badge": "badge shrink-0 badge-muted",
+    "other": "· событие publication_pending · pending"
+   },
+   "1536-unknown-row": {
+    "text": "15.01.2027, 19:48:20Текстsenddelivery_unknown delivery_unknownдоставка неизвестнанеизвестно",
+    "outcome": "delivery_unknown",
+    "badge": "badge shrink-0 badge-muted",
+    "other": ""
    }
   },
   {
@@ -199,10 +213,27 @@
    ]
   },
   {
+   "1280-chat-switch-dialog": [
+    "В черновике мемов для «Чат A» есть несохранённые правки (1). Переключение чата заменит их данными другого чата. Сохранить их можно кнопкой «Сохранить настройки мемов» на вкладке «Мемы»."
+   ]
+  },
+  {
    "1280-chat-switch-after": {
     "joke": "JOKE-B: прикол для чата B",
     "quota": "Генерации сегодня: 0 / 3",
     "scope": "Чат B"
+   }
+  },
+  {
+   "1280-chat-switch-cancel": {
+    "dialogs": [
+     "В черновике мемов для «Чат B» есть несохранённые правки (1). Переключение чата заменит их данными другого чата. Сохранить их можно кнопкой «Сохранить настройки мемов» на вкладке «Мемы»."
+    ],
+    "after": {
+     "value": "ЧЕРНОВИК ЧАТА B",
+     "scope": "Чат B",
+     "dirty": true
+    }
    }
   }
  ],

@@ -291,18 +291,24 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     memeSettings: settings, memeSettingsView: view,
     memeDraft: Object.assign({}, clean),
     memeDraftFromSettings: methods.memeDraftFromSettings,
+    _memeDraftChangedFields: methods._memeDraftChangedFields,
   };
   assert.strictEqual(computed.memeDraftDirty.call(ctx), false,
     'чистый черновик помечен как изменённый');
+  assert.strictEqual(computed.memeDraftDirtyCount.call(ctx), 0,
+    'у чистого черновика счётчик не 0');
   ctx.memeDraft = Object.assign({}, clean, { prompt_joke: 'ЧЕРНОВИК 123' });
   assert.strictEqual(computed.memeDraftDirty.call(ctx), true,
     'набранный текст не помечается как несохранённая правка');
+  // Правдивый счётчик: одно изменённое поле — «1», а не «0».
+  assert.strictEqual(computed.memeDraftDirtyCount.call(ctx), 1,
+    'счётчик изменённых полей неверен');
   ctx.memeDraft = Object.assign({}, clean, { prompt_joke: 'Серверный прикол',
                                              daily_limit: '5' });
-  assert.strictEqual(computed.memeDraftDirty.call(ctx), true,
+  assert.strictEqual(computed.memeDraftDirtyCount.call(ctx), 1,
     'изменение числового поля не считается правкой');
-  // dirty обязан попасть в общий guard ухода со страницы (иначе смена чата
-  // молча стирает черновик).
+  // FIX 2: маршрутный guard (переключение вкладки) НЕ поднимается черновиком
+  // мемов — иначе модалка лгала бы «потерять их?» на каждый клик по вкладке.
   const guardCtx = {
     stickyDirtyCount: 0, dirtyItems: [], dirtyKeyItems: [],
     saving: { size: 0 }, blockDrafts: {}, ownKeyDraft: '',
@@ -310,9 +316,48 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     dossierData: null, dossierDraft: '',
     memeDraftDirty: true,
   };
-  assert.strictEqual(methods.hasUnsavedEdits.call(guardCtx), true,
-    'dirty-черновик мемов не участвует в guard смены области');
-  guardCtx.memeDraftDirty = false;
+  assert.strictEqual(methods.hasUnsavedEdits.call(guardCtx), false,
+    'черновик мемов поднимает маршрутный guard (ложное подтверждение вкладки)');
+  // А собственный guard мемов спрашивает ИМЕННО там, где правки теряются,
+  // и говорит правду: число полей + реальное имя кнопки сохранения.
+  let asked = [];
+  const memoCtx = {
+    memeDraftDirty: true, memeDraftDirtyCount: 2,
+    activeChatTitle: 'Чат A',
+    window: undefined,
+  };
+  const realWindow = global.window;
+  global.window = { confirm: function (msg) { asked.push(msg); return false; } };
+  try {
+    assert.strictEqual(methods._memeDraftLeaveGuard.call(
+      memoCtx, 'Переключение чата заменит их данными другого чата.'), false,
+      'отказ в подтверждении не остановил смену области');
+    assert.strictEqual(asked.length, 1, 'guard спросил не один раз');
+    const msg = asked[0];
+    assert.ok(msg.indexOf('(2)') >= 0, 'в подтверждении нет числа правок: ' + msg);
+    assert.ok(msg.indexOf('(0)') < 0, 'в подтверждении ложный «(0)»: ' + msg);
+    assert.ok(msg.indexOf('Сохранить настройки мемов') >= 0,
+      'подтверждение не называет реальную кнопку: ' + msg);
+    assert.ok(msg.indexOf('Чат A') >= 0,
+      'подтверждение не называет область: ' + msg);
+    memoCtx.memeDraftDirty = false;
+    asked = [];
+    assert.strictEqual(methods._memeDraftLeaveGuard.call(memoCtx, 'x'), true,
+      'чистый черновик не должен спрашивать');
+    assert.strictEqual(asked.length, 0, 'чистый черновик всё равно спросил');
+  } finally {
+    global.window = realWindow;
+  }
+  // Смена области вызывает guard мемов, а не только общий.
+  const setChatSrc = APP_JS.slice(APP_JS.indexOf('setActiveChat: function'),
+                                  APP_JS.indexOf('setActiveChat: function')
+                                  + 3000);
+  assert.ok(setChatSrc.indexOf('_memeDraftLeaveGuard') >= 0,
+    'смена чата не проверяет черновик мемов собственным guard-ом');
+  // Закрытие страницы предупреждает (единственный случай безвозвратной потери).
+  assert.ok(APP_JS.indexOf('beforeunload') >= 0
+            && APP_JS.indexOf('_bindMemeDraftUnloadGuard') >= 0,
+    'нет предупреждения при закрытии/перезагрузке страницы');
   // Повторный вход на вкладку не перезаписывает изменённый черновик.
   const src = APP_JS.slice(APP_JS.indexOf('loadMemeSettings: async function'),
                            APP_JS.indexOf('loadMemeDiagnostics: async function'));
