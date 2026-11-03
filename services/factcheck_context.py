@@ -672,13 +672,17 @@ async def build_factcheck_context(db, chat_id: int, *,
     if db is not None and target_tg_message_id not in (None, "", 0):
         try:
             from services import hot_config as hot
-            from services.thread_chain import (collect_thread_chain,
+            from services.thread_chain import (alias_quote_author_resolver,
+                                               collect_thread_chain,
                                                render_reply_chains)
             depth = hot.get("limits.chat_thread_max_depth",
                             getattr(settings, "CHAT_THREAD_MAX_DEPTH", 6))
             chain = await collect_thread_chain(
                 db, int(chat_id), int(target_tg_message_id),
-                int(depth or 0))
+                int(depth or 0),
+                # EVOL v5 §8 п.4: автор цитаты — имя (каскад алиасов), а не
+                # голая адресная метка; неизвестен → честное «не определён».
+                quote_author_resolver=alias_quote_author_resolver())
             chain_block = render_reply_chains(
                 chain, trigger_message_id, projection=projection,
                 chat_id=int(chat_id))

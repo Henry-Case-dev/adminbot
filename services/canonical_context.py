@@ -611,10 +611,17 @@ class SpeechQuote:
         quote_text = str(self.text or "").strip()
         if not quote_text:
             return ""
+        name = str(self.author_name or "").strip()
         author = ""
         if projection is not None:
-            author = projection.person_label(self.author_uid, self.author_name)
-        elif str(self.author_name or "").strip():
+            # Метку регистрируем ВСЕГДА (обратная карта прогона обязана
+            # знать автора — §4.2 п.5), но озвучиваем только вместе с именем:
+            # голая `U3` не идентифицирует человека и адресные метки вслух
+            # не произносятся (§9.2, §13 сц.100/115). Имени нет → честное
+            # «автор цитаты не определён».
+            label = projection.person_label(self.author_uid, self.author_name)
+            author = label if name else ""
+        elif name:
             author = _squash(self.author_name)
         author = author or SPEECH_QUOTE_AUTHOR_UNKNOWN
         base = f"цитата (автор: {author}): «{quote_text}»"
