@@ -155,3 +155,63 @@ v2 при прямом вызове run_factcheck разрешает contextual 
 - Live/прод и реальный Telegram не проверялись: деплоя не было.
 - UI не проверялся: изменений интерфейса в диффе нет.
 - Лейны A/B/E/F не ревьюились: их нет в кандидате.
+
+## Re-review 2 (2026-11-04) - кандидат bfa26e60 (код 76fef794), ребейз на evol/impl 65bdeeee
+
+Вердикт этой итерации: **Approved** (блокеров нет; ниже - мои собственные наблюдения, не отчёт Builder).
+
+### B1 - закрыт (маршрут handler -> v2)
+
+Моя проба (свои значения: тезис 771001 "Irma" 1792000000; пустая реакция 771002 "Kim" 1792400000; триггер 771003; свой текст тезиса):
+- handler передаёт в v2 уже разрешённую публикацию: `target_source=contextual`, `target_tg=771001`;
+- трасса `route=orchestrator_v2`: `target_source=contextual`, `claim_origin=context_window`, `target_tg=771001`, `claim_anchor_tg=771001`, `delivery_reply_to=771003`, `contextual_target=true`;
+- `envelope_built=true`, `envelope.claim_text` = тезис, target = anchor = 771001, `original_published_at=1792000000`, `attribution.author=Irma`; в `check_claim_envelope` ушёл тот же объект;
+- legacy-путь не использован; артефактов `stored_reply` и пустого анкора нет.
+
+Контрольная проба того же маршрута на ЯВНОЙ текстовой цели (риск «переданная публикация ломает обычный ответ»): `target_source=explicit_reply`, `claim_origin=target_text`, delivery на саму цель, envelope по тезису, ложной contextual нет.
+
+### B2 - закрыт (тезис из thread_chain)
+
+Цепочка без окна: в окне только пустая реакция, тезис доступен лишь как `ChainItem(item_id="tg:771001", ts=1792000000, name="Irma")`.
+- публикация: текст = тезис, `target_source=contextual`, `target_tg=771001`, `claim_anchor_tg=771001`, `claim_anchor_author=Irma`, delivery=771003;
+- envelope: target=anchor=771001, `original_published_at=1792000000` (не 1792400000 реакции), `attribution.author=Irma`; объявленной contextual-цели без анкора нет.
+
+Граница правила: `item_id="msg:909090"` (локальный id строки БД) -> contextual не объявляется вовсе (трассы нет; `resolve_context_claim` -> `claim=None`). Локальный id реальным анкором не принимается, пустая цель с чужими датой/автором не создаётся.
+
+### Ребейз - чистый
+
+- `git log --oneline evol/impl..HEAD` = 8 коммитов, все принадлежат срезу (fix/test/docs factcheck), чужих нет;
+- `git diff evol/impl...HEAD --stat` = 20 файлов: `handlers/factcheck.py`, 7 сервисов factcheck/tool_router, 8 тестовых файлов, 2 отчёта и 1 evidence-трасса; ничего вне владения срезом;
+- ветка потомок базы: `bfa26e60` поверх `65bdeeee` (merge-base --is-ancestor = true);
+- правки базы в двух центральных файлах на месте: `render_reply_chains(chain, chat_id=chat_id)` (handlers/factcheck.py:456, база:422) и вызовы в `factcheck_suitability.py:826/849` не тронуты; тесты seam-волны (`test_evol_reply_context_integrity_seam.py`) в общем прогоне зелёные.
+
+### Мутации
+
+- M1 вес по длине/числу ответов в `_dominant_dispute` -> убита (2 теста).
+- M2 «ближайший по id важнее семантики» - первая моя форма мутации выжила, потому что была содержательно пустой: у кандидата без пересечения стеммов он вообще не попадает в семантический список. Честная форма (близость решает для ВСЕХ кандидатов) убита: 3 теста краснеют (`semantic_antecedent`, `two_comparable`, `handler_clarification`).
+- M3 contextual-подмена не объявлена (`target_source` убран) -> убита (`test_handler_declares_contextual_target_in_trace`).
+- M9 (откат B1: `publication=None` в v2) -> убита новым `test_handler_v2_handoff_keeps_declared_contextual_target`.
+- M10 (откат B2: `ContextClaim` цепочки без tg id) -> убита новым `test_contextual_claim_from_chain_keeps_its_own_date_and_author`.
+- Итог: 5 из 5 убиты; оба новых теста несущие, а не декоративные.
+
+### Прогоны
+
+- `tests/test_rc_target_media_evidence.py` - 31 passed (4.7 s); было 29 до фикса.
+- Набор из 34 файлов (контрактный модуль + прежние 25 factcheck/suitability/planner/orchestrator/renderer-сьюты + seam, evol_vision_sync_core/wave2, cfg07_guard_tail/07d5, native_reply_media_context_round1024, asap8_v63_b07, evol_fc_evidence_style/admission) - 788 passed, 3 failed, 4 errors (52.4 s).
+- Та же выборка на базе 65bdeeee (без контрактного модуля) - 756 passed, 3 failed, 4 errors (44.4 s). Разница +32 = 31 тест контрактного модуля + 1 добавленный в `test_factcheck_p0_fc.py`.
+- Классификация пред-существующего: в брифе названы «две» сетевые ошибки, по факту их ТРИ - `TestAggregatorFailureTaxonomy::{timeout_is_not_provider_unavailable, empty_results_distinguished, api_error_is_provider_error}`: фолбэк уходит в живой DuckDuckGo и не бросает исключение. На базе ровно те же 3. Четыре ERROR в `test_evol_fc_admission.py` в общем прогоне тоже воспроизводятся на базе (по отдельности файл зелёный: 22 passed на кандидате и на базе) - это порядковая утечка состояния, не регресс среза.
+- Целевые регресс-проверки (медиа-опциональность, матрица техстатусов, ES-6, deferred resume, envelope) - 12 passed.
+- Дерево после мутаций чистое (`git status --porcelain` пуст до правки этого отчёта).
+
+### Что осталось (не блокирует слияние среза)
+
+- N1 в силе: `evidence/trace-factcheck-target.txt` по-прежнему собран вручную - в строке provider_down `provider_attempts=0` при `provider_failures=2`, чего реальный прогон не даёт. Файл годен как иллюстрация, но должен быть перегенерирован прогоном до финальной приёмки.
+- N2-N5 прежние (fetch-сбой при уже привязанной ссылке даёт class ok; пустой author в claim_anchors; нет теста отказа от чужого фото; ES-6 держится на двух условиях).
+- Карта требований и gate review не трогались: связывание статусов - шаг PM, не Builder.
+- Live/прод, реальный Telegram и UI не проверялись (деплоя не было, в диффе нет web/).
+
+### Может ли срез сливаться
+
+Да. Блокеров нет, ребейз на текущий `evol/impl` чистый, оба дефекта закрыты и подтверждены независимыми пробами и мутациями. После слияния RC-пакет можно вести на приёмку 120 сценариев; вне этого среза остаются лейны A/B/E/F, live-прогон и перегенерация evidence-трассы.
+
+Замечание о состоянии артефакта: этот раздел дописан в рабочем дереве и требует коммита (docs-only), код кандидата не менялся.
