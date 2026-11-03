@@ -58,6 +58,12 @@ import logging
 import re
 
 from services import temporal_factcheck as tf
+from services.canonical_context import (
+    RELATION_SEMANTIC,
+    SpeechProjection,
+    SpeechRelation,
+    resolve_item_id,
+)
 from services.factcheck_context import (
     _WIDE_WINDOW_MAX,
     ConversationContext,
@@ -783,6 +789,60 @@ def find_context_claim(ctx: ConversationContext | None, *,
     return claim
 
 
+#: Основания `_infer_source_claim`, при которых связь установлена ПО ТЕМЕ,
+#: а не транспортным Reply. ``tiebreak`` сюда НЕ входит: там семантика нулевая
+#: и решает только близость по tg-id — называть это темой было бы выдумкой.
+_SEMANTIC_BASES = ("topic",)
+
+
+def _semantic_link(ctx, claim, basis):
+    """Установленная смысловая связь антецедента → (проекция, relations).
+
+    EVOL v5 §13 сц.7 / §9.5 п.2: «родитель отсутствует, но есть тематически
+    связанный контекст → связь помечается семантической, не изображается
+    настоящим Reply». Единственное место, где такая связь реально
+    устанавливается (`_infer_source_claim`, основание ``topic``): антецедент
+    выбран по пересечению стеммов, Reply у цели нет.
+
+    Возврат ``(None, None)`` — связи по теме нет (структурный Reply, ничья по
+    позиции, неоднозначность, пустое окружение): фид рендерится байт-в-байт
+    прежним путём.
+
+    Противоэлемент связи — сообщение, о котором спросили: цель проверки, если
+    она видна в окне, иначе триггер запроса. Нет ни того, ни другого — метка
+    не выдумывается, клауза честно говорит «реплика вне доступного окна».
+    """
+    if ctx is None or claim is None or basis not in _SEMANTIC_BASES:
+        return None, None
+    tg_id = claim.tg_message_id
+    if tg_id in (None, "", 0):
+        return None, None
+    visible = {m.dedup_key for m in ctx.messages}
+    link_ref = ""
+    for candidate in (ctx.target_tg_message_id, ctx.trigger_tg_message_id):
+        if candidate in (None, "", 0):
+            continue
+        ref = f"tg:{int(candidate)}"
+        if ref in visible:
+            link_ref = ref
+            break
+    projection = SpeechProjection(
+        run_id=f"factcheck:{ctx.chat_id}:{ctx.target_tg_message_id}")
+    # §4.3 п.3: метки выдаются в порядке ХРОНОЛОГИИ прогона — иначе ребро,
+    # напечатанное раньше своего противоэлемента, получило бы «метку не
+    # найдено» и связь выглядела бы неизвестной при известной.
+    try:
+        projection.reserve([
+            resolve_item_id(tg_message_id=m.tg_message_id,
+                            message_id=m.message_id)
+            for m in ctx.messages])
+    except Exception:                      # pragma: no cover — метки не рвут фид
+        pass
+    relation = SpeechRelation(kind=RELATION_SEMANTIC, target_item_id=link_ref,
+                              basis=basis)
+    return projection, {f"tg:{int(tg_id)}": (relation,)}
+
+
 async def resolve_context_claim(
         db, chat_id: int | None, *,
         target_tg_message_id=None,
@@ -814,9 +874,9 @@ async def resolve_context_claim(
         logger.warning("[factcheck_suitability] wide context failed | chat=%s",
                        chat_id, exc_info=True)
         return None
-    feed = ctx.render_feed() if ctx is not None else ""
     chain_claim = None
     chain_len = 0
+    chain_block = ""
     if reply_to_tg_id not in (None, "", 0):
         chain = []
         try:
@@ -849,10 +909,8 @@ async def resolve_context_claim(
                         author=item.name, tg_message_id=tg_id)
                     break
             if chain_claim is not None and chain:
-                block = render_reply_chains(
+                chain_block = render_reply_chains(
                     chain, trigger_tg_message_id, chat_id=int(chat_id))
-                if block:
-                    feed = f"{feed}\n\n{block}".strip()
         except Exception:
             logger.warning("[factcheck_suitability] reply chain failed | "
                            "chat=%s", chat_id, exc_info=True)
@@ -869,6 +927,16 @@ async def resolve_context_claim(
         claim = window_claim
     if claim is not None and not claim.basis:
         claim = dataclasses.replace(claim, basis=basis)
+    # §13 сц.7 / §9.5 п.2: связь установлена ПО ТЕМЕ (Reply у цели нет) —
+    # окно печатает её явной клаузой «↳ по теме … (не Reply)», чтобы модель
+    # не принимала смысловую связь за подтверждённый Telegram Reply.
+    feed = ""
+    if ctx is not None:
+        projection, relations = _semantic_link(ctx, claim, basis)
+        feed = ctx.render_feed(projection=projection,
+                               relations_by_item=relations)
+    if chain_block:
+        feed = f"{feed}\n\n{chain_block}".strip()
     ambiguous = bool(claim is None and basis == "ambiguous")
     return ContextProbe(
         feed=feed, claim=claim,
