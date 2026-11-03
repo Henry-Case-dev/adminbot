@@ -1110,3 +1110,173 @@ class TestSourcesApi:
                                        "runtime"}
         assert body["health"]["reachability"]["status"] in (
             "ok", "degraded", "blocked", "unchecked", "partial")
+
+
+# ── AC-INV-08: ранние выходы refresh не врут про версию/правила ─────────────
+class TestRefreshGatesReportRealBank:
+    """§1 п.8: «версия 0 / 0 правил» запрещены, пока банк цел.
+
+    Оба гейта (kill-switch и freshness-skip) достижимы на проде: первый — из
+    админки, второй — на каждом тике планировщика. Эндпоинт
+    ``/api/anticliche/refresh`` отдаёт ``int(result["version"] or 0)``, поэтому
+    проверяются именно эти поля ответа воркера.
+    """
+
+    @staticmethod
+    def _store_with_bank():
+        store = _StateStore()
+        store.cache_row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живой штамп"}],
+            "source": "wikipedia", "source_url": "u", "version": 9,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+            "updated_at": "2026-09-01T00:00:00+00:00", "last_status": "ok"}
+        return store
+
+    @pytest.mark.asyncio
+    async def test_disabled_kill_switch_reports_real_bank(self, monkeypatch):
+        from config.settings import Settings
+        monkeypatch.setattr(Settings, "DYNAMIC_ANTICLICHE_ENABLED", False)
+        store = self._store_with_bank()
+        wiki = _wiki_source()
+        calls = []
+
+        async def _transport(url, headers=None):
+            calls.append(url)          # pragma: no cover — при гейте не зовётся
+            return srcs.TransportResponse(status=200, text=_wiki_body("текст"))
+
+        worker = AntiClicheWorker(llm=None, pg=_FakePg(store), sources=(wiki,),
+                                  transport=_transport)
+        result = await worker.refresh(force=True)
+        assert result["status"] == "disabled"
+        assert calls == []                      # гейт действительно сработал
+        # наблюдаемый контракт эндпоинта refresh
+        assert int(result["version"] or 0) == 9
+        assert int(result["rules"] or 0) == 1
+        assert result["count"] == 0
+        # банк не тронут
+        assert store.cache_row["version"] == 9
+        assert store.cache_row["patterns"][0]["phrase"] == "живой штамп"
+
+    @pytest.mark.asyncio
+    async def test_fresh_skip_reports_real_rule_count(self, monkeypatch):
+        store = self._store_with_bank()
+        store.cache_row["fetched_at"] = ((NOW - datetime.timedelta(days=1))
+                                         .isoformat())
+        wiki = _wiki_source()
+        llm_calls = []
+
+        class _Llm:
+            async def generate_worker(self, *a, **kw):  # pragma: no cover
+                llm_calls.append(1)
+                return '{"patterns": []}'
+
+        calls = []
+
+        async def _transport(url, headers=None):
+            calls.append(url)          # pragma: no cover — при гейте не зовётся
+            return srcs.TransportResponse(status=200, text=_wiki_body("текст"))
+
+        worker = AntiClicheWorker(llm=_Llm(), pg=_FakePg(store),
+                                  sources=(wiki,), transport=_transport)
+        result = await worker.refresh(force=False)
+        assert result["status"] == "fresh"
+        assert calls == [] and llm_calls == []  # ни fetch, ни модели
+        assert int(result["version"] or 0) == 9
+        assert int(result["rules"] or 0) == 1
+        assert store.cache_row["version"] == 9
+
+
+# ── M071/§2.1/§4.4: событие проверки описывает источник и probe ─────────────
+@pytest.fixture
+def _event_buffer():
+    from services import mca_events
+    mca_events.reset_pending()
+    yield mca_events
+    mca_events.reset_pending()
+
+
+class TestCheckEventHistory:
+    """Историю чтения документов можно собрать из PG, не по одному статусу."""
+
+    @staticmethod
+    async def _stored(tmp_path, buffer, name="ac_events.db"):
+        from services.database import DatabaseService
+        db = DatabaseService(str(tmp_path / name))
+        await db.initialize()
+        assert await buffer.flush_events(db) >= 1
+        cur = await db.db.execute(
+            "SELECT event_name, outcome, component, stage, status, "
+            "operation_id, trace_id, entity_ids, source_ref_json, duration_ms, "
+            "attempt FROM mca_events ORDER BY id")
+        rows = [dict(row) for row in await cur.fetchall()]
+        await db.close()
+        return rows
+
+    @pytest.mark.asyncio
+    async def test_stored_event_identifies_source_and_probe(
+            self, tmp_path, _event_buffer):
+        source = _source("test-a")
+
+        async def _slow_transport(url, headers=None):
+            import asyncio
+            await asyncio.sleep(0.02)      # измеримая длительность probe
+            return srcs.TransportResponse(
+                status=200,
+                text="Длинный текст справочника о шаблонных оборотах речи.")
+
+        check = await srcs.check_source(source, transport=_slow_transport,
+                                        now=NOW, manual=True)
+        assert check["status"] == srcs.STATUS_AVAILABLE
+        assert check["duration_ms"] >= 10      # измерение, а не жёсткий 0
+        srcs.emit_check_event(check, trace_id="run-42")
+        rows = await self._stored(tmp_path, _event_buffer)
+        assert len(rows) == 1                  # одно событие на попытку
+        row = rows[0]
+        assert row["event_name"] == "anticliche_source_checked"
+        assert row["component"] == "anticliche"
+        assert row["stage"] == "source_check"
+        assert row["status"] == srcs.STATUS_AVAILABLE
+        assert row["outcome"] == "success"
+        assert row["operation_id"] == check["check_id"]
+        assert row["trace_id"] == "run-42"     # прогон, к которому относится
+        assert json.loads(row["entity_ids"]) == ["test-a"]
+        assert row["duration_ms"] >= 10
+        ref = json.loads(row["source_ref_json"])
+        assert ref["source_id"] == "test-a"
+        assert ref["transport"] == "http"
+        assert ref["http"] == 200
+        assert ref["changed"] is True
+        assert ref["unchanged"] is False
+        assert ref["docs_fetched"] == 1
+        assert ref["docs_parsed"] == 1
+        assert ref["bytes"] > 0
+        assert ref["manual"] is True
+        assert ref["error_code"] == ""
+
+    @pytest.mark.asyncio
+    async def test_stored_event_marks_unchanged_revision(
+            self, tmp_path, _event_buffer):
+        """Успешная проверка без нового содержимого различима в истории."""
+        text = "Достаточно длинный текст справочника о штампах."
+        wiki = _wiki_source()
+        state = {"source_id": wiki.source_id, "enabled": True,
+                 "last_status": srcs.STATUS_AVAILABLE, "revision": "rev-1",
+                 "checksum": srcs.checksum_text(text), "etag": "etag-1",
+                 "consecutive_failures": 0}
+        check = await srcs.check_source(
+            wiki, state=state, transport=_transport(
+                {wiki.url: _wiki_body(text)}), now=NOW)
+        assert check["status"] == srcs.STATUS_UNCHANGED
+        srcs.emit_check_event(check)
+        rows = await self._stored(tmp_path, _event_buffer)
+        row = rows[0]
+        assert row["outcome"] == "success"     # скип по свежести не «сбой»
+        assert row["trace_id"] in (None, "")   # прогон не выдуман
+        ref = json.loads(row["source_ref_json"])
+        assert ref["unchanged"] is True
+        assert ref["changed"] is False
+        assert ref["source_id"] == wiki.source_id
+        # какая именно ревизия подтверждена — в самой истории
+        assert ref["revision"] == check["revision"]
+        assert ref["revision"]
+

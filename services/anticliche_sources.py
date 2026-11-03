@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import random
+import time
 import uuid
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
@@ -994,13 +995,20 @@ def _base_check(source: Source, *, now: datetime.datetime) -> dict:
         "warnings": [],
         "text": "",
         "hidden": False,
+        # Длительность реальной попытки; ``None`` — ещё не измерена (не «0 мс»).
+        "duration_ms": None,
+        # Ручная проверка («Проверить доступ») отдельно от автоопроса.
+        "manual": False,
     }
 
 
 def _finish(check: dict, source: Source, state: dict | None, *,
-            now: datetime.datetime, rng: random.Random | None) -> dict:
+            now: datetime.datetime, rng: random.Random | None,
+            started: float | None = None) -> dict:
     """Дозаполнить проверку: next_attempt_at, счётчик сбоев, paused_reason."""
     previous = state or {}
+    if started is not None:
+        check["duration_ms"] = max(0, int((time.monotonic() - started) * 1000))
     failures = int(previous.get("consecutive_failures") or 0)
     status = str(check.get("status") or STATUS_UNCHECKED)
     if is_success(status):
@@ -1076,23 +1084,28 @@ async def check_source(source: Source, *, transport=None, pg=None,
     а не исключением (независимость источников, §3.3).
     """
     moment = now or _now()
+    started = time.monotonic()
     check = _base_check(source, now=moment)
+    check["manual"] = bool(manual)
     if source.is_bibliography or not source.auto_check:
         check["status"] = STATUS_DISABLED
         check["error_code"] = ("bibliography_only" if source.is_bibliography
                                else "auto_check_disabled")
         check["content_status"] = "not_applicable"
-        return _finish(check, source, state, now=moment, rng=rng)
+        return _finish(check, source, state, now=moment, rng=rng,
+                       started=started)
     enabled = state_enabled(source, state)
     if not enabled and not manual:
         check["status"] = STATUS_DISABLED
         check["error_code"] = "disabled"
         check["content_status"] = "not_applicable"
-        return _finish(check, source, state, now=moment, rng=rng)
+        return _finish(check, source, state, now=moment, rng=rng,
+                       started=started)
     try:
         if source.is_local:
             check = await _check_local(source, check, pg=pg)
-            return _finish(check, source, state, now=moment, rng=rng)
+            return _finish(check, source, state, now=moment, rng=rng,
+                           started=started)
         if source.kind == KIND_GITHUB:
             check = await _check_github(source, check, state=state,
                                         transport=transport, now=moment)
@@ -1110,7 +1123,7 @@ async def check_source(source: Source, *, transport=None, pg=None,
         check["error_code"] = "check_exception"
         check["error_detail"] = type(exc).__name__
         check["content_status"] = "not_checked"
-    return _finish(check, source, state, now=moment, rng=rng)
+    return _finish(check, source, state, now=moment, rng=rng, started=started)
 
 
 async def _check_wiki(source: Source, check: dict, *, state: dict | None,
@@ -1563,11 +1576,14 @@ async def check_sources(sources, *, transport=None, pg=None,
                         now: datetime.datetime | None = None,
                         manual: bool = False, max_parallel: int = 3,
                         rng: random.Random | None = None,
-                        record: bool = True) -> list[dict]:
+                        record: bool = True,
+                        trace_id: str | None = None) -> list[dict]:
     """Независимые проверки: сбой одного не мешает остальным (§3.3).
 
     Параллелизм ограничен (транспортная гигиена), но каждая проверка
     изолирована: исключение превращается в статус этого источника.
+    ``trace_id`` (run_id прогона) проезжает в событие проверки, чтобы историю
+    чтения документов можно было собрать по прогону (§1 п.7, §4.4).
     """
     moment = now or _now()
     known_states = states or {}
@@ -1582,7 +1598,7 @@ async def check_sources(sources, *, transport=None, pg=None,
                 manual=manual, rng=rng)
         if record and pg is not None:
             await record_check(pg, check, source=source, previous=state)
-        emit_check_event(check)
+        emit_check_event(check, trace_id=trace_id)
         return check
 
     tasks = [asyncio.create_task(_run(src)) for src in sources]
@@ -1603,11 +1619,17 @@ async def check_sources(sources, *, transport=None, pg=None,
     return out
 
 
-def emit_check_event(check: dict) -> None:
+def emit_check_event(check: dict, *, trace_id: str | None = None) -> None:
     """История проверки — существующий журнал событий (``mca_events``).
 
     Один терминальный outcome на одну реальную попытку: история пишется тем
     же механизмом, что и остальные mca-события (никакой второй логгер).
+
+    Событие обязано позволять ответить «какой источник, что он отдал, какая
+    ревизия, сколько заняло» без чтения ``anticliche_source_state`` (там
+    только последняя проверка): детали probe едут в ``source_ref_json``,
+    источник — в ``entity_id``/``entity_ids``, прогон — в ``trace_id``
+    (R17-safe: коды/числа/идентификаторы, без тел документов).
     """
     status = str(check.get("status") or "")
     if status in SUCCESS_STATUSES:
@@ -1624,6 +1646,23 @@ def emit_check_event(check: dict) -> None:
         STATUS_PARSE_ERROR: "parse_error",
         STATUS_UNCHECKED: "stage_skipped",
     }.get(status)
+    source_id = str(check.get("source_id") or "")
+    source_ref = {
+        "source_id": source_id,
+        "transport": str(check.get("transport") or ""),
+        "http": check.get("http_status"),
+        "revision": str(check.get("revision") or ""),
+        "changed": bool(check.get("changed")),
+        # Отдельный флаг: успешная проверка без нового содержимого (§3.2).
+        "unchanged": status == STATUS_UNCHANGED,
+        "content_status": str(check.get("content_status") or ""),
+        "docs_fetched": int(check.get("docs_fetched") or 0),
+        "docs_parsed": int(check.get("docs_parsed") or 0),
+        "bytes": int(check.get("bytes") or 0),
+        "chars": int(check.get("chars") or 0),
+        "error_code": str(check.get("error_code") or ""),
+        "manual": bool(check.get("manual")),
+    }
     fields = {
         "component": "anticliche",
         "stage": "source_check",
@@ -1631,7 +1670,12 @@ def emit_check_event(check: dict) -> None:
         "operation_id": str(check.get("check_id") or ""),
         "attempt": int(check.get("consecutive_failures") or 0) + 1,
         "reason_code": reason_code,
+        "entity_id": source_id or None,
+        "entity_ids": [source_id] if source_id else None,
+        "source_ref_json": source_ref,
     }
+    if trace_id:
+        fields["trace_id"] = str(trace_id)
     if check.get("duration_ms") is not None:
         fields["duration_ms"] = int(check["duration_ms"])
     try:
@@ -1640,15 +1684,12 @@ def emit_check_event(check: dict) -> None:
                        level=level, **fields)
     except Exception:      # fail-open: журнал не рвёт проверку
         pass
-    try:
-        from services.agentic_events import emit_agentic_event
-        emit_agentic_event(
-            "ANTI_CLICHE_SOURCE_CHECK", source=check.get("source_id"),
-            status=status, http=check.get("http_status"),
-            docs=check.get("docs_parsed"), failures=check.get(
-                "consecutive_failures"))
-    except Exception:      # fail-open
-        pass
+    # Второго канала нет: агентный ``ANTI_CLICHE_SOURCE_CHECK`` удалён, а не
+    # оставлен «тихим no-op». Его тип не зарегистрирован в закрытом
+    # `AGENTIC_EVENT_TYPES`, а поля (http/docs/failures) не входят в whitelist,
+    # поэтому вызов никогда ничего не эмитил. Полная история проверок — только
+    # `mca_events` (см. поля выше); новый agentic-тип = отдельное решение
+    # по enum, а не побочный эффект этого события.
 
 
 # ── хранилище последней проверки (PG) ──────────────────────────────────────

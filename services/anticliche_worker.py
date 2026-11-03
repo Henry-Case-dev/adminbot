@@ -544,7 +544,7 @@ class AntiClicheWorker:
         return due, paused
 
     async def check_one(self, source_id: str, *, manual: bool = True,
-                        pg=None) -> dict:
+                        pg=None, trace_id: str | None = None) -> dict:
         """Явная проверка ОДНОГО источника: без LLM и без публикации.
 
         «Проверить доступ» ≠ «Загрузить и проанализировать» (§3.3): этот путь
@@ -568,7 +568,7 @@ class AntiClicheWorker:
             state=previous, manual=manual)
         await sources_registry.record_check(
             target_pg, check, source=source, previous=previous)
-        sources_registry.emit_check_event(check)
+        sources_registry.emit_check_event(check, trace_id=trace_id)
         trace_step(
             logger, component="anticliche", step="source_check",
             status="ok" if sources_registry.is_success(check.get("status"))
@@ -597,31 +597,34 @@ class AntiClicheWorker:
         llm_error|parse_error|budget_skip|disabled|write_error|fresh``.
         """
         source_hint = source or self._source_id
-        if not anticliche_cache.enabled():
-            trace_step(logger, component="anticliche", step="gate",
-                       status="skip", reason="disabled",
-                       extra={"source": source_hint})
-            return {"status": "disabled", "count": 0, "version": 0,
-                    "source": source_hint}
         pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
-
-        # F7/ADR-1024-3 D2: freshness-skip (рестарт-устойчиво, без job store).
-        if not force:
-            data = await anticliche_cache.fetch_cache(pg)
-            if _is_fresh((data or {}).get("fetched_at")):
-                version = int((data or {}).get("version") or 0)
-                logger.info("[anticliche] skip: cache fresh | version=%s",
-                            version)
-                trace_step(logger, component="anticliche", step="gate",
-                           status="skip", reason="fresh",
-                           extra={"source": source_hint, "version": version})
-                return {"status": "fresh", "count": 0, "version": version,
-                        "source": source_hint}
-
-        # ── Stage A: SOURCE_FETCH — по источнику, независимо ────────────────
+        # AC-INV-08: действующий банк читается ДО гейтов — ранние выходы
+        # (kill-switch/freshness-skip) обязаны отдавать РЕАЛЬНЫЕ version/rules,
+        # а не ложные нули при целом опубликованном наборе (§1 п.8).
         stored = await anticliche_cache.fetch_cache(pg)
         current_version = int((stored or {}).get("version") or 0)
         current_rules = len(_normalize_stored((stored or {}).get("patterns")))
+        bank = {"source": source_hint, "version": current_version,
+                "rules": current_rules}
+
+        if not anticliche_cache.enabled():
+            trace_step(logger, component="anticliche", step="gate",
+                       status="skip", reason="disabled",
+                       extra={"source": source_hint,
+                              "version": current_version})
+            return {"status": "disabled", "count": 0, **bank}
+
+        # F7/ADR-1024-3 D2: freshness-skip (рестарт-устойчиво, без job store).
+        if not force and _is_fresh((stored or {}).get("fetched_at")):
+            logger.info("[anticliche] skip: cache fresh | version=%s",
+                        current_version)
+            trace_step(logger, component="anticliche", step="gate",
+                       status="skip", reason="fresh",
+                       extra={"source": source_hint,
+                              "version": current_version})
+            return {"status": "fresh", "count": 0, **bank}
+
+        # ── Stage A: SOURCE_FETCH — по источнику, независимо ────────────────
         states = await sources_registry.fetch_states(pg)
         due, paused = self._due_sources(states)
         checks: list[dict] = []
@@ -640,9 +643,7 @@ class AntiClicheWorker:
         problems = [c for c in checks
                     if sources_registry.is_problem(c.get("status"))]
         base = {
-            "source": source_hint,
-            "version": current_version,
-            "rules": current_rules,
+            **bank,
             "sources": counts,
             "checks": [_check_brief(c) for c in checks],
             "paused": paused,
