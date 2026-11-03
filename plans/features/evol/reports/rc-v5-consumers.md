@@ -190,3 +190,58 @@
 6. В рабочем дереве уже были изменены 42 файла
    `plans/features/evol/audit/evidence/*` (PNG/JSON скриншоты UI-волны) — не мои,
    не коммитил и не откатывал.
+
+## Rework 1 — четыре блокера независимого ревью (F1–F4)
+
+Ревью: `plans/features/evol/reports/rc-v5-consumers-review.md`. Каждое исправление —
+корневое, в самом слое-владельце, плюс тест, который без исправления краснеет.
+
+**F1 (P0). Автор цитаты — человек, а не голая метка.**
+- `services/thread_chain.py`: `alias_quote_author_resolver()` — резолвер
+  «user id → имя» тем же каскадом алиасов (`summary_aliases`), что у строк окна.
+- Проводка в проде: `services/direct_chat_service.py::_collect_thread_chain`,
+  `handlers/factcheck.py::_build_reply_chains`,
+  `services/factcheck_context.py::build_factcheck_context`,
+  `services/factcheck_suitability.py::resolve_context_claim`.
+- `services/canonical_context.py::SpeechQuote.render`: метку регистрируем всегда
+  (обратная карта цела), но озвучиваем только с именем; неизвестное имя →
+  «автор цитаты не определён», не `U3`.
+- Тот же корень у адресата: `services/direct_l1.py::build_l2_plan_block` получил
+  `name_of`; инициатива (`generate_initiative_reply`) передаёт имя из своего окна,
+  поэтому «смысловой адресат: Вася (U1)», а без имени — «участник».
+
+**F2 (P0). Медиа-свидетельство без служебного id.**
+`services/media_readiness.py::evidence_block(projection=…)`: картинка называется
+меткой прогона («изображение M4»), обратная карта — в проекции/трассе; провенанс
+ревизии остаётся в машинном слое. Проводка в Direct: `_insert_media_evidence` и
+`_refresh_turn_media_evidence`. Без проекции — прежний сырой вид байт-в-байт.
+
+**F3. Объявление вытеснения окна больше не исчезает.**
+`services/chat_context.py::format_chat_context`: распределение бюджета вынесено в
+чистую `_distribute(budget)`; место под пометку резервируется ДО распределения
+(второй проход), N в пометке — точное число реально вытесненных строк. Бюджет и
+кап не выросли.
+
+**F4. Манифест повтора egress-guard.**
+`DirectChatService._evidence_rewrite(..., speech=…)` пробрасывает проекцию в
+`_l2_write_answer`; оба вызывающих (Direct `_ev_rewrite`, инициативный
+`_init_rewrite`) передают проекцию прогона — манифест повтора объявляет `writer`
+и пары «метка → ID», а не `internal`.
+
+**Тесты** (`tests/test_evol_reply_context_consumers.py`, +14):
+проводка Direct/фактчека с резолвером, честное «не определён», адресат по имени
+(unit + инициатива), медиа-payload без `msg:`, три теста тесного бюджета с точным
+N, повтор egress-guard на прямом `handle()` и на инициативе, представление
+манифеста повтора. Один пин шва обновлён осознанно (§7.2):
+`test_chain_without_name_resolver_says_author_unknown`.
+
+**Прогоны:** профильные наборы 1048 passed; 5 падений — pre-existing на базе
+`47567a6d` (`test_initiative_coordination` — 3, `test_asap2_clar_contract` — 2),
+проверено отдельным worktree базы.
+
+**Вне слайса (в RC-чеклист, не сюда):**
+1. Маршрут suitability-гейта фактчека (`handlers/factcheck.py:325`,
+   `ctx.render_feed()` без проекции; гейт по умолчанию OFF) — пункт
+   фактчек-слайса; резолвер цитаты там уже проводён.
+2. Свободный текст Наблюдателя (`goal`/`rationale` инициативы) доезжает до
+   Writer'а дословно — чинится промптом машинной стадии (сц.60), волна промптов.

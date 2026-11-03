@@ -306,8 +306,132 @@ class TestDirectWindowSpeech:
         assert _context_line_dedup_key("без заголовка M1") == ""
 
 
-# ── FactCheck: широкий фид и цепочка — ОДИН прогон (§4.2 п.3, N1) ──────────
+# ── F1 ревью волны потребителей: автор цитаты — ЧЕЛОВЕК, не метка ──────────
 
+class _ChainDb:
+    """Минимальный источник строк reply-цепочки (без бот-ответов)."""
+
+    def __init__(self, messages):
+        self.messages = messages
+
+    async def get_smart_message_by_tg_id(self, chat_id, tg_message_id):
+        return self.messages.get(tg_message_id)
+
+    async def get_bot_reply(self, *args, **kwargs):        # pragma: no cover
+        return None
+
+    async def get_bot_reply_parent(self, *args, **kwargs):  # pragma: no cover
+        return None
+
+
+class TestQuoteAuthorIsAPerson:
+    """`цитата (автор: Имя (U3))`, а не `цитата (автор: U3)` (§5.4, §9.2).
+
+    Продовая проводка обязана передавать резолвер имени: у автора цитаты
+    может не быть хода в собранном окне, поэтому одной `UserResolutionMap`
+    для имени не хватает. Неизвестное имя объявляется честно.
+    """
+
+    AUTHOR_UID = 55
+
+    def _rows(self):
+        quoting = dict(_row(TG_CHILD, uid=20, name="Марина", text="разбор",
+                            ts=TS2, reply_to_db=TG_ROOT + 10_000))
+        quoting.update({"quote_text": "у мышц свои волокна",
+                        "quote_author_id": self.AUTHOR_UID,
+                        "quote_position": 0, "quote_is_manual": 1})
+        return {TG_CHILD: quoting,
+                TG_ROOT: _row(TG_ROOT, uid=10, name="Хан",
+                              text="исходный вопрос про волокна")}
+
+    def _svc(self, aliases_json):
+        from services.direct_chat_service import DirectChatService
+        from services.summary_aliases import AliasResolver
+        from tests.test_direct_chat import FakeDB, FakeLLM, FakeMemory
+        return DirectChatService(
+            FakeMemory(), FakeDB(self._rows()), FakeLLM(text="ответ"),
+            AliasResolver(aliases_json), bot_id=12345,
+            bot_username="test_bot", breaker=None, cache=None,
+            tool_router=None)
+
+    async def _thread_block(self, svc, projection):
+        chain = await svc._collect_thread_chain(
+            CHAT_ID, _message(message_id=TG_CHILD), depth=5)
+        return svc._render_thread(chain, {}, trigger_message_id=TG_CHILD,
+                                  truncate=False, projection=projection)
+
+    @pytest.mark.asyncio
+    async def test_production_wiring_names_the_quote_author(self, speech_on):
+        """Прод-вызов `_collect_thread_chain` → имя человека в речевой строке.
+
+        Убрать резолвер из проводки (`quote_author_resolver=`) — тест
+        краснеет: в блоке снова остаётся голая `U`-метка."""
+        svc = self._svc('{"55": "Пётр"}')
+        projection = SpeechProjection(run_id="f1")
+        block = await self._thread_block(svc, projection)
+        assert "у мышц свои волокна" in block, block
+        assert "(автор: Пётр (U" in block, block
+        # Голой адресной метки на месте автора нет.
+        assert not re.search(r"\(автор: U\d+\)", block), block
+        _assert_no_service_ids(block)
+        # Обратная карта автора живёт в проекции прогона (машинный слой).
+        assert str(self.AUTHOR_UID) in set(
+            projection.manifest()["participants"].values())
+
+    @pytest.mark.asyncio
+    async def test_unknown_author_is_declared_not_mislabelled(self, speech_on):
+        """Нет привязки имени → «автор цитаты не определён», а не `автор: U3`."""
+        svc = self._svc("{}")
+        block = await self._thread_block(svc, SpeechProjection(run_id="f1b"))
+        assert "автор цитаты не определён" in block, block
+        assert not re.search(r"\(автор: U\d+\)", block), block
+
+    @pytest.mark.asyncio
+    async def test_factcheck_reply_chains_use_the_same_resolver(
+            self, speech_on, monkeypatch):
+        """Второй продовый вызывающий (`handlers.factcheck`) — тоже с именем."""
+        import handlers.factcheck as fc
+        from services import summary_aliases as sa
+
+        async def _cp_g(chat_id, key, default=None):
+            return default
+
+        monkeypatch.setattr(fc, "_db", _ChainDb(self._rows()))
+        monkeypatch.setattr(fc, "_cp_g", _cp_g)
+        sa.set_turn_alias_resolver(sa.AliasResolver('{"55": "Пётр"}'))
+        try:
+            block = await fc._build_reply_chains(
+                CHAT_ID, TG_CHILD,
+                projection=SpeechProjection(run_id="f1c"))
+        finally:
+            sa.set_turn_alias_resolver(None)
+        assert "(автор: Пётр (U" in block, block
+        assert not re.search(r"\(автор: U\d+\)", block), block
+
+    def test_semantic_addressee_is_named_not_labelled(self, speech_on):
+        """Тот же корень F1: адресат называется как в окне — «Пётр (U2)»."""
+        projection = SpeechProjection(run_id="f1d")
+        plan = direct_l1.L1Plan(delivery="chat",
+                                target_user_id=self.AUTHOR_UID)
+        block = direct_l1.build_l2_plan_block(
+            plan, include_delivery=True, projection=projection,
+            name_of=lambda uid: ("Пётр"
+                                 if int(uid) == self.AUTHOR_UID else ""))
+        assert "смысловой адресат: Пётр (U" in block, block
+        assert not re.search(r"смысловой адресат: U\d+", block), block
+
+    def test_unknown_addressee_is_not_a_bare_label(self, speech_on):
+        """Имени нет → «участник», а не неозвучиваемая метка (§9.2)."""
+        projection = SpeechProjection(run_id="f1e")
+        plan = direct_l1.L1Plan(delivery="chat",
+                                target_user_id=self.AUTHOR_UID)
+        block = direct_l1.build_l2_plan_block(
+            plan, include_delivery=True, projection=projection)
+        assert "смысловой адресат: участник" in block, block
+        assert not re.search(r"смысловой адресат: U\d+", block), block
+
+
+# ── FactCheck: широкий фид и цепочка — ОДИН прогон (§4.2 п.3, N1) ──────────
 class TestFactcheckSharedProjection:
     def _ctx(self):
         messages = (
@@ -573,6 +697,205 @@ class TestInitiativeWriterWindow:
 
 class TestManifestObservability:
     @pytest.mark.asyncio
+    async def test_direct_egress_guard_repeat_carries_the_run_projection(
+            self, speech_on, monkeypatch):
+        """Продовый `handle()`: повтор egress-guard идёт с той же проекцией.
+
+        Ровно тот путь, который нашло ревью (`handle` → guard → повторный
+        Writer): оба вызова Writer'а получают ОДНУ проекцию прогона, поэтому
+        манифест повтора не может объявить `internal` при речевом payload.
+        """
+        from services import direct_chat_service as dcs
+        from services import evidence_policy as ep
+        from tests.test_asap7_direct_l1 import _drive, _FakeLLM, _plan_json
+
+        calls: list[dict] = []
+
+        async def _writer(self, chat_id, query, *, temperature=None,
+                          correlation_id=None, **kw):
+            calls.append({"speech": kw.get("speech")})
+            return ("Вышла версия 1.5 этого ядра.", "reply")
+
+        async def _preflight(self, chat_id, correlation_id, **kwargs):
+            return ep.EvidenceDecision(required=True,
+                                       evidence_class="externally_factual")
+
+        async def _lookup(self, *args, **kwargs):
+            return "Релиз вышел 1 октября"
+
+        svc, _react, bot, msg, user = _drive(
+            monkeypatch, "бот, какая версия вышла?",
+            llm=_FakeLLM(l1=_plan_json(response_act="answer"),
+                         l2="Вышла версия 1.5 этого ядра."))
+        monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", _writer)
+        monkeypatch.setattr(dcs.DirectChatService, "_evidence_preflight",
+                            _preflight)
+        monkeypatch.setattr(dcs.DirectChatService, "_evidence_lookup", _lookup)
+        await svc.handle(bot, msg, user)
+
+        # Guard реально сделал повтор (иначе проверять нечего).
+        assert len(calls) >= 2, calls
+        assert calls[-1]["speech"] is not None, calls
+        assert calls[-1]["speech"] is calls[0]["speech"], calls
+
+    @pytest.mark.asyncio
+    async def test_egress_guard_repeat_carries_the_run_projection(
+            self, speech_on, monkeypatch):
+        """F4 ревью: повтор egress-guard идёт по ТОЙ ЖЕ проекции прогона.
+
+        Продовый вызов: `generate_initiative_reply` → guard → `_init_rewrite`
+        → `_evidence_rewrite`. Если повтор перестаёт получать проекцию,
+        `_l2_write_answer` пишет в манифест `internal` при речевом payload
+        (§9.4, сц.70) — здесь видно сам факт проводки.
+        """
+        from services import direct_chat_service as dcs
+        from tests.test_evol_evidence_routing import (
+            _permissive_context, _plan, _Router)
+
+        calls: list[dict] = []
+
+        class _Mem:
+            @staticmethod
+            async def get_window_messages(chat_id):
+                return [{"id": 900, "tg_message_id": TG_ROOT,
+                         "chat_id": CHAT_ID, "user_id": 10,
+                         "author_name": "Вася",
+                         "text": "обсуждали релиз 1017", "timestamp": TS,
+                         "reply_to_id": None, "media_type": "text",
+                         "is_forward": 0, "forward_source": None}]
+
+        async def _persona(chat_id):
+            return "persona"
+
+        async def _writer(self, chat_id, query, *, temperature=None,
+                          correlation_id=None, **kw):
+            calls.append({"query": query, "speech": kw.get("speech")})
+            return ("Вышла версия 1.5 этого ядра.", "reply")
+
+        svc = object.__new__(dcs.DirectChatService)
+        svc.tool_router = _Router(outputs={
+            "execute_web_search": "Релиз 1017 вышел 1 октября"})
+        svc.llm = None
+        svc.db = None
+        svc.memory = _Mem()
+        svc._initiative_persona_block = _persona
+        monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", _writer)
+        monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+
+        plan = _plan(response_act="answer", external_claims=[
+            {"entity": "релиз 1017", "relation": "event",
+             "date": "1 октября"}])
+        await svc.generate_initiative_reply(
+            CHAT_ID, {"goal": "напомнить про релиз 1017"}, l1_plan=plan,
+            correlation_id="run-f4i")
+        # Guard действительно сделал повтор (иначе проверять нечего).
+        assert len(calls) >= 2, calls
+        first, repeat = calls[0], calls[-1]
+        assert repeat["speech"] is not None, calls
+        # Это проекция ИМЕННО этого прогона (та же, что у первого вызова).
+        assert repeat["speech"] is first["speech"], calls
+        assert repeat["speech"].run_id == "run-f4i"
+        # Проекция не пустая: окно инициативы в ней размечено метками.
+        assert repeat["speech"].manifest()["items"], calls
+
+    @pytest.mark.asyncio
+    async def test_initiative_addressee_is_named_from_the_window(
+            self, speech_on, monkeypatch):
+        """F1 (тот же корень): адресат в plan-блоке инициативы — по имени.
+
+        Продовый вызов: `generate_initiative_reply` собирает план через
+        `build_l2_plan_block(name_of=…)` из ТОГО ЖЕ окна — «Вася (U1)», а не
+        неозвучиваемая `U1` (§5.4 «Кто», §9.2).
+        """
+        from services import direct_chat_service as dcs
+        from tests.test_evol_evidence_routing import (
+            _permissive_context, _plan, _Router)
+
+        seen: list[dict] = []
+
+        class _Mem:
+            @staticmethod
+            async def get_window_messages(chat_id):
+                return [{"id": 900, "tg_message_id": TG_ROOT,
+                         "chat_id": CHAT_ID, "user_id": 10,
+                         "author_name": "Вася",
+                         "text": "обсуждали релиз 1017", "timestamp": TS,
+                         "reply_to_id": None, "media_type": "text",
+                         "is_forward": 0, "forward_source": None}]
+
+        async def _persona(chat_id):
+            return "persona"
+
+        async def _writer(self, chat_id, query, *, temperature=None,
+                          correlation_id=None, **kw):
+            seen.append({"plan_block": kw.get("plan_block")})
+            return ("Кстати, релиз уже вышел.", "reply")
+
+        svc = object.__new__(dcs.DirectChatService)
+        svc.tool_router = _Router(outputs={})
+        svc.llm = None
+        svc.db = None
+        svc.memory = _Mem()
+        svc._initiative_persona_block = _persona
+        monkeypatch.setattr(dcs.DirectChatService, "_l2_write_answer", _writer)
+        monkeypatch.setattr(dcs, "_evidence_context", _permissive_context)
+
+        plan = _plan(delivery="chat", target_user_id=10)
+        await svc.generate_initiative_reply(
+            CHAT_ID, {"goal": "обратиться к Васе"}, l1_plan=plan,
+            correlation_id="run-f1i")
+        assert seen, "инициативный Writer не вызывался"
+        block = str(seen[-1]["plan_block"] or "")
+        assert "смысловой адресат: Вася (U" in block, block
+        assert not re.search(r"смысловой адресат: U\d+", block), block
+
+    @pytest.mark.asyncio
+    async def test_egress_guard_repeat_reports_the_same_representation(
+            self, speech_on, monkeypatch):
+        """F4 ревью: повтор egress-guard пишет в манифест РЕАЛЬНОЕ представление.
+
+        Повтор идёт тем же Writer'ом и по тем же user-блокам (речевая
+        проекция), поэтому манифест обязан объявить `writer` и пары
+        «метка → ID», а не `internal` (§9.3 п.7/§9.4).
+        """
+        from services import direct_chat_service as dcs
+        from services import prompt_composer as pc
+
+        seen: dict = {}
+
+        def _fake_compose(**kwargs):
+            seen.update(kwargs)
+            return "СИСТЕМА", None
+
+        async def _fake_compose_async(**kwargs):
+            return _fake_compose(**kwargs)
+
+        async def _gates(chat_id):
+            return pc.gates_from_config()
+
+        monkeypatch.setattr(pc, "compose_speech_system", _fake_compose_async)
+        monkeypatch.setattr(pc, "composer_enabled_now", lambda gates: True)
+        monkeypatch.setattr(dcs, "_composer_resolve_gates", _gates)
+
+        svc = _service()
+        projection = SpeechProjection(run_id="f4")
+        projection.message_label(f"tg:{TG_ROOT}")
+        out = await svc._evidence_rewrite(
+            CHAT_ID, "бот, это правда?",
+            plan_block="", user_blocks=[f"<Global_Context>M1</Global_Context>"],
+            response_plan=None, character_block="", style_directives="",
+            numeric_contract=None, time_line="", evidence="",
+            lessons_block="", speech_block="", temperature=0.5,
+            correlation_id="corr-f4", hint="перепроверь утверждение",
+            speech=projection)
+        assert out == "ответ", out
+        assert seen.get("context_representation") == "writer", seen
+        assert seen.get("speech_projection", {}).get("items") == {
+            "M1": f"tg:{TG_ROOT}"}, seen
+        # Подсказка повтора доехала тем же user-каналом (второго Writer'а нет).
+        assert "перепроверь утверждение" in str(seen.get("user_parts"))
+
+    @pytest.mark.asyncio
     async def test_manifest_carries_representation_and_counts(self):
         projection = SpeechProjection(run_id="run-42")
         projection.message_label(f"tg:{TG_ROOT}")
@@ -602,6 +925,72 @@ class TestManifestObservability:
 
 # ── chat_context (узкое окно FactCheck/поиска) ─────────────────────────────
 
+class TestWindowTruncationNoticeIsReserved:
+    """F3 ревью волны потребителей: объявление вытеснения окна не исчезает.
+
+    Место под пометку резервируется ДО распределения бюджета, поэтому при
+    тесном бюджете она печатается с ТОЧНЫМ числом вытесненных строк, а не
+    заменяется строкой в логе (§5.4 п.153 / §8 п.5, сц.67/111).
+    """
+
+    ROWS = 12
+    BUDGET_FITS_ALL = 2000
+    BUDGET_TIGHT = 700          # ровно тот случай ревью: строки вытеснены
+    BUDGET_TIGHTER = 420
+
+    def _rows(self):
+        return [
+            _row(1500 + i, uid=10 + (i % 3), name=f"Участник{i % 3}",
+                 text=f"реплика номер {i} про волокна и прочие дела чата",
+                 ts=TS + i * 60)
+            for i in range(self.ROWS)
+        ]
+
+    @staticmethod
+    def _shown(block: str) -> int:
+        """Сколько строк окна реально показано (заголовок `[... | ...]:`)."""
+        return len([line for line in block.splitlines()
+                    if line.startswith("[") and "]:" in line])
+
+    def _notice_number(self, block: str) -> int | None:
+        found = re.findall(r"часть окна не показана \((\d+)\)", block)
+        return int(found[0]) if found else None
+
+    def test_tight_budget_still_announces_omission(self):
+        rows = self._rows()
+        full = chat_context.format_chat_context(
+            rows, max_chars=self.BUDGET_FITS_ALL)
+        assert self._shown(full) == self.ROWS
+        assert self._notice_number(full) is None
+
+        tight = chat_context.format_chat_context(
+            rows, max_chars=self.BUDGET_TIGHT)
+        shown = self._shown(tight)
+        assert shown < self.ROWS, tight          # обрезка реально была
+        # Пометка ЕСТЬ, и число в ней — точное число вытесненных строк.
+        assert self._notice_number(tight) == self.ROWS - shown, tight
+        assert len(tight) <= self.BUDGET_TIGHT
+
+    def test_tighter_budget_keeps_exact_number(self):
+        rows = self._rows()
+        block = chat_context.format_chat_context(
+            rows, max_chars=self.BUDGET_TIGHTER)
+        shown = self._shown(block)
+        assert 0 < shown < self.ROWS, block
+        assert self._notice_number(block) == self.ROWS - shown, block
+        assert len(block) <= self.BUDGET_TIGHTER
+
+    def test_notice_is_reserved_not_appended(self):
+        """Пометка входит в бюджет: блок НЕ превышает max_chars ни на строку."""
+        rows = self._rows()
+        for budget in (self.BUDGET_TIGHT, self.BUDGET_TIGHTER, 500, 350):
+            block = chat_context.format_chat_context(rows, max_chars=budget)
+            assert block, budget
+            assert len(block) <= budget, (budget, len(block))
+            if self._shown(block) < self.ROWS:
+                assert self._notice_number(block) is not None, (budget, block)
+
+
 class TestNarrowWindow:
     def test_narrow_window_speaks(self, speech_on):
         projection = SpeechProjection(run_id="narrow")
@@ -617,6 +1006,61 @@ class TestNarrowWindow:
         block = chat_context.format_chat_context([_row(TG_ROOT, text="x")])
         assert f"tg:{TG_ROOT}" in block
         assert "Вася" in block and "(U1)" not in block
+
+
+# ── F2 ревью волны потребителей: медиа-свидетельство без служебного id ─────
+
+class TestMediaEvidenceSpeaksInLabels:
+    """`<media_analysis>` не вносит `msg:<tg_id>` в payload (§9.2, сц.67).
+
+    Провенанс ревизии Vision — машинный слой: картинку называет метка
+    прогона, а пара «метка → реальный id» остаётся в проекции/трассе.
+    """
+
+    MEDIA_TG = 7004
+
+    def _readiness(self):
+        from services import media_readiness as mr
+        asset = mr.MediaAssetState(
+            asset_id="asset-7004-abcdef", tg_message_id=self.MEDIA_TG,
+            asset_kind="image", analysis_status=mr.ANALYSIS_READY,
+            analysis_revision=3,
+            ocr_blocks=({"text": "Курс доллара 92 рубля"},),
+            visual_description="скриншот таблицы с курсами")
+        return mr.MediaReadiness(
+            chat_id=CHAT_ID, target_message_id=self.MEDIA_TG,
+            source_message_ids=(self.MEDIA_TG,),
+            association_kind=mr.ASSOC_REPLY,
+            association_status=mr.ASSOC_RESOLVED,
+            asset_id="asset-7004-abcdef", analysis_status=mr.ANALYSIS_READY,
+            analysis_revision=3, ocr_blocks=asset.ocr_blocks,
+            visual_description=asset.visual_description,
+            assets=(asset,), media_dependent=True)
+
+    @pytest.mark.asyncio
+    async def test_media_evidence_adds_no_service_id_to_payload(self, speech_on):
+        """Сканируется ВЕСЬ собранный payload хода, не только сам блок."""
+        svc = _service_with_window([_row(TG_ROOT, text="смотри скрин")])
+        projection = SpeechProjection(run_id="f2")
+        blocks = await svc._build_user_content(
+            CHAT_ID, _message(), "Вася", target_user_id=10,
+            projection=projection)
+        # Порядок продовый (handle): окно → медиа-свидетельство.
+        blocks = svc._insert_media_evidence(
+            blocks, self._readiness(), projection=projection)
+        payload = "\n".join(str(b) for b in blocks if b)
+
+        assert "<media_analysis" in payload, payload
+        assert f"msg:{self.MEDIA_TG}" not in payload
+        _assert_no_service_ids(_without_alias_map(payload))
+        labels = re.findall(r"изображение (M\d+)", payload)
+        assert labels, payload
+        assert projection.raw_of(labels[0]) == f"tg:{self.MEDIA_TG}"
+
+    def test_media_block_without_projection_stays_raw(self):
+        """OFF/без проекции — прежний сырой вид байт-в-байт (откат §6.2)."""
+        block = self._readiness().evidence_block()
+        assert f"изображение msg:{self.MEDIA_TG}" in block
 
 
 # ── Direct: медиа-маркеры текущей реплики (P1, body-маркер) ────────────────
@@ -869,7 +1313,7 @@ class _DbAround:
         return [_row(TG_ROOT, text="тезис")]
 
 
-async def _fake_chain_rows(db, chat_id, tg_id, depth):
+async def _fake_chain_rows(db, chat_id, tg_id, depth, **_kwargs):
     return []
 
 

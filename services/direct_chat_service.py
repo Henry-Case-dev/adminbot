@@ -3432,7 +3432,8 @@ class DirectChatService:
             # (данные, не инструкции); без связанного медиа блок не создаётся.
             user_blocks = self._insert_media_evidence(
                 user_blocks, _media_readiness,
-                deferred_question=_deferred_question)
+                deferred_question=_deferred_question,
+                projection=_speech_projection)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -4200,7 +4201,8 @@ class DirectChatService:
             # заменяется), а не «не вижу изображение».
             user_blocks = await self._refresh_turn_media_evidence(
                 _media_readiness, user_blocks,
-                deferred_question=_deferred_question)
+                deferred_question=_deferred_question,
+                projection=_speech_projection)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
             # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
@@ -4999,7 +5001,10 @@ class DirectChatService:
                         max_tokens=(longform_max_tokens
                                     if response_plan is not None
                                     and response_plan.is_longform()
-                                    else None))
+                                    else None),
+                        # EVOL v5 §4.5: повтор идёт по тем же речевым блокам —
+                        # манифест объявляет ТО ЖЕ представление, что ушло.
+                        speech=_speech_projection)
 
                 _answer_guarded, _ev_egress = \
                     await _run_evidence_egress_guard(
@@ -6172,13 +6177,19 @@ class DirectChatService:
                                 numeric_contract, time_line: str,
                                 evidence: str, lessons_block: str,
                                 speech_block: str, temperature,
-                                correlation_id, hint: str, max_tokens=None
+                                correlation_id, hint: str, max_tokens=None,
+                                speech=None
                                 ) -> str | None:
         """Единственная повторная генерация egress-guard (§2.3).
 
         Тот же Writer (`_l2_write_answer`), тот же route — второго Writer'а
         нет; ``hint`` едет одним user-блоком в том же payload. Вызывается не
-        более одного раза и взаимоисключающе с freshness-ретраем."""
+        более одного раза и взаимоисключающе с freshness-ретраем.
+
+        ``speech`` (EVOL v5 §4.5/§9.4): ТА ЖЕ проекция прогона, что у первого
+        вызова — повтор идёт по тем же user-блокам, поэтому манифест обязан
+        записать то же представление контекста, что реально ушло (иначе
+        ``internal`` при речевом payload — ложь манифеста, сц.70)."""
         try:
             blocks = list(user_blocks or []) + [str(hint or "")]
             out = await self._l2_write_answer(
@@ -6191,7 +6202,7 @@ class DirectChatService:
                 plan_block=plan_block, user_blocks=blocks,
                 time_line=time_line, evidence=evidence,
                 lessons_block=lessons_block, speech_block=speech_block,
-                max_tokens=max_tokens)
+                max_tokens=max_tokens, speech=speech)
             if out is None:
                 return None
             text, _mode = out
@@ -9536,12 +9547,17 @@ class DirectChatService:
             return None
 
     def _insert_media_evidence(self, user_blocks, readiness,
-                               deferred_question: str = "") -> list:
+                               deferred_question: str = "",
+                               projection=None) -> list:
         """Вставить блок медиа-свидетельства в payload (до Current_Question).
 
         `deferred_question` — исходный вопрос отложенного запроса «сейчас
         скину»: без него ход ответил бы только на подпись поздно присланного
-        фото (review F1d)."""
+        фото (review F1d).
+
+        ``projection`` (EVOL v5 §4.2 п.2, сц.67): картинка называется меткой
+        прогона («изображение M4»), а не ``msg:<tg_id>`` — служебный id в
+        речевой payload не попадает; обратная карта остаётся в трассе."""
         blocks = list(user_blocks or [])
         question = str(deferred_question or "").strip()
         block = ""
@@ -9551,7 +9567,7 @@ class DirectChatService:
                      f"{question}\n</deferred_request>")
         if readiness is not None:
             try:
-                evidence = readiness.evidence_block()
+                evidence = readiness.evidence_block(projection=projection)
             except Exception:
                 logger.debug("[direct] evidence block build failed",
                              exc_info=True)
@@ -9568,10 +9584,13 @@ class DirectChatService:
         return blocks[:index] + [block] + blocks[index:]
 
     async def _refresh_turn_media_evidence(self, readiness, user_blocks,
-                                           deferred_question: str = "") -> list:
+                                           deferred_question: str = "",
+                                           projection=None) -> list:
         """Актуальная ревизия ПЕРЕД финальной сборкой payload (§4.4).
 
-        Ошибка/нет состояния → payload не меняется (паритет)."""
+        Ошибка/нет состояния → payload не меняется (паритет). ``projection``
+        — та же проекция прогона: перерисованный блок называет картинку
+        меткой, а не служебным ``msg:<id>`` (§4.2 п.2, сц.67)."""
         blocks = list(user_blocks or [])
         db = getattr(self, "db", None)
         if db is None or readiness is None:
@@ -9582,7 +9601,8 @@ class DirectChatService:
                 db, readiness, consumer="direct")
             if fresh is None:
                 return blocks
-            block = fresh.evidence_block(self.MEDIA_EVIDENCE_TAG)
+            block = fresh.evidence_block(self.MEDIA_EVIDENCE_TAG,
+                                         projection=projection)
             if not block:
                 return blocks
             replaced = False
@@ -9598,7 +9618,8 @@ class DirectChatService:
                     str(c).lstrip().startswith(f"<{self.MEDIA_EVIDENCE_TAG}")
                     for c in blocks):
                 blocks = self._insert_media_evidence(
-                    blocks, fresh, deferred_question=deferred_question)
+                    blocks, fresh, deferred_question=deferred_question,
+                    projection=projection)
             media_readiness.mark_consumer_received(fresh, consumer="direct")
             if fresh.ready and readiness.analysis_status != fresh.analysis_status:
                 logger.info("[direct] media revision applied before writer | "
@@ -11844,7 +11865,12 @@ class DirectChatService:
             row_speaker=self._row_speaker,
             bot_name_resolver=self._resolve_bot_name,
             bot_reply_getter=self.get_bot_reply,
-            bot_parent_getter=self._bot_reply_parent)
+            bot_parent_getter=self._bot_reply_parent,
+            # EVOL v5 §8 п.4: автор выделенной цитаты — ЧЕЛОВЕК, а не голая
+            # метка. Резолвер — тот же alias-каскад, что у строк окна, но по
+            # одному user id (у цитируемого может не быть хода в окне).
+            quote_author_resolver=thread_chain.alias_quote_author_resolver(
+                getattr(self, "aliases", None)))
 
     def _chain_line(self, item, suffix_map: dict[int, str],
                     trigger_message_id=None, projection=None) -> str:
@@ -12250,6 +12276,7 @@ class DirectChatService:
             alias_resolver=getattr(self, "aliases", None),
             projection=_init_speech)
         _init_labels: dict = {}
+        _init_names: dict = {}
         for _row in [r for r in (window or [])
                      if isinstance(r, dict)][-12:]:
             _item_id = _l1.item_id_of_row(_row)
@@ -12257,9 +12284,32 @@ class DirectChatService:
                       if _item_id else None)
             if _label:
                 _init_labels[_row.get("id")] = _label
+            try:
+                _uid = _row.get("user_id")
+                _uid = int(_uid) if _uid is not None else None
+            except (TypeError, ValueError):
+                _uid = None
+            if _uid is not None and _uid not in _init_names:
+                # EVOL v5 §5.4 «Кто»: имя адресата — из того же окна и тем же
+                # alias-каскадом, что у строк (адресная метка одна человека
+                # не называет, §9.2).
+                _name = str(_row.get("author_name") or "").strip()
+                if getattr(self, "aliases", None) is not None:
+                    try:
+                        _name = str(self.aliases.resolve(
+                            _uid, _name or None, None))
+                    except Exception:
+                        pass
+                _init_names[_uid] = _name
 
         def _init_label_of(db_id):
             return _init_labels.get(db_id, "")
+
+        def _init_name_of(user_id):
+            try:
+                return _init_names.get(int(user_id), "")
+            except (TypeError, ValueError):
+                return ""
         user_blocks = [context_block]
         if window_block:
             user_blocks.append("<Fresh_Chat_Window>\n" +
@@ -12302,7 +12352,8 @@ class DirectChatService:
                 social_hint=_init_hint,
                 # EVOL v5: форма доставки адресуется метками окна.
                 projection=_init_speech,
-                label_of=_init_label_of) \
+                label_of=_init_label_of,
+                name_of=_init_name_of) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             # ── ASAP-EVIDENCE-ROUTING-01 v3 (§2.1, сценарий 29): инициатива
@@ -12437,7 +12488,10 @@ class DirectChatService:
                         lessons_block="", speech_block="",
                         temperature=temperature,
                         correlation_id=correlation_id, hint=hint,
-                        max_tokens=700)
+                        max_tokens=700,
+                        # EVOL v5 §4.5: та же проекция — манифест повтора
+                        # объявляет реальное представление контекста.
+                        speech=_init_speech)
 
                 _init_guarded, _init_egress = \
                     await _run_evidence_egress_guard(

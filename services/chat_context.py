@@ -238,63 +238,86 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             return 0
         return len("\n".join(rendered[i][0] for i in indices))
 
-    selected: list[int] = []
-    # 1) Якорь — высший приоритет (сохраняем, если влезает хотя бы один).
-    if anchor_idx is not None and len(rendered[anchor_idx][0]) <= content_budget:
-        selected.append(anchor_idx)
+    def _distribute(budget: int) -> tuple[list[int], str]:
+        """Набрать окно/цепочку в ``budget`` (= ``content_budget`` без резерва).
 
-    def _reserve_chain() -> tuple[str, int]:
-        if not (reply_chains and selected):
-            return "", 0
-        remaining = content_budget - _join_len(selected) - 1
-        if remaining <= 0:
-            return "", 0
-        out = _truncate_reply_chains(
-            reply_chains, min(_REPLY_CHAINS_MAX_CHARS, remaining))
-        return out, ((1 + len(out)) if out else 0)
+        Порядок прежний (R1023F2-10): якорь → свежие ``after`` → цепочка →
+        ближние к якорю ``before``; первыми вытесняются самые старые ``before``.
+        Функция ЧИСТАЯ относительно проекции (метки выдаются рендером строк
+        выше, здесь только длины), поэтому допускается второй проход с
+        бюджетом, уменьшенным на пометку неполноты."""
+        picked: list[int] = []
+        # 1) Якорь — высший приоритет (сохраняем, если влезает хотя бы один).
+        if anchor_idx is not None and len(rendered[anchor_idx][0]) <= budget:
+            picked.append(anchor_idx)
 
-    # 2) При наличии якоря цепочка резервируется СРАЗУ (R1023F2-10: сохраняем
-    #    якорь/цепочку/свежие after; старые before вытесняются первыми).
-    chain_out, chain_tail = _reserve_chain()
-    # 3) `after` — от свежайшего к якорю (keep-end): старые after вытесняются.
-    after_indices = (range(n - 1, anchor_idx, -1) if anchor_idx is not None
-                     else range(n - 1, -1, -1))
-    for i in after_indices:
-        if _join_len(selected + [i]) + chain_tail <= content_budget:
-            selected.append(i)
+        def _reserve_chain() -> tuple[str, int]:
+            if not (reply_chains and picked):
+                return "", 0
+            remaining = budget - _join_len(picked) - 1
+            if remaining <= 0:
+                return "", 0
+            out = _truncate_reply_chains(
+                reply_chains, min(_REPLY_CHAINS_MAX_CHARS, remaining))
+            return out, ((1 + len(out)) if out else 0)
+
+        # 2) При наличии якоря цепочка резервируется СРАЗУ (R1023F2-10:
+        #    сохраняем якорь/цепочку/свежие after; старые before вытесняются).
+        out_chain, tail = _reserve_chain()
+        # 3) `after` — от свежайшего к якорю (keep-end).
+        after_indices = (range(n - 1, anchor_idx, -1) if anchor_idx is not None
+                         else range(n - 1, -1, -1))
+        for i in after_indices:
+            if _join_len(picked + [i]) + tail <= budget:
+                picked.append(i)
+            else:
+                break
+        # Без якоря (fallback-окно) цепочка резервируется после набора окна.
+        if not out_chain and anchor_idx is None:
+            out_chain, tail = _reserve_chain()
+        # 4) `before` — от ближнего к якорю: первыми вытесняются самые старые.
+        before_indices = (range(anchor_idx - 1, -1, -1)
+                          if anchor_idx is not None else range(0))
+        for i in before_indices:
+            candidate_len = _join_len(sorted(picked + [i])) + tail
+            if candidate_len <= budget:
+                picked.append(i)
+            else:
+                break
+        return picked, out_chain
+
+    # §5.4 (CONTEXT-FIDELITY-01 п.153) / §8 п.5: вытеснение строк окна
+    # бюджетом не должно быть МОЛЧАЛИВЫМ — и объявление не должно исчезать
+    # именно тогда, когда места мало (иначе неполнота снова молчит, только
+    # уже по другой причине). Поэтому место под пометку РЕЗЕРВИРУЕТСЯ ДО
+    # распределения бюджета: первый проход выясняет, была ли обрезка, второй
+    # набирает окно в уменьшенном бюджете, а N в пометке — точное число
+    # реально вытесненных строк. Верхняя граница длины пометки (N ≤ n-1)
+    # даёт одним проходом гарантию, что она влезет.
+    selected, chain_out = _distribute(content_budget)
+    omitted = n - len(selected)
+    note = ""
+    if omitted > 0:
+        reserve = len(_window_omitted_note(n - 1)) + 1     # + "\n" перед окном
+        if reserve < content_budget:
+            selected, chain_out = _distribute(content_budget - reserve)
+            if not selected:
+                return ""
+            omitted = n - len(selected)
+            note = _window_omitted_note(omitted) if omitted > 0 else ""
         else:
-            break
-    # Без якоря (fallback-окно) цепочка резервируется после набора окна.
-    if not chain_out and anchor_idx is None:
-        chain_out, chain_tail = _reserve_chain()
-    # 4) `before` — от ближнего к якорю: первыми вытесняются самые старые.
-    before_indices = (range(anchor_idx - 1, -1, -1)
-                      if anchor_idx is not None else range(0))
-    for i in before_indices:
-        candidate_len = _join_len(sorted(selected + [i])) + chain_tail
-        if candidate_len <= content_budget:
-            selected.append(i)
-        else:
-            break
+            # Бюджет меньше самой пометки: объявлять нечем — фиксируем факт
+            # в логе (единственный возможный случай молчания).
+            logger.warning(
+                "[chat_context] окно усечено без пометки — бюджет меньше "
+                "пометки | omitted=%d | budget=%d", omitted, max_chars)
     if not selected:
         return ""
     body = "\n".join(rendered[i][0] for i in sorted(selected))
     if chain_out:
         body = body + "\n" + chain_out
-    # §5.4 (CONTEXT-FIDELITY-01 п.153): вытеснение строк окна бюджетом не
-    # должно быть МОЛЧАЛИВЫМ. Раунд 10.23 уже сохраняет якорь/свежие строки,
-    # но факт неполноты раньше не объявлялся — читаем реальное число
-    # вытесненных строк и пишем его той же короткой пометкой, что у цепочки.
-    omitted = n - len(selected)
-    if omitted > 0:
-        note = _window_omitted_note(omitted)
-        candidate = f"{note}\n{body}"
-        if len(candidate) + len(wrapper[0]) + len(wrapper[1]) <= max_chars:
-            body = candidate
-        else:
-            logger.warning(
-                "[chat_context] окно усечено без пометки — бюджет исчерпан | "
-                "omitted=%d | budget=%d", omitted, max_chars)
+    if note:
+        body = f"{note}\n{body}"
     return wrapper[0] + body + wrapper[1]
 
 

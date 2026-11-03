@@ -1912,7 +1912,8 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         modes_on: bool = True,
                         social_hint: str = "",
                         projection=None,
-                        label_of=None) -> str:
+                        label_of=None,
+                        name_of=None) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -2011,8 +2012,19 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                                  f"ответом именно на это сообщение")
             elif target_user:
                 if speech:
+                    # §5.4 «Кто»: адресат называется ТАК ЖЕ, как в окне —
+                    # «Имя (U2)», а не голая метка. ``name_of`` — резолвер
+                    # отображаемого имени из того же окна; имени нет →
+                    # честное «участник», не номер (§9.2).
+                    person = ""
                     try:
-                        person = projection.person_label(target_user, "")
+                        if name_of is not None:
+                            person = str(name_of(target_user) or "").strip()
+                        if person:
+                            person = projection.person_label(
+                                target_user, person)
+                        else:
+                            projection.person_label(target_user, "")
                     except Exception:      # pragma: no cover
                         person = ""
                     lines.append(

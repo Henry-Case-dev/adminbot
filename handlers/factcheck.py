@@ -431,6 +431,7 @@ async def _build_reply_chains(chat_id: int, target_tg_message_id,
     if _db is None or target_tg_message_id in (None, "", 0):
         return ""
     from services.thread_chain import (          # локальный импорт — без циклов
+        alias_quote_author_resolver,
         collect_thread_chain,
         render_reply_chains,
     )
@@ -440,7 +441,10 @@ async def _build_reply_chains(chat_id: int, target_tg_message_id,
             hot.get("limits.chat_thread_max_depth",
                     settings.CHAT_THREAD_MAX_DEPTH))
         chain = await collect_thread_chain(
-            _db, chat_id, int(target_tg_message_id), int(depth or 0))
+            _db, chat_id, int(target_tg_message_id), int(depth or 0),
+            # EVOL v5 §8 п.4: автор цитаты — имя человека через тот же
+            # alias-каскад (живой резолвер хода), а не голая `U`-метка.
+            quote_author_resolver=alias_quote_author_resolver())
         return render_reply_chains(chain, projection=projection,
                                    chat_id=chat_id)
     except Exception:
