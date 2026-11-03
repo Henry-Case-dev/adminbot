@@ -41,6 +41,7 @@ import logging
 import random
 import re
 
+from services.canonical_context import emit_speech_projection_event
 from services.smartmodule_utils import (
     _reply,
     react_moai,
@@ -844,6 +845,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                           or publication.media_group_id
                           or publication.media_dependency() != "none")
     contextual = False
+    ctx_claim = None
+    ctx_basis = ""
     if not textual_target and not media_material and ctx is not None:
         try:
             found, basis, _candidates = fsg._infer_source_claim(
@@ -855,6 +858,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                            exc_info=True)
             found, basis = None, "none"
         if found is not None:
+            ctx_claim, ctx_basis = found, basis
             claim_text = str(found.text or "").strip()
             target_resolved = bool(claim_text)
             contextual = bool(claim_text)
@@ -921,7 +925,23 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         envelope=envelope, route="orchestrator_v2",
         extra={"contextual_target": contextual_target})
 
-    feed = ctx.render_feed() if ctx is not None else ""
+    feed = ""
+    if ctx is not None:
+        # §13 сц.7 / §9.5 п.2: тезис найден ПО ТЕМЕ (Reply у цели нет) —
+        # окно помечает связь «↳ по теме … (не Reply)», а не выдаёт её за
+        # подтверждённый Telegram Reply. Иначе — прежний сырой фид.
+        projection, relations = fsg._semantic_link(ctx, ctx_claim, ctx_basis)
+        feed = ctx.render_feed(projection=projection,
+                               relations_by_item=relations)
+        # §9.4 / §13 сц.109: метки этого фида обязаны иметь обратную карту в
+        # защищённой трассе — как на остальных маршрутах
+        # (`handlers/factcheck.py:428`, `factcheck_context.render_feed`-путь).
+        # Без события «метка → реальный ID» ответ модели не проверяем.
+        if projection is not None:
+            emit_speech_projection_event(
+                projection, chat_id=req.chat_id,
+                message_id=req.target_tg_message_id,
+                run_id=getattr(projection, "run_id", None))
     media_context = publication.material_context()
     if media_context:
         feed = f"{feed}\n\n{media_context}".strip()

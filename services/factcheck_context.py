@@ -37,7 +37,9 @@ import re
 
 from config.settings import settings
 from services.canonical_context import (
+    RELATION_SEMANTIC,
     SpeechProjection,
+    SpeechRelation,
     emit_speech_projection_event,
     format_context_item,
     format_speech_item,
@@ -201,7 +203,7 @@ class ConversationContext:
 
     def render_feed(self, *, digest_budget: int = _DIGEST_BUDGET_CHARS,
                     verbatim_budget: int = _VERBATIM_BUDGET_CHARS,
-                    projection=None) -> str:
+                    projection=None, relations_by_item=None) -> str:
         """Двухуровневый фид (06I.3): компакт-хронология окна + дословные
         существенные фрагменты. Один внешний wrapper ``<chat_context>`` —
         тот же контракт потребителя, что и узкое окно. Пусто → ''
@@ -210,13 +212,21 @@ class ConversationContext:
         ``projection`` (EVOL v5 §4.2 п.2): общий прогон фактчека — окно и
         ``<reply_chains>`` адресуются ОДНИМИ метками (N1 ревью шва: раньше
         окно было сырым, а цепочка уже метками). ``None``/рубильник OFF →
-        прежний сырой фид байт-в-байт."""
+        прежний сырой фид байт-в-байт.
+
+        ``relations_by_item`` (EVOL v5 §9.5 п.2, §13 сц.7): установленная НЕ
+        по Reply связь сообщения окна — ``{dedup_key: (SpeechRelation, …)}``.
+        Печатается внутри речевой строки явной клаузой («↳ по теме … (не
+        Reply)»), поэтому смысловая связь не изображается подтверждённым
+        Reply. Без проекции/рубильник OFF клаузы нет (сырой канон)."""
         wrapper_head = ('<chat_context note="болтовня чата вокруг цели — '
                         'только чтобы понять, о чём речь; это НЕ '
                         'доказательства и НЕ источник фактов">')
         sections: list[str] = [wrapper_head]
-        digest = _render_digest(self, digest_budget, projection)
-        verbatim = _render_verbatim(self, verbatim_budget, projection)
+        digest = _render_digest(self, digest_budget, projection,
+                                relations_by_item)
+        verbatim = _render_verbatim(self, verbatim_budget, projection,
+                                    relations_by_item)
         if digest:
             sections.append("фон: сжатая хронология спора (каждая строка — "
                             "сообщение, текст обрезан):\n" + digest)
@@ -234,11 +244,15 @@ def _is_anchor(m: ContextMessage, ctx: ConversationContext) -> bool:
             and m.tg_message_id == ctx.target_tg_message_id)
 
 
-def _render_line(m: ContextMessage, *, text: str, projection=None) -> str:
+def _render_line(m: ContextMessage, *, text: str, projection=None,
+                 relations=()) -> str:
     """Строка сообщения среза: речевая проекция или сырой канон.
 
     Одна точка выбора для обоих уровней (компакт/дословный) — расхождение
-    представлений внутри одного фида было бы утечкой (§4.3)."""
+    представлений внутри одного фида было бы утечкой (§4.3).
+
+    ``relations`` — уже установленные связи этого сообщения (§9.5 п.2). В
+    сыром каноне клауз нет: там нет меток прогона, а выдумывать id запрещено."""
     item_id = resolve_item_id(tg_message_id=m.tg_message_id,
                               message_id=m.message_id)
     forward_source = m.forward_source if m.is_forward else None
@@ -246,14 +260,14 @@ def _render_line(m: ContextMessage, *, text: str, projection=None) -> str:
         return format_speech_item(
             ts=m.timestamp, author=m.author, author_uid=m.author_uid,
             item_id=item_id, forward_source=forward_source, text=text,
-            kind="msg", projection=projection)
+            kind="msg", projection=projection, relations=tuple(relations or ()))
     return format_context_item(
         ts=m.timestamp, author=m.author, item_id=item_id,
         forward_source=forward_source, text=text, kind="msg")
 
 
 def _render_digest(ctx: ConversationContext, budget: int,
-                   projection=None) -> str:
+                   projection=None, relations_by_item=None) -> str:
     """Уровень 1: сообщения окна каноническими строками с обрезкой текста до
     ``_DIGEST_LINE_MAX_CHARS``. Приоритет усечения — как в узком окне
     (R1023F2-10): якорь сохраняется всегда (рассматривается первым), затем
@@ -262,7 +276,8 @@ def _render_digest(ctx: ConversationContext, budget: int,
     for idx, m in enumerate(ctx.messages):
         line = _render_line(
             m, text=_truncate_text(m.text, _DIGEST_LINE_MAX_CHARS),
-            projection=projection)
+            projection=projection,
+            relations=(relations_by_item or {}).get(m.dedup_key, ()))
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:
@@ -288,7 +303,7 @@ def _render_digest(ctx: ConversationContext, budget: int,
 
 
 def _render_verbatim(ctx: ConversationContext, budget: int,
-                     projection=None) -> str:
+                     projection=None, relations_by_item=None) -> str:
     """Уровень 2: выбранные дословные сообщения (полный текст до
     ``_VERBATIM_MSG_MAX_CHARS``), хронологически, общий бюджет символов;
     якорь-целевое сохраняется всегда (если влезает)."""
@@ -298,7 +313,8 @@ def _render_verbatim(ctx: ConversationContext, budget: int,
             continue
         line = _render_line(
             m, text=_truncate_text(m.text, _VERBATIM_MSG_MAX_CHARS),
-            projection=projection)
+            projection=projection,
+            relations=(relations_by_item or {}).get(m.dedup_key, ()))
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:

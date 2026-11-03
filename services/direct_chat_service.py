@@ -138,8 +138,10 @@ from services.llm_client import (
 from services.llm_circuit_breaker import STATE_HALF_OPEN, LLMCircuitBreaker
 from services.budget_limits import context_state
 from services.canonical_context import (
+    RELATION_REPLY,
     SPEECH_LABEL_RE,
     SpeechProjection,
+    SpeechRelation,
     format_chat_time,
     format_context_item,
     format_speech_item,
@@ -1067,6 +1069,38 @@ def _speaker_tag(name: str, uid, *, is_bot: bool = False,
     ``thread_chain.speaker_tag`` (F2). «{имя}{суффикс} [{uid}]» (бот —
     «{имя} [bot]»). uid None/0 → без скобки."""
     return thread_chain.speaker_tag(name, uid, is_bot=is_bot, suffix=suffix)
+
+
+def reply_parent_tg_message_id(row):
+    """Telegram message_id родителя по Reply (``None`` — связи нет).
+
+    ``smart_messages.reply_to_id`` хранит TELEGRAM message_id родителя
+    (``handlers/summary.py:476-478``, ``handlers/youtube.py:963-965``); ``id``
+    строки БД — другое число, и сравнивать его с ``reply_to_id`` нельзя.
+    Поэтому ребро разрешается только внутри того же набора строк по
+    ``tg_message_id`` строки, а родитель вне окна связи не даёт."""
+    raw = row_get(row, "reply_to_id")
+    if raw in (None, "", 0, "0"):
+        return None
+    try:
+        return int(raw) or None
+    except (TypeError, ValueError):
+        return None
+
+
+def window_refs_by_tg(rows) -> dict:
+    """Карта окна ``{Telegram message_id → ref}`` для подтверждённых Reply.
+
+    Ключи берутся ТОЛЬКО из ``tg_message_id``: ``reply_to_id`` (Telegram id
+    родителя) не может случайно совпасть с ``id`` чужой строки и напечатать
+    ложное ребро. Пусто/нет tg-идентификатора → строки в карте нет."""
+    refs: dict = {}
+    for row in rows or ():
+        tg_id = _tg_id_of_row(row)
+        if tg_id is None:
+            continue
+        refs[tg_id] = resolve_item_id(tg_message_id=tg_id)
+    return refs
 
 
 def _context_line_dedup_key(line) -> str:
@@ -8457,6 +8491,15 @@ class DirectChatService:
         roster = roster or []
         suffix_map = suffix_map or {}
         window = self._history_window(window, trigger_message_id)
+        # §9.5 п.2 / §13 сц.99/115: композерный билдер — ОСНОВНОЙ прод-путь
+        # `<Global_Context>` (композер ON по умолчанию,
+        # `DIRECT_CONTEXT_COMPOSER_ENABLED`). Карта окна «Telegram message_id →
+        # ref» строится по тем строкам, которые реально попадут в payload:
+        # tail — по `tail_rows`, middle — по фактически выбранным строкам
+        # (`_compose_middle_lines`). Ключ — только `tg_message_id`, поэтому
+        # `reply_to_id` (Telegram id родителя) не может дать ложного ребра на
+        # чужой `id` строки БД.
+        speech_window = projection is not None and speech_projection_enabled()
         tail_min = _composer.fresh_tail_min_messages()
         parts: dict = {
             "head_lines": [], "middle_rows": [], "tail_rows": [],
@@ -8518,10 +8561,12 @@ class DirectChatService:
             parts["tail_rows"] = post_rows[-tail_min:]
             parts["middle_rows"] = (post_rows[:-tail_min]
                                     if len(post_rows) > tail_min else [])
+            tail_refs = (window_refs_by_tg(parts["tail_rows"])
+                         if speech_window else {})
             parts["tail_lines"] = [
                 self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection)
+                    projection=projection, window_items=tail_refs)
                 for row in parts["tail_rows"]]
         else:
             _g_limit = int(await _cp_g(
@@ -8531,10 +8576,12 @@ class DirectChatService:
             recent = window[-max(1, _g_limit):]
             tail_rows = [row for row in recent if (row["text"] or "")]
             parts["tail_rows"] = tail_rows
+            tail_refs = (window_refs_by_tg(tail_rows)
+                         if speech_window else {})
             parts["tail_lines"] = [
                 self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection)
+                    projection=projection, window_items=tail_refs)
                 for row in tail_rows]
             if tail_rows:
                 _scope = ""
@@ -9184,12 +9231,19 @@ class DirectChatService:
         selected = _composer.select_middle(
             middle_rows, query=query, chain_tg_ids=chain_tg,
             participant_ids=participants, top_k=top_k)
+        # §9.5 п.2 / §13 сц.99/115: middle — тоже видимое окно
+        # `<Global_Context>`; карта строится по фактически выбранным строкам
+        # (хронологический ASC ниже), ключ — `tg_message_id`, а не `id` БД.
+        refs = (window_refs_by_tg(selected)
+                if projection is not None and speech_projection_enabled()
+                else {})
         lines = []
         for row in selected:
             if not (row["text"] or ""):
                 continue
             lines.append(self._context_row_line(row, {}, None,
-                                                projection=projection))
+                                                projection=projection,
+                                                window_items=refs))
         return lines
 
     async def _summary_revision(self, chat_id: int) -> str | None:
@@ -12265,6 +12319,15 @@ class DirectChatService:
         # среза — выживший суффикс строк окна или 0: остаток конспекта
         # границу не открывает).
         window_tail_lines = 0
+        # §9.5 п.2 / §13 сц.99/115: карта окна «Telegram message_id → ref» —
+        # подтверждённый Reply на сообщение, которое модель реально видит в
+        # `<Global_Context>`, печатается как Reply (а не как соседство).
+        # Ключ — только `tg_message_id`: `reply_to_id` хранит Telegram id
+        # родителя, поэтому совпадение чисел с чужим `id` строки БД ребра не
+        # даёт (см. `window_refs_by_tg`).
+        window_items: dict = {}
+        if projection is not None and speech_projection_enabled():
+            window_items = window_refs_by_tg(window)
         if summary_text is not None:
             # E2/D5: «широкий фон:» + L2 первой строкой body (метка-префикс),
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
@@ -12283,7 +12346,7 @@ class DirectChatService:
                     continue
                 tail.append(self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection))
+                    projection=projection, window_items=window_items))
             window_tail_lines = len(tail)
         else:
             _g_limit = int(await _cp_g(
@@ -12291,13 +12354,17 @@ class DirectChatService:
                 hot.get("limits.chat_global_context_limit",
                         settings.CHAT_GLOBAL_CONTEXT_LIMIT)) or 0)
             recent = window[-max(1, _g_limit):]
+            # Карту строим по фактически рендерящимся строкам: родитель,
+            # вытесненный срезом, метки не получает и ребром не печатается.
+            if window_items:
+                window_items = window_refs_by_tg(recent)
             for row in recent:
                 text = row["text"] or ""
                 if not text:
                     continue
                 tail.append(self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection))
+                    projection=projection, window_items=window_items))
             if not tail:
                 return ""
             # D5: метка verbatim-режима — по отобранной ветке окна
@@ -12402,7 +12469,8 @@ class DirectChatService:
         return name, uid
 
     def _context_row_line(self, row, suffix_map: dict[int, str],
-                          trigger_message_id=None, projection=None) -> str:
+                          trigger_message_id=None, projection=None,
+                          window_items: dict | None = None) -> str:
         """10.20 (БЛОК 0, ADR-1020-1 ред. 3, точка 2): каноническая строка
         сообщения окна (ярус A) — ts/автор/ID/forward из smart_messages-row;
         отсутствующие в источнике поля опускаются (R16, не выдумываем).
@@ -12413,7 +12481,14 @@ class DirectChatService:
         метка прогона, рядом с ником — `U`-метка (одноимённые не сливаются),
         а абсолютное время, «Переслано:», дискриминатор-суффикс и маркер цели
         остаются. ``None``/OFF → прежний сырой канон байт-в-байт (включая
-        `[uid]` в авторе — это машинная сторона дедупа/attribution)."""
+        `[uid]` в авторе — это машинная сторона дедупа/attribution).
+
+        ``window_items`` (EVOL v5 §9.5 п.2, §13 сц.99/115): карта
+        «Telegram message_id строки → ref» для окна ЭТОГО рендера
+        (``window_refs_by_tg``). Есть и у строки реальный ``reply_to_id``
+        (Telegram id родителя) внутри карты → печатается подтверждённое ребро
+        `↳ Reply M…`; нет карты/родителя вне окна → рёбер не выдумываем.
+        ``None`` (прочие вызовы) → прежний вывод байт-в-байт."""
         name, uid = self._row_speaker(row)
         suffix = suffix_map.get(uid, "")
         forward_source = (row_get(row, "forward_source")
@@ -12428,11 +12503,21 @@ class DirectChatService:
                 # Медиа-строка: маркер перерисовывается меткой (§4.2 п.2).
                 text = row_media_marker(row, item_id=item_id,
                                         projection=projection)
+            relations = ()
+            if window_items:
+                parent_tg_id = reply_parent_tg_message_id(row)
+                parent_ref = (window_items.get(parent_tg_id)
+                              if parent_tg_id is not None else None)
+                if parent_ref and parent_ref != item_id:
+                    relations = (SpeechRelation(
+                        kind=RELATION_REPLY, target_item_id=parent_ref,
+                        basis="Telegram Reply"),)
             return format_speech_item(
                 ts=row_get(row, "timestamp"), author=f"{name}{suffix}",
                 author_uid=uid, item_id=item_id,
                 forward_source=forward_source, text=text, kind="msg",
-                is_target=is_target, projection=projection)
+                is_target=is_target, projection=projection,
+                relations=relations)
         author = _speaker_tag(name, uid, suffix=suffix)
         return format_context_item(
             ts=row_get(row, "timestamp"), author=author,

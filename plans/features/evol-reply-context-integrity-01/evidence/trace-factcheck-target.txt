@@ -1,53 +1,47 @@
-EVOL-REPLY-CONTEXT-INTEGRITY-01 §5.2 trace-factcheck-target (детерминированный прогон)
-source: одноразовый прогон (WorkspaceData/runs/rc-factcheck-trace/trace_run.py) на фикстуре этого среза
+EVOL-REPLY-CONTEXT-INTEGRITY-01 §5.2/§13.26 — trace-factcheck-target
+source: scripts/evol_trace_factcheck_target.py — реальный прогон production-кода на детерминированной фикстуре
+fixture: chat=-1007710001 target=771001 (пустая реакция) trigger=771002 («фактчек») topic=771003 noise=771004
+не исполнялось: LLM-аналитик/вербализатор (вердикт — degraded-путь verdict_from_payload({}); текст ответа формирует модель), фактическая отправка в Telegram (зафиксировано РЕШЕНИЕ доставки), сеть поисковика (отказ провайдера подан на шве агрегатора)
 
-[target_resolution] explicit text target
-  association_attempted=False
-  association_candidates=0
-  association_reason=text_claim_sufficient
-  association_status=not_attempted
-  claim_anchor_source=literal
-  claim_anchor_tg_message_id=771001
-  claim_origin=target_text
-  linked_media_ids=[]
-  media_dependency_source=text_claim_only
-  media_expected=False
-  media_notice_emitted=False
-  media_notice_reason=
-  target_kind=text
-  target_source=explicit_reply
-  target_tg_message_id=771001
-  text_claim_resolved=True
-[envelope]
-  reject_reason=None
-  envelope.claim_text == publication.text: True
-  envelope.target_tg_message_id=771001
-  envelope.claim_anchor_tg_message_id=771001
-[plan]
-  plan_built=True
-  claims=1
-  claim_text_matches_envelope=True
-  claim=c1 anchor_tg=771001 author= source=literal
-[claim_selection] empty target, real reply-parent
-  chosen_anchor=771001 basis=structural candidates=[771001]
-  author=Ирма (близкая чужая реакция tg=771002 не выбрана: True)
-[claim_selection] two comparable candidates
-  claim=None basis=ambiguous candidates=[9002, 9001]
-[media_dependency]
-  text target: association_attempted=False status=not_attempted notice=''
-  text-less command: text_sufficient=False association_attempted=True status=missing
-[evidence_status_matrix]
+[1/7 trigger]
+  trigger_tg_message_id=771002 author=Пётр text_len=7 reply_to_db_id=771101
+[2/7 target]
+  declared_target_tg_message_id=771001 (текста нет → контекстный поиск тезиса)
+  contextual_claim_found=True basis=topic source=window anchor_tg=771003 author=Васек
+  window_messages=3 chain_len=0 ambiguous=False
+[3/7 context]
+  feed_chars=606 raw_ref_leak=no semantic_relation=yes reply_relation=no
+  | <chat_context note="болтовня чата вокруг цели — только чтобы понять, о чём речь; это НЕ доказательства и НЕ источник фактов">
+  | 
+  | фон: сжатая хронология спора (каждая строка — сообщение, текст обрезан):
+  | [09.10.2025 08:53 | Гений (U1) | M1]: двойные и тройные гибриды дают перекрестное опыление
+  | [09.10.2025 08:54 | Васек (U2) | M2]: мышечные волокна бывают двух типов: на силу и на выносливость, их прокачивать можно по разному ↳ по теме M3 (не Reply)
+  | [09.10.2025 08:56 | Пётр (U3) | M3]: фактчек
+  | 
+  | фон: дословные фрагменты, существенные для тезиса:
+  | [09.10.2025 08:56 | Пётр (U3) | M3]: фактчек
+  | 
+  | </chat_context>
+[4/7 claim]
+  envelope_reject_reason=None envelope_built=True claim_units=1
+  claim_text_matches_claim_object=True anchor_tg=771003 target_tg=771003 date_source=telegram_message mode=contextual
+[5/7 search]
+  provider_refusal: queries_attempted=2 queries_used=0 provider_failures=2 fetch_errors=0 claims=1
+[6/7 verdict]
+  retrieval_class=search_failed reason=provider_unavailable factual_verdict=insufficient_evidence temporal_status=unknown headline=technical:provider_unavailable fallback_used=True (degraded-путь: пустой payload аналитика)
+[7/7 delivery]
+  contextual_target=True delivery_reply_to=771002 правило=handlers/factcheck.py:1105-1107 (сетевой вызов Telegram в детерминированном прогоне не исполняется)
+
+[evidence_status_matrix] (каждая строка — отдельный реальный прогон run_retrieval)
   provider_down: class=search_failed reason=provider_unavailable headline=technical:provider_unavailable
-    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=2 queries_with_results=0 relevant_evidence_count=0 retrieval_class=search_failed source_query_count=2 technical_reason=
+    source_query_count=2 provider_attempts=2 provider_failures=2 documents_retrieved=0 queries_with_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 relevant_evidence_count=0 citable_evidence_count=0 budget_exhausted=False empty_results=0 retrieval_class=search_failed technical_reason=provider_unavailable
   deadline: class=budget_exhausted reason=deadline_exceeded headline=technical:deadline_exceeded
-    budget_exhausted=True citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=budget_exhausted source_query_count=2 technical_reason=
-  extract_failed: class=processing_failed reason=source_missing headline=technical:source_missing
-    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=2 extract_failures=2 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=2 relevant_evidence_count=0 retrieval_class=processing_failed source_query_count=2 technical_reason=
+    source_query_count=0 provider_attempts=0 provider_failures=0 documents_retrieved=0 queries_with_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 relevant_evidence_count=0 citable_evidence_count=0 budget_exhausted=True empty_results=0 retrieval_class=budget_exhausted technical_reason=deadline_exceeded
+  extract_failed: class=ok reason= headline=verdict:insufficient_evidence
+    source_query_count=1 provider_attempts=1 provider_failures=0 documents_retrieved=1 queries_with_results=1 extract_attempts=1 extract_failures=1 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 relevant_evidence_count=1 citable_evidence_count=0 budget_exhausted=False empty_results=0 retrieval_class=ok technical_reason=
   empty_results: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
-    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=2 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
+    source_query_count=2 provider_attempts=2 provider_failures=0 documents_retrieved=0 queries_with_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 relevant_evidence_count=0 citable_evidence_count=0 budget_exhausted=False empty_results=2 retrieval_class=no_usable_results technical_reason=insufficient_evidence
   no_relevant: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
-    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=2 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=0 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
+    source_query_count=2 provider_attempts=2 provider_failures=0 documents_retrieved=0 queries_with_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=2 off_topic_sources_dropped=0 relevant_evidence_count=0 citable_evidence_count=0 budget_exhausted=False empty_results=0 retrieval_class=no_usable_results technical_reason=insufficient_evidence
   no_citable: class=no_usable_results reason=insufficient_evidence headline=verdict:insufficient_evidence
-    budget_exhausted=False citable_evidence_count=0 documents_retrieved=0 empty_results=0 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 provider_attempts=0 provider_failures=0 queries_with_results=2 relevant_evidence_count=0 retrieval_class=no_usable_results source_query_count=2 technical_reason=
-[evidence_status_matrix] internal search, no URLs (ES-2)
-  class=no_usable_results reason=insufficient_evidence
+    source_query_count=2 provider_attempts=2 provider_failures=0 documents_retrieved=2 queries_with_results=2 extract_attempts=0 extract_failures=0 extract_successes=0 fetch_skipped_deadline=0 irrelevant_results=0 off_topic_sources_dropped=0 relevant_evidence_count=0 citable_evidence_count=0 budget_exhausted=False empty_results=0 retrieval_class=no_usable_results technical_reason=insufficient_evidence

@@ -8,6 +8,8 @@ MAD2 2026: past-only context ≈ full; SIGIR 2026: длинный контекс
 import logging
 
 from services.canonical_context import (
+    RELATION_REPLY,
+    SpeechRelation,
     format_context_item,
     format_speech_item,
     resolve_item_id,
@@ -43,6 +45,26 @@ def _reply_chains_omitted_note(count: int) -> str:
     return _REPLY_CHAINS_OMITTED.format(count=int(count))
 
 
+# Та же честность для случая, когда под-блок цепочки вытеснен ЦЕЛИКОМ
+# (тесный бюджет: `_reserve_chain` вернул 0 → в payload нет ни строк цепочки,
+# ни пометки об обрезке внутри неё). §5.4/§8 п.5 и §13 сц.111: вынужденное
+# отсутствие цепочки объявляется модели и учитывается счётчиком в трассе.
+_REPLY_CHAINS_DROPPED = "…цепочка ответов не показана ({count})"
+
+
+def _reply_chains_dropped_note(count: int) -> str:
+    return _REPLY_CHAINS_DROPPED.format(count=int(count))
+
+
+def _reply_chain_steps(block: str) -> int:
+    """Сколько ходов было в готовом ``<reply_chains>``-блоке (для пометки).
+
+    Структура блока — header + строки + close (см. ``_wrap_reply_chains``);
+    первая и последняя непустые строки — теги, остальные — ходы цепочки."""
+    lines = [line for line in str(block or "").split("\n") if line.strip()]
+    return max(0, len(lines) - 2)
+
+
 # То же правило для САМОГО окна: при обрезке в бюджет вытесняются самые старые
 # строки before (якорь/свежие сохраняются), и это тоже не должно быть молчаливым
 # (§5.4 «реальное отсутствие помечается как неполнота», §8 п.5).
@@ -51,6 +73,42 @@ _CHAT_CONTEXT_OMITTED = "…часть окна не показана ({count})"
 
 def _window_omitted_note(count: int) -> str:
     return _CHAT_CONTEXT_OMITTED.format(count=int(count))
+
+
+def _reply_parent_tg_message_id(row):
+    """Telegram message_id РОДИТЕЛЯ по Reply (``None`` — связи нет).
+
+    В ``smart_messages`` ``reply_to_id`` хранит TELEGRAM message_id родителя —
+    так пишет прод (``handlers/summary.py:476-478``:
+    ``message.reply_to_message.message_id``; ``handlers/youtube.py:963-965``),
+    так же его читают ``_correction_reference_kind`` (``by_tg_id``),
+    ``factcheck_suitability._infer_source_claim``, ``canonical_messages`` и
+    ``direct_context_composer``. ``id`` строки БД живёт отдельно и НИКОГДА не
+    сравнивается с ``reply_to_id``: иначе ребро либо терялось (реальные строки
+    вида 6106→6103), либо указывало на чужое сообщение при случайном
+    совпадении чисел."""
+    raw = row_get(row, "reply_to_id")
+    if raw in (None, "", 0, "0"):
+        return None
+    try:
+        return int(raw) or None
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_tg_message_id(row):
+    """Telegram message_id самой строки окна (``None`` — данных нет).
+
+    Только этот ключ годится для разрешения Reply-родителя: строки без
+    ``tg_message_id`` родителем быть не могут (в ``reply_to_id`` Telegram id,
+    а не ``id`` строки)."""
+    raw = row_get(row, "tg_message_id")
+    if raw in (None, "", 0, "0"):
+        return None
+    try:
+        return int(raw) or None
+    except (TypeError, ValueError):
+        return None
 
 
 def _lines_len(lines) -> int:
@@ -169,6 +227,20 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     # медиа не скипаются — рендерится медиа-маркер. Флаг OFF или отсутствие
     # медиа → прежний скип (байт-в-байт, окно/бюджет усечения не меняются).
     media_enabled = media_context_enabled()
+    speech = projection is not None and speech_projection_enabled()
+    # §9.5 п.2 / §13 сц.99/115: подтверждённое reply-ребро ВНУТРИ окна должно
+    # быть видно модели как Reply, а не как соседство. Родитель разрешается
+    # ТОЛЬКО по Telegram id: карта окна строится из `tg_message_id` строк, а
+    # `reply_to_id` содержит именно Telegram message_id родителя (см.
+    # `_reply_parent_tg_message_id`). Поэтому совпадение числа из `reply_to_id`
+    # с `id` ЧУЖОЙ строки ребра не создаёт, а родитель вне окна ребра не даёт.
+    window_refs: dict = {}
+    if speech:
+        for row in rows:
+            row_tg_id = _row_tg_message_id(row)
+            if row_tg_id is None:
+                continue
+            window_refs[row_tg_id] = resolve_item_id(tg_message_id=row_tg_id)
     for row in rows:
         item_id = resolve_item_id(
             tg_message_id=row_get(row, "tg_message_id"),
@@ -209,16 +281,27 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
                           if row_get(row, "is_forward") else None)
         is_marked = is_target_row(row, remaining_trigger)
         is_anchor = is_target_row(row, anchor_message_id)
-        if projection is not None and speech_projection_enabled():
+        if speech:
             # Речевая проекция (§4.2 п.2): тот же автор/время/forward/маркер,
             # но в слоте ID — метка прогона, а рядом с ником — `U`-метка
             # (одноимённые участники не сливаются, §5.4/§13 сц.97).
+            # Подтверждённый Reply на сообщение ЭТОГО окна печатается явной
+            # клаузой `↳ Reply M…` (§9.5 п.2: Reply ≠ «относится к теме»).
+            relations = ()
+            parent_tg_id = _reply_parent_tg_message_id(row)
+            parent_ref = (window_refs.get(parent_tg_id)
+                          if parent_tg_id is not None else None)
+            if parent_ref and parent_ref != item_id:
+                relations = (SpeechRelation(
+                    kind=RELATION_REPLY, target_item_id=parent_ref,
+                    basis="Telegram Reply"),)
             line = format_speech_item(
                 ts=row_get(row, "timestamp"), author=name,
                 author_uid=row_get(row, "user_id"),
                 item_id=item_id,
                 forward_source=forward_source, text=text, kind="msg",
-                is_target=is_marked, projection=projection)
+                is_target=is_marked, projection=projection,
+                relations=relations)
         else:
             line = format_context_item(
                 ts=row_get(row, "timestamp"), author=name,
@@ -294,30 +377,69 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     # набирает окно в уменьшенном бюджете, а N в пометке — точное число
     # реально вытесненных строк. Верхняя граница длины пометки (N ≤ n-1)
     # даёт одним проходом гарантию, что она влезет.
+    #
+    # §13 сц.111 (B4 ревью): та же честность нужна и цепочке — при тесном
+    # бюджете `_reserve_chain` возвращал 0 и под-блок исчезал БЕЗ следа.
+    # Пометка «цепочка ответов не показана (N)» резервируется так же, как
+    # пометка окна (бюджет и потолок `_REPLY_CHAINS_MAX_CHARS` не растут), а
+    # сам факт уходит счётчиком в трассу.
+    chain_steps = _reply_chain_steps(reply_chains)
+
+    def _notes_reserve(picked, chain_block) -> int:
+        """Верхняя граница места под пометки неполноты для набора."""
+        total = 0
+        if n - len(picked) > 0:
+            total += len(_window_omitted_note(n - 1)) + 1  # + "\n" перед окном
+        if reply_chains and not chain_block:
+            total += len(_reply_chains_dropped_note(chain_steps)) + 1
+        return total
+
     selected, chain_out = _distribute(content_budget)
-    omitted = n - len(selected)
-    note = ""
-    if omitted > 0:
-        reserve = len(_window_omitted_note(n - 1)) + 1     # + "\n" перед окном
-        if reserve < content_budget:
-            selected, chain_out = _distribute(content_budget - reserve)
+    reserved = _notes_reserve(selected, chain_out)
+    if 0 < reserved < content_budget:
+        selected, chain_out = _distribute(content_budget - reserved)
+        if not selected:
+            return ""
+        again = _notes_reserve(selected, chain_out)
+        if again > reserved:
+            # Второй проход вытеснил ещё строки — пометки выросли: третий
+            # проход резервирует место уже под фактический набор.
+            reserved = again
+            selected, chain_out = _distribute(content_budget - reserved)
             if not selected:
                 return ""
-            omitted = n - len(selected)
-            note = _window_omitted_note(omitted) if omitted > 0 else ""
-        else:
-            # Бюджет меньше самой пометки: объявлять нечем — фиксируем факт
+    omitted = n - len(selected)
+    chain_dropped = bool(reply_chains) and not chain_out
+    note = ""
+    chain_note = ""
+    if omitted > 0 or chain_dropped:
+        if reserved >= content_budget:
+            # Бюджет меньше самих пометок: объявлять нечем — фиксируем факт
             # в логе (единственный возможный случай молчания).
             logger.warning(
-                "[chat_context] окно усечено без пометки — бюджет меньше "
-                "пометки | omitted=%d | budget=%d", omitted, max_chars)
+                "[chat_context] усечение без пометки — бюджет меньше пометки "
+                "| omitted=%d | omitted_chain_steps=%d | budget=%d",
+                omitted, chain_steps if chain_dropped else 0, max_chars)
+        else:
+            note = _window_omitted_note(omitted) if omitted > 0 else ""
+            chain_note = (_reply_chains_dropped_note(chain_steps)
+                          if chain_dropped else "")
+    if chain_dropped:
+        # Трасса: вынужденное отсутствие цепочки — не «контекста не было»
+        # (§13 сц.111). Только счётчики и бюджет, без текстов сообщений.
+        logger.warning(
+            "[chat_context] цепочка ответов вытеснена бюджетом | "
+            "omitted_chain=%d | omitted_chain_steps=%d | chain_chars=%d | "
+            "budget=%d | rows=%d", chain_steps, chain_steps,
+            len(str(reply_chains or "")), max_chars, n)
     if not selected:
         return ""
     body = "\n".join(rendered[i][0] for i in sorted(selected))
     if chain_out:
         body = body + "\n" + chain_out
-    if note:
-        body = f"{note}\n{body}"
+    header_notes = [item for item in (note, chain_note) if item]
+    if header_notes:
+        body = "\n".join(header_notes + [body])
     return wrapper[0] + body + wrapper[1]
 
 
