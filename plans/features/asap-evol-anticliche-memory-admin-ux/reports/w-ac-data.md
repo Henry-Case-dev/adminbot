@@ -247,6 +247,33 @@ API (раньше — произвольную прозу, что по §9.2 т�
 статус стадии источников — `sources_unavailable`; патч httpx перенесён на
 единственный транспорт (`services.anticliche_sources`).
 
+### 10.1. Прогоны и доказательства
+
+| Проверка | Команда | Результат |
+|---|---|---|
+| новый набор | `pytest tests/test_anticliche_sources_ac_data.py -q` | **62 passed** |
+| затронутые области (+ старые anticliche/DDL/registry/external_log) | `pytest tests/test_anticliche_* tests/test_pg_db.py tests/test_budget_*_round1024.py tests/test_round1025_f8_registry.py tests/test_external_log_round1024.py -q` | **320 passed** |
+| полный набор на кандидате | `pytest -q -p no:randomly` | 17861 passed, 75 failed, 23 errors, 41 skipped (1101 c) |
+| база `a9f326f8`, тот же набор 53 файлов | `pytest -q --tb=no -p no:randomly @failing_files` | **68 failed** (те же падения, что и на кандидате) |
+| кандидат, тот же набор 53 файлов | то же | **68 failed** — расхождение ровно в одном флейки-свопе |
+
+Падения полного прогона — предсуществующие в этой ветке (summary/*,
+webapp/UI, mca*, youtube, factcheck, evol_fc_admission) и к AC-DATA не
+относятся: при одинаковом выборе файлов база и кандидат дают одинаковое
+число падений, а единственное расхождение — тесты, которые проходят
+изолированно на обоих деревьях (`test_mca09_intents...` падает даже
+изолированно на базе). Ни один тест затронутых областей не регрессировал.
+
+Побочный эффект прогона: 51 файл в `plans/features/evol/audit/evidence/`
+(скриншоты/e2e-JSON) перезаписан существующими UI-тестами. К AC-DATA не
+относится, **не коммитился**; disposition для closeout — отбросить как
+регенерированные артефакты (tracked-версии в репозитории не тронуты
+кандидатом).
+
+Мутационная проверка (фальсифицируемость) выполнена скриптом:
+5 мутаций `services/anticliche_sources.py`/`anticliche_cache.py` → целевые
+тесты падают, после отката дерево чистое.
+
 ## 11. Что должен использовать AC-PIPE
 
 1. **Реестр и статусы — не дублировать.** `anticliche_sources.SOURCES`,
