@@ -1,9 +1,9 @@
 # P0 — готовый мем не отменяется из-за нового сообщения (+ P0.5 пустой потолок = авто)
 
 - Ветка: `fix/p0-publication-stale`, база: `7536df96`
-- Кандидаты: `b95b7363` (P0/P0.5) → **корректирующий коммит после ревью** (B1/B2/B3,
-  см. §8 ниже). Ревью: `plans/features/p0-meme-publication-hotfix/review.md`
-  (Needs Fixes), решение Architect по B1:
+- Кандидаты: `b95b7363` (P0/P0.5) → `46edd36e` (B1/B2/B3 по ревью) →
+  **фикс B4** (см. §9). Ревью: `plans/features/p0-meme-publication-hotfix/review.md`
+  (Needs Fixes → Re-review 2: Needs Fixes только B4), решение Architect по B1:
   `plans/features/p0-meme-publication-hotfix/arch/deferred-publication.md`.
 - Источник требований: `plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md`
   §1.1–§1.4 (P0 и P0.5). P1 (перекомпоновка UI «Модули → Инициатива») —
@@ -395,3 +395,61 @@ Runtime: при `auto` числового предела НЕТ — директ
   строки убирает существующий `TaskJobStore.prune` (активные не трогает).
 - Откат = только код: строки после revert остаются `queued` и инертны, файлы —
   в git-ignored `var/meme_pending/`.
+
+## 9. B4 (Re-review 2): чужая истёкшая `sending`-бронь не съедает артефакт
+
+Дефект (нашёл ревьюер, S9): `_deliver_deferred_row` считал
+`claim.recovered_delivery_unknown` терминалом «доставка неизвестна» и удалял
+оплаченный файл, хотя наш мем ни разу не отправлялся.
+
+**Выбрано: (a) — флаг как ФАКТ, а не как терминальное состояние**, плюс
+атрибуция (подсказка (b)) как защитный страж:
+
+- `recovered_delivery_unknown` в `acquire` означает: предыдущая строка брони
+  была в `sending`, её TTL истёк, и мы её восстановили. Флаг описывает
+  ПРЕДЫДУЩЕГО держателя, а `ClaimDecision.granted=True` — это уже НАША свежая
+  аренда, и `begin_sending` остаётся единственным разрешением звать sender.
+- Своя отправка отложенного мема не может совпасть с `queued`-строкой: строка
+  переводится в `running` ДО `acquire`, а падение в окне отправки ловит
+  существующий watchdog → `interrupted` → ветка выше даёт честный терминал
+  `delivery_unknown` **без** `acquire` (регресса нет).
+- Поэтому в отложенном пути флаг почти всегда описывает ЧУЖУЮ бронь. Факт
+  фиксируется (`facts.publish.delivery_recovered = {holder_kind, holder_ref,
+  own}`, событие `delivery_unknown` c `detail="deferred|foreign_claim"`), а
+  публикация продолжается под реально выданной бронью — ровно как прямой путь
+  в этом же состоянии (там тоже `delivered=unknown` фиксируется и отправка
+  выполняется).
+- Почему не только (b): атрибуция может быть недоступна (снимок брони не
+  прочитался → пустые `holder_kind/ref`); тогда «не доказано, что это наша
+  отправка» не должно означать потерю артефакта. Комбинация «факт + страж»
+  сохраняет картинку в чужом случае и остаётся терминалом в собственном.
+- Защита «падение после собственной отправки» усилена, а не ослаблена: если
+  истёкшая `sending`-бронь принадлежит этому мему (`holder_kind ==
+  meme_initiative` и `holder_ref == run_id`), исход остаётся
+  `delivery_unknown`, файл удаляется, sender не вызывается, повтора нет.
+
+**Тесты (2, оба в существующем hotfix-наборе):**
+
+- `test_b4_foreign_expired_sending_claim_still_delivers` — сценарий ревьюера
+  S9: чужая `sending`-бронь не освобождена и истекла → первый же проход
+  отложенной доставки публикует мем (`published=True`, sender 1, провайдер 0
+  новых), файл жил до отправки и удалён после успеха, строка `completed`,
+  `spent` и бронь квоты не изменились, события содержат `delivery_unknown`
+  (`detail="deferred|foreign_claim"`) и финальный `publication_sent` с
+  `delivered=true`; последующие 3 прохода не отправляют ничего.
+- `test_b4_own_expired_sending_claim_is_terminal_without_resend` — обратная
+  сторона: своя истёкшая `sending`-бронь (`holder_ref == run_id`) → терминал
+  `delivery_unknown`, sender 0, файл удалён, повтора нет,
+  `delivery_recovered.own = true`.
+
+**Мутация:** вернуть `recovered_delivery_unknown` в безусловный терминал (как в
+`46edd36e`) → красный `test_b4_foreign_expired_sending_claim_still_delivers`
+(1 failed / 13 passed среди b1+b4; собственный страж-тест при этом остаётся
+зелёным, что и доказывает, что менялся только «чужой» исход).
+
+**Прогоны после B4:** `tests/test_p0_meme_publication_hotfix.py` — **49
+passed**; 9 наборов мемов/инициативы/API — **203 passed**; совместно —
+**252 passed, exit 0**; JS-гейты зелёные. Пре-существующие падения
+(`round1021_ui_audit`, `round1024_image_module`) не тронуты, классификация
+та же; наблюдение по `test_t4_diagnostics_*` (глобальный singleton
+`mca_random_source._service`, чужой модуль) — без изменений, к B4 не относится.

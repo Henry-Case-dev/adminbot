@@ -1483,6 +1483,139 @@ def test_b1_pending_row_is_single_per_chat(tmp_path, monkeypatch):
     assert Path(rows[0]["result_ref"]).exists()
 
 
+# ── B4 (S9 ревьюера): чужая ИСТЁКШАЯ `sending`-бронь не съедает артефакт ────
+
+def test_b4_foreign_expired_sending_claim_still_delivers(tmp_path, monkeypatch):
+    """S9: чужая бронь осталась в `sending` и истекла → мем всё равно доставлен.
+
+    Сценарий ревьюера: провайдер вызван один раз, бронь проиграна другому
+    механизму, чужая сторона её не освободила (падение/зависание посреди
+    отправки), бронь истекла. Первый проход отложенной доставки видит
+    `recovered_delivery_unknown` — это факт о ЧУЖОЙ броне, а не о нашей
+    отправке: мем ни разу не отправлялся, и терять оплаченную картинку нельзя
+    (§1.2.5/§1.2.6).
+
+    Мутация: вернуть `recovered_delivery_unknown` в терминал (как было в
+    `46edd36e`) — файл удаляется, sender 0, тест краснеет.
+    """
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b4-foreign")
+        try:
+            provider = _Provider()
+            # Чужая отправка НЕ освобождается: она «упала» посреди `sending`.
+            foreign = race.foreign
+            assert foreign is not None
+            expired = NOW_TS + pub.SENDING_TTL_SECONDS + 1
+            rows_before = _pending_rows(env)
+            file_before = Path(rows_before[0]["result_ref"])
+            assert file_before.exists()        # артефакт на месте до отправки
+            day = meme.day_window(CHAT, NOW, tz_name="UTC")
+            spent_before = meme.quota_view(env.ledger, chat_id=CHAT, day=day,
+                                          limit=5)["spent"]
+            reservations_before = _reservations(env.ledger)
+
+            sender = _Sender()
+            # Первый проход после истечения чужой брони (интервал уже прошёл).
+            delivered = await _deliver(env, sender=sender, now_ts=expired)
+            # И ещё несколько проходов — дубля быть не может.
+            after = [await _deliver(env, sender=sender, now_ts=expired + 10)
+                     for _ in range(3)]
+            return (delivered, after, sender, provider, env, file_before,
+                    spent_before, reservations_before, foreign)
+        finally:
+            await env.svc.close()
+
+    (delivered, after, sender, provider, env, file_before, spent_before,
+     reservations_before, foreign) = asyncio.run(scenario())
+
+    # 1) Ровно одна публикация, и это ОНА (генерация не повторялась).
+    assert delivered and len(delivered) == 1
+    assert delivered[0].published is True and delivered[0].reason == "sent"
+    assert len(sender.calls) == 1
+    assert provider.calls == []                # второй генерации не было
+    assert sum(len(item) for item in after) == 0
+
+    # 2) Файл жил до отправки и удалён только после успеха.
+    assert not file_before.exists()
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_COMPLETED]
+    assert rows[0]["result_ref"] == str(file_before)
+
+    # 3) Квота не выросла, новой брони квоты нет.
+    day = meme.day_window(CHAT, NOW, tz_name="UTC")
+    assert meme.quota_view(env.ledger, chat_id=CHAT, day=day,
+                          limit=5)["spent"] == spent_before == 1
+    assert _reservations(env.ledger) == reservations_before
+
+    # 4) Факт чужой неизвестной брони зафиксирован, но не превращён в отмену.
+    facts = _terminal_facts(env.ledger)
+    assert facts.get("delivery") == "sent"
+    recovered = facts.get("delivery_recovered") or {}
+    assert recovered.get("own") is False                    # это ЧУЖАЯ бронь
+    assert recovered.get("holder_kind") == pub.KIND_TEXT_INITIATIVE
+    events = facts.get("events") or []
+    names = [item["name"] for item in events]
+    assert meme.EVENT_DELIVERY_UNKNOWN in names        # факт о чужой броне
+    assert names[-1] == meme.EVENT_PUBLICATION_SENT
+    assert events[-1].get("delivered") is True
+    unknown = events[names.index(meme.EVENT_DELIVERY_UNKNOWN)]
+    assert unknown.get("detail") == "deferred|foreign_claim"
+
+
+def test_b4_own_expired_sending_claim_is_terminal_without_resend(
+        tmp_path, monkeypatch):
+    """Обратная сторона B4: СВОЯ бронь в `sending` → терминал, без повтора.
+
+    Защита «падение после собственной отправки» не ослаблена: если истёкшая
+    `sending`-бронь принадлежит этому же мему (`holder_kind`/`holder_ref`
+    совпадают с его `run_id`), повтор дал бы дубль — исход остаётся
+    `delivery_unknown`, файл удаляется, sender не вызывается.
+    """
+    async def scenario():
+        env, race, _result, _sender, _provider = \
+            await _deferred_after_generation(tmp_path, monkeypatch,
+                                             job_id="job-b4-own")
+        try:
+            race.finish_foreign()
+            row = _pending_rows(env)[0]
+            run_id = meme.deferred_payload(row)["run_id"]
+            # «Своя» бронь этого мема осталась в `sending` (release не удался
+            # при падении процесса): истекает, но повтора быть не должно.
+            own = env.store.acquire(chat_id=CHAT, holder_kind=meme.OUTPUT_KIND,
+                                    holder_ref=run_id, now=NOW_TS,
+                                    interval_seconds=0)
+            assert own.granted
+            assert env.store.begin_sending(chat_id=CHAT,
+                                          claim_id=own.claim_id,
+                                          now=NOW_TS).granted
+            # Истекли и своя бронь (120 с), и межтиповой интервал (1800 с).
+            expired = _after_interval() + pub.SENDING_TTL_SECONDS
+            sender = _Sender()
+            delivered = await _deliver(env, sender=sender, now_ts=expired)
+            again = await _deliver(env, sender=sender, now_ts=expired + 10)
+            return delivered, again, sender, env, run_id
+        finally:
+            await env.svc.close()
+
+    delivered, again, sender, env, run_id = asyncio.run(scenario())
+    assert sender.calls == []                          # ничего не отправлено
+    assert delivered and delivered[0].reason == meme.REASON_DELIVERY_UNKNOWN
+    assert delivered[0].detail == "recovered_delivery_unknown"
+    assert delivered[0].published is False
+    assert again == []                                 # повтора нет
+    rows = _pending_rows(env)
+    assert [row["status"] for row in rows] == [JOB_FAILED]
+    assert not Path(rows[0]["result_ref"]).exists()
+    facts = _terminal_facts(env.ledger)
+    assert facts.get("delivery") == "unknown"
+    recovered = facts.get("delivery_recovered") or {}
+    assert recovered.get("own") is True                # атрибуция сработала
+    assert recovered.get("holder_kind") == meme.OUTPUT_KIND
+    assert recovered.get("holder_ref") == run_id
+
+
 # ── два РАЗНЫХ job_id: не дубль, а два законных прохода под своими лимитами ──
 
 def test_two_different_job_ids_are_rate_limited_not_deduped(tmp_path,
