@@ -2777,6 +2777,17 @@ class Settings:
     # flags.factcheck_wide_context.
     FACTCHECK_WIDE_CONTEXT_ENABLED: bool = _env_bool(
         "FACTCHECK_WIDE_CONTEXT_ENABLED", True)
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2/§6.2): ЕДИНЫЙ рубильник речевой
+    # проекции контекста. Default ON (дефолт = исправленное поведение); OFF —
+    # откат к сырому канону (`tg:`/числовой uid). ClassVar + hot-ключ по
+    # действующей конвенции kill-switch этого репозитория («Δ каталога = 0 для
+    # рубильников», прецедент SUMMARY_WRITER_SOURCE_INPUT_ENABLED /
+    # SUMMARY_L1_SEMANTIC_MAP_ENABLED): откат без рестарта —
+    # `flags.context_speech_projection` в bot_settings (читается в самом шве,
+    # services/canonical_context.py `speech_projection_enabled`), без
+    # per-module флагов и без роста каталога параметров.
+    CONTEXT_SPEECH_PROJECTION_ENABLED: ClassVar[bool] = _env_bool(
+        "CONTEXT_SPEECH_PROJECTION_ENABLED", True)
     # CFG-06 W2 (06B/06J): suitability gate до платного поиска — гейт
     # отката, default OFF; активен только вместе с широким контекстом.
     # Hot-ключ отката: flags.factcheck_suitability_gate.

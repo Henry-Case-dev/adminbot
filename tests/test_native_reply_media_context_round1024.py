@@ -106,8 +106,17 @@ class TestMarkerInChainAndWindow:
         assert chain[0].text == "[медиа: video tg:123]"
         assert chain[0].item_id == "tg:123"
         out = thread_chain.render_reply_chains(chain)
-        assert "[01.01.1970 00:00 | вася [10] | tg:123]: [медиа: video tg:123]" in out
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2/§7.2, 03.11.2026): под-блок
+        # `render_reply_chains` — РЕЧЕВАЯ поверхность (идёт в LLM-payload),
+        # поэтому узел адресуется меткой прогона, а реф медиа-маркера —
+        # той же меткой (§9.2: служебный ref не выдаётся за слова участника).
+        # Сырой вид сохранён в структуре (`chain[0].text`) и в `format_chain_line`.
+        assert "[01.01.1970 00:00 | вася (U1) | M1]: [медиа: video M1]" in out
+        assert "tg:123" not in out and "[10]" not in out
+        assert MEDIA_MARKER_RE.match("[медиа: video M1]")
         assert MEDIA_MARKER_RE.match("[медиа: video tg:123]")
+        raw = thread_chain.format_chain_line(chain[0])
+        assert "[медиа: video tg:123]" in raw and "[10]" in raw
 
     @pytest.mark.asyncio
     async def test_chain_msg_ref_when_no_tg_id(self):

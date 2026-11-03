@@ -397,8 +397,21 @@ class TestThreadChainUtil:
 
         monkeypatch.setattr(fc, "_db", db)
         block = await fc._build_reply_chains(CHAT_ID, 70)
-        assert "tg:70" in block and "tg:60" in block
-        assert "tg:50" not in block        # глубина 2 — цепочка обрезана
+        # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2/§9.5 п.2, §7.2, 03.11.2026):
+        # под-блок стал речевой проекцией — адресация метками прогона вместо
+        # `tg:`/числового uid. Смысл теста (per-chat depth одинаков в обоих
+        # путях) проверяется по числу ходов и по обратной карте меток.
+        rows = [ln for ln in block.splitlines() if ln.startswith("[")]
+        assert len(rows) == 2            # глубина 2 — цепочка обрезана
+        assert "tg:" not in block and "[10]" not in block
+        projection = thread_chain.SpeechProjection(run_id="depth-2")
+        rendered = thread_chain.render_reply_chains(
+            direct_chain, projection=projection)
+        assert set(projection.manifest()["items"].values()) == {
+            "tg:70", "tg:60"}
+        assert "tg:70" not in rendered
+        # Обрезанный родитель бот-хода честно помечен, а не выдуман.
+        assert "родитель вне доступного окна" in rendered
 
 
 # ── handler: clamp + _fetch_chat_context + инжекция ─────────────────────────
