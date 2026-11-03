@@ -632,3 +632,141 @@ Telegram (только изображение) и уже существующа�
 на выкаченном билде (READY_FOR_LIVE) либо строка P0.5 не объявляется закрытой.
 Релизный конвейер при этом не требует ожидания P1: P0-PUBLICATION принимается
 самостоятельно.
+
+---
+
+# Release verification 2.58.152 (артефакт `ab662a75`)
+
+Раздел пишется в эпик-ветку (`fix/p0-publication-stale`), НЕ в релизную линию.
+Релизная линия `release/2.58.152` при этом не менялась.
+
+- **Линия:** `bd0f38ed` (прод 2.58.151) -> `1d4f3c98` (P0+P0.5) -> `9aeeb8d4`
+  (B1/B2/B3) -> `2ed088ce` (B4) -> `c8b30ef4` (версия 2.58.152) -> `ab662a75`
+  (переиздание пина). Проверял в отдельном worktree, где эта ветка и выложена;
+  рабочее дерево чистое.
+- **Одобренный кандидат:** `97390ee4` (Re-review 3, слайс P0-PUBLICATION).
+
+## Привязка кандидата: байт-в-байт (проверено, не по отчёту)
+
+`git diff 97390ee4 ab662a75 -- services handlers web/api web/app.js web/index.html
+web/static` - **пустой вывод** (exit 0). Дополнительно сверены деревья git:
+хэши деревьев `services` (`213364e0...`), `handlers` (`584ac33f...`) и `web`
+(`4b27b8ae...`) у `97390ee4` и `ab662a75` совпадают, т.е. совпадают и все 343
+блоб-записи, а не только видимый дифф. Мой сквозной зонд (11 сценариев,
+реальные сервисы) прогнан **на релизном дереве**: **114 PASS / 0 FAIL**, включая
+S9 (чужая истёкшая бронь) и S11 (своя истёкшая бронь).
+
+## Дельта к проду: 48 файлов, ни одного «прочего»
+
+| Категория | Файлы | Кол-во |
+|---|---|---|
+| (a) одобренный P0/P0.5 контент | `services/meme_initiative.py`, `services/publication_coordination.py`, `services/initiative_observer.py`, `handlers/meme_command.py`, `web/api/routes.py`, `web/app.js`, `tests/js/meme_ui_fields_test.js`, `tests/test_p0_meme_publication_hotfix.py`, 4 адаптированных теста (`test_evol014_meme_initiative`, `test_evol014_ui`, `test_initiative_coordination`, `test_meme_command_autodelete`), 3 документа слайса (`arch/`, `report.md`, `review.md`) | 15 |
+| (b) версия/литералы | `config/settings.py`, `README.md`, `plans/docs/param-registry-round1025.meta.md`, 4 js-теста раунда 1025, 24 py-теста с пином `APP_VERSION` (включая `test_webapp_round1026_polygon` с 2 вхождениями) | 31 (32 вхождения) |
+| (c) переиздание пина | `tests/test_round1025_f8_registry.py`, `tests/test_mca23_planned_vs_actual.py`, `tools/_pins_258152_reissue_routes.py` | 3 |
+| (d) прочее | - | **0** |
+
+`test_round1025_f8_registry.py` входит и в (b), и в (c) - один файл, две правки
+(версия + литерал хэша), поэтому 15 + 31 + 3 - 1 = 48.
+
+Проверка «только литералы»: для всех 30 файлов правки версии я применил обратную
+замену `2.58.152 -> 2.58.151` к релизной версии и сравнил с прод-версией -
+совпадение байт-в-байт. Исключение - `README.md`: там дополнительно появился
+абзац changelog про этот хотфикс (версия + текст, кода нет). В релизном дереве
+не осталось ни одного `2.58.151`, кроме исторического упоминания в
+`plans/workflow_state.md` (документ, не тест-ассерт).
+
+## Коммит пина `ab662a75`: только тесты + инструмент
+
+`git show --name-status ab662a75` - три пути: два тест-файла и
+`tools/_pins_258152_reissue_routes.py`. Ни `web/`, ни `services/`, ни `handlers/`,
+ни `config/`. Из удалённых строк - ровно два старых литерала хэша; проверка не
+ослаблена: в каноне осталось то же строгое равенство полного sha256
+(`assert _sha256(ROOT / "web/api/routes.py") == ROUTES_SHA256_F11`),
+allowlist/forbidden-path гарды не расширялись. Исторический fixture
+`tests/fixtures/round1025/f8_baseline.json` не тронут (`git diff` по
+`tests/fixtures` пуст). Инструмент переиздания - ручной (`__main__`), из
+рантайма не импортируется (`git grep` по `services|handlers|web|config|bot.py`
+пуст).
+
+**Мой собственный sha256 `web/api/routes.py` в `ab662a75`:**
+`cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f`
+(216929 байт). Он же у одобренного `97390ee4`, он же - новый литерал в обоих
+тест-файлах; старый `7ea62c3e...` - это прод `bd0f38ed`. Запуск
+`py tools/_pins_258152_reissue_routes.py --check` -> оба литерала OK, `EXIT 0`.
+
+## Миграций нет (как проверял)
+
+- `git diff --stat bd0f38ed ab662a75 -- services/database.py
+  services/mca_schema_registry.py` - пусто;
+- по всем кодовым путям дельты (`services`, `handlers`, `web`, `config`) в
+  добавленных строках нет `user_version`/`CREATE|ALTER|DROP TABLE`/
+  `CREATE INDEX`/`SCHEMA_VERSION`/`LATEST_VERSION` (grep по диффу - пусто);
+- файлов, где упоминается `user_version`, в дереве `services` столько же,
+  сколько на проде (7), т.е. набор миграционных точек не менялся.
+
+## Что прочитал в самом релизном коммите (не по меткам)
+
+1. `services/meme_initiative.py::_deliver_deferred_row` (строки 2170-2251):
+   атрибуция брони через `coordinator.snapshot` ДО `acquire`, `own_send` по
+   `holder_kind == meme_initiative` и `holder_ref == run_id`, факт
+   `delivery_recovered` + событие `delivery_unknown`/`foreign_claim`, терминал
+   `delivery_unknown` только для своей брони; отправка - только после
+   `begin_sending`; `release(published=True)` + `finish(completed)` после успеха.
+2. `services/meme_initiative.py::consider_chat` (2695-2780) - матрица решений
+   перед публикацией: модуль -> инициатива -> чат-гейт -> права (ростер для авто,
+   `permission_check` для ручного) -> intent `n/a` с причиной -> исходный
+   материал -> бронь. Ни watermark, ни `latest_message_id` не сравниваются.
+3. `web/api/routes.py` (3915-3951 `_parse_length_ceiling`, 3978-3985 модель,
+   4194-4208 обработчик): три состояния потолка - поля нет в теле = не менять
+   (`model_fields_set`), пусто/`null`/исторический `0` = авто (снятие чатового
+   override), положительное целое = фиксированный, мусор/дробь/отрицательное =
+   точная 422 по полю; витрина (`budget.as_dict()`) отдаёт `mode`/`known`.
+   `web/app.js`: `ceilingMode`/`ceilingModeText`, `memeLengthError`, тексты
+   «не задан (авто)» / «определяет провайдер», пустое поле уходит явным `null`.
+
+Дополнительно: дифф тестов не ослаблен. Удалённые ассерты - либо версии, либо
+устаревшие ожидания, заменённые более строгими: тест, ожидавший
+`publication_stale`/`window_changed` (он фиксировал именно дефект), заменён на
+`published is True`, `reason == "sent"`, `reason != publication_stale`, sender 1,
+provider 1, `released`; в UI-тесте набор ключей payload теперь проверяется с
+`mode`, `ceiling is None`, `joke_budget is None`; в тесте `/meme` вместо точного
+dict добавлены проверки `delivery == "sent"` и цепочки событий
+(`source_snapshot` -> ... -> `publication_sent`).
+
+## Прогоны на релизном дереве
+
+- `tests/test_p0_meme_publication_hotfix.py`: **49 passed**;
+- 9 наборов мемов/инициативы/API: **203 passed**;
+- пины (`test_round1025_f8_registry`, `test_mca23_planned_vs_actual`,
+  `test_mca17c_invariants_round1047`, `test_webapp_f11_round1025`):
+  **94 passed**; `tools/_pins_258152_reissue_routes.py --check` -> `EXIT 0`;
+- `node tests/js/meme_ui_fields_test.js` -> `MEME-UI-FIELDS-OK`;
+- мой зонд на релизном дереве: **114 PASS / 0 FAIL**.
+
+## Честно о покрытии
+
+- **P0-PUBLICATION (слайс целиком):** VERIFIED. Пункты §3.1-§3.5 и данныe
+  §3.8 проверены на этом же коде (тесты + мои прогоны на реальных сервисах).
+- **P0.5-CEILING-AUTO (в этом же билде):** функциональная часть VERIFIED (API,
+  JS-юнит, 49 тестов, мутации); **рендер формы в браузере мной не проверялся** -
+  строка `HMF-LEN-05` остаётся READY_FOR_LIVE: проверка после выката
+  (Инициатива -> Мемы: пусто/фикс/неверный ввод, сохранение и перезагрузка,
+  auto<->fixed, снятие override).
+- **Чего в билде НЕТ:** работы по «Инициатива UI» (P1: вкладки, перекомпоновка,
+  `web/index.html` не менялся, навигационных правок в `web/app.js` нет);
+  реестра источников AntiCliche (ни одного вхождения в дельте); пакетов пинов
+  2.58.151 (единственный пакет пинов в дельте - переиздание F11 выше).
+
+## Откат
+
+Холодный: redeploy `bd0f38ed` (прод 2.58.151). Миграций нет, данные не
+переписываются; `var/meme_pending/*.bin` и строки `task_jobs` нового вида после
+отката инертны (код их больше не читает), каталог git-ignored, ограничение - один
+файл <= 9 MiB на чат. Схема БД отката не требует.
+
+## Вердикт: CLEARED
+
+`ab662a75` можно выкатывать как 2.58.152 с откатом на `bd0f38ed` и без миграций:
+runtime-контент байт-в-байт равен одобренному `97390ee4`, дельта к проду целиком
+раскладывается на «одобренный контент + версия + переиздание пина», проверки не
+ослаблены, DDL нет.
