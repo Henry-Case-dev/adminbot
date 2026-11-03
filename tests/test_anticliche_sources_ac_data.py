@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 
@@ -1184,6 +1185,146 @@ class TestRefreshGatesReportRealBank:
         assert int(result["version"] or 0) == 9
         assert int(result["rules"] or 0) == 1
         assert store.cache_row["version"] == 9
+
+
+# ── T-SRC-CONCURRENCY: одновременно cron+manual не публикуют конкурентно ────
+class _GatedLlm:
+    """Модель с управляемой задержкой: первый вызов висит до `release`.
+
+    Нужна, чтобы второй `refresh` пришёл ровно в тот момент, когда первый
+    прогон уже прочитал банк и держит публикацию в работе (реальная гонка:
+    нажатие «обновить» во время недельного тика)."""
+
+    def __init__(self, first_phrase: str, later_phrase: str):
+        self._first = first_phrase
+        self._later = later_phrase
+        self.calls = 0
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def generate_worker(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            self.started.set()
+            await self.release.wait()
+            phrase = self._first
+        else:
+            phrase = self._later
+        return json.dumps({"patterns": [{"phrase": phrase, "origin": "test"}]})
+
+
+class _ChangingTransport:
+    """Транспорт, отдающий РАЗНЫЙ текст на каждую проверку.
+
+    Иначе вторая одновременная попытка получила бы `unchanged` от уже
+    записанного состояния источника и до публикации не дошла — тогда тест
+    «проходил» бы и без замка (мутация оставалась бы зелёной). Гонка
+    возникает именно когда оба прогона считают источник изменившимся."""
+
+    def __init__(self, bodies):
+        self._bodies = list(bodies)
+        self.calls = 0
+
+    async def __call__(self, url, headers=None):
+        index = min(self.calls, len(self._bodies) - 1)
+        self.calls += 1
+        return srcs.TransportResponse(status=200, text=self._bodies[index])
+
+
+class TestRefreshSingleFlight:
+    """Owner spec §2.2 проверка 20: cron+manual не создают две конкурентные
+    публикации и не теряют правило. Замок — `asyncio.Lock` в `refresh`
+    (паттерн `dream_worker`/`nostalgia_worker`): второй вызов получает
+    честный `busy` с РЕАЛЬНЫМ банком и ничего не публикует.
+    """
+
+    @staticmethod
+    def _store_with_bank():
+        store = _StateStore()
+        store.cache_row = {
+            "patterns": [{"code": "dyn_keep", "phrase": "живой штамп"}],
+            "source": "wikipedia", "source_url": "u", "version": 9,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+            "updated_at": "2026-09-01T00:00:00+00:00", "last_status": "ok"}
+        return store
+
+    @pytest.mark.asyncio
+    async def test_concurrent_refresh_is_busy_and_loses_no_rule(
+            self, monkeypatch):
+        from unittest.mock import AsyncMock
+        monkeypatch.setattr(aw.worker_budget, "consume",
+                            AsyncMock(return_value=True))
+        store = self._store_with_bank()
+        source = _source()
+        llm = _GatedLlm("первый прогон нашел штамп",
+                        "второй прогон нашел штамп")
+        transport = _ChangingTransport([
+            "Справочник штампов, редакция один: текст для анализа.",
+            "Справочник штампов, редакция два: текст для анализа.",
+        ])
+        worker = _worker_with_sources(store, [source], transport, llm=llm)
+
+        first = asyncio.create_task(worker.refresh(force=True))
+        await llm.started.wait()          # прогон №1 уже держит замок
+        second = await worker.refresh(force=True)   # вызов №2 — одновременно
+        llm.release.set()
+        published = await first
+
+        # (б) ни потери правила, ни дубля, ни второй публикации
+        phrases = [p["phrase"] for p in store.cache_row["patterns"]]
+        assert "живой штамп" in phrases                 # старое правило цело
+        assert "первый прогон нашел штамп" in phrases    # добытое не потеряно
+        assert len(phrases) == len(set(phrases)) == 2
+        assert store.cache_row["version"] == 10         # ровно одна публикация
+        assert published["status"] == "ok"
+        assert published["version"] == 10 and published["count"] == 1
+        # второй вызов не запускал прогон: ни источников, ни модели
+        assert llm.calls == 1
+        assert transport.calls == 1
+
+        # (а) второй вызов — честный busy с РЕАЛЬНЫМ банком, без записи
+        assert second["status"] == "busy"
+        assert (second["version"], second["rules"]) == (9, 1)
+        assert second["count"] == 0
+        assert second["published"] is False
+
+        # замок освобождён: следующая попытка не отказывает навсегда
+        assert worker.running is False
+        third = await worker.refresh(force=True)
+        assert third["status"] != "busy"
+
+
+class TestRefreshEndpointBusy:
+    """Админская поверхность того же анти-рейса: ``POST /anticliche/refresh``
+    во время идущего тика отдаёт честный `busy` с реальным банком (§1 п.8),
+    а не ложные нули и не вторую публикацию."""
+
+    def test_endpoint_reports_busy_with_real_bank(self, monkeypatch):
+        store = TestRefreshGatesReportRealBank._store_with_bank()
+        client, hdr = _api_client(monkeypatch, store)
+        worker = AntiClicheWorker(llm=None, pg=_FakePg(store))
+        aw.set_runtime_worker(worker)
+
+        # Замок занят «идущим прогоном» (тик уже публикует).
+        async def _hold():
+            await worker._run_lock.acquire()
+
+        asyncio.run(_hold())
+        try:
+            assert worker.running is True
+            with client:
+                response = client.post("/api/anticliche/refresh", headers=hdr)
+        finally:
+            worker._run_lock.release()
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "busy"
+        assert (body["version"], body["rules"]) == (9, 1)   # реальный банк
+        assert body["count"] == 0
+        assert body["published"] is False
+        assert store.cache_row["version"] == 9              # банк не тронут
+        assert store.cache_row["patterns"][0]["phrase"] == "живой штамп"
 
 
 # ── M071/§2.1/§4.4: событие проверки описывает источник и probe ─────────────

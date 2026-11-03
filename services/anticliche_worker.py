@@ -12,6 +12,7 @@ R17-safe ``last_status`` (коды/класс ошибки; сырьё и фра
 """
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import logging
@@ -110,6 +111,10 @@ _ANTICLICHE_TERMINAL = {
     "llm_error": ("failed", "model_unavailable"),
     "parse_error": ("failed", "parse_error"),
     "write_error": ("failed", None),
+    # T-SRC-CONCURRENCY: второй одновременный вызов не запускал прогон —
+    # честный skip, а не failed (код из словаря §17.2: «второй запрос слит
+    # с идущим», прецедент `mca_vision`/`task_supervisor`).
+    "busy": ("skipped", "queue_coalesced"),
 }
 
 
@@ -208,9 +213,21 @@ def _check_brief(check: dict) -> dict:
     }
 
 
+def _bank_from_stored(stored, source_hint: str) -> dict:
+    """AC-INV-08: РЕАЛЬНЫЙ действующий банк из строки кэша (не нули).
+
+    Единственное место формулы «version/rules действующего набора»: её
+    используют и гейты `_refresh_impl`, и честный отказ `busy`
+    (T-SRC-CONCURRENCY), иначе ответы снова разойдутся с фактом."""
+    return {"source": source_hint,
+            "version": int((stored or {}).get("version") or 0),
+            "rules": len(_normalize_stored((stored or {}).get("patterns")))}
+
+
 def _refresh_level(status: str) -> int:
     """Штатные исходы (успех/пусто/скип) → INFO, сбои → ERROR."""
-    if status in ("ok", "empty", "budget_skip", "disabled", "fresh", "skip"):
+    if status in ("ok", "empty", "budget_skip", "disabled", "fresh", "skip",
+                  "busy"):
         return logging.INFO
     return logging.ERROR
 
@@ -395,6 +412,15 @@ class AntiClicheWorker:
         self._scheduler = scheduler
         self._source_id = source_id
         self._source_url = source_url
+        # T-SRC-CONCURRENCY (owner spec §2.2, проверка 20): single-flight на
+        # ПУБЛИКАЦИЮ. Паттерн проекта — `dream_worker._run_lock`/
+        # `nostalgia_worker._run_lock`: идущий прогон → честный `busy`.
+        self._run_lock = asyncio.Lock()
+
+    @property
+    def running(self) -> bool:
+        """Идёт ли прогон (тик/ручной запуск) — анти-рейс в API/логах."""
+        return self._run_lock.locked()
 
     def _registry(self):
         return self._sources or sources_registry.all_sources()
@@ -470,14 +496,15 @@ class AntiClicheWorker:
         try:
             result = await self.refresh(force=force)
             status = str(result.get("status"))
-            skipped = status in ("fresh", "skip")
+            skipped = status in ("fresh", "skip", "busy")
             logger.info(
                 "[anticliche] refresh | status=%s | count=%s | source=%s",
                 status, result.get("count"), result.get("source"))
             trace_step(
                 logger, component="anticliche", step="refresh",
                 status="skip" if skipped else status,
-                reason="fresh" if status == "fresh" else result.get("source"),
+                reason="busy" if status == "busy"
+                else "fresh" if status == "fresh" else result.get("source"),
                 level=_refresh_level(status),
                 extra={"count": result.get("count"),
                        "version": result.get("version"),
@@ -498,7 +525,30 @@ class AntiClicheWorker:
         ОДИН терминальный outcome на refresh-цикл (не на раунд добора).
         Существующий agentic_events-контракт (`ANTI_CLICHE_*`) не затронут.
         R17: только коды/числа. Тело — `_refresh_impl` (без изменений);
-        контракт возврата прежний, метод по-прежнему никогда не бросает."""
+        контракт возврата прежний, метод по-прежнему никогда не бросает.
+
+        T-SRC-CONCURRENCY (owner spec §2.2, проверка 20): single-flight —
+        одновременно идёт не более ОДНОГО прогона, значит публикация
+        (`anticliche_cache.write_patterns` — полная перезапись списка)
+        никогда не накладывается на публикацию. Второй вызов, заставший
+        идущий прогон, не ждёт и не публикует: он возвращает честный
+        ``status="busy"`` с РЕАЛЬНЫМ действующим банком (AC-INV-08: не нули),
+        а результат отдаёт тот прогон, который реально выполняется.
+
+        Почему отказ, а не ожидание: тот же паттерн, что `dream_worker`/
+        `nostalgia_worker` — ручной HTTP-запрос не висит минутами за
+        сетевым+LLM циклом и не запускает второй полный прогон (двойной
+        расход модели при повторном нажатии кнопки)."""
+        # Проверка и захват идут БЕЗ await между ними: в одном event-loop
+        # это атомарно, окна «проверил → потерял» нет.
+        if self._run_lock.locked():
+            return await self._busy_result(source=source)
+        async with self._run_lock:
+            return await self._refresh_cycle(source=source, force=force)
+
+    async def _refresh_cycle(self, *, source: str | None = None,
+                             force: bool = False) -> dict:
+        """Один прогон под захваченным `_run_lock` (события + терминал)."""
         started = time.monotonic()
         _emit("anticliche_run", "start", component=_ANTICLICHE_COMPONENT)
         try:
@@ -514,6 +564,23 @@ class AntiClicheWorker:
               component=_ANTICLICHE_COMPONENT, reason_code=reason,
               duration_ms=int((time.monotonic() - started) * 1000))
         return result
+
+    async def _busy_result(self, *, source: str | None = None) -> dict:
+        """Честный отказ второго одновременного вызова (T-SRC-CONCURRENCY).
+
+        Ничего не пишет: ни кэш, ни `last_status`, ни строку статуса прогона —
+        ими владеет идущий прогон. Возвращает РЕАЛЬНЫЙ банк на момент ответа
+        (действующая версия может увеличиться, когда идущий прогон
+        опубликует; свой результат он отдаёт сам)."""
+        source_hint = source or self._source_id
+        pg = self._pg if self._pg is not None else anticliche_cache.get_runtime_pg()
+        bank = _bank_from_stored(await anticliche_cache.fetch_cache(pg),
+                                 source_hint)
+        trace_step(logger, component="anticliche", step="gate",
+                   status="skip", reason="busy",
+                   extra={"source": source_hint,
+                          "version": bank.get("version")})
+        return {"status": "busy", "count": 0, "published": False, **bank}
 
     # ── Stage A: независимые проверки источников (§3.3, §4.2) ──────────────
 
@@ -602,10 +669,8 @@ class AntiClicheWorker:
         # (kill-switch/freshness-skip) обязаны отдавать РЕАЛЬНЫЕ version/rules,
         # а не ложные нули при целом опубликованном наборе (§1 п.8).
         stored = await anticliche_cache.fetch_cache(pg)
-        current_version = int((stored or {}).get("version") or 0)
-        current_rules = len(_normalize_stored((stored or {}).get("patterns")))
-        bank = {"source": source_hint, "version": current_version,
-                "rules": current_rules}
+        bank = _bank_from_stored(stored, source_hint)
+        current_version = int(bank["version"])
 
         if not anticliche_cache.enabled():
             trace_step(logger, component="anticliche", step="gate",
