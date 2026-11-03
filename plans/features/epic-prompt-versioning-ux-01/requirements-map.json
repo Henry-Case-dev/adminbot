@@ -21,7 +21,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "PVR-GOAL-01",
-      "slice": "PVR-S0-GUARD",
+      "slice": "PVR-S7-VERIFY",
       "acceptance": "Все редактируемые LLM-промпты любого раздела админки получают одинаковый настоящий долговечный контроль версий, доступный из места редактирования; история, активация старой версии, сравнение, назначение baseline и возврат к нему работают на реальном журнале, а не как декоративные метки act:/fac:.",
       "live_required": false,
       "live_when": "preprod",
@@ -251,6 +251,25 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "MANUAL_14",
+      "source_line": 67,
+      "source_text_sha256": "1c338431f80c2419b86dd2f021da01bb2af27245533175c52a2e4b3d8dd0a07d",
+      "source_excerpt": "6. `Применить` — меняет активный текст именно выбранного промпта в выбранном scope;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "PVR-UX-BASECONFIRM-01",
+      "slice": "PVR-S4-UX",
+      "acceptance": "В UI «Назначить базовой» и «Восстановить базовую» выполняются только после явного подтверждения, и до действия пользователю показано описание последствий: меняется только эталон, действующий текст остаётся прежним; активной кнопки, выполняющей действие без подтверждения, нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "notes": [
+        "Добавлено по решению координатора 2026-11-04: закрывает пробел покрытия, зафиксированный в строке PVR-APPLY-01 (L00067) — серверная часть назначения базовой доказана в S2, а UI-подтверждение и описание последствий своей строки не имели.",
+        "Точная формулировка сообщения «Базовая версия изменена, действующий текст пока прежний» остаётся в PVR-BASE-05; здесь проверяется сам факт подтверждения/предупреждения до действия."
+      ]
     }
   ],
   "items": [
@@ -463,8 +482,35 @@
       "acceptance": "Ранее сохранённые ревизии не удаляются, не обрезаются, не пересоздаются и не «нормализуются»: журнал только дополняется; при чтении истории утраченные legacy-записи помечены честной границей доступной истории, а не выдуманным текстом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S3 review (re-review 2, Approved) §Поклаузно п.9 — диффом ничего не удалено и не пересоздано",
+          "type": "review",
+          "observation": "git diff 44e1e589..254f5242: удалённых файлов нет, `JOURNAL_DDL` не изменён, DDL (CREATE/ALTER/DROP TABLE|INDEX) — 0 строк, тексты промптов диффом не тронуты. Журнал только дополняется: `apply_release` переносит записи `character.prompt_history` в журнал (`_import_provenance_history`, идемпотентно по `revision_id`), уже сохранённые ревизии не «нормализуются».",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S3 review §Поклаузно п.8 — утраченная legacy-история помечена честной границей, а не выдумана",
+          "type": "review",
+          "observation": "`_prompt_history_view` при `default_journal → None` отдаёт `available=false`; `_legacy_history_rows` помечает такие строки `legacy_bounded`; пустой фальшивый текст не подставляется. Пересоздания утраченных записей нет — фиксируется граница доступной истории.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
+      "notes": [
+        "Клауза закрыта на кандидате 254f5242 (слияние bf90a2ae); прежнее доказательство S0/S1 больше не требуется.",
+        "Физически удалённые старым bounded-журналом записи не изобретаются: показывается честная граница `legacy_bounded`/`available=false`."
+      ]
     },
     {
       "source_id": "L00024",
@@ -677,8 +723,34 @@
       "acceptance": "Требование «все когда-либо сохранённые» выполнено для новых сохранений и реально доступных legacy-записей; физически удалённые старым bounded-журналом записи не воссоздаются и честно отмечены как невосстановимые.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S3 review §Поклаузно п.8 — «все когда-либо сохранённые» для новых записей и реально доступного legacy",
+          "type": "review",
+          "observation": "Speech-история читается из журнала: `source=journal`, 50 строк на первой странице (не 12), `has_more=true`, `page_size=13` даёт 13, `page_size=200` отдаёт все 55, прежние ключи строки (`revision/kind/scope/sha256_12/chars/updated_at/actor/reason`) на месте. Старые доступные записи не потеряны: `apply_release` переносит ВСЕ записи `character.prompt_history` в журнал (`_import_provenance_history`, идемпотентно по `revision_id`). При недоступном журнале — `available=false` и `legacy_bounded`, выдуманного текста нет.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "tests/test_prompt_history_pagination.py — durable CONTRACT-проверки Speech-истории",
+          "type": "test",
+          "observation": "`test_speech_history_comes_from_journal_without_12_cap` и `test_speech_history_falls_back_to_legacy_only_without_journal` проверяют число строк, `has_more`, прежние ключи строки и честную границу при отсутствии журнала (reviewer прочитал тела тестов и подтвердил, что проверяются реальные результаты, а не тавтологии).",
+          "artifact_path": "tests/test_prompt_history_pagination.py",
+          "artifact_sha256": "5886afcde5738c4a93cc52c521fbbdce187d5f554e2a4534605be02eae256cd0",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
+      "notes": [
+        "Клауза закрыта на кандидате 254f5242 (слияние bf90a2ae). Потолок 12 больше не лимит новых сохранений; legacy-записи сохранены переносом в журнал."
+      ]
     },
     {
       "source_id": "L00037",
@@ -872,8 +944,34 @@
       "acceptance": "GET /api/prompts/revisions/{id}/source отдаёт полный дословный текст выбранной ревизии с датой/происхождением/скоупом без обрезки; просмотр не создаёт ревизию и не пересохраняет текст; для недоступного тела — честное сообщение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S3 review §Поклаузно п.5, п.6 — /source отдаёт дословное тело по правам, retired читается",
+          "type": "review",
+          "observation": "`_prompt_require_revision_view` (web/api/routes.py:3542-3563) резолвит ревизию → `block_id` → (`scope`, `chat_id`) → `_prompt_require_view`; свой ЛС владельца получает 200 с дословным телом, чужой ЛС — 403, неизвестная ревизия — 404. Тело retired-ревизии читается, diff сравнивает и отдаёт `reason_text` при `actionable=false`; `body_available` говорит лишь о доступности тела, списки тела не отдают.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "web/api/routes.py + services/prompt_release_policy.py — путь просмотра только читает и не обрезает тело",
+          "type": "source",
+          "observation": "`GET /prompts/revisions/{revision_id}/source` не вызывает ни одного write-пути: `get_revision` → RBAC → `get_revision_source`, который возвращает тело целиком (`body`, `chars=len(body)`) вместе с `created_at`, `origin`/`source`/`source_label`, `scope`/`chat_id`, `status`/`status_label`/`reason_text`/`actionable`/`body_available`; при неизвестной ревизии — `known=false, reason=revision_unknown` (404), при недоступном журнале — 503. Пустой фальшивый текст не подставляется, просмотр ревизию не создаёт и текст не пересохраняет.",
+          "artifact_path": "services/prompt_release_policy.py",
+          "artifact_sha256": "87993f9d3faf27c9e1276d71db274f9e558c2e08b7621dfcb80f9b9aa6736cae",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
+      "notes": [
+        "Клауза закрыта на кандидате 254f5242: полный дословный текст, дата/происхождение/скоуп и честное сообщение для недоступного тела проверены ревьюером на реальном HTTP-слое; отсутствие записи на пути просмотра подтверждено чтением обработчика (GET, только чтение)."
+      ]
     },
     {
       "source_id": "L00066",
@@ -929,7 +1027,7 @@
       ],
       "notes": [
         "Серверный контракт «Применить / Назначить базовой / Восстановить базовую» разделён и доказан на кандидате c3ea182b.",
-        "Не проверена UI-часть: подтверждение действия и описание последствий при назначении базовой. Отдельной строки под это в карте нет — пробел покрытия, закрывается в PVR-S4-UX (нужна явная строка подтверждения; без решения владельца карты не создавал)."
+        "Не проверена UI-часть: подтверждение действия и описание последствий при назначении базовой. Пробел покрытия закрыт решением координатора 2026-11-04 — добавлена отдельная строка `PVR-UX-BASECONFIRM-01` в срезе PVR-S4-UX; серверная часть здесь остаётся доказанной."
       ]
     },
     {
@@ -1177,8 +1275,35 @@
       "acceptance": "Число ревизий не ограничено (HISTORY_MAX_PER_BLOCK=12 не перенесён); список читается страницами с устойчивым курсором и детерминированной сортировкой, история остаётся доступной и отзывчивой после 1000+ версий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S3 review §Поклаузно п.3 — нет потолка истории, 1500 записей страницами, стабильный курсор",
+          "type": "review",
+          "observation": "1200 ревизий + 300 событий через `GET /api/prompts/{key}/versions?page_size=100`: 15 страниц, 1500 записей, 0.52-0.61 с всего, ~35-41 мс/страница; размер страницы не более 100; 1500 уникальных ключей; `order` = 1..1500 без пропусков; порядок совпал с независимым оракулом (desc по `(created_at, вторичный ключ)`). Курсор: страница 1 = снимок `[0:10]`, после вставки 5 более новых записей страница 2 = `[10:20]` исходного снимка без пересечения; `page_size=0` даёт 50, `page_size=1000` даёт 200 записей и `has_more=true`.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "tests/test_prompt_history_pagination.py — durable CONTRACT-набор страниц и курсора",
+          "type": "test",
+          "observation": "`test_full_history_of_1000_revisions_has_no_cap`, `test_entries_have_continuous_order_numbers`, `test_cursor_is_stable_when_new_rows_appear`, `test_legacy_lists_are_paged_without_cap`, `test_api_versions_page_size_is_clamped_not_capping_history`; мутации «потолок page_size=50» и «курсор включительный (<=)» пойманы тестами (reviewer прогнал набор независимо: 19 passed).",
+          "artifact_path": "tests/test_prompt_history_pagination.py",
+          "artifact_sha256": "5886afcde5738c4a93cc52c521fbbdce187d5f554e2a4534605be02eae256cd0",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
+      "notes": [
+        "Клауза закрыта на кандидате 254f5242. `HISTORY_MAX_PER_BLOCK=12` в журнал не перенесён; отдельного потолка активаций (50) также нет.",
+        "Индекс `(block_id, created_at DESC)` не создавался: DDL в этом пакете запрещён. На замере 1500 записей страница укладывается в ~35-41 мс; при десятках тысяч активаций одного блока аддитивный индекс станет отдельным решением (S6/DevOps), а не дефектом S3."
+      ]
     },
     {
       "source_id": "L00079",
@@ -1220,8 +1345,35 @@
       "acceptance": "Тексты промптов и секреты не попадают в открытые логи; тела не возвращаются в списках/каталогах без отдельного авторизованного запроса; полная история доступна только имеющим право на этот промпт/чат по текущей RBAC-модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S3 review §Поклаузно п.4, п.5, п.7 — тел в списках нет, тело по правам, изоляция чатов",
+          "type": "review",
+          "observation": "Списки без тел на уровне SQL: `_PAGE_REVISIONS_DESC_SQL` содержит ровно одно упоминание `body` — `length(body) AS char_count`; в `_PAGE_ACTIVATIONS_DESC_SQL` колонки `body` нет; OFFSET отсутствует, keyset строгий. `PgPromptJournal.list_history_page` на коннекте, который ВОЗВРАЩАЕТ колонку `body`, отдаёт строки без тела (сентинел в дампе отсутствует, `chars` считается); ни один из 15 ответов обхода 1500 записей не содержит сентинела тел. RBAC: свой ЛС владельца — 200 с дословным телом, чужой ЛС — 403, групповой чат — админ 200/обычный 403, global — админ 200/обычный 403, неизвестная ревизия — 404, diff между своей и чужой чатовой ревизией — 403. Изоляция: чат A видит 4 записи, чат B — 3, global — 0; на сторе — 3/2/0 без пересечений.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "tests/test_prompt_history_pagination.py — durable проверки отсутствия тел и изоляции чатов",
+          "type": "test",
+          "observation": "`test_list_never_contains_bodies` (поиск текста в `json.dumps` ответа), `test_chat_history_is_not_readable_through_another_chat`, `test_api_chat_history_is_isolated`; мутации «тело ревизии попадает в список» и «чат-фильтр отключён» пойманы.",
+          "artifact_path": "tests/test_prompt_history_pagination.py",
+          "artifact_sha256": "5886afcde5738c4a93cc52c521fbbdce187d5f554e2a4534605be02eae256cd0",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
+      "notes": [
+        "Клауза закрыта на кандидате 254f5242 для частей «тела не возвращаются в списках» и «RBAC/изоляция чатов» — обе проверены пробоями ревьюера и durable-тестами.",
+        "Часть «тексты промптов и секреты не попадают в открытые логи» подтверждена статически: единственные новые вызовы логирования в диффе 44e1e589..254f5242 — три `logger.warning` в `web/api/speech.py`, и они передают только `block`; тела и секреты в строку лога не попадают. Отдельной пробы ревьюера по логам нет — это граница доказательства, а не открытый дефект."
+      ]
     },
     {
       "source_id": "L00081",
@@ -1418,10 +1570,21 @@
           "candidate_commit_full": "c3ea182b59120c21c933612070f1cc407326f323",
           "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S3 review (re-review 2) §Поклаузно п.1 — N1 закрыт: pinned-ветка стоит выше cutover",
+          "type": "review",
+          "observation": "`activate_pinned` / `factory_superseded_pinned`: `cache.get(PG_KEY)` и `store.read_global` пусты; ревизия `fac:sha12(narrator-b)` в истории; `read_applied.factory_revision_applied=fac:4bd2b4354665`; baseline остаётся `rev:129fa0859623`; повторный `apply_release` — dAct=0, dRev=0, план `no_op/restart_same_revision`. Снимок не потерян: при ручном тексте вне журнала pinned-ветка пишет `legacy`-ревизию и `legacy_import/legacy_snapshot`, значение остаётся прежним.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
         }
       ],
       "notes": [
-        "N1 — открытый пункт, владелец PVR-S3, закрыть до parent DONE: в activation_plan ветка «if not has_import -> PLAN_LEGACY_CUTOVER» (services/prompt_release_policy.py:1600-1616, services/prompt_registry.py:779-796) стоит раньше проверки pinned. Воспроизведено: scope с назначенной базовой, но без значения и без маркера импорта (достижимо после copy-to-global) — первый размеченный релиз идёт по cutover и пишет заводской текст (after = FACTORY B при пустом before). Указатель baseline цел, ручного текста в scope не было, история полна, поэтому клауза не нарушена. На боевом состоянии (значение есть, capture ставит legacy_import) pinned-ветка срабатывает верно. Требуемые действия: перенести проверку pinned выше cutover с сохранением снимка текущих байтов + durable-тест «pinned + первый размеченный релиз»."
+        "N1 был открыт после S2: в `activation_plan` ветка `not has_import → PLAN_LEGACY_CUTOVER` стояла раньше проверки pinned. ЗАКРЫТ в PVR-S3 на кандидате 254f5242 (слияние bf90a2ae): проверка pinned поднята выше cutover с сохранением снимка текущих байтов; мутация «pinned снова после cutover» ловится тестом. См. `open_items` → `N1-ACTIVATION-PLAN-ORDER` (status=closed)."
       ]
     },
     {
@@ -1459,11 +1622,22 @@
           "candidate_commit_full": "c3ea182b59120c21c933612070f1cc407326f323",
           "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S3 review (re-review 2) §Поклаузно п.2 — N2 закрыт: ответ = reason сохранённой ревизии",
+          "type": "review",
+          "observation": "Копия из чата A: `created=true`, `copied_from_chat:rev:6eb0e40440b0`. Копия тех же байтов из чата B: `created=false`, ответ `copied_from_chat:rev:6eb0e40440b0` совпадает с `store.get_revision(...).reason`; исходные чатовые ревизии не изменены, целевая ревизия одна.",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md",
+          "artifact_sha256": "e74f390b2b8c825d171a7cc663bceee3f92bd60302702bccf75a74b37b0576c1",
+          "candidate_commit": "254f5242",
+          "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
+          "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+          "reviewed_on": "2026-11-04"
         }
       ],
       "notes": [
-        "N2 — открытый пункт, владелец PVR-S3, закрыть до parent DONE: copy_revision_to_global возвращает copy_reason текущего вызова, но при совпадении байтов отдаёт уже существующую ревизию с прежним reason (например copied_from_chat:<A>, хотя копировали из B) и created=false. Тело, scope и провенанс корректны, перепривязки нет. Требуемые действия: отдавать фактический reason сохранённой ревизии + durable-тест.",
-        "Копирование одинаковых байтов из двух чатов отдельно проверено пробой: created=false на втором, целевая ревизия одна."
+        "N2 был открыт после S2: `copy_revision_to_global` отдавал `reason` текущего вызова вместо сохранённого. ЗАКРЫТ в PVR-S3 на кандидате 254f5242 (слияние bf90a2ae): после `ON CONFLICT DO NOTHING` ревизия перечитывается и возвращается её `reason`; мутация «отдавать запрошенный reason» ловится тестом. См. `open_items` → `N2-COPY-REASON-MISMATCH` (status=closed).",
+        "Копирование одинаковых байтов из двух чатов проверено отдельно: `created=false` на втором, целевая ревизия одна."
       ]
     },
     {
@@ -1629,17 +1803,24 @@
       "reviewed_full": "c3ea182b59120c21c933612070f1cc407326f323",
       "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e"
     },
-    "note": "candidate_commit карты = merged-состояние эпика на evol/impl; deployed_commit пуст — деплоя не было. Гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не меняется)."
+    "note": "candidate_commit карты = merged-состояние эпика на evol/impl; deployed_commit пуст — деплоя не было. Гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не меняется). S3 принят ревьюером как 254f5242 и слит в evol/impl как bf90a2ae.",
+    "PVR-S3-HISTORY": {
+      "reviewed": "254f5242",
+      "reviewed_full": "254f524264e20e703b64c952c7824dd59f3af144",
+      "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d"
+    }
   },
   "merge_state": {
     "branch": "evol/impl",
-    "head": "44e1e589a45b97792561d1991bafdd10a6bc52d7",
-    "head_short": "44e1e589",
+    "head": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+    "head_short": "bf90a2ae",
     "contains_merges": [
       "9a5834fd433af84949aedcf83ed42512bed444cf",
-      "c02f6180da0cfc852870c18975d76e180c35404e"
+      "c02f6180da0cfc852870c18975d76e180c35404e",
+      "bf90a2aebde6a5765e36bc81abff4525fe9f402d"
     ],
-    "deployed": false
+    "deployed": false,
+    "note": "head — последний слиянный код-кандидат (S3, bf90a2ae); коммит самой карты идёт следом и код не меняет. deployed_commit пуст: деплоя не было."
   },
   "reconciliation": {
     "reconciled_on": "2026-11-04",
@@ -1647,20 +1828,20 @@
     "reconciled_slices": [
       "PVR-S0-GUARD",
       "PVR-S1-WRITE",
-      "PVR-S2-BASELINE"
+      "PVR-S2-BASELINE",
+      "PVR-S3-HISTORY"
     ],
-    "verified_rows": 19,
+    "verified_rows": 24,
     "ready_for_live_rows": 2,
     "pending_rows_in_reconciled_slices": [
-      "PVR-GOAL-01",
       "PVR-INV-02",
       "PVR-INV-06",
-      "PVR-WRITE-08",
       "PVR-APPLY-01",
+      "PVR-WRITE-08",
       "PVR-BASE-05"
     ],
     "coverage_complete": false,
-    "note": "Эпик не завершён: PVR-S3..PVR-S7 не реализованы/не проверены. Правились только строки трёх срезов; остальные строки карты не тронуты."
+    "note": "Эпик не завершён: PVR-S4..PVR-S7 не реализованы/не проверены. S3 (PVR-S3-HISTORY) принят ревьюером на кандидате 254f5242 (слияние bf90a2ae) и привязан здесь: 5 строк среза VERIFIED. N1/N2 закрыты, D1-D3 остаются за своими срезами. PVR-GOAL-01 перенесён в PVR-S7-VERIFY (решение координатора), добавлена строка PVR-UX-BASECONFIRM-01 в PVR-S4-UX."
   },
   "disclosures": [
     {
@@ -1720,9 +1901,14 @@
       "affects_rows": [
         "PVR-BASE-07"
       ],
-      "blocks_parent_done": true,
-      "note": "В activation_plan проверка has_import->PLAN_LEGACY_CUTOVER стоит раньше проверки pinned: scope с назначенной базовой, без значения и без маркера импорта получает заводской текст при первом размеченном релизе. Данные и указатель не теряются. Перенести проверку pinned выше cutover + durable-тест.",
-      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s2-review.md N1"
+      "blocks_parent_done": false,
+      "note": "ЗАКРЫТ в PVR-S3. Проверка pinned перенесена выше cutover, снимок текущих байтов сохранён в pinned-ветке. Проверено ревьюером на кандидате 254f5242: значение scope не записано, ревизия в истории, baseline цел, повторный apply_release — dAct=0/dRev=0; мутация «pinned снова после cutover» ловится durable-тестом.",
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s2-review.md N1",
+      "status": "closed",
+      "closed_on": "2026-11-04",
+      "closed_by_candidate": "254f5242",
+      "closed_in_merge": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+      "closing_evidence": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md (re-review 2, §Поклаузно п.1) + tests/test_prompt_history_pagination.py"
     },
     {
       "id": "N2-COPY-REASON-MISMATCH",
@@ -1730,9 +1916,14 @@
       "affects_rows": [
         "PVR-BASE-08"
       ],
-      "blocks_parent_done": true,
-      "note": "copy_revision_to_global отдаёт copy_reason текущего вызова, но при совпадении байтов возвращает существующую ревизию с прежним reason и created=false. Тело и scope корректны. Отдавать фактический reason сохранённой ревизии + durable-тест.",
-      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s2-review.md N2"
+      "blocks_parent_done": false,
+      "note": "ЗАКРЫТ в PVR-S3. `copy_revision_to_global` перечитывает ревизию после `ON CONFLICT DO NOTHING` и отдаёт её `reason`. Проверено ревьюером на кандидате 254f5242: копия тех же байтов из другого чата отдаёт `copied_from_chat:` первого источника, `created=false`, исходные ревизии не изменены; мутация «отдавать запрошенный reason» ловится тестом.",
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s2-review.md N2",
+      "status": "closed",
+      "closed_on": "2026-11-04",
+      "closed_by_candidate": "254f5242",
+      "closed_in_merge": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+      "closing_evidence": "plans/features/prompt-versioning-ux/reports/pv-s3-review.md (re-review 2, §Поклаузно п.2) + tests/test_prompt_history_pagination.py"
     },
     {
       "id": "P1-REGRESSION-CAS-ROLLBACK-TESTS",
