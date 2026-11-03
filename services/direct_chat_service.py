@@ -2833,6 +2833,15 @@ CORRECTION_LINK_UNRESOLVED = "unresolved"
 CORRECTION_SUBJECT_OWN = "own_claim"
 CORRECTION_SUBJECT_PARTICIPANT = "participant"
 CORRECTION_SUBJECT_UNKNOWN = "unresolved"
+# `challenge` — УСТАНОВЛЕНО ли возражение как факт (§12.2 п.1/п.6):
+#   * ``claimed`` — подтверждённый транспортом Reply на конкретную реплику,
+#     то есть человек действительно указал на предшествующую позицию;
+#   * ``unknown`` — только хронология/структура (``semantic``, ``ambiguous``,
+#     ``unresolved``): существование своего прошлого ответа установлено, а
+#     факт возражения — НЕТ. Приписывать собеседнику позицию, которой он не
+#     занимал, запрещено, поэтому ветка с ``unknown`` говорит об этом прямо.
+CORRECTION_CHALLENGE_CLAIMED = "claimed"
+CORRECTION_CHALLENGE_UNKNOWN = "unknown"
 #: Сколько строк счёта показывать (выборка данных, не бюджет инструкций) и
 #: кап текста собственной оспариваемой реплики (паритет с Current_Question).
 _CORRECTION_MAX_ROWS = 8
@@ -2904,18 +2913,29 @@ def _correction_own_ref(record: dict) -> str:
     return resolve_item_id(tg_message_id=tg_id) if tg_id else ""
 
 
-def _correction_reference_kind(row, *, by_tg_id: dict) -> tuple[str, str]:
+def _correction_reference_kind(row, *, by_tg_id: dict,
+                               bot_id=None) -> tuple[str, str]:
     """Вид видимой реплики человека по СТРУКТУРЕ и её ссылка.
 
     Возвращает ``(kind, target)``, где kind — ``standalone`` |
-    ``reference_same`` | ``reference_other`` | ``reference_outside``.
-    Решение принимается только по полям строки (reply_to_id, quote_*), без
-    чтения смысла текста."""
+    ``reference_same`` | ``reference_own_bot`` | ``reference_other`` |
+    ``reference_outside``. Решение принимается только по полям строки
+    (reply_to_id, quote_*), без чтения смысла текста.
+
+    ``reference_own_bot`` — человек цитирует/отвечает на СЛОВА БОТА: для бота
+    это ссылка на свою прежнюю реплику, а не «ответ другому участнику»
+    (§12.2 п.3/п.9). Сравнение идёт с ``bot_id``, а не с автором самой
+    реплики: иначе собственная цитата бота попадала в «другого участника»."""
     uid = row_get(row, "user_id")
+    bot_key = "" if bot_id in (None, "") else str(bot_id)
     quote_text = str(row_get(row, "quote_text") or "").strip()
     quote_author = row_get(row, "quote_author_id")
     if quote_text:
-        if quote_author not in (None, "") and str(quote_author) == str(uid):
+        author_key = ("" if quote_author in (None, "")
+                      else str(quote_author))
+        if bot_key and author_key == bot_key:
+            return "reference_own_bot", ""
+        if author_key and author_key == str(uid):
             return "reference_same", ""
         return "reference_other", ""
     parent_id = row_get(row, "reply_to_id")
@@ -2924,6 +2944,9 @@ def _correction_reference_kind(row, *, by_tg_id: dict) -> tuple[str, str]:
         if parent_row is None:
             return "reference_outside", ""
         parent_uid = row_get(parent_row, "user_id")
+        if bot_key and parent_uid is not None \
+                and str(parent_uid) == bot_key:
+            return "reference_own_bot", ""
         if parent_uid is not None and str(parent_uid) == str(uid):
             return "reference_same", ""
         return "reference_other", ""
@@ -2931,24 +2954,27 @@ def _correction_reference_kind(row, *, by_tg_id: dict) -> tuple[str, str]:
 
 
 def _correction_counting(rows: list, *, limit: int,
-                         projection) -> dict:
+                         projection, bot_id=None) -> dict:
     """Структурный счёт видимых реплик человека (§12.2 п.3).
 
     Считаются РАЗНЫЕ вещи отдельно и не смешиваются: самостоятельные реплики
     (в них — вопросительные предложения), ссылки/цитаты на прежние реплики
-    того же человека (упоминания, а не новые вопросы), ответы другим,
-    ссылки на сообщения вне окна. Текст участника не читается — только
-    транспортные поля и наличие сообщения в окне."""
+    того же человека (упоминания, а не новые вопросы), цитаты/ссылки на слова
+    бота (его собственная прежняя реплика — не «другой участник»), ответы
+    другим, ссылки на сообщения вне окна. Текст участника не читается —
+    только транспортные поля и наличие сообщения в окне."""
     by_tg_id = {}
     for row in rows or []:
         tg_id = _tg_id_of_row(row)
         if tg_id is not None:
             by_tg_id[str(tg_id)] = row
     shown = list(rows or [])[-limit:] if limit > 0 else []
-    standalone = questions = ref_same = ref_other = ref_outside = 0
+    standalone = questions = ref_same = ref_bot = 0
+    ref_other = ref_outside = 0
     lines: list[str] = []
     for row in shown:
-        kind, _target = _correction_reference_kind(row, by_tg_id=by_tg_id)
+        kind, _target = _correction_reference_kind(
+            row, by_tg_id=by_tg_id, bot_id=bot_id)
         label = ""
         try:
             label = projection.message_label(
@@ -2966,6 +2992,10 @@ def _correction_counting(rows: list, *, limit: int,
         elif kind == "reference_same":
             ref_same += 1
             lines.append(f"{prefix}ссылка/цитата на свою же прежнюю реплику")
+        elif kind == "reference_own_bot":
+            ref_bot += 1
+            lines.append(f"{prefix}ссылка/цитата на твою прежнюю реплику "
+                         f"(твои слова, не другого участника)")
         elif kind == "reference_other":
             ref_other += 1
             lines.append(f"{prefix}ответ/цитата другого участника")
@@ -2976,12 +3006,25 @@ def _correction_counting(rows: list, *, limit: int,
         "standalone": standalone,
         "questions": questions,
         "references_same": ref_same,
+        "references_bot": ref_bot,
         "references_other": ref_other,
         "references_outside": ref_outside,
         "shown": len(shown),
         "total": len(rows or []),
         "lines": lines,
     }
+
+
+def _correction_challenge(link: str, subject: str) -> str:
+    """УСТАНОВЛЕНО ли возражение (§12.2 п.1/п.6) — ``claimed`` | ``unknown``.
+
+    Факт возражения подтверждает только транспортный Reply на конкретную
+    реплику. Смысловая/неоднозначная привязка и нераспознанный автор дают
+    ``unknown``: известно лишь, что свой прошлый ответ существует."""
+    if link == CORRECTION_LINK_REPLY and subject in (
+            CORRECTION_SUBJECT_OWN, CORRECTION_SUBJECT_PARTICIPANT):
+        return CORRECTION_CHALLENGE_CLAIMED
+    return CORRECTION_CHALLENGE_UNKNOWN
 
 
 def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
@@ -3000,10 +3043,16 @@ def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
     этого хода (§12.3 «не дублировать чат в каждом user-block»): в этом
     случае роль адресуется меткой прогона."""
     lines: list[str] = []
+    challenge = _correction_challenge(link, subject)
     if subject == CORRECTION_SUBJECT_OWN:
         claim_ref = claim_label or "не восстановлена"
-        head = (f"твоё прежнее утверждение (роль: твои слова, которые "
-                f"оспаривают): {claim_ref}")
+        if challenge == CORRECTION_CHALLENGE_CLAIMED:
+            head = (f"твоё прежнее утверждение (роль: твои слова, которые "
+                    f"оспаривают): {claim_ref}")
+        else:
+            head = (f"твой последний доставленный ответ (роль: твои слова; "
+                    f"является ли он предметом несогласия, по данным НЕ "
+                    f"установлено): {claim_ref}")
         if claim_in_payload:
             head += " — эта реплика уже показана выше в цепочке"
         elif claim_text:
@@ -3018,31 +3067,49 @@ def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
         lines.append(f"предмет возражения (роль: слова человека, не твои): "
                      f"{who}")
     else:
-        lines.append("предмет возражения (роль): не установлен по "
-                     "доступным данным")
+        lines.append("предмет (роль: чьи слова — не установлен по "
+                     "доступным данным)")
 
-    lines.append(f"возражение (роль: текущая реплика человека): "
-                 f"{trigger_label or 'текущая реплика'} — "
-                 f"{trigger_name or 'участник'}")
+    if challenge == CORRECTION_CHALLENGE_CLAIMED:
+        lines.append(f"возражение (роль: текущая реплика человека): "
+                     f"{trigger_label or 'текущая реплика'} — "
+                     f"{trigger_name or 'участник'}")
+    else:
+        lines.append(f"текущая реплика человека (роль: очередная реплика, "
+                     f"а не установленный ответ на твой прежний ответ): "
+                     f"{trigger_label or 'текущая реплика'} — "
+                     f"{trigger_name or 'участник'}")
 
+    relation = ("связь возражения с предметом"
+                if challenge == CORRECTION_CHALLENGE_CLAIMED
+                else "связь текущей реплики с твоим прежним ответом")
     if link == CORRECTION_LINK_REPLY:
-        lines.append("связь возражения с предметом: Telegram Reply "
+        lines.append(f"{relation}: Telegram Reply "
                      "(подтверждено транспортом)")
     elif link == CORRECTION_LINK_SEMANTIC:
         tail = ("; между ними есть другие сообщения" if intervening else "")
-        lines.append("связь возражения с предметом: смысловая привязка по "
+        lines.append(f"{relation}: смысловая привязка по "
                      "времени и структуре (НЕ Telegram Reply)" + tail)
     elif link == CORRECTION_LINK_AMBIGUOUS:
         extra = ""
         if other_claims:
             extra = ("; другие твои реплики в этом отрезке: "
                      + ", ".join(str(item) for item in other_claims))
-        lines.append("связь возражения с предметом: несколько твоих реплик "
+        lines.append(f"{relation}: несколько твоих реплик "
                      "одинаково подходят (НЕ Telegram Reply)" + extra
                      + "; если предмет не ясен, уточни, а не выбирай наугад")
     else:
-        lines.append("связь возражения с предметом: не установлена честно "
+        lines.append(f"{relation}: не установлена честно "
                      "(только по доступным данным)")
+
+    if challenge == CORRECTION_CHALLENGE_UNKNOWN:
+        lines.append("статус связи: не установлено, выражает ли текущая "
+                     "реплика несогласие с твоим прежним ответом "
+                     "(основание — хронология и структура; Reply нет). "
+                     "Не приписывай человеку позицию, которой он не занял, "
+                     "и не начинай спор, которого не прозвучало: свой прошлый "
+                     "ответ уточняй только если для этого есть причина в "
+                     "самом разговоре")
 
     if quote_text:
         lines.append(f"выделенный фрагмент, на который указал человек: "
@@ -3056,6 +3123,7 @@ def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
 
     if counting and (counting.get("total") or counting.get("standalone")
                      or counting.get("references_same")
+                     or counting.get("references_bot")
                      or counting.get("references_other")
                      or counting.get("references_outside")):
         lines.append(
@@ -3063,8 +3131,10 @@ def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
             f"самостоятельных реплик "
             f"{counting['standalone']}, в них вопросительных предложений "
             f"{counting['questions']}; ссылок/цитат на свои прежние реплики "
-            f"{counting['references_same']}; ответов другим участникам "
-            f"{counting['references_other']}; ссылок вне окна "
+            f"{counting['references_same']}; ссылок/цитат на твои прежние "
+            f"реплики (твои слова, не другого участника) "
+            f"{int(counting.get('references_bot') or 0)}; ответов другим "
+            f"участникам {counting['references_other']}; ссылок вне окна "
             f"{counting['references_outside']}")
         for item in counting.get("lines") or ():
             lines.append(f"- {item}")
@@ -3072,11 +3142,13 @@ def _render_correction_frame(*, link: str, subject: str, trigger_label: str,
         if hidden > 0:
             lines.append(f"- ещё {hidden} реплик не показаны (выборка)")
     attrs = (f'link="{link}" subject="{subject}" '
+             f'challenge="{challenge}" '
              f'own_in_payload="{1 if claim_in_payload else 0}" '
              f'source_present="{1 if claim_source_present else 0}" '
              f'semantic="{1 if link in (CORRECTION_LINK_SEMANTIC, CORRECTION_LINK_AMBIGUOUS) else 0}" '
              f'window="{int(window_size)}" '
              f'refs_same="{int((counting or {}).get("references_same") or 0)}" '
+             f'refs_bot="{int((counting or {}).get("references_bot") or 0)}" '
              f'standalone="{int((counting or {}).get("standalone") or 0)}" '
              f'questions="{int((counting or {}).get("questions") or 0)}"')
     body = "".join("\n" + line for line in lines if line)
@@ -11938,7 +12010,8 @@ class DirectChatService:
         except Exception:                                  # pragma: no cover
             trig_name = str(getattr(trig_user, "first_name", "") or "")
         counting = _correction_counting(
-            rows, limit=_CORRECTION_MAX_ROWS, projection=projection)
+            rows, limit=_CORRECTION_MAX_ROWS, projection=projection,
+            bot_id=bot_id)
         window_size = len(rows)
         chain_ids = {str(getattr(item, "item_id", "") or "")
                      for item in (chain or ())}
