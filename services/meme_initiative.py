@@ -2173,16 +2173,37 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
             db, store=claim_store if claim_store is not None else
             pubmod.open_store(db, path=(ledger.path if ledger is not None
                                         else None)))
+    # Атрибуция брони ДО `acquire` (B4): флаг `recovered_delivery_unknown`
+    # описывает ПРЕДЫДУЩЕГО держателя истёкшей `sending`-брони. Своя отправка
+    # этого мема не может совпасть с `queued`-строкой: строка переводится в
+    # `running` ДО брони, а падение в окне отправки ловит watchdog и мы выше
+    # уходим в честный терминал `delivery_unknown` без `acquire`. Значит по
+    # смыслу это ЧУЖАЯ бронь (другой механизм упал/завис посреди отправки), и
+    # терять из-за неё оплаченную картинку запрещено (§1.2.5).
+    before_claim = await coordinator.snapshot(int(chat_id))
     claim = await coordinator.acquire(
         int(chat_id), OUTPUT_KIND, holder_ref=run_id, now=ts, manual=False,
         wait_for_sending=0.0)
     facts[STAGE_PUBLISH]["claim"] = claim.as_dict()
     if claim.recovered_delivery_unknown:
-        # Прошлая отправка не доказана и не опровергнута: повтор дал бы дубль.
-        return await _terminal(REASON_DELIVERY_UNKNOWN,
-                               detail="recovered_delivery_unknown",
-                               event=EVENT_DELIVERY_UNKNOWN,
-                               delivery="unknown", job_status=JOB_FAILED)
+        previous_kind = str((before_claim or {}).get("holder_kind") or "")
+        previous_ref = str((before_claim or {}).get("holder_ref") or "")
+        own_send = bool(previous_kind == OUTPUT_KIND
+                        and previous_ref and previous_ref == str(run_id))
+        facts[STAGE_PUBLISH]["delivery_recovered"] = {
+            "holder_kind": previous_kind, "holder_ref": previous_ref,
+            "own": own_send, "detail": str(claim.detail or "")}
+        if own_send:
+            # Доказано, что это НАША отправка с неизвестным исходом: повтор
+            # дал бы дубль — честный терминал без переотправки.
+            return await _terminal(REASON_DELIVERY_UNKNOWN,
+                                   detail="recovered_delivery_unknown",
+                                   event=EVENT_DELIVERY_UNKNOWN,
+                                   delivery="unknown", job_status=JOB_FAILED)
+        # Чужая бронь: фиксируем факт (событие + факты) и продолжаем под
+        # реально выданной бронью — ровно как прямой путь в этом состоянии.
+        emit(EVENT_DELIVERY_UNKNOWN, reason="delivery_unknown",
+             detail="foreign_claim")
     if not claim.granted:
         code = (SKIP_PUBLICATION_IN_FLIGHT
                 if claim.reason == "publication_in_flight"
