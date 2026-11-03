@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-evol-reply-context-integrity-v5.md",
   "source_sha256": "c6aa5cd87e8a61528cf53ce6dba1a93f9dcc47456c29e1bdd2e69ffe182909d3",
-  "candidate_commit": "",
+  "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,17 @@
       "acceptance": "Инвариант соблюдён: явная цель → неизменяемый якорь, контекст уточняет смысл и референтов, соседние сообщения не заменяют цель; при неоднозначных кандидатах выдаётся короткое уточнение, а не догадка; шутки не дают права подменить проверяемый тезис. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B1 закрыт, контрольная проба явной цели; N-разбор 2",
+          "observation": "Reviewer своими пробами: явная текстовая цель -> target_source=explicit_reply, target_tg=771001, claim_origin=target_text, доставка на саму цель, ложной contextual нет; контекстная подмена оставляет анкором 771001 при доставке на триггер 771003; два сопоставимых кандидата -> claim=None/ambiguous=True и уточнение в handler. Подмена ближайшим/самым длинным исключена: M1 и M2 убиты 2 и 3 тестами.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00027",
@@ -49,8 +58,17 @@
       "acceptance": "При расхождении описания инцидента с фактическими данными система следует реальным данным Telegram/БД, не выдумывает целевой ID по описанию, а тест задаёт связи явно. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2, граница правила",
+          "observation": "На реальных данных: item_id=\"msg:909090\" (локальный id БД) анкором не принимается, contextual не объявляется, трассы нет, resolve_context_claim -> claim=None; пустая цель с чужой датой/автором не создаётся. Родитель берётся только из подтверждённого reply_to либо реальной цепочки.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00040",
@@ -109,8 +127,17 @@
       "acceptance": "После установления содержательного Target дальнейшая замена на ближайшее/самое длинное/самое эмоциональное/самое «проверяемое» сообщение окна запрещена: find_context_claim() и _dominant_dispute() не переписывают Claim без явного механизма референциального разрешения и доказанной связи. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутации M1/M2, M3",
+          "observation": "Запрещённые критерии проверены мутациями: M1 (вес по длине/числу ответов) убита 2 тестами; M2 (близость по tg-id раньше семантики, честная форма для всех кандидатов) убита 3 тестами (semantic_antecedent, two_comparable, handler_clarification). test_dispute_weight_has_no_reply_count_or_length_terms и test_dominant_dispute_ignores_reply_count_and_length зелёные на bfa26e60.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00085",
@@ -124,8 +151,17 @@
       "acceptance": "При референциальной фразе Target остаётся прежним, а его смысл раскрывается: сначала структурные связи, параллельно семантически релевантные сообщения окна, при выпадении родителя — существующее восстановление, при неоднозначности — уточнение. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2, контрольная проба B1",
+          "observation": "Структурная связь используется первой (chosen_anchor basis=structural); при недоступном родителе тезис восстановлен через thread_chain и объявлен contextual с анкором 771001 и собственными датой/автором (1792000000/Irma); два сопоставимых кандидата дают уточнение без вердикта.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00093",
@@ -140,7 +176,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Кейс «волокна» с конкретным разбором темы не воспроизводился; ждёт приёмки 120 сценариев (RC-S002)."
     },
     {
       "source_id": "M00108",
@@ -319,8 +356,17 @@
       "acceptance": "Оба дефекта §10 исправлены раздельно: запрещено «чинить» их единым выключением Vision или удалением всех технических уведомлений, и медиа-необязательность не превращается в глобальный запрет медиа. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Ребейз + медиа-опциональность",
+          "observation": "Раздельность подтверждена: гейт включается только при allow_adjacent, отсутствии ожидаемых картинок и недостаточном тексте; сильные связи (media_group_id, вложение, reply на медиа, альбом) не затронуты - test_album_attachment_still_counts_as_linked_media и test_unbound_command_still_attempts_media_association зелёные на bfa26e60; отключения Vision и снятия технических уведомлений в диффе среза (20 файлов) нет.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00270",
@@ -334,8 +380,17 @@
       "acceptance": "Наличие фото в окне не равно медиа-зависимости фактчека, а наличие настоящего медиа в целевой публикации не равно необязательному шуму; решение опирается на связи и intent пользователя, а не на глобальные запреты, regex по фразе или число изображений. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - медиа-опциональность, проба v2",
+          "observation": "Текстовая цель плюс чужое фото рядом: association_attempted=false, association_reason=text_claim_sufficient, media_expected=false, media_notice_emitted=false, target_kind=text - наличие картинок в окне медиа-зависимости не создаёт. Мутации M4 (снять гейт) и M7 (команда с тезисом становится фото-целью) убиты.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00285",
@@ -349,8 +404,17 @@
       "acceptance": "Причина наблюдаемого текста устанавливается по фактической трассировке и обязательным тестам: гипотеза не выдаётся за факт, а по одному публичному ответу не объявляется реальный технический отказ. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Класс выведен из фактических счётчиков стадии: provider_failures=2 -> search_failed/provider_unavailable; empty_results=2 -> no_usable_results/insufficient_evidence; used>0 без URL -> no_usable_results; только нерелевантное -> insufficient_evidence. Фраза «материалы не удалось разобрать» появляется только при реальном сбое извлечения (test_technical_headline_only_for_real_extraction_failure).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00291",
@@ -364,8 +428,17 @@
       "acceptance": "Действующие статусы нормализованы без нового механизма и без ложных синонимов: insufficient_evidence, no_claim, provider_unavailable, source_extract_failed, search_not_started, media_pending и подобные сохраняют смысл, а все проблемы не переводятся в одинаковое «Недостаточно данных». Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Различия статусов сохранены и не сведены к одному ответу: недоступный провайдер (technical:provider_unavailable), дедлайн (technical:deadline_exceeded), пустая выдача, нерелевантные, читаемо-без-URL дают разные классы/причины; использованы существующие reason-коды без нового механизма.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "M00303",
@@ -380,7 +453,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Связано с N2: реальный сбой извлечения при уже привязанной ссылке классифицируется как ok, то есть ошибка маскируется успехом; нужен прогон без привязанной ссылки."
     },
     {
       "source_id": "M00321",
@@ -981,8 +1055,17 @@
       "acceptance": "Trigger и Target различаются в структуре и в трассе: команда-триггер без собственного тезиса не объявляется проверяемым утверждением, поля trigger и target_resolution заполняются отдельно. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B1, трасса route=orchestrator_v2",
+          "observation": "В трассе trigger и target разведены: target_tg=771001, delivery_reply_to=771003 (сообщение-команда), поля target_resolution/delivery заполняются отдельно; команда без собственного тезиса не объявляется утверждением (text_sufficient=false, association_attempted=true).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00060",
@@ -996,8 +1079,17 @@
       "acceptance": "Target фиксируется до анализа содержания: chat_id, tg_message_id, автор, тип источника и источник выбора записаны в трассу до построения Claim, и все последующие стадии читают ровно эти значения. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B1/B2, трасса и envelope",
+          "observation": "Target зафиксирован до Claim: target_source/target_tg_message_id/claim_anchor_author (Irma) записаны в target_resolution, и последующие стадии читают ровно эти значения - envelope.target = envelope.claim_anchor = 771001, plan claim_text_matches_envelope=True, вердикт по тому же тексту.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00061",
@@ -1026,8 +1118,17 @@
       "acceptance": "Structural context состоит только из реальных связей (reply_to, quote, forward, sender, parent/child, время, источник); отсутствующая связь не изображается как существующая. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2, граница правила",
+          "observation": "Структурный контекст только из реальных связей: подтверждённый reply_to и реальная цепочка thread_chain; локальный msg:909090 не превращается в родителя, отсутствующая связь не изображается существующей (claim=None).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -1041,8 +1142,17 @@
       "acceptance": "Semantic context допускает реплики за пределами Reply-цепочки и помечается признаком, отличным от структурной связи, с указанием основания. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2 против контрольной пробы",
+          "observation": "Семантический контекст помечен отличимым признаком: claim_origin=context_window при подмене против target_text у явной цели; основание выбора записано (claim_anchor_source, basis), доставка различается (триггер против цели).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -1056,8 +1166,17 @@
       "acceptance": "Сообщение параллельной ветки может присутствовать в хронологии, но не объявляется доказательством и не замещает Target. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутации M1/M2",
+          "observation": "Сообщение параллельной ветки присутствует в хронологии (декой 913702), но доказательством не объявляется и Target не замещает: тематический кандидат выигрывает у ближайшего по id, ложных анкоров нет.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -1116,8 +1235,17 @@
       "acceptance": "Telegram Reply задаёт первичный Target ID; текст и медиа берутся из Reply и сохранённой публикации с проверкой совпадения идентификаторов и чата. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - контрольная проба явной цели",
+          "observation": "Явная текстовая цель: target_source=explicit_reply, target_tg=771001, claim_origin=target_text, доставка на саму цель, envelope по тезису; test_explicit_text_target_records_source_and_origin зелёный на bfa26e60.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00076",
@@ -1132,7 +1260,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Путь stored reply_to_id (без полного reply_to_message) после правки B1 отдельно не проверялся; нужен прогон через сохранённый reply_to_id."
     },
     {
       "source_id": "L00077",
@@ -1147,7 +1276,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Quote/forward-адресные режимы в срезе не проверялись."
     },
     {
       "source_id": "L00078",
@@ -1161,8 +1291,17 @@
       "acceptance": "Явно указанный человеком тезис сужает проверяемую часть Target с самостоятельным происхождением и не приписывается автоматически автору Target. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - прогон контрактного модуля",
+          "observation": "Явный hint сужает проверяемую часть, авторство берётся у реального анкора: claim_anchor_source/claim_anchor_author заполнены по анкору, а не по автору Target (test_contextual_target_is_declared_with_anchor_and_author с hint в фикстуре, 31 passed на bfa26e60).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00079",
@@ -1177,7 +1316,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Структура публикации и vision_pending для явной медиа-цели не проверялись (нет медиа-пробы)."
     },
     {
       "source_id": "L00083",
@@ -1206,8 +1346,17 @@
       "acceptance": "При референциальной фразе сначала используются структурные связи Target и доступные родители/цитаты, Target при этом не меняется. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - структурный выбор анкора",
+          "observation": "При референциальной фразе сначала структурные связи: chosen_anchor=771001 basis=structural candidates=[771001], Target не меняется (target_tg=771001 в трассе).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00088",
@@ -1221,8 +1370,17 @@
       "acceptance": "Семантически релевантные сообщения внутри доступного окна рассматриваются параллельно структурным связям, даже без Reply между ними. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - семантический антецедент",
+          "observation": "Тематически релевантное сообщение окна без Reply участвует в выборе: test_semantic_antecedent_beats_nearest_by_tg_id зелёный, мутация M2 (близость раньше семантики) его краснит.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00089",
@@ -1236,8 +1394,17 @@
       "acceptance": "Родитель вне окна восстанавливается существующим thread_chain/DB-доступом; контекст вне доступного окна не подаётся как известный. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2, цепочка без окна",
+          "observation": "Родитель вне окна восстановлен реальным thread_chain: ChainItem(item_id=\"tg:771001\", ts=1792000000, name=Irma) стал анкором; contextual объявлен с target_tg=771001, дата 1792000000 и автор Irma, а не данные реакции.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00090",
@@ -1252,7 +1419,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Состав сигналов (тема, сущности, роли, хронология, локальная причинность) отдельно не проверялся: подтверждён только приоритет семантики над близостью."
     },
     {
       "source_id": "L00091",
@@ -1266,8 +1434,17 @@
       "acceptance": "Референт разрешается только при достаточной опоре на сообщения; при сопоставимых антецедентах, меняющих предмет проверки, выдаётся уточнение либо проверяется строго определённая часть. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - неоднозначность",
+          "observation": "Два сопоставимых кандидата без Reply -> claim=None, ambiguous=True, кандидатов не меньше двух; handler отвечает уточнением и не вызывает check_claim (test_two_comparable_claims_ask_for_clarification, test_handler_answers_clarification_not_verdict).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -1297,7 +1474,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Базовые способы адресации без явной цели проверены лишь частично (медиа-ветка)."
     },
     {
       "source_id": "L00098",
@@ -1312,7 +1490,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Поиск кандидатов в соседней хронологии отдельно не проверялся."
     },
     {
       "source_id": "L00099",
@@ -1327,7 +1506,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Набор критериев адресности (инициатор, относительное время, последовательность реакций, цепочки участников) проверен не целиком."
     },
     {
       "source_id": "L00100",
@@ -1341,8 +1521,17 @@
       "acceptance": "Сообщение не выбирается по минимальной разнице tg_message_id, максимуму слов, числу ответов или частоте терминов. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутации M1/M2",
+          "observation": "Кандидат не выбирается по минимальной разнице tg_message_id, числу слов/ответов или частоте терминов: запрещённые признаки закреплены тестами, M1 и M2 убиты.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00101",
@@ -1356,8 +1545,17 @@
       "acceptance": "При нескольких конкурирующих кандидатах, равноценной вероятности или разрыве контекста выдаётся короткое уточнение, какое сообщение проверить, без полноценного вердикта по угаданному тезису. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - неоднозначность",
+          "observation": "При конкурирующих кандидатах выдано уточнение без полноценного вердикта: ветка handler отвечает фразой из FACTCHECK_CLARIFY_PHRASES и вердикт не строит.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00102",
@@ -1372,7 +1570,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Совместимость режима одиночной команды без Reply проверена только в медиа-части."
     },
     {
       "source_id": "L00104",
@@ -2661,8 +2860,17 @@
       "acceptance": "Text-only target: самостоятельный проверяемый тезис без вложенного или подтверждённо связанного медиа проверяется как текст; необязательный поиск соседних картинок не запускается, media_ambiguous не выставляется, media notice не добавляется, фактчек не откладывается из-за чужой картинки. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - медиа-опциональность, v2 и deferred",
+          "observation": "v2 и deferred на текстовой цели: association_attempted=false, association_reason=text_claim_sufficient, media_expected=false, media_notice_emitted=false, notice длиной 0, media_dependency_source=text_claim_only, target_kind=text; отложенная картинка поиск не запускает.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00264",
@@ -2676,8 +2884,17 @@
       "acceptance": "При подтверждённой связи с медиа (media_group_id, реальное вложение, Reply/ссылка или другой действующий адресный механизм) проверяются текст и релевантное медиа; caption другого элемента альбома не теряется, описание изображения не подаётся как слова автора, нераспознанная часть честно обозначена. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - сильные связи",
+          "observation": "Сильные связи не затронуты: альбом и вложение по-прежнему связываются (linked_media_ids заполнен, test_album_attachment_still_counts_as_linked_media зелёный), гейт подключается только при allow_adjacent/отсутствии ожидаемых картинок/недостаточном тексте.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00265",
@@ -2692,7 +2909,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Явная медиа-цель и Vision/OCR-пайплайн не проверялись; нет теста на отказ от чужого фото (N4)."
     },
     {
       "source_id": "L00266",
@@ -2706,8 +2924,17 @@
       "acceptance": "Несвязанная команда «фактчек» без тезиса и без адресной цели допускает подбор относящейся к запросу публикации по реальным признакам; при одном надёжном кандидате он проверяется, при нескольких равноценных — уточнение, чужое фото не подтягивается. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - несвязанная команда",
+          "observation": "Несвязанная команда без тезиса по-прежнему пытается связать медиа (association_attempted=true, status=missing) - test_unbound_command_still_attempts_media_association; молчаливого подтягивания чужого фото не наблюдается.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00267",
@@ -2721,8 +2948,17 @@
       "acceptance": "Команда с явным проверяемым текстом без Reply имеет самостоятельный предмет проверки; случайные соседние изображения не становятся обязательным Target, а при явной ссылке на фото привязка допустима только при достаточной адресности. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутация M7",
+          "observation": "Команда с явным тезисом не становится фото-целью: test_command_with_explicit_thesis_is_not_replaced_by_photo зелёный, мутация M7 убита.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00268",
@@ -2736,8 +2972,17 @@
       "acceptance": "Неопределённость между текстом и картинкой допускается только при обоснованной связи и невозможности понять предмет; «выбери изображение» не выводится из наличия нескольких media-кандидатов в окне при заданном текстовом тезисе. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутация M6",
+          "observation": "Переспрос картинки возможен только при неоднозначности и отсутствии самостоятельного текста: мутация M6 (снять условие достаточности) краснит test_media_ambiguity_not_shown_over_sufficient_text; при заданном текстовом тезисе вопрос «выбери изображение» из наличия картинок не выводится.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00272",
@@ -2766,8 +3011,17 @@
       "acceptance": "Источник истины — существующие Telegram target ID, DB reply_to_id, media_group_id, факт наличия файла у Target, ClaimPublication/ClaimMediaMaterial и media_readiness; вне-контекстный поиск соседних картинок не запускается за каждым текстовым запросом. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - источник истины",
+          "observation": "Решение опирается на реальные target ID/публикацию/связи: гейт в единственной точке резолвера публикации (v1/v2/deferred), поля media_* берутся из состояния ClaimPublication, вне-контекстный поиск соседних картинок при достаточном тексте не запускается (association_attempted=false).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00275",
@@ -2781,8 +3035,17 @@
       "acceptance": "Media-ambiguity типизирована и привязана к попытке связать медиа с конкретной целью (association_status, candidate IDs, association_reason); логика видимости уведомления определяется тем, нужна ли именно эта связь для ответа. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - типизация",
+          "observation": "Типизация привязана к фактической попытке связи: association_attempted/status/reason/candidates заполнены из неё (not_attempted + text_claim_sufficient для текстовой цели, missing для команды без тезиса), media_dependency_source и target_kind выведены из состояния.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00276",
@@ -2796,8 +3059,17 @@
       "acceptance": "Уточнение или ошибка медиа отправляются только при релевантной медиа-зависимости и не подмешиваются к текстовому вердикту; при реально частичной смешанной публикации сказано, что проверено, а что нет. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - область оговорки",
+          "observation": "Оговорка не примешивается к текстовому вердикту: media_notice_emitted=false, media_notice_reason пуст при достаточном тексте (M6 убита); при неоднозначности без самостоятельного текста оговорка формируется из состояния публикации.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00277",
@@ -2812,7 +3084,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Проверено отсутствие ложного «фото нет» только косвенно (альбомом); отдельной пробы нет."
     },
     {
       "source_id": "L00278",
@@ -2826,8 +3099,17 @@
       "acceptance": "Трасса содержит фактические target_kind (text/media/mixed/unresolved), media_expected, media_dependency_source, association_attempted, association_status, linked_media_ids, media_notice_emitted, media_notice_reason, text_claim_resolved; снимки, приватные тексты и base64 не логируются. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - поля трассы",
+          "observation": "В трассах проб присутствуют фактические target_kind, media_expected, media_dependency_source, association_attempted/status/reason, linked_media_ids, media_notice_emitted/reason, text_claim_resolved; выводятся коды и ID, без снимков, дампов приватного текста и base64.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00279",
@@ -2842,7 +3124,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Инструментальная ветка (tool-вызовы с тем же резолвером) в Approved-проходе не проверена: подтверждены v1, v2 и deferred."
     },
     {
       "source_id": "L00281",
@@ -2901,8 +3184,17 @@
       "acceptance": "Провайдер/поиск реально недоступен: ответ показывает технический исход поиска с причиной, а не отсутствие знаний. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Реальная стадия run_retrieval с provider_failures=2 -> class=search_failed, reason=provider_unavailable, headline=technical:provider_unavailable; парсерной фразы нет (test_evidence_status_matrix_matches_real_counters).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00294",
@@ -2916,8 +3208,17 @@
       "acceptance": "Тайм-аут/дедлайн называет конкретную прерванную стадию и не смешивается с отсутствием знаний; новых лимитов времени не введено. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - прогон матрицы",
+          "observation": "Дедлайн -> class=budget_exhausted, reason=deadline_exceeded с отдельным заголовком; пропущенный по дедлайну fetch учтён (fetch_skipped_deadline) и не смешан с отсутствием знаний (test_deadline_skipped_fetch_is_counted_not_hidden).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00295",
@@ -2932,7 +3233,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "N2: при уже привязанной ссылке реальный сбой извлечения даёт class=ok и пустой reason; класс source_extract_failed получен только без ссылок."
     },
     {
       "source_id": "L00296",
@@ -2946,8 +3248,17 @@
       "acceptance": "Ответ провайдера без результатов показывается как пустая выдача, а не как «материалы не удалось разобрать». Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Пустая выдача (empty_results=2) -> class=no_usable_results, reason=insufficient_evidence; технической фразы о разборе нет.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00297",
@@ -2961,8 +3272,17 @@
       "acceptance": "Найденные, но не относящиеся к тезису результаты показываются как отсутствие подходящих источников, а не технический сбой парсера. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Только нерелевантные результаты (off_topic отброшено) -> no_usable_results/insufficient_evidence, а не source_extract_failed.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00298",
@@ -2976,8 +3296,17 @@
       "acceptance": "Материалы прочитаны, но нет доступных проверяемых URL/цитат: ограничение ссылочной доказательности показано честно, без изображения несуществующей поломки обработки. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - ES-1/ES-2",
+          "observation": "Читаемо, но ни одного доступного URL (used>0, refs=0) -> no_usable_results/insufficient_evidence с оговоркой об ограничении ссылок; выдуманного PROCESSING_FAILED нет (test_internal_search_without_urls_is_not_a_parser_break).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00299",
@@ -2992,7 +3321,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Содержательный условный разбор при недостатке источников (текст вердикта) не проверялся."
     },
     {
       "source_id": "L00300",
@@ -3006,8 +3336,17 @@
       "acceptance": "При смешанном прогоне статус каждой атомарной части имеет фактический источник, а общий заголовок не противоречит успешным частям; честный частичный результат не заменяется фиктивным полным провалом. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - ES-6",
+          "observation": "Смешанный прогон -> headline verdict:mixed, технической фразы в видимом тексте нет, успешная часть не перекрыта; правило закреплено test_mixed_run_headline_does_not_contradict_successful_part (мутация видна только при снятии обоих условий).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00301",
@@ -3022,7 +3361,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Vision-specific pending/unavailable/failed не проверялись."
     },
     {
       "source_id": "L00305",
@@ -3051,8 +3391,17 @@
       "acceptance": "Переходы factcheck_planner.run_retrieval → classify_retrieval → CheckedVerdict/части → renderer → оркестратор проверены: reason-code подтверждается метрикой или событием стадии, а не вычисляется по отсутствию URL или релевантных результатов. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - трассировка пути",
+          "observation": "Reviewer прошёл цепочку planner.run_retrieval -> classify_retrieval -> renderer на реальных счётчиках: class/reason/headline совпадают с фактическим исходом стадии, а не вычислены из отсутствия URL или релевантных результатов.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00308",
@@ -3066,8 +3415,17 @@
       "acceptance": "Заголовок и комментарии Writer/renderer согласованы по правилу «один факт → одно соответствующее объяснение»: условный разбор не сопровождается недоказанным «всё не удалось разобрать», а реальный техсбой не подаётся как полноценная проверка. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - ES-6",
+          "observation": "Заголовок согласован с частями: при содержательном вердикте техфразы нет, техзаголовок выдаётся только при реальном сбое извлечения (test_technical_headline_only_for_real_extraction_failure).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00309",
@@ -3081,8 +3439,17 @@
       "acceptance": "Evidence status и media status разделены на уровне состояния и форматирования: ложные медиа-оговорки удалены, настоящие сведения о непроверенных изображениях сохранены. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - разделение состояний",
+          "observation": "Evidence- и media-состояние разделены: ложные медиа-оговорки не появляются при достаточном тексте, при этом сведения о реально связанном медиа сохраняются (linked_media_ids, media_dependency_source).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00310",
@@ -3096,8 +3463,17 @@
       "acceptance": "Для каждого фактического запроса доступны source_query_count, provider_attempts, provider_failures, documents_retrieved, extract_attempts, extract_successes, extract_failures, relevant_evidence_count, citable_evidence_count, technical_reason, media_state, final_headline_code; неизвестные величины показаны как «нет данных», а не нулями. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - диагностика",
+          "observation": "Счётчики реальные: на фактическом прогоне provider_attempts=2 при provider_failures=2; неизвестное показывается как «н/д», а не нулём (test_diagnostics_report_unknown_not_zero). Ручной образец трассы с provider_attempts=0 при provider_failures=2 - дефект образца, см. blocking_notes N1.",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00311",
@@ -3112,7 +3488,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Отсутствие новых агентских стадий, внешних поисков и обязательных LLM-вызовов ревьюером не зафиксировано."
     },
     {
       "source_id": "L00312",
@@ -3127,7 +3504,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Честный условный разбор общенаучной части не проверялся."
     },
     {
       "source_id": "L00315",
@@ -3531,8 +3909,17 @@
       "acceptance": "Сценарий §13.1 воспроизведён и ведёт себя так: Reply на конкретное содержательное сообщение; рядом более длинное/громкое утверждение на другую тему → Target не меняется. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - контрольная проба + мутации",
+          "observation": "Сценарий воспроизведён на других именах/ID: Reply на содержательное сообщение 771001 при более длинном/громком соседе 913702 -> Target не меняется (target_source=explicit_reply); признаки длины, числа ответов и близости убиты мутациями M1/M2.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00367",
@@ -3547,7 +3934,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Тот же кейс §13.2 (волокна/мышцы) не воспроизводился ревьюером."
     },
     {
       "source_id": "L00368",
@@ -3561,8 +3949,17 @@
       "acceptance": "Сценарий §13.3 воспроизведён и ведёт себя так: Та же Васина фраза **без Telegram Reply на Хана**, но с достаточным соседним семантическим контекстом → предмет «мышцы» раскрывается без подмены Target. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - семантический антецедент",
+          "observation": "Тезис раскрыт через семантический контекст без Telegram Reply и без подмены Target: тематический кандидат выбран семантикой, ближайший по id не побеждает (test_semantic_antecedent_beats_nearest_by_tg_id, имена/ID/темы фикстуры другие).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00369",
@@ -3577,7 +3974,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Стресс-вариант с двумя равно подходящими темами не покрыт (ревьюер сам отметил этот пробел для сценария 10)."
     },
     {
       "source_id": "L00370",
@@ -3592,7 +3990,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Смешанные независимые ветки (1A,1B,2A,2B,3A) как отдельная раскладка не воспроизводились; запрет выбора «по порядку» закреплён отдельно."
     },
     {
       "source_id": "L00371",
@@ -3606,8 +4005,17 @@
       "acceptance": "Сценарий §13.6 воспроизведён и ведёт себя так: Родитель Reply старше окна и доступен в БД → восстанавливается через `thread_chain`; не заменяется ближайшим. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2",
+          "observation": "Родитель Reply старше окна и доступен только через thread_chain -> тезис восстановлен с анкором 771001 и собственными датой/автором; ближайшим не заменён (test_contextual_claim_from_chain_keeps_its_own_date_and_author, мутация M10 убита).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00372",
@@ -3621,8 +4029,17 @@
       "acceptance": "Сценарий §13.7 воспроизведён и ведёт себя так: Родитель отсутствует, но есть тематически связанный контекст → связь помечается семантической, не изображается настоящим Reply. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - B2, граница правила",
+          "observation": "Родитель отсутствует, есть тематический контекст -> связь объявлена семантической (claim_origin=context_window), настоящим Reply не изображена; локальный msg:id анкором не принят.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00373",
@@ -3637,7 +4054,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Восстановление по сохранённому reply_to_id (§13.8) не проверялось."
     },
     {
       "source_id": "L00374",
@@ -3652,7 +4070,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Случай полного отсутствия уверенного кандидата отдельно не проверялся (проверена только равноценность двух)."
     },
     {
       "source_id": "L00375",
@@ -3666,8 +4085,17 @@
       "acceptance": "Сценарий §13.10 воспроизведён и ведёт себя так: Два равноправных кандидата без Reply → уточнение, не первый попавшийся. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - неоднозначность",
+          "observation": "Два равноправных кандидата без Reply -> уточнение, не первый попавшийся: claim=None, ambiguous=True, вердикт не выносится.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00376",
@@ -3681,8 +4109,17 @@
       "acceptance": "Сценарий §13.11 воспроизведён и ведёт себя так: Явный hint «проверь именно вторую часть» → проверяемая часть Target, не чужой тезис. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - hint",
+          "observation": "Явный hint сузил проверяемую часть, чужой тезис не подставлен: выбран анкор 771001, авторство по анкору (Irma), а не по автору Target.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00377",
@@ -3697,7 +4134,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Одинаковые имена, смена никнейма и ответ через alias не проверялись."
     },
     {
       "source_id": "L00381",
@@ -3862,7 +4300,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Неполная БД, cache miss/stale cache, ошибка thread_chain не проверялись."
     },
     {
       "source_id": "L00395",
@@ -3876,8 +4315,17 @@
       "acceptance": "Сценарий §13.24 воспроизведён и ведёт себя так: Выключенные/включённые действующие feature flags старого/нового фактчека → одинаково сохраняют явную цель. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - оба маршрута",
+          "observation": "Оба маршрута сохраняют явную цель: v1 handler -> explicit_reply и доставка на цель; v2 (route=orchestrator_v2) на явной цели -> target_source=explicit_reply, claim_origin=target_text, envelope по тезису, ложной contextual нет.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00396",
@@ -3892,7 +4340,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Параллельные прогоны в двух чатах и межчатовое смешение не проверялись."
     },
     {
       "source_id": "L00397",
@@ -3981,8 +4430,17 @@
       "acceptance": "Сценарий §13.31 воспроизведён и ведёт себя так: Text-only: Гений пишет о «силовых волокнах», Yaroslav отвечает Reply «фактчек»; рядом находятся два чужих фото без связи → проверить именно текст, `media_ambiguous=false` для этой цели, без просьбы выбрать изображение. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - медиа-опциональность",
+          "observation": "Text-only при чужих фото рядом: проверен текст, association_attempted=false, media_ambiguous не выставлена, просьбы выбрать изображение нет (проба ревьюера с посторонним фото в окне).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00407",
@@ -3996,8 +4454,17 @@
       "acceptance": "Сценарий §13.32 воспроизведён и ведёт себя так: Text-only: тот же тезис рядом с фото того же автора, но без подтверждённой связи и без указания на медиа → не подменять самостоятельный текст картинкой. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - медиа-опциональность",
+          "observation": "Тезис рядом с фото без подтверждённой связи: картинка текст не заменяет - при достаточном тексте ассоциация не предпринимается (мутация M4 убита).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00408",
@@ -4011,8 +4478,17 @@
       "acceptance": "Сценарий §13.33 воспроизведён и ведёт себя так: Text-only: команда `фактчек: правда ли, что ...` без Reply рядом с несколькими изображениями → проверить явный тезис, изображения опциональны. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - Мутация M7",
+          "observation": "Команда с явным тезисом рядом с изображениями: проверяется тезис, изображения опциональны (test_command_with_explicit_thesis_is_not_replaced_by_photo, M7 убита).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00409",
@@ -4027,7 +4503,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Photo-only цель и реальный Vision/OCR не проверялись."
     },
     {
       "source_id": "L00410",
@@ -4042,7 +4519,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Альбом с caption на другом элементе не проверялся."
     },
     {
       "source_id": "L00411",
@@ -4057,7 +4535,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Mixed-цель с распознанным изображением не проверялась."
     },
     {
       "source_id": "L00412",
@@ -4072,7 +4551,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Mixed с упавшим чтением изображения не проверялся."
     },
     {
       "source_id": "L00413",
@@ -4087,7 +4567,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Media bridge (фото отдельно, затем команда без Reply) не проверялся."
     },
     {
       "source_id": "L00414",
@@ -4102,7 +4583,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Переспрос при двух равно пригодных фото не проверялся (проверена только обратная сторона - отсутствие переспроса при достаточном тексте)."
     },
     {
       "source_id": "L00415",
@@ -4116,8 +4598,17 @@
       "acceptance": "Сценарий §13.40 воспроизведён и ведёт себя так: Media absent: только текст в чате и ни одного фото → никаких запросов выбрать изображение, не запускать обязательный Vision. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - медиа-опциональность",
+          "observation": "Только текст, ни одного фото: запроса выбрать изображение нет, обязательный Vision не запускается (association_attempted=false, notice пуст, target_kind=text).",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00416",
@@ -4132,7 +4623,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Переживание рестарта отложенной проверкой не проверялось (проверен только deferred-резюм без фантомного триггера)."
     },
     {
       "source_id": "L00417",
@@ -4147,7 +4639,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Инструментальная ветка в политике «одна для всех маршрутов» не проверена."
     },
     {
       "source_id": "L00418",
@@ -4161,8 +4654,17 @@
       "acceptance": "Сценарий §13.43 воспроизведён и ведёт себя так: Text+related media: реальный альбом, прикреплённый к текстовому сообщению Telegram Reply, остаётся проверяемым, даже если текста достаточно и нет слова «фото». Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - альбом",
+          "observation": "Текст плюс реально прикреплённый альбом: альбом остаётся проверяемым при достаточном тексте и без слова «фото» (test_album_attachment_still_counts_as_linked_media, linked_media_ids заполнен).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00419",
@@ -4176,8 +4678,17 @@
       "acceptance": "Сценарий §13.44 воспроизведён и ведёт себя так: Search provider failure → правильный технический статус поиска, не «материалы не удалось разобрать» без фактического сбоя извлечения. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Сбой поиска даёт технический статус поиска (technical:provider_unavailable), а не «материалы не удалось разобрать» без фактического сбоя извлечения.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00420",
@@ -4191,8 +4702,17 @@
       "acceptance": "Сценарий §13.45 воспроизведён и ведёт себя так: Provider answered with zero results → пустая выдача, не ошибка парсинга и не ложный успех. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Пустая выдача провайдера -> no_usable_results/insufficient_evidence, не ошибка парсинга и не ложный успех.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00421",
@@ -4206,8 +4726,17 @@
       "acceptance": "Сценарий §13.46 воспроизведён и ведёт себя так: Search returned irrelevant documents → нет релевантных доказательств, а не `source_extract_failed`. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - матрица техстатусов",
+          "observation": "Нерелевантные документы -> нет подходящих доказательств (insufficient_evidence), не source_extract_failed.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00422",
@@ -4222,7 +4751,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "N2: сценарий 47 надо проверять на пути без привязанной ссылки, иначе он ложно зелёный."
     },
     {
       "source_id": "L00423",
@@ -4236,8 +4766,17 @@
       "acceptance": "Сценарий §13.48 воспроизведён и ведёт себя так: Retrieved excerpts readable, URLs inaccessible/unavailable → честное ограничение доказательств и ссылок, без выдуманной технической причины. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - ES-2",
+          "observation": "Читаемые фрагменты без доступных URL -> честное ограничение доказательств и ссылок (no_usable_results плюс оговорка), без выдуманной технической причины.",
+          "type": "review",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00424",
@@ -4251,8 +4790,17 @@
       "acceptance": "Сценарий §13.49 воспроизведён и ведёт себя так: Mixed success: один из нескольких Claim подтверждён, другой остался без доказательств/сломался на retrieval → не объявлять общую проверку полным успехом или полным провалом. Проверено собственным прогоном Reviewer на фактических данных и payload, повторено с другими именами, ID, темами и порядком сообщений; одних зелёных unit-тестов с моками недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plans/features/evol/reports/rc-v5-factcheck-review.md - Re-review 2 - ES-6",
+          "observation": "Смешанный успех -> verdict:mixed, успешная часть не объявлена полным провалом и наоборот (test_mixed_run_headline_does_not_contradict_successful_part).",
+          "type": "test",
+          "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+          "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+          "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1"
+        }
+      ]
     },
     {
       "source_id": "L00425",
@@ -4267,7 +4815,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Полностью текстовая проверка с условным разбором не проверялась."
     },
     {
       "source_id": "L00426",
@@ -4282,7 +4831,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Совместный рендер нескольких Telegram-чанков не проверялся."
     },
     {
       "source_id": "L00427",
@@ -4297,7 +4847,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "N3: в claim_anchors встречается пустой author, то есть требование «нет пустых/фальшивых полей» не выполнено; нужен явный признак «неизвестен»."
     },
     {
       "source_id": "L00431",
@@ -5344,7 +5895,126 @@
   "architecture_classification": "ARCHITECT_REQUIRED",
   "arch_trigger": "меняется общий контракт представления контекста (canonical_context/chat_context/context_middleware) для Direct/Observer/Writer/FactCheck/Memory/GraphRAG; меняется порядок выбора цели и media-зависимости в двух маршрутах factcheck; вводятся обязательные поля трассы target_resolution/claim_selection. Владелец прямо поручил Architect доказать непрерывность target_ref на текущем HEAD (§14).",
   "placement": "см. plan.md: после принятой FactCheck-цепочки (EVOL-FACTCHECK-CRITICAL, ASAP-FC-ADMISSION-01, ASAP-VISION-SYNC-01, ASAP-FC-EVIDENCE-STYLE-02) и до asap-fc-voice-01; параллельно с UI/мем-пакетами; Experience-эпик владеет долговременным обучением, здесь только локальная коррекция.",
-  "candidate_binding": {},
-  "review_binding": {},
-  "deployment_binding": {}
+  "candidate_binding": {
+    "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+    "code_commit": "76fef794",
+    "base": "65bdeeee",
+    "rebased_onto": "65bdeeee",
+    "merged_as": "01df5454",
+    "branch": "evol/impl",
+    "scope": "factcheck-срез: RC-TARGET-ANCHOR, RC-MEDIA-OPTIONAL, RC-EVIDENCE-STATUS и сценарии RC-S001..RC-S052, покрытые этим срезом",
+    "note": "candidate_commit закреплён за factcheck-срезом; остальные срезы карты в этот кандидат не входят и своих доказательств не получили"
+  },
+  "review_binding": {
+    "artifact_path": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+    "artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1",
+    "reviewer": "независимый Reviewer",
+    "verdict": "Approved",
+    "date": "2026-11-04",
+    "passes": [
+      "Needs Fixes (f9a21f72)",
+      "Re-review 2 Approved (bfa26e60)"
+    ],
+    "proven": [
+      "B1 handler->v2 contextual handoff",
+      "B2 chain-only thesis anchor/date/author",
+      "медиа-опциональность на текстовой цели (v2, deferred, handler v1)",
+      "матрица техстатусов и ES-6",
+      "оба маршрута и deferred",
+      "5/5 мутаций убиты"
+    ],
+    "not_proven": [
+      "речевая граница и проекция меток M/U",
+      "DIRECT-SELF-CORRECTION",
+      "CONTEXT-FIDELITY",
+      "приёмка 120 сценариев целиком",
+      "live/прод и реальный Telegram",
+      "UI"
+    ],
+    "runs": {
+      "tests/test_rc_target_media_evidence.py": "31 passed",
+      "набор 34 файлов": "788 passed, 3 failed, 4 errors (на базе 65bdeeee: 756 passed, те же 3 failed и 4 errors)"
+    }
+  },
+  "deployment_binding": {},
+  "blocking_notes": [
+    {
+      "id": "N1-TRACE-MANUAL",
+      "severity": "blocking",
+      "owner_slice": "RC-TRACE-ACCEPT",
+      "artifact_path": "plans/features/evol-reply-context-integrity-01/evidence/trace-factcheck-target.txt",
+      "artifact_sha256": "52ce7d3a08a0253a0e6013762c619e14779b784cee206fda0c254ee2b0eb353c",
+      "finding": "Образец трассы собран вручную (trace_run.py внесён вручную, тестом не воспроизводится); в строке provider_down указано provider_attempts=0 при provider_failures=2, чего реальный прогон не даёт - у ревьюера на bfa26e60 provider_attempts=2 и provider_failures=2.",
+      "required_action": "Перегенерировать трассу реальным прогоном (одна команда) и приложить её как артефакт; до этого FINAL acceptance и стадия release по этому пакету запрещены.",
+      "blocks": [
+        "FINAL acceptance",
+        "stage=release"
+      ],
+      "affected_req_ids": [
+        "RC-FIN-TRACE-TARGET",
+        "RC-S026",
+        "RC-FIN-DOD",
+        "RC-EVS-DIAG-COUNTERS"
+      ],
+      "recorded_by": "PM",
+      "date": "2026-11-04"
+    }
+  ],
+  "open_items": [
+    {
+      "id": "N2",
+      "owner_slice": "RC-EVIDENCE-STATUS",
+      "blocking": false,
+      "finding": "Реальный сбой извлечения при уже привязанной ссылке (used=1, fetch_errors=1, refs=1) даёт class=ok и пустой reason; сбой виден только в diagnostics и статусе части.",
+      "affected_req_ids": [
+        "RC-EVS-EXTRACT-FAILED",
+        "RC-EVS-KEEP-ENUMS",
+        "RC-S047"
+      ],
+      "trigger": "Проверять сценарий 47 на пути без привязанной ссылки, иначе он ложно зелёный."
+    },
+    {
+      "id": "N3",
+      "owner_slice": "RC-CONTEXT-CLAIM",
+      "blocking": false,
+      "finding": "В claim_anchors встречается пустой author (anchor_tg=771001, author пуст): поле заполняется только при совпадении текста части с claim-item.",
+      "affected_req_ids": [
+        "RC-S052"
+      ],
+      "trigger": "Писать явное «неизвестен» вместо пустой строки."
+    },
+    {
+      "id": "N4",
+      "owner_slice": "RC-MEDIA-OPTIONAL",
+      "blocking": false,
+      "finding": "Нет теста на отказ от чужого фото: test_v2_passes_requester_identity_to_media_resolver проверяет только передачу requester и trigger; отказ держится на media_readiness._same_author, который при неизвестной личности возвращает True.",
+      "affected_req_ids": [
+        "RC-MED-EXPLICIT-IMAGE",
+        "RC-MED-LINKED"
+      ],
+      "trigger": "Добавить тест отказа от фото другого автора при известной личности."
+    },
+    {
+      "id": "N5",
+      "owner_slice": "RC-EVIDENCE-STATUS",
+      "blocking": false,
+      "finding": "Правило ES-6 защищено двумя независимыми условиями, поэтому одиночная мутация не видна; тест ловит только снятие обоих.",
+      "affected_req_ids": [
+        "RC-EVS-MIXED-RUN",
+        "RC-S049"
+      ],
+      "trigger": "Учитывать при следующей правке renderer: одного условия для регрессии мало."
+    },
+    {
+      "id": "GAP-TOOL-ROUTE",
+      "owner_slice": "RC-MEDIA-OPTIONAL",
+      "blocking": false,
+      "finding": "Политика «одна для всех маршрутов» подтверждена для handler v1, v2 и deferred; инструментальная ветка с тем же резолвером в Approved-проходе не проверялась.",
+      "affected_req_ids": [
+        "RC-MED-ALL-ROUTES",
+        "RC-S042"
+      ],
+      "trigger": "Проверить инструментальный вызов при следующем прогоне медиа-политики."
+    }
+  ]
 }
