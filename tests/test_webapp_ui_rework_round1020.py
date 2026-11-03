@@ -356,21 +356,32 @@ class TestLiquidGlass:
 
 
 # ═══════════════════════════ Дефект 2: Grid ═══════════════════════════════
+# W16 (контракт владельца §2) снял жёсткий пол 320 px у тройки: трек ограничен
+# доступной шириной, иначе на эффективной ширине <320 px (page zoom, крупный
+# системный шрифт) сетка выезжает за вьюпорт. Эквивалентные записи одного
+# инварианта (auto-fit + minmax(пол 320 px, ограниченный шириной, 1fr)).
+_GRID_TRACK_FORMS = (
+    "repeat(auto-fit, minmax(320px, 1fr))",
+    "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+    "repeat(auto-fit, minmax(min(320px, 100%), 1fr))",
+)
+
+
 class TestGrid:
     def test_grid_triple(self):
-        """P0 Vision (§4/P0V-UI-OVERFLOW, D10–D12): контракт тройки сохранён
-        (`display: grid`, `gap: 1rem`, трек `minmax(320px, 1fr)`), но у
-        `.prov-grid` есть ОСОЗНАННОЕ второе правило с контейнерным треком
-        `minmax(min(320px, 100%), 1fr)`: при контейнере <320px (телефон с
-        крупным системным шрифтом Android) прежний жёсткий пол 320px раздувал
-        трек за viewport — форма переполнялась по горизонтали. Для
-        `.module-list`/`.hub-grid` эффективный трек прежний."""
+        """P0 Vision/W16 (§4/P0V-UI-OVERFLOW, D10–D12 + контракт §2): контракт
+        тройки сохранён (`display: grid`, `gap: 1rem`, трек auto-fit/minmax с
+        полом 320 px), но пол ОГРАНИЧЕН доступной шириной
+        (`minmax(min(100%, 320px), 1fr)`): при эффективной ширине <320 px
+        (телефон с крупным системным шрифтом Android / page zoom) жёсткий пол
+        320px раздувал трек за viewport — сетка переполнялась по горизонтали.
+        Проверяем инвариант (набор эквивалентных форм), а не одну байт-запись."""
         for sel in (".module-list", ".hub-grid"):
             _, body, _ = _last_rule_for(sel)
             decls = _parse_decls(body)
             assert decls.get("display") == "grid", (sel, decls)
-            assert decls.get("grid-template-columns") == \
-                "repeat(auto-fit, minmax(320px, 1fr))", (sel, decls)
+            assert decls.get("grid-template-columns") in _GRID_TRACK_FORMS, \
+                (sel, decls)
             assert decls.get("gap") == "1rem", (sel, decls)
         # Тройка: общее правило с прежними декларациями остаётся источником
         # раскладки для .prov-grid (эффективный каскад).
@@ -379,13 +390,11 @@ class TestGrid:
                   and _parse_decls(body).get("display") == "grid"]
         assert shared, "нет общего правила тройки для .prov-grid"
         decls = shared[-1]
-        assert decls.get("grid-template-columns") == \
-            "repeat(auto-fit, minmax(320px, 1fr))", decls
+        assert decls.get("grid-template-columns") in _GRID_TRACK_FORMS, decls
         assert decls.get("gap") == "1rem", decls
         prov = _effective_decls(".prov-grid")
         assert prov.get("display") == "grid", prov
-        assert prov.get("grid-template-columns") == \
-            "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", prov
+        assert prov.get("grid-template-columns") in _GRID_TRACK_FORMS, prov
         assert prov.get("gap") == "1rem", prov
         assert prov.get("container-name") == "prov-grid", prov
 

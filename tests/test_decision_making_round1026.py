@@ -913,8 +913,12 @@ class TestBounds:
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 597
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
+        # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
+        # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
+        # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 570
+                    if s.category is not None]) == 572
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

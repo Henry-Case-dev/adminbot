@@ -806,6 +806,25 @@ class TestBoundsA3:
                                               # allowlist-дельта; §104/A3-гейт
                                               # не затронут.
                                               "web/api/gates.py",
+                                              # NOTE (PINS-258151, 03.11.2026 —
+                                              # allowlist отставал от уже
+                                              # ВЫПУЩЕННОГО кода): EVOL-COG-MAP
+                                              # (`770f53c1` W7-S1, ancestor
+                                              # release/2.58.151) — NEW
+                                              # файл-зона web/api/cognitive_map.py
+                                              # (свой router, регистрация в
+                                              # web/app.py; web/api/routes.py НЕ
+                                              # менялся — F11 byte-freeze цел) +
+                                              # адаптер web/static/cognitive-map.js;
+                                              # MEME-PIPELINE-REFACTOR-01 P4
+                                              # (`e25bd479`) — NEW файл-зона
+                                              # web/api/mechanism_diagnostics.py
+                                              # (Δ routes = 0). §104/A3 не
+                                              # затронут: правки — в отдельных
+                                              # файлах-зонах, не в путях выше.
+                                              "web/api/cognitive_map.py",
+                                              "web/static/cognitive-map.js",
+                                              "web/api/mechanism_diagnostics.py",
                                               ))
                        for ln in self._diff_names())
 

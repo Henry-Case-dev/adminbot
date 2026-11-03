@@ -470,8 +470,14 @@ const INDEX = fs.readFileSync(
   assert.ok(CSS.indexOf('--glass-border') >= 0, 'T-1898: токен --glass-border');
   assert.ok(CSS.indexOf('backdrop-filter: var(--glass-blur)') >= 0,
     'T-1898/UPD3: backdrop-filter: blur(16px)');
-  assert.ok(CSS.indexOf('repeat(auto-fit, minmax(320px, 1fr))') >= 0,
-    'T-1899/UPD3: CSS Grid auto-fit minmax(320px)');
+  // W16 (контракт владельца §2): жёсткий пол 320 px снят — трек ограничен
+  // доступной шириной (`minmax(min(100%, 320px), 1fr)`), иначе при
+  // эффективной ширине <320 px сетка выезжает за вьюпорт. Инвариант:
+  // auto-fit + minmax(пол 320px, ограниченный шириной, 1fr).
+  assert.ok(
+    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*(?:min\(\s*100%\s*,\s*320px\s*\)|320px)\s*,\s*1fr\s*\)\s*\)/
+      .test(CSS),
+    'T-1899/UPD3: CSS Grid auto-fit minmax(пол 320px, ограниченный шириной)');
   assert.ok(CSS.indexOf('justify-content: center') >= 0,
     'T-1899: центровка сетки');
   assert.ok(CSS.indexOf('details.advanced') >= 0, 'T-1902: рестайл аккордеона');

@@ -131,8 +131,15 @@ const CSS = fs.readFileSync(
   const gridRule = CSS.match(
     /\.prov-grid,\s*\.module-list,\s*\.hub-grid\s*\{([^}]*)\}/);
   assert.ok(gridRule, 'grid: единое правило для prov/module/hub');
-  assert.ok(/repeat\(auto-fit,\s*minmax\(320px,\s*1fr\)\)/.test(gridRule[1]),
-    'grid: auto-fit minmax(320px,1fr)');
+  // Инвариант трека: auto-fit + minmax(пол,1fr), пол = 320 px, ограниченный
+  // доступной шириной (W16 / контракт владельца §2: жёсткий 320 px давал
+  // горизонтальный overflow при эффективной ширине <320 px). Прежняя
+  // проверка требовала байт-в-байт `minmax(320px, 1fr)` и потому краснела от
+  // санкционированного W16-ужесточения, ничего не проверяя по существу.
+  assert.ok(
+    /repeat\(\s*auto-fit\s*,\s*minmax\(\s*(?:min\(\s*100%\s*,\s*320px\s*\)|320px)\s*,\s*1fr\s*\)\s*\)/
+      .test(gridRule[1]),
+    'grid: auto-fit minmax(пол 320px, ограниченный шириной, 1fr)');
   const mobileBlocks = CSS.match(
     /@media \(max-width: 479px\)\s*\{[\s\S]*?\n    \}/g) || [];
   assert.ok(mobileBlocks.some((b) => b.indexOf('.prov-grid') >= 0 &&
@@ -253,9 +260,12 @@ const CSS = fs.readFileSync(
     'sticky(M-1/L-3): фолбэк НЕ добавляет padding-bottom');
 }
 
-// ── 6. Инвариант меню: 28 вкладок / 6 NAV_ITEMS / 15 модулей (ASAP 7 F3: +mod_initiative) ────────────────
+// ── 6. Инвариант меню: 27 вкладок / 6 NAV_ITEMS / 15 модулей (ASAP 7 F3:
+//       +mod_initiative; EVOL-031 `28d55bd1`: −smart_cache → 27) ────────────
 {
-  assert.strictEqual(data.tabs.length, 28, 'меню: 28 вкладок');
+  // Число — точный пин (новая/пропавшая вкладка = красный), но НЕ 28:
+  // EVOL-031 удалил вкладку smart_cache (TAB_RULES 23→22), см. round1024.
+  assert.strictEqual(data.tabs.length, 27, 'меню: 27 вкладок (−smart_cache)');
   assert.strictEqual(data.modules.length, 15, 'меню: 15 модулей');
   const navBlock = APP_JS.slice(APP_JS.indexOf('var NAV_ITEMS = ['),
     APP_JS.indexOf('];', APP_JS.indexOf('var NAV_ITEMS = [')));
