@@ -105,6 +105,18 @@ def client(monkeypatch):
             return default
 
     monkeypatch.setattr(chat_params_srv, "get_chat_param", _get_chat_param)
+
+    async def _get_chat_param_sourced(chat_id, key, default=None):
+        overrides = conn.params.get("overrides") or {}
+        if key in overrides:
+            return overrides[key], "chat"
+        try:
+            return hot.get(key, default), "global"
+        except Exception:
+            return default, "global"
+
+    monkeypatch.setattr(chat_params_srv, "get_chat_param_sourced",
+                        _get_chat_param_sourced)
     with TestClient(app) as tc:
         tc.cache = cache
         tc.conn = conn
@@ -158,9 +170,25 @@ def test_settings_quota_and_analytics_payload(client):
     assert "text" in body["prompts"]["image"]
     assert "differs_from_factory" in body["prompts"]["image"]
     assert body["image_prefix"] == mi.MEME_IMAGE_PROMPT
-    # Потолок длины и его источник.
-    assert set(body["length_limit"]) >= {"value", "source", "known",
-                                         "summary_target"}
+    # Потолок длины и его источник: ТОЛЬКО канонические имена (алиасы
+    # `value`/`prefix_chars`/`summary_target` удалены в P4 — одно число, одно
+    # имя). Три числа §3 ТЗ считаются от эффективного шаблона.
+    assert set(body["length_limit"]) == {
+        "ceiling", "source", "template_chars", "joke_budget", "known",
+        "placeholder", "candidates"}
+    assert body["length_limit"]["known"] is False      # модель не прочитана
+    assert body["length_limit"]["ceiling"] is None
+    assert body["length_limit"]["joke_budget"] == 0
+    assert isinstance(body["length_limit"]["template_chars"], int)
+    assert body["template"]["text"] == body["prompts"]["image"]["text"]
+    assert body["template"]["valid"] is True
+    assert body["template"]["placeholders"] in (0, 1)
+    # Оба промпта — редактируемые ключи каталога (не пассивный текст).
+    for name in ("joke", "image"):
+        view = body["prompts"][name]
+        assert view["setting_key"].startswith("prompts.meme_")
+        assert view["source"] in ("chat", "global", "factory", "registry")
+        assert isinstance(view["text"], str) and view["text"]
     # Отношение к публикации: мемы не блокируют текстовую инициативу.
     assert body["delivery"]["blocks_text_initiative"] is False
     assert "publish_blocked_count" in body["delivery"]
@@ -251,6 +279,140 @@ def test_post_empty_body_is_422(client):
     assert resp.status_code == 422
 
 
+DIAG = "/api/initiative/mechanism-diagnostics"
+
+
+def test_mechanism_diagnostics_endpoint_returns_two_separate_blocks(client):
+    """P4 (`MEME-IIC-DIAG-UI`): API отдаёт ДВА блока, не склеивая их.
+
+    Без журнала/состояния блоки честно «нет данных», но оба присутствуют и
+    названы по контракту P9 — карточка не собирает их сама.
+    """
+    resp = client.get(DIAG, headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["schema_version"] == 1
+    assert body["chat_id"] == CHAT_A
+    text = body["text_initiative"]
+    meme = body["meme"]
+    assert text["mechanism"] == "text_initiative"
+    assert meme["mechanism"] == "meme"
+    assert text["output_kind"] == "initiative_reply"
+    assert meme["output_kind"] == mi.OUTPUT_KIND
+    # Ключи блоков — контракт P9 (ничего не добавлено и не переименовано).
+    from services import initiative_diagnostics as diag
+    assert set(text) == set(diag.MECHANISM_BLOCK_FIELDS)
+    assert set(meme) == set(diag.MECHANISM_BLOCK_FIELDS)
+    # «Нет данных» — флаг + коды причин, а не нули вместо неизвестного.
+    for block in (text, meme):
+        assert block["available"] is False
+        assert block["data_state"] == "no_data"
+        assert block["no_data_reasons"]
+        assert block["last_check_ts"] is None      # «никогда», не 0/1970
+    # Показатели не смешаны: у текста стадий нет, у мема список брони пуст.
+    assert text["stages"] is None
+    assert meme["blocking"] is None
+    assert isinstance(body["degraded"], list)
+
+
+def test_mechanism_diagnostics_endpoint_requires_chat_and_access(client):
+    assert client.get(DIAG, headers=_hdr()).status_code == 422
+    resp = client.get(DIAG, headers={**_hdr(USER_ID), "X-Chat-Id": str(CHAT_B)})
+    assert resp.status_code == 403
+
+
+def test_mechanism_diagnostics_endpoint_does_not_merge_blocks(
+        client, monkeypatch):
+    """Маршрут возвращает ровно то, что собрал сервис (без склейки/пересчёта)."""
+    from services import initiative_diagnostics as diag
+    marker = {
+        "schema_version": 1, "generated_at": 1800000000, "chat_id": CHAT_A,
+        "text_initiative": {"mechanism": "text_initiative", "sentinel": "T"},
+        "meme": {"mechanism": "meme", "sentinel": "M"},
+        "degraded": ["meme"],
+    }
+    calls = []
+
+    async def _fake(db, chat_id, **kw):
+        calls.append(chat_id)
+        return marker
+
+    monkeypatch.setattr(diag, "collect_mechanism_diagnostics", _fake)
+    resp = client.get(DIAG, headers={**_hdr(), "X-Chat-Id": str(CHAT_A)})
+    assert resp.status_code == 200, resp.text
+    assert calls == [CHAT_A]
+    assert resp.json() == marker
+    assert resp.json()["text_initiative"]["sentinel"] == "T"
+    assert resp.json()["meme"]["sentinel"] == "M"
+
+
+def test_meme_prompts_edit_persist_and_empty_removes_override(client):
+    """P4 §1: оба промпта сохраняются существующим путём и читаются обратно.
+
+    Пустая строка СНИМАЕТ чатовое переопределение (ключ удаляется), а не
+    записывает пустой промпт: действует слой ниже.
+    """
+    chat = {"X-Chat-Id": str(CHAT_A)}
+    joke_key = mi.prompt_setting_key(mi.JOKE_PROMPT_BLOCK_ID)
+    image_key = mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID)
+    resp = client.post(ENDPOINT,
+                       json={"prompt_joke": "Свой прикол-промпт",
+                             "prompt_image": "Кадр: {joke}"},
+                       headers={**_hdr(), **chat})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["prompts"]["joke"]["text"] == "Свой прикол-промпт"
+    assert body["prompts"]["joke"]["source"] == "chat"
+    assert body["prompts"]["image"]["text"] == "Кадр: {joke}"
+    assert body["prompts"]["image"]["source"] == "chat"
+    assert body["template"]["text"] == "Кадр: {joke}"
+    overrides = client.conn.writes[-1]
+    assert overrides[joke_key] == "Свой прикол-промпт"
+    assert overrides[image_key] == "Кадр: {joke}"
+    # Мастер модуля не затронут.
+    assert "flags.initiative_enabled" not in overrides
+
+    # Повторная загрузка показывает сохранённое (не заводской текст).
+    again = client.get(ENDPOINT, headers={**_hdr(), **chat}).json()
+    assert again["prompts"]["joke"]["text"] == "Свой прикол-промпт"
+    assert again["prompts"]["image"]["text"] == "Кадр: {joke}"
+    assert again["prompts"]["image"]["differs_from_factory"] is True
+
+    # Пустая строка = снять переопределение: действует заводской слой.
+    resp = client.post(ENDPOINT, json={"prompt_joke": "", "prompt_image": "  "},
+                       headers={**_hdr(), **chat})
+    assert resp.status_code == 200, resp.text
+    overrides = client.conn.writes[-1]
+    assert joke_key not in overrides
+    assert image_key not in overrides
+    body = resp.json()
+    assert body["prompts"]["joke"]["source"] != "chat"
+    assert body["prompts"]["joke"]["text"] == mi.MEME_JOKE_PROMPT
+    assert body["prompts"]["image"]["text"] == mi.MEME_IMAGE_PROMPT
+
+
+def test_meme_prompt_422_names_the_field_and_writes_nothing(client):
+    """P4 §1: отказ по шаблону (2+ `{joke}`) — 422, а не молчаливая запись.
+
+    Ответ называет ключ поля, поэтому карточка показывает причину У ПОЛЯ.
+    """
+    chat = {"X-Chat-Id": str(CHAT_A)}
+    writes_before = len(client.conn.writes)
+    resp = client.post(ENDPOINT,
+                       json={"prompt_image": "a {joke} b {joke}"},
+                       headers={**_hdr(), **chat})
+    assert resp.status_code == 422
+    detail = str(resp.json().get("detail") or "")
+    assert "prompts.meme_image" in detail or "шаблон" in detail
+    assert len(client.conn.writes) == writes_before
+
+    # Неизвестное имя поля (опечатка клиента) — громкий 422, не «успех».
+    resp = client.post(ENDPOINT, json={"joke_prompt": "текст"},
+                       headers={**_hdr(), **chat})
+    assert resp.status_code == 422
+    assert len(client.conn.writes) == writes_before
+
+
 def test_ui_meme_settings_block():
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     block = html.split("data-meme-settings", 1)[1]
@@ -269,9 +431,23 @@ def test_ui_meme_settings_block():
     assert "data-meme-quota-tz" in block
     assert "data-meme-analytics" in block
     assert "data-meme-skip-reasons" in block
-    assert "data-meme-prompt-source" in block
     assert "data-meme-delivery" in block
     assert "data-meme-unavailable" in block
+    # P4: оба промпта — реальные поля, три числа бюджета, диагностика прикола,
+    # два блока диагностики механизмов и видимые стадии попытки.
+    assert block.count("<textarea") == 2
+    assert "data-meme-prompt-joke" in block
+    assert "data-meme-prompt-image" in block
+    assert "data-meme-prompt-error-joke" in block
+    assert "data-meme-prompt-error-image" in block
+    assert "data-meme-prompt-text" not in block      # пассивный текст убран
+    assert "data-meme-limit-ceiling" in block
+    assert "data-meme-limit-template" in block
+    assert "data-meme-limit-joke" in block
+    assert "data-meme-speech" in block
+    assert "data-meme-attempt-stages" in block
+    assert "data-meme-diag" in block
+    assert "data-meme-diag-degraded" in block
     # Второго мастер-тумблера модуля нет (EVOL-035/040): только своя ось.
     assert "flags.initiative_enabled" not in block
     assert "toggleModule" not in block

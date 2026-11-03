@@ -4034,13 +4034,10 @@ async def _meme_settings_payload(chat_id: int, db) -> dict:
                 "timezone_source": day.timezone_source,
                 "next_reset": day.next_reset_iso},
         # Три числа §3 ТЗ одной структурой: потолок итогового промпта (L),
-        # длина шаблона (T) и бюджет прикола (J = max(0, L - T)).
-        # `value`/`prefix_chars`/`summary_target` — совместимость с текущей
-        # карточкой (правка UI — полоса P4); значения те же, не дубликат счёта.
-        "length_limit": dict(budget.as_dict(),
-                             value=budget.ceiling,
-                             prefix_chars=budget.template_chars,
-                             summary_target=None),
+        # длина шаблона (T) и бюджет прикола (J = max(0, L - T)) — ровно те же
+        # имена, что у `MemeBudget`, без совместимых алиасов (P4 перевёл на них
+        # карточку): одно число — одно имя.
+        "length_limit": budget.as_dict(),
         "template": {
             "text": template,
             "source": str((prompts.get("image") or {}).get("source") or ""),
@@ -4186,3 +4183,28 @@ async def post_meme_settings(
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
     return await _meme_settings_payload(chat_id, db)
+
+
+@api_router.get("/initiative/mechanism-diagnostics")
+async def get_mechanism_diagnostics(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """P4 (`MEME-IIC-DIAG-UI`): диагностика ДВУХ механизмов инициативы.
+
+    Отдаёт ровно то, что собрал `services.initiative_diagnostics.
+    collect_mechanism_diagnostics` — два независимых блока (`text_initiative` и
+    `meme`) плюс список `degraded`. Сборщик никогда не бросает и ничего не
+    пишет; здесь нет ни склейки блоков, ни пересчёта полей, ни нового хранилища
+    (одна точка чтения на карточку). Права — те же, что у чтения настроек
+    мемов: доступ к чату. Без `X-Chat-Id` → 422 (диагностика всегда по чату).
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    await _require_chat_access(request, user, chat_id)
+    from services import initiative_diagnostics as diag
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    return await diag.collect_mechanism_diagnostics(db, chat_id)

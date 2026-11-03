@@ -367,7 +367,11 @@ def test_preview_numbers_equal_runtime_numbers(client, tmp_path, monkeypatch,
     assert numbers["template_chars"] == expected.template_chars
     assert numbers["joke_budget"] == expected.joke_budget
     assert numbers["placeholder"] == expected.placeholder
-    assert numbers["summary_target"] is None      # у выжимки потолка нет
+    # P4: совместимые алиасы удалены — у выжимки нет отдельного числа вовсе
+    # (одно число живёт под одним каноническим именем `MemeBudget`).
+    assert "summary_target" not in numbers
+    assert "value" not in numbers
+    assert "prefix_chars" not in numbers
 
     # 2) Числа витрины = числа РЕАЛЬНОГО прогона (журнал попыток).
     run = _run_pipeline(tmp_path)

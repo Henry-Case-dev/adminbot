@@ -6476,6 +6476,83 @@ html.cover-editor-open { overflow: hidden; }
   padding: var(--space-2, 8px);
   font-size: .72rem;
 }
+/* P4: РЕДАКТИРУЕМЫЕ промпты мемов (textarea вместо пассивного текста). */
+.meme-prompt-field { min-width: 0; }
+.meme-prompt-input {
+  width: 100%; min-height: 64px; resize: vertical;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: rgba(255, 255, 255, .03);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-2, 8px);
+  font-size: .72rem; line-height: 1.35;
+  color: inherit; font-family: inherit;
+}
+.meme-prompt-input--error,
+.meme-prompt-input[aria-invalid="true"] {
+  border-color: rgba(248, 113, 113, .65);
+}
+.meme-field-error {
+  color: #fca5a5; font-size: .68rem; margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+/* P4: три числа бюджета (потолок L / шаблон T / прикол J). */
+.meme-budget {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-size: .72rem;
+}
+.meme-budget-row {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  min-width: 0;
+}
+.meme-budget-row b { font-variant-numeric: tabular-nums; }
+/* P4: видимая аналитика по стадиям одной попытки (MEME-ACC-12).
+   Список, а не таблица: на 390px таблица ломала слова в заголовках. */
+.meme-stage-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.meme-stage-row {
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .06);
+  padding: 3px 0; min-width: 0;
+}
+.meme-stage-head {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  min-width: 0;
+}
+.meme-stage-name { font-weight: 600; color: #cbd5e1; }
+.meme-stage-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #64748b; font-size: .66rem;
+}
+.meme-stage-facts {
+  color: #94a3b8; font-size: .68rem; overflow-wrap: anywhere;
+}
+/* P4: блоки диагностики механизмов (два независимых). */
+.meme-diag-block {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-size: .72rem; min-width: 0;
+}
+.meme-diag-title {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-weight: 700; margin-bottom: 2px;
+}
+.meme-diag-grid { display: flex; flex-direction: column; gap: 1px; }
+.meme-diag-row {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  min-width: 0; overflow-wrap: anywhere;
+}
+.meme-diag-key { color: #94a3b8; min-width: 148px; }
+.meme-diag-plaque {
+  display: block; margin-bottom: 6px;
+  font-size: .7rem; color: #fcd34d;
+  border: var(--border-hairline, 1px) solid rgba(251, 191, 36, .35);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+}
+@media (max-width: 420px) {
+  .meme-diag-key { min-width: 0; }
+}
 @media (max-width: 420px) {
   .vr-fact__label { flex-basis: 100%; }
   .exp-stage__count { margin-left: 0; }
