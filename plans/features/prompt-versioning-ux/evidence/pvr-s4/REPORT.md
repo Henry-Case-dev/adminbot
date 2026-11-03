@@ -172,7 +172,19 @@
 1536: `rect 149..193` в теле `149..847`, `scrollTop=0`; 390: `191..246` в
 `191..733`. Скриншоты `chrome_result_library_1536.png`,
 `chrome_result_speech_1536.png`, `chrome_result_library_390.png`,
-`chrome_result_speech_390.png`.
+`chrome_result_speech_390.png`. Стенд для повтора — `chrome_stand.py`
+(`py -3 plans/features/prompt-versioning-ux/evidence/pvr-s4/chrome_stand.py`,
+далее `http://127.0.0.1:8901/`).
+
+**Прогоны на кандидате `9aa952dd`.** `tests/ui_prompt_version_card_e2e.py` —
+**540 проверок, failures=0** (`e2e-checks.json`; до правки было 400);
+`tests/ui_p0a_ux_speech_compact_e2e.py` — failures=0, POST=21 (весь файл целиком);
+`test_evol017_prompt_history_ui.py` + `test_evol018_prompt_audit.py` +
+`test_webapp_evol_w11_controls.py` — 60 passed;
+`tests/js/prompt_version_card_test.js` — `PVR-S4-CARD-OK`. Байты промптов:
+39 блоков, aggregate
+`51425b07d299e0beefd0510b7cdadd9049100b5de9a615fbe859263cd3d2e2ad`,
+изменённых блоков 0; `git diff 7a8af045..9aa952dd -- services web/api` — пусто.
 
 **Побочная находка (тест).** `tests/ui_p0a_ux_speech_compact_e2e.py` падал на
 клике `.scope-option` («Чат B») на экране «Речь и характер» при 390:
