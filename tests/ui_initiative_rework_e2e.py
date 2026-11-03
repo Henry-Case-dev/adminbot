@@ -165,6 +165,21 @@ def _attempt_rows():
     ]
 
 
+def _length_limit():
+    """Потолок в шейпе выпущенной 2.58.152 (P0.5): режим приходит с сервера.
+
+    `auto` — пусто/не задано: числа НЕТ («не задан» / «определяет провайдер»).
+    `fixed` — явно заданный потолок: 400 / шаблон 5 / доступно приколу 395.
+    """
+    if STATE.get("length_fixed"):
+        return {"ceiling": 400, "source": "model_capability", "mode": "fixed",
+                "template_chars": 5, "joke_budget": 395, "known": True,
+                "placeholder": "slot", "candidates": []}
+    return {"ceiling": None, "source": "auto", "mode": "auto",
+            "template_chars": 5, "joke_budget": None, "known": False,
+            "placeholder": "slot", "candidates": []}
+
+
 def _meme_settings(chat_id=None):
     chat = CHAT_A if chat_id is None else int(chat_id)
     spent = 1 if chat == CHAT_A else 0
@@ -189,9 +204,7 @@ def _meme_settings(chat_id=None):
         "day": {"bucket": "2026-10-31", "timezone_name": "Europe/Moscow",
                 "timezone_source": "chat",
                 "next_reset": "2026-11-01T00:00:00+03:00"},
-        "length_limit": {"ceiling": 400, "source": "model_capability",
-                         "template_chars": 5, "joke_budget": 395,
-                         "known": True, "placeholder": "slot", "candidates": []},
+        "length_limit": _length_limit(),
         "template": {"text": image,
                      "source": image_source, "placeholders": 1,
                      "valid": True, "error": ""},
@@ -400,6 +413,15 @@ def _pub_rows():
          "reason_label": "", "delivered": None, "message_id": None,
          "chain_len": 1, "reason_codes": ["delivery_unknown"],
          "window_messages": None, "limit_source": "", "limit_value": None},
+        # P0: терминальная отмена отправки (событие `publication_cancelled`).
+        {"attempt_id": "meme:job-74", "kind": "meme", "job_id": "job-74",
+         "mode": "auto", "ts": NOW - 1100, "stage": "publish",
+         "outcome": "cancelled", "reason_code": "publication_cancelled",
+         "reason_label": "отправка отменена", "delivered": False,
+         "message_id": None, "chain_len": 4,
+         "reason_codes": ["publication_cancelled"],
+         "window_messages": 300, "limit_source": "model_capability",
+         "limit_value": 400},
         {"attempt_id": "meme:job-75", "kind": "meme", "job_id": "job-75",
          "mode": "manual", "ts": NOW - 1200, "stage": "publish",
          "outcome": "published", "reason_code": "sent",
@@ -1035,6 +1057,8 @@ MEMES_PROBE = r"""
     jokeBudget: txt('[data-meme-limit-joke]'),
     actual: txt('[data-meme-limit-actual]'),
     lengthField: !!document.querySelector('[data-meme-length-limit]'),
+    autoHint: !!document.querySelector('[data-meme-budget-auto]'),
+    unknownHint: !!document.querySelector('[data-meme-budget-unknown]'),
     attemptStages: Array.from(document.querySelectorAll(
       '[data-meme-attempt-stage]')).map((el) =>
         el.getAttribute('data-meme-attempt-stage')),
@@ -1090,10 +1114,42 @@ def run_memes(browser, width, height, label, shots):
               "кнопок сохранения не одна: %d" % data["saveButtons"])
         check(data["lengthField"], label,
               "нет поля «потолок длины промпта (пусто — авто)")
+        # P0.5 (2.58.152): пустой потолок = АВТО. Никаких 0/800/NaN, режим
+        # назван прямо; подпись источника — выпущенная формулировка.
+        check(data["ceiling"] == "не задан", label,
+              "потолок в авто-режиме не «не задан»: %r" % data["ceiling"])
+        check(data["jokeBudget"] == "определяет провайдер", label,
+              "бюджет прикола в авто-режиме: %r" % data["jokeBudget"])
+        check(data["template"] == "5", label,
+              "длина шаблона не показана: %r" % data["template"])
+        check(data["autoHint"], label,
+              "нет честной подписи авто-режима (потолок не задан)")
+        for bad in ("NaN", "undefined", "неизвестен"):
+            check(bad not in (data["actual"] or ""), label,
+                  "в блоке бюджета остался %r: %r"
+                  % (bad, (data["actual"] or "")[:160]))
+        check(data["unknownHint"] is False, label,
+              "вернулся снятый «unknown»-режим потолка (P0.5: fixed|auto)")
+        # Фиксированный потолок: те же три числа, что и раньше.
+        STATE["length_fixed"] = True
+        page.reload(wait_until="load")
+        page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
+        page.wait_for_timeout(700)
+        fixed = page.evaluate(MEMES_PROBE)
+        notes.append({label + "-memes-fixed": {
+            k: fixed[k] for k in ("ceiling", "template", "jokeBudget")}})
         for key, want in (("ceiling", "400"), ("template", "5"),
                           ("jokeBudget", "395")):
-            check(data[key] == want, label,
-                  "бюджет %s = %r (ожидалось %r)" % (key, data[key], want))
+            check(fixed[key] == want, label,
+                  "фиксированный потолок %s = %r (ожидалось %r)"
+                  % (key, fixed[key], want))
+        check(not fixed["autoHint"], label,
+              "подпись авто-режима осталась при фиксированном потолке")
+        STATE["length_fixed"] = False
+        page.reload(wait_until="load")
+        page.wait_for_selector("textarea[data-meme-prompt-joke]", state="visible")
+        page.wait_for_timeout(700)
+        data = page.evaluate(MEMES_PROBE)
         check("23" in data["actual"] and "6" in data["actual"], label,
               "фактическая длина последней сборки не показана: %r"
               % data["actual"])
@@ -1395,6 +1451,36 @@ def run_publications(browser, width, height, label, shots):
             ".map((el) => el.getAttribute('data-ini-pub-row'))")
         check(pending_rows == ["text:U3"], label,
               "фильтр причины по сырому имени вернул %r" % pending_rows)
+        page.fill('[data-ini-filter="reason"]', "")
+        page.press('[data-ini-filter="reason"]', "Enter")
+        page.wait_for_timeout(600)
+
+        # P0: терминальная отмена отправки (`publication_cancelled`) — строка
+        # и фильтр по причине.
+        STATE["requests"] = []
+        page.fill('[data-ini-filter="reason"]', "publication_cancelled")
+        page.press('[data-ini-filter="reason"]', "Enter")
+        page.wait_for_timeout(800)
+        cancelled_rows = page.evaluate(r"""
+        () => Array.from(document.querySelectorAll('[data-ini-pub-row]'))
+          .map((el) => ({
+            id: el.getAttribute('data-ini-pub-row'),
+            outcome: (el.querySelector('[data-ini-pub-outcome]') || {})
+              .getAttribute ? el.querySelector('[data-ini-pub-outcome]')
+                .getAttribute('data-ini-pub-outcome') : null,
+            text: String(el.textContent || '').replace(/\s+/g, ' ').trim(),
+          }))
+        """)
+        notes.append({label + "-cancelled-row": cancelled_rows})
+        check([r["id"] for r in cancelled_rows] == ["meme:job-74"], label,
+              "фильтр `publication_cancelled` вернул %r" % cancelled_rows)
+        if cancelled_rows:
+            check(cancelled_rows[0]["outcome"] == "cancelled", label,
+                  "отмена отправки не помечена cancelled: %r" % cancelled_rows[0])
+            check("отменено" in cancelled_rows[0]["text"]
+                  and "не доставлено" in cancelled_rows[0]["text"], label,
+                  "строка отмены не читается честно: %r"
+                  % cancelled_rows[0]["text"][:160])
         page.fill('[data-ini-filter="reason"]', "")
         page.press('[data-ini-filter="reason"]', "Enter")
         page.wait_for_timeout(600)

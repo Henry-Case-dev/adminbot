@@ -366,7 +366,7 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
     'перечитывание настроек не учитывает изменённый черновик');
 })();
 
-// ── 8. F5 (fwd-compat): пустой потолок ≠ 0 и читается в двух режимах ─────
+// ── 8. P0.5 (2.58.152): пустой потолок = АВТО, без 0/800/NaN ─────────────
 (function () {
   function view(len) {
     return computed.memeSettingsView.call({
@@ -377,26 +377,68 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
       },
     });
   }
-  // Сегодня backend присылает source="unknown" → прежняя подпись (поведение
-  // не меняется до ребейза на P0).
-  const unknown = view({ ceiling: null, source: 'unknown', known: false,
-                         template_chars: 5, joke_budget: 0 });
-  assert.strictEqual(unknown.ceilingText, 'неизвестен');
-  assert.strictEqual(unknown.jokeBudgetText, 'неизвестен');
-  assert.strictEqual(unknown.ceilingMode, 'unknown');
-  // P0.5: пусто = автоматический режим. Тот же код читает новый шейп без
-  // правок и НЕ показывает 0/NaN/800.
-  const auto = view({ ceiling: null, source: 'auto', known: false,
-                      template_chars: 5, joke_budget: 0 });
-  assert.strictEqual(auto.ceilingText, 'Автоматически');
+  // Развёрнутая семантика P0.5: пусто/не задано → «не задан» и
+  // «определяет провайдер»; режим приходит с сервера (`mode`), а не
+  // угадывается по нулю.
+  const auto = view({ ceiling: null, source: 'auto', mode: 'auto',
+                      template_chars: 5, joke_budget: null, known: false,
+                      placeholder: 'slot' });
   assert.strictEqual(auto.ceilingMode, 'auto');
+  assert.strictEqual(auto.ceilingModeText, 'автоматически');
+  assert.strictEqual(auto.ceilingText, 'не задан');
   assert.strictEqual(auto.jokeBudgetText, 'определяет провайдер');
-  assert.ok(methods.memeLengthSourceLabel.call({}, 'auto').indexOf('автоматич')
-            >= 0, 'источник «auto» не подписан как автоматический режим');
-  const fixed = view({ ceiling: 400, source: 'model_capability',
+  assert.strictEqual(auto.templateCharsText, '5');
+  // Никаких подставных чисел в режиме авто.
+  ['0', '800', 'NaN', 'undefined', 'неизвестен'].forEach(function (bad) {
+    assert.notStrictEqual(auto.ceilingText, bad,
+      'потолок в авто не должен показывать ' + bad);
+    assert.notStrictEqual(auto.jokeBudgetText, bad,
+      'бюджет прикола в авто не должен показывать ' + bad);
+  });
+  // Подпись источника — ровно выпущенная формулировка (P0.5).
+  assert.strictEqual(methods.memeLengthSourceLabel.call({}, 'auto'),
+                     'не задан (авто)');
+  assert.strictEqual(methods.memeLengthSourceLabel.call({}, 'unknown'),
+                     'не задан (авто)');
+  assert.strictEqual(methods.memeLengthSourceLabel.call({}, ''),
+                     'не задан (авто)');
+  // Фиксированный потолок → числа (режим fixed).
+  const fixed = view({ ceiling: 400, source: 'model_capability', mode: 'fixed',
                        template_chars: 5, joke_budget: 395, known: true });
+  assert.strictEqual(fixed.ceilingMode, 'fixed');
+  assert.strictEqual(fixed.ceilingModeText, 'фиксированный');
   assert.strictEqual(fixed.ceilingText, '400');
   assert.strictEqual(fixed.jokeBudgetText, '395');
+  // Три состояния ПОЛЯ ввода — из выпущенного `memeLengthError` (P0.5).
+  assert.strictEqual(methods.memeLengthError.call({}, ''), '');
+  assert.strictEqual(methods.memeLengthError.call({}, '   '), '');
+  assert.strictEqual(methods.memeLengthError.call({}, null), '');
+  assert.strictEqual(methods.memeLengthError.call({}, '400'), '');
+  assert.ok(String(methods.memeLengthError.call({}, '12.5')).indexOf('целое')
+            >= 0, 'дробный потолок должен давать точную ошибку поля');
+  assert.ok(String(methods.memeLengthError.call({}, '9000')).indexOf('8000')
+            >= 0, 'слишком большой потолок должен давать точную ошибку поля');
+  // Блок бюджета берёт режим с сервера и не выдумывает «неизвестно».
+  const budgetCtx = {
+    memeSettingsView: computed.memeSettingsView.call({
+      memeSettings: { settings: {}, quota: {}, analytics: {},
+                      availability: {}, defaults: {}, day: {}, template: {},
+                      prompts: {}, delivery: { stages: [] },
+                      length_limit: { ceiling: null, source: 'auto',
+                                      mode: 'auto', template_chars: 5,
+                                      joke_budget: null, known: false } },
+    }),
+    memeAttemptStages: [],
+    memeLengthSourceLabel: methods.memeLengthSourceLabel,
+  };
+  const budget = computed.memeBudgetBlock.call(budgetCtx);
+  assert.strictEqual(budget.autoMode, true);
+  assert.strictEqual(budget.modeText, 'автоматически');
+  assert.strictEqual(budget.ceilingText, 'не задан');
+  assert.strictEqual(budget.jokeBudgetText, 'определяет провайдер');
+  assert.strictEqual(budget.sourceLabel, 'не задан (авто)');
+  assert.strictEqual(budget.unknownMode, undefined,
+    'состояние «unknown» больше не существует (P0.5: fixed|auto)');
 })();
 
 // ── 9. Публикации: отложенный конфликт не выдаётся за ошибку ─────────────
