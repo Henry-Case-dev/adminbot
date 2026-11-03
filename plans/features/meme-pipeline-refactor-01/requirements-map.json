@@ -2,14 +2,15 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-meme-pipeline-refactor-01.md",
   "source_sha256": "d11119feaa1772e9a96b5ef56b692ca8d9a3e0d731f071d172497cc95e31ed96",
-  "candidate_commit": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+  "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
   "slice_candidate_pins": {
     "MEME-PIPE-CORE": "b272a63bd978e38d4f7696b2172a7f5edf96b67d",
     "MEME-MANUAL-CMD": "d58537496cc129987e8eb045019909b794c11533",
     "MEME-API-SCOPE": "ceb49b564e8a6f628b5bc527aa20bdad4b08f899",
     "MEME-JOKE-SPEECH": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
     "MEME-INITIATIVE-LAYERS": "5fb018ab31db16953b6ea528b5f9d00ea97925ce",
-    "MEME-INIT-COORDINATION": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a"
+    "MEME-INIT-COORDINATION": "f9d1cda9a83983cbbe39687d17cb2be6a7fef90a",
+    "MEME-INIT-DIAG": "53daa257058b612b1e1237174d6aa2717c073b1d"
   },
   "deployed_commit": "",
   "strict_evidence": true,
@@ -2818,9 +2819,74 @@
       "acceptance": "По каждому механизму отдельно видны время последней и время следующей проверки, выполненные условия и причина пропуска (включая причину собственного кулдауна); значения берутся из реального состояния, а не из констант — тест сравнивает два разных состояния.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p9-review.md §2 правила 1-2 и 7, Re-review 2 §2 (матрица десяти состояний), §3 (F2)",
+          "observation": "Ревьюер прочитал обе сборки блока и сверил их с боевым порядком гейтов consider_chat (:1451-1516). В десяти живых состояниях (включено; тумблер чата off; мастер-флаг off; мем-модуль off; своя пауза; тихие часы; квота 3/3; нет таблицы брони; кулдаун + нет таблицы; чат off + нет таблицы) код причины пропуска блока совпал с кодом живого прохода 10/10, и ни в одном блоке нет одновременно ready=true и непустого skip. 'Никогда не проверяли' отделено от нуля: last_check_ts=null при законном remaining_seconds=0.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-review.md",
+          "artifact_sha256": "7c5e6d2bfd0704f13b3d09085eb3b03a987b5319a5e5656449dab0d397050fed",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "00a89b9596d58299a59bb8681d7e6f51bcc96cd0",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_next_check_is_never_before_last_check (:940)",
+          "observation": "Один базис времени: устаревшая оценка (last_eval 7200 с назад, решение записано 'сейчас') даёт last_check_ts=NOW, next_check_ts=null, next_check_basis=every_pass, а обычный проход - basis=eval_interval и next > last. Отдельно проверен инвариант 'next не раньше last' для любого непустого next, поэтому в админку не может уйти прошедшая дата следующей проверки.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_two_states_change_times_conditions_and_recorded_skip (:639)",
+          "observation": "Два разных состояния наблюдателя дают разные наблюдаемые значения: last_check_ts 3600 с назад против 60 с назад, разные conditions ({evaluated:true} против {evaluated:false, pending:3}), разные записанные причины (eval_not_due / not_enough_messages) и сдвиг next_check_ts ровно на разницу состояний. Поля читаются из состояния, а не из констант.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_current_skip_reports_own_cooldown_and_quota (:682)",
+          "observation": "Причина пропуска 'сейчас' берётся из живого состояния гейтов: на своей паузе skip.code=cooldown_active (origin=cooldown), остаток равен own-600 при живом проходе того же чата; при исчерпанной квоте skip.code=daily_quota_reached (origin=quota) при нулевом кулдауне. Оба кода - из существующего словаря причин (новых слов не вводится).",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_chat_toggle_off_is_reported_as_initiative_disabled (:794)",
+          "observation": "Выключенный тумблер чата: живой проход даёт skipped/initiative_disabled, блок - ready=false, skip.code=initiative_disabled (origin=availability), conditions.initiative_enabled=false, то есть выполненные условия и причина не расходятся с реальным гейтом.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "reports/w-p9-diag.md §2-4 (исходная реализация per-mechanism полей и 14 CONTRACT-тестов)",
+          "observation": "Первичный отчёт Builder фиксирует состав per-mechanism полей (два независимых блока, время проверок, условия, причина, свой кулдаун/квота, draw, конфликт) и правило 'нет данных != ноль'; ревьюер затем подтвердил это поведение на исправленном кандидате.",
+          "type": "builder",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-diag.md",
+          "artifact_sha256": "e7ecfb3bdb7318ec6838962344ba30c7f1547dc5f3f4cf918b460a98d1f06c6b",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "6d09347b306e801c477fd46e79527b74841a067d"
+        },
+        {
+          "ref": "services/initiative_diagnostics.py - один базис времени в текстовом блоке (:1509-1526)",
+          "observation": "next_check считается из next_eval_ts и при next <= last_check отдаётся null с basis=every_pass; last_check берётся из записанного решения. Новых таблиц/событий в добавленных строках нет (ревьюер проверил фильтром по диффу).",
+          "type": "code",
+          "artifact_path": "services/initiative_diagnostics.py",
+          "artifact_sha256": "80d1d03fa6dc580c357d281d69944c0b8164d438f9d3003fa2eb095d55d7927a",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2835,9 +2901,47 @@
       "acceptance": "По каждому механизму отдельно видны результат случайного решения, фактически использованный источник случайности (выбранный vs фактический, признак fallback) и идентификатор draw; при отсутствии данных выдаётся честное «нет данных», а не выдуманное значение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p9-review.md §2 правило 5, Re-review 2 §5 (ранее доказанное), §5 таблица мутаций",
+          "observation": "Ревьюер прогнал свои входы, не набор Builder: p=1 -> performed=false, hit/value/draw_id/source=null (в сырой трассе при этом hit=true, диагностика его гасит); p=0 и deferred -> no_draw; реальный draw с fallback_reason -> performed=true, source=pseudorandom, selected_source=quantum, то есть фактический источник отделён от выбранного и fallback не выдан за отказ. Мутация 'draw_block всегда performed=true' роняет целевой тест.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-review.md",
+          "artifact_sha256": "7c5e6d2bfd0704f13b3d09085eb3b03a987b5319a5e5656449dab0d397050fed",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "00a89b9596d58299a59bb8681d7e6f51bcc96cd0",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_probability_one_is_reported_as_no_draw (:381)",
+          "observation": "Трасса с reason=probability_one (hit=true): performed=false, outcome=no_draw, no_draw_reason=probability_one, hit/value/draw_id/source = null, probability=1.0. Источник и идентификатор не выдумываются там, где draw не выполнялся.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_blocks_match_documented_contract_shape (:599)",
+          "observation": "У мем-блока набор ключей draw в точности равен DRAW_FIELDS, то есть в ответе присутствуют performed/outcome/value/hit/probability/purpose/draw_id/source/source_impl/provider/selected_source/fallback/fallback_reason - поля подтверждённого выбора и фактического источника существуют как отдельные ключи, а не как один свободный текст.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_missing_chat_yields_no_data_blocks (:764)",
+          "observation": "Без выбранного чата random=null, last_check_ts=null, cooldown.remaining_seconds=null и quota.limit=null, data_state=no_data с причиной chat_required: отсутствие данных отдаётся как отсутствие, а не как нулевое значение.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2852,9 +2956,65 @@
       "acceptance": "По каждому механизму виден собственный остаток кулдауна/квоты и возможный конфликт публикаций (кто недавно публиковал и на сколько ещё действует межтиповой интервал); это раздельные поля, а не один смешанный показатель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p9-review.md §2 правила 3-4 и 6, Re-review 2 §2 (десять состояний), §3",
+          "observation": "Свой кулдаун и признак конфликта - разные объекты одного блока: cooldown (scope=mechanism_own, own_seconds, remaining_seconds, basis, basis_ts) и publication (conflict, conflict_state, holder_kind, other_kind, other_age_seconds, interval_seconds, manual_priority_until). Ревьюер сверил базис боевого гейта (last_provider_ts + cfg.cooldown_seconds) с диагностикой: 3600 с кулдауна при вызове 60 с назад дают remaining=3540, ни 90/120/600 не подставлены; запись чужой публикации даёт у мема publication.conflict=true с claimed_by=initiative_reply и holder_kind=meme_initiative; при деградации coordination conflict=null и conflict_state=unknown, а не 'конфликта нет'.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-review.md",
+          "artifact_sha256": "7c5e6d2bfd0704f13b3d09085eb3b03a987b5319a5e5656449dab0d397050fed",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "00a89b9596d58299a59bb8681d7e6f51bcc96cd0",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_cooldown_remaining_uses_mechanism_cooldown_not_claim_ttl (:414)",
+          "observation": "Свой кулдаун 6 ч при вызове провайдера час назад даёт own_seconds=21600 и remaining_seconds=18000; остаток не равен ни CLAIM_TTL_SECONDS, ни SENDING_TTL_SECONDS, ни MANUAL_PRIORITY_SECONDS, а manual_priority_until встречается только в объекте publication. Остаток кулдауна и приоритет ручного запроса - раздельные поля.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_conflict_marker_comes_only_from_publication (:333)",
+          "observation": "Записанный в payload publication_conflict даёт skip_recorded (origin=payload_state), но publication.conflict=false и conflict_state=clear; после реальной публикации другого типа минуту назад у текстового блока conflict=true, other_kind=meme_initiative, other_age_seconds=60, interval_seconds=1800, а мем видит свою публикацию как свою (conflict=false). Конфликт объясняется только строкой брони и показывает, кто публиковал и сколько интервала ещё действует.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_current_skip_reports_own_cooldown_and_quota (:682)",
+          "observation": "Своя пауза и своя суточная квота дают разные коды и origin (cooldown_active/cooldown против daily_quota_reached/quota), при этом остаток кулдауна и limit_reached остаются отдельными полями: смешанного 'одного показателя' нет.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_missing_claim_table_is_reported_as_schema_absent (:850)",
+          "observation": "Нет таблицы брони: живой проход даёт skipped/schema_absent (detail=publish_claim_absent), блок - ready=false, skip.code=schema_absent, publication.degraded=true, conflict=null, conflict_state=unknown. Деградация не превращается в 'конфликта нет', и готовность не выдаётся рядом с причиной пропуска.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "arch/initiative-coordination.md §7 (контракт полей диагностики)",
+          "observation": "Контракт заранее объявляет отдельные строки 'собственный кулдаун' и 'конфликт публикаций' на каждый механизм и требует существующих источников без новых таблиц; реализация и проверки соответствуют этой форме.",
+          "type": "contract",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/arch/initiative-coordination.md",
+          "artifact_sha256": "66ed740260a2ba7667406b2e1e8fb0d1d26c8257aa9a14170cb826666f532731",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "7ab7c811599e4c0e4696b01cdb72fdb096c108f7"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -2869,9 +3029,47 @@
       "acceptance": "Существующая аналитика мемов не ломается и не смешивается с воронкой инициативы: `analytics` остаётся отдельным (`separate_from_initiative`), новые поля аддитивны и не меняют существующие ключи; тест сравнивает набор ключей и типы значений до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "verification_tier": "engineering",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "reports/w-p9-review.md §2 правило 9, Re-review 2 §1 и §5 (аддитивность)",
+          "observation": "По диффу всего слайса в добавленных строках нет ни одной записи в БД и ни одного события (проверено фильтром по диффу), удалений нет; схема не меняется сверх v41. Ревьюер отдельно сверил analytics_snapshot до/после вызова диагностики: те же ключи и типы, durable payload наблюдателя не перезаписан.",
+          "type": "review",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-review.md",
+          "artifact_sha256": "7c5e6d2bfd0704f13b3d09085eb3b03a987b5319a5e5656449dab0d397050fed",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "00a89b9596d58299a59bb8681d7e6f51bcc96cd0",
+          "artifact_commit_note": "отчёт ревьюера добавлен коммитом PM-привязки (в дереве кандидата его не было)"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_diagnostics_is_additive_and_does_not_mix_meme_analytics (:524)",
+          "observation": "Мем-аналитика до и после сбора диагностики сохраняет separate_from_initiative=true, тот же набор ключей и те же типы значений; сохранённый payload task_jobs не меняется (чтение, не запись); у мем-блока output_kind принадлежит мему и не входит в INITIATIVE_OUTPUT_KINDS, поэтому показатели механизмов не смешиваются.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "tests/test_meme_init_diagnostics.py::test_no_joke_summary_or_secret_leaks (:475)",
+          "observation": "Живой мем-проход с 'секретными' текстами выжимки и прикола: ни один из них не появляется в JSON диагностики, а набор ключей блока входит в объявленный контракт. В новом блоке нет свободного пользовательского текста.",
+          "type": "test",
+          "artifact_path": "tests/test_meme_init_diagnostics.py",
+          "artifact_sha256": "2390c22f4a0dffd05789ea0b83c5b6da90372df9d34f17adfbd52c682d1bafe2",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "ad4cf460d191b288bf70ae67022024e98b6ad815"
+        },
+        {
+          "ref": "reports/w-p9-diag-fix.md §F1 (область изменений исправления)",
+          "observation": "Исправление коснулось ровно двух файлов (+79/-9 и +223/-6): схема, события, web/**, handlers/**, meme_initiative.py, initiative_observer.py и publication_coordination.py не тронуты, новых таблиц/колонок/кодов/событий нет - аддитивность сохраняется и после правки гейтов.",
+          "type": "builder",
+          "artifact_path": "plans/features/meme-pipeline-refactor-01/reports/w-p9-diag-fix.md",
+          "artifact_sha256": "6582fd47ce020dcda0236f398fbf8d8e28587606f540b9e9f1bc49724dd609a6",
+          "candidate_commit": "53daa257058b612b1e1237174d6aa2717c073b1d",
+          "artifact_commit": "53daa257058b612b1e1237174d6aa2717c073b1d"
+        }
+      ],
       "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
     },
     {
@@ -8261,6 +8459,6 @@
       "arch_decision": "plans/features/meme-pipeline-refactor-01/arch/initiative-coordination.md"
     }
   ],
-  "slice_candidate_pins_note": "MEME-INIT-COORDINATION: кандидат f9d1cda9 (ветка feat/meme-init-coord, база 760916e8) - P8-реализация ff35a53f + тесты B1 aa13e4b6 + все точки отправки текста B2 f9d1cda9; ревью Approved (reports/w-p8-review.md, Re-review 2). Прочие пины не менялись и остаются отдельными: MEME-PIPE-CORE b272a63b, MEME-API-SCOPE ceb49b56, MEME-MANUAL-CMD d5853749, MEME-JOKE-SPEECH 5fb018ab (merge 76608fad), MEME-INITIATIVE-LAYERS 5fb018ab. Внимание: до merge ветки feat/meme-init-coord в evol/impl артефакты P8 существуют только в дереве кандидата.",
+  "slice_candidate_pins_note": "MEME-INIT-DIAG: кандидат 53daa257 (ветка feat/meme-init-diag, база слайса a43e366e, код ad4cf460 поверх отклонённого 6d09347b); ревью Approved (reports/w-p9-review.md, Re-review 2), merge в evol/impl - 8c35c001. Файлы кандидата в merge не менялись (blob services/initiative_diagnostics.py 3cefa7ba и tests/test_meme_init_diagnostics.py 09efefd4 совпадают у 53daa257 и 8c35c001). MEME-INIT-COORDINATION: кандидат f9d1cda9 (ветка feat/meme-init-coord, база 760916e8) - P8-реализация ff35a53f + тесты B1 aa13e4b6 + все точки отправки текста B2 f9d1cda9; ревью Approved (reports/w-p8-review.md, Re-review 2). Прочие пины не менялись и остаются отдельными: MEME-PIPE-CORE b272a63b, MEME-API-SCOPE ceb49b56, MEME-MANUAL-CMD d5853749, MEME-JOKE-SPEECH 5fb018ab (merge 76608fad), MEME-INITIATIVE-LAYERS 5fb018ab. Внимание: до merge ветки feat/meme-init-coord в evol/impl артефакты P8 существуют только в дереве кандидата; после merge 8c35c001 артефакты P9 есть в evol/impl.",
   "amendment_reconciliation": "Дополнение OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS разобрано как дельта к существующей задаче (§2, §7), без нового эпика и без перенумерации §1-§8. Добавлено 18 обязательных строк: 13 в новый пакет MEME-JOKE-SPEECH, 4 в независимую проверку MEME-INITIATIVE-LAYERS, 1 в MEME-UI-FIELDS (показ диагностики). Дополнение OI-2026-11-03-INITIATIVE-INDEPENDENCE (03.11.2026) разобрано как дельта к §7-§8 и к модулю инициативы: 37 обязательных строк о независимости планирования двух механизмов, едином RandomSourceService с раздельными draw, координации публикаций через существующий журнал выводов, атомарном разрешении одновременной готовности, конфигурируемом межтиповом интервале, независимости настроек, приоритете `/meme`, per-mechanism диагностике и проверках Reviewer. Новый эпик не создавался, нумерация §8 не менялась, ранее VERIFIED строки (включая MEME-ACC-13) сохраняют свои доказательства и не переоткрываются. | 03.11.2026 binding: OI-2026-11-03-MEME-JOKE-SPEECH-LAYERS получил якорные строки источника и привязку - 13 строк P6 MEME-JOKE-SPEECH VERIFIED (кандидат 76608fad = код a1f0f9a0, ревью reports/w-joke-speech-review.md), 4 из 4 строк P7 MEME-INITIATIVE-LAYERS VERIFIED (MEME-INIT-EXPRESSION-PASS закрыт на следующем кандидате полосы 5fb018ab коммитом 5dd0cb36: случай выключенной оси Expression на пути инициативы, ревью независимое, falsifiability перепроверен PM и записан в reports/pm-p7-expression-axis-binding.md), MEME-JOKE-DIAG-UI остаётся PENDING в P4 (web/**)."
 }

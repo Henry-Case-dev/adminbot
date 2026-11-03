@@ -193,11 +193,10 @@ P4 последний; P7 — в любой момент).
 
 ## 7. Доказательства и приёмка
 
-- Все 163 обязательные строки — инженерного уровня (`verification_tier: engineering`). На
-  03.11.2026: **87 `VERIFIED`, 76 `PENDING`** (36 — `MEME-INIT-COORDINATION` (P8), 18 —
-  `MEME-UI-FIELDS` (P4), 13 — `MEME-JOKE-SPEECH` (P6), 4 — `MEME-INITIATIVE-LAYERS` (P7),
-  4 — `MEME-INIT-DIAG` (P9), 1 — `MEME-ANALYTICS-STAGES` (P5)). `VERIFIED` ставится только за
-  candidate-bound доказательство.
+- Все 164 обязательные строки — инженерного уровня (`verification_tier: engineering`). На
+  03.11.2026 (после привязки P9 `MEME-INIT-DIAG`): **145 `VERIFIED`, 19 `PENDING`** (18 —
+  `MEME-UI-FIELDS` (P4, показ в админке), 1 — `MEME-ANALYTICS-STAGES` (P5, `MEME-ACC-12`)).
+  `VERIFIED` ставится только за candidate-bound доказательство.
 - Серверная часть P2 (L73/L74) привязана к объединённому кандидату **ceb49b56** (код e99218af,
   доки 69edaccc): `extra="forbid"` и два durable-теста из неблокирующего списка ревью вошли в
   кандидата, поэтому вердикт Reviewer сохраняется без повторного ревью.
@@ -290,11 +289,12 @@ Expression (`expression_enabled=False` в глобальном и чатовом
 |---|---|---|
 | P6 `MEME-JOKE-SPEECH` | 13 / 13 `VERIFIED` | ничего: гейт `--stage review --slice MEME-JOKE-SPEECH --candidate 5fb018ab` = 0 ошибок |
 | P7 `MEME-INITIATIVE-LAYERS` | 4 / 4 `VERIFIED` (кандидат `5fb018ab`) | ничего: ось Expression закрыта коммитом `5dd0cb36` (случай `expression_disabled` на пути инициативы), гейт `--stage review --slice MEME-INITIATIVE-LAYERS --candidate 5fb018ab` = 0 ошибок |
-| P4 `MEME-UI-FIELDS` | `MEME-JOKE-DIAG-UI` PENDING | показ ревизий/manifest в карточке: нужен `web/**`, полоса ждёт освобождения |
+| P4 `MEME-UI-FIELDS` | `MEME-JOKE-DIAG-UI` и `MEME-IIC-DIAG-UI` PENDING | показ ревизий/manifest и двух блоков диагностики в карточке: нужен `web/**`, полоса ждёт освобождения |
+| P9 `MEME-INIT-DIAG` | 4 / 4 `VERIFIED` (кандидат `53daa257`, merge `8c35c001`) | ничего: гейт `--stage review --slice MEME-INIT-DIAG --candidate 53daa257...` = 0 ошибок; показ — отдельная строка `MEME-IIC-DIAG-UI` в P4 |
 
-Остаток эпика не изменился: P4 (`MEME-UI-FIELDS`) и пакеты координации инициативы
-(`MEME-INIT-COORDINATION`, `MEME-INIT-DIAG`) остаются `PENDING`; деплой этого слайса в
-одиночку не закрывает эпик.
+Остаток эпика: показ в админке (P4 `MEME-UI-FIELDS`, 18 строк, ждёт `web/**`) и `MEME-ACC-12`
+(P5); пакеты координации инициативы и диагностики (`MEME-INIT-COORDINATION`, `MEME-INIT-DIAG`)
+закрыты и держатся своими кандидатами. Деплой отдельного слайса эпик не закрывает.
 
 ### 9.4 Архитектурная классификация
 
@@ -540,5 +540,37 @@ Approved** по поведению и покрытию; учётная част�
 
 Живая приёмка после релиза (PET_PROJECT): `/meme` в чате владельца и отсутствие инициативной
 реплики/heartbeat-текста в пределах интервала — добровольное наблюдение владельца, релиз не блокирует.
+
+### 10.9 Привязка P9 `MEME-INIT-DIAG` (03.11.2026)
+
+Кандидат: **`53daa257`** (ветка `feat/meme-init-diag`, база слайса `a43e366e` = merge P8): исправление
+гейтов и базиса времени `ad4cf460` поверх отклонённого первым кругом `6d09347b`, отчёт Builder
+`53daa257`. Независимое ревью: `reports/w-p9-review.md`, **Re-review 2 — Approved** (первый круг —
+Needs Fixes по F1/F2). Слияние в `evol/impl` — **`8c35c001`**; файлы кандидата merge не менял
+(`services/initiative_diagnostics.py` blob `3cefa7ba`, `tests/test_meme_init_diagnostics.py` blob `09efefd4`
+совпадают у `53daa257` и `8c35c001`), поэтому доказательства действительны и для слитого состояния.
+
+- **Строк слайса: 4** (`MEME-IIC-DIAG-TIMES`, `-RANDOM`, `-COOLDOWN-CONFLICT`, `-NO-MIX`) — все
+  `VERIFIED`, привязаны к кандидату `53daa257`: отчёт ревью (разделы 2-5), отчёты Builder
+  (`w-p9-diag.md`, `w-p9-diag-fix.md`), код и тесты по sha256, контракт полей `arch/initiative-coordination.md` §7.
+- Что доказано (не «по коду», а живым проходом в том же состоянии): матрица гейтов мем-блока совпала
+  с боевым `consider_chat` **10/10** состояний; `ready` вычисляется после `skip`, поэтому «готов + причина
+  пропуска» невыразимо; отсутствие таблицы брони даёт `schema_absent` с `origin=publication`, а
+  деградация даёт `conflict=null`/`conflict_state=unknown`; `next_check_ts` никогда не раньше
+  `last_check_ts` (при `next <= last` — `null` и `basis=every_pass`); draw не выдумывает значение/источник
+  при `probability_one`; `analytics` мемов остаётся `separate_from_initiative` с прежними ключами.
+- `slice_candidate_pins["MEME-INIT-DIAG"] = 53daa257`; остальные пины не переписываются
+  (`MEME-PIPE-CORE` b272a63b, `MEME-API-SCOPE` ceb49b56, `MEME-MANUAL-CMD` d5853749,
+  `MEME-JOKE-SPEECH`/`MEME-INITIATIVE-LAYERS` 5fb018ab, `MEME-INIT-COORDINATION` f9d1cda9).
+- **Остаётся `PENDING` только показ в админке (P4 `MEME-UI-FIELDS`):** строки `MEME-IIC-DIAG-UI`,
+  `MEME-JOKE-DIAG-UI` и остальные строки пакета ждут `web/**` (линия COG-MAP S3), плюс `MEME-ACC-12`
+  (P5). Сервисный слой P9 к показу готов и менять его для P4 не требуется.
+- Гейты: `check --stage plan` = 0 ошибок; `check --stage review --slice MEME-INIT-DIAG
+  --candidate 53daa257058b612b1e1237174d6aa2717c073b1d` = 0 ошибок (4 строки в scope).
+- **Неблокирующие наблюдения ревью — в бэклоге слайса (`slice-graph.json` → `backlog`), объём P9 не
+  расширялся:** D1 (O2b — отличить «таблицы брони нет» от «прочитать не удалось» в следующем слайсе),
+  D2 (O7 — при `:memory:`/без пути к БД боевой гейт таблицу брони не требует, а блок отдаёт
+  `schema_absent`), D3 (O8 — у давно не работавшего наблюдателя честная дата следующей проверки может
+  быть в прошлом, инвариант F2 не нарушен).
 
 
