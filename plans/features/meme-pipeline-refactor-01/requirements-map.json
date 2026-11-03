@@ -2968,14 +2968,43 @@
       "reason": "",
       "req_id": "MEME-IIC-POSTPONE-RECHECK",
       "slice": "MEME-INIT-COORDINATION",
-      "acceptance": "Проигравший или отложенный не отправляется слепо: мем отменяется с явной причиной, и уже сгенерированная картинка позже не отправляется никогда, при этом его собственные кулдаун и квота не сбрасываются; инициативная реплика откладывается с сохранением намерения и перепроверяется на свежем контексте существующим механизмом повторной проверки; причина и итоговый исход видны в журнале и отличаются от «решения не было».",
+      "acceptance": "Проигравший или отложенный не отправляется слепо: при конфликте мем откладывается и доставляется ровно один раз после освобождения слота, без второй генерации, либо отменяется с явной причиной; собственная неподтверждённая отправка закрывается терминалом delivery_unknown без повторной отправки; квота не расходуется дважды.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "reopen_note": "Раскрыта по решению владельца 03.11.2026 (OI-2026-11-03-MEME-PUBLICATION-HOTFIX, plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, строки 38-41, 43, 123, 125): новые сообщения, реакции, смена latest_message_id и движение watermark во время генерации больше не являются основанием для publication_stale, а уже сгенерированная картинка не теряется и не перегенерируется. Принятое здесь поведение прямо запрещено новым ТЗ, поэтому строка не может оставаться VERIFIED. Кандидат исправления b95b7363 находится на независимом ревью и не выложен; новые доказательства и уточнённая формулировка приёмки — в карте plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json. Замещающие строки карты hotfix: HMF-ACC-02 (отсрочка без потери картинки) и HMF-ACC-04 (рестарт, дубли, квота).",
       "reopened_by": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
       "verification_tier": "engineering",
       "evidence": [
+        {
+          "ref": "plans/features/p0-meme-publication-hotfix/review.md: «Re-review 3» S9 и S11, «Re-review 2» B1 и B3, «Release verification 2.58.152 (артефакт ab662a75)»; те же требования в карте hotfix: HMF-ACC-02 и HMF-ACC-04",
+          "observation": "S9: чужая истёкшая sending-бронь — ровно один вызов sender, доставлено только изображение, строка completed, файл существовал до отправки и удалён после успеха, провайдер вызван один раз (второй генерации нет), spent=1 и одна бронь квоты; цепочка delivery_unknown → publication_requested → publication_sent с delivered=true. S11: собственная неподтверждённая отправка — sender 0, терминал delivery_unknown, строка failed, файл удалён, повтора нет. B3: ручной /meme ждёт чужую отправку и публикует ровно один раз, приоритет не обходит RBAC.",
+          "type": "review",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75",
+          "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb",
+          "linked_req_ids": [
+            "HMF-ACC-02",
+            "HMF-ACC-04"
+          ]
+        },
+        {
+          "ref": "tests/test_p0_meme_publication_hotfix.py: test_b4_foreign_expired_sending_claim_still_delivers, test_b4_own_expired_sending_claim_is_terminal_without_resend, test_b1_slot_busy_then_one_delivery_then_completed, test_b1_two_parallel_deliveries_send_once, test_b1_delivery_does_not_reserve_quota",
+          "observation": "Контракт закреплён тестами: конфликт — отложенная доставка ровно один раз после освобождения слота без второй генерации; собственная истёкшая бронь — терминал без повторной отправки; доставка не резервирует квоту повторно; два параллельных прохода дают одну отправку.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
+          "candidate_commit": "ab662a75",
+          "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb",
+          "linked_req_ids": [
+            "HMF-ACC-02",
+            "HMF-ACC-04"
+          ]
+        }
+      ],
+      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
+      "superseded_text": "Проигравший или отложенный не отправляется слепо: мем отменяется с явной причиной, и уже сгенерированная картинка позже не отправляется никогда, при этом его собственные кулдаун и квота не сбрасываются; инициативная реплика откладывается с сохранением намерения и перепроверяется на свежем контексте существующим механизмом повторной проверки; причина и итоговый исход видны в журнале и отличаются от «решения не было».",
+      "superseded_evidence": [
         {
           "ref": "tests/test_initiative_coordination.py::test_text_publish_guard_cancels_without_send (:1256)",
           "observation": "Отказ брони перед отправкой: реплика отменена с причиной publication_conflict, sender не вызван, intent остаётся durable (pending/deferred), бюджет не потрачен - проигравший не отправляется слепо.",
@@ -3013,7 +3042,10 @@
           "candidate_commit": "092734a685f30dcd5500beaba2169c2f6c177823"
         }
       ],
-      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
+      "superseded_by": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
+      "superseded_at": "2026-11-03",
+      "superseded_note": "Формулировка и доказательства отменены решением владельца (снимок plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, §1.2.2 и §1.2.5): сравнение watermark/latest_message_id как основание отмены и «сгенерированная картинка позже не отправляется никогда» больше не являются требуемым поведением. Сохранено как история; живая формулировка — в acceptance.",
+      "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb"
     },
     {
       "source_id": "MAN-MEME-IIC-STALE-NO-SEND",
@@ -3024,14 +3056,46 @@
       "reason": "",
       "req_id": "MEME-IIC-STALE-NO-SEND",
       "slice": "MEME-INIT-COORDINATION",
-      "acceptance": "Устаревшая публикация после задержки не отправляется: у отложенного/долгого решения есть ограниченное окно актуальности (конфигурируемое), после которого мем или инициативная реплика отменяются с явной причиной; тест с управляемым временем не даёт отправки устаревшего решения.",
+      "acceptance": "Устаревшее по сроку решение не отправляется: у отложенного артефакта есть ограниченное окно актуальности, после которого публикация отменяется с явной причиной (deferred_publication_expired), файл удаляется, а повторной генерации и повторного списания квоты не происходит; появление новых сообщений, реакции, смена latest_message_id и движение общего watermark сами по себе основанием для отмены не являются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "reopen_note": "Раскрыта по решению владельца 03.11.2026 (OI-2026-11-03-MEME-PUBLICATION-HOTFIX, plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, строки 38-41, 43, 123, 125): новые сообщения, реакции, смена latest_message_id и движение watermark во время генерации больше не являются основанием для publication_stale, а уже сгенерированная картинка не теряется и не перегенерируется. Принятое здесь поведение прямо запрещено новым ТЗ, поэтому строка не может оставаться VERIFIED. Кандидат исправления b95b7363 находится на независимом ревью и не выложен; новые доказательства и уточнённая формулировка приёмки — в карте plans/features/hotfix-meme-publication-initiative-ui/requirements-map.json. Замещающие строки карты hotfix: HMF-ACC-02 (содержательные проверки вместо stale) и HMF-ACC-01/03.",
       "reopened_by": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
       "verification_tier": "engineering",
       "evidence": [
+        {
+          "ref": "plans/features/p0-meme-publication-hotfix/review.md: «Re-review 2», B1 (строки «Истечение ретенции», «Квота», «Пока слот занят») и «Release verification 2.58.152 (артефакт ab662a75)»; те же требования в карте hotfix: HMF-ACC-01, HMF-ACC-02, HMF-ACC-03, HMF-ACC-04",
+          "observation": "На выложенном коде 2.58.152: отложенный артефакт с истёкшим окном актуальности даёт ровно одну строку deferred_publication_expired с человекочитаемым ярлыком, статус строки cancelled и удалённый файл; второй проход новых строк не добавляет, отправки не происходит. Повторной генерации и повторного списания квоты нет: пока артефакт ждёт, новая генерация блокируется, бронь квоты ровно одна (spent=1). Новые сообщения, реакции, смена latest_message_id и движение watermark готовый мем не отменяют: тесты на 1/10/50 новых сообщений зелёные, мутации M1/M1b (возврат сравнения watermark) их роняют.",
+          "type": "review",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75",
+          "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb",
+          "linked_req_ids": [
+            "HMF-ACC-01",
+            "HMF-ACC-02",
+            "HMF-ACC-03",
+            "HMF-ACC-04"
+          ]
+        },
+        {
+          "ref": "tests/test_p0_meme_publication_hotfix.py: test_b1_expired_artifact_reports_honest_code_once, test_b1_pending_artifact_blocks_new_generation, test_automatic_new_messages_do_not_cancel_ready_meme, test_manual_new_messages_do_not_cancel_ready_meme, test_reason_codes_are_distinct_and_stale_is_not_emitted",
+          "observation": "Контракт закреплён тестами: истечение ретенции — одна терминальная строка с честным кодом и удаление файла без отправки; ожидающий артефакт блокирует новую генерацию; рост переписки не отменяет ни ручной, ни автоматический мем; publication_stale остаётся только историческим кодом.",
+          "type": "test",
+          "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
+          "candidate_commit": "ab662a75",
+          "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb",
+          "linked_req_ids": [
+            "HMF-ACC-01",
+            "HMF-ACC-02",
+            "HMF-ACC-03"
+          ]
+        }
+      ],
+      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE",
+      "superseded_text": "Устаревшая публикация после задержки не отправляется: у отложенного/долгого решения есть ограниченное окно актуальности (конфигурируемое), после которого мем или инициативная реплика отменяются с явной причиной; тест с управляемым временем не даёт отправки устаревшего решения.",
+      "superseded_evidence": [
         {
           "ref": "tests/test_initiative_coordination.py::test_stale_meme_is_not_sent_after_delay (:771)",
           "observation": "Управляемое время: окно чата изменилось за время генерации -> publication_stale, отправки нет, бронь освобождена без watermark.",
@@ -3060,7 +3124,10 @@
           "candidate_commit": "092734a685f30dcd5500beaba2169c2f6c177823"
         }
       ],
-      "owner_input_id": "OI-2026-11-03-INITIATIVE-INDEPENDENCE"
+      "superseded_by": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
+      "superseded_at": "2026-11-03",
+      "superseded_note": "Формулировка и доказательства отменены решением владельца (снимок plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, §1.2.2 и §1.2.5): сравнение watermark/latest_message_id как основание отмены и «сгенерированная картинка позже не отправляется никогда» больше не являются требуемым поведением. Сохранено как история; живая формулировка — в acceptance.",
+      "verified_on_release": "2.58.152 @ ab662a7529891c7f97f6c81d46e86b635b029dbb"
     },
     {
       "source_id": "MAN-MEME-IIC-SET-MEMES-OFF-TEXT-ON",
