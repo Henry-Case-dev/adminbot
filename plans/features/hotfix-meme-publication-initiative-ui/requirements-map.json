@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md",
   "source_sha256": "0d54087fa77555b33cc37283666549264e751c8cd97fabc13b0467fa8a875268",
-  "candidate_commit": "97390ee4",
-  "deployed_commit": null,
+  "candidate_commit": "ab662a75",
+  "deployed_commit": "ab662a75",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "OI-2026-11-03-MEME-PUBLICATION-HOTFIX",
@@ -33,7 +33,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_events_chain_separates_generation_from_delivery, test_reason_codes_are_distinct_and_stale_is_not_emitted",
@@ -41,6 +41,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "События публикации присутствуют в живом API: delivery.event_names содержит все новые события (source_snapshot, digest_ready, joke_ready, image_ready, publication_requested, publication_deferred_conflict, publication_sent, delivery_unknown); Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ],
       "source_note": "прозаический перечень событий §1.3 (строка не попадает в авто-инвентарь)"
@@ -404,7 +412,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_manual_new_messages_do_not_cancel_ready_meme[1/10/50], test_manual_delivers_after_chat_topic_changed",
@@ -412,6 +420,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Ручной путь публикации на проде не наблюдался (естественного мема в окне выкладки не было, тестовые сообщения в чаты не отправлялись), но: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -435,7 +451,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_automatic_new_messages_do_not_cancel_ready_meme, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_b1_artifact_is_kept_when_claim_is_refused",
@@ -443,6 +459,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Инцидент закрыт на выложенном коде: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -466,7 +490,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_manual_new_messages_do_not_cancel_ready_meme[1/10/50], test_manual_delivers_after_chat_topic_changed",
@@ -474,6 +498,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Ручной путь публикации на проде не наблюдался (естественного мема в окне выкладки не было, тестовые сообщения в чаты не отправлялись), но: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -497,7 +529,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_automatic_new_messages_do_not_cancel_ready_meme, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_b1_artifact_is_kept_when_claim_is_refused",
@@ -505,6 +537,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Инцидент закрыт на выложенном коде: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -528,7 +568,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_automatic_new_messages_do_not_cancel_ready_meme, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_b1_artifact_is_kept_when_claim_is_refused",
@@ -536,6 +576,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Инцидент закрыт на выложенном коде: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -559,7 +607,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_restart_same_job_does_not_duplicate_or_regenerate, test_two_workers_in_one_chat_publish_exactly_once, test_manual_preempts_foreign_claimed_slot_and_publishes, test_b1_delivery_does_not_reserve_quota",
@@ -567,6 +615,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Идемпотентность и отложенная доставка выложены тем же кодом; на проде один процесс, NRestarts 0, каталог var/meme_pending отсутствует (незавершённых артефактов нет). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -590,7 +646,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_reason_codes_are_distinct_and_stale_is_not_emitted, test_module_disabled_during_generation_is_a_real_content_reason, test_b1_rights_revoked_cancels_with_own_code, test_publication_stale_is_kept_only_as_historical_code",
@@ -598,6 +654,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Раздельные reason codes выложены тем же кодом, что отревьюен: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -621,7 +685,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_successful_meme_sends_only_the_image_via_bound_sender, test_send_failure_is_delivery_unknown_not_a_cancel",
@@ -629,6 +693,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Контракт «только изображение» не менялся и выложен тем же кодом: media 7 без изменений, новых типов отправки нет. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -682,7 +754,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_empty_ceiling_is_auto_end_to_end, test_absent_field_does_not_touch_saved_ceiling, test_invalid_ceiling_input_is_a_precise_field_error",
@@ -690,6 +762,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Три состояния подтверждены в живом ответе (mode/known/ceiling/joke_budget), некорректный ввод по-прежнему даёт 422. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -713,7 +793,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_auto_ceiling_generates_without_invented_limit, test_joke_instruction_without_limit_has_no_fake_number",
@@ -721,6 +801,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Следовательно auto в проде не подставляет числовой предел и не изобретает 800/0. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -744,7 +832,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_fixed_ceiling_uses_real_rendered_prompt_and_blocks_before_llm, test_image_prompt_fit_helper_is_exact, test_overfull_template_stops_before_summary_and_provider",
@@ -752,6 +840,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Фиксированный потолок считается тем же production-renderer'ом, который выложен (код идентичен кандидату). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -775,7 +871,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_reason_codes_are_distinct_and_stale_is_not_emitted, test_publication_stale_is_kept_only_as_historical_code, test_joke_instruction_without_limit_has_no_fake_number",
@@ -783,6 +879,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). В проде активен auto-режим без фиктивного предела; коды отказа провайдера отдельные. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -806,7 +910,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         }
       ]
     },
@@ -830,7 +934,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_overfull_template_stops_before_summary_and_provider",
@@ -838,6 +942,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Ошибка потолка в этом тракте по-прежнему отдельная от publication_stale (0 stale в журнале). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1431,7 +1543,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_manual_new_messages_do_not_cancel_ready_meme[1/10/50], test_manual_delivers_after_chat_topic_changed",
@@ -1439,6 +1551,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Ручной путь публикации на проде не наблюдался (естественного мема в окне выкладки не было, тестовые сообщения в чаты не отправлялись), но: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1462,7 +1582,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_automatic_new_messages_do_not_cancel_ready_meme, test_automatic_collision_after_generation_keeps_facts_and_does_not_send, test_b1_artifact_is_kept_when_claim_is_refused",
@@ -1470,6 +1590,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Инцидент закрыт на выложенном коде: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1493,7 +1621,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_reason_codes_are_distinct_and_stale_is_not_emitted, test_module_disabled_during_generation_is_a_real_content_reason, test_b1_rights_revoked_cancels_with_own_code, test_publication_stale_is_kept_only_as_historical_code",
@@ -1501,6 +1629,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Раздельные reason codes выложены тем же кодом, что отревьюен: Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1524,7 +1660,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_restart_same_job_does_not_duplicate_or_regenerate, test_two_workers_in_one_chat_publish_exactly_once, test_manual_preempts_foreign_claimed_slot_and_publishes, test_b1_delivery_does_not_reserve_quota",
@@ -1532,6 +1668,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Идемпотентность и отложенная доставка выложены тем же кодом; на проде один процесс, NRestarts 0, каталог var/meme_pending отсутствует (незавершённых артефактов нет). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1555,7 +1699,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_successful_meme_sends_only_the_image_via_bound_sender, test_send_failure_is_delivery_unknown_not_a_cancel",
@@ -1563,6 +1707,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Контракт «только изображение» не менялся и выложен тем же кодом: media 7 без изменений, новых типов отправки нет. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1616,7 +1768,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_events_chain_separates_generation_from_delivery, test_reason_codes_are_distinct_and_stale_is_not_emitted",
@@ -1624,6 +1776,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "События публикации присутствуют в живом API: delivery.event_names содержит все новые события (source_snapshot, digest_ready, joke_ready, image_ready, publication_requested, publication_deferred_conflict, publication_sent, delivery_unknown); Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1647,7 +1807,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — полный набор (49 passed на кандидате 97390ee4)",
@@ -1655,6 +1815,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Отревьюенный код действительно работает на проде (совпадение деревьев, а не отчёт): Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1678,7 +1846,7 @@
           "type": "review",
           "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
           "candidate_commit": "97390ee4",
-          "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815"
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140"
         },
         {
           "ref": "tests/test_p0_meme_publication_hotfix.py — test_empty_ceiling_is_auto_end_to_end, test_global_and_chat_ceiling_do_not_mix, test_invalid_ceiling_input_is_a_precise_field_error",
@@ -1686,6 +1854,14 @@
           "type": "test",
           "artifact_path": "tests/test_p0_meme_publication_hotfix.py",
           "candidate_commit": "97390ee4"
+        },
+        {
+          "ref": "review.md «Release verification 2.58.152 (артефакт ab662a75)» (стр. 638-772): байт-в-байт привязка к одобренному кандидату, дельта к проду без «прочего», DDL нет, вердикт CLEARED; факты сервера — DevOps (см. deployment_binding карты)",
+          "observation": "Живой read-only вызов GET /api/initiative/meme-settings на реальной БД: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; 401 без initData (авторизация активна). Сквозной тракт auto на реальной БД подтверждён; браузерная отрисовка формы в эту строку не входит и остаётся за HMF-LEN-05. Прод 2.58.152: health 200 local+public, NRestarts 0, один процесс, schema user_version=41 без миграций, media 7 без изменений, каталог var/meme_pending отсутствует (естественных мемов не было), журнал 0 Traceback / 0 ERROR / 0 publication_stale, откат bd0f38ed; содержимое services/handlers/web/api/app.js/index.html/static идентично одобренному 97390ee4 (совпадение деревьев на сервере; локально git diff 97390ee4 ab662a75 по этим путям пуст).",
+          "type": "production",
+          "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
+          "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
+          "candidate_commit": "ab662a75"
         }
       ]
     },
@@ -1770,17 +1946,43 @@
     "reviewed_branch": "fix/p0-publication-stale",
     "merge_commit": "78af43d8e7761c62f4e734366fb43d1dc6ec2c89",
     "verification": "git diff 97390ee4 HEAD -- services/meme_initiative.py пуст: содержимое P0 в evol/impl идентично отревьюенному кандидату",
-    "merged_content_check": "git diff 97390ee4 HEAD -- services/meme_initiative.py -> exit 0, без изменений"
+    "merged_content_check": "git diff 97390ee4 HEAD -- services/meme_initiative.py -> exit 0, без изменений",
+    "previous_reviewed_candidate": "97390ee4",
+    "release_candidate": "ab662a7529891c7f97f6c81d46e86b635b029dbb",
+    "release_note": "Релизная линия 2.58.152 собрана от прода bd0f38ed (1d4f3c98 -> 9aeeb8d4 -> 2ed088ce -> c8b30ef4 -> ab662a75), поэтому SHA релиза не равен SHA эпик-ветки; тождество содержимого продукта проверено деревьями, а не равенством коммитов"
   },
   "review_binding": {
     "artifact_path": "plans/features/p0-meme-publication-hotfix/review.md",
-    "artifact_sha256": "5703c8175aa99528d482531d203d3296b55c49504433da2e7eaadb76a1fa8815",
+    "artifact_sha256": "7173722398f07abf4235b92e3aef297eecd8ba9b37541f9bec6ff4d00258c140",
     "verdict_sections": [
       "Re-review 2 (кандидат 46edd36e)",
       "Re-review 3 (кандидат 97390ee4) — Вердикт: Approved (по слайсу P0-PUBLICATION)"
     ],
     "approved_slice": "P0-PUBLICATION",
     "merge_tree_run": "178 passed после мержа 78af43d8 (сведения оркестратора; в артефакте review.md не зафиксировано)",
-    "open_outside_slice": "P0.5-CEILING-AUTO: функциональная часть VERIFIED, визуальный слой формы — HMF-LEN-05 READY_FOR_LIVE; P1-UI-INITIATIVE не проверялся"
+    "open_outside_slice": "P0.5-CEILING-AUTO: функциональная часть VERIFIED, визуальный слой формы — HMF-LEN-05 READY_FOR_LIVE; P1-UI-INITIATIVE не проверялся",
+    "release_verification": "review.md -> «Release verification 2.58.152 (артефакт ab662a75)», вердикт CLEARED",
+    "ui_review": {
+      "artifact_path": "plans/features/p0-meme-publication-hotfix/ui-review.md",
+      "artifact_sha256": "bb23f768f6ba032414eba75c33bc4021d985acb80e70e0d8a174ee09d7079e24",
+      "verdict": "Needs Fixes по кандидату 7c267442 (P1-UI не принят): F1 публикации теряют реальный исход, F2 неизвестные имена событий координации, F3 несохранённые правки промптов, F4 фиктивный e2e смены чата"
+    }
+  },
+  "deployment_binding": {
+    "version": "2.58.152",
+    "branch": "release/2.58.152",
+    "deployed_commit": "ab662a7529891c7f97f6c81d46e86b635b029dbb",
+    "reviewed_candidate_content": "97390ee4",
+    "content_identity": "деревья services/handlers/web (и все блоб-записи) совпадают у ab662a75 и 97390ee4; локально git diff 97390ee4 ab662a75 по services/handlers/web/api/app.js/index.html/static пуст",
+    "health": "200 local + 200 public",
+    "restarts": "NRestarts=0, один процесс",
+    "schema": "user_version=41, миграций нет",
+    "media": "media 7 без изменений",
+    "pending_dir": "var/meme_pending отсутствует (естественных мемов не было)",
+    "journal": "0 Traceback / 0 ERROR / 0 publication_stale",
+    "rollback": "bd0f38ed (2.58.151)",
+    "live_api": "GET /api/initiative/meme-settings: length_limit.mode=auto, known=False, ceiling=None, joke_budget=None; delivery.event_names содержит новые события публикации; 401 без initData",
+    "provenance": "Факты сервера переданы DevOps 03.11.2026 и записаны здесь как машинно-читаемая привязка; в репозиторном артефакте review.md зафиксированы тождество содержимого и вердикт CLEARED",
+    "open": "HMF-LEN-05 READY_FOR_LIVE: отрисовка формы потолка в браузере после реальной генерации не наблюдалась (естественного мем-цикла не было, тестовые сообщения в чаты не отправлялись)"
   }
 }
