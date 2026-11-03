@@ -19468,6 +19468,17 @@
         }
         return this.loadConfig();
       },
+      // PVR-S4 B1: после «Применить»/«Восстановить» в разделе «Характер»
+      // (Speech/Character) серверный текст редакции меняется — раздел
+      // перечитывается тем же путём, что «Обновить», а несохранённый
+      // черновик владельца остаётся в поле (loadSpeechSection его не
+      // затирает, пока стоит dirty-флаг).
+      afterSpeechPromptVersionChange: function () {
+        this.promptVersionReload = (this.promptVersionReload || 0) + 1;
+        var id = this._speechSectionLoadKey(this.speechSection || 'core');
+        if (typeof this.loadSpeechSection !== 'function') return undefined;
+        return this.loadSpeechSection(id, true);
+      },
       memeFieldDirty: function (field) {
         var d = this.memeDraft || {};
         var st = this.memeSettingsView;
@@ -26292,18 +26303,6 @@
         return 'Действует: ' + (level === 'full' ? 'полная' : 'компактная')
           + ' редакция — ' + human;
       },
-      // P0A-UX §3 (TJ-20): история версий — человеческими строками;
-      // kind/scope/sha доступны в раскрытии строки.
-      speechHistKind: function (kind) {
-        return {
-          owner_edit: 'Ваша правка', factory_reset: 'Возврат заводского',
-          rollback: 'Откат', factory: 'Заводская',
-        }[String(kind)] || String(kind || '—');
-      },
-      speechHistScope: function (scope) {
-        return { global: 'все чаты', chat: 'этот чат' }[String(scope)]
-          || String(scope || '—');
-      },
       // P0A-UX §3 (TJ-7/TJ-16): словарь причин пропуска прохода формы —
       // один на «Стиль письма» и «Попробовать»; неизвестное не скрываем.
       speechSkipReasonText: function (reason) {
@@ -27047,30 +27046,6 @@
         } catch (e) {
           this.speechSaveFail(e, sec, function () {
             self.resetSpeechChat(blockId, sec);
-          });
-        } finally {
-          this.speechBusy = false;
-        }
-      },
-      rollbackSpeechBlock: async function (blockId, row, section) {
-        if (!blockId || !row || this.speechBusy) return;
-        var self = this;
-        var sec = section || 'all';
-        this.speechBusy = true;
-        try {
-          await this.api('/api/speech/block/' + blockId + '/rollback', {
-            method: 'POST',
-            body: JSON.stringify({
-              sha256_12: row.sha256_12,
-              scope: this.speechScopeFor(sec),
-              reason: 'rollback:' + String(row.sha256_12 || '').slice(0, 12),
-            }),
-          });
-          this.toast('Откат выполнен: ревизия ' + row.sha256_12, 'ok');
-          await this.reloadSpeech();
-        } catch (e) {
-          this.speechSaveFail(e, sec, function () {
-            self.rollbackSpeechBlock(blockId, row, sec);
           });
         } finally {
           this.speechBusy = false;
@@ -32584,7 +32559,10 @@
     watch: {
       promptKey: function () { this.resetPanel(); this.primeState(); },
       chatIdNum: function () { this.resetPanel(); this.primeState(); },
-      reloadToken: function () { this.resetPanel(); this.loadHistory(true); },
+      // Перечитывание по `reloadToken` (после внешнего изменения серверного
+      // текста) сохраняет подтверждение успеха — иначе пользователь не
+      // успевает увидеть, что сервер подтвердил.
+      reloadToken: function () { this.reloadPreservingResult(); },
     },
     mounted: function () { this.primeState(); },
     methods: {
@@ -32624,6 +32602,21 @@
         h.diffError = '';
         h.result = null;
       },
+      // B4 (§2.2 п.6 / §6 п.8): перечитывание после «Применить» /
+      // «Восстановить базовую» / «Вернуть исходную» не имеет права стирать
+      // подтверждение успеха. Сообщение остаётся до следующего действия
+      // (любое действие начинает с `result = null`) или явного закрытия.
+      reloadPreservingResult: function () {
+        var keep = (this.hist && this.hist.result) || null;
+        this.resetPanel();
+        this.hist.result = keep;
+        return this.loadHistory(true);
+      },
+      dismissResult: function () { this.hist.result = null; },
+      // B2: пункт меню «Подробности и диагностика» раскрывает постоянный
+      // блок `[data-pv-details]`. Раскрытие — реальное состояние компонента,
+      // поэтому данные видны и после закрытия меню.
+      toggleDetails: function () { this.details = !this.details; },
       _cacheKey: function () {
         return String(this.promptKey || '') + '|'
           + (this.chatIdNum == null ? 'global' : ('chat:' + this.chatIdNum));
@@ -33002,6 +32995,10 @@
       assignBaseline: async function (entry) {
         var h = this.hist;
         if (!this.canAssign(entry) || h.busyRev) return;
+        // §2.2 п.6 / §4 (PVR-BASE-05): это ОТДЕЛЬНОЕ действие — меняется
+        // только эталон. Никакой неявной активации: действующий текст и
+        // активная ревизия остаются прежними (иначе обещание в подтверждении
+        // было бы ложью).
         var msg = 'Назначить эту версию базовой? Меняется только эталон '
           + '(к нему возвращает «Восстановить базовую»). Действующий текст '
           + 'промпта останется прежним.';

@@ -10861,31 +10861,28 @@
                               @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
                     </div>
 
-                    <details class="speech-adv" data-speech-core-more>
-                      <summary class="text-xs">Дополнительно: версии и откат, служебные ревизии</summary>
-                      <div class="text-xs text-gray-500 mt-1">
-                        Заводские ревизии: полная {{ speechCore.factory.full_revision }}
-                        · компактная {{ speechCore.factory.compact_revision }}
-                        · документ: rev {{ speechCore.document.revision || '—' }}
-                        · ревизия текущей редакции: {{ speechCore.editions[speechCoreEdition].factory_revision }}
-                      </div>
-                      <div class="text-xs text-gray-400 mt-2 mb-1">История версий</div>
-                      <div v-if="!speechCore.history.length" class="text-xs text-gray-500">
-                        Предыдущих ревизий нет: действует заводская редакция.
-                      </div>
-                      <div v-for="h in speechCore.history" :key="'h-' + h.sha256_12"
-                           class="speech-hist">
-                        <span class="text-xs">{{ speechHistKind(h.kind) }} · {{ speechHistScope(h.scope) }}
-                          · {{ h.chars }} зн. · {{ h.updated_at || '—' }}</span>
-                        <details class="text-xs text-gray-500">
-                          <summary class="text-xs">Технические данные ревизии</summary>
-                          <span>{{ h.kind }} · {{ h.scope }} · {{ h.sha256_12 }}</span>
-                        </details>
-                        <button type="button" class="btn-ghost text-xs"
-                                :disabled="speechBusy || !speechCore.can_edit"
-                                @click="rollbackSpeechBlock(blockIdFor('full'), h, 'core')">Откатить</button>
-                      </div>
-                    </details>
+                    <!-- PVR-S4 B1 (§2 / §2.2 п.1 ТЗ): «Характер» — тоже
+                         prompt-field (`core.personality` /
+                         `core.personality.compact`), поэтому история версий
+                         живёт в ТОМ ЖЕ компоненте, что библиотека, мемы и
+                         блоки речи. Прежний bounded-список «Дополнительно:
+                         версии и откат» с сырым sha и отдельным «Откатить»
+                         удалён: вторая реализация истории запрещена (arch §6).
+                         Ключ = активная редакция; переключение вкладки
+                         переключает и историю этой редакции. -->
+                    <div class="mt-2" data-speech-core-versions>
+                      <prompt-version-card
+                        variant="bar"
+                        :title="speechCoreEdition === 'full'
+                                ? 'Характер: полная редакция'
+                                : 'Характер: компактная редакция'"
+                        :prompt-key="(speechCore.block_ids || {})[speechCoreEdition] || ''"
+                        :chat-id="speechScopeFor('core') === 'chat' ? speechChatId : null"
+                        :chat-title="activeChatTitle || 'этот чат'"
+                        :can-edit="!!speechCore.can_edit"
+                        :reload-token="promptVersionReload"
+                        @refresh="afterSpeechPromptVersionChange()"></prompt-version-card>
+                    </div>
                   </div>
                 </template>
 
@@ -15918,7 +15915,7 @@
         <button type="button" class="more-menu-item" role="menuitem"
                 data-pv-more-history @click="menu = false; openHistory()">История версий</button>
         <button type="button" class="more-menu-item" role="menuitem"
-                data-pv-more-details @click="menu = false; details = !details">
+                data-pv-more-details @click="menu = false; toggleDetails()">
           {{ details ? 'Скрыть подробности' : 'Подробности и диагностика' }}
         </button>
         <button type="button" class="more-menu-item" role="menuitem"
@@ -15933,8 +15930,6 @@
                 data-pv-more-restore-baseline @click="menu = false; restoreBaseline()">
           {{ isChatScope ? 'Восстановить базовую для чата…' : 'Восстановить базовую…' }}
         </button>
-        <button v-for="ln in detailsLines" :key="'dl-' + ln" type="button"
-                class="more-menu-item pv-detail-line" role="menuitem" disabled>{{ ln }}</button>
       </div>
 
       <!-- ── Редактируемый текст (действующий; черновик отличается явно) ── -->
@@ -15990,6 +15985,22 @@
                   @click="emitSave()">{{ busy ? 'Сохранение…' : saveLabel }}</button>
         </div>
       </template>
+
+      <!-- B2 (§2.2 п.8): технические строки живут в постоянном
+           раскрываемом блоке под карточкой (как `prompt-editor-meta` в
+           библиотеке), а не пунктами меню. Пункт «Подробности и диагностика»
+           в `⋯` раскрывает ИМЕННО его и закрывает меню — данные не исчезают
+           вместе с меню. Содержимое рендерится только в раскрытом виде,
+           поэтому в свёрнутой карточке сырых id нет. Блок стоит ПОСЛЕ поля:
+           он не сдвигает редактор и не ломает контракт клавиатуры (EVOL-044). -->
+      <details v-if="detailsLines.length" class="pv-details" data-pv-details
+               :open="details" @toggle="details = $event.target.open">
+        <summary>Подробности и диагностика</summary>
+        <template v-if="details">
+          <div v-for="ln in detailsLines" :key="'pdl-' + ln"
+               class="pv-detail-line" data-pv-detail-line>{{ ln }}</div>
+        </template>
+      </details>
 
       <!-- ── «История версий»: боковая панель / полноэкранная на мобильном ── -->
       <teleport to="body">
@@ -16118,7 +16129,11 @@
               <div v-if="hist.result" class="pv-result" data-prompt-history-result
                    role="status" aria-live="polite"
                    :class="hist.result.ok ? 'text-emerald-300' : 'text-amber-300'">
-                {{ hist.result.text }}
+                <span data-pv-result-text>{{ hist.result.text }}</span>
+                <button type="button" class="btn-ghost text-xs pv-result__dismiss"
+                        data-pv-result-dismiss aria-label="Скрыть сообщение"
+                        title="Скрыть сообщение"
+                        @click="dismissResult()">×</button>
               </div>
             </div>
             <footer class="pv-panel__foot" data-pv-panel-actions>

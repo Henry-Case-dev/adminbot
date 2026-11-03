@@ -8446,6 +8446,21 @@ body > .sticky-save[data-save-panel] {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--ctl-font-sm);
   color: #94A3B8; opacity: 1; overflow-wrap: anywhere; white-space: normal;
 }
+/* B2 (§2.2 п.8): технические строки — постоянный раскрываемый блок под
+   карточкой, а не пункты меню. Геометрия/цвет — существующие токены. */
+.pv-details { min-width: 0; }
+.pv-details > summary {
+  cursor: pointer; min-height: 32px; display: flex; align-items: center;
+  font-size: var(--ctl-font-sm); color: #94A3B8;
+}
+.pv-details .pv-detail-line { display: block; padding: 1px 0; }
+.pv-details[open] > summary { color: #CBD5E1; }
+/* «Речь и характер» (ADD-TR.1): тач-цели этого экрана обязаны быть ≥44px
+   на любой ширине — правило страницы, а не карточки. Единый компонент в
+   разделе «Характер» подчиняется ему как все прочие контролы экрана. */
+.speech-screen .pv-history-btn,
+.speech-screen .pv-more-btn { min-height: 44px; min-width: 44px; }
+.speech-screen .pv-details > summary { min-height: 44px; }
 .pv-text--dirty {
   border-color: rgba(252, 211, 77, .55) !important;
   box-shadow: 0 0 0 1px rgba(252, 211, 77, .22) inset;
@@ -8535,7 +8550,16 @@ body > .sticky-save[data-save-panel] {
 .pv-diff__del { color: #FCA5A5; }
 .pv-diff__hunk, .pv-diff__meta { color: #93C5FD; }
 .pv-diff__ctx { color: #94A3B8; }
-.pv-result { font-size: var(--ctl-font-sm); padding: 6px 0; overflow-wrap: anywhere; }
+.pv-result {
+  font-size: var(--ctl-font-sm); padding: 6px 0; overflow-wrap: anywhere;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.pv-result__dismiss {
+  flex: 0 0 auto; min-height: 28px; min-width: 28px; line-height: 1;
+  padding: 0 6px; opacity: .8;
+}
+.pv-result__dismiss:focus-visible { opacity: 1; }
+.pv-result [data-pv-result-text] { min-width: 0; }
 .pv-warn { font-size: var(--ctl-font-sm); color: #FCD34D; overflow-wrap: anywhere; }
 .pv-panel__foot {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
