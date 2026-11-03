@@ -2777,15 +2777,20 @@ class Settings:
     # flags.factcheck_wide_context.
     FACTCHECK_WIDE_CONTEXT_ENABLED: bool = _env_bool(
         "FACTCHECK_WIDE_CONTEXT_ENABLED", True)
-    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2/§6.2): ЕДИНЫЙ рубильник речевой
-    # проекции контекста. Default ON (дефолт = исправленное поведение); OFF —
-    # откат к сырому канону (`tg:`/числовой uid). ClassVar + hot-ключ по
-    # действующей конвенции kill-switch этого репозитория («Δ каталога = 0 для
-    # рубильников», прецедент SUMMARY_WRITER_SOURCE_INPUT_ENABLED /
-    # SUMMARY_L1_SEMANTIC_MAP_ENABLED): откат без рестарта —
-    # `flags.context_speech_projection` в bot_settings (читается в самом шве,
-    # services/canonical_context.py `speech_projection_enabled`), без
-    # per-module флагов и без роста каталога параметров.
+    # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2/§6.2, review-fix B3): ЕДИНЫЙ
+    # рубильник речевой проекции контекста. Default ON (дефолт = исправленное
+    # поведение); OFF — откат к сырому канону (`tg:`/числовой uid). ClassVar +
+    # hot-ключ `flags.context_speech_projection` по действующей конвенции
+    # kill-switch этого репозитория («Δ каталога = 0 для рубильников»,
+    # прецедент SUMMARY_WRITER_SOURCE_INPUT_ENABLED /
+    # SUMMARY_L1_SEMANTIC_MAP_ENABLED): значение читается на КАЖДОМ рендере
+    # (`services/canonical_context.speech_projection_enabled`), без кэша в шве,
+    # поэтому изменение живого ConfigCache действует со следующего payload без
+    # рестарта. Ключ НЕ зарегистрирован в `param_catalog` намеренно (рост
+    # каталога потребовал бы переиздания инвентаря и ~50 пинов) — админ-
+    # тумблера в Mini App нет, `PUT /api/config` его отвергает; откат —
+    # значением в `bot_settings` (подхватывается при загрузке/записи кэша)
+    # либо env-флагом с рестартом.
     CONTEXT_SPEECH_PROJECTION_ENABLED: ClassVar[bool] = _env_bool(
         "CONTEXT_SPEECH_PROJECTION_ENABLED", True)
     # CFG-06 W2 (06B/06J): suitability gate до платного поиска — гейт

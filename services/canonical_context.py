@@ -348,13 +348,28 @@ RELATION_SEMANTIC = "semantic"
 RELATION_MISSING_EDGE = "missing_edge"
 VALID_RELATION_KINDS = (RELATION_REPLY, RELATION_SEMANTIC, RELATION_MISSING_EDGE)
 
+# Компактная форма клауз (§5.1/§5.2, R7 «дельта размера <= 0»): длинные
+# пояснения на каждый reply-ход съедали бюджет под-блока цепочек
+# (`_REPLY_CHAINS_MAX_CHARS` = 1200, keep-end) и молча вытесняли корень
+# цепочки. Смысл тот же: подтверждённый Reply, семантическая связь (НЕ Reply)
+# и известная-но-неизвлечённая связь остаются различимыми, а занимают на
+# ~24 символа меньше на ход.
+SPEECH_RELATION_REPLY = "↳ Reply {label}"
+SPEECH_RELATION_SEMANTIC = "↳ по теме {label} (не Reply)"
+SPEECH_RELATION_SEMANTIC_UNRESOLVED = (
+    "↳ по теме (не Reply; реплика вне доступного окна)")
 SPEECH_RELATION_MISSING_EDGE = (
-    "↳ родитель вне доступного окна "
-    "(связь известна, сообщение не извлечено)")
+    "↳ родитель вне доступного окна (связь известна)")
 SPEECH_RELATION_UNRESOLVED = (
-    "↳ связь не подтверждена "
-    "(связанное сообщение вне доступного окна)")
+    "↳ связь не подтверждена (реплика вне доступного окна)")
 SPEECH_QUOTE_AUTHOR_UNKNOWN = "автор цитаты не определён"
+
+# Роль «бот» в речевой форме (§5.4 «и самого бота», §13 сц.116): сырой вид
+# помечал бот-хода `[bot]`, речевая проекция этот маркер теряла — прошлый
+# ответ бота становился неотличим от реплики человека без user id. Метка роли
+# фиксированная (не сервисный id, не user id) и живёт в поле автора.
+SPEECH_BOT_ROLE = "бот"
+SPEECH_BOT_LABEL = f"({SPEECH_BOT_ROLE})"
 
 # Тип служебного поля по префиксу ref'а — для манифеста (только типы/счётчики).
 _REF_FIELD_TYPES = {"tg": "tg_id", "msg": "msg_id", "fact": "fact_id"}
@@ -363,12 +378,56 @@ _REF_FIELD_TYPES = {"tg": "tg_id", "msg": "msg_id", "fact": "fact_id"}
 SPEECH_LABEL_RE = re.compile(r"^[MFU]\d+$")
 
 
-def speech_projection_enabled() -> bool:
-    """Единый hot-рубильник речевой проекции (§6.2).
+# Типизированное чтение рубильника (§6.2 + B3 ревью). Ключ осознанно НЕ
+# регистрируется в `param_catalog` (Δ каталога = 0, конвенция kill-switch
+# репозитория), поэтому `hot_config._coerce` его не типизирует и значением
+# может прийти jsonb-строка. `bool("false") is True` — здесь это давало
+# «строковый OFF читается как ON»; ниже строка разбирается явно.
+_FLAG_TRUE_TOKENS = frozenset({"true", "1", "yes", "on", "enabled"})
+_FLAG_FALSE_TOKENS = frozenset({"false", "0", "no", "off", "disabled"})
 
-    Горячий ключ ``flags.context_speech_projection`` (дефолт ON) читается В
-    САМОМ ШВЕ: OFF возвращает сырой канон байт-в-байт — откат без рестарта на
-    всех уже переведённых поверхностях, без per-module флагов.
+
+def coerce_switch_flag(value, default: bool = True) -> bool:
+    """Рубильник из нетипизированного источника → bool.
+
+    Принимает ``bool``, числа (``0``/``1``) и строки в обоих регистрах
+    (``"false"``/``"off"``/``"0"`` → OFF). Пустое значение = «не задано» →
+    ``default``. Неизвестное значение НЕ включает и НЕ выключает молча —
+    тоже ``default`` с предупреждением."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    token = str(value).strip().lower()
+    if not token:
+        return default                      # «не задано» ≠ «выключено»
+    if token in _FLAG_TRUE_TOKENS:
+        return True
+    if token in _FLAG_FALSE_TOKENS:
+        return False
+    logger.warning("[canonical_context] неизвестное значение рубильника "
+                   "проекции — default | value=%r", value)
+    return default
+
+
+def speech_projection_enabled() -> bool:
+    """Единый рубильник речевой проекции (§6.2), читается В САМОМ ШВЕ.
+
+    Значение берётся из hot-ключа ``flags.context_speech_projection``
+    (ConfigCache, дефолт ON) на КАЖДОМ рендере — без кэша в шве, поэтому
+    изменение значения в живом кэше конфигурации действует со следующего
+    payload без рестарта. Строковые jsonb-значения типизируются
+    (`coerce_switch_flag`), затем дефолт из Settings (env
+    ``CONTEXT_SPEECH_PROJECTION_ENABLED``).
+
+    Честная граница (B3 ревью): ключ НЕ зарегистрирован в `param_catalog`,
+    поэтому у него нет админ-тумблера в Mini App, а `PUT /api/config` его
+    отвергает (422 «неизвестный ключ»). Откат — значением
+    `flags.context_speech_projection` в `bot_settings` (подхватывается
+    ConfigCache'ом при загрузке/записи кэша) либо env-флагом с рестартом;
+    per-module флагов нет.
     """
     value = None
     try:
@@ -377,14 +436,16 @@ def speech_projection_enabled() -> bool:
     except Exception:                       # hot-кэш не должен ронять рендер
         logger.debug("[canonical_context] hot-ключ проекции недоступен",
                      exc_info=True)
+    default = True
     if value is None:
         try:
             from config.settings import settings
-            value = getattr(
+            default = getattr(
                 settings, "CONTEXT_SPEECH_PROJECTION_ENABLED", True)
         except Exception:                   # pragma: no cover — Settings нет
-            value = True
-    return bool(value)
+            default = True
+        value = default
+    return coerce_switch_flag(value, bool(default))
 
 
 def ref_field_type(item_id) -> str:
@@ -474,10 +535,19 @@ class SpeechProjection:
                      is_bot: bool = False) -> str:
         """Участник → ``"Имя (U3)"``. Одноимённые люди НЕ сливаются: ключ —
         user id (§5.4, §13 сц.12/97). Без user id метки нет — честно без
-        адресации вместо ложного слияния."""
+        адресации вместо ложного слияния.
+
+        Бот получает ФИКСИРОВАННУЮ метку роли ``бот`` вместо ``U``-метки
+        (§5.4 «и самого бота», §13 сц.116): собственный прошлый ответ бота
+        нельзя перепутать с репликой человека, у которой нет user id.
+        Метка роли не занимает номер участника и не попадает в обратную
+        карту людей (это не человек)."""
         name = _squash(display_name)
         if is_bot:
-            return name
+            # Имя-роль («бот») уже и есть метка роли — не дублируем её.
+            if not name or name.lower() == SPEECH_BOT_ROLE:
+                return SPEECH_BOT_ROLE
+            return f"{name} {SPEECH_BOT_LABEL}"
         key = ""
         if user_id not in (None, "", 0):
             key = str(user_id).strip()
@@ -571,6 +641,15 @@ class SpeechRelation:
     basis: str = ""
 
     def render(self, projection=None) -> str:
+        """Компактная клауза отношения (смысл полный, форма короткая).
+
+        Длинная пояснительная форма на каждый reply-ход раздувала под-блок
+        цепочек на 10–28 % и на узком маршруте молча вытесняла корень
+        (§5.1/§5.2, R7). Поэтому: `↳ Reply M2` — только подтверждённый
+        Telegram Reply; `↳ по теме M1 (не Reply)` — семантическая связь с
+        явным отрицанием Reply; `↳ родитель вне доступного окна (связь
+        известна)` — известная, но не извлечённая связь без выдуманного
+        идентификатора."""
         kind = str(self.kind or "").strip().lower()
         label = ""
         if projection is not None and self.target_item_id:
@@ -578,15 +657,11 @@ class SpeechRelation:
         if kind == RELATION_REPLY:
             if not label:
                 return SPEECH_RELATION_MISSING_EDGE
-            return (f"↳ отвечает на {label} "
-                    f"({_squash(self.basis) or 'Telegram Reply'})")
+            return SPEECH_RELATION_REPLY.format(label=label)
         if kind == RELATION_SEMANTIC:
             if not label:
-                return ("↳ относится к теме "
-                        "(семантическая связь, не Reply; "
-                        "связанная реплика вне доступного окна)")
-            note = _squash(self.basis) or "семантическая связь, не Reply"
-            return f"↳ относится к теме {label} ({note})"
+                return SPEECH_RELATION_SEMANTIC_UNRESOLVED
+            return SPEECH_RELATION_SEMANTIC.format(label=label)
         if kind == RELATION_MISSING_EDGE or not label:
             return SPEECH_RELATION_MISSING_EDGE
         return SPEECH_RELATION_UNRESOLVED
@@ -596,12 +671,14 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
                        forward_source=None, text="", kind: str = KIND_MSG,
                        stale: bool = False, is_target: bool = False,
                        role: str = "", projection=None, author_uid=None,
-                       relations=(), quote=None) -> str:
+                       relations=(), quote=None, is_bot: bool = False) -> str:
     """РЕЧЕВАЯ проекция канонической строки (§4.2 п.2).
 
     Тот же заголовок и то же тело, что у `format_context_item` (абсолютное
     время, автор, `Переслано:`, архивная пометка), но в слоте ID — метка
     прогона, автор — «Имя (U3)», а связи/цитата печатаются явно.
+    ``is_bot`` сохраняет роль автора в речевой форме (`Adminbot (бот)`) —
+    §5.4 «и самого бота», §13 сц.116.
 
     Откат: флаг OFF (§6.2) или отсутствие `projection` → сырой канон
     байт-в-байт (без меток и без явных отношений — ровно поведение до шва).
@@ -613,8 +690,9 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
             stale=stale, is_target=is_target)
 
     display_author = ""
-    if author not in (None, ""):
-        display_author = projection.person_label(author_uid, author)
+    if author not in (None, "") or is_bot:
+        display_author = projection.person_label(
+            author_uid, author, is_bot=is_bot)
     elif author_uid not in (None, "", 0):
         display_author = projection.person_label(author_uid, "")
     label = projection.message_label(item_id)
@@ -645,25 +723,42 @@ def format_speech_item(*, ts=None, author=None, item_id=None,
 
 
 def emit_speech_projection_event(projection, *, chat_id=None,
-                                 message_id=None) -> None:
-    """§9.4/§13 сц.109: в защищённой трассе — точное соответствие метки и
-    реального ID плюс счётчики. Только ID/коды, без приватных текстов
-    (§7). Fail-open: телеметрия не рвёт рендер."""
+                                 message_id=None, run_id=None) -> None:
+    """§9.4/§13 сц.109 + §4.5/§7: в защищённой трассе — точное соответствие
+    метки и реального ID, счётчики и КОРРЕЛЯЦИЯ с прогоном.
+
+    Корреляция (R1 ревью): ``chat_id`` + ``message_id`` (ход-якорь) —
+    штатные поля события MCA, ``run_id``/``trace_id`` — идентификатор
+    прогона (``SpeechProjection.run_id``). Без них событие было durable, но
+    не привязывалось к конкретному factcheck-прогону. Только ID/коды, без
+    приватных текстов (§7). Fail-open: телеметрия не рвёт рендер."""
     if projection is None:
         return
     try:
         from services.mca_events import emit_mca_event
         manifest = projection.manifest()
+        correlation = str(run_id or manifest.get("run_id") or "").strip()
+        anchor = message_id
+        if isinstance(anchor, str):
+            anchor = int(anchor) if anchor.strip().isdigit() else None
+        chat_ref = chat_id
+        if isinstance(chat_ref, str):
+            chat_ref = int(chat_ref) if chat_ref.strip().lstrip("-").isdigit() \
+                else None
+        entity_ids = {
+            "items": manifest["items"],
+            "participants": manifest["participants"],
+            "counts": manifest["counts"],
+            "suppressed_field_types": manifest["suppressed_field_types"],
+        }
+        if correlation:
+            entity_ids["run_id"] = correlation
         emit_mca_event(
             "speech_projection", outcome="success", component="context",
             stage="speech_projection", status=manifest["representation"],
-            chat_id=chat_id, message_id=message_id,
-            entity_ids={
-                "items": manifest["items"],
-                "participants": manifest["participants"],
-                "counts": manifest["counts"],
-                "suppressed_field_types": manifest["suppressed_field_types"],
-            })
+            chat_id=chat_ref, message_id=anchor,
+            **({"trace_id": correlation} if correlation else {}),
+            entity_ids=entity_ids)
     except Exception:
         pass
 

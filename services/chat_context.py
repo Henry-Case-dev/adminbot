@@ -27,12 +27,34 @@ _CONTEXT_NOTE = (
 
 _REPLY_CHAINS_CLOSE = "</reply_chains>"
 
+# Явная пометка неполноты (EVOL v5 §5.1/§5.2, B1 ревью): keep-end вытесняет
+# САМЫЕ СТАРЫЕ ходы, то есть корень цепочки — тот, что объясняет цель. Молча
+# терять его запрещено, поэтому при реальной обрезке в блоке печатается
+# честное «часть цепочки не показана (N)» — бюджет и лимит блока не растут.
+_REPLY_CHAINS_OMITTED = "…часть цепочки не показана ({count})"
+
+
+def _reply_chains_omitted_note(count: int) -> str:
+    return _REPLY_CHAINS_OMITTED.format(count=int(count))
+
+
+def _lines_len(lines) -> int:
+    """Длина набора строк в блоке: сами строки + разделители между ними."""
+    count = len(lines)
+    if not count:
+        return 0
+    return sum(len(line) for line in lines) + (count - 1)
+
 
 def _truncate_reply_chains(block: str, limit: int) -> str:
     """Обрезать уже отрендеренный ``<reply_chains>`` до ``limit`` символов,
     сохранив корректные открывающий/закрывающий теги. Вытесняются ДАЛЬНИЕ
     (корневые) ходы первыми — keep-end, как в окне; якорь-цепочка сохраняется
-    по максимуму. Нет места даже на теги / нет тела → '' (блок опускается)."""
+    по максимуму. Реальная обрезка НЕ молчит: сверху блока появляется строка
+    «…часть цепочки не показана (N)» (счётчик вытесненных ходов), и она сама
+    укладывается в тот же ``limit`` — при нехватке места вытесняется ещё один
+    самый старый ход. Нет места даже на теги / нет тела → '' (блок
+    опускается)."""
     if limit <= 0:
         return ""
     text = str(block or "")
@@ -47,13 +69,16 @@ def _truncate_reply_chains(block: str, limit: int) -> str:
         return ""
     head = text[:open_end + 1]
     inner = text[open_end + 1:-len(_REPLY_CHAINS_CLOSE)]
-    overhead = len(head) + len(_REPLY_CHAINS_CLOSE)
+    # Структура под-блока — header + "\n" + строки + "\n" + close (как в
+    # `_wrap_reply_chains`): переводы строк вокруг тела входят в бюджет.
+    overhead = len(head) + len(_REPLY_CHAINS_CLOSE) + 2
     if limit < overhead:
         return ""
     budget = limit - overhead
     inner_lines = inner.split("\n")
     if inner_lines and inner_lines[0] == "":
         inner_lines = inner_lines[1:]
+    total_lines = len([line for line in inner_lines if line])
     kept: list[str] = []
     used = 0
     for line in reversed(inner_lines):
@@ -67,7 +92,18 @@ def _truncate_reply_chains(block: str, limit: int) -> str:
     if not kept:
         return ""
     kept.reverse()
-    return head + "\n".join(kept) + _REPLY_CHAINS_CLOSE
+    dropped = total_lines - len(kept)
+    if dropped > 0:
+        note = _reply_chains_omitted_note(dropped)
+        # Новейший ход сохраняется всегда; для пометки нехватки места
+        # вытесняются только более старые (и тогда N честно растёт).
+        while len(kept) > 1 and (_lines_len(kept) + 1 + len(note)) > budget:
+            kept.pop(0)
+            dropped += 1
+            note = _reply_chains_omitted_note(dropped)
+        if (_lines_len(kept) + 1 + len(note)) <= budget:
+            kept.insert(0, note)
+    return head + "\n" + "\n".join(kept) + "\n" + _REPLY_CHAINS_CLOSE
 
 
 def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,

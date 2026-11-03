@@ -22,8 +22,8 @@ EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 (§4.2, одна структура — дв�
 * **речевая сторона** — ``render_reply_chains`` (под-блок фактчека) и
   ``render_speech_line`` (построчный рендер, напр. direct): метки прогона
   ``M``/``U`` с обратным отображением в ``SpeechProjection``, явные отношения
-  («отвечает на M3 (Telegram Reply)» / «относится к теме» / «родитель вне
-  доступного окна»), автор цитаты по имени, абсолютное время сохраняется.
+  («↳ Reply M3» / «↳ по теме M1 (не Reply)» / «родитель вне доступного
+  окна»), автор цитаты по имени, абсолютное время сохраняется.
   Единый рубильник — ``flags.context_speech_projection`` (OFF → сырой вид
   байт-в-байт).
 """
@@ -422,7 +422,8 @@ def _render_raw_chains(chain, trigger_message_id=None) -> str:
 
 
 def render_reply_chains(chain: list, trigger_message_id=None, *,
-                        projection=None) -> str:
+                        projection=None, chat_id=None,
+                        run_id=None) -> str:
     """``<reply_chains>``-под-блок фактчека (ASC: корень → якорь) или ''
     при пустой цепочке. Явная пометка: цепочки — контекст, НЕ доказательства
     (учитываем growth поверхности фантомных fact/msg-якорей).
@@ -435,6 +436,10 @@ def render_reply_chains(chain: list, trigger_message_id=None, *,
     позволяет переиспользовать общий прогон. Ровно ``flags.
     context_speech_projection`` OFF → сырой под-блок байт-в-байт (откат).
 
+    ``chat_id``/``run_id`` — аддитивная корреляция трассы с прогоном (R1
+    ревью): вызывающие передают реальный чат и id прогона, если он у них
+    есть; событие ``speech_projection`` несёт только ID/счётчики.
+
     Единственное исключение — общий `format_chain_line` (нужен direct-дедупу
     по `tg:`, attribution, планировщику): он остаётся сырым, и вызывающие
     машинные потребители берут именно его."""
@@ -443,7 +448,15 @@ def render_reply_chains(chain: list, trigger_message_id=None, *,
     if not speech_projection_enabled():
         return _render_raw_chains(chain, trigger_message_id)
     active = projection if projection is not None else SpeechProjection()
-    return _render_speech_chains(chain, active, trigger_message_id)
+    if run_id and not active.run_id:
+        active.run_id = str(run_id)
+    elif not active.run_id and chat_id is not None:
+        active.run_id = (f"chat:{chat_id}:msg:{trigger_message_id}"
+                         if trigger_message_id is not None
+                         else f"chat:{chat_id}")
+    return _render_speech_chains(
+        chain, active, trigger_message_id, chat_id=chat_id,
+        run_id=active.run_id or None)
 
 
 # ── EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §4.2 — речевая проекция цепочки ─────
@@ -515,23 +528,30 @@ def render_speech_line(item, projection, suffix_map: dict | None = None,
         ts=item.ts, author=author,
         author_uid=None if item.is_bot else item.uid,
         item_id=item.item_id, forward_source=item.forward_source,
-        text=text, kind="msg", is_target=is_target,
+        text=text, kind="msg", is_target=is_target, is_bot=item.is_bot,
         projection=projection, relations=all_relations, quote=quote)
 
 
 def _render_speech_chains(chain: list, projection,
-                          trigger_message_id=None) -> str:
+                          trigger_message_id=None, *, chat_id=None,
+                          run_id=None) -> str:
     """Речевой под-блок `<reply_chains>` (EVOL v5 §4.2).
 
     Рендер идёт в порядке хронологии (корень → якорь), поэтому нумерация
     меток соответствует хронологии прогона, а к моменту рендера потомка
-    метка родителя уже известна — отношение «отвечает на M2» печатается, а
-    не деградирует в `missing_edge` (§4.3 п.3)."""
+    метка родителя уже известна — отношение «↳ Reply M2» печатается, а
+    не деградирует в `missing_edge` (§4.3 п.3).
+
+    ``chat_id``/``run_id`` — корреляция трассы с реальным прогоном (R1
+    ревью, §4.5/§7): уходят в событие ``speech_projection`` вместе с
+    ходом-якорем; приватных текстов событие не несёт."""
     chronological = [it if isinstance(it, ChainItem) else ChainItem(*it)
                      for it in reversed(chain)]
     lines = [render_speech_line(it, projection, None, trigger_message_id)
              for it in chronological]
     if not lines:
         return ""
-    emit_speech_projection_event(projection)
+    emit_speech_projection_event(
+        projection, chat_id=chat_id, message_id=trigger_message_id,
+        run_id=run_id)
     return _wrap_reply_chains(lines)
