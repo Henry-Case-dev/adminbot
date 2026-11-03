@@ -3269,7 +3269,8 @@ def _prompt_perm_hook(actor: str, action: str, ctx: dict) -> bool:
     actor_s = str(actor or "").strip()
     if not actor_s:
         return False
-    if action in ("prompt.get_revision_source", "prompt.diff_revisions"):
+    if action in ("prompt.get_revision_source", "prompt.diff_revisions",
+                  "prompt.read_baseline"):
         return True
     cache = hot.get_config_cache()
     if cache is None:
@@ -3278,7 +3279,9 @@ def _prompt_perm_hook(actor: str, action: str, ctx: dict) -> bool:
         tg_id = int(actor_s)
     except ValueError:
         return True
-    if action == "prompt.activate" and not cache.get_role(tg_id):
+    if action in ("prompt.activate", "prompt.assign_baseline",
+                  "prompt.clear_baseline", "prompt.restore_factory",
+                  "prompt.copy_to_global") and not cache.get_role(tg_id):
         return False
     return True
 
@@ -3289,6 +3292,26 @@ prompt_policy.set_permission_checker(_prompt_perm_hook)
 class PromptActivateRequest(BaseModel):
     """Тело POST /api/prompts/{key}/activate: выбор СОХРАНЁННОЙ версии."""
     revision_id: str
+
+
+class PromptBaselineRequest(BaseModel):
+    """Тело POST /api/prompts/{key}/baseline: какую ревизию назначить базовой."""
+    revision_id: str
+
+
+class PromptFactoryRestoreRequest(BaseModel):
+    """Тело POST /api/prompts/{key}/factory/restore: подтверждение действия.
+
+    «Вернуть исходную из кода» — активация, поэтому сервер требует явного
+    ``confirm=true``: без него 422 ``confirmation_required`` (§2.4 п.7).
+    """
+    confirm: bool = False
+
+
+class PromptCopyToGlobalRequest(BaseModel):
+    """Тело POST /api/prompts/revisions/{id}/copy-to-global."""
+    revision_id: str = ""
+    target_chat_id: int | None = None
 
 
 def _prompt_block_or_404(prompt_key: str):
@@ -3728,6 +3751,18 @@ async def get_prompt_versions(
         prompt_policy.SUPPORTED_SCHEMA_COMPAT)
     out["can_activate"] = bool(out["manageable"]) and \
         await _prompt_can_activate(request, user, spec, chat_id)
+    # §2.4/§6.1: capability-флаги baseline в ТОМ ЖЕ ответе истории — UI-слой
+    # рисует действия по фактическим правам, без второго API.
+    can_write = bool(out["manageable"]) and await _prompt_can_edit(
+        request, user, spec, chat_id)
+    baseline = out.get("baseline") or {}
+    out["capabilities"] = _prompt_baseline_capabilities(can_write, spec,
+                                                       baseline)
+    if chat_id is not None:
+        # «Скопировать как новую глобальную версию» требует права записи и в
+        # чате-источнике, и в глобальном значении (§2.4 п.8).
+        out["capabilities"]["can_copy_to_global"] = bool(
+            can_write and await _prompt_can_edit(request, user, spec, None))
     return out
 
 
@@ -3788,6 +3823,410 @@ async def post_prompt_activate(
     result = dict(result)
     result["reason_text"] = _prompt_reason_text(result)
     result["active_unchanged"] = not bool(result.get("applied"))
+    return result
+
+
+# ═══ EPIC-PROMPT-VERSIONING-UX-01 §2/§4: owner baseline ═════════════════════
+# Baseline — УКАЗАТЕЛЬ на существующую неизменяемую ревизию (событие того же
+# журнала). Новых таблиц/эндпоинтов-дублей нет: всё живёт в существующем
+# HTTP-слое истории версий и в тех же ответах, которые читает UI (§6.1).
+# RBAC — тот же, что у записи значения: global → can_edit_param, chat → доступ
+# к чату + матрица чата; просмотр baseline — право просмотра истории.
+
+#: Человеческие причины отказа baseline-действий (§2.4 п.1–9).
+_PROMPT_BASELINE_REASONS = {
+    "ok": "Сервер подтвердил действие.",
+    "baseline_same": "Эта версия уже назначена базовой — повтор не нужен.",
+    "baseline_absent": ("Базовая версия не назначена: действует исходная "
+                        "из кода."),
+    "revision_unknown": "Такой сохранённой версии нет.",
+    "revision_retired": ("Версия снята с регистрации (retired): её можно "
+                         "читать и сравнивать, но нельзя сделать базовой."),
+    "schema_incompatible": ("Версия несовместима с текущей схемой: её можно "
+                            "читать и сравнивать, но нельзя сделать базовой."),
+    "revision_foreign_scope": ("Версия принадлежит другому чату/области. "
+                               "Перенос текста — отдельное действие "
+                               "«Скопировать как новую глобальную версию»."),
+    "copy_source_not_chat": ("Скопировать как глобальную можно только "
+                             "чатовую версию."),
+    "copy_target_is_global_only": "Копирование поддерживает только global.",
+    "confirmation_required": ("Возврат к исходной из кода требует "
+                              "подтверждения."),
+    "factory_unverifiable": ("Печать заводского текста не совпадает с кодом: "
+                             "возврат к исходной отклонён, текст не изменён."),
+    "block_not_pg_managed": ("У промпта нет переключаемого значения в базе: "
+                             "действие недоступно, история доступна."),
+    "journal_unavailable": ("Журнал версий недоступен: ничего не изменено."),
+}
+
+
+def _prompt_baseline_reason_text(result: dict) -> str:
+    reason = str(result.get("reason") or "")
+    text = _PROMPT_BASELINE_REASONS.get(reason)
+    if text is not None:
+        return text
+    return f"Действие не выполнено ({reason})."
+
+
+def _prompt_no_auto_activation(result: dict) -> dict:
+    """Явно сказать UI: назначение/снятие baseline не меняет активный текст."""
+    out = dict(result)
+    out.setdefault("active_unchanged", True)
+    return out
+
+
+def _prompt_with_baseline_state(result: dict) -> dict:
+    """Единая форма ответа baseline-действий (§6.1): состояние + результат.
+
+    Все пять действий возвращают ТО ЖЕ состояние, что ``GET .../baseline``
+    (``source``/``baseline``/``cleared_at``/``capabilities``-совместимые поля),
+    плюс служебные поля действия (``applied``/``outcome``/``reason``/
+    ``revision_id``). UI не делает второй запрос и не склеивает два формата.
+    """
+    out = dict(result)
+    state = out.pop("baseline", None)
+    if not isinstance(state, dict) or "source" not in state:
+        return out
+    merged = {k: v for k, v in state.items() if k != "baseline"}
+    merged.update({k: v for k, v in out.items()})
+    merged["baseline"] = state.get("baseline")
+    return merged
+
+
+async def _prompt_can_edit(request: Request, user: WebAppUser, spec,
+                           chat_id: int | None) -> bool:
+    """Тихая проверка ПРАВА ЗАПИСИ значения (для флагов UI; 403 не бросаем)."""
+    return await _prompt_can_activate(request, user, spec, chat_id)
+
+
+def _prompt_baseline_capabilities(can_edit: bool, spec, base: dict) -> dict:
+    """Что UI вправе предложить по этому промпту в этом scope (§6.1)."""
+    has_owner = bool((base or {}).get("baseline"))
+    return {
+        "can_assign_baseline": bool(can_edit and spec.pg_key),
+        "can_clear_baseline": bool(can_edit and spec.pg_key and has_owner),
+        "can_restore_baseline": bool(can_edit and spec.pg_key and has_owner),
+        "can_restore_factory": bool(can_edit and spec.pg_key),
+    }
+
+
+async def _prompt_finish_baseline(request: Request, user: WebAppUser, spec,
+                                  chat_id: int | None,
+                                  result: dict) -> dict:
+    """Довести ответ baseline-действия до единой формы (§6.1)."""
+    out = _prompt_with_baseline_state(_prompt_no_auto_activation(result))
+    out["reason_text"] = _prompt_baseline_reason_text(out)
+    can_edit = await _prompt_can_edit(request, user, spec, chat_id)
+    out["capabilities"] = _prompt_baseline_capabilities(can_edit, spec, out)
+    return out
+
+
+@api_router.get("/prompts/{prompt_key}/baseline")
+async def get_prompt_baseline(
+    request: Request,
+    prompt_key: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Действующий owner baseline промпта в выбранном scope (§2.1).
+
+    X-Chat-Id → baseline этого чата (он относится ТОЛЬКО к нему), без него —
+    глобальный. Тела текста в ответе нет: ``sha256_12``/длина + провенанс;
+    текст читается существующим ``/prompts/revisions/{id}/source``.
+    503 — журнал недоступен (это не «baseline нет»).
+    """
+    spec = _prompt_block_or_404(prompt_key)
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_view(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (нет PostgreSQL)")
+    scope = _prompt_list_scope(spec, chat_id)
+    try:
+        out = await prompt_policy.read_baseline(
+            spec.block_id, scope=scope, chat_id=chat_id, cache=cache,
+            store=store, actor=str(user.id))
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (ошибка чтения)")
+    if not out.get("known"):
+        raise HTTPException(status_code=404,
+                            detail=f"промпт вне реестра версий: {prompt_key}")
+    can_edit = await _prompt_can_edit(request, user, spec, chat_id)
+    out["capabilities"] = _prompt_baseline_capabilities(can_edit, spec, out)
+    out["prompt_key"] = spec.pg_key or ""
+    return out
+
+
+@api_router.post("/prompts/{prompt_key}/baseline")
+async def post_prompt_baseline_assign(
+    request: Request,
+    prompt_key: str,
+    payload: PromptBaselineRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Назначить базовой» — только указатель, БЕЗ активации текста (§2.4 п.1).
+
+    Идемпотентно для уже назначенной версии. Активный текст не меняется:
+    ответ честно говорит ``active_text_changed=false`` и UI показывает
+    «Базовая версия изменена, действующий текст пока прежний».
+    Гейты сервиса (чужой scope/retired/schema) → 200 с причиной и
+    ``reason_text``; 503 — журнал/PG недоступен; 403 — нет права.
+    """
+    if not str(payload.revision_id or "").strip():
+        raise HTTPException(status_code=422, detail="revision_id обязателен")
+    spec = _prompt_block_or_404(prompt_key)
+    _prompt_value_scope(spec)
+    if _prompt_is_hidden(spec):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{spec.pg_key}: значение задаётся в соответствующем "
+                   "разделе Mini App, а не вручную")
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_edit(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        result = await prompt_policy.assign_baseline(
+            spec.block_id, payload.revision_id,
+            scope=_prompt_scope_of(chat_id), chat_id=chat_id,
+            actor=str(user.id), cache=cache, store=store)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    logger.info("[api] prompt baseline assign | block=%s | scope=%s | chat=%s "
+                "| rev=%s | applied=%s | reason=%s | by=%s", spec.block_id,
+                result.get("scope", _prompt_scope_of(chat_id)),
+                chat_id, str(payload.revision_id)[:20], result.get("applied"),
+                result.get("reason"), user.id)
+    return await _prompt_finish_baseline(request, user, spec, chat_id, result)
+
+
+@api_router.delete("/prompts/{prompt_key}/baseline")
+async def delete_prompt_baseline(
+    request: Request,
+    prompt_key: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Снять назначение» — baseline снова встроенная из кода (§2.4 п.4).
+
+    Активный текст НЕ меняется: снятие назначения и «снять чатовый override» —
+    разные операции. Идемпотентно, если baseline не назначен.
+    """
+    spec = _prompt_block_or_404(prompt_key)
+    _prompt_value_scope(spec)
+    if _prompt_is_hidden(spec):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{spec.pg_key}: значение задаётся в соответствующем "
+                   "разделе Mini App, а не вручную")
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_edit(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        result = await prompt_policy.clear_baseline(
+            spec.block_id, scope=_prompt_scope_of(chat_id), chat_id=chat_id,
+            actor=str(user.id), cache=cache, store=store)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    logger.info("[api] prompt baseline clear | block=%s | scope=%s | chat=%s "
+                "| applied=%s | reason=%s | by=%s", spec.block_id,
+                _prompt_scope_of(chat_id), chat_id, result.get("applied"),
+                result.get("reason"), user.id)
+    return await _prompt_finish_baseline(request, user, spec, chat_id, result)
+
+
+@api_router.post("/prompts/{prompt_key}/baseline/restore")
+async def post_prompt_baseline_restore(
+    request: Request,
+    prompt_key: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Восстановить базовую» — явная активация эталона (§2.4 п.6).
+
+    Не путать со снятием чатового override: наследвание от глобального
+    происходит отдельным действием и baseline чата при этом не применяется.
+    """
+    spec = _prompt_block_or_404(prompt_key)
+    _prompt_value_scope(spec)
+    if _prompt_is_hidden(spec):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{spec.pg_key}: значение задаётся в соответствующем "
+                   "разделе Mini App, а не вручную")
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_edit(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        result = await prompt_policy.restore_baseline(
+            spec.block_id, scope=_prompt_scope_of(chat_id), chat_id=chat_id,
+            actor=str(user.id), cache=cache, store=store)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    if result.get("reason") == "journal_unavailable":
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    logger.info("[api] prompt baseline restore | block=%s | scope=%s | "
+                "chat=%s | applied=%s | reason=%s | by=%s", spec.block_id,
+                _prompt_scope_of(chat_id), chat_id, result.get("applied"),
+                result.get("reason"), user.id)
+    return await _prompt_finish_baseline(request, user, spec, chat_id, result)
+
+
+@api_router.post("/prompts/{prompt_key}/factory/restore")
+async def post_prompt_factory_restore(
+    request: Request,
+    prompt_key: str,
+    payload: PromptFactoryRestoreRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Вернуть исходную из кода» — подтверждённая активация (§2.4 п.7).
+
+    422 без ``confirm=true``; ``factory_unverifiable`` при сломанной печати
+    (значение не меняется); owner baseline этим действием не снимается.
+    """
+    spec = _prompt_block_or_404(prompt_key)
+    _prompt_value_scope(spec)
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_edit(request, user, spec, chat_id)
+    if payload.confirm is not True:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "confirmation_required",
+                    "reason_text": _PROMPT_BASELINE_REASONS[
+                        "confirmation_required"]})
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        result = await prompt_policy.restore_shipped_factory(
+            spec.block_id, scope=_prompt_scope_of(chat_id), chat_id=chat_id,
+            actor=str(user.id), cache=cache, store=store, confirm=True)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    if result.get("reason") == "journal_unavailable":
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    logger.info("[api] prompt factory restore | block=%s | scope=%s | chat=%s "
+                "| applied=%s | reason=%s | by=%s", spec.block_id,
+                _prompt_scope_of(chat_id), chat_id, result.get("applied"),
+                result.get("reason"), user.id)
+    result = dict(result)
+    result["reason_text"] = _prompt_baseline_reason_text(result)
+    result["active_unchanged"] = not bool(result.get("applied"))
+    return _prompt_with_baseline_state(result)
+
+
+@api_router.post("/prompts/revisions/{revision_id}/copy-to-global")
+async def post_prompt_copy_to_global(
+    request: Request,
+    revision_id: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    payload: PromptCopyToGlobalRequest | None = None,
+):
+    """«Скопировать как новую глобальную версию» (§2.4 п.8).
+
+    Текст чужого чата становится НОВОЙ ревизией global-scope:
+    ``origin='restored'``, ``reason='copied_from_chat:<revision_id>'``.
+    ``revision_id`` источника не перепривязывается, активный текст не
+    меняется (копирование не активирует). Права: доступ к чату-источнику и
+    право записи глобального значения этого промпта.
+    """
+    cache: ConfigCache = get_cache(request)
+    store = _prompt_journal_or_none(cache)
+    await _prompt_require_revision_view(request, user, cache, store,
+                                        revision_id)
+    row = await store.get_revision(revision_id)
+    spec = prompt_reg.block(row.block_id)
+    if row.scope != "chat" or row.chat_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "copy_source_not_chat",
+                    "reason_text": _PROMPT_BASELINE_REASONS[
+                        "copy_source_not_chat"]})
+    await _prompt_require_edit(request, user, spec, None)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    target_chat_id = (payload.target_chat_id if payload is not None else None)
+    try:
+        result = await prompt_policy.copy_revision_to_global(
+            spec.block_id, revision_id, actor=str(user.id), cache=cache,
+            store=store, target_chat_id=target_chat_id)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.JournalUnavailable:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    logger.info("[api] prompt revision copy-to-global | block=%s | src=%s | "
+                "chat=%s | new=%s | by=%s", spec.block_id,
+                str(revision_id)[:20], row.chat_id,
+                str(result.get("revision_id"))[:20], user.id)
+    if not result.get("applied"):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": result.get("reason"),
+                    "reason_text": _prompt_baseline_reason_text(result)})
+    result["reason_text"] = _prompt_baseline_reason_text(result)
     return result
 
 
