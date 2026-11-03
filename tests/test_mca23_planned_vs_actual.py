@@ -72,7 +72,15 @@ ROUTES_SHA256_F11 = (
     # отдельном файле-зоне web/api/mechanism_diagnostics.py, поэтому
     # Δ routes=0 и routes-инвентарь f8_baseline не меняется. RBAC/
     # маскировка/DDL не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    "7ea62c3ee88bc7b701552d0b6ff1698eeee545aea9d2dfb11ebca7253fa9c2e7")
+    # P0.5-CEILING-AUTO + P0-PUBLICATION (03.11.2026, hotfix 2.58.152,
+    # кандидат 97390ee4, L-F11S-1 conscious requalification): контентная Δ в
+    # СУЩЕСТВУЮЩИХ GET/POST /api/initiative/meme-settings (три состояния потолка
+    # длины: нет поля = не менять, пусто/`null`/исторический `0` = авто,
+    # положительное целое = фиксированный, мусор = 422 у поля; витрина отдаёт
+    # `events`/`event_names` публикации). Новых `@router`-маршрутов нет,
+    # Δ routes-инвентарь = 0. Копия канона: канон пина —
+    # tests/test_round1025_f8_registry.py (L-F11S-1).
+    "cfd1a41c489665f8fc8dce6d74bc6d64b8eaac4d848b7c882dd7c7d06a470b4f")
 
 
 @pytest.fixture(autouse=True)
