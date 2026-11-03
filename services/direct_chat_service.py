@@ -1071,19 +1071,36 @@ def _speaker_tag(name: str, uid, *, is_bot: bool = False,
     return thread_chain.speaker_tag(name, uid, is_bot=is_bot, suffix=suffix)
 
 
-def reply_parent_row_id(row):
-    """id строки-родителя по Reply (``None`` — связи нет).
+def reply_parent_tg_message_id(row):
+    """Telegram message_id родителя по Reply (``None`` — связи нет).
 
-    ``smart_messages.reply_to_id`` ссылается на ``id`` строки БД (Telegram id
-    живёт в ``tg_message_id``), поэтому ребро разрешается ТОЛЬКО внутри того
-    же набора строк: id вне окна не изображается как подтверждённая связь."""
+    ``smart_messages.reply_to_id`` хранит TELEGRAM message_id родителя
+    (``handlers/summary.py:476-478``, ``handlers/youtube.py:963-965``); ``id``
+    строки БД — другое число, и сравнивать его с ``reply_to_id`` нельзя.
+    Поэтому ребро разрешается только внутри того же набора строк по
+    ``tg_message_id`` строки, а родитель вне окна связи не даёт."""
     raw = row_get(row, "reply_to_id")
     if raw in (None, "", 0, "0"):
         return None
     try:
-        return int(raw)
+        return int(raw) or None
     except (TypeError, ValueError):
         return None
+
+
+def window_refs_by_tg(rows) -> dict:
+    """Карта окна ``{Telegram message_id → ref}`` для подтверждённых Reply.
+
+    Ключи берутся ТОЛЬКО из ``tg_message_id``: ``reply_to_id`` (Telegram id
+    родителя) не может случайно совпасть с ``id`` чужой строки и напечатать
+    ложное ребро. Пусто/нет tg-идентификатора → строки в карте нет."""
+    refs: dict = {}
+    for row in rows or ():
+        tg_id = _tg_id_of_row(row)
+        if tg_id is None:
+            continue
+        refs[tg_id] = resolve_item_id(tg_message_id=tg_id)
+    return refs
 
 
 def _context_line_dedup_key(line) -> str:
@@ -8474,6 +8491,15 @@ class DirectChatService:
         roster = roster or []
         suffix_map = suffix_map or {}
         window = self._history_window(window, trigger_message_id)
+        # §9.5 п.2 / §13 сц.99/115: композерный билдер — ОСНОВНОЙ прод-путь
+        # `<Global_Context>` (композер ON по умолчанию,
+        # `DIRECT_CONTEXT_COMPOSER_ENABLED`). Карта окна «Telegram message_id →
+        # ref» строится по тем строкам, которые реально попадут в payload:
+        # tail — по `tail_rows`, middle — по фактически выбранным строкам
+        # (`_compose_middle_lines`). Ключ — только `tg_message_id`, поэтому
+        # `reply_to_id` (Telegram id родителя) не может дать ложного ребра на
+        # чужой `id` строки БД.
+        speech_window = projection is not None and speech_projection_enabled()
         tail_min = _composer.fresh_tail_min_messages()
         parts: dict = {
             "head_lines": [], "middle_rows": [], "tail_rows": [],
@@ -8535,10 +8561,12 @@ class DirectChatService:
             parts["tail_rows"] = post_rows[-tail_min:]
             parts["middle_rows"] = (post_rows[:-tail_min]
                                     if len(post_rows) > tail_min else [])
+            tail_refs = (window_refs_by_tg(parts["tail_rows"])
+                         if speech_window else {})
             parts["tail_lines"] = [
                 self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection)
+                    projection=projection, window_items=tail_refs)
                 for row in parts["tail_rows"]]
         else:
             _g_limit = int(await _cp_g(
@@ -8548,10 +8576,12 @@ class DirectChatService:
             recent = window[-max(1, _g_limit):]
             tail_rows = [row for row in recent if (row["text"] or "")]
             parts["tail_rows"] = tail_rows
+            tail_refs = (window_refs_by_tg(tail_rows)
+                         if speech_window else {})
             parts["tail_lines"] = [
                 self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id,
-                    projection=projection)
+                    projection=projection, window_items=tail_refs)
                 for row in tail_rows]
             if tail_rows:
                 _scope = ""
@@ -9201,12 +9231,19 @@ class DirectChatService:
         selected = _composer.select_middle(
             middle_rows, query=query, chain_tg_ids=chain_tg,
             participant_ids=participants, top_k=top_k)
+        # §9.5 п.2 / §13 сц.99/115: middle — тоже видимое окно
+        # `<Global_Context>`; карта строится по фактически выбранным строкам
+        # (хронологический ASC ниже), ключ — `tg_message_id`, а не `id` БД.
+        refs = (window_refs_by_tg(selected)
+                if projection is not None and speech_projection_enabled()
+                else {})
         lines = []
         for row in selected:
             if not (row["text"] or ""):
                 continue
             lines.append(self._context_row_line(row, {}, None,
-                                                projection=projection))
+                                                projection=projection,
+                                                window_items=refs))
         return lines
 
     async def _summary_revision(self, chat_id: int) -> str | None:
@@ -12282,21 +12319,15 @@ class DirectChatService:
         # среза — выживший суффикс строк окна или 0: остаток конспекта
         # границу не открывает).
         window_tail_lines = 0
-        # §9.5 п.2 / §13 сц.99/115: карта «id строки → ref» для этого окна —
+        # §9.5 п.2 / §13 сц.99/115: карта окна «Telegram message_id → ref» —
         # подтверждённый Reply на сообщение, которое модель реально видит в
         # `<Global_Context>`, печатается как Reply (а не как соседство).
+        # Ключ — только `tg_message_id`: `reply_to_id` хранит Telegram id
+        # родителя, поэтому совпадение чисел с чужим `id` строки БД ребра не
+        # даёт (см. `window_refs_by_tg`).
         window_items: dict = {}
         if projection is not None and speech_projection_enabled():
-            for _row in window or ():
-                try:
-                    _row_id = int(_row["id"])
-                except (KeyError, TypeError, ValueError):
-                    continue
-                _ref = resolve_item_id(
-                    tg_message_id=row_get(_row, "tg_message_id"),
-                    message_id=_row_id)
-                if _ref:
-                    window_items[_row_id] = _ref
+            window_items = window_refs_by_tg(window)
         if summary_text is not None:
             # E2/D5: «широкий фон:» + L2 первой строкой body (метка-префикс),
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
@@ -12323,6 +12354,10 @@ class DirectChatService:
                 hot.get("limits.chat_global_context_limit",
                         settings.CHAT_GLOBAL_CONTEXT_LIMIT)) or 0)
             recent = window[-max(1, _g_limit):]
+            # Карту строим по фактически рендерящимся строкам: родитель,
+            # вытесненный срезом, метки не получает и ребром не печатается.
+            if window_items:
+                window_items = window_refs_by_tg(recent)
             for row in recent:
                 text = row["text"] or ""
                 if not text:
@@ -12449,8 +12484,9 @@ class DirectChatService:
         `[uid]` в авторе — это машинная сторона дедупа/attribution).
 
         ``window_items`` (EVOL v5 §9.5 п.2, §13 сц.99/115): карта
-        «id строки БД → ref» для окна ЭТОГО рендера. Есть и у строки реальный
-        ``reply_to_id`` внутри карты → печатается подтверждённое ребро
+        «Telegram message_id строки → ref» для окна ЭТОГО рендера
+        (``window_refs_by_tg``). Есть и у строки реальный ``reply_to_id``
+        (Telegram id родителя) внутри карты → печатается подтверждённое ребро
         `↳ Reply M…`; нет карты/родителя вне окна → рёбер не выдумываем.
         ``None`` (прочие вызовы) → прежний вывод байт-в-байт."""
         name, uid = self._row_speaker(row)
@@ -12469,7 +12505,9 @@ class DirectChatService:
                                         projection=projection)
             relations = ()
             if window_items:
-                parent_ref = window_items.get(reply_parent_row_id(row))
+                parent_tg_id = reply_parent_tg_message_id(row)
+                parent_ref = (window_items.get(parent_tg_id)
+                              if parent_tg_id is not None else None)
                 if parent_ref and parent_ref != item_id:
                     relations = (SpeechRelation(
                         kind=RELATION_REPLY, target_item_id=parent_ref,

@@ -75,17 +75,38 @@ def _window_omitted_note(count: int) -> str:
     return _CHAT_CONTEXT_OMITTED.format(count=int(count))
 
 
-def _answer_parent_id(row):
-    """Локальный id родителя по Reply из строки окна (``None`` — связи нет).
+def _reply_parent_tg_message_id(row):
+    """Telegram message_id РОДИТЕЛЯ по Reply (``None`` — связи нет).
 
-    В ``smart_messages`` ``reply_to_id`` — это ``id`` строки БД, а не
-    Telegram id (для ``tg_message_id`` есть отдельный столбец), поэтому связь
-    разрешается только внутри того же набора строк окна."""
+    В ``smart_messages`` ``reply_to_id`` хранит TELEGRAM message_id родителя —
+    так пишет прод (``handlers/summary.py:476-478``:
+    ``message.reply_to_message.message_id``; ``handlers/youtube.py:963-965``),
+    так же его читают ``_correction_reference_kind`` (``by_tg_id``),
+    ``factcheck_suitability._infer_source_claim``, ``canonical_messages`` и
+    ``direct_context_composer``. ``id`` строки БД живёт отдельно и НИКОГДА не
+    сравнивается с ``reply_to_id``: иначе ребро либо терялось (реальные строки
+    вида 6106→6103), либо указывало на чужое сообщение при случайном
+    совпадении чисел."""
     raw = row_get(row, "reply_to_id")
     if raw in (None, "", 0, "0"):
         return None
     try:
-        return int(raw)
+        return int(raw) or None
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_tg_message_id(row):
+    """Telegram message_id самой строки окна (``None`` — данных нет).
+
+    Только этот ключ годится для разрешения Reply-родителя: строки без
+    ``tg_message_id`` родителем быть не могут (в ``reply_to_id`` Telegram id,
+    а не ``id`` строки)."""
+    raw = row_get(row, "tg_message_id")
+    if raw in (None, "", 0, "0"):
+        return None
+    try:
+        return int(raw) or None
     except (TypeError, ValueError):
         return None
 
@@ -208,22 +229,18 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
     media_enabled = media_context_enabled()
     speech = projection is not None and speech_projection_enabled()
     # §9.5 п.2 / §13 сц.99/115: подтверждённое reply-ребро ВНУТРИ окна должно
-    # быть видно модели как Reply, а не как соседство. Связь берётся только из
-    # фактического `reply_to_id` строки и печатается лишь тогда, когда родитель
-    # реально присутствует в этом же окне (иначе id не выдумывается).
-    window_items: dict = {}
+    # быть видно модели как Reply, а не как соседство. Родитель разрешается
+    # ТОЛЬКО по Telegram id: карта окна строится из `tg_message_id` строк, а
+    # `reply_to_id` содержит именно Telegram message_id родителя (см.
+    # `_reply_parent_tg_message_id`). Поэтому совпадение числа из `reply_to_id`
+    # с `id` ЧУЖОЙ строки ребра не создаёт, а родитель вне окна ребра не даёт.
+    window_refs: dict = {}
     if speech:
         for row in rows:
-            row_id = row_get(row, "id")
-            if row_id in (None, "", 0):
+            row_tg_id = _row_tg_message_id(row)
+            if row_tg_id is None:
                 continue
-            ref = resolve_item_id(
-                tg_message_id=row_get(row, "tg_message_id"), message_id=row_id)
-            if ref:
-                try:
-                    window_items[int(row_id)] = ref
-                except (TypeError, ValueError):
-                    continue
+            window_refs[row_tg_id] = resolve_item_id(tg_message_id=row_tg_id)
     for row in rows:
         item_id = resolve_item_id(
             tg_message_id=row_get(row, "tg_message_id"),
@@ -271,7 +288,9 @@ def format_chat_context(rows, max_chars: int = _CHAT_CONTEXT_MAX_CHARS,
             # Подтверждённый Reply на сообщение ЭТОГО окна печатается явной
             # клаузой `↳ Reply M…` (§9.5 п.2: Reply ≠ «относится к теме»).
             relations = ()
-            parent_ref = window_items.get(_answer_parent_id(row))
+            parent_tg_id = _reply_parent_tg_message_id(row)
+            parent_ref = (window_refs.get(parent_tg_id)
+                          if parent_tg_id is not None else None)
             if parent_ref and parent_ref != item_id:
                 relations = (SpeechRelation(
                     kind=RELATION_REPLY, target_item_id=parent_ref,
