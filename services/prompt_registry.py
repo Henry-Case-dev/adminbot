@@ -712,13 +712,25 @@ PLAN_NOOP = "no_op"                    # рестарт, та же заводс�
 PLAN_ACTIVATE = "activate"             # новая заводская метка → активировать
 PLAN_INTEGRITY_REJECT = "integrity_reject"   # fail-closed: печать цела?
 PLAN_LEGACY_CUTOVER = "legacy_cutover" # первый запуск: снимок → активация
+#: Новая заводская метка при ЗАКРЕПЛЁННОМ владельцем scope (owner baseline):
+#: ревизия — в историю, значение не пишется, указатель применённой метки
+#: двигается (следующий рестарт — истинный no-op). Контракт EPIC-PV-UX §2.4 п.3.
+PLAN_ACTIVATE_PINNED = "activate_pinned"
 
 #: Виды записей журнала активаций (контракт §1.2). ``restart`` строку не пишет.
+#: ``baseline_assign``/``baseline_clear`` — owner baseline (указатель, не текст);
+#: ``baseline_restore``/``factory_restore`` — явные активации эталона;
+#: ``chat_inherit_reset`` — снятие чатового override со снимком текста.
 ACTIVATION_KINDS = ("legacy_import", "deploy_activate", "manual_edit",
-                    "manual_rollback", "manual_forward", "integrity_reject")
+                    "manual_rollback", "manual_forward", "integrity_reject",
+                    "baseline_assign", "baseline_clear", "baseline_restore",
+                    "chat_inherit_reset", "factory_restore")
 
-#: Исходы записи активации.
-ACTIVATION_OUTCOMES = ("applied", "skipped_same", "skipped_empty", "failed")
+#: Исходы записи активации. ``recorded`` — событие журнала, которое НЕ двигает
+#: «активную ревизию» (``read_applied`` читает только applied/skipped_same):
+#: смена owner baseline не активирует текст и безопасна для отката кода.
+ACTIVATION_OUTCOMES = ("applied", "skipped_same", "skipped_empty", "failed",
+                       "recorded")
 
 #: Происхождение ревизий. Других значений нет (контракт §1.2).
 REVISION_ORIGINS = ("factory", "manual", "restored", "legacy")
@@ -737,14 +749,20 @@ class ActivationPlan:
 
 
 def activation_plan(*, code_label: str, sealed_sha: str, text_sha12: str,
-                    applied_factory_revision: str, has_import: bool) -> ActivationPlan:
+                    applied_factory_revision: str, has_import: bool,
+                    pinned: bool = False) -> ActivationPlan:
     """Автомат активации заводской ревизии (контракт §1.3/§1.4, чистая).
 
     Вход: метка из кода, печать из кода, фактический sha заводского текста,
     применённая заводская ревизия журнала (``fac:<sha12(метки)>``), есть ли
-    legacy-снимок. Выход — одно действие. Сравнение строк с PREV_*/канонами
-    запрещено и здесь отсутствует: «новая заводская ревизия» = сменившаяся
-    МЕТКА при целой печати содержимого, не сам факт другого sha и не рестарт.
+    legacy-снимок, закреплён ли scope владельцем (``pinned`` — существует
+    owner baseline этого scope). Выход — одно действие. Сравнение строк с
+    PREV_*/канонами запрещено и здесь отсутствует: «новая заводская ревизия» =
+    сменившаяся МЕТКА при целой печати содержимого, не сам факт другого sha и
+    не рестарт.
+
+    ``pinned=False`` (по умолчанию) сохраняет прежнюю семантику релиза:
+    существующие вызовы и тесты валидны без изменений.
     """
     code_revision = (FACTORY_PREFIX + sha12(code_label)) if code_label else ""
     # 1) Fail-closed: печать не соответствует байтам кода (текст правили без
@@ -768,7 +786,15 @@ def activation_plan(*, code_label: str, sealed_sha: str, text_sha12: str,
         return ActivationPlan(PLAN_NOOP, "deploy_activate", "skipped_same",
                               "restart_same_revision", code_revision,
                               applied_factory_revision)
-    # 4) Деплой с новой меткой: заводской текст становится активным даже
+    # 4) Закреплённый владельцем scope (owner baseline): новая поставка кода
+    #    попадает в историю, но не перетирает ни baseline, ни активный ручной
+    #    текст (§2.4 п.3). Указатель применённой метки двигается — следующий
+    #    рестарт остаётся истинным no-op.
+    if pinned:
+        return ActivationPlan(PLAN_ACTIVATE_PINNED, "deploy_activate",
+                              "skipped_same", "factory_superseded_pinned",
+                              code_revision, applied_factory_revision)
+    # 5) Деплой с новой меткой: заводской текст становится активным даже
     #    поверх ручной правки (она остаётся ревизией в истории).
     return ActivationPlan(PLAN_ACTIVATE, "deploy_activate", "applied",
                           "new_factory_revision", code_revision,
