@@ -834,10 +834,11 @@ def _budget_svc(*, capture=None, real_budget=False, estimate=None):
         def _render_branch(self, chain, suffix_map):
             return ""
 
-        def _render_thread(self, chain, suffix_map, limit):
+        def _render_thread(self, chain, suffix_map, limit, **kwargs):
             return ""
 
-        def _render_current_question(self, message, extra_markers=()):
+        def _render_current_question(self, message, extra_markers=(),
+                                     **kwargs):
             return "<Current_Question>почему?</Current_Question>"
 
         def _build_mood_block(self, text):

@@ -686,9 +686,15 @@ class TestSpeechChainRendering:
         assert "(автор: 10)" not in block
 
     @pytest.mark.asyncio
-    async def test_chain_without_name_resolver_keeps_identity_label(self):
-        """Без резолвера имени личность всё равно различима меткой `U1`
-        (обратная карта run'а), а не числовым uid (§9.2)."""
+    async def test_chain_without_name_resolver_says_author_unknown(self):
+        """Без резолвера имени голой метки в речи НЕТ (§9.2, сц.100/115).
+
+        Адресная метка человека не называет («автор: U1» — не ответ на
+        вопрос «кто это сказал»), поэтому речевая сторона честно объявляет
+        неопределённость. Обратная карта при этом полная: метка автора
+        зарегистрирована в проекции прогона (машинный слой знает `U1→10`).
+        Ревью волны потребителей, F1: продовая проводка обязана передавать
+        резолвер, иначе это и есть прод-поведение."""
         messages = {
             100: _row(text="волокна растут", tg_message_id=100, id=900),
             101: _row(text="разбор", tg_message_id=101, id=901,
@@ -701,10 +707,11 @@ class TestSpeechChainRendering:
         projection = SpeechProjection(run_id="run-y")
         block = thread_chain.render_reply_chains(
             chain, projection=projection)
-        assert "автор цитаты не определён" not in block
-        assert "цитата (автор: U1)" in block
+        assert "цитата (автор: автор цитаты не определён)" in block
+        # Голой адресной метки на месте автора нет (её не озвучивают).
+        assert "цитата (автор: U1)" not in block
         assert "(автор: 10)" not in block
-        # Метка ведёт на реального человека (Вася, user 10).
+        # Метка автора всё равно зарегистрирована (машинный слой → U1 = 10).
         assert projection.raw_of("U1") == "10"
 
     @pytest.mark.asyncio

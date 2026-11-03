@@ -1693,7 +1693,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
     _b("internal.lore.story",
        "Рассказ о лоре — авторский текст, идущий в safe-HTML путь Direct.",
        "internal", "code", "services.lore_prompts.LORE_STORY_SYSTEM_PROMPT",
-       ("lore_compiler_service.py:208", "tool_router.py:2827",
+       ("lore_compiler_service.py:222", "tool_router.py:2827",
         "mca_authorial_speech.authorial_system"),
        "internal/lore_story", owner_lane="W4",
        speech=True,

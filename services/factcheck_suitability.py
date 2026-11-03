@@ -822,12 +822,15 @@ async def resolve_context_claim(
         try:
             from config.settings import settings
             from services import hot_config as hot
-            from services.thread_chain import (collect_thread_chain,
+            from services.thread_chain import (alias_quote_author_resolver,
+                                               collect_thread_chain,
                                                render_reply_chains)
             depth = hot.get("limits.chat_thread_max_depth",
                             settings.CHAT_THREAD_MAX_DEPTH)
             chain = await collect_thread_chain(
-                db, int(chat_id), int(reply_to_tg_id), int(depth or 0))
+                db, int(chat_id), int(reply_to_tg_id), int(depth or 0),
+                # EVOL v5 §8 п.4: автор цитаты — имя через alias-каскад.
+                quote_author_resolver=alias_quote_author_resolver())
             chain_len = len(chain)
             for item in chain:               # от текущего (родителя) к корню
                 if item.is_bot:

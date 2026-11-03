@@ -46,7 +46,9 @@ from services import mca_gates
 from services import mca_retrieval_context as _mca_rc
 from services.canonical_context import (
     format_context_item,
+    format_speech_item,
     resolve_item_id,
+    speech_projection_enabled,
     strip_context_header,
 )
 from services.chat_params import (
@@ -1768,7 +1770,7 @@ def _expired_suffix(item) -> str:
     return " (Внимание: срок актуальности истёк; может быть неактуально)"
 
 
-def _format_origin_labeled_line(item) -> str:
+def _format_origin_labeled_line(item, projection=None) -> str:
     """F1/T-1418 (spec §3.3): одна строка direct-рендера RAG —
     '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (label из _ORIGIN_LABELS;
     неизвестный origin — сам origin). item — 3-/4-/6-кортеж
@@ -1779,7 +1781,12 @@ def _format_origin_labeled_line(item) -> str:
     строка доводится до канона `kind="fact"` — ID-политика (`tg:`/`fact:`) и
     сегмент «Переслано:»; 3/4-кортежи остаются валидными (R16-аддитивно,
     байт-в-байт прежний формат). Текст/автор — escape_xml_text (как раньше),
-    пометка устаревания — после текста."""
+    пометка устаревания — после текста.
+
+    EVOL v5 §4.2 п.2/§4.4: ``projection`` — общий прогон; тогда в слоте ID
+    стоит метка (`F3` для фактов графа, `M5` для факта с ``tg:``-происхождением)
+    с обратным отображением, а ``[{label}]`` (origin — ПРОИСХОЖДЕНИЕ факта) и
+    «Переслано:» остаются. ``None`` или рубильник OFF → сырой канон."""
     origin = item[0]
     fact = item[1]
     rag_ts = item[2] if len(item) >= 3 else None
@@ -1789,17 +1796,24 @@ def _format_origin_labeled_line(item) -> str:
     label = _ORIGIN_LABELS.get(origin, origin)
     stale = bool(_stale_suffix(rag_ts)) or bool(_expired_suffix(item))
     if item_id or forward:
-        line = format_context_item(
-            ts=rag_ts, author=author, item_id=item_id or None,
-            forward_source=forward or None, text=fact, kind="fact",
-            stale=stale)
+        if projection is not None and speech_projection_enabled():
+            line = format_speech_item(
+                ts=rag_ts, author=author, item_id=item_id or None,
+                forward_source=forward or None, text=fact, kind="fact",
+                stale=stale, projection=projection)
+        else:
+            line = format_context_item(
+                ts=rag_ts, author=author, item_id=item_id or None,
+                forward_source=forward or None, text=fact, kind="fact",
+                stale=stale)
         return f"[{label}] {escape_xml_text(line)}"
     return (f"[{label}] {_fact_prefix(rag_ts, author)}"
             f"{escape_xml_text(fact)}"
             f"{_stale_suffix(rag_ts)}{_expired_suffix(item)}")
 
 
-def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
+def build_rag_context(facts: list, *, origin_labels: bool = False,
+                      projection=None) -> str:
     """R46-4 (55.6): КАНОН-структура `<context>/<user_gossip>/<bot_knowledge>`.
     facts: (origin, fact) — БЕЗ даты (legacy, старые вызовы/тесты) ИЛИ
     (origin, fact, rag_ts[, author]) — временной префикс '[ММ.ГГГГ | Автор: X] '
@@ -1815,11 +1829,16 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
     '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (_format_origin_labeled_line)
     БЕЗ устаревшей группировки user_gossip/bot_knowledge — direct-рендер
     `<RAG_Memory>` (модель видит источник напрямую); дефолт False — легаси
-    структура (search/factcheck/тесты)."""
+    структура (search/factcheck/тесты).
+
+    ``projection`` (EVOL v5 §4.2 п.2): общий прогон → метки вместо
+    `fact:`/`tg:` в заголовке факта (структура XML и origin-метки не меняются);
+    ``None``/рубильник OFF → прежний сырой вид байт-в-байт."""
     if origin_labels:
         if not facts:
             return ""
-        return "\n".join(_format_origin_labeled_line(item) for item in facts)
+        return "\n".join(_format_origin_labeled_line(item, projection)
+                         for item in facts)
     gossip, knowledge = [], []
     for item in facts:
         origin = item[0]
@@ -1833,9 +1852,15 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
             # T-1924: канонический header факта (ID-политика + «Переслано»);
             # структура XML ниже не меняется — меняется только текст строки.
             # (stale/expired-суффиксы добавляются вручную после текста.)
-            date = escape_xml_text(format_context_item(
-                ts=rag_ts, author=author, item_id=item_id or None,
-                forward_source=forward or None, text="", kind="fact"))
+            if projection is not None and speech_projection_enabled():
+                date = escape_xml_text(format_speech_item(
+                    ts=rag_ts, author=author, item_id=item_id or None,
+                    forward_source=forward or None, text="", kind="fact",
+                    projection=projection))
+            else:
+                date = escape_xml_text(format_context_item(
+                    ts=rag_ts, author=author, item_id=item_id or None,
+                    forward_source=forward or None, text="", kind="fact"))
         else:
             date = _fact_prefix(rag_ts, author)
         suffix = _stale_suffix(rag_ts) + expired_suffix
