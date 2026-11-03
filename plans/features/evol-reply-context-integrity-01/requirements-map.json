@@ -237,7 +237,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Связи не потеряны для шести проверенных потребителей (Direct, инициатива, инструменты, память/RAG, летописец, мем), но требование «для всех потребителей, а не только для FactCheck» не закрыто: Planner, L1 и Observer в этом проходе не наблюдались."
     },
     {
       "source_id": "M00149",
@@ -251,8 +252,17 @@
       "acceptance": "Структурный шов реализован внутри существующих DTO/renderers: машинная сторона хранит настоящие chat_id, tg_message_id, reply_to_id, user_id, факты, source_ref, timestamp и provenance; в LLM payload допустимы понятные метки сообщений и участников только при точном обратном отображении на реальные ID в рамках прогона и явно выраженных отношениях, и эти метки не являются частью пользовательской реплики. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F2: шов внутри существующих DTO/renderers",
+          "observation": "Структурный шов работает внутри существующих DTO/renderers без нового движка: машинная сторона хранит настоящие ID (M4 → tg:7004, U3 → 55, M1 → tg:7001) с точной обратной картой в рамках прогона, метки выдаются только представлению и не являются частью пользовательской реплики (мутация label_in_quote краснеет), без проекции канон восстанавливается.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "M00151",
@@ -267,7 +277,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Наблюдались: reply/автор/хронология не потеряны вместе с item_id, одноимённые не сведены в одного, timestamps абсолютные (не порядок массива), цитата не выброшена из-за технического origin, выключенная проекция возвращает полный канон, а не обеднённый. Не наблюдались: видимость таблицы отношений для L1/Observer и сжатие истории до тематической выжимки без источников."
     },
     {
       "source_id": "M00153",
@@ -282,7 +293,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Вынужденное усечение окна теперь помечается точным N (700 → показано 5 / скрыто 7, длина 619 ≤ 700), якорь и критическая атрибуция сохраняются, новых бюджетов не заведено. Не закрыто: reply_chains при нехватке места по-прежнему отбрасывается без пометки (open_items B3)."
     },
     {
       "source_id": "M00155",
@@ -297,7 +309,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сравнены две ступени: внутренние структуры → фактический payload (включая OFF/fallback). Выбор модели и публичный текст в этом проходе не сравнивались, поэтому эквивалентность на всём пути не доказана."
     },
     {
       "source_id": "M00159",
@@ -312,7 +325,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Автор и адресат различаются и называются именем (Direct-адресат, «смысловой адресат: Вася (U…)» в инициативе), «участник» при отсутствии имени. Оценка уместности вмешательства бота в этом проходе не проверялась."
     },
     {
       "source_id": "M00195",
@@ -327,7 +341,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Именованный дефект-кейс (обвинение «зациклился на теме» при одном заданном вопросе) волной потребителей не воспроизводился: payload-сторона чистая, но наблюдаемого обычного ответа по этому кейсу нет."
     },
     {
       "source_id": "M00207",
@@ -341,8 +356,17 @@
       "acceptance": "Запрещена самопроизвольная публикация именно служебной метаинформации, а не техническая лексика: числа, длинные числа, даты, артикулы, версии, цитаты и слова «БД», «JSON», «модель» не запрещены как таковые, пользовательские сообщения не удаляются и дословные цитаты не искажаются. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F2 + F1/F3: содержательные числа и технические слова",
+          "observation": "Никакого запрета цифр и технической лексики не введено: содержательная дата 30.04.2024 и авторская запись «tg:424242» как слова участника сохранены дословно, прямая цитата воспроизведена без искажения, пользовательские сообщения не удаляются; запрет касается только служебных меток, которые в речи не публикуются.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "M00250",
@@ -1886,7 +1910,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Наблюдались: alias-резолвинг (55 → Пётр), отображаемые имена, различение одноимённых, роли автор/адресат/автор цитаты/бот, честное «автор цитаты не определён» при пустой карте. Не наблюдались: упомянутое лицо отдельно от адресата (сц.101) и прежние имена после смены ника (сц.98)."
     },
     {
       "source_id": "L00143",
@@ -1901,7 +1926,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Наблюдались исходный текст, прямая цитата, форвард и слова участника без смешения. Пересказ, шутка, сомнение, собственный прошлый ответ бота и независимое доказательство в одном прогоне не разведены."
     },
     {
       "source_id": "L00144",
@@ -1916,7 +1942,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Наблюдались подтверждённый Reply («↳ Reply M1»), цитата с автором, forward-source и маркер цели. Семантическая связь без Reply, её отсутствие и степень обоснованности (сц.99/102) не прогонялись."
     },
     {
       "source_id": "L00145",
@@ -1931,7 +1958,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Абсолютная дата (30.04.2024) и порядок сообщений наблюдались. Временная дистанция, смена темы, актуальность, таймзона и дата утверждения относительно даты проверки (сц.104) не проверялись."
     },
     {
       "source_id": "L00146",
@@ -1946,7 +1974,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Provenance памяти/RAG (fact → F, origin, дата) наблюдался. Атрибуция episode/Tool, исторический против текущего статуса и область применимости факта в одном прогоне не разведены (сц.105/107)."
     },
     {
       "source_id": "L00147",
@@ -1961,7 +1990,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Роли target/reply/quote/evidence и связка автор-цитата-родитель-время наблюдались. Роли semantic_context/background и гипотетичность связи не проверялись."
     },
     {
       "source_id": "L00157",
@@ -2320,8 +2350,17 @@
       "acceptance": "Содержимое диалога (слова участников, цитаты, факты, обсуждаемые числа и даты, технические термины по теме, ссылки, код, формулы) сохраняется в ответе с точностью. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F1/F2: фактический payload Direct",
+          "observation": "Речевая проекция сохраняет содержание: слова участников, прямая цитата «у мышц свои волокна», абсолютная дата 30.04.2024, метка пересылки «Переслано: Канал X», технический токен tg:424242 как слова участника. Ничего из содержания не вырезано; при выключенной проекции канон восстанавливается побайтно (tg:7001, [77]).",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00204",
@@ -2335,8 +2374,17 @@
       "acceptance": "Внутренние метаданные (транспортные и хранилищные ID, записи GraphRAG, trace_id/run_id, ключи кеша, fingerprints, служебные роли и метки слоёв, scores, raw SQL/JSON/stack traces, журналы и строки инструментов) структурно доступны, но не озвучиваются без просьбы. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F2: полный payload целиком",
+          "observation": "В фактическом payload нет ни одного tg:/msg:/fact: и ни одной голой метки [uid] (проверка дала пустой список), при этом машинный слой сохраняет их: обратная карта M4 → tg:7004, U3 → 55 в participants, событие манифеста несёт только представление/счётчики/типы (R17-safe). Служебные метаданные структурно доступны и не озвучены.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00205",
@@ -2351,7 +2399,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Волна потребителей (44364e83) не проверяла действительный запрос: сц.63/64/65 (SQL/JSON/message ID/traceback, административная диагностика по RBAC, ссылка на своё сообщение) не прогонялись. Наблюдалось только обратное — отсутствие ID без просьбы. Нужен сквозной прогон с наблюдаемым ответом."
     },
     {
       "source_id": "L00209",
@@ -2380,8 +2429,17 @@
       "acceptance": "Одна структура данных и разные представления: typed refs, chat_id, tg_message_id, reply_to_id, user_id/алиасы, авторство, адресаты, цитаты, метки времени и provenance сохранены, а речевая проекция не приклеивает технические ключи к словам участников. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F1+F2: обратная карта на одном сообщении в двух блоках",
+          "observation": "Одна структура данных, два представления: typed refs, user_id/алиасы, авторство, адресат, цитата, время и provenance сохранены (U3 → 55, M4 → tg:7004, M1 → tg:7001), а речевые строки ключей к словам не приклеивают; одна и та же картинка получает одну метку в окне и в блоке свидетельства.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00212",
@@ -2396,7 +2454,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "На фактических payload наблюдались Direct (окно/тред/RAG/цель), текстовая инициатива, инструменты, память/RAG, летописец и мем: связи и смысл сохранены, отличие только в форме ключей. Не наблюдались Planner, L1, Observer, FactCheck-renderer и диагностические механизмы — строка не закрыта."
     },
     {
       "source_id": "L00213",
@@ -2411,7 +2470,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Единая граница подтверждена для Direct (вкл./выкл.), отложенного медиа-маршрута, handler v1 и обоих записей инициативы. FactCheck Writer+renderer, саммари/история-рендерер и стадия текста картинки в этом проходе не наблюдались."
     },
     {
       "source_id": "L00214",
@@ -2426,7 +2486,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Программная адресация сохранена в машинном слое (пары «метка → tg-ID», обратная карта), но фактическая отправка Telegram Reply с настоящим reply_to_message_id в этом проходе не выполнялась — живое доказательство отсутствует."
     },
     {
       "source_id": "L00215",
@@ -2441,7 +2502,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Инструкция Writer'а не пересказывать системные ID в этом проходе не читалась; не проверено и то, что она не стерилизует характер и не является единственным барьером."
     },
     {
       "source_id": "L00216",
@@ -2456,7 +2518,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Отсутствие regex-чистки готового сообщения, второго Writer, LLM-редактора и скрытой перегенерации в этом проходе отдельно не аудировалось; косвенный признак — правка F2 сделана меткой, а не вырезанием (мутация M3 краснеет). Нужен явный просмотр путей после генерации."
     },
     {
       "source_id": "L00217",
@@ -2470,8 +2533,17 @@
       "acceptance": "Разделение служебного и содержательного идёт по типу и назначению поля из структуры данных, а не эвристикой «длинное число — мусор»; статус `not_exposed` не ставится, если собранный payload всё ещё содержит внутренний ID в свободном тексте. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F2 (закрытие F2 раунда 1) и мутация M3",
+          "observation": "Разделение идёт по типу и назначению поля (метка выдаётся проекцией), а не эвристикой «длинное число — мусор»: исправление F2 сделано меткой «изображение M4», а не вырезанием; мутация «вернуть сырой msg: в блок» краснеет (1 failed), то есть статус «не озвучивается» соответствует фактическому payload.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00219",
@@ -2500,8 +2572,17 @@
       "acceptance": "Существующий run/manifest показывает, какое представление контекста использовано (internal|writer|explicit_admin_diagnostic) и какие типы служебных полей исключены из речевой проекции; логируются только безопасные type/count/ref сведения. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F4: сквозной захват _evidence_rewrite → _l2_write_answer → композер",
+          "observation": "Манифест показывает фактическое представление: повтор egress-guard даёт context_representation = writer и speech_projection items {'M1': 'tg:7001'}, без проекции — internal | {} (прежнее поведение). Инициатива: и Writer, и _init_rewrite получают один объект _init_speech; событие несёт только представление/счётчики/типы. Мутация M5 краснеет (3 failed).",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00222",
@@ -2516,7 +2597,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сравнены две границы из трёх: внутренние typed refs → фактический payload Writer (обратная карта полная, служебных меток-сирот нет, метка одного сообщения совпадает во всех блоках). Публикация в Telegram не наблюдалась."
     },
     {
       "source_id": "L00223",
@@ -2530,8 +2612,17 @@
       "acceptance": "Полный след Reply/provenance доступен в защищённой диагностике: отсутствие ID в публичной речи не означает отсутствия ID в машинной трассе. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F1/F2: машинный слой того же прогона",
+          "observation": "Полный след сохранён в защищённой диагностике при чистой речи: обратная карта U3 → 55 (participants), M4 → tg:7004, M1 → tg:7001, таблица меток в манифесте прогона; в самих речевых строках ID отсутствуют.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00224",
@@ -2545,8 +2636,17 @@
       "acceptance": "Проверены все реально действующие маршруты, включая совместимый fallback Composer и результаты инструментов; частичный охват не подаётся как глобальное применение правила. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, разделы F1-F4 и прогоны",
+          "observation": "Проверены реально действующие маршруты: Direct основной, Direct с выключенной проекцией/откат, отложенный медиа-маршрут, handler v1, оба записи инициативы и путь повтора egress-guard; частичный охват не подан как глобальный (маршрут suitability-гейта фактчека явно вынесен в фактчек-срез).",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00225",
@@ -2561,7 +2661,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Честное сообщение ограничения при недоступных внешних данных (без traceback и имён внутренних таблиц) в этом проходе не воспроизводилось."
     },
     {
       "source_id": "L00227",
@@ -2591,7 +2692,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Плоского сведения к «speaker: text» нет: reply_to, quote, forward, абсолютная дата и принадлежность ветке сохранены в речевых строках. Различие «обращение vs упоминание» и semantic cross-branch referent (сц.101/103) не проверялись."
     },
     {
       "source_id": "L00232",
@@ -2606,7 +2708,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "«Ответ на M1» печатается только при подтверждённом Reply — подтверждено. Обратный случай («относится к теме» без Reply) и подмена reply_to_id не прогонялись."
     },
     {
       "source_id": "L00233",
@@ -2621,7 +2724,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Содержание факта, дата, provenance и метка автора через проекцию наблюдались; уверенность/неопределённость и связь с другими фактами в одном прогоне не проверены."
     },
     {
       "source_id": "L00234",
@@ -2635,8 +2739,17 @@
       "acceptance": "Устойчивые ID и реальные timestamps остаются доступны для programmatic joins, дедупликации, поиска по сообщению, цитирования, ссылок, сквозного trace, восстановления после рестарта и авторизованной диагностики; локальная нумерация допустима только внутри LLM-представления с обратным отображением. Проверка — на фактическом payload/трассе этого прогона, а не на моках и не пересказом кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Re-review 2, F2: обратная карта и манифест",
+          "observation": "Устойчивые ID и timestamps остаются в машинном слое: M4 → tg:7004, U3 → 55, M1 → tg:7001, таблица пар «метка → ID» в манифесте прогона, полная обратная карта без сирот; локальная нумерация живёт только внутри LLM-представления.",
+          "type": "review",
+          "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+          "artifact_path": "plans/features/evol/reports/rc-v5-consumers-review.md",
+          "artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec"
+        }
+      ]
     },
     {
       "source_id": "L00235",
@@ -2651,7 +2764,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Composer ON/OFF наблюдались на Direct (ON — проекция, OFF — прежний сырой канон), редукция контекста проверена на усечении окна (точный N, якорь сохранён). Fallback модели, summarization и history-assembly не проверялись."
     },
     {
       "source_id": "L00236",
@@ -2696,7 +2810,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Reviewer сверил обратную карту на своём payload (U3 → 55, M4 → tg:7004, полная карта без сирот, произвольной нумерации нет). Отрицательный набор целиком (цитата без Reply, Reply через старый тред, два чата, старый и новый факт, таймзона, вопрос на точную дату) не прогонялся."
     },
     {
       "source_id": "L00240",
@@ -4863,7 +4978,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Payload-сторона доказана: три ID живут только в машинном слое, в речевых строках нет ни ID, ни голых чисел. Финальный ответ (использует последовательность и содержание, не печатает ID) не генерировался — нужен сквозной прогон."
     },
     {
       "source_id": "L00432",
@@ -4878,7 +4994,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Payload-сторона доказана (в речевых строках нет ID). Повтор с произвольными новыми именами/текстами/ID и проверка отсутствия hardcode по примерам не выполнялись."
     },
     {
       "source_id": "L00433",
@@ -4893,7 +5010,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Отправка Reply на нужное сообщение не выполнялась; доказано лишь, что речевой текст свободен от внутреннего номера."
     },
     {
       "source_id": "L00434",
@@ -4908,7 +5026,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Неполный/отсутствующий reply_to не прогонялся; честная атрибуция или уточнение в ответе не наблюдались."
     },
     {
       "source_id": "L00435",
@@ -4923,7 +5042,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Payload-часть доказана: память/RAG идут через метки (fact: → F, origin, дата), служебных полей в речи нет. Использование содержания без пересказа fact:<id> в самом ответе не наблюдалось."
     },
     {
       "source_id": "L00436",
@@ -4938,7 +5058,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Payload-часть доказана: инструментальные результаты без run_id, с claim_author/as_of/evidence[]. Ответ без озвучивания трассы и status enum не наблюдался."
     },
     {
       "source_id": "L00437",
@@ -4953,7 +5074,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "FactCheck-renderer в этой волне не прогонялся (его приёмка — в фактчек-срезе bfa26e60); вывод внутренних ключей поиска и фрагментов в публичной речи не наблюдался."
     },
     {
       "source_id": "L00438",
@@ -4968,7 +5090,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Окно инициативы, форма доставки и адресность по имени/«участник» наблюдались; итоговый естественный ответ (юмор, Core, Expression) не генерировался. Свободный текст goal/rationale Наблюдателя остаётся открытым (open_items)."
     },
     {
       "source_id": "L00439",
@@ -4983,7 +5106,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сборка исторической выжимки через проекцию доказана (факты и диалоги метками, обратная карта в событии). Прямой ответ по памяти не наблюдался."
     },
     {
       "source_id": "L00440",
@@ -4998,7 +5122,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Содержательные числа и даты в payload сохраняются (30.04.2024; авторская запись с tg:424242 как слова участника). Сохранение в финальном ответе и отсутствие массовой зачистки в ответе не наблюдались."
     },
     {
       "source_id": "L00441",
@@ -5013,7 +5138,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Программистский вопрос (SQL/JSON/Telegram message ID/traceback) не задавался; отсутствие искусственного запрета технической лексики не проверялось."
     },
     {
       "source_id": "L00442",
@@ -5028,7 +5154,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Административный доступ к диагностической трассе по RBAC не проверялся."
     },
     {
       "source_id": "L00443",
@@ -5043,7 +5170,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Запрос ссылки на своё сообщение не проверялся: доверенный путь формирования настоящего URL/ID не наблюдался."
     },
     {
       "source_id": "L00444",
@@ -5058,7 +5186,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Различение одноимённых и сохранение авторства наблюдалось («Марина (U2)» vs «Марина (#99) (U4)»). Случай дословно идентичных фраз от разных людей не прогонялся."
     },
     {
       "source_id": "L00445",
@@ -5073,7 +5202,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Composer ON доказан: в фактическом payload нет ни одного tg:/msg:/fact: и голых [uid], медиа называется «изображение M4». Клауза OFF/fallback не подтверждена: при выключенной проекции рецензент наблюдал прежний сырой канон (tg:7001, [77]) — поведение при выключенном рубильнике требует отдельного решения при привязке к релизу."
     },
     {
       "source_id": "L00446",
@@ -5088,7 +5218,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Служебное число 1194297 в сыром внутреннем контексте против того же числа в пользовательском тексте не прогонялось; структурность разделения наблюдалась косвенно (проекция по полям, без regex)."
     },
     {
       "source_id": "L00447",
@@ -5103,7 +5234,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Мем: id равен метке, тексты и порядок целы, тексты промптов байт-в-байт совпадают с базой. Стадия текста картинки не генерировалась — вывод технических ID в изображение не наблюдался."
     },
     {
       "source_id": "L00448",
@@ -5118,7 +5250,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "В одном прогоне наблюдались: ID в защищённой трассе, отсутствие их в речевых данных, отсутствие новых LLM-вызовов и перегенераций в диффе. Финальное опубликованное сообщение и отсутствие скрытого постпроцессинга не проверялись."
     },
     {
       "source_id": "L00453",
@@ -5523,7 +5656,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.97 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00485",
@@ -5538,7 +5672,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.98 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00486",
@@ -5553,7 +5688,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.99 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00487",
@@ -5568,7 +5704,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.100 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00488",
@@ -5583,7 +5720,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.101 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00489",
@@ -5598,7 +5736,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.102 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00490",
@@ -5613,7 +5752,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.103 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00491",
@@ -5628,7 +5768,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.104 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00492",
@@ -5643,7 +5784,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.105 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00493",
@@ -5658,7 +5800,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.106 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00494",
@@ -5673,7 +5816,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.107 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00495",
@@ -5688,7 +5832,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.108 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00496",
@@ -5703,7 +5848,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.109 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00497",
@@ -5718,7 +5864,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.110 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00498",
@@ -5733,7 +5880,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.111 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00499",
@@ -5748,7 +5896,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.112 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00500",
@@ -5763,7 +5912,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.113 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00501",
@@ -5778,7 +5928,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.114 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00502",
@@ -5793,7 +5944,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.115 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00503",
@@ -5808,7 +5960,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.116 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00504",
@@ -5823,7 +5976,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.117 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00505",
@@ -5838,7 +5992,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.118 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00506",
@@ -5853,7 +6008,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.119 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00507",
@@ -5868,7 +6024,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_note": "Сценарий §13.120 волной потребителей 44364e83 не закрыт: наблюдалась только payload-сторона (метки вместо ID, сохранённые связи), сквозной прогон с наблюдаемым ответом/отправкой не выполнялся."
     },
     {
       "source_id": "L00511",
@@ -5888,7 +6045,7 @@
   ],
   "owner_input_id": "OI-2026-11-03-REPLY-CONTEXT-INTEGRITY-V5",
   "task_id": "evol-reply-context-integrity-01",
-  "source_note": "EVOL-REPLY-CONTEXT-INTEGRITY-01 FINAL v5 (дословный снимок current_task.md L5023-5531, v5 заменяет v1-v4). Владелец: обязательный пакет, не аудит. Карта покрывает 312 инвентарных строк источника и прозу; 120 сценариев §13 разложены по восьми срезам отдельными строками RC-S001..RC-S120. CONTEXT-FIDELITY-01 (§5.4, §9.5) и запреты §2/§8/§9.3-6/§12.3/§14 помечены как обязательные: их провал — P0.",
+  "source_note": "EVOL-REPLY-CONTEXT-INTEGRITY-01 FINAL v5 (дословный снимок current_task.md L5023-5531, v5 заменяет v1-v4). Владелец: обязательный пакет, не аудит. Карта покрывает 312 инвентарных строк источника и прозу; 120 сценариев §13 разложены по восьми срезам отдельными строками RC-S001..RC-S120. CONTEXT-FIDELITY-01 (§5.4, §9.5) и запреты §2/§8/§9.3-6/§12.3/§14 помечены как обязательные: их провал — P0.\n2026-11-04 (PM, волна потребителей): к кандидату `44364e83` (merge `ccfa6665`, Re-review 2 Approved, артефакт `plans/features/evol/reports/rc-v5-consumers-review.md` sha256 FBC6621959F7…, коммит вердикта 33b08401) привязаны 10 строк: RC-SPEECH-BOUNDARY — RC-GSB-CONTENT/METADATA/ONE-DATA/NO-GUESS/MANIFEST/TRACE-KEPT/ALL-ROUTES + M00207 NC-GSB-NO-DIGIT-BAN (VERIFIED по фактическим payload'ам рецензента) и RC-CONTEXT-FIDELITY — RC-CF-STABLE-IDS, RC-CF-SEAM. Остальные строки этих срезов остались PENDING с точной пометкой: сценарии 53-70 и 97-120 требуют наблюдаемого ответа/отправки, которых эта волна не давала. RC-DIRECT-SELFCORR (сценарии 71-96) этой волной НЕ покрыт — реализуется отдельно. Map-level `candidate_commit` не менялся: 44364e83 не потомок bfa26e60, см. `wave_bindings`.",
   "evidence_convention": "Strict: evidence[].artifact_path — реальный файл репозитория, evidence[].candidate_commit — проверяемый кандидат, artifact_sha256 для устойчивых отчётов, observation — что фактически наблюдалось. Строки PENDING не получают доказательств до реального прогона; «зелёные тесты с моками» не закрывают сценарии §13 без фактического payload.",
   "live_policy_note": "PET_PROJECT (AGENTS.md проекта): агентские проверки обязательны и не заменяются наблюдением владельца. Строки live_required=true только у деплойной и DoD-приёмки (postdeploy); живая отправка в чаты владельца не является условием приёмки.",
   "plan_ref": "plans/features/evol-reply-context-integrity-01/plan.md",
@@ -6015,6 +6172,126 @@
         "RC-S042"
       ],
       "trigger": "Проверить инструментальный вызов при следующем прогоне медиа-политики."
+    },
+    {
+      "id": "B1-MEDIA-MSG0-FALLBACK",
+      "owner_slice": "RC-MEDIA-OPTIONAL",
+      "blocking": false,
+      "finding": "media_readiness._asset_label при отсутствии tg_message_id печатает «изображение msg:0». Живой intake такие ассеты не создаёт (mca_vision: tg_message_id is None -> return []), это защитный fallback.",
+      "affected_req_ids": [
+        "RC-MED-EXPLICIT-IMAGE",
+        "RC-GSB-METADATA"
+      ],
+      "trigger": "Сделать fallback человеческим («изображение без метки») при следующей правке media_readiness.",
+      "source": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423"
+    },
+    {
+      "id": "B2-MEDIA-LABEL-DUPLICATED",
+      "owner_slice": "RC-SPEECH-BOUNDARY",
+      "blocking": false,
+      "finding": "Метка медиа дублируется в заголовке строки и в маркере: «| M4]: [медиа: photo M4]» — модель может счесть это двумя разными сообщениями. Косметика, отмечено в раунде 1 и не исправлено.",
+      "affected_req_ids": [
+        "RC-GSB-ONE-DATA"
+      ],
+      "trigger": "Убрать повтор метки в маркере при следующей правке рендера речевой строки.",
+      "source": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423"
+    },
+    {
+      "id": "B3-REPLY-CHAINS-SILENT-DROP",
+      "owner_slice": "RC-SPEECH-BOUNDARY",
+      "blocking": false,
+      "finding": "reply_chains при нехватке места по-прежнему отбрасывается без пометки (chat_context._reserve_chain -> ''). Pre-existing, этим диффом не затронуто; пометка о вытеснении окна теперь резервируется, а для цепочки резерва нет.",
+      "affected_req_ids": [
+        "RC-GSB-HONEST-LIMIT",
+        "RC-S067",
+        "RC-S111"
+      ],
+      "trigger": "Распространить резервирование и пометку на reply_chains; проверять на тех же тесных бюджетах (700/500/420).",
+      "source": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423"
+    },
+    {
+      "id": "B4-DEFERRED-QUOTE-AUTHOR",
+      "owner_slice": "RC-SPEECH-BOUNDARY",
+      "blocking": false,
+      "finding": "На отложенном маршруте возобновления фактчека (фоновая задача) turn-резолвер алиасов может отсутствовать, и автор цитаты честно читается «автор цитаты не определён» вместо имени. Это качество, а не корректность: ложного имени нет, голая метка не печатается.",
+      "affected_req_ids": [
+        "RC-S059",
+        "RC-S100",
+        "RC-GSB-CONTENT"
+      ],
+      "trigger": "Проверить резолвер на deferred-возобновлении (или прокинуть alias-карту в фоновую задачу) при следующем прогоне фактчек-среза.",
+      "source": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423"
+    },
+    {
+      "id": "B5-TEST-FIXTURE-SEMANTICS",
+      "owner_slice": "RC-TARGET-ANCHOR",
+      "blocking": false,
+      "finding": "Качество тестов, не дефект продукта: (а) фикстура TestQuoteAuthorIsAPerson._rows кладёт в reply_to_id id строки БД, тогда как прод пишет Telegram id (handlers/summary.py:476) — край цепочки в тесте не проверяется; (б) адресат без author_name получает числовой fallback каскада алиасов («55 (U2)») — так же ведёт себя и строка окна (pre-existing _row_speaker), новым кодом не ухудшено.",
+      "affected_req_ids": [
+        "RC-S095",
+        "RC-GSB-ADDRESSING-INTACT"
+      ],
+      "trigger": "Выровнять фикстуру на прод-семантику reply_to_id (tg id) при следующей правке тестов и добавить negative-случай адресата без имени.",
+      "source": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423"
+    }
+  ],
+  "wave_bindings": [
+    {
+      "wave": "RC v5 factcheck slice",
+      "candidate_commit": "bfa26e6091bd093f621f0875122dd3a7a161e2ff",
+      "merged_as": "01df5454",
+      "review_artifact": "plans/features/evol/reports/rc-v5-factcheck-review.md",
+      "review_artifact_sha256": "4fab6f7ec32cfa43c9adfe03e94e409ba9d0de45a99fed0236082ba544688fe1",
+      "verdict": "Re-review 2 Approved",
+      "slices": [
+        "RC-TARGET-ANCHOR",
+        "RC-MEDIA-OPTIONAL",
+        "RC-EVIDENCE-STATUS"
+      ],
+      "note": "кандидат этой волны остаётся значением map-level candidate_commit; фактчек-срез не перепривязывался"
+    },
+    {
+      "wave": "RC v5 consumers slice (B/E/F)",
+      "candidate_commit": "44364e837e0f61a3db7c4fe290f352dddaa0f423",
+      "merged_as": "ccfa666502b9d5ae6178f2d43d71bc69ced141ab",
+      "review_artifact": "plans/features/evol/reports/rc-v5-consumers-review.md",
+      "review_artifact_sha256": "fbc6621959f7cbe03e9d0d2c8b4a40fc756a00379eb6a548f96bcbdb0b0378ec",
+      "verdict": "Re-review 2 Approved",
+      "slices": [
+        "RC-SPEECH-BOUNDARY",
+        "RC-CONTEXT-FIDELITY (часть строк)"
+      ],
+      "verified_rows": [
+        "L00203",
+        "L00204",
+        "L00211",
+        "L00217",
+        "L00221",
+        "L00223",
+        "L00224",
+        "L00234",
+        "M00149",
+        "M00207"
+      ],
+      "note": "кандидат 44364e83 не является потомком bfa26e60 (обе волны слиты отдельно: 01df5454, затем ccfa6665), поэтому единого проверенного кандидата на всю карту нет; map-level candidate_commit не переписан, чтобы не потерять привязку фактчек-среза. Гейт по этим срезам запускать с --candidate 44364e83 на копии карты с пиннингом candidate_commit, иначе срабатывает 'candidate mismatch'. Для релиза нужен один слитый и проверенный кандидат."
+    }
+  ],
+  "not_covered_by_this_wave": [
+    {
+      "scope": "RC-DIRECT-SELFCORR",
+      "rows": 41,
+      "scenarios": "71-96",
+      "status": "PENDING",
+      "finding": "Сценарии 71-96 и строки DIRECT-SELF-CORRECTION (референт возражения, уровни утверждений, единица счёта, пересмотр собственного вывода, метафора vs буквальная задача, ход разговора, роли/адресность, запрет обещать внутренний алгоритм) волной потребителей 44364e83 НЕ покрыты.",
+      "why_it_matters": "Одобрение потребительской волны нельзя читать как закрытие речевой границы вместе с самокоррекцией: DIRECT-SELF-CORR реализуется отдельно и прямо сейчас, у него собственный кандидат, ревью и приёмка.",
+      "next": "отдельный слайс RC-DIRECT-SELFCORR: реализация и ревью идут сейчас, не смешивать с 44364e83",
+      "recorded_by": "PM",
+      "date": "2026-11-04"
     }
   ]
 }
