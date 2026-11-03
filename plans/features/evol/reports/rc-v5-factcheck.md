@@ -186,3 +186,58 @@ RC-SPEECH-BOUNDARY, RC-CONTEXT-FIDELITY, RC-DIRECT-SELFCORR и большинс�
 BD-1…BD-9 закрыты по коду и закреплены тестами; медиа-опциональность проведена одним предикатом через общий
 резолвер; техстатусы выводятся из фактических счётчиков стадии, ES-6 закреплён тестом без правки кода;
 мутации 7/7. Требования лейнов A/B/E/F и live-проверки остаются открытыми и не выдаются за сделанные.
+
+## 10. Правка по двум блокерам независимого ревью (B1, B2) и rebase
+
+Кандидат: ветка `rc/factcheck`, верхушка `08603eb2` на текущем `evol/impl` (`65bdeeee`).
+Ревью: `plans/features/evol/reports/rc-v5-factcheck-review.md`.
+
+### B1 — маршрут handler → v2 терял объявленную цель
+
+Корень: ветка v2 отдавала в оркестратор литеральную цель (`target`) и текст, поэтому v2 **заново**
+резолвил публикацию с `target_source=stored_reply`; объявленная contextual-подмена терялась, анкор
+и Reply указывали на пустое сообщение, envelope не собирался (маршрут уходил в legacy).
+
+Правка: `handlers/factcheck.py:87,130,1206-1211` — `_factcheck_pipeline_v2(..., publication=...)`
+передаёт уже разрешённую публикацию; `services/factcheck_orchestrator.py:682,719` — аддитивный
+kwarg `publication` (у `tool`/`deferred`/прямых вызовов значение `None`, поведение прежнее);
+`_declared_target_tg` (`:752`) — цель/анкор/envelope берутся из публикации ПОСЛЕ подмены;
+`declared_contextual` (`:801`, `:914-920`) — объявленная подмена доставляет ответ на ТРИГГЕР.
+Схема `FactcheckRequest` не менялась.
+
+### B2 — contextual-тезис из цепочки без своего id
+
+Корень: `ContextClaim` для хода цепочки создавался без `tg_message_id`, поэтому envelope строился
+по сообщению-реакции и тезис получал чужую дату/автора (в ревью — `1792400000/Kim` вместо
+`1792000000/Irma`).
+
+Правка: `services/factcheck_suitability.py:586-601` — `_item_tg_message_id` (только `tg:<id>`);
+`:841-846` — id берётся из `item_id`; нет достоверного tg id (`msg:`/пусто) → тезис не объявляется
+contextual-целью (анкор не выдумывается).
+
+### Новые тесты (`tests/test_rc_target_media_evidence.py`)
+
+- `test_handler_v2_handoff_keeps_declared_contextual_target` — v2 включён, Reply на пустую цель,
+  тезис в окне: переданная публикация объявлена (`target_source=contextual`, анкор = тезис),
+  `envelope_built=True`, envelope несёт тезис, его дату (`1792000000`) и автора (`Ирма`),
+  `delivery_reply_to` = триггер; legacy-ветка запрещена assertion'ом в сервисе.
+- `test_contextual_claim_from_chain_keeps_its_own_date_and_author` — тезис доступен ТОЛЬКО через
+  `thread_chain`: анкор = id тезиса, envelope.target = анкор, дата/автор тезиса, доставка на
+  триггер; граница — ход с `msg:`-id не объявляется тезисом.
+
+### Мутации (по двум правкам)
+
+- M-B1 «handler не передаёт публикацию» → краснеет B1-тест (`handed is None` и
+  «v2 прошёл legacy-путём вместо envelope»).
+- M-B2 «claim без `tg_message_id`» → краснеют оба теста (`target_tg_message_id=None`).
+- M-B2b «анкор из `msg:`-id» → краснеет B2-тест (`tg_message_id=771001` вне окна).
+
+### Rebase и прогоны
+
+Rebase `rc/factcheck` на текущий `evol/impl` (`65bdeeee`, 24 коммита вперёд от общей базы
+`e9d4b100`) прошёл **без конфликтов**; чужие коммиты (pv-ux, consumer-волна) не откатываются:
+диф к базе — 19 файлов, только этот срез. Suites: 30 файлов — 692 passed, 3 failed (все три —
+`TestAggregatorFailureTaxonomy` в `test_factcheck_post_release_w1.py`: живой DDG-fallback в тесте,
+набор падающих меняется от прогона к прогону; на базе `65bdeeee` те же падения воспроизводятся —
+2 из 3 стабильно). Контрактный модуль — 31 passed; consumer-шов `test_evol_reply_context_integrity_seam.py`
+— 55 passed.

@@ -32,6 +32,7 @@ from services import factcheck_renderer as fr
 from services import factcheck_service as fcs
 from services import factcheck_suitability as fsg
 from services import temporal_factcheck as tf
+from services import thread_chain as tch
 from services.smartmodule_phrases import FACTCHECK_CLARIFY_PHRASES
 
 CHAT_ID = -1004471337
@@ -570,6 +571,220 @@ async def test_deferred_resume_has_no_phantom_trigger(monkeypatch):
     assert ok is True
     assert captured["req"].target_tg_message_id == TARGET_TG
     assert captured["req"].trigger_tg_message_id is None
+
+
+@pytest.mark.asyncio
+async def test_handler_v2_handoff_keeps_declared_contextual_target(
+        handler_env, monkeypatch):
+    """B1: маршрут handler -> v2 объявляет подмену цели и собирает envelope.
+
+    Прежде v2 получал пару «текст тезиса + id пустой цели» и переразрешал
+    публикацию по литеральной цели: трасса писала `target_source=stored_reply`,
+    `claim_origin=target_text`, анкор и доставку — на пустое сообщение, а
+    envelope не собирался вовсе (маршрут деградировал в legacy). Теперь цель/
+    источник/анкор едут из handler'а, поэтому объявление и временной envelope
+    реальны.
+
+    RC-TGT-NO-REWRITE, RC-TGT-NO-FABRICATED-ID, RC-CLM-TARGETREF-CONTINUITY,
+    RC-S024, RC-S042, RC-S052."""
+    monkeypatch.setattr(fh, "_pipeline_v2_enabled", lambda: True)
+    monkeypatch.setattr(tf, "record_temporal_run", AsyncMock(return_value="run-b1"))
+
+    thesis_ts, reaction_ts = 1792000000, 1792400000
+    origin_rows = {
+        THESIS_TG: dict(_row(THESIS_TG, text=THESIS, author="Ирма"),
+                        sent_at=thesis_ts),
+        TARGET_TG: dict(_row(TARGET_TG, text="", author="Ким"),
+                        sent_at=reaction_ts),
+    }
+    db = FakeDb(
+        rows_by_tg={TARGET_TG: _row(TARGET_TG, text="",
+                                    reply_to_id=THESIS_TG),
+                    THESIS_TG: _row(THESIS_TG, text=THESIS, author="Ирма")},
+        around_rows=[_row(THESIS_TG, text=THESIS, author="Ирма"),
+                     _row(TARGET_TG, text="", author="Ким",
+                          reply_to_id=THESIS_TG)],
+        origin_rows=origin_rows)
+
+    handoff = {}
+    real_run = orch.run_factcheck
+
+    async def _spy(req, **kwargs):
+        handoff["req"] = req
+        handoff["publication"] = kwargs.get("publication")
+        return await real_run(req, **kwargs)
+
+    monkeypatch.setattr(orch, "run_factcheck", _spy)
+
+    trace = {}
+    envelope_seen = {}
+
+    def _capture_trace(publication, **kwargs):
+        trace.update(publication.trace_fields())
+        trace["delivery_reply_to"] = kwargs.get("delivery_reply_to")
+        env = kwargs.get("envelope")
+        trace["envelope_built"] = env is not None
+        if env is not None:
+            trace["envelope"] = env
+        return trace
+
+    monkeypatch.setattr(fcs, "emit_target_trace", _capture_trace)
+
+    class _Service:
+        async def check_claim_envelope(self, envelope, **kwargs):
+            envelope_seen["envelope"] = envelope
+            run = MagicMock()
+            run.verdict_text = "разбор"
+            run.verdict = MagicMock()
+            run.verdict.factual_verdict = "insufficient_evidence"
+            run.verdict.reason = None
+            run.verdict.uncertainty = {}
+            run.verdict.parts = ()
+            run.verdict.route = "envelope_temporal"
+            run.evidence_rows = ()
+            run.fallback_used = False
+            return run
+
+        async def check_claim(self, *args, **kwargs):
+            raise AssertionError("v2 прошёл legacy-путём вместо envelope")
+
+    fh.setup_factcheck(_Service(), db)
+    await fh.factcheck_handler(
+        _make_msg(text="фактчек", message_id=TRIGGER_TG,
+                  reply_to_message=_make_msg(message_id=TARGET_TG)),
+        bot=AsyncMock())
+
+    # 1. Передача: v2 получил уже разрешённую публикацию, а не голую цель.
+    handed = handoff.get("publication")
+    assert handed is not None, "handler не передал публикацию в v2"
+    assert handed.target_source == "contextual"
+    assert handed.target_tg_message_id == THESIS_TG
+    assert handed.claim_anchor_tg_message_id == THESIS_TG
+
+    # 2. Объявление: подмена не «маскируется» под текст пустой цели.
+    assert trace["target_source"] == "contextual"
+    assert trace["claim_origin"] == "context_window"
+    assert trace["target_tg_message_id"] == THESIS_TG
+    assert trace["claim_anchor_tg_message_id"] == THESIS_TG
+    assert trace["target_tg_message_id"] != TARGET_TG
+    assert trace["delivery_reply_to"] == TRIGGER_TG   # Reply на команду
+
+    # 3. Envelope построен и читает тот же тезис с его же датой и автором.
+    envelope = trace.get("envelope")
+    assert trace["envelope_built"] is True
+    assert envelope is not None and envelope_seen.get("envelope") is not None
+    assert envelope.claim_text.strip() == THESIS.strip()
+    assert envelope.target_tg_message_id == THESIS_TG
+    assert envelope.claim_anchor_tg_message_id == THESIS_TG
+    assert envelope.original_published_at == thesis_ts      # дата тезиса
+    assert (envelope.attribution or {}).get("author") == "Ирма"
+
+
+@pytest.mark.asyncio
+async def test_contextual_claim_from_chain_keeps_its_own_date_and_author(
+        handler_env, monkeypatch):
+    """B2: тезис, найденный ТОЛЬКО через thread_chain, несёт свой id.
+
+    Раньше `ContextClaim` для хода цепочки создавался без `tg_message_id`:
+    трасса объявляла contextual-цель без анкора, а envelope строился по
+    сообщению-реакции и приписывал тезису ЧУЖИЕ дату и автора (реакция
+    вместо тезиса). Теперь id берётся из `item_id` хода (`tg:<id>`).
+
+    RC-CLM-TARGETREF-CONTINUITY, RC-TGT-NO-FABRICATED-ID, RC-CLM-TARGET-AUTHOR,
+    RC-S006, RC-S013, RC-S019."""
+    from services.thread_chain import ChainItem
+
+    monkeypatch.setattr(fh, "_temporal_on", lambda: True)
+    monkeypatch.setattr(tf, "record_temporal_run",
+                        AsyncMock(return_value="run-b2"))
+
+    thesis_ts, reaction_ts = 1792000000, 1792400000
+
+    async def _collect(db, chat_id, message, depth, **kwargs):
+        # родитель пустой реакции доступен только цепочкой (вне окна)
+        return [ChainItem(uid=5551, name="Ирма", text=THESIS, is_bot=False,
+                          ts=thesis_ts, item_id=f"tg:{THESIS_TG}")]
+
+    monkeypatch.setattr(tch, "collect_thread_chain", _collect)
+
+    db = FakeDb(
+        rows_by_tg={TARGET_TG: _row(TARGET_TG, text="",
+                                    reply_to_id=THESIS_TG),
+                    THESIS_TG: _row(THESIS_TG, text=THESIS, author="Ирма")},
+        # окно НЕ содержит тезиса: единственный путь к нему — цепочка
+        around_rows=[_row(TARGET_TG, text="", author="Ким")],
+        origin_rows={
+            THESIS_TG: dict(_row(THESIS_TG, text=THESIS, author="Ирма"),
+                            sent_at=thesis_ts),
+            TARGET_TG: dict(_row(TARGET_TG, text="", author="Ким"),
+                            sent_at=reaction_ts),
+        })
+
+    captured = {}
+
+    def _capture(publication, **kwargs):
+        captured["publication"] = publication
+        captured["delivery_reply_to"] = kwargs.get("delivery_reply_to")
+        captured["envelope"] = kwargs.get("envelope")
+        return {}
+
+    monkeypatch.setattr(fh, "_emit_target_trace", _capture)
+
+    class _Service:
+        async def check_claim_envelope(self, envelope, **kwargs):
+            captured["checked"] = envelope
+            run = MagicMock()
+            run.verdict_text = "разбор"
+            run.verdict = MagicMock()
+            run.verdict.factual_verdict = "insufficient_evidence"
+            run.verdict.reason = None
+            run.verdict.uncertainty = {}
+            run.verdict.parts = ()
+            run.verdict.route = "envelope_temporal"
+            run.evidence_rows = ()
+            run.fallback_used = False
+            return run
+
+    fh.setup_factcheck(_Service(), db)
+    await fh.factcheck_handler(
+        _make_msg(text="фактчек", message_id=TRIGGER_TG,
+                  reply_to_message=_make_msg(message_id=TARGET_TG)),
+        bot=AsyncMock())
+
+    publication = captured["publication"]
+    # объявленная contextual-цель без пустых полей: анкор — сам тезис
+    assert publication.text.strip() == THESIS.strip()
+    assert publication.target_source == "contextual"
+    assert publication.target_tg_message_id == THESIS_TG
+    assert publication.claim_anchor_tg_message_id == THESIS_TG
+    assert publication.claim_anchor_author == "Ирма"
+    assert captured["delivery_reply_to"] == TRIGGER_TG
+
+    envelope = captured.get("envelope")
+    assert envelope is not None
+    assert envelope.target_tg_message_id == THESIS_TG
+    assert envelope.claim_anchor_tg_message_id == THESIS_TG
+    # дата и автор — у ТЕЗИСА, а не у реакции, на которую ответили
+    assert envelope.original_published_at == thesis_ts
+    assert envelope.original_published_at != reaction_ts
+    assert (envelope.attribution or {}).get("author") == "Ирма"
+    assert captured.get("checked") is envelope
+
+    # Граница правила: у хода цепочки нет достоверного Telegram ID (`msg:` —
+    # локальный id строки БД) → тезис НЕ объявляется contextual-целью вовсе.
+    # Пустой/чужой анкор вместо честного «связь неизвестна» недопустим.
+    async def _collect_msg_only(db, chat_id, message, depth, **kwargs):
+        return [ChainItem(uid=5551, name="Ирма", text=THESIS, is_bot=False,
+                          ts=thesis_ts, item_id="msg:4242")]
+
+    monkeypatch.setattr(tch, "collect_thread_chain", _collect_msg_only)
+    probe = await fsg.resolve_context_claim(
+        db, CHAT_ID, target_tg_message_id=TARGET_TG,
+        trigger_tg_message_id=TRIGGER_TG, reply_to_tg_id=THESIS_TG, cache=None)
+    declared = None if probe is None else probe.claim
+    # окно здесь содержит только пустую реакцию — достоверного тезиса нет
+    window_ids = {TARGET_TG}
+    assert declared is None or declared.tg_message_id in window_ids
 
 
 # ── B. Медиа обязательно только при реальной зависимости ─────────────────────

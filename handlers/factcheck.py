@@ -87,7 +87,8 @@ def _pipeline_v2_enabled() -> bool:
 async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
                                  target: types.Message, target_text: str,
                                  user_hint: str | None,
-                                 forward_source: str | None) -> str:
+                                 forward_source: str | None,
+                                 publication=None) -> str:
     """CFG-06 W3 (06H.2): все входы → один run_factcheck. Кулдаун/пустой
     таргет — выше по контракту; ошибки — те же семантики фраз внутри
     оркестратора.
@@ -96,7 +97,14 @@ async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
     ``kind=reply|command`` — оркестратор трактует это как явный запрос
     пользователя (сомнение классификатора не становится отказом); исход
     прогона возвращается handler'у — ранний отказ не должен съедать полный
-    лимит."""
+    лимит.
+
+    EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5/§10.3 (B1): уже разрешённая handler'ом
+    публикация передаётся в v2. Повторный резолв ТОЛЬКО по ``target``
+    (литеральное сообщение) терял объявленную contextual-подмену: v2 писал
+    ``target_source=stored_reply``, ``claim_origin=target_text``, анкор и
+    доставку — на пустую цель, и envelope не собирался. Цель, источник,
+    происхождение и анкор объявляются ОДИН раз, там, где подмена произошла."""
     from services import factcheck_orchestrator as orchestrator
     chat_id = message.chat.id
     try:
@@ -119,7 +127,7 @@ async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
         requester_name=str(getattr(requester, "first_name", "") or ""),
         default_mode=str(default_mode or "contextual"))
     return await orchestrator.run_factcheck(req, service=_service, db=_db,
-                                            bot=bot)
+                                            bot=bot, publication=publication)
 
 
 async def _factcheck_temporal(message: types.Message, bot: Bot,
@@ -1192,11 +1200,15 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         # случай получает прежний target_text (включая клейм расшифровки);
         # медиа-случай — текст публикации БЕЗ материала, чтобы оркестратор
         # не задвоил OCR/описание.
+        # B1 (§1.5/§10.3): сама публикация (цель/источник/происхождение/
+        # анкор/материал) передаётся как есть — второй резолв по литеральной
+        # цели терял объявленную contextual-подмену.
         v2_text = (publication.caption_text
                    if (publication.has_image or publication.media_group_id)
                    else target_text)
         outcome = await _factcheck_pipeline_v2(message, bot, target, v2_text,
-                                               user_hint, forward_source)
+                                               user_hint, forward_source,
+                                               publication=publication)
         await _settle_cooldown(message.chat.id, user_id, outcome)
         return
     if _temporal_on():
