@@ -1,17 +1,17 @@
 ﻿# Workflow state
 
-Task: HOTFIX-MEME-PUBLICATION-AND-INITIATIVE-UI (P0 slice approved-to-review, P1 re-review) + EPIC-CM-VISUAL-01 (planned, blocked by P1 merge)
+Task: HOTFIX-MEME-PUBLICATION-AND-INITIATIVE-UI (P0 slice released; P1 fixes in progress) + EPIC-CM-VISUAL-01 (planned, blocked by P1 merge)
 Task source: plans/owner_inputs/2026-11-03-hotfix-meme-publication-initiative-ui.md, plans/owner_inputs/2026-11-03-epic-cm-visual-01.md
 Status: in_progress
-Primary phase: review
-Active feature: P0 meme publication hotfix (urgent scoped release 2.58.152)
-Active lanes: Reviewer ses_e5fc726c3ffen1RIuJSvAKIXOu (P0 B4 re-check, worktree -1787d793); Reviewer ses_e5fc6fca8ffekOmO9eJXFbiV3a (P1 F1-F4 re-check, worktree -a15826a0)
-Join barriers: P0 verdict -> merge fix/p0-publication-stale 97390ee4 into evol/impl -> DevOps scoped release of slice P0-PUBLICATION -> live check; P1 verdict -> rebase on merged P0 (F5 checklist) -> merge -> its own release
-Last verified: prod 2.58.151 @ bd0f38ed (rollback 345a2ed7); evol/impl e374191c + scope/arch docs (AC-DATA 30b83945, pins bed67742 merged); P0 candidate 97390ee4 (49 hotfix tests, 252 passed with meme suites; B1 deferred artifact, B2 real roster, B3 manual wait, B4 foreign-claim fact); P1 candidate a63a76f7 (F1-F4 fixed, services untouched); maps: hotfix 26 IDs/60 obligations + slice-graph (P0, P0.5, P1), CM-VISUAL 160 IDs, plan gates errors=0, meme map 162/164
-Next unlocks: (1) P0 verdict -> merge -> release 2.58.152 (slice P0-PUBLICATION); (2) PM binds P0/P0.5 rows VERIFIED after live proof; (3) P1 rebase+merge -> release of UI slice; (4) CM-VISUAL package A after P1 merge (P1 barrier in slice-graph)
+Primary phase: release_verify
+Active feature: P0 publication hotfix shipped as 2.58.152; P1 initiative UI under fixes
+Active lanes: Builder P1 fixes ses_e602f0bd0ffdV8FrGpgQNCICLn (worktree -a15826a0)
+Join barriers: P1 fixes -> re-review -> rebase onto release/2.58.152 content -> merge -> release of P1 slice; CM-VISUAL package A only after P1 merge
+Last verified: prod 2.58.152 @ ab662a75 (branch release/2.58.152, rollback bd0f38ed, no migration user_version=41, health 200 local+public, NRestarts 0, media 7, var/meme_pending absent, journal 0 Traceback/ERROR/publication_stale); runtime trees identical to approved 97390ee4; slice P0-PUBLICATION release gate scoped=16 errors=0 EXIT 0; 22 of 60 hotfix rows VERIFIED, HMF-LEN-05 READY_FOR_LIVE (browser render after real generation not observed); live meme-settings returns mode=auto/known=false/ceiling=null
+Next unlocks: (1) P1 fixes -> re-review F1-F3 -> rebase on P0 content -> merge -> release P1 slice; (2) PM row reformulation for two reopened meme rows; (3) CM-VISUAL package A after P1 merge; (4) HMF-LEN-05 live observation on natural meme cycle
 Next execution: awaiting_children
-Review: needs_fixes_resolved (P0 Re-review 3 pending, P1 Re-review 2 pending)
-Deployment: verified (2.58.151 @ bd0f38ed)
+Review: approved (P0 slice, release-verified); needs_fixes (P1 candidate a63a76f7 + 3 new items)
+Deployment: verified (2.58.152 @ ab662a75)
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh
-Updated: 2026-11-03T19:50:00+12:00
+Updated: 2026-11-03T21:05:00+12:00
