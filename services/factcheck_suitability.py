@@ -583,6 +583,23 @@ class ContextProbe:
     claim_basis: str = ""
 
 
+def _item_tg_message_id(item) -> int | None:
+    """Telegram ID хода цепочки из ``item_id`` (``tg:<id>``) либо ``None``.
+
+    ADR-1020-1 п.4: ``item_id`` бывает ``tg:<tg_message_id>``, ``msg:<id>``
+    (локальный id строки БД) или пустым. Анкором объявленного тезиса может
+    быть только реальный Telegram ID: ``msg:``/пусто — id достоверно
+    неизвестен, подставлять его нельзя (тезис получил бы чужую дату/автора)."""
+    raw = str(getattr(item, "item_id", "") or "")
+    if not raw.startswith("tg:"):
+        return None
+    try:
+        value = int(raw.split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        return None
+    return value or None
+
+
 def _claim_like_text(text: str) -> bool:
     """Структурный признак проверяемого утверждения (recall-ориентированный).
 
@@ -821,9 +838,15 @@ async def resolve_context_claim(
                 if _COMMAND_TEXT_RE.match(str(item.text or "")):
                     continue                 # «фактчек …» — команда, не тезис
                 if _claim_like_text(item.text):
+                    # B2 (§4.1/§4.2/§5.3): объявленный тезис обязан нести СВОЙ
+                    # Telegram ID — иначе анкор пуст и envelope строится по
+                    # сообщению-реакции, приписывая тезису чужую дату/автора.
+                    tg_id = _item_tg_message_id(item)
+                    if tg_id is None:
+                        continue             # id достоверно неизвестен
                     chain_claim = ContextClaim(
                         text=str(item.text).strip(), source="reply_to",
-                        author=item.name)
+                        author=item.name, tg_message_id=tg_id)
                     break
             if chain_claim is not None and chain:
                 block = render_reply_chains(

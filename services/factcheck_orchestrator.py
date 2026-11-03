@@ -680,9 +680,14 @@ async def deliver_deferred_factcheck(intent, states, bot=None) -> bool:
 
 
 async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
-                        cache=None) -> str:
+                        cache=None, publication=None) -> str:
     """Единый вход W3 (06H.2): provenance → context+gate → план →
     внутренняя ветка → CheckedVerdict → Presentation → Delivery.
+
+    ``publication`` (EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5/§10.3, B1) — уже
+    разрешённая вызывающим публикация (handler объявил цель/источник/анкор и
+    выполнил contextual-подмену). ``None`` — резолвим сами (tool/deferred/
+    прямой вызов), поведение байт-в-байт прежнее.
 
     Ошибки поиска/LLM обрабатываются теми же семантиками фраз, что и
     legacy-путь (5.4b/5.5/🗿); кулдаун/пул — забота вызывающего handler'а
@@ -711,7 +716,7 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
     try:
         async with typing_active(bot, chat_id):
             return await _run_inner(req, service=service, db=db, bot=bot,
-                                    cache=cache)
+                                    cache=cache, publication=publication)
     except LLMBadResponseError:
         logger.warning("[factcheck_v2] empty answer — silence | chat=%s",
                        chat_id)
@@ -744,8 +749,21 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
         permit.release()
 
 
+def _declared_target_tg(publication, req: "FactcheckRequest") -> int | None:
+    """Цель, объявленная публикацией, — та, что реально проверится.
+
+    B1 (EVOL-REPLY-CONTEXT-INTEGRITY-01 §1.5/§10.3): при contextual-подмене это
+    анкор тезиса, а не литеральное сообщение, на которое ответили. Собственный
+    резолв публикации даёт ровно тот же id, поэтому поведение прочих путей
+    неизменно."""
+    value = getattr(publication, "target_tg_message_id", None)
+    if value not in (None, "", 0):
+        return value
+    return req.target_tg_message_id
+
+
 async def _run_inner(req: FactcheckRequest, *, service, db, bot,
-                     cache) -> str:
+                     cache, publication=None) -> str:
     from services import mca_gates
     from services import temporal_factcheck as tf
     from services import factcheck_context as fcx
@@ -761,17 +779,27 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # Один резолвер на оба маршрута (handler и v2): новых OCR/Vision/LLM-
     # вызовов нет; недоступность изображения — честная пометка, не «пусто».
     from services.factcheck_service import resolve_claim_publication
-    publication = await resolve_claim_publication(
-        db, req.chat_id, req.target_tg_message_id, base_text=req.target_text,
-        # M11 (§1.5): авторство и триггер передаются так же, как в handler.
-        # Без них `media_readiness._same_author` при неизвестной личности
-        # считает «свой автор», и чужое фото «уверенно» приписывается цели.
-        trigger_tg_message_id=req.trigger_tg_message_id,
-        requester_user_id=req.requester_user_id,
-        requester_name=req.requester_name,
-        target_source=("stored_reply"
-                       if str(req.kind or "reply") != "command"
-                       else "command_text"))
+    if publication is None:
+        publication = await resolve_claim_publication(
+            db, req.chat_id, req.target_tg_message_id,
+            base_text=req.target_text,
+            # M11 (§1.5): авторство и триггер передаются так же, как в handler.
+            # Без них `media_readiness._same_author` при неизвестной личности
+            # считает «свой автор», и чужое фото «уверенно» приписывается цели.
+            trigger_tg_message_id=req.trigger_tg_message_id,
+            requester_user_id=req.requester_user_id,
+            requester_name=req.requester_name,
+            target_source=("stored_reply"
+                           if str(req.kind or "reply") != "command"
+                           else "command_text"))
+    # B1 (§1.5/§10.3): цель, объявленная публикацией, — та, что проверится.
+    # При переданной публикации это может быть анкор contextual-подмены, а не
+    # литеральное сообщение-цель; собственный резолв даёт ровно тот же id.
+    declared_target_tg = _declared_target_tg(publication, req)
+    # B1: объявленная contextual-подмена (handler или собственный резолв ниже)
+    # обязывает доставлять ответ на ТРИГГЕР: цель как сообщение — анкор.
+    declared_contextual = (str(getattr(publication, "target_source", "") or "")
+                           == "contextual")
     media = publication.media
     claim_text = publication.text
     # ASAP-FC-ADMISSION-01 §2.1: ЯВНЫЙ запрос = пользователь/инструмент
@@ -796,7 +824,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     #    сомнение классификатора не превращается в отказ (§2.1/§2.3).
     decision, ctx = await fsg.evaluate_with_expansion(
         db, req.chat_id, claim_text=claim_text, user_hint=req.user_hint,
-        target_tg_message_id=req.target_tg_message_id,
+        target_tg_message_id=declared_target_tg,
         trigger_tg_message_id=req.trigger_tg_message_id, cache=cache,
         explicit_request=explicit_request)
     target_resolved = bool(str(claim_text or "").strip())
@@ -854,9 +882,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # 1b. Envelope — ПОСЛЕ разрешения цели/тезиса (M3/BD-2): вердикт,
     #     план и поиск читают один текст; анкор Claim передаётся отдельно.
     envelope = None
-    eff_target_tg = (publication.target_tg_message_id
-                     if publication.target_tg_message_id not in (None, "", 0)
-                     else req.target_tg_message_id)
+    # B1: цель читается из публикации ПОСЛЕ возможной подмены (2b) — иначе
+    # envelope строился бы по пустому сообщению, которое подменили.
+    eff_target_tg = _declared_target_tg(publication, req)
     if db is not None and eff_target_tg not in (None, "", 0):
         try:
             from services.temporal_factcheck import InputRef
@@ -881,14 +909,17 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # обязан быть видно, а не «нормализован» подменой.
     # I5: доставка Reply — реальный Telegram ID: при contextual-цели это
     # триггер (цель как сообщение = анкор), иначе сама цель.
-    delivery_reply_to = (req.trigger_tg_message_id if contextual
+    # B1: объявленная подмена (в т.ч. унаследованная от handler'а) доставляет
+    # ответ на триггер, а не на пустое сообщение-цель.
+    contextual_target = bool(contextual or declared_contextual)
+    delivery_reply_to = (req.trigger_tg_message_id if contextual_target
                          else req.target_tg_message_id)
     _emit_target_trace(
         publication, chat_id=req.chat_id,
         trigger_tg_message_id=req.trigger_tg_message_id,
         delivery_reply_to=delivery_reply_to,
         envelope=envelope, route="orchestrator_v2",
-        extra={"contextual_target": contextual})
+        extra={"contextual_target": contextual_target})
 
     feed = ctx.render_feed() if ctx is not None else ""
     media_context = publication.material_context()
