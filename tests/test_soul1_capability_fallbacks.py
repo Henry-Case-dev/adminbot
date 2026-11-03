@@ -30,7 +30,7 @@ from services import direct_capabilities as dc
 from services import hot_config as hot
 from services import image_generation as ig
 
-pytestmark = [pytest.mark.asap3]
+pytestmark = [pytest.mark.asap3, pytest.mark.usefixtures("prompt_journal")]
 
 LEGACY = ig.IMAGE_GENERATION_FALLBACK_PHRASE
 CHAT = -1001234567890

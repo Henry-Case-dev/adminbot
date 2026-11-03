@@ -23,6 +23,7 @@ import pytest
 from services import hot_config as hot
 from services import prompt_factory as pf
 from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services.param_catalog import CATEGORY_PROMPTS
 
 
@@ -57,6 +58,20 @@ def _clean_caches():
     yield
     hot.set_config_cache(None)
     pr.reset_cache()
+
+
+@pytest.fixture(autouse=True)
+def journal(monkeypatch):
+    """EPIC-PROMPT-VERSIONING-UX-01 §3.4: единственный путь записи — журнал.
+
+    Тестовый стор подставляется в существующую точку резолва
+    (``prompt_release_policy.default_journal``): сбросы, восстановление из
+    копии и правка речи обязаны давать ревизию + событие активации, а без
+    журнала — отказывать (503 у HTTP-слоя), а не писать значение «вслепую».
+    """
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache: store)
+    return store
 
 
 def test_factory_default_is_the_catalog_code_canon():
@@ -106,7 +121,9 @@ async def test_apply_factory_reset_new_active_revision_and_history():
     assert history[0]["kind"] == "factory_reset"
     assert history[0]["by"] == "42"
     assert cache.values[pf.FACTORY_HISTORY_KEY]["v"] == pf.HISTORY_VERSION
-    assert cache.writes[-1][2] == CATEGORY_PROMPTS
+    # §3.2 п.9: значение пишется журнальной транзакцией, память кэша
+    # синхронизируется после commit; провенанс — отдельная запись документа.
+    assert (key, pr.factory_default(block_id), CATEGORY_PROMPTS) in cache.writes
     # Повторный сброс — no-op (идемпотентно).
     again = await pf.apply_factory_reset(block_id, cache=cache)
     assert again["applied"] is False and again["reason"] == "already_factory"
@@ -137,37 +154,43 @@ async def test_history_is_bounded_per_block():
 
 
 @pytest.mark.asyncio
-async def test_reset_chat_override_is_not_factory_reset():
+async def test_reset_chat_override_is_not_factory_reset(journal):
+    """§3.6: снятие override — журнальная операция, НЕ заводской сброс.
+
+    OVERRIDE снимается тем же ``set_chat_params`` на коннекте транзакции,
+    последний действующий текст остаётся ревизией, событие —
+    ``chat_inherit_reset`` с ``outcome='recorded'`` (активный указатель не
+    двигается). Глобальный ключ не пишется.
+    """
     block_id = "direct.base.l2_writer"
     key = pr.block(block_id).pg_key
     cache = FakeConfigCache({})           # глобального значения нет
     hot.set_config_cache(cache)
-    roots = {777: {"overrides": {key: "чат-версия"}}}
-    calls: list[tuple] = []
+    await journal.write_chat_state(777, {key: "чат-версия"}, {})
 
-    async def get_root(chat_id):
-        return roots.get(int(chat_id), {})
-
-    async def set_root(chat_id, patch, **kwargs):
-        calls.append((chat_id, patch, kwargs))
-        roots[int(chat_id)] = {"overrides": dict(patch.get("overrides") or {})}
-
-    result = await pf.reset_chat_override(777, block_id, get_root=get_root,
-                                          set_root=set_root)
+    result = await pf.reset_chat_override(777, block_id)
     assert result["applied"] is True
     assert result["factory_value_written"] is False
     assert result["global_value_written"] is False
-    assert roots[777]["overrides"] == {}
+    assert journal.chat_overrides[777] == {}
     assert cache.writes == [], "сброс override записал глобальный ключ"
     assert result["inherits"]["source"] == "Factory"
     assert result["inherits"]["sha256_12"] == pr.sha12(
         pr.factory_default(block_id))
+    # История чата не теряется: снятый текст — неизменяемая ревизия.
+    snapshot = journal.revisions[result["revision_id"]]
+    assert snapshot.scope == "chat" and snapshot.chat_id == 777
+    assert snapshot.body == "чат-версия"
+    assert snapshot.reason == "chat_override_removed"
+    event = journal.activations[-1]
+    assert (event.kind, event.outcome) == ("chat_inherit_reset", "recorded")
+    assert event.revision_id == result["revision_id"]
+    # Активный указатель не сдвинут: применимых активаций нет.
+    assert await journal.read_applied(block_id, "chat", 777) is None
     # Повторный сброс — no-op с диагностикой.
-    again = await pf.reset_chat_override(777, block_id, get_root=get_root,
-                                         set_root=set_root)
+    again = await pf.reset_chat_override(777, block_id)
     assert again["applied"] is False
     assert again["reason"] == "no_chat_override"
-    assert len(calls) == 1
 
 
 @pytest.mark.asyncio
@@ -278,7 +301,7 @@ async def test_restore_backup_accepts_pg_value_at_backup_source():
 
 
 @pytest.mark.asyncio
-async def test_write_speech_value_is_the_active_layer_path():
+async def test_write_speech_value_is_the_active_layer_path(journal):
     """§1.1/§4.1: правка владельца через API реестра → значение действует."""
     block_id = "direct.base.l2_writer"
     key = pr.block(block_id).pg_key
@@ -290,8 +313,9 @@ async def test_write_speech_value_is_the_active_layer_path():
     assert result["applied"] is True and result["effective"] is True
     assert result["scope"] == "global"
     assert cache.values[key] == custom
-    assert cache.writes[-1][0] == key          # последнее действие — значение
-    assert cache.writes[-1][2] == CATEGORY_PROMPTS
+    # §3.2 п.9: память кэша синхронизируется уже после commit журнальной
+    # транзакции; провенанс (`character.prompt_history`) — отдельная запись.
+    assert (key, custom, CATEGORY_PROMPTS) in cache.writes
     entry = pr.attested_revision(block_id, cache=cache)
     assert entry["sha256_12"] == pr.sha12(custom)
     assert entry["kind"] == "owner_edit" and entry["scope"] == "global"
@@ -302,41 +326,40 @@ async def test_write_speech_value_is_the_active_layer_path():
     assert empty["applied"] is False and empty["reason"] == "empty_value"
     assert cache.values[key] == custom
     # Optimistic-конфликт: чужая правка между чтением и записью.
+    journal.settings_updated_at[key] = "2026-10-16T10:00:00+00:00"
     with pytest.raises(pf.FactoryConflict):
         await pf.write_speech_value(block_id, "новая правка", cache=cache,
                                     expected_updated_at="2026-10-15T00:00:00Z")
+    assert cache.values[key] == custom, "конфликт не должен менять текст"
 
 
 @pytest.mark.asyncio
-async def test_write_speech_value_chat_scope_attests_override():
+async def test_write_speech_value_chat_scope_attests_override(journal):
     """Per-chat правка через API реестра: наследование глобала + провенанс."""
     block_id = "direct.base.tool_phase"
     key = pr.block(block_id).pg_key
     cache = FakeConfigCache({})
     hot.set_config_cache(cache)
-    roots = {777: {"overrides": {}}}
-    calls: list[tuple] = []
-
-    async def get_root(chat_id, *a, **kw):
-        return roots.get(int(chat_id), {})
-
-    async def set_root(chat_id, patch, **kw):
-        calls.append((chat_id, patch, kw))
-        roots[int(chat_id)] = {"overrides": dict(patch.get("overrides") or {})}
 
     result = await pf.write_speech_value(block_id, "чат-версия базы",
-                                         cache=cache, chat_id=777,
-                                         get_root=get_root, set_root=set_root,
-                                         actor=5)
+                                         cache=cache, chat_id=777, actor=5)
     assert result["applied"] is True and result["scope"] == "chat"
-    assert roots[777]["overrides"][key] == "чат-версия базы"
+    assert journal.chat_overrides[777][key] == "чат-версия базы"
     entry = pr.attested_revision(block_id, cache=cache)
     assert entry["scope"] == "chat" and entry["chat_id"] == 777
-    assert len(calls) == 1
+    # §3.4: чатовая правка даёт ревизию этого чата + событие активации.
+    snapshot = journal.revisions[result["revision_id"]]
+    assert (snapshot.scope, snapshot.chat_id, snapshot.origin) == (
+        "chat", 777, "manual")
+    event = journal.activations[-1]
+    assert (event.scope, event.chat_id, event.kind, event.outcome) == (
+        "chat", 777, "manual_edit", "applied")
     # Повторная запись того же значения — no-op, но провенанс сохраняется.
     again = await pf.write_speech_value(block_id, "чат-версия базы",
-                                        cache=cache, chat_id=777,
-                                        get_root=get_root, set_root=set_root)
+                                        cache=cache, chat_id=777, actor=5)
     assert again["applied"] is False
     assert again["reason"] == "already_that_value"
-    assert len(calls) == 1
+    assert journal.activations[-1].outcome == "skipped_same"
+    chat_revisions = [row for row in journal.revisions.values()
+                      if row.scope == "chat" and row.chat_id == 777]
+    assert len(chat_revisions) == 1          # текстовая ревизия не дублируется

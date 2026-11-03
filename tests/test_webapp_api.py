@@ -19,6 +19,9 @@ from fastapi.testclient import TestClient
 from services.config_cache import ConfigCache
 from services.info_service import DEFAULT_INFO_TEXT, INFO_CANON_VERSION
 from services.permissions import Permissions
+from services.prompt_release_policy import MemoryPromptJournal
+from services import prompt_release_policy as prompt_release_policy
+from web.api import routes as routes_mod
 from web.app import create_app
 from web.api import deps as deps_mod
 
@@ -187,9 +190,17 @@ def client(monkeypatch, tmp_path):
         ],
     )
     cache = ConfigCache(pg=_FakePg(conn), retry_attempts=1, retry_delay=0)
+    # EPIC-PROMPT-VERSIONING-UX-01 §3: значение промпта пишется журнальным
+    # слоем; тестовый стор подставляется в существующую точку резолва, иначе
+    # запись промпта честно отказывает 503 (журнал недоступен).
+    journal = MemoryPromptJournal()
+    monkeypatch.setattr(routes_mod, "_prompt_journal", lambda cache_: journal)
+    monkeypatch.setattr(prompt_release_policy, "default_journal",
+                        lambda cache_: journal)
     app = create_app(cache)
     with TestClient(app) as test_client:
         test_client.cache = cache
+        test_client.journal = journal
         yield test_client
 
 
@@ -613,8 +624,16 @@ class TestPromptsValidationRound4:
                                             "value": text}]},
                            headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200, resp.text
-        assert resp.json() == {"updated": [self.PROMPT_KEY]}
+        body = resp.json()
+        # §3.8: базовая форма ответа (`updated`) не меняется;
+        # `prompt_snapshots` — аддитивное поле журнальной записи (§3.1).
+        assert body["updated"] == [self.PROMPT_KEY]
+        assert [row["key"] for row in body["prompt_snapshots"]] == [
+            self.PROMPT_KEY]
         assert client.cache.get(self.PROMPT_KEY) == text
+        revision = client.journal.revisions[
+            body["prompt_snapshots"][0]["revision_id"]]
+        assert revision.body == text, "текст ревизии отличается байт-в-байт"
 
     def test_empty_prompt_422(self, client):
         resp = client.post("/api/config",

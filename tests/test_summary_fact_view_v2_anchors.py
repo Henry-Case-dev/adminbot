@@ -37,7 +37,8 @@ from services.summary_run_log import RunContext
 from services.summary_source_anchors import build_anchor_map
 from services.summary_source_window import SummarySourceWindow
 
-pytestmark = pytest.mark.asap41
+pytestmark = pytest.mark.asap41  # noqa: E501
+pytestmark = [pytestmark, pytest.mark.usefixtures("prompt_journal")]
 
 CHAT = -100718
 RUN_ID = "run-718e9ea6"

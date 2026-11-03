@@ -24,6 +24,10 @@ import pytest
 from services import hot_config as hot
 from services import prompt_registry as pr
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 #: «Живые потребители» из review-w1 BLOCKER-2 и их ключи: прямых чтений быть

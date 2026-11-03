@@ -197,6 +197,8 @@ class _MiniPgEngine:
             return "CREATE TABLE"
         if sql is prp.APPLY_LOCK_SQL:
             return None
+        if sql is prp.LOCK_TIMEOUT_SQL:
+            return None                      # SET LOCAL lock_timeout (§3.3)
         if sql is prp._INSERT_REVISION_SQL:
             (rid, bid, key, scope, chat, origin, sha, body, fac, compat,
              release, actor, reason, src_upd, created) = args
@@ -246,6 +248,8 @@ class _MiniPgEngine:
             bid, scope, chat = args
             hit = any(a["block_id"] == bid and a["scope"] == scope
                       and a["chat_id"] == chat and a["kind"] == "legacy_import"
+                      and a["detail_code"] in ("legacy_snapshot",
+                                               "legacy_empty")
                       for a in self.activations)
             return 1 if hit else None
         raise AssertionError(f"неизвестный SQL fetchval: {sql[:60]!r}")

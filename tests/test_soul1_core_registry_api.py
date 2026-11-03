@@ -28,6 +28,10 @@ from services import prompt_composer as pc
 from services import prompt_factory as pf
 from services import prompt_registry as pr
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 FULL_NEW = "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА: наблюдательный, язвительный, абсурдный."
 COMPACT_NEW = "КОМПАКТ ВЛАДЕЛЬЦА: тот же характер, короче."
 CHAT_COMPACT = "КОМПАКТ ЭТОГО ЧАТА."

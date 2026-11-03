@@ -37,6 +37,10 @@ from services import prompt_factory as pf
 from services import prompt_migrations as pm
 from services import prompt_registry as pr
 
+# EPIC-PROMPT-VERSIONING-UX-01 §3: запись значения промпта идёт единым
+# журнальным слоем — тестам нужен стор (общая фикстура conftest).
+pytestmark = pytest.mark.usefixtures("prompt_journal")
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WITHHELD_TEXTS = (ROOT / "plans/features/p0-corrective-factcheck-speech/"
                          "evidence/withheld/texts")

@@ -18,8 +18,17 @@
     (cutover/деплой/рестарт) одной PG-транзакцией под advisory-локом;
   * снимок legacy перед первой записью заводского текста (``origin=legacy``,
     время = время импорта, автор не выдумывается);
-  * ``write_versioned_value`` — единственная версионированная запись
-    активного текста (ревизия + активация + значение в одной транзакции);
+  * ``write_versioned_value`` — тонкая обёртка над ``write_prompt_values``
+    (совместимость вызовов и тестов);
+  * ``write_prompt_values`` — ЕДИНСТВЕННАЯ запись значения промпта
+    (ревизия + событие активации + значение одной PG-транзакцией под
+    ``APPLY_LOCK_SQL``; ``SET LOCAL lock_timeout='5s'``);
+  * ``remove_prompt_override`` — снятие чатового override со снимком текста;
+  * ``capture_pre_versioning_values`` — первый захват уже действующих
+    ручных байтов (``origin=legacy``, ``reason=pre_versioning_import``);
+  * рантайм-страж обхода ``PromptJournalBypass``: ``ConfigCache.set/set_many``
+    и ``chat_params.set_chat_params`` отказывают, если текст промпта пишется
+    без журнального токена (``journal_write_scope``);
   * ``activate_revision`` / ``list_versions`` / ``get_revision_source`` /
     ``diff_revisions`` — сервисный API для EVOL-017 (админка), без HTTP.
 
@@ -39,12 +48,14 @@ TEST-LIFECYCLE: CONTRACT owner=EVOL-016 (tests/test_evol016_prompt_activation.py
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import datetime
 import difflib
 import json
 import logging
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Sequence
 
 from services import prompt_registry as pr
 
@@ -140,6 +151,11 @@ WHERE chat_params ? 'overrides' AND (chat_params -> 'overrides') ? $1
 """
 _SELECT_BOT_SETTING_SQL = (
     "SELECT value #>> '{}' AS text FROM bot_settings WHERE key = $1")
+_SELECT_SETTING_UPDATED_AT_SQL = (
+    "SELECT updated_at FROM bot_settings WHERE key = $1")
+#: Таймаут ожидания advisory-лока транзакции записи (контракт §2.3/§3.3):
+#: занятый лок → честный отказ (503), а не бесконечное ожидание в UI.
+LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
 _INSERT_REVISION_SQL = """
 INSERT INTO prompt_revisions (revision_id, block_id, pg_key, scope, chat_id,
                               origin, content_sha12, body, factory_revision,
@@ -174,7 +190,8 @@ _HAS_CUTOVER_SQL = """
 SELECT 1 FROM prompt_activations
 WHERE block_id = $1 AND scope = $2 AND (chat_id = $3
                                         OR (chat_id IS NULL AND $3 IS NULL))
-  AND kind = 'legacy_import' LIMIT 1
+  AND kind = 'legacy_import'
+  AND detail_code IN ('legacy_snapshot', 'legacy_empty') LIMIT 1
 """
 _GET_REVISION_SQL = (
     "SELECT revision_id, block_id, pg_key, scope, chat_id, origin, "
@@ -278,6 +295,18 @@ def _scope_key(scope: str, chat_id: int | None) -> tuple:
     return (scope, int(chat_id) if chat_id is not None else None)
 
 
+def _row_matches_chat(row, chat_id: int | None) -> bool:
+    """Фильтр строки журнала по адресату — та же семантика, что SQL PG-стора.
+
+    ``PG`` отбирает ``chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL)``;
+    фильтр по ``scope`` в SQL не участвует (иначе история чата пустела бы при
+    ``scope='global'`` по умолчанию). Двойник обязан вести себя так же.
+    """
+    if chat_id is None:
+        return row.chat_id is None
+    return row.chat_id is not None and int(row.chat_id) == int(chat_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Ошибки и hook полномочий
 # ═══════════════════════════════════════════════════════════════════════════
@@ -292,6 +321,163 @@ class PromptJournalError(RuntimeError):
 
 class PromptPermissionError(PermissionError):
     """Отказ проверки полномочий на операцию с ревизиями (EVOL-017 hook)."""
+
+
+class PromptJournalBypass(RuntimeError):
+    """Текст промпта пишется в обход журнала версий (EPIC-PROMPT-VERSIONING-UX-01).
+
+    Поднимается ``ConfigCache.set``/``set_many`` и
+    ``chat_params.set_chat_params``, когда значение блока реестра пишется без
+    журнального токена, то есть без ревизии и события активации. Запись при
+    этом НЕ выполняется: обход невозможен, а не «будет замечен позже в
+    истории».
+    """
+
+
+#: Ключи реестра, чьё значение — НЕ текст промпта, а слот выбора (профиль
+#: обложки). Такие значения не создают ревизию текста и не подпадают под
+#: страж обхода: писать их вправе владелец выбора стиля (POST /api/cover/select).
+NON_TEXT_VALUE_KEYS: frozenset[str] = frozenset({
+    "prompts.summary_cover_style_id",
+})
+
+
+@dataclass(frozen=True)
+class JournalWriteGrant:
+    """Право записи значения одного блока в одном scope внутри транзакции."""
+
+    block_id: str
+    scope: str
+    chat_id: int | None = None
+
+
+#: Токен «эта запись идёт через журнал». Ставится ТОЛЬКО журнальными
+#: писателями (``write_prompt_values``/``remove_prompt_override``/
+#: ``activate_revision``/``apply_release``) и только на время их работы.
+_journal_write_token: contextvars.ContextVar[
+    tuple[JournalWriteGrant, ...] | None] = contextvars.ContextVar(
+        "prompt_journal_write_token", default=None)
+
+#: Узкая декларация код-поставленной миграции текста (НЕ правка владельца):
+#: значение приходит из кода, миграция обязана вести собственный неизменяемый
+#: снимок и откат. Каждое использование пишется в лог с id миграции.
+_legacy_migration_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "prompt_legacy_migration", default=None)
+
+
+@contextlib.contextmanager
+def journal_write_scope(grants: Iterable[JournalWriteGrant]):
+    """Разрешить запись перечисленных (block, scope, chat) на время блока."""
+    token = _journal_write_token.set(tuple(grants))
+    try:
+        yield
+    finally:
+        _journal_write_token.reset(token)
+
+
+@contextlib.contextmanager
+def legacy_migration_write(migration_id: str, *, keys: Iterable[str] = ()):
+    """Разрешить запись текста код-поставленной миграцией (явно и с логом).
+
+    Применяется только утилитами переноса/нормализации канонов, которые ведут
+    собственную неизменяемую запись и откат (``services/prompt_migrations``).
+    Это НЕ путь правки владельца и НЕ путь API: значения приходят из кода.
+    """
+    logger.warning("[prompt_release] legacy migration write | id=%s | keys=%s",
+                   migration_id, sorted(str(k) for k in keys))
+    token = _legacy_migration_token.set(str(migration_id))
+    try:
+        yield
+    finally:
+        _legacy_migration_token.reset(token)
+
+
+def journal_write_granted(block_id: str, scope: str,
+                          chat_id: int | None = None) -> bool:
+    """Есть ли действующее право журнальной записи для (block, scope, chat)."""
+    grants = _journal_write_token.get()
+    if not grants:
+        return False
+    return JournalWriteGrant(str(block_id), str(scope), chat_id) in grants
+
+
+def _as_doc(raw) -> dict:
+    """JSON-документ из значения слоя (``{}``, если документа нет)."""
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(raw.decode("utf-8") if isinstance(
+                raw, (bytes, bytearray)) else raw)
+        except Exception:
+            return {}
+        return dict(parsed) if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _block_text_value(spec, raw) -> str | None:
+    """Текст значения блока из значения слоя (``None`` — значения нет)."""
+    if raw is None:
+        return None
+    field_name = getattr(spec, "pg_doc_field", "") or ""
+    if field_name:
+        return pr.doc_field_text(_as_doc(raw), field_name)
+    return str(raw)
+
+
+#: Блоки реестра по общему ``pg_key`` (один документ = несколько блоков-полей,
+#: например ``character.core`` → ``core.personality`` / ``.compact``).
+#: Объявления реестра статичны, поэтому таблица строится один раз.
+_blocks_by_pg_key: dict[str, tuple] = {}
+
+
+def _blocks_for_pg_key(pg_key: str) -> tuple:
+    key = str(pg_key)
+    cached = _blocks_by_pg_key.get(key)
+    if cached is not None:
+        return cached
+    blocks = tuple(spec for spec in pr.all_blocks() if spec.pg_key == key)
+    _blocks_by_pg_key[key] = blocks
+    return blocks
+
+
+def assert_prompt_write_allowed(*, pg_key: str, scope: str,
+                                chat_id: int | None = None,
+                                current=None, new=None) -> None:
+    """Страж обхода: запретить запись текста промпта без журнального токена.
+
+    Пропускается:
+      * ключ вне реестра промптов / без ``pg_key``;
+      * ключ из :data:`NON_TEXT_VALUE_KEYS` (значение — слот выбора);
+      * блок-ПОЛЕ документа (Personality Core), у которого текст НИ ОДНОГО
+        поля не меняется (``POST /api/speech/core/meta`` правит только
+        ``detail_level``/``enabled``). Одно ``pg_key`` может нести несколько
+        блоков-полей — проверяются все.
+    """
+    spec = pr.by_pg_key(str(pg_key))
+    if spec is None or not spec.pg_key:
+        return
+    if str(pg_key) in NON_TEXT_VALUE_KEYS:
+        return
+    if getattr(spec, "pg_doc_field", ""):
+        changed = [block for block in _blocks_for_pg_key(spec.pg_key)
+                   if (_block_text_value(block, current) or "")
+                   != (_block_text_value(block, new) or "")]
+        if not changed:
+            return                   # правка метаданных документа, не текста
+        if any(journal_write_granted(block.block_id, scope, chat_id)
+               for block in changed):
+            return
+    elif journal_write_granted(spec.block_id, scope, chat_id):
+        return
+    if _legacy_migration_token.get():
+        return
+    logger.error("[prompt_release] journal bypass blocked | block=%s | "
+                 "scope=%s | chat=%s | key=%s", spec.block_id, scope, chat_id,
+                 spec.pg_key)
+    raise PromptJournalBypass(
+        f"{spec.pg_key}: запись текста промпта без журнала версий запрещена "
+        f"(block={spec.block_id}, scope={scope}, chat={chat_id})")
 
 
 #: Hook полномочий сервисного API: ``(actor, action, context) -> bool``.
@@ -347,7 +533,6 @@ class _JournalState:
         self.retired_blocks: set[str] = set()
         self.notified_chats: list[int] = []
         self.revision_seq: dict[str, int] = {}
-
     def clone(self) -> "_JournalState":
         copy = _JournalState()
         copy.revisions = {k: RevisionRow(**vars(r))
@@ -381,6 +566,9 @@ class MemoryPromptJournal:
         self.fail_at: str | None = None
         self._tx_conn = None
         self._lock = asyncio.Lock()
+        #: Токены ``bot_settings.updated_at`` для проверки CAS в тестах
+        #: (в PG стор отдаёт их из хранилища).
+        self.settings_updated_at: dict[str, str] = {}
 
     # — доступ к состоянию (committed или tx-overlay через _live) —
     @property
@@ -472,6 +660,7 @@ class MemoryPromptJournal:
                     == _scope_key(scope, chat_id)):
                 return True
         return any(row.block_id == block_id and row.kind == "legacy_import"
+                   and row.detail_code in ("legacy_snapshot", "legacy_empty")
                    and _scope_key(row.scope, row.chat_id)
                    == _scope_key(scope, chat_id)
                    for row in self.activations)
@@ -489,8 +678,7 @@ class MemoryPromptJournal:
         rows = [RevisionRow(**{**vars(r), "chars": len(r.body or "")})
                 for r in self.revisions.values()
                 if r.block_id == block_id
-                and _scope_key(r.scope, r.chat_id)
-                == _scope_key(scope, chat_id)
+                and _row_matches_chat(r, chat_id)
                 and (include_retired or not r.retired)]
         rows.sort(key=lambda r: (r.created_at, r.revision_id))
         return rows
@@ -501,8 +689,7 @@ class MemoryPromptJournal:
                                scope: str = "global") -> list[ActivationRow]:
         rows = [ActivationRow(**vars(a)) for a in self.activations
                 if a.block_id == block_id
-                and _scope_key(a.scope, a.chat_id)
-                == _scope_key(scope, chat_id)]
+                and _row_matches_chat(a, chat_id)]
         rows.reverse()
         return rows[:limit]
 
@@ -580,6 +767,51 @@ class MemoryPromptJournal:
     async def notify_chat(self, chat_id: int) -> None:
         self.notified_chats.append(chat_id)
 
+    # — профиль чата (overrides/meta): источник для единого слоя записи —
+    async def read_updated_at(self, pg_key: str) -> str | None:
+        """Optimistic-токен глобального ключа.
+
+        У in-memory стора токенов нет (пустой словарь): CAS проверяется только
+        там, где ``bot_settings.updated_at`` реально существует. Тест может
+        задать токен явно (``settings_updated_at``), чтобы проверить 409.
+        """
+        return self.settings_updated_at.get(str(pg_key))
+
+    async def read_chat_state(self, chat_id: int, *, pg=None) -> dict | None:
+        if pg is not None:                  # тестовый двойник PG: профиль там
+            return await _read_chat_state_from_pg(pg, int(chat_id))
+        # Процесс-глобальный слой чат-параметров — тот же, что читает резолвер:
+        # двойник обязан писать туда, откуда читают тесты (как PG-стор).
+        root = await _chat_cache_call("get_chat_params", int(chat_id))
+        if isinstance(root, dict):
+            return {"overrides": dict(root.get("overrides") or {}),
+                    "meta": dict(root.get("meta") or {}),
+                    "updated_at": root.get("updated_at")}
+        return {"overrides": dict(self._live.chat_overrides.get(int(chat_id))
+                                  or {}),
+                "meta": {}, "updated_at": None}
+
+    async def write_chat_state(self, chat_id: int, overrides: dict,
+                               meta: dict, *, expected_updated_at: str | None =
+                               None, changed_by=None, pg=None) -> str | None:
+        if pg is not None:
+            from services import chat_params
+            result = await chat_params.set_chat_params(
+                int(chat_id), {"overrides": dict(overrides),
+                               "meta": dict(meta or {})},
+                changed_by=changed_by, expected_updated_at=expected_updated_at,
+                pg=pg)
+            return getattr(result, "updated_at", None)
+        written = await _chat_cache_call(
+            "set_chat_params", int(chat_id),
+            {"overrides": dict(overrides), "meta": dict(meta or {})},
+            changed_by=changed_by, expected_updated_at=expected_updated_at)
+        if written is not None:
+            return getattr(written, "updated_at", None)
+        self._live.chat_overrides[int(chat_id)] = dict(overrides)
+        await self.notify_chat(int(chat_id))
+        return None
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PG-стор журнала (тот же пул, что и bot_settings)
@@ -648,6 +880,9 @@ class PgPromptJournal:
             await self._tx.start()
             self.store._tx_conn = self.conn
             try:
+                # Ограничение ожидания лока: занятый advisory-лок → отказ
+                # (честный 503), а не бесконечное ожидание в UI (§2.3/§3.3).
+                await self.conn.execute(LOCK_TIMEOUT_SQL)
                 # Ревью F5: сбой advisory-лока НЕ проглатывается — применение
                 # пакета refuse (исключение уходит вызывающему).
                 await self.conn.execute(APPLY_LOCK_SQL)
@@ -865,6 +1100,85 @@ class PgPromptJournal:
         if self._tx_conn is not None:   # внутри транзакции: NOTIFY на commit
             await self._tx_conn.execute(_NOTIFY_CHAT_SQL, str(chat_id))
 
+    async def read_updated_at(self, pg_key: str) -> str | None:
+        """``bot_settings.updated_at`` — optimistic-токен глобального ключа."""
+        async def _run(conn):
+            return await conn.fetchval(_SELECT_SETTING_UPDATED_AT_SQL, pg_key)
+        value = await self._run_on_conn(_run)
+        return None if value is None else str(value)
+
+    async def read_chat_state(self, chat_id: int, *, pg=None) -> dict | None:
+        """Текущий профиль чата (overrides/meta/updated_at) в той же транзакции."""
+        from services import chat_params
+
+        async def _run(conn):
+            row = await conn.fetchrow(chat_params.SELECT_PROFILE_SQL,
+                                      int(chat_id))
+            return None if row is None else _chat_state_from_row(row)
+        return await self._run_on_conn(_run)
+
+    async def write_chat_state(self, chat_id: int, overrides: dict,
+                               meta: dict, *, expected_updated_at: str | None =
+                               None, changed_by=None, pg=None) -> str | None:
+        """Записать набор overrides ТЕМ ЖЕ ``set_chat_params`` на tx-коннекте.
+
+        Сохраняются CAS-токен (``expected_updated_at``), ``chat_params_history``,
+        ``meta.updated_by`` и NOTIFY: значение не пишется «своим» SQL в обход
+        оптимистичного протокола.
+        """
+        from services import chat_params
+        if self._tx_conn is None:       # pragma: no cover — контракт транзакции
+            raise PromptJournalError(
+                "write_chat_state outside journal transaction")
+        result = await chat_params.set_chat_params(
+            int(chat_id),
+            {"overrides": dict(overrides), "meta": dict(meta or {})},
+            changed_by=changed_by, expected_updated_at=expected_updated_at,
+            conn=self._tx_conn)
+        return getattr(result, "updated_at", None)
+
+
+async def _chat_cache_call(method: str, *args, **kwargs):
+    """Вызвать метод процесс-глобального чат-кэша (если он его реализует).
+
+    Тестовые двойники чат-слоя подменяют ``chat_params._chat_params_cache``;
+    in-memory стор журнала пишет туда же, откуда читает резолвер (как PG-стор).
+    ``None`` — метод не реализован (или кэш не установлен).
+    """
+    from services import chat_params
+    cache = chat_params.get_chat_params_cache()
+    fn = getattr(cache, method, None) if cache is not None else None
+    if fn is None:
+        return None
+    result = fn(*args, **kwargs)
+    if hasattr(result, "__await__"):
+        result = await result
+    return result
+
+
+async def _read_chat_state_from_pg(pg, chat_id: int) -> dict | None:
+    """Профиль чата из PG-пула (для стора-двойника и вне транзакции).
+
+    SQL/парсинг — те же, что у ``chat_params`` (одна форма профиля, двойники
+    тестов продолжают работать без второго диалекта).
+    """
+    from services import chat_params
+    pool = getattr(pg, "pool", None)
+    if pool is None:
+        raise JournalUnavailable("PostgreSQL недоступен (пул отсутствует)")
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(chat_params.SELECT_PROFILE_SQL, int(chat_id))
+    return _chat_state_from_row(row) if row is not None else None
+
+
+def _chat_state_from_row(row) -> dict:
+    """``{overrides, meta, updated_at}`` из строки ``chat_profiles``."""
+    from services import chat_params
+    raw = chat_params._load_chat_params(row["chat_params"])
+    return {"overrides": dict(raw.get("overrides") or {}),
+            "meta": dict(raw.get("meta") or {}),
+            "updated_at": chat_params._iso(row["updated_at"])}
+
 
 def default_journal(cache):
     """Стор по умолчанию: PG-журнал из пула ConfigCache (или ``None``).
@@ -991,10 +1305,16 @@ async def apply_release(cache, *, release_id: str, store=None,
     specs = _release_blocks(blocks)
     results: list[BlockReleaseResult] = []
     doc_state: dict[str, dict] = {}   # документ Core в рамках транзакции
+    captured = 0
     async with store.apply_lock():
         async with store.transaction() as tx:
             try:
                 orphans = await _import_provenance_history(store, cache=cache)
+                # §3.7: первый захват уже действующих ручных байтов (в т.ч.
+                # мемных промптов, введённых после применения метки) — до
+                # первой версионированной записи и без активации.
+                captured = await capture_pre_versioning_values(store,
+                                                               cache=cache)
                 for spec in specs:
                     results.extend(await _apply_block_release(
                         store, spec, cache, release_id=release_id,
@@ -1026,7 +1346,8 @@ async def apply_release(cache, *, release_id: str, store=None,
                 applied_count, len(retired))
     return {"applied": True, "release_id": release_id, "results": results,
             "changed": applied_count, "retired_blocks": sorted(retired),
-            "orphan_history_blocks": sorted(orphans)}
+            "orphan_history_blocks": sorted(orphans),
+            "captured_pre_versioning": captured}
 
 
 def _freeze_history() -> None:
@@ -1382,10 +1703,12 @@ async def _check_activation_drift(store, spec, scope, chat_id,
 async def _write_active_value(store, spec, scope: str, chat_id: int | None,
                               value: str,
                               current_doc: dict | None = None,
-                              doc_state: dict[str, dict] | None = None
+                              doc_state: dict[str, dict] | None = None,
+                              set_level: bool = False,
+                              base_doc: dict | None = None
                               ) -> None:
-    doc_state = doc_state if doc_state is not None else {}
     """Записать активное значение в той же транзакции (нет второго источника)."""
+    doc_state = doc_state if doc_state is not None else {}
     if scope == "chat":
         await store.set_chat_override(int(chat_id), spec.pg_key, value)
         await store.notify_chat(int(chat_id))
@@ -1393,15 +1716,18 @@ async def _write_active_value(store, spec, scope: str, chat_id: int | None,
     if spec.pg_doc_field:
         # Поле документа Core: read-modify-write в транзакции; второе поле
         # цело; выбор detail_level владельца не меняется (set_level=False).
-        # База документа: запись этой же транзакции (doc_state) → текущий
-        # документ слоя (кэш) → документ стора.
+        # База документа: явная (``base_doc``), запись этой же транзакции
+        # (doc_state) → текущий документ слоя (кэш) → документ стора.
         from services.prompt_factory import _doc_from_raw, _doc_with_field
-        if current_doc is not None:
+        if base_doc is not None:
+            doc = dict(base_doc)
+        elif current_doc is not None:
             doc = dict(current_doc)
         else:
             raw = await store.read_global(spec.pg_key)
             doc = _doc_from_raw(raw)
-        doc = _doc_with_field(doc, spec.pg_doc_field, value, set_level=False)
+        doc = _doc_with_field(doc, spec.pg_doc_field, value,
+                              set_level=set_level)
         doc_state[spec.pg_key] = dict(doc)
         if isinstance(store, PgPromptJournal):
             if store._tx_conn is None:       # pragma: no cover
@@ -1457,8 +1783,15 @@ async def _refresh_runtime_caches(cache, store,
             value: object = json.loads(raw) if doc_field else raw
             if doc_field and not isinstance(value, dict):
                 continue
-            await cache.set(pg_key, value,
-                            "content" if doc_field else "prompts")
+            spec_block = pr.by_pg_key(pg_key)
+            grants = ([JournalWriteGrant(spec_block.block_id, "global", None)]
+                      if spec_block is not None else [])
+            # Синхронизация памяти — часть уже закоммиченной журнальной
+            # записи: токен выдаётся этому же писателю, страж обхода не
+            # мешает законному обновлению кэша (§3.2 п.9).
+            with journal_write_scope(grants):
+                await cache.set(pg_key, value,
+                                "content" if doc_field else "prompts")
         except Exception:      # pragma: no cover — память не роняет старт
             logger.warning("[prompt_release] кэш памяти не обновлён | "
                            "key=%s", pg_key, exc_info=True)
@@ -1483,105 +1816,341 @@ async def _refresh_runtime_caches(cache, store,
 # Версионированная запись активного текста (правка/откат/вперёд)
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Единый атомарный слой записи (контракт §3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class PromptWriteItem:
+    """Одно значение промпта в пакете записи (контракт §3.1)."""
+
+    block_id: str                  # block_id реестра (или pg_key — резолв)
+    text: str
+    #: CAS-токен вызывающего: ``bot_settings.updated_at`` (global) /
+    #: ``chat_profiles.updated_at`` (chat). ``None`` — проверка не требуется.
+    expected_updated_at: str | None = None
+    #: Правка поля документа Core делает редакцию действующей (как в
+    #: ``prompt_factory._doc_with_field``); миграции передают False.
+    set_level: bool = True
+
+
+def _is_lock_timeout(exc: BaseException) -> bool:
+    """Похоже ли исключение на отказ по таймауту блокировки."""
+    name = type(exc).__name__.lower()
+    return ("locknotavailable" in name or "querycanceled" in name
+            or "timeout" in name)
+
+
+def _reject(key: str, reason: str) -> dict:
+    return {"key": key, "reason": reason}
+
+
+async def write_prompt_values(items: Sequence[PromptWriteItem], *,
+                              scope: str = "global",
+                              chat_id: int | None = None, cache=None, store=None,
+                              pg=None, actor=None, reason: str = "",
+                              kind: str = "manual_edit",
+                              origin: str = "manual") -> dict:
+    """ЕДИНСТВЕННАЯ запись значения промпта (контракт §3.1–§3.5).
+
+    Ревизия (идемпотентная по ``revision_id``), строка активации и само
+    значение пишутся ОДНОЙ PG-транзакцией под тем же advisory-локом, что и
+    релизная поставка (``APPLY_LOCK_SQL``), с ``SET LOCAL lock_timeout='5s'``.
+    Все решения (``skipped_same``, ``read_applied``, полный набор overrides
+    чата) читаются ВНУТРИ транзакции на её коннекте — не из памяти кэша.
+
+    Отказы (заморожены §3.3): журнал недоступен или лок занят →
+    :class:`JournalUnavailable` (HTTP 503), значение НЕ записано; CAS-конфликт
+    ``chat_params`` → :class:`services.chat_params.ChatParamsConflict` (409);
+    устаревший global-токен → ``prompt_factory.FactoryConflict`` (409);
+    гейты значения → ``rejected`` (422 у вызывающего). Возврата
+    ``journal_recorded=False`` как успеха больше нет.
+
+    Возврат — замороженная форма §3.1: ``applied``, ``skipped_same``,
+    ``rejected``, ``prompt_snapshots``, ``chat_updated_at``,
+    ``journal_recorded``.
+    """
+    scope = str(scope or "global")
+    if scope not in ("global", "chat"):
+        raise ValueError(f"неизвестный scope: {scope}")
+    if scope == "chat" and chat_id is None:
+        raise ValueError("scope=chat требует chat_id")
+
+    resolved: list[tuple] = []
+    rejected: list[dict] = []
+    for item in items:
+        spec = pr.block(item.block_id) or pr.by_pg_key(item.block_id)
+        if spec is None:
+            rejected.append(_reject(str(item.block_id), "block_unknown"))
+            continue
+        if not spec.pg_key:
+            rejected.append(_reject(spec.block_id, "block_not_pg_managed"))
+            continue
+        text = str(item.text if item.text is not None else "")
+        if not text.strip():
+            rejected.append(_reject(spec.pg_key, "empty_value"))
+            continue
+        classification = pr.withheld_classification(spec.block_id, text)
+        if classification and classification.get("class") == \
+                pr.WITHHELD_LEGACY_CLASS:
+            rejected.append({"key": spec.pg_key, "reason": "legacy_incompatible",
+                             "detail": classification.get("reason", "")})
+            continue
+        meme_reason = _meme_template_violation(spec, text)
+        if meme_reason:
+            rejected.append({"key": spec.pg_key, "reason": "meme_template",
+                             "detail": meme_reason})
+            continue
+        resolved.append((spec, item))
+
+    result = {"applied": [], "skipped_same": [], "rejected": rejected,
+              "prompt_snapshots": [], "chat_updated_at": None,
+              "journal_recorded": False}
+    if not resolved:
+        return result               # ни одно значение не пишется
+
+    store = store if store is not None else default_journal(cache)
+    if store is None:
+        raise JournalUnavailable(
+            "журнал версий недоступен: значения промптов не записаны")
+    try:
+        await store.ensure_journal()
+    except Exception as exc:
+        raise JournalUnavailable(
+            f"журнал версий недоступен: {type(exc).__name__}") from exc
+
+    grants = [JournalWriteGrant(spec.block_id, scope, chat_id)
+              for spec, _item in resolved]
+    expected_token = next((it.expected_updated_at for _s, it in resolved
+                           if it.expected_updated_at is not None), None)
+    doc_state: dict[str, dict] = {}
+    applied: list[str] = []
+    skipped: list[str] = []
+    snapshots: list[dict] = []
+    written: list[tuple] = []
+    chat_updated_at: str | None = None
+
+    with journal_write_scope(grants):
+        try:
+            async with store.apply_lock():
+                async with store.transaction():
+                    chat_overrides: dict = {}
+                    chat_meta: dict = {}
+                    if scope == "chat":
+                        state_row = await store.read_chat_state(
+                            int(chat_id), pg=pg)
+                        if state_row is None:
+                            from services import chat_params
+                            raise chat_params.ChatParamsConflict(
+                                int(chat_id), None)
+                        chat_overrides = dict(state_row.get("overrides") or {})
+                        chat_meta = dict(state_row.get("meta") or {})
+                        chat_meta["updated_by"] = actor
+                    for spec, item in resolved:
+                        text = str(item.text)
+                        base_doc: dict | None = None
+                        current_text: str | None = None
+                        if scope == "chat":
+                            raw = chat_overrides.get(spec.pg_key)
+                            if spec.pg_doc_field:
+                                own = _as_doc(raw)
+                                base_doc = own or _as_doc(
+                                    await store.read_global(spec.pg_key))
+                                current_text = pr.doc_field_text(
+                                    base_doc, spec.pg_doc_field)
+                            else:
+                                current_text = (None if raw is None
+                                                else str(raw))
+                        elif spec.pg_doc_field:
+                            base_doc = doc_state.get(spec.pg_key)
+                            if base_doc is None:
+                                base_doc = _as_doc(
+                                    await store.read_global(spec.pg_key))
+                                doc_state[spec.pg_key] = dict(base_doc)
+                            current_text = pr.doc_field_text(
+                                base_doc, spec.pg_doc_field)
+                        else:
+                            raw = await store.read_global(spec.pg_key)
+                            current_text = (None if raw is None else str(raw))
+                        if item.expected_updated_at is not None and \
+                                scope == "global":
+                            actual = await store.read_updated_at(spec.pg_key)
+                            if actual is not None and \
+                                    actual != item.expected_updated_at:
+                                from services.prompt_factory import (
+                                    FactoryConflict,
+                                )
+                                raise FactoryConflict(
+                                    spec.pg_key, item.expected_updated_at,
+                                    actual)
+                        state = await store.read_applied(
+                            spec.block_id, scope, chat_id)
+                        revision = await _insert_revision_once(
+                            store, spec, origin=origin, body=text, scope=scope,
+                            chat_id=chat_id, actor=str(actor or ""),
+                            reason=reason)
+                        same = current_text is not None and current_text == text
+                        outcome = "skipped_same" if same else "applied"
+                        if not same:
+                            if scope == "chat":
+                                if spec.pg_doc_field:
+                                    from services.prompt_factory import (
+                                        _doc_with_field,
+                                    )
+                                    chat_overrides[spec.pg_key] = _doc_with_field(
+                                        base_doc or {}, spec.pg_doc_field,
+                                        text, set_level=item.set_level)
+                                else:
+                                    chat_overrides[spec.pg_key] = text
+                            else:
+                                await _write_active_value(
+                                    store, spec, "global", None, text,
+                                    base_doc=(base_doc if spec.pg_doc_field
+                                              else None),
+                                    doc_state=doc_state,
+                                    set_level=item.set_level)
+                        await store.insert_activation(ActivationRow(
+                            block_id=spec.block_id, scope=scope,
+                            chat_id=chat_id,
+                            revision_id=revision.revision_id,
+                            factory_revision_applied=(
+                                state.factory_revision_applied
+                                if state is not None else ""),
+                            kind=kind, outcome=outcome, release_id="",
+                            actor=str(actor or ""), detail_code=reason))
+                        snapshots.append({
+                            "key": spec.pg_key,
+                            "revision_id": revision.revision_id,
+                            "sha256_12": revision.content_sha12,
+                        })
+                        if same:
+                            skipped.append(spec.pg_key)
+                        else:
+                            applied.append(spec.pg_key)
+                            written.append((spec, text,
+                                            doc_state.get(spec.pg_key)))
+                    if scope == "chat" and applied:
+                        # §3.2 п.7: ОДНА запись полного набора overrides тем же
+                        # ``set_chat_params`` на коннекте транзакции — CAS-токен,
+                        # история, meta.updated_by и NOTIFY сохраняются.
+                        chat_updated_at = await store.write_chat_state(
+                            int(chat_id), chat_overrides, chat_meta,
+                            expected_updated_at=expected_token,
+                            changed_by=actor, pg=pg)
+        except PromptJournalBypass:
+            raise
+        except JournalUnavailable:
+            raise
+        except Exception as exc:
+            from services import chat_params
+            from services.prompt_factory import FactoryConflict
+            if isinstance(exc, (chat_params.ChatParamsConflict,
+                                FactoryConflict)):
+                raise
+            if _is_lock_timeout(exc):
+                logger.warning("[prompt_release] лок журнала занят — запись "
+                               "отклонена (lock_timeout)")
+                raise JournalUnavailable("lock_timeout") from exc
+            logger.error("[prompt_release] запись промптов отменена | "
+                         "scope=%s | chat=%s", scope, chat_id, exc_info=True)
+            raise
+
+        # §3.2 п.9: только ПОСЛЕ commit — память кэша и чат-кэши. Сбой
+        # синхронизации логируется и не превращает commit в «не сохранено».
+        for spec, text, doc in written:
+            if scope != "global" or cache is None:
+                continue
+            try:
+                if spec.pg_doc_field:
+                    await cache.set(spec.pg_key, doc or {}, "content")
+                else:
+                    await cache.set(spec.pg_key, text, "prompts")
+            except Exception:      # pragma: no cover — память не роняет запись
+                logger.warning("[prompt_release] кэш памяти не обновлён | "
+                               "key=%s", spec.pg_key, exc_info=True)
+        if scope == "chat" and applied and chat_id is not None:
+            try:
+                from services.chat_params import get_chat_params_cache
+                chat_cache = get_chat_params_cache()
+                if chat_cache is not None:
+                    await chat_cache.invalidate_chat(int(chat_id))
+            except Exception:      # pragma: no cover — fail-open
+                logger.debug("[prompt_release] chat cache invalidate failed",
+                             exc_info=True)
+
+    logger.info("[prompt_release] write_prompt_values | scope=%s | chat=%s | "
+                "applied=%d | skipped_same=%d | rejected=%d | kind=%s | "
+                "actor=%s", scope, chat_id, len(applied), len(skipped),
+                len(rejected), kind, str(actor or ""))
+    return {"applied": applied, "skipped_same": skipped,
+            "rejected": rejected, "prompt_snapshots": snapshots,
+            "chat_updated_at": chat_updated_at, "journal_recorded": True}
+
+
+def _meme_template_violation(spec, text: str) -> str:
+    """Гейт шаблона мема (≥2 ``{joke}``) — тот же, что у спец-эндпоинта."""
+    from services import meme_initiative as mi
+    if spec.pg_key != mi.prompt_setting_key(mi.IMAGE_PROMPT_BLOCK_ID):
+        return ""
+    try:
+        return str(mi.template_validation_error(text) or "")
+    except Exception:          # pragma: no cover — гейт не роняет запись
+        return ""
+
+
 async def write_versioned_value(block_id: str, text: str, *, cache=None,
                                 store=None, scope: str = "global",
                                 chat_id: int | None = None, actor=None,
                                 reason: str = "",
                                 kind: str = "manual_edit") -> dict:
-    """Единственная запись активного текста через журнал (контракт §1.6).
+    """Тонкая обёртка над :func:`write_prompt_values` (совместимость вызовов).
 
-    Ревизия (``origin=manual``, идемпотентная) + строка активации + значение
-    идут одной транзакцией; ``factory_revision_applied`` НЕ сбрасывается:
-    правка «поверх» уже применённой заводской ревизии, рестарт без новой
-    метки её не тронет, следующая НОВАЯ метка снимет её в историю.
-    Журнал недоступен → ``journal_recorded=False`` (честный признак вместо
-    тихой неподмеченной записи; вызывающий решает, как surfaced).
+    Возвращает историческую форму ответа одиночной записи (``applied`` как
+    признак, ``revision_id``, ``sha256_12``, ``outcome``,
+    ``factory_revision_applied``). Журнал недоступен →
+    :class:`JournalUnavailable` (значение не пишется).
     """
-    spec = pr.block(block_id)
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
                 "block_id": block_id}
-    store = store if store is not None else default_journal(cache)
-    if store is None:
-        return {"applied": False, "reason": "journal_unavailable",
-                "block_id": block_id, "journal_recorded": False}
+    result = await write_prompt_values(
+        [PromptWriteItem(block_id=spec.block_id, text=str(text or ""))],
+        scope=scope, chat_id=chat_id, cache=cache, store=store, actor=actor,
+        reason=reason, kind=kind)
+    if result["rejected"]:
+        rejected = result["rejected"][0]
+        payload = {"applied": False, "reason": rejected.get("reason", ""),
+                   "block_id": spec.block_id, "pg_key": spec.pg_key,
+                   "journal_recorded": False}
+        if rejected.get("detail"):
+            payload["detail"] = rejected["detail"]
+        return payload
+    applied = spec.pg_key in result["applied"]
+    snapshot = next((row for row in result["prompt_snapshots"]
+                     if row["key"] == spec.pg_key), {})
+    state = await _read_applied_safe(store, spec.block_id, scope, chat_id)
+    return {
+        "applied": applied, "reason": "ok" if applied else "skipped_same",
+        "block_id": spec.block_id, "pg_key": spec.pg_key, "scope": scope,
+        "chat_id": chat_id,
+        "revision_id": snapshot.get("revision_id", ""),
+        "sha256_12": snapshot.get("sha256_12", ""),
+        "factory_revision_applied": (state.factory_revision_applied
+                                     if state is not None else ""),
+        "outcome": "applied" if applied else "skipped_same",
+        "journal_recorded": True,
+        "prompt_snapshots": result["prompt_snapshots"],
+        "chat_updated_at": result["chat_updated_at"],
+    }
+
+
+async def _read_applied_safe(store, block_id: str, scope: str,
+                             chat_id: int | None):
     try:
-        await store.ensure_journal()
-    except Exception:
-        logger.warning("[prompt_release] журнал недоступен для правки",
-                       exc_info=True)
-        return {"applied": False, "reason": "journal_unavailable",
-                "block_id": block_id, "journal_recorded": False}
-    state = await store.read_applied(spec.block_id, scope, chat_id)
-    text = str(text or "")
-    async with store.transaction() as tx:
-        try:
-            revision = await _insert_revision_once(
-                store, spec, origin="manual", body=text, scope=scope,
-                chat_id=chat_id, actor=str(actor or ""), reason=reason)
-            outcome = "applied"
-            if scope == "global":
-                previous = _spec_current_text(spec, cache)
-                if previous == text:
-                    outcome = "skipped_same"
-                else:
-                    await _write_active_value(
-                        store, spec, scope, chat_id, text,
-                        current_doc=(_spec_current_doc(spec, cache)
-                                     if spec.pg_doc_field else None))
-            else:
-                same = await _read_override_value(store, int(chat_id or 0),
-                                                  spec.pg_key)
-                if same == text:
-                    outcome = "skipped_same"
-                else:
-                    await _write_active_value(store, spec, scope, chat_id,
-                                              text)
-            await store.insert_activation(ActivationRow(
-                block_id=spec.block_id, scope=scope, chat_id=chat_id,
-                revision_id=revision.revision_id,
-                factory_revision_applied=(state.factory_revision_applied
-                                          if state is not None else ""),
-                kind=kind, outcome=outcome, release_id="",
-                actor=str(actor or ""), detail_code=reason))
-        except Exception:
-            logger.error("[prompt_release] ручная запись отменена | "
-                         "block=%s | scope=%s", spec.block_id, scope,
-                         exc_info=True)
-            raise
-    if outcome == "applied" and cache is not None and scope == "global":
-        try:
-            category = "content" if spec.pg_doc_field else "prompts"
-            value: object = text
-            if spec.pg_doc_field:
-                from services.prompt_factory import _doc_from_raw
-                raw = cache.get(spec.pg_key, None)
-                value = _doc_with_field_public(_doc_from_raw(raw),
-                                               spec.pg_doc_field, text)
-            await cache.set(spec.pg_key, value, category)
-        except Exception:      # pragma: no cover — память не роняет правку
-            logger.warning("[prompt_release] кэш памяти не обновлён | "
-                           "key=%s", spec.pg_key, exc_info=True)
-    if scope == "chat" and chat_id is not None:
-        try:
-            from services.chat_params import get_chat_params_cache
-            chat_cache = get_chat_params_cache()
-            if chat_cache is not None:
-                await chat_cache.invalidate_chat(int(chat_id))
-        except Exception:          # pragma: no cover — fail-open
-            pass
-    logger.info("[prompt_release] manual edit | block=%s | scope=%s | "
-                "chat=%s | sha=%s | outcome=%s | actor=%s", spec.block_id,
-                scope, chat_id, revision.content_sha12, outcome,
-                str(actor or ""))
-    return {"applied": outcome == "applied", "reason": "ok",
-            "block_id": spec.block_id, "pg_key": spec.pg_key,
-            "scope": scope, "chat_id": chat_id,
-            "revision_id": revision.revision_id,
-            "sha256_12": revision.content_sha12,
-            "factory_revision_applied": (state.factory_revision_applied
-                                         if state is not None else ""),
-            "outcome": outcome, "journal_recorded": True}
+        return await store.read_applied(block_id, scope, chat_id)
+    except Exception:          # pragma: no cover — чтение указателя не критично
+        return None
 
 
 def _doc_with_field_public(document: dict, field_name: str, text: str) -> dict:
@@ -1596,52 +2165,175 @@ async def _read_override_value(store, chat_id: int, pg_key: str) -> str | None:
     return None
 
 
-async def record_manual_activation(block_id: str, text: str, *, scope: str =
-                                   "global", chat_id: int | None = None,
-                                   actor=None, reason: str = "",
-                                   kind: str = "manual_edit", cache=None,
-                                   store=None) -> dict:
-    """Журналировать факт активации текста БЕЗ повторной записи значения.
+async def remove_prompt_override(block_id: str, *, chat_id: int, actor=None,
+                                 cache=None, store=None, pg=None,
+                                 reason: str = "chat_override_removed",
+                                 expected_updated_at: str | None = None) -> dict:
+    """Снять чатовый override со снимком текста (контракт §3.6).
 
-    Для путей, у которых запись значения принадлежит своему владельцу
-    (per-chat override идёт через ``chat_params.set_chat_params`` со своей
-    историей и локами; ``apply_factory_reset``/``restore_backup`` пишут
-    глобальный слой штатным API): журнал получает ревизию + строку активации,
-    ``factory_revision_applied`` сохраняется. Best-effort: сбой журнала не
-    откатывает уже выполненную запись значения (как и прежний провенанс).
+    Одна транзакция под теми же локами: текущий override читается из PG;
+    последний действующий собственный текст сохраняется ревизией (если такой
+    ревизии ещё нет) + событие ``kind='chat_inherit_reset'``,
+    ``outcome='recorded'``; ключ удаляется тем же ``set_chat_params`` на
+    коннекте транзакции. Активный указатель не двигается — чат наследует
+    global effective. Журнал недоступен → :class:`JournalUnavailable`.
     """
-    spec = pr.block(block_id)
-    if spec is None:
-        return {"recorded": False, "reason": "block_unknown"}
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
     store = store if store is not None else default_journal(cache)
     if store is None:
-        return {"recorded": False, "reason": "journal_unavailable"}
+        raise JournalUnavailable(
+            "журнал версий недоступен: override не снят")
     try:
         await store.ensure_journal()
-        state = await store.read_applied(spec.block_id, scope, chat_id)
-        revision = await _insert_revision_once(
-            store, spec, origin="manual", body=str(text or ""), scope=scope,
-            chat_id=chat_id, actor=str(actor or ""), reason=reason)
-        await store.insert_activation(ActivationRow(
-            block_id=spec.block_id, scope=scope, chat_id=chat_id,
-            revision_id=revision.revision_id,
-            factory_revision_applied=(state.factory_revision_applied
-                                      if state is not None else ""),
-            kind=kind, outcome="applied", release_id="", actor=str(actor or ""),
-            detail_code=reason))
-    except Exception:
-        # Best-effort (контракт): сбой журнала не роняет уже выполненную
-        # запись значения — вызывающий получает честный recorded=False.
-        logger.warning("[prompt_release] факт активации не журналирован | "
-                       "block=%s | scope=%s", spec.block_id, scope,
-                       exc_info=True)
-        return {"recorded": False, "reason": "journal_error"}
-    logger.info("[prompt_release] manual activation | block=%s | scope=%s | "
-                "chat=%s | sha=%s | kind=%s | actor=%s", spec.block_id,
-                scope, chat_id, revision.content_sha12, kind,
-                str(actor or ""))
-    return {"recorded": True, "revision_id": revision.revision_id,
-            "sha256_12": revision.content_sha12}
+    except Exception as exc:
+        raise JournalUnavailable(
+            f"журнал версий недоступен: {type(exc).__name__}") from exc
+
+    chat_key = int(chat_id)
+    revision_id = ""
+    with journal_write_scope([JournalWriteGrant(spec.block_id, "chat",
+                                                chat_key)]):
+        async with store.apply_lock():
+            async with store.transaction():
+                state_row = await store.read_chat_state(chat_key, pg=pg)
+                overrides = dict((state_row or {}).get("overrides") or {})
+                if state_row is None or spec.pg_key not in overrides:
+                    return {"applied": False, "reason": "no_chat_override",
+                            "block_id": block_id, "pg_key": spec.pg_key,
+                            "scope": "chat", "chat_id": chat_key}
+                raw = overrides.get(spec.pg_key)
+                last_text = (_block_text_value(spec, raw) or "")
+                applied_state = await store.read_applied(
+                    spec.block_id, "chat", chat_key)
+                if last_text.strip():
+                    # Идемпотентно по revision_id: если байты уже есть в
+                    # истории — новой ревизии не появляется, событие остаётся.
+                    revision = await _insert_revision_once(
+                        store, spec, origin="manual", body=last_text,
+                        scope="chat", chat_id=chat_key, actor=str(actor or ""),
+                        reason=reason)
+                    revision_id = revision.revision_id
+                overrides.pop(spec.pg_key, None)
+                meta = dict((state_row or {}).get("meta") or {})
+                meta["updated_by"] = actor
+                await store.write_chat_state(
+                    chat_key, overrides, meta, changed_by=actor, pg=pg,
+                    expected_updated_at=expected_updated_at)
+                await store.insert_activation(ActivationRow(
+                    block_id=spec.block_id, scope="chat", chat_id=chat_key,
+                    revision_id=revision_id,
+                    factory_revision_applied=(
+                        applied_state.factory_revision_applied
+                        if applied_state is not None else ""),
+                    kind="chat_inherit_reset", outcome="recorded",
+                    release_id="", actor=str(actor or ""), detail_code=reason))
+    try:
+        from services.chat_params import get_chat_params_cache
+        chat_cache = get_chat_params_cache()
+        if chat_cache is not None:
+            await chat_cache.invalidate_chat(chat_key)
+    except Exception:          # pragma: no cover — fail-open
+        logger.debug("[prompt_release] chat cache invalidate failed",
+                     exc_info=True)
+    logger.info("[prompt_release] chat override removed | block=%s | chat=%s "
+                "| revision=%s | actor=%s", spec.block_id, chat_key,
+                revision_id, str(actor or ""))
+    return {"applied": True, "block_id": block_id, "pg_key": spec.pg_key,
+            "scope": "chat", "chat_id": chat_key, "revision_id": revision_id,
+            "factory_value_written": False, "global_value_written": False}
+
+
+async def capture_pre_versioning_values(store, cache=None) -> int:
+    """Захватить ДЕЙСТВУЮЩИЕ ручные байты до первой версионированной записи.
+
+    Шаг внутри ``apply_release`` (та же транзакция и лок), сразу после импорта
+    старой истории (контракт §3.7): для каждого PG-блока и каждого
+    существующего чатового override, у которых текущих байтов НЕТ ни в одной
+    ревизии этого scope, вставляется ревизия ``origin='legacy'``,
+    ``reason='pre_versioning_import'``, время импорта = now, и событие
+    ``kind='legacy_import'``, ``outcome='recorded'``. Действующий текст,
+    активный указатель и ``factory_revision_applied`` не меняются; повтор
+    идемпотентен по ``revision_id``.
+
+    Возвращает число захваченных значений.
+    """
+    captured = 0
+    for spec in sorted(pr.all_blocks(), key=lambda s: s.block_id):
+        if not spec.pg_key:
+            continue
+        try:
+            raw = await store.read_global(spec.pg_key)
+        except Exception:      # pragma: no cover — чтение слоя не роняет старт
+            logger.debug("[prompt_release] capture: read failed | key=%s",
+                         spec.pg_key, exc_info=True)
+            continue
+        text = _block_text_value(spec, raw)
+        if text and text.strip():
+            if await _capture_value_once(store, spec, text, scope="global",
+                                         chat_id=None):
+                captured += 1
+        try:
+            chat_values = await store.iter_chat_overrides(spec.pg_key)
+        except Exception:      # pragma: no cover
+            continue
+        for chat_id, value in chat_values:
+            chat_text = _block_text_value(spec, value)
+            if chat_text and chat_text.strip():
+                if await _capture_value_once(store, spec, chat_text,
+                                             scope="chat",
+                                             chat_id=int(chat_id)):
+                    captured += 1
+    if captured:
+        logger.info("[prompt_release] pre_versioning capture | values=%d",
+                    captured)
+    return captured
+
+
+async def _capture_value_once(store, spec, text: str, *, scope: str,
+                              chat_id: int | None) -> bool:
+    """Одна запись захвата: ревизия legacy + событие recorded (или no-op)."""
+    sha = pr.sha12(text)
+    for origin in pr.REVISION_ORIGINS:
+        existing = await store.get_revision(
+            pr.revision_id_for(spec.block_id, scope, chat_id, origin, sha))
+        if existing is not None:
+            return False           # байты уже известны истории этого scope
+    revision = await _insert_revision_once(
+        store, spec, origin="legacy", body=text, scope=scope, chat_id=chat_id,
+        actor="", reason="pre_versioning_import")
+    await store.insert_activation(ActivationRow(
+        block_id=spec.block_id, scope=scope, chat_id=chat_id,
+        revision_id=revision.revision_id, factory_revision_applied="",
+        kind="legacy_import", outcome="recorded", release_id="", actor="",
+        detail_code="pre_versioning_import"))
+    return True
+
+
+def _foreign_scope_reason(revision, scope: str,
+                          chat_id: int | None) -> str:
+    """Почему ревизия не принадлежит запрошенному scope ("" — принадлежит).
+
+    Чужой чат/scope не активируется: перенос текста между scope — это НОВАЯ
+    ревизия целевого scope (``origin='restored'``, §2.4 п.8), а не
+    перепривязка чужого ``revision_id`` (§7.3 п.6).
+    """
+    rev_scope = str(getattr(revision, "scope", "") or "")
+    request_scope = str(scope or "global")
+    if rev_scope == "chat":
+        if request_scope != "chat" or \
+                int(getattr(revision, "chat_id", 0) or 0) != int(chat_id or 0):
+            return "revision_foreign_scope"
+        return ""
+    if request_scope == "chat":
+        return "revision_foreign_scope"
+    if rev_scope == "code" and request_scope != "code":
+        return "revision_foreign_scope"
+    if rev_scope == "global" and request_scope == "code":
+        return "revision_foreign_scope"
+    return ""
 
 
 async def activate_revision(block_id: str, revision_id: str, *, scope: str =
@@ -1675,6 +2367,16 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
     if revision is None or revision.block_id != spec.block_id:
         return {"applied": False, "reason": "revision_unknown",
                 "block_id": block_id, "revision_id": revision_id}
+    foreign = _foreign_scope_reason(revision, scope, chat_id)
+    if foreign:
+        # §7.3 п.6: чужой scope/чат не активируется — ни одного изменения.
+        logger.warning("[prompt_release] %s | block=%s | revision=%s | "
+                       "revision_scope=%s/%s | requested=%s/%s", foreign,
+                       spec.block_id, revision_id, revision.scope,
+                       revision.chat_id, scope, chat_id)
+        return {"applied": False, "reason": foreign, "block_id": block_id,
+                "revision_id": revision_id, "revision_scope": revision.scope,
+                "revision_chat_id": revision.chat_id}
     if revision.retired:
         return {"applied": False, "reason": "revision_retired",
                 "block_id": block_id, "revision_id": revision_id}
@@ -1748,7 +2450,9 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
                 value = _doc_with_field_public(_doc_from_raw(raw),
                                                spec.pg_doc_field,
                                                revision.body)
-            await cache.set(spec.pg_key, value, category)
+            with journal_write_scope([JournalWriteGrant(spec.block_id,
+                                                       "global", None)]):
+                await cache.set(spec.pg_key, value, category)
         except Exception:      # pragma: no cover — память не роняет активацию
             logger.warning("[prompt_release] кэш памяти не обновлён | "
                            "key=%s", spec.pg_key, exc_info=True)
@@ -1918,11 +2622,17 @@ async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
 
 __all__ = [
     "CUTOVER_RELEASE_ID", "JOURNAL_DDL", "SUPPORTED_SCHEMA_COMPAT",
+    "LOCK_TIMEOUT_SQL", "NON_TEXT_VALUE_KEYS",
     "RevisionRow", "ActivationRow", "AppliedState", "BlockReleaseResult",
+    "PromptWriteItem", "JournalWriteGrant",
     "JournalUnavailable", "PromptJournalError", "PromptPermissionError",
+    "PromptJournalBypass",
     "PermissionChecker", "set_permission_checker", "check_permission",
+    "journal_write_scope", "journal_write_granted", "legacy_migration_write",
+    "assert_prompt_write_allowed",
     "MemoryPromptJournal", "PgPromptJournal", "default_journal",
-    "apply_release", "write_versioned_value", "record_manual_activation",
+    "apply_release", "write_prompt_values", "write_versioned_value",
+    "remove_prompt_override", "capture_pre_versioning_values",
     "activate_revision", "list_versions", "get_revision_source",
     "diff_revisions",
 ]

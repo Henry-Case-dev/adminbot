@@ -190,19 +190,6 @@ def _value_changed(spec, present: bool, text: str, factory: str) -> bool:
     return bool(present) and text != factory
 
 
-async def _store_spec_value(spec, text: str, cache, *, document=None,
-                            set_level: bool = True) -> None:
-    """Записать значение блока в глобальный слой (скаляр или поле документа)."""
-    field = _doc_field(spec)
-    if not field:
-        await cache.set(spec.pg_key, text, "prompts")
-        return
-    await cache.set(spec.pg_key,
-                    _doc_with_field(document or {}, field, text,
-                                    set_level=set_level),
-                    CORE_DOC_CATEGORY)
-
-
 def _utc_now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(
         timespec="seconds")
@@ -416,35 +403,36 @@ async def apply_factory_reset(block_id: str, *, cache=None,
                 "revision": pr.ACTIVE_PREFIX + pr.sha12(factory),
                 "factory_revision": pr.factory_revision(block_id)}
     previous = current or ""
-    if previous:
+    if previous and not _HISTORY_FROZEN:
         await _append_history(cache, block_id, pg_key=spec.pg_key,
                               value=previous, source="global",
                               kind="factory_reset", actor=actor,
                               reason=reason or "factory_reset")
+    # EPIC-PROMPT-VERSIONING-UX-01 §3: возврат заводского текста — та же
+    # журнальная запись (ревизия + событие + значение одной транзакцией).
+    # Best-effort «значение записано, журнал потом» удалён: без журнала 503.
+    from services import prompt_release_policy as prp
+    result = await prp.write_prompt_values(
+        [prp.PromptWriteItem(block_id=spec.block_id, text=factory,
+                             set_level=False)],
+        scope="global", cache=cache, actor=actor,
+        reason=reason or "factory_reset", kind="manual_rollback")
+    if result["rejected"]:
+        rejected = result["rejected"][0]
+        return {"applied": False, "reason": rejected.get("reason", ""),
+                "block_id": block_id, "pg_key": spec.pg_key}
+    applied = spec.pg_key in result["applied"]
     # Провенанс: ревизия записана API реестра ⇒ является действующим слоем
     # (после заводского сброса это и так заводской текст — отметка убирает
     # ложную диагностику удержания, SOUL-AMD.1.2/4.6).
     await _mark_provenance(cache, block_id, pg_key=spec.pg_key, value=factory,
                            kind="factory_reset", actor=actor,
                            reason=reason or "factory_reset", scope="global")
-    await _store_spec_value(spec, factory, cache, document=document,
-                            set_level=False)
-    # EVOL-016: факт «заводской текст снова активен» — в журнал (rev + строка
-    # активации), иначе рестарт увидит расхождение журнала и значения.
-    try:
-        from services import prompt_release_policy as prp
-        await prp.record_manual_activation(
-            block_id, factory, scope="global", actor=actor,
-            reason=reason or "factory_reset", kind="manual_rollback",
-            cache=cache)
-    except Exception:          # pragma: no cover — журнал не роняет сброс
-        logger.warning("[prompt_factory] журнал не зафиксировал заводской "
-                       "сброс | block=%s", block_id, exc_info=True)
     logger.info("[prompt_factory] factory reset | block=%s | key=%s | "
-                "was=%s | now=%s", block_id, spec.pg_key,
-                pr.sha12(previous), pr.sha12(factory))
+                "was=%s | now=%s | applied=%s", block_id, spec.pg_key,
+                pr.sha12(previous), pr.sha12(factory), applied)
     return {
-        "applied": True,
+        "applied": applied,
         "block_id": block_id,
         "pg_key": spec.pg_key,
         "document_field": field,
@@ -455,6 +443,7 @@ async def apply_factory_reset(block_id: str, *, cache=None,
         "factory_revision": pr.factory_revision(block_id),
         "history_key": FACTORY_HISTORY_KEY,
         "chat_overrides_touched": False,
+        "prompt_snapshots": result["prompt_snapshots"],
     }
 
 
@@ -468,221 +457,100 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
                              expected_updated_at: str | None = None,
                              set_level: bool = True,
                              pg=None, get_root=None, set_root=None) -> dict:
-    """Записать речевое значение через API реестра (правка владельца).
+    """Записать речевое значение через единый версионированный слой.
 
-    Единственный путь, делающий значение ДЕЙСТВУЮЩИМ слоем (SOUL-AMD.1.1/4.1:
-    владелец управляет речью через MiniApp).
-
-    EVOL-016 (контракт §1.6): правка становится ИММУТАБЕЛЬНОЙ ревизией
-    журнала (``origin=manual``) со строкой активации ``kind=manual_edit``;
-    ``factory_revision_applied`` не сбрасывается — рестарт без новой метки
-    правку не тронет, следующая заводская ревизия снимет её в историю.
-    Глобальный слой: ревизия + активация + значение одной транзакцией
-    (``prompt_release_policy.write_versioned_value``). Per-chat override:
-    запись значения остаётся за ``chat_params`` (его история и локи), журнал
-    получает факт активации (best-effort). Журнал недоступен → прежний путь,
-    честный признак ``journal_recorded=False``.
+    EPIC-PROMPT-VERSIONING-UX-01 §3: значение ЛЮБОГО промпта (глобального или
+    чатового) пишется ``prompt_release_policy.write_prompt_values`` — ревизия +
+    событие активации + значение одной PG-транзакцией. Best-effort путь
+    «значение записано, журнал не сработал» и признак ``journal_recorded=False``
+    как успех УДАЛЕНЫ: без журнала запись отказывает (``JournalUnavailable``
+    → HTTP 503), значение не меняется.
 
     ``chat_id`` задан → per-chat override (наследование глобала сохраняется);
     иначе — глобальный ключ блока. ``expected_updated_at`` — существующий
-    optimistic-токен (``FactoryConflict`` при чужой правке). ``set_level``
-    False — правка поля документа не меняет выбор владельца ``detail_level``
-    (нужно owner-preserving миграции активной редакции Core).
+    optimistic-токен (``ChatParamsConflict`` 409 / ``FactoryConflict`` 409).
+    ``set_level`` False — правка поля документа не меняет выбор владельца
+    ``detail_level`` (нужно owner-preserving миграции активной редакции Core).
+    ``get_root``/``set_root`` сохранены в подписи ради совместимости вызовов;
+    запись больше не идёт «своим» путём мимо журнала.
     """
-    from services import chat_params
     from services import prompt_release_policy as prp
-    spec = pr.block(block_id)
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
                 "block_id": block_id}
     value = str(text or "")
-    if not value.strip():
-        return {"applied": False, "reason": "empty_value", "block_id": block_id,
-                "pg_key": spec.pg_key}
-    classification = pr.withheld_classification(block_id, value)
-    if classification and classification.get("class") == \
-            pr.WITHHELD_LEGACY_CLASS:
-        # P0-PROMPTS (24.10.2026): известные legacy-редакции (старая личность /
-        # обход ограничений / ослабленный разбор) не активируются даже явной
-        # перезаписью. Текст остаётся доступен в сохранённой редакции/истории.
-        logger.warning("[prompt_factory] legacy_incompatible edit rejected | "
-                       "block=%s | sha=%s", block_id, pr.sha12(value))
-        return {"applied": False, "reason": "legacy_incompatible",
-                "block_id": block_id, "pg_key": spec.pg_key,
-                "detail": classification.get("reason", ""),
-                "stored_sha256_12": pr.sha12(value)}
     cache = cache if cache is not None else _default_cache()
-    if chat_id is not None:
-        # Per-chat: запись значения и optimistic-токен остаются за
-        # ``chat_params.set_chat_params`` (его 409-семантика и
-        # идемпотентный short-circuit D-409-1 не дублируются здесь).
-        legacy = await _write_chat_speech_value(
-            spec, value, cache=cache, actor=actor, reason=reason,
-            chat_id=int(chat_id), expected_updated_at=expected_updated_at,
-            pg=pg, get_root=get_root, set_root=set_root)
-        if legacy.get("applied") and cache is not None:
-            recorded = await prp.record_manual_activation(
-                block_id, value, scope="chat", chat_id=int(chat_id),
-                actor=actor, reason=reason or "owner_edit", cache=cache)
-            # Ревью (nonblocking): честный флаг — журнал мог не записать.
-            legacy["journal_recorded"] = bool(recorded.get("recorded"))
-        else:
-            legacy.setdefault("journal_recorded", False)
-        return legacy
-    # Optimistic-токен глобального слоя: общий гейт журнального и
-    # легаси-путей (чужая правка → 409-семантика FactoryConflict).
-    if expected_updated_at is not None:
-        actual = None
-        try:
-            actual = cache.get_updated_at(spec.pg_key) if cache is not None \
-                else None
-        except Exception:      # pragma: no cover
-            actual = None
-        if actual != expected_updated_at:
-            raise FactoryConflict(spec.pg_key, expected_updated_at, actual)
-    # Журнальный путь (глобальный слой): одна транзакция — ревизия,
-    # активация, значение; память кэша обновляет сам write_versioned_value.
-    journal = prp.default_journal(cache)
-    if journal is not None:
-        result = await prp.write_versioned_value(
-            block_id, value, cache=cache, store=journal,
-            scope="global", chat_id=None, actor=actor,
-            reason=reason or "owner_edit")
-        if result.get("journal_recorded"):
-            return {
-                "applied": result.get("applied", False),
-                "reason": result.get("outcome", "ok")
-                if result.get("applied") else "already_that_value",
-                "block_id": block_id, "pg_key": spec.pg_key,
-                "scope": "global", "chat_overrides_touched": False,
-                "changed": result.get("applied", False),
-                "revision": pr.ACTIVE_PREFIX + result.get("sha256_12", ""),
-                "sha256_12": result.get("sha256_12", ""),
-                "factory_revision_applied": result.get(
-                    "factory_revision_applied", ""),
-                "history_key": FACTORY_HISTORY_KEY,
-                "provenance_persisted": True,
-                "effective": True,
-                "journal_recorded": True,
-                "legacy_persona_marker": pr.legacy_persona_present(value),
-                "provenance": {"kind": "manual_edit", "scope": "global"},
-            }
-    # журнал недоступен → прежний путь (честный journal_recorded=False)
-    if cache is None:
-        return {"applied": False, "reason": "config_cache_unavailable",
-                "block_id": block_id, "journal_recorded": False}
-    _present, previous, document = _read_spec_value(spec, cache)
-    if previous:
-        await _append_history(cache, block_id, pg_key=spec.pg_key,
-                              value=previous, source="global",
-                              kind="owner_edit", actor=actor,
-                              reason=reason or "owner_edit")
-    # Провенанс — ДО записи значения: успешная запись значения и есть
-    # последнее действие (журнал не может «опередить» само значение).
-    entry, persisted = await _mark_provenance(
-        cache, block_id, pg_key=spec.pg_key, value=value, kind="owner_edit",
-        actor=actor, reason=reason or "owner_edit", scope="global")
-    await _store_spec_value(spec, value, cache, document=document,
-                            set_level=set_level)
+    scope = "chat" if chat_id is not None else "global"
+    kind = "manual_edit"
+    previous = ""
+    if scope == "global" and cache is not None and not _HISTORY_FROZEN:
+        # Bounded `character.prompt_history` (заморожен после cutover) — прежняя
+        # книга «заменённые редакции»; источник отката `speech.py/rollback`.
+        # Пишется только ПОСЛЕ принятой записи: отказ не оставляет провенанса.
+        _present, previous, _document = _read_spec_value(spec, cache)
+    result = await prp.write_prompt_values(
+        [prp.PromptWriteItem(block_id=spec.block_id, text=value,
+                             expected_updated_at=expected_updated_at,
+                             set_level=set_level)],
+        scope=scope, chat_id=(int(chat_id) if chat_id is not None else None),
+        cache=cache, pg=pg, actor=actor, reason=reason or "owner_edit",
+        kind=kind)
+    if result["rejected"]:
+        rejected = result["rejected"][0]
+        payload = {"applied": False, "reason": rejected.get("reason", ""),
+                   "block_id": spec.block_id, "pg_key": spec.pg_key}
+        if rejected.get("detail"):
+            payload["detail"] = rejected["detail"]
+        if rejected.get("reason") == "legacy_incompatible":
+            payload["stored_sha256_12"] = pr.sha12(value)
+        return payload
+    applied = spec.pg_key in result["applied"]
+    snapshot = next((row for row in result["prompt_snapshots"]
+                     if row["key"] == spec.pg_key), {})
+    if applied:
+        if scope == "global" and previous and not _HISTORY_FROZEN:
+            await _append_history(cache, spec.block_id, pg_key=spec.pg_key,
+                                  value=previous, source="global",
+                                  kind="owner_edit", actor=actor,
+                                  reason=reason or "owner_edit")
+        # Провенанс (SOUL-AMD.1.2/4.6) — ПОСЛЕ успешной записи значения: метка
+        # «записано API реестра» не может опережать само значение. После
+        # cutover (``freeze_history``) это no-op: провенанс ведёт журнал.
+        _entry, persisted = await _mark_provenance(
+            cache, spec.block_id, pg_key=spec.pg_key, value=value,
+            kind="owner_edit", actor=actor, reason=reason or "owner_edit",
+            scope=scope, chat_id=chat_id)
+    else:
+        persisted = True
     marker = pr.legacy_persona_present(value)
     if marker:
         logger.warning("[prompt_factory] owner edit несёт маркер старой "
                        "личности | block=%s | sha=%s (правка владельца не "
                        "переписывается, но видна в реестре)",
-                       block_id, entry["sha256_12"])
-    logger.info("[prompt_factory] owner edit | block=%s | key=%s | sha=%s | "
-                "chars=%d", block_id, spec.pg_key, entry["sha256_12"],
-                len(value))
+                       block_id, pr.sha12(value))
+    logger.info("[prompt_factory] owner edit | block=%s | key=%s | scope=%s | "
+                "chat=%s | sha=%s | chars=%d | applied=%s", block_id,
+                spec.pg_key, scope, chat_id, pr.sha12(value), len(value),
+                applied)
     return {
-        "applied": True, "block_id": block_id, "pg_key": spec.pg_key,
-        "scope": "global", "chat_overrides_touched": False,
-        "changed": previous != value,
-        "previous_revision": pr.ACTIVE_PREFIX + pr.sha12(previous)
-        if previous else "",
-        "revision": entry["revision"], "sha256_12": entry["sha256_12"],
+        "applied": applied,
+        "reason": "ok" if applied else "already_that_value",
+        "block_id": spec.block_id, "pg_key": spec.pg_key, "scope": scope,
+        "chat_id": chat_id,
+        "changed": applied,
+        "revision": pr.ACTIVE_PREFIX + snapshot.get("sha256_12", ""),
+        "revision_id": snapshot.get("revision_id", ""),
+        "sha256_12": snapshot.get("sha256_12", ""),
         "history_key": FACTORY_HISTORY_KEY,
         "provenance_persisted": persisted,
-        "effective": persisted,
-        "journal_recorded": False,
+        "effective": applied,
+        "journal_recorded": True,
+        "chat_overrides_touched": False,
+        "chat_updated_at": result["chat_updated_at"],
+        "prompt_snapshots": result["prompt_snapshots"],
         "legacy_persona_marker": marker,
-        "provenance": {"kind": entry["kind"], "scope": entry["scope"]},
-    }
-
-
-async def _write_chat_speech_value(spec, value: str, *, cache=None, actor=None,
-                                   reason: str = "", chat_id: int,
-                                   expected_updated_at: str | None = None,
-                                   pg=None, get_root=None,
-                                   set_root=None) -> dict:
-    """Per-chat override через API реестра (наследование глобала сохраняется).
-
-    Для блока-поля JSON-документа (Personality Core) чат получает документ,
-    СОБРАННЫЙ из глобального (наследование всех полей) с правкой целевого
-    поля: локальная адаптация не «обнуляет» вторую редакцию Core и не меняет
-    глобальное ядро (SOUL-02.8).
-    """
-    from services import chat_params
-    cache = cache if cache is not None else _default_cache()
-    get_root = get_root or chat_params.get_all_chat_params
-    set_root = set_root or (lambda chat, patch, **kw:
-                            chat_params.set_chat_params(chat, patch, **kw))
-    root = await get_root(chat_id, pg=pg) if pg is not None else \
-        await get_root(chat_id)
-    overrides = dict((root or {}).get("overrides") or {})
-    field = _doc_field(spec)
-    if field:
-        own_doc = _doc_from_raw(overrides.get(spec.pg_key))
-        if not own_doc:
-            # Наследование: базой для локальной правки служит документ
-            # владельца (глобальный слой), а не пустой документ.
-            _present, _text, global_doc = _read_spec_value(spec, cache)
-            current_doc = global_doc
-        else:
-            current_doc = own_doc
-        previous = pr.doc_field_text(current_doc, field)
-    else:
-        current = overrides.get(spec.pg_key)
-        previous = None if current is None else str(current)
-    if previous is not None and str(previous) == value:
-        entry, persisted = await _mark_provenance(
-            cache, spec.block_id, pg_key=spec.pg_key, value=value,
-            kind="owner_edit", actor=actor, reason=reason or "owner_edit",
-            scope="chat", chat_id=chat_id)
-        return {"applied": False, "reason": "already_that_value",
-                "block_id": spec.block_id, "pg_key": spec.pg_key,
-                "scope": "chat", "chat_id": chat_id,
-                "revision": entry["revision"],
-                "provenance_persisted": persisted,
-                "history_key": FACTORY_HISTORY_KEY}
-    overrides[spec.pg_key] = (
-        _doc_with_field(current_doc, field, value)
-        if field else value)
-    patch: dict = {"overrides": overrides}
-    entry, persisted = await _mark_provenance(
-        cache, spec.block_id, pg_key=spec.pg_key, value=value,
-        kind="owner_edit", actor=actor, reason=reason or "owner_edit",
-        scope="chat", chat_id=chat_id)
-    if pg is not None and expected_updated_at is not None:
-        await set_root(chat_id, patch, pg=pg,
-                       expected_updated_at=expected_updated_at)
-    elif pg is not None:
-        await set_root(chat_id, patch, pg=pg)
-    else:
-        await set_root(chat_id, patch)
-    logger.info("[prompt_factory] owner edit (chat) | block=%s | key=%s | "
-                "chat=%s | sha=%s", spec.block_id, spec.pg_key, chat_id,
-                entry["sha256_12"])
-    return {
-        "applied": True, "block_id": spec.block_id, "pg_key": spec.pg_key,
-        "scope": "chat", "chat_id": chat_id, "changed": True,
-        "previous_revision": (pr.ACTIVE_PREFIX + pr.sha12(str(previous))
-                              if previous is not None else ""),
-        "revision": entry["revision"], "sha256_12": entry["sha256_12"],
-        "history_key": FACTORY_HISTORY_KEY,
-        "provenance_persisted": persisted,
-        "effective": persisted,
-        "legacy_persona_marker": pr.legacy_persona_present(value),
-        "provenance": {"kind": entry["kind"], "scope": entry["scope"]},
+        "provenance": {"kind": "owner_edit", "scope": scope},
     }
 
 
@@ -692,42 +560,40 @@ async def _write_chat_speech_value(spec, value: str, *, cache=None, actor=None,
 
 async def reset_chat_override(chat_id: int, block_id: str, *, pg=None,
                               get_root=None, set_root=None,
-                              expected_updated_at: str | None = None) -> dict:
+                              expected_updated_at: str | None = None,
+                              actor=None, cache=None) -> dict:
     """«Сбросить переопределение чата»: возвращает наследование глобального.
 
     Контракт SOUL-AMD.4.3: это НЕ заводской сброс. Глобальный ключ не
     изменяется; при отсутствии override — no-op с диагностикой; наследованное
     значение возвращается вызывающему (UI показывает Factory / Global Custom).
-    ``expected_updated_at`` (если задан) уходит в существующий optimistic-путь
-    ``chat_params.set_chat_params`` (409 при чужой правке).
+
+    EPIC-PROMPT-VERSIONING-UX-01 §3.6: снятие override — журнальная операция
+    ``prompt_release_policy.remove_prompt_override`` (снимок последнего
+    действующего текста + событие ``chat_inherit_reset`` + удаление ключа в
+    одной транзакции). ``expected_updated_at`` уходит в тот же
+    ``set_chat_params`` (409 при чужой правке).
     """
-    from services import chat_params
+    from services import prompt_release_policy as prp
     spec = pr.block(block_id)
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
                 "block_id": block_id}
-    get_root = get_root or chat_params.get_all_chat_params
-    set_root = set_root or (lambda chat, patch, **kw: chat_params.set_chat_params(
-        chat, patch, **kw))
-    # P0 PERSIST-FIX: RMW-консистентность — при явном пуле читаем напрямую из
-    # PG (кэш-слой может быть устаревшим до TTL), иначе прежний путь.
-    root = await (get_root(chat_id, pg=pg) if pg is not None
-                  else get_root(chat_id)) or {}
-    overrides = dict(root.get("overrides") or {})
-    if spec.pg_key not in overrides:
-        return {"applied": False, "reason": "no_chat_override",
+    cache = cache if cache is not None else _default_cache()
+    result = await prp.remove_prompt_override(
+        spec.block_id, chat_id=int(chat_id), actor=actor, cache=cache, pg=pg,
+        expected_updated_at=expected_updated_at)
+    if not result.get("applied"):
+        return {"applied": False, "reason": result.get("reason",
+                                                       "no_chat_override"),
                 "block_id": block_id, "pg_key": spec.pg_key,
                 "inherits": _inherit_view(spec.block_id)}
-    overrides.pop(spec.pg_key, None)
-    patch: dict = {"overrides": overrides}
-    if expected_updated_at is not None:
-        await set_root(chat_id, patch, pg=pg,
-                       expected_updated_at=expected_updated_at)
-    else:
-        await set_root(chat_id, patch, pg=pg)
-    logger.info("[prompt_factory] chat override reset | chat=%s | key=%s",
-                chat_id, spec.pg_key)
+    logger.info("[prompt_factory] chat override reset | chat=%s | key=%s | "
+                "revision=%s", chat_id, spec.pg_key,
+                result.get("revision_id", ""))
     return {"applied": True, "block_id": block_id, "pg_key": spec.pg_key,
+            "chat_id": int(chat_id), "scope": "chat",
+            "revision_id": result.get("revision_id", ""),
             "factory_value_written": False,
             "global_value_written": False,
             "inherits": _inherit_view(spec.block_id)}
@@ -876,28 +742,36 @@ async def restore_backup(backup: dict, *, apply: bool = False, cache=None,
                 "changed": sum(1 for row in planned if not row["same"]),
                 "history_key": FACTORY_HISTORY_KEY}
     applied: list[dict] = []
+    from services import prompt_release_policy as prp
     for row in planned:
         if row["same"]:
             continue
         text = restore_texts[row["key"]]
         spec = pr.by_pg_key(row["key"])
-        if spec is not None:
+        if spec is None:
+            continue
+        if not _HISTORY_FROZEN:
             await _append_history(cache, spec.block_id, pg_key=row["key"],
                                   value=str(cache.get(row["key"], "") or ""),
                                   source="global", kind="backup_restore",
                                   actor=actor, reason="restore_backup")
-        await cache.set(row["key"], text, row["category"])
-        # EVOL-016: восстановленное значение — ревизия + активация в журнале
-        # (иначе рестарт честно зафиксирует activation_drift по этому ключу).
-        try:
-            from services import prompt_release_policy as prp
-            await prp.record_manual_activation(
-                spec.block_id, text, scope="global", actor=actor,
-                reason="restore_backup", kind="manual_rollback", cache=cache)
-        except Exception:      # pragma: no cover — журнал не роняет откат
-            logger.warning("[prompt_factory] журнал не зафиксировал "
-                           "restore_backup | key=%s", row["key"],
-                           exc_info=True)
+        # EPIC-PROMPT-VERSIONING-UX-01 §3.4: аварийное восстановление идёт
+        # ТЕМ ЖЕ журнальным путём. Журнал недоступен → отказ (503), а не
+        # запись «вслепую»: bot_settings и журнал живут в одной PG.
+        result = await prp.write_prompt_values(
+            [prp.PromptWriteItem(block_id=spec.block_id, text=text,
+                                 set_level=False)],
+            scope="global", cache=cache, actor=actor,
+            reason="restore_backup", kind="manual_rollback",
+            origin="restored")
+        rejected = result["rejected"]
+        if rejected:
+            logger.warning("[prompt_factory] restore_backup: значение не "
+                           "восстановлено | key=%s | reason=%s", row["key"],
+                           rejected[0].get("reason"))
+            continue
+        if spec.pg_key in result["skipped_same"]:
+            continue
         applied.append({"key": row["key"],
                         "sha256_12": row["backup_sha256_12"],
                         # SOUL-AMD.4.6: старое значение вернулось как ДАННЫЕ;
