@@ -400,12 +400,14 @@
     },
     {
       "id": "epic-prompt-versioning-ux-01",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
       "source_sha256": "893621D84365CB201D41EC1EA1F4B63531075C4D19E05AFED78627654BFE3054",
-      "maps": [],
-      "coverage_complete": false,
-      "source_note": "Место в очереди определяют PM + Architect с проверкой активных работ и пересечений с редизайном админки и мем-пакетом. Предполагаемая безопасная параллель: файлы prompt_* и web/** не пересекаются с активными срезами RC v5 (canonical_context/factcheck), но web/app.js сериализуется с EPIC-CM-VISUAL-01.",
+      "maps": [
+        "plans/features/epic-prompt-versioning-ux-01/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "57 обязательных строк §0-§7, 8 срезов W0-W6, план-гейт EXIT 0 @d86cd330. Реальное состояние: 112 блоков реестра, 39 PG-управляемых (38 уникальных pg_key), 73 code-only read-only; 14 точек записи, из них 4 полностью обходят журнал (главная — POST /api/initiative/meme-settings) и 5 best-effort. Порядок: S0+S1 (backend, без UI) сейчас; S2 baseline; S3 история; S4 UX после S3 и до CMV-A/B/D (один писатель на web/app.js, web/index.html, web/static/app.css); S6 аудит; S7 верификация. Тексты действующих промптов в этом пакете не меняются (байтовая сверка отдельной строкой PVR-BYTES-01).",
       "updated": "2026-11-04"
     }
   ],
@@ -962,8 +964,8 @@
       "target_task_ids": [
         "epic-prompt-versioning-ux-01"
       ],
-      "reconciled": false,
-      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер."
+      "reconciled": true,
+      "note": "Единый UI/UX и атомарный бэкенд версионирования всех редактируемых промптов на существующих prompt_registry/prompt_release_policy/immutable revisions; закрыть обходы журнала (особенно POST /api/initiative/meme-settings); owner baseline как указатель на immutable-ревизию, отдельно от code factory; без изменения текстов действующих промптов; постоянное проектное правило: новый editable prompt без полного версионирования - блокер. | reconciled 04.11.2026: карта plans/features/epic-prompt-versioning-ux-01 (63 инвентарных + 13 прозаических = 57 обязательных строк, 8 срезов, план-гейт EXIT 0 @d86cd330). Зафиксированы 4 обхода журнала и 5 best-effort путей, рассинхрон scope мемных блоков, обрезание истории LIMIT 50 и вторая bounded-история Speech."
     }
   ]
 }
