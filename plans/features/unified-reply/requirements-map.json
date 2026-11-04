@@ -2,13 +2,13 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "da6299e9",
+  "candidate_commit": "4cc99286",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
   "task_id": "unified-reply",
-  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A не начат: services/turn_types.py отсутствует, единый вход _execute_turn не создан.",
+  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A принят и влит (ur/a-turn-engine @4cc99286 -> merge dc296207): services/turn_types.py создан как единственный новый файл контрактов, единый _execute_turn стоит на обеих трассах; привязано 15/21 (12 items + 3 manual), остальные PENDING с причиной в pending_reason. Итого по карте 49 VERIFIED из 261 обязательной строки.",
   "evidence_convention": "Каждая закрытая строка требует candidate-bound evidence с artifact_path (repo-relative), observation и типом; для финальных отчётов — artifact_sha256. Устные заверения, число тестов и скриншоты без реального payload/trace доказательством не считаются.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=true только у строк, которые физически проверяются на рабочем развёртывании (UR-ACC-E9, UR-30.7) и у размеченного набора поиска (UR-08.2, preprod).",
   "plan_ref": "plans/features/unified-reply/plan.md",
@@ -22,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-B (da6299e9) и UR-C (9ac64a61) влиты и привязаны — 13/24 и 21/66 VERIFIED; живое подключение остаётся за UR-A (единый вход/_execute_turn) и последующими срезами",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза).",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -322,7 +322,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Недоверенность полей и отсутствие дублирования системного промпта зафиксированы только docstring'ом services/turn_types.py:165-166; теста или проверки сборки промпта (значение из чата не становится инструкцией) в срезе нет — сборка промпта вне UR-A."
     },
     {
       "source_id": "M-00095",
@@ -336,8 +337,17 @@
       "acceptance": "Свобода действия различается: инициатива вправе отказаться от участия, прямое обращение не теряется из-за инициативного гейта, а доступ к поиску и памяти при REPLY одинаков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Свобода действия различается, права REPLY совпадают",
+          "observation": "test_policy_block_keeps_initiative_silent_and_direct_raising: инициатива вправе отказаться (None), прямое обращение не теряется; test_initiative_receives_real_capabilities: набор инструментов инициативы равен прямому (web_search включён), ToolStateSnapshot.memory_available=True у обоих.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "M-00097",
@@ -351,8 +361,17 @@
       "acceptance": "plan_initiative_decision не запускает отдельный self.llm.generate(capabilities=()) , а готовит вход общей функции L1; _plan_direct_l1 не дублирует fallback и permission-гейты второй копией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plan_initiative_decision не запускает свой L1, _plan_direct_l1 не дублирует гейты",
+          "observation": "test_no_empty_capabilities_shortcut_left_in_engine_source: в блоке plan_initiative_decision нет self.llm.generate( и есть _execute_turn(; test_both_traces_execute_through_single_turn_engine: оба адаптера приходят в один исполнитель; test_slot_schema_and_repair_resolution_equal_on_both_traces: ladder/repair/permission-резолв не дублируются второй копией.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "M-00099",
@@ -367,7 +386,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Выбор L1 (action/tone/extent/capabilities_needed) подтверждён схемой плана и тестами среза, но вторая часть требования — «для простой реплики или реакции L2 не обязателен» — относится к L2 и срезом не доказана (UR-D)."
     },
     {
       "source_id": "M-00103",
@@ -1704,7 +1724,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Внедрение UR-23..29 в общий Context Builder и delivery path — эпический объём (UR-C/UR-D/UR-E); UR-A дал только общий вход/L1 и не менял retrieval, ledger, summary_llm_supervisor и версии промптов."
     },
     {
       "source_id": "M-00405",
@@ -1734,7 +1755,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Первая часть (две постоянно поддерживаемые копии L1 больше не нужны — единственный _execute_turn) выполнена, но вторая копия L2 и короткоживущий rollback-путь с документированным удалением относятся к UR-D и ещё не поставлены."
     },
     {
       "source_id": "M-00421",
@@ -1779,7 +1801,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Процессное требование к интеграции в более новый HEAD; проверяется фактом слияния (dc296207 поверх caa5aacd меняет только файлы UR-A), но в карте нет artifact-bound доказательства этого класса, а тестами оно не выражается — оставлено PENDING до приёмки UR-G."
     },
     {
       "source_id": "M-00506",
@@ -2169,8 +2192,17 @@
       "acceptance": "Публичные точки входа handle и handle_initiative сохранены, но являются адаптерами единого TurnEngine, размещённого по существующему паттерну проекта, а не третьим пайплайном.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "handle/handle_initiative остались адаптерами единого движка",
+          "observation": "Статическая проверка services/direct_chat_service.py: публичный handle (:3506) идёт через _plan_direct_l1 (:4275) → _execute_turn (:6298), модульный handle_initiative (:13778) → plan_initiative_decision (:13982, :14075) → _execute_turn (:12993); исполнение одно, адаптеры различаются сборкой контекста и правом на молчание (комментарий :5765-5769). test_both_traces_execute_through_single_turn_engine подтверждает один и тот же исполнитель на обеих трассах.",
+          "type": "code",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "15ae8a6033098764ae7fefa515027c5cf988c3ef69b2d07ec3a153740a6133c1",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "M-00325",
@@ -2337,7 +2369,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "UR-A доказал только планирующую стадию контура: оба триггера идут через один _execute_turn и совпадают слот/схема/repair/capabilities (tests/test_ur_turn_engine.py). Остальные этапы источника (tools → evidence → L2 → проверка результата → речь → отправка одним кодом) не поставлены: живой tool-этап остаётся _l1_tool_phase (UR-B), L2/проверка/доставка — UR-D/UR-G. Фактическая прод-трасса не снималась. Закрывать вместе с UR-G."
     },
     {
       "source_id": "L00030",
@@ -2512,8 +2545,17 @@
       "acceptance": "TurnRequest несёт исходный текст без preview-среза, адресата, reply-parent, права и типизированные источники; каждое поле видно на фактической трассе хода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "TurnRequest несёт ход целиком и сам виден на трассе",
+          "observation": "test_trace_carries_turn_request_with_full_source_text: last_turn_request(CHAT) возвращает TurnRequest с raw_text (1100+ символов), source_message_id=777, speaker_uid, addressee, capabilities==tool_state.capabilities, delivery.force_reply/trigger, model_slot.budget_tokens>0; test_initiative_trace_carries_opportunity_and_addressee — тот же объект на инициативе (opportunity, addressee, delivery.recheck=True, source_message_id=None). reply_parent/aliases_snapshot заполняет единственный конструктор _build_turn_request (direct_chat_service.py:5857-5920, вызов :6215).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -2527,8 +2569,17 @@
       "acceptance": "trigger_type различает direct/initiative, и по нему на трассе виден один и тот же исполнитель последующих этапов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Тип хода различает direct/initiative и не создаёт третий путь",
+          "observation": "test_same_input_resolves_same_turn_type: direct/initiative нормализуются в TurnType, пустой и None trigger не создают третий тип; test_both_traces_execute_through_single_turn_engine: оба хода приходят в один _execute_turn с turn_type ['direct','initiative'].",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00078",
@@ -2542,8 +2593,17 @@
       "acceptance": "Вход L1/L2 содержит фактический исходный текст и медиа, а не preview/cap-подстроку: реплика длиннее 800 символов доходит целиком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Полный исходный текст доходит до L1 без preview-среза",
+          "observation": "test_trace_carries_turn_request_with_full_source_text: raw_text равен исходным 1100+ символам, маркер хвоста «ХВОСТ-МАРКЕР» присутствует в реальном payload L1; media_markers переносится тем же конструктором из extra_media_markers (direct_chat_service.py:6208-6215); отдельного кейса с медиа в срезе нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00079",
@@ -2557,8 +2617,17 @@
       "acceptance": "TurnRequest несёт speaker_uid, смыслового адресата, reply/quote parent, актуальные алиасы и цель обращения; адресат не подменяется соседней репликой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Спикер, адресат, reply-parent и алиасы фиксируются в ходе",
+          "observation": "test_trace_carries_turn_request_with_full_source_text: speaker_uid и addressee на трассе прямого хода; test_initiative_trace_carries_opportunity_and_addressee: addressee.user_id из повода. reply_parent (_build_reply_parent_ref: tg_id/author_uid/alias/source_ref) и aliases_snapshot (_turn_aliases_snapshot) заполняет тот же конструктор (direct_chat_service.py:5843-5884) — статическая проверка, отдельного кейса на reply-сообщение в срезе нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00080",
@@ -2572,8 +2641,17 @@
       "acceptance": "Инициативный ход несёт повод Observer/durable intent с исходными source refs, временем и допустимыми видами участия.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инициативный ход несёт повод с intent_id/видом/временем",
+          "observation": "test_initiative_trace_carries_opportunity_and_addressee: opportunity.intent_id=55, kind='follow_up', addressee.user_id, delivery.recheck=True; created_at и source_refs переносятся _build_turn_request из строки durable intent/observer (direct_chat_service.py:12938-12944).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00081",
@@ -2587,8 +2665,17 @@
       "acceptance": "Эффективные права (инструменты, слот модели, BYOK/глобальный ключ, ограничения доставки) вычисляются до планирования и видны в трассе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Эффективные права вычисляются до планирования и видны в трассе",
+          "observation": "Единственный предпланировочный резолв прав: _resolve_turn_slot_meta (authorize_l1_call + resolve_l1_model + resolve_l1_context_budget) и _resolve_turn_tool_state. test_trace_carries_turn_request_with_full_source_text: capabilities, model_slot.budget_tokens, delivery.force_reply/trigger на трассе; test_policy_block_keeps_initiative_silent_and_direct_raising: блок политики ключей срабатывает до L1 на обеих трассах; test_slot_schema_and_repair_resolution_equal_on_both_traces: бюджет/слот из того же резолва (credential_source — поле SlotBudgetMeta, отдельно не ассертится).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00082",
@@ -2602,8 +2689,17 @@
       "acceptance": "Контекстные источники передаются ссылочными объектами с source_id/timestamp/speaker_uid/kind/text/reply_to/authority и признаком свежести.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Контекстные источники — ссылочные объекты, второй тип не создан",
+          "observation": "Контракт §2.2 уже поставлен UR-C: tests/test_ur_context_selection.py проверяет ContextFragment (source_id, kind, timestamp_utc/speaker_uid, author_label, text, reply_to_tg_id, authority) и собственные реплики бота с time_known/reply_to_tg_id. UR-A не создаёт второй тип: карта §2.2 в docstring services/turn_types.py:12-14, дублирующих датаклассов ContextSelection/ContextFragment в turn_types.py нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00086",
@@ -2617,8 +2713,17 @@
       "acceptance": "Direct и Initiative используют одну функцию L1 с одинаковым резолвом слота, схемой плана, repair и usage; отдельного облегчённого L1 нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один L1 Planner на оба триггера, отдельного облегчённого нет",
+          "observation": "test_both_traces_execute_through_single_turn_engine: обе трассы проходят через один _execute_turn (2 вызова с TurnRequest); test_no_empty_capabilities_shortcut_left_in_engine_source: в блоке plan_initiative_decision нет self.llm.generate(, есть _execute_turn(, строка capabilities=() в движке отсутствует; test_turn_policy_is_identical_for_both_triggers: одна таблица TURN_POLICIES (различие только silent_on_policy_block).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00090",
@@ -2632,8 +2737,17 @@
       "acceptance": "Резолв configured/dedicated/fallback L1 и авторизация ключа выполняются одним кодом для обоих триггеров; трасса показывает фактически использованный слот.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Слот/модель/бюджет/ключ резолвятся одним кодом, слот виден в трассе",
+          "observation": "test_slot_schema_and_repair_resolution_equal_on_both_traces: slot, model, budget_tokens, plan_schema, repair_policy совпадают на обеих трассах, get_l1_diagnostics показывает trigger_type/plan_schema/repair_policy; test_policy_block_keeps_initiative_silent_and_direct_raising: один и тот же authorize_l1_call до планирования на обеих трассах.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00091",
@@ -2647,8 +2761,17 @@
       "acceptance": "Модельный контекст, температура, схема плана, repair invalid JSON и учёт usage одинаковы для direct и initiative.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Схема плана, repair, temperature и usage — одна таблица и один код",
+          "observation": "test_turn_policy_is_identical_for_both_triggers: plan_schema, slot_policy, repair_policy, temperature_source, usage_accounting равны; test_invalid_json_repair_route_is_shared: bounded repair=1 и на direct, и на initiative; test_usage_is_accounted_on_both_traces: оба вызова помечены step='l1_planner'/module='direct_chat'.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -2662,8 +2785,17 @@
       "acceptance": "L1 получает фактически доступные capabilities (web_search, fetch_url, память), а не пустой список при включённом инструменте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L1 инициативы получает реальные capabilities, пустого списка нет",
+          "observation": "test_initiative_receives_real_capabilities: набор capabilities инициативы равен прямому при тех же флагах, включает web_search и совпадает с трассой; test_no_empty_capabilities_shortcut_left_in_engine_source: строки capabilities=() в движке больше нет.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00093",
@@ -2677,8 +2809,17 @@
       "acceptance": "Семантика SILENT/REACT/REPLY одинакова, правила обязательного ответа на прямое обращение сохранены, прямое обращение не теряется из-за инициативного гейта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "SILENT/REACT/REPLY и право говорить одинаковы, прямое обращение не теряется",
+          "observation": "test_silent_and_react_survive_single_engine (silent/react на обеих трассах), test_policy_block_keeps_initiative_silent_and_direct_raising (инициатива → None, прямое обращение → проброс NoApiKeyForChat), test_explicit_search_request_resolves_same_tools (явная просьба поиска даёт одинаковые resolved tools), delivery.force_reply=True на прямом ходе.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_turn_engine.py",
+          "artifact_sha256": "01f0f863b4816ecd27f55c8ce21600ce0debb6258c9fdf5946f5b2542ceb7566",
+          "candidate_commit": "4cc99286"
+        }
+      ]
     },
     {
       "source_id": "L00101",
@@ -5722,7 +5863,8 @@
   "slice_candidates": {
     "UR-B": "da6299e9",
     "UR-C": "9ac64a61",
-    "note": "Оба merge уже в evol/impl; 9ac64a61 — предок da6299e9. Поле candidate_commit — последний принятый интегрированный кандидат; для повторного review UR-B выставьте его в da6299e9."
+    "note": "Все три среза уже в evol/impl: 9ac64a61 (UR-C) — предок da6299e9 (UR-B), 4cc99286 — ветка UR-A, влитая merge dc296207 (файлы среза в HEAD те же байты). Поле candidate_commit — последний принятый кандидат среза, по которому шла проверка.",
+    "UR-A": "4cc99286"
   },
-  "architecture_note": "Барьер UR-A снят: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». Реально существует только контракт-документ: services/turn_types.py ещё не создан, services/turn_request.py в проекте никогда не существовал — имя файла в графе исправлено на turn_types.py."
+  "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B)."
 }

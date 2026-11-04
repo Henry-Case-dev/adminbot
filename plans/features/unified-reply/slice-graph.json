@@ -39,13 +39,13 @@
     ]
   },
   "shared_file_note": "direct_chat_service.py, direct_l1.py, param_catalog.py и стадии саммари/фактчека имеют последовательных владельцев (A -> C -> CLOCK -> D -> E); параллельные полосы по этим файлам запрещены. web/app.js, web/index.html, web/static/app.css дополнительно сериализованы внешним пакетом EPIC-CM-VISUAL-01 (CMV-D/E).",
-  "architecture": "Контракт доставлен: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966, статус ARCHITECT_VALIDATED, checkpoint-1 «контракты сфризены»). Барьер UR-A СНЯТ 2026-11-05 — Builder может создавать services/turn_types.py и единый вход _execute_turn по §2.1-§2.2 контракта. Для UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F записи сохранены как «срез не начат», новых архитектурных проходов не требуется: те же §3-§5 контракта их уже фиксируют.",
+  "architecture": "Контракт доставлен: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966, статус ARCHITECT_VALIDATED, checkpoint-1 «контракты сфризены»). Барьер UR-A СНЯТ 2026-11-05 и срез принят (ur/a-turn-engine @4cc99286 → merge dc296207): services/turn_types.py создан как единственный новый модуль контрактов (§2.1 TurnRequest + enums/таблица политик), единый исполнитель _execute_turn стоит на обеих трассах. Для UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F записи сохранены как «срез не начат», новых архитектурных проходов не требуется: те же §3-§5 контракта их уже фиксируют.",
   "architecture_evidence": {
     "contract": "plans/features/unified-reply/arch/unified-reply-contract.md",
     "commit": "4359b966",
     "status": "ARCHITECT_VALIDATED",
     "lifted_for": ["UR-A"],
-    "note": "Существует только контракт-документ: services/turn_types.py ещё не создан (ур-A не начат), services/turn_request.py в проекте никогда не существовал — имя в write_scope исправлено."
+    "note": "Контракт применён срезом UR-A (4cc99286, merge dc296207): services/turn_types.py — единственный новый файл контрактов, только фрозен-датаклассы/enums без логики исполнения. Файла services/turn_request.py в проекте никогда не существовало — имя в write_scope было исправлено на turn_types.py и это подтверждено фактом среза. Барьер UR-A больше не действует."
   },
   "slices": [
     {
@@ -68,9 +68,9 @@
       ],
       "join_barrier": "до UR-B, UR-C: единый вход и права нужны tools и контексту",
       "risk": "R3",
-      "next_role": "Builder (контракт TurnRequest/L1 зафиксирован 4359b966, барьер снят)",
+      "next_role": "Reviewer (принят: merge dc296207); живое подключение tools/контекста — за UR-B/UR-C",
       "why_one_slice": "Один связный результат: один вход и один L1 на два режима; разделение дало бы две копии permission/fallback-логики.",
-      "status_note": "Не начат: services/turn_types.py отсутствует, вызовов _execute_turn нет, живые маршруты (direct_chat_service.py:4777 Direct, :12932 Initiative) продолжают использовать _l1_tool_phase. Именно здесь остаётся живое подключение run_tool_phase (UR-B) и build_context_selection (UR-C)."
+      "status_note": "Принят и влит: ur/a-turn-engine @4cc99286 -> merge dc296207 (tests/test_ur_turn_engine.py — 15 passed). Привязано 15/21 строк карты. services/turn_types.py — единственный новый файл контрактов (файла turn_request.py нет и не было). Открыто по смыслу вне среза: UR-RES-01 (весь контур L1→отправка), UR-02.7 (обязательность L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический/процессный объём); живой tool-этап по-прежнему _l1_tool_phase (UR-B), сборка контекста — UR-C."
     },
     {
       "id": "UR-B",
