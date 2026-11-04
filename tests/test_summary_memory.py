@@ -1189,12 +1189,31 @@ class TestSummaryLevelsBuild:
         assert llm.generate_calls == 1
 
     @pytest.mark.asyncio
-    async def test_level2_skipped_below_threshold(self, db):
+    async def test_level2_range_advancement_not_row_count(self, db):
+        """UNIFIED-REPLY UR-12: триггер широкого фона — прирост ПОКРЫТОГО
+        диапазона (watermark), а не магическое число строк
+        (`CHAT_LEVEL2_MIN_RAW_COUNT` больше не порог)."""
         llm = FakeLLM(facts="широкий фон")
         memory = MemoryManager(db, llm)
-        await memory._build_level2(-100, {"raw_count": 100, "summary": "l1"})
-        assert await db.get_summary_level(-100, 2) is None
-        assert llm.generate_calls == 0                  # LLM не вызывался
+        # Небольшой по числу строк, но реальный диапазон → L2 строится
+        # (раньше порог 250 молча отбрасывал такой конспект).
+        await memory._build_level2(
+            -100, {"raw_count": 100, "window_end_ts": 1000, "summary": "l1"})
+        row = await db.get_summary_level(-100, 2)
+        assert row is not None
+        assert llm.generate_calls == 1
+        # Точный повтор того же диапазона — работы нет.
+        await memory._build_level2(
+            -100, {"raw_count": 100, "window_end_ts": 1000, "summary": "l1"})
+        assert llm.generate_calls == 1
+        # Устаревший (меньший) диапазон свежий фон не перезаписывает.
+        await memory._build_level2(
+            -100, {"raw_count": 90, "window_end_ts": 900, "summary": "старый"})
+        assert llm.generate_calls == 1
+        # Реальный прирост диапазона → пересборка.
+        await memory._build_level2(
+            -100, {"raw_count": 120, "window_end_ts": 2000, "summary": "l1b"})
+        assert llm.generate_calls == 2
 
     @pytest.mark.asyncio
     async def test_level2_not_overwritten_by_smaller_highwater(self, db):

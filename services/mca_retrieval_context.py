@@ -419,6 +419,104 @@ def is_history_query(query: str) -> bool:
     return any(marker in text for marker in _HISTORY_MARKERS)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# UNIFIED-REPLY UR-13.2: запрос памяти из ТЕМЫ + АДРЕСАТА + REPLY-PARENT.
+#
+# Раньше retrieval строился по последней реплике («дай цифры») — местоимения
+# не разрешались. Здесь запрос собирается из смысловой темы, имени/uid
+# адресата и текста сообщения, на которое отвечают (плюс цитата), а identity
+# prior передаёт реальные uid/reply-связи существующего контракта
+# (`RetrievalRequest.subject_entity_ids/speaker_entity_id/
+# reply_target_entity_id`). Провайдер/модель эмбеддингов и индексы НЕ
+# меняются (UR-13): используется тот же `retrieve()`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Предел ТЕКСТА ЗАПРОСА retrieval (FTS/vector query), не входа модели:
+#: смысловой вход L1/L2 режет только allocator композера.
+MEMORY_QUERY_MAX_CHARS = 900
+
+#: Сколько символов reply-parent попадает в запрос (местоимения/предмет).
+MEMORY_QUERY_PARENT_CHARS = 400
+
+
+def build_memory_query(*, topic: str, addressee_name: str = "",
+                       reply_parent_text: str = "", quote_text: str = "",
+                       extra_terms=()) -> str:
+    """Собрать запрос памяти из темы + адресата + reply-parent (UR-13.2).
+
+    Приоритет частей (при переполнении ``MEMORY_QUERY_MAX_CHARS`` отпадает
+    хвост менее значимой части, а не конец темы): тема → reply-parent →
+    цитата → адресат → extra_terms. Тема не обрезается молча: при превышении
+    сохраняются её начало и конец с явным маркером."""
+    parts: list[str] = []
+    topic_text = " ".join(str(topic or "").split())
+    if topic_text:
+        if len(topic_text) > MEMORY_QUERY_MAX_CHARS:
+            head = MEMORY_QUERY_MAX_CHARS // 2
+            tail = MEMORY_QUERY_MAX_CHARS - head
+            topic_text = (topic_text[:head].rstrip() + " … "
+                          + topic_text[-tail:].lstrip())
+        parts.append(topic_text)
+    parent = " ".join(str(reply_parent_text or "").split())
+    if parent:
+        parts.append(parent[:MEMORY_QUERY_PARENT_CHARS].strip())
+    quote = " ".join(str(quote_text or "").split())
+    if quote:
+        parts.append(quote[:MEMORY_QUERY_PARENT_CHARS // 2].strip())
+    name = " ".join(str(addressee_name or "").split())
+    if name:
+        parts.append(name[:120])
+    for term in extra_terms or ():
+        value = " ".join(str(term or "").split())
+        if value:
+            parts.append(value[:120])
+    query = " | ".join(part for part in parts if part)
+    if len(query) > MEMORY_QUERY_MAX_CHARS * 2:
+        query = query[:MEMORY_QUERY_MAX_CHARS * 2]
+    return query
+
+
+def build_memory_request(*, chat_id: int, topic: str,
+                         addressee_uid: int | None = None,
+                         reply_parent_uid: int | None = None,
+                         reply_parent_text: str = "", quote_text: str = "",
+                         addressee_name: str = "", trigger_ref: int | None
+                         = None, top_k: int = 10,
+                         participants=()) -> RetrievalRequest:
+    """`RetrievalRequest` для памяти с identity-prior из реальных uid/reply.
+
+    Адресат и автор reply-parent становятся subject/participant кандидатами —
+    местоимения разрешаются связями, а не догадкой по семантике (UR-13.2/
+    UR-13.6: чужой человек не подставляется вместо адресата)."""
+    query = build_memory_query(
+        topic=topic, addressee_name=addressee_name,
+        reply_parent_text=reply_parent_text, quote_text=quote_text)
+    subjects: list[int] = []
+    for value in (addressee_uid, reply_parent_uid):
+        try:
+            if value is not None:
+                subjects.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    people: list[int] = []
+    for value in tuple(subjects) + tuple(participants or ()):
+        try:
+            uid = int(value)
+        except (TypeError, ValueError):
+            continue
+        if uid not in people:
+            people.append(uid)
+    return RetrievalRequest(
+        chat_id=int(chat_id), query=query, trigger_ref=trigger_ref,
+        mode="auto", top_k=max(1, int(top_k or 1)),
+        participants=tuple(people),
+        subject_entity_ids=tuple(subjects),
+        speaker_entity_id=(int(addressee_uid)
+                           if addressee_uid is not None else None),
+        reply_target_entity_id=(int(reply_parent_uid)
+                                if reply_parent_uid is not None else None))
+
+
 def bind_quantitative_range(request: RetrievalRequest, *, time_from,
                             time_to) -> RetrievalRequest:
     """P0-HA ISOLATION (архконтракт §3): связать RetrievalRequest с РЕАЛЬНЫМИ
@@ -900,6 +998,8 @@ __all__ = [
     "RetrievalRequest", "RetrievalCandidate", "RetrievalResult",
     "is_history_query", "retrieve", "apply_retrieval_rerank",
     "bind_quantitative_range",
+    "MEMORY_QUERY_MAX_CHARS", "MEMORY_QUERY_PARENT_CHARS",
+    "build_memory_query", "build_memory_request",
     "tokenize_query",
 ]
 

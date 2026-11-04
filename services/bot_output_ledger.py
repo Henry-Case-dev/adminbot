@@ -187,3 +187,99 @@ def bot_output_as_message_dict(record: dict) -> dict:
         "source": "bot_output_ledger",
         "self_referential": True,       # никогда не independent proof
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# UNIFIED-REPLY UR-23: единый read-path истории собственных сообщений.
+#
+# Источник истины — `mca_bot_outputs` (durable, append-only). `bot_replies`
+# остаётся TTL-кешем краткосрочного reply; его истечение НЕ означает
+# забывания. Здесь нет style-anchor семантики: собственные доставленные
+# реплики — обычные события разговора (UR-14).
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _normalize_history_record(record: dict) -> dict:
+    """Нормализовать ledger-строку для хронологии (без догадок).
+
+    * актуальная ревизия (append-only: правка = новая строка);
+    * `sent_at=None` → `sent_at=0`, `time_known=False` (дата не выдумывается);
+    * media-only строка (`content_text IS NULL`) → `text=""`, `media_only`;
+    * `correlation_id` сохраняется для многочастных ответов."""
+    text = record.get("content_text")
+    media_only = not (text or "").strip()
+    sent_at = record.get("sent_at")
+    try:
+        sent_int = int(sent_at or 0)
+    except (TypeError, ValueError):
+        sent_int = 0
+    out = dict(record)
+    out["sent_at"] = sent_int
+    out["time_known"] = bool(sent_int)
+    out["text"] = "" if media_only else str(text)
+    out["media_only"] = bool(media_only) and bool(
+        record.get("content_ref") or record.get("tg_message_id"))
+    out["revision"] = int(record.get("revision_no") or 1)
+    out["source_id"] = bot_output_source_ref_id(
+        record.get("output_id")) if record.get("output_id") is not None \
+        else f"bot_output_tg:{record.get('tg_message_id')}"
+    out["source"] = "bot_output_ledger"
+    out["self_referential"] = True
+    return out
+
+
+async def list_bot_output_history(db, chat_id: int, *, since_ts: int = 0,
+                                  until_ts: int = 0, limit: int = 200,
+                                  kinds: tuple[str, ...] | None = None,
+                                  include_undated: bool = True) -> list[dict]:
+    """Собственные доставленные сообщения чата в хронологическом порядке.
+
+    Единый read-path UR-23 для ContextSelection/thread_chain:
+    * scope строго по `chat_id`; только `delivery_status='delivered'`
+      (недоставленный send — не слова бота);
+    * актуальная ревизия на `tg_message_id` (история ревизий доступна через
+      `db.get_bot_output_revisions` по явному вопросу о правке);
+    * `sent_at` — UTC фактической отправки; неизвестная дата честно
+      помечается (`time_known=False`), не подменяется текущим временем;
+    * media-only/пустые строки не отбрасываются и не получают текст из
+      воздуха (`media_only=True`);
+    * gate `MCA_BOT_OUTPUT_LEDGER_ENABLED` OFF, отсутствие метода/БД или
+      ошибка → пустой список (бот не притворяется, что помнит)."""
+    if not ledger_enabled():
+        return []
+    reader = getattr(db, "list_bot_outputs_between", None)
+    if reader is None:
+        return []
+    try:
+        rows = await reader(
+            int(chat_id), since_ts=int(since_ts or 0),
+            until_ts=int(until_ts or 0), limit=max(1, int(limit or 1)),
+            kinds=kinds)
+    except Exception:
+        logger.warning("[mca22] bot output history read failed | chat=%s",
+                       chat_id, exc_info=True)
+        return []
+    normalised = [_normalize_history_record(row) for row in rows or ()
+                  if isinstance(row, dict)]
+    # Актуальная ревизия: одна строка на tg_message_id. Неизвестный tg
+    # (None) — отдельная строка по output_id (не склеиваем разные ответы).
+    latest: dict = {}
+    order: list = []
+    for item in normalised:
+        if not include_undated and not item["time_known"]:
+            continue
+        key = item.get("tg_message_id")
+        if key is None:
+            order.append(item)
+            continue
+        current = latest.get(key)
+        if current is None:
+            latest[key] = item
+            order.append(item)
+            continue
+        if int(item["revision"]) >= int(current["revision"]):
+            index = order.index(current)
+            order[index] = item
+            latest[key] = item
+    order.sort(key=lambda rec: (int(rec.get("sent_at") or 0),
+                                int(rec.get("output_id") or 0)))
+    return order

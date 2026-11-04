@@ -95,7 +95,52 @@ STAGE_POLICIES: dict[str, StagePolicy] = {
         "intel.reflection", "Рефлексия (self-reflection)",
         COVERAGE_RELEVANCE_COMPOSED, OVERFLOW_PRIORITY_REDUCE, None,
         "direct"),
+    # UNIFIED-REPLY UR-11.3: model-aware stage budget для ИНИЦИАТИВЫ — те же
+    # правила, что у Direct (safety reserve один раз, output reserve от
+    # реального max_tokens), без «второго бюджетного движка». Потребитель
+    # (`direct_chat_service`) передаёт эти слоты при сборке инициативных
+    # стадий вместо константных 700/12×200.
+    "initiative.l1": StagePolicy(
+        "initiative.l1", "Инициатива: планировщик (L1)",
+        COVERAGE_RELEVANCE_COMPOSED, OVERFLOW_PRIORITY_REDUCE, None, "direct"),
+    "initiative.l2": StagePolicy(
+        "initiative.l2", "Инициатива: писатель (L2)",
+        COVERAGE_RELEVANCE_COMPOSED, OVERFLOW_PRIORITY_REDUCE, None, "direct"),
 }
+
+#: Режим бюджета по умолчанию для Direct/Initiative-стадий (UR-11.2):
+#: Dynamic — физическая ёмкость конкретной модели, не ручные «16000 всем».
+DEFAULT_DIRECT_POLICY_MODE = "dynamic"
+
+
+def resolve_policy_mode(policy_raw=None, *, arithmetic: str = "direct",
+                        manual_cap: int | None = None) -> str:
+    """Режим policy-слоя БЕЗ расчёта бюджета (UR-11.2) — чистая функция.
+
+    ``None``/0 → Dynamic для Direct-арифметики (и ``auto`` для Summary).
+    ``-1`` → ``unlimited``, но это НЕ «ложная бесконечность»: effective-бюджет
+    равен физической ёмкости стадии (`resolve_stage_budget`). ``>0``/cap →
+    ``cap``. Дублирует ровно ту классификацию, что применяет
+    `resolve_stage_budget`, поэтому UI/инспектор показывает правду без
+    второго расчёта.
+    """
+    try:
+        raw = None if policy_raw is None else int(policy_raw)
+    except (TypeError, ValueError):
+        raw = None
+    cap = None
+    try:
+        if manual_cap is not None and int(manual_cap) > 0:
+            cap = int(manual_cap)
+    except (TypeError, ValueError):
+        cap = None
+    if raw is not None and raw < 0:
+        return "unlimited"
+    if cap is not None:
+        return "cap"
+    if raw is not None and raw > 0:
+        return "cap"
+    return DEFAULT_DIRECT_POLICY_MODE if arithmetic == "direct" else "auto"
 
 
 def stage_policy(slot: str) -> StagePolicy | None:
@@ -230,7 +275,8 @@ async def resolve_stage_budget(
         # effective = полный physical auto-бюджет; таргет остаётся рабочим
         # ориентиром стадии (middle top-K/селекция), не потолком аллокации.
         # OFF (kill-switch) → прежний hard-cap путь потребителя (паритет).
-        effective, mode = auto_budget, "dynamic"
+        # UR-11.2: это режим ПО УМОЛЧАНИЮ (`DEFAULT_DIRECT_POLICY_MODE`).
+        effective, mode = auto_budget, DEFAULT_DIRECT_POLICY_MODE
     else:
         effective, mode = auto_budget, "auto"
 
@@ -518,6 +564,7 @@ __all__ = [
     "COVERAGE_RELEVANCE_COMPOSED", "OVERFLOW_CHUNK_ALL",
     "OVERFLOW_HIERARCHICAL_REDUCE", "OVERFLOW_PRIORITY_REDUCE",
     "StagePolicy", "STAGE_POLICIES", "BudgetResult", "stage_policy",
+    "DEFAULT_DIRECT_POLICY_MODE", "resolve_policy_mode",
     "auto_budget_enabled", "resolve_stage_budget", "record_slot_observation",
     "record_slot_pressure", "slot_observations_snapshot",
     # ASAP-EVIDENCE-ROUTING-01 v3 (§3/§4.3): окно read-only tool-вызова.
