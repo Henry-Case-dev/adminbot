@@ -186,9 +186,13 @@ ROUTES_SHA256_F11 = (
     # (ревизия + событие активации + значение одной транзакцией). Затронуты
     # тела СУЩЕСТВУЮЩИХ обработчиков: POST /api/config (global/chat),
     # POST /api/initiative/meme-settings, DELETE /api/config/chat/{key},
-    # speech/speech core. Новых `@router`-маршрутов НЕТ (Δ routes=0),
-    # RBAC/маскировка/DDL не менялись.
-    "c7db8118da01de79b90149f2522eb23c6d0334bcc2140bc9d230dfc6567c15e6")
+    # speech/speech core. Плюс аддитивная поверхность PVR-S2/S3: +4
+    # маршрута (/prompts/{prompt_key}/baseline, .../baseline/restore,
+    # .../factory/restore, /prompts/revisions/{revision_id}/copy-to-global),
+    # Δ routes = +4 — список f8_baseline переиздан в этом же коммите.
+    # RBAC/маскировка/DDL не менялись. Хэш ниже — фактический sha256
+    # web/api/routes.py сборки 2.58.155 (осознанное переутверждение).
+    "dc8a3a6318ab5578bb8e573d8e979b2fd7af525f2a9ddba5d8a3c64166b23a89")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
