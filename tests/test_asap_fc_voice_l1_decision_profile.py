@@ -256,6 +256,13 @@ async def test_direct_service_l1_payload_gets_profile_from_turn_frame(
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
+        # UR-A: контракт/движок хода — те же методы реального сервиса.
+        _resolve_turn_slot_meta = D._resolve_turn_slot_meta
+        _resolve_turn_tool_state = D._resolve_turn_tool_state
+        _turn_aliases_snapshot = D._turn_aliases_snapshot
+        _build_reply_parent_ref = D._build_reply_parent_ref
+        _build_turn_request = D._build_turn_request
+        _execute_turn = D._execute_turn
 
         def _l1_reply_block(self, message, budget_tokens=None):
             return D._l1_reply_block(self, message, budget_tokens=budget_tokens)
