@@ -519,6 +519,49 @@ const S2 = (function () {
   ok2(JSON.stringify(CM.computeClusters(clusterFixture))
     === JSON.stringify(clusters),
   'кластеры: порядок не зависит от порядка объектов');
+  // CMV-D (побочная находка ревью CMV-C): имя кластера — САМАЯ ЧАСТАЯ
+  // реальная парадигма, а не самый короткий заголовок. Семантика не меняется:
+  // это подпись показа (фильтр «Кластер»), данные и связи те же.
+  const titled = CM.computeClusters(CM.normalizePayload({
+    version: 'cog-map/1', state: 'ok',
+    nodes: [
+      { id: 'paradigm:1:1', kind: 'paradigm', title: 'Alpha', chat_id: 1 },
+      { id: 'paradigm:1:2', kind: 'paradigm', title: 'Alpha', chat_id: 1 },
+      { id: 'paradigm:1:3', kind: 'paradigm', title: 'Zeta', chat_id: 1 },
+      { id: 'paradigm:1:4', kind: 'paradigm', title: 'Zeta', chat_id: 1 },
+      { id: 'paradigm:1:5', kind: 'paradigm', title: 'Zeta', chat_id: 1 },
+      { id: 'fact:1:6', kind: 'fact', title: 'Факт', chat_id: 1 },
+    ],
+    edges: [
+      { id: 't1', from: 'paradigm:1:1', to: 'fact:1:6', relation: 'about' },
+      { id: 't2', from: 'paradigm:1:2', to: 'fact:1:6', relation: 'about' },
+      { id: 't3', from: 'paradigm:1:3', to: 'fact:1:6', relation: 'about' },
+      { id: 't4', from: 'paradigm:1:4', to: 'fact:1:6', relation: 'about' },
+      { id: 't5', from: 'paradigm:1:5', to: 'fact:1:6', relation: 'about' },
+    ],
+  }));
+  eq2(titled[0].paradigmTitle, 'Zeta',
+    'кластер назван ЧАСТОЙ парадигмой, а не самой короткой (Alpha)');
+  eq2(titled[0].label, 'Парадигмы: Zeta', 'подпись кластера — частая парадигма');
+  eq2(CM.computeClusters(CM.normalizePayload({
+    version: 'cog-map/1', state: 'ok',
+    nodes: [
+      { id: 'paradigm:2:1', kind: 'paradigm', title: 'Trust', chat_id: 2 },
+      { id: 'paradigm:2:2', kind: 'paradigm', title: 'Trust', chat_id: 2 },
+      { id: 'paradigm:2:3', kind: 'paradigm', title: 'Doubt', chat_id: 2 },
+      { id: 'paradigm:2:4', kind: 'paradigm', title: 'Doubt', chat_id: 2 },
+      { id: 'fact:2:5', kind: 'fact', title: 'Факт', chat_id: 2 },
+      { id: 'fact:2:6', kind: 'fact', title: 'Второй', chat_id: 2 },
+    ],
+    edges: [
+      { id: 'u1', from: 'paradigm:2:1', to: 'fact:2:5', relation: 'about' },
+      { id: 'u2', from: 'paradigm:2:2', to: 'fact:2:6', relation: 'about' },
+      { id: 'u3', from: 'paradigm:2:3', to: 'fact:2:5', relation: 'about' },
+      { id: 'u4', from: 'paradigm:2:4', to: 'fact:2:6', relation: 'about' },
+    ],
+  }))[0].paradigmTitle, 'Doubt',
+  'ничья по частоте решается детерминированно (короткий, затем алфавит)');
+
   const bigFirst = CM.computeClusters(CM.normalizePayload({
     version: 'cog-map/1',
     nodes: [
