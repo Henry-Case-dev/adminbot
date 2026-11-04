@@ -606,25 +606,41 @@
       var root = find(node.id);
       if (!groups[root]) {
         groups[root] = { id: 'cl:' + root, root: root, nodeIds: [],
-          kinds: {}, size: 0, paradigmTitle: null };
+          kinds: {}, size: 0, paradigmTitle: null, titleCounts: {} };
         order.push(root);
       }
       var group = groups[root];
       group.nodeIds.push(node.id);
       group.kinds[node.kind] = (group.kinds[node.kind] || 0) + 1;
       group.size += 1;
-      if (node.kind === 'paradigm'
-          && (group.paradigmTitle === null
-            || node.title.length < group.paradigmTitle.length
-            || (node.title.length === group.paradigmTitle.length
-              && node.title < group.paradigmTitle))) {
-        group.paradigmTitle = node.title;
+      // CMV-D (побочная находка ревью CMV-C): подпись кластера называет
+      // САМУЮ ЧАСТУЮ реальную парадигму, а не самую КОРОТКУЮ. Короткий
+      // заголовок — произвольный: при 2 «Alpha» и 8 «Zeta» фильтр назывался
+      // «Alpha». Это только ИМЯ ПОКАЗА (семантика/данные не меняются).
+      if (node.kind === 'paradigm' && node.title) {
+        group.titleCounts[node.title] = (group.titleCounts[node.title] || 0) + 1;
       }
     }
     order.sort();
     var out = [];
     for (i = 0; i < order.length; i += 1) {
       var item = groups[order[i]];
+      // Частота, затем короткий заголовок, затем лексикографический порядок —
+      // детерминированно при любом порядке узлов во входных данных.
+      var titleKeys = Object.keys(item.titleCounts).sort();
+      var paradigmCount = 0;
+      for (var tk = 0; tk < titleKeys.length; tk += 1) {
+        var tkCount = item.titleCounts[titleKeys[tk]];
+        var cur = item.paradigmTitle;
+        if (cur === null || tkCount > paradigmCount
+            || (tkCount === paradigmCount
+              && (titleKeys[tk].length < cur.length
+                || (titleKeys[tk].length === cur.length
+                  && titleKeys[tk] < cur)))) {
+          item.paradigmTitle = titleKeys[tk];
+          paradigmCount = tkCount;
+        }
+      }
       var dominantKind = null;
       var best = -1;
       var kindKeys = Object.keys(item.kinds).sort();
