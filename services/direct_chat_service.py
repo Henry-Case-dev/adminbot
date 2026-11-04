@@ -5287,26 +5287,49 @@ class DirectChatService:
             lore_story = lore_story_override(tool_ctx, l1_plan, response_plan)
             if lore_story:
                 answer = strip_reasoning_tags(lore_story)
-            # MCA-15 (D5, T-4931; K2): финальный numeric-гард — покрывает
-            # lore-story в обход verbalizer, fallback и прямые тексты. Одна
-            # детерминированная коррекция (verified_phrase/снятие), без
-            # второго LLM-вызова; событие — notable-only.
-            answer, _numeric_stats = _nc.apply_numeric_guard(
-                answer, numeric_contract)
-            if _numeric_stats.get("mismatch"):
-                _mca_events.emit_mca_event(
-                    "numeric_claim_guard",
-                    outcome=("skipped" if _numeric_stats.get("fallback")
-                             else "success"),
-                    component="direct_chat", stage="claim_check",
-                    reason_code=_numeric_stats.get("reason"),
-                    chat_id=chat_id,
-                    usage_json={"answer_chars": len(answer)})
-                logger.info(
-                    "[direct] final numeric guard | chat=%s | corrected=%s | "
-                    "fallback=%s", chat_id,
-                    bool(_numeric_stats.get("corrected")),
-                    bool(_numeric_stats.get("fallback")))
+            # ── RLR-04 (R-04.2; §4 «apply_numeric_guard с заменой/обнулением
+            # финала»): постфактум-правка семантики готовой свободной речи
+            # СНЯТА. Точные числа/источники приходят в L2 ДО генерации
+            # (`numeric_contract`), а расхождение в авторском тексте — только
+            # наблюдение (текст уходит как написан, без verified_phrase и без
+            # снятия предложений). Гард остаётся ровно у детерминированной
+            # сборки текста кодом (lore/statistics assembly): там формулировку
+            # и числа создаёт не LLM, поэтому сверка с NumericClaim законна.
+            if lore_story:
+                answer, _numeric_stats = _nc.apply_numeric_guard(
+                    answer, numeric_contract)
+                if _numeric_stats.get("mismatch"):
+                    _mca_events.emit_mca_event(
+                        "numeric_claim_guard",
+                        outcome=("skipped" if _numeric_stats.get("fallback")
+                                 else "success"),
+                        component="direct_chat", stage="claim_check",
+                        reason_code=_numeric_stats.get("reason"),
+                        chat_id=chat_id,
+                        usage_json={"answer_chars": len(answer)})
+                    logger.info(
+                        "[direct] lore numeric guard | chat=%s | corrected=%s "
+                        "| fallback=%s", chat_id,
+                        bool(_numeric_stats.get("corrected")),
+                        bool(_numeric_stats.get("fallback")))
+            else:
+                _numeric_observed = _nc.check_numeric_claims(
+                    answer, numeric_contract)
+                if _numeric_observed:
+                    # Event-honesty (R-07/§8): ничего не исправлено —
+                    # честный код НАБЛЮДЕНИЯ, а не `numeric_claim_corrected`.
+                    _mca_events.emit_mca_event(
+                        "numeric_claim_guard", outcome="skipped",
+                        component="direct_chat", stage="claim_check",
+                        reason_code=_numeric_observed,
+                        chat_id=chat_id,
+                        usage_json={"answer_chars": len(answer),
+                                    "observed": True,
+                                    "corrected": False})
+                    logger.info(
+                        "[direct] final numeric claim observed (delivered as "
+                        "written) | chat=%s | code=%s",
+                        chat_id, _numeric_observed)
             # ── BGS-02: egress-проверка — ТОЛЬКО наблюдение. Раньше здесь
             # были адресный lookup, повторная генерация и удаление
             # неподтверждённого предложения; смысловая постцензура снята:
@@ -5341,17 +5364,16 @@ class DirectChatService:
                     chat_id, target_name)
                 await react_moai(bot, chat_id, message.message_id)
                 return
-            # ── MCA-22 (C7, T-4311; ADR-1028-6 D8/§18): exact duplicate
-            # guard — bounded safety net conversational-ответов. new
-            # tg_message_id AND normalized(final) == normalized(recent
-            # bot answer) → максимум ОДНА regeneration с фиксированным
-            # коротким hint; второй совпавший ответ отправляется + metric
-            # (loop запрещён). Exemptions §18 — детерминированные тексты.
-            # Paraphrase-postprocessor НЕ создаётся (инвариант тестом).
-            _freshness_retry_used = False
-            # BGS-02: evidence-guard больше не перегенерирует ответ, поэтому
-            # взаимоисключение с freshness-ретраем (§2.3) больше не нужно —
-            # единственный оставшийся повтор это duplicate-guard.
+            # ── RLR-04 (R-05.1–R-05.4; §4 «duplicate_guard_retry по совпадению
+            # текстов»): reroll по совпадению текстов СНЯТ. Два РАЗНЫХ
+            # входящих события могут законно получить одинаковый авторский
+            # текст — он доставляется как написан (без второго LLM-вызова,
+            # без вставки jitter-фразы и без отказа отвечать).
+            # Идемпотентность доставки обеспечивается идентичностью СОБЫТИЯ
+            # (`check_update_seen`/`mark_update_seen` по
+            # `(chat_id, tg_message_id, revision, user_id)`, correlation_id,
+            # durable ledger, send reservations/SendRecheck), а не сравнением
+            # текстов двух разных реплик.
             if _fresh.freshness_guard_enabled() and self.db is not None:
                 try:
                     _recent = await self.db.list_recent_bot_outputs(
@@ -5362,78 +5384,19 @@ class DirectChatService:
                                 if _recent else None)
                 _dup = _fresh.evaluate_duplicate(
                     answer, _recent_text, new_tg_message_id=_trigger_tg_id)
-                if _dup.duplicate and not _dup.exempt and \
-                        _dup.regeneration_allowed and \
-                        not getattr(tool_ctx, "lore_compiled", False):
-                    # Первый совпавший ответ НЕ отправляется (replay-block),
-                    # затем ровно одна regeneration c hint (простой путь —
-                    # raw:str; tool-loop/структурные ответы guard'ом на
-                    # regeneration не трогаются — bounded).
+                if _dup.duplicate and not _dup.exempt:
+                    # Только наблюдение (R-07): текст не меняется, LLM не
+                    # вызывается. Причина повторяемости лечится в L1/контексте
+                    # (R-05.3), а не постфактум-редактурой готовой речи.
                     _fresh.emit_freshness_event(
-                        "DIRECT_FINAL_REPLAY_BLOCKED", outcome="skipped",
-                        reason_code="direct_final_replay_blocked",
-                        chat_id=chat_id, message_id=_trigger_tg_id)
-                    try:
-                        _hint_payload = list(payload) + [{
-                            "role": "user",
-                            "content": _fresh.DUPLICATE_GUARD_HINT}]
-                        raw = await self.llm.generate(
-                            _hint_payload, temperature=temperature,
-                            chat_id=chat_id, module="direct_chat",
-                            step="duplicate_guard_retry",
-                            correlation_id=correlation_id)
-                        _answer2 = strip_reasoning_tags(str(raw).strip())
-                        _dup2 = _fresh.evaluate_duplicate(
-                            _answer2, _recent_text,
-                            new_tg_message_id=_trigger_tg_id,
-                            regeneration_already_used=True)
-                        if _answer2 and not (_dup2.duplicate and
-                                             not _dup2.exempt):
-                            answer = _answer2
-                            _freshness_retry_used = True
-                            _fresh.emit_freshness_event(
-                                "DIRECT_FRESHNESS_RETRY", outcome="success",
-                                reason_code="direct_freshness_retry",
-                                chat_id=chat_id, message_id=_trigger_tg_id,
-                                attempt=2)
-                        else:
-                            # bounded: второй совпавший → отправить + metric.
-                            _fresh.emit_freshness_event(
-                                "DIRECT_FRESHNESS_RETRY",
-                                outcome="silent",
-                                reason_code="duplicate_sent_after_retry",
-                                chat_id=chat_id, message_id=_trigger_tg_id,
-                                attempt=2)
-                    except Exception:
-                        logger.warning(
-                            "[direct] duplicate guard retry failed — "
-                            "send as-is | chat=%s", chat_id, exc_info=True)
-            # MCA-15 (D5, T-4931; K2): regeneration после duplicate-guard
-            # могла вернуть незаземлённое число — повторяем ТОТ ЖЕ
-            # детерминированный гард (без нового LLM-вызова).
-            if _freshness_retry_used:
-                answer, _numeric_stats2 = _nc.apply_numeric_guard(
-                    answer, numeric_contract)
-                if _numeric_stats2.get("mismatch"):
-                    _mca_events.emit_mca_event(
-                        "numeric_claim_guard",
-                        outcome=("skipped" if _numeric_stats2.get("fallback")
-                                 else "success"),
-                        component="direct_chat", stage="claim_check",
-                        reason_code=_numeric_stats2.get("reason"),
-                        chat_id=chat_id,
-                        usage_json={"answer_chars": len(answer)})
-                if not answer.strip():
-                    # Гард снял единственную неподтверждённую фразу.
-                    if coordinator is not None:
-                        _log_coordinator_outcome(
-                            chat_id=chat_id, action=ACTION_REACT,
-                            style=response_mode, chars=0)
-                    logger.warning(
-                        "[direct] numeric guard emptied regenerated answer — "
-                        "silence | chat=%s user=%s", chat_id, target_name)
-                    await react_moai(bot, chat_id, message.message_id)
-                    return
+                        "DIRECT_FINAL_REPEATED_TEXT", outcome="skipped",
+                        chat_id=chat_id, message_id=_trigger_tg_id,
+                        usage_json={"observed": True,
+                                    "text_chars": len(answer)})
+                    logger.info(
+                        "[direct] repeated text observed — delivered as "
+                        "written | chat=%s | exempt=%s",
+                        chat_id, _dup.exempt)
             if coordinator is not None:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,

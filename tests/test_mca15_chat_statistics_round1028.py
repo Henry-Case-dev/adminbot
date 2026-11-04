@@ -1180,13 +1180,15 @@ class TestNumericGuardVerbalize:
 
 
 class TestNumericGuardSendPaths:
-    """Пять путей отправки: обычный/System2, fallback, lore-story (обход
-    verbalizer), постпроцессор, финальная сборка — один и тот же гард."""
+    """RLR-04 (R-04.2): пост-L2 правка свободной речи снята. Гард остаётся
+    детерминированной функцией для сборки текста кодом (lore/statistics);
+    свободная речь Writer'а уходит как написана (см. `test_rlr_dcs_postprocess`)."""
 
     @pytest.mark.asyncio
     async def test_fallback_lore_bypass_and_plain_covered(self):
-        """Финальный гард покрывает fallback/прямой текст и lore-story в
-        обход verbalizer (A41: число не публикуется)."""
+        """Гард как функция по-прежнему корректен для ДЕТЕРМИНИРОВАННОЙ
+        сборки (lore-story и подготовленный кодом текст): число не публикуется
+        при явной сборке. Свободная речь здесь не затрагивается (RLR-04)."""
         svc = DirectChatService.__new__(DirectChatService)
         ctx = ToolContext(CHAT_ID, "q")
         ctx.metric_results.append(
@@ -1241,10 +1243,10 @@ class TestNumericGuardSendPaths:
         assert legacy == {"truncated": True, "total_mentions": 5}
 
     @pytest.mark.asyncio
-    async def test_handle_final_guard_blocks_ungrounded_number(
+    async def test_handle_final_guard_keeps_writers_number(
             self, monkeypatch):
-        """Реальный `handle` (K2 ON): незаземлённое число не публикуется
-        (финальная сборка — та же функция `apply_numeric_guard`)."""
+        """RLR-04 (R-04.2): реальный `handle` (K2 ON) доставляет число
+        Writer'а как написано — постфактум-подмены/снятия фразы нет."""
         from tests.test_direct_chat import (
             FakeLLM, FakeMemory, _bot, _force_self_awareness, _make_service,
             _message)
@@ -1256,8 +1258,9 @@ class TestNumericGuardSendPaths:
                        message_id=77)
         await service.handle(bot, msg, msg.from_user)
         sent = bot.send_message.await_args.args[1]
-        assert "5 раз" not in sent
+        assert "5 раз" in sent                     # авторский текст цел
         assert "Ну и что" in sent
+        assert nc.NUMERIC_CLAIM_CAVEAT not in sent  # подмены нет
 
 
 # ── T-4929/T-4932: stats-режим инструмента и урезание ───────────────────────
