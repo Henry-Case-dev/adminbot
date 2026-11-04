@@ -1,0 +1,269 @@
+{
+  "schema": "admin-migration-manifest-v1",
+  "feature": "remove-legacy-rephrasing",
+  "slice": "RLR-05-ADMIN",
+  "classes": [
+    "removed",
+    "retained_as_technical",
+    "retained_for_explicit_transform",
+    "retained_for_specialized_pipe",
+    "deprecated_compat"
+  ],
+  "keys": [
+    {
+      "name": "SYSTEM2_DIRECT_ENABLED",
+      "kind": "env",
+      "migration_class": "deprecated_compat",
+      "consumer": "нет в новом маршруте: config.settings.resolve_legacy_rephrasing_env_flag() всегда возвращает False; RLR-02 удаляет сам call site",
+      "ui": "не показывать; старое значение .env читается без ошибки и игнорируется (истории/ревизий у ключа нет — env-only)",
+      "former_control": "",
+      "note": "false/0/null/true одинаково не включают двойной Writer",
+      "current_state": ""
+    },
+    {
+      "name": "prompts.direct_chat_synthesizer_system_prompt",
+      "kind": "catalog",
+      "migration_class": "deprecated_compat",
+      "consumer": "нет в новом маршруте: _synthesize_direct_answer отключён (SYSTEM2_DIRECT_ENABLED резолвится False), reader удаляет RLR-02",
+      "ui": "не показывать в Prompt Library; текст и история остаются читаемыми, значение не удаляется",
+      "former_control": "",
+      "note": "текст промпта, factory baseline и журнал версий не меняются; вербализатор direct_chat_verbalizer_system_prompt не трогаем — его читает живой L2",
+      "current_state": ""
+    },
+    {
+      "name": "SYSTEM2_VALIDATOR_LOOP_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_for_explicit_transform",
+      "consumer": "services.negative_constraints.verbalize_validated — только при form_contract (явное редактирование/перевод); свободный L2 его не читает после RLR-04",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "имя историческое; клише/формат/метатекст — наблюдение, не reroll",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+      "kind": "catalog",
+      "migration_class": "retained_for_explicit_transform",
+      "consumer": "mca_gates.postprocess_form_guard_enabled → negative_constraints form G1–G3 при наличии form_contract",
+      "ui": "показывать как «Форм-гард явного редактирования»; не обещает перегенерацию обычного ответа",
+      "former_control": "",
+      "note": "свободный ответ не переписывается и не перегенерируется",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_NUMERIC_CLAIM_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_for_explicit_transform",
+      "consumer": "mca_gates.numeric_claim_guard_enabled → numeric contract внутри явной трансформации; свободный пост-эдит числа удаляется RLR-04",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "структурная проверка MetricResult остаётся data-stage",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_RESPONSE_FRESHNESS_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "services.response_freshness: маркеры идемпотентности события/доставки + наблюдение совпадения текста",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "reroll по совпадению текста удаляется RLR-04 (R-05); идемпотентность доставки остаётся",
+      "current_state": ""
+    },
+    {
+      "name": "EVIDENCE_EGRESS_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "services.evidence_policy.egress_guard_enabled → наблюдение EVIDENCE_EGRESS_CHECK (BGS-02), текст байт-в-байт",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "lookup/rewrite/drop уже сняты; остаётся provenance/диагностика",
+      "current_state": ""
+    },
+    {
+      "name": "EVIDENCE_ROUTING_POLICY_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "services.evidence_policy.policy_enabled → pre-Writer маршрутизация/обязательность evidence",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "вход Writer'а, не пост-L2 правка",
+      "current_state": ""
+    },
+    {
+      "name": "SYSTEM2_FACTCHECK_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_for_specialized_pipe",
+      "consumer": "фактчек-конвейер: claims → evidence → verdict до финального текста (PVR-FC)",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "SYSTEM2_SUMMARY_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_for_specialized_pipe",
+      "consumer": "саммари/сон — отдельный продукт со своими стадиями",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "TELEGRAM_SEND_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "services.outgoing_guard.sanitize_outgoing — удаление настоящих машинных маркеров перед отправкой",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_EGRESS_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "mca_gates.egress_guard_enabled — loopback/SSRF-контроль",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_TOOL_DELIVERY_GUARD_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "mca_gates.tool_delivery_guard_enabled — идемпотентность доставки инструмента",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_SEND_RECHECK_ENABLED",
+      "kind": "catalog",
+      "migration_class": "retained_as_technical",
+      "consumer": "mca_gates.send_recheck_enabled — проверка повторной отправки одного логического события",
+      "ui": "показывать как техническую защиту от повторной отправки; не обещает переписывание текста",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "MCA_CONTEXT_ANSWER_CACHE_ENABLED",
+      "kind": "env",
+      "migration_class": "retained_as_technical",
+      "consumer": "mca_gates.context_answer_cache_enabled — кэш ответов контекста/идемпотентность",
+      "ui": "не показывать (env-only, вне админки)",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    },
+    {
+      "name": "ANTICLICHE_MAX_PATTERNS",
+      "kind": "catalog",
+      "migration_class": "retained_as_technical",
+      "consumer": "детектор клише: только диагностика/наблюдение, не перегенерация (anti_cliche_retries == 0)",
+      "ui": "показывать как лимит детектора; не обещает повторную генерацию",
+      "former_control": "",
+      "note": "",
+      "current_state": ""
+    }
+  ],
+  "behaviours": [
+    {
+      "name": "system2_direct_two_call",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет: путь недостижим, флаг резолвится False",
+      "ui": "нет переключателя",
+      "former_control": "SYSTEM2_DIRECT_ENABLED",
+      "note": "RLR-02 удаляет _synthesize_direct_answer и его call sites",
+      "current_state": "code site ещё присутствует, но недостижим (SYSTEM2_DIRECT_ENABLED=False при любом env); удаление — RLR-02"
+    },
+    {
+      "name": "duplicate_text_regeneration",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "ЕЩЁ АКТИВЕН: direct_chat_service.py:5414 duplicate_guard_retry делает LLM-вызов при совпадении текста; снимается RLR-04",
+      "ui": "нет переключателя",
+      "former_control": "MCA_RESPONSE_FRESHNESS_GUARD_ENABLED",
+      "note": "RLR-04/R-05: два разных события могут дать одинаковый текст",
+      "current_state": "active until RLR-04"
+    },
+    {
+      "name": "form_freeform_retry",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет",
+      "ui": "нет переключателя",
+      "former_control": "SYSTEM2_VALIDATOR_LOOP_ENABLED",
+      "note": "форма проверяется только при явной трансформации",
+      "current_state": ""
+    },
+    {
+      "name": "numeric_freeform_postedit",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "ЕЩЁ АКТИВЕН: direct_chat_service.py:5328 apply_numeric_guard на обычном финале (verified_phrase/снятие); снимается RLR-04",
+      "ui": "нет переключателя",
+      "former_control": "MCA_NUMERIC_CLAIM_GUARD_ENABLED",
+      "note": "RLR-04: структурные MetricResult проверяются до Writer",
+      "current_state": "active until RLR-04"
+    },
+    {
+      "name": "evidence_egress_rewrite_drop",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет (остаётся наблюдение/диагностика)",
+      "ui": "нет переключателя",
+      "former_control": "EVIDENCE_EGRESS_GUARD_ENABLED",
+      "note": "BGS-02 уже исполнен в services/evidence_policy",
+      "current_state": ""
+    },
+    {
+      "name": "public_speech_cut",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет (guard_public_text возвращает текст байт-в-байт)",
+      "ui": "нет переключателя",
+      "former_control": "",
+      "note": "BGS-03: у словаря не было и нет env/config-ключа; модуль не читает файлы/env",
+      "current_state": ""
+    },
+    {
+      "name": "format_retry",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет (формат — наблюдение; Telegram-renderer не просит LLM)",
+      "ui": "нет переключателя",
+      "former_control": "SYSTEM2_VALIDATOR_LOOP_ENABLED",
+      "note": "FORMAT_GUARDS/plain_no_tables/bullet_list больше не reroll",
+      "current_state": ""
+    },
+    {
+      "name": "cliche_metatext_retry",
+      "kind": "behaviour",
+      "migration_class": "removed",
+      "consumer": "нет (anti-cliche/metatext — диагностические коды)",
+      "ui": "нет переключателя",
+      "former_control": "SYSTEM2_VALIDATOR_LOOP_ENABLED",
+      "note": "RLR-04: наблюдение не меняет текст",
+      "current_state": ""
+    }
+  ],
+  "source": "plans/owner_inputs/2026-11-05-remove-legacy-rephrasing-v2.md",
+  "source_sha256": "8dc7751c893704b895b4fcfd8475b504e668294e6966688a278ab6e261bb3f22",
+  "ui_wave": {
+    "status": "deferred",
+    "owner": "UR-F / PVR UI (web/**), after their merge",
+    "must": [
+      "Не рисовать панель машинных флагов; только три человеческие формулировки §6.6.",
+      "Скрыть/не рисовать ключи классов removed и deprecated_compat.",
+      "Для retained_* показывать честную подпись из migration_ui, не обещающую перегенерацию.",
+      "Не удалять сохранённые значения/ревизии; редакторы и история промптов не меняются.",
+      "Диагностика одного ответа: L1 → tools → Writer → deterministic ops → delivery (R-ADM.5)."
+    ]
+  }
+}

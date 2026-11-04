@@ -52,6 +52,24 @@ CATEGORIES: tuple[str, ...] = (
     CATEGORY_TEMPORAL,
 )
 
+# ── RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING v2.0 §4/§6.2, 05.11.2026) ──────
+# Классы миграции параметров снятого rephrasing-пути. Ровно один класс на
+# запись; удаление не делается по совпадению слова `guard` (протокольные
+# guard'ы остаются `retained_as_technical`).
+MIGRATION_REMOVED = "removed"
+MIGRATION_RETAINED_TECHNICAL = "retained_as_technical"
+MIGRATION_RETAINED_EXPLICIT = "retained_for_explicit_transform"
+MIGRATION_RETAINED_SPECIALIZED = "retained_for_specialized_pipe"
+MIGRATION_DEPRECATED_COMPAT = "deprecated_compat"
+
+MIGRATION_CLASSES: tuple[str, ...] = (
+    MIGRATION_REMOVED,
+    MIGRATION_RETAINED_TECHNICAL,
+    MIGRATION_RETAINED_EXPLICIT,
+    MIGRATION_RETAINED_SPECIALIZED,
+    MIGRATION_DEPRECATED_COMPAT,
+)
+
 # Раунд 10 (F-7 §4.4, Q5): категории, допустимые для per-chat-слоя.
 _PER_CHAT_CATEGORIES: frozenset[str] = frozenset(
     {CATEGORY_PROMPTS, CATEGORY_LIMITS, CATEGORY_FLAGS, CATEGORY_REACTIONS,
@@ -110,6 +128,12 @@ class ParamSpec:
     # внутри карточки модуля на «Синтезатор (Логика)» / «Вербализатор
     # (Характер)». На GROUPS/TAB_RULES/счётчики не влияет.
     stage: str | None = None
+    # RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING v2.0 §6.2): класс миграции
+    # параметра снятого rephrasing-пути ("" — вне миграции). Аддитивные поля:
+    # UI-волна (UR-F/PVR) читает их, чтобы не рисовать мёртвых переключателей.
+    migration_class: str = ""
+    migration_consumer: str = ""
+    migration_ui: str = ""
 
     @property
     def pg_key(self) -> str:
@@ -145,6 +169,228 @@ class GroupSpec:
     title_ru: str      # заголовок группы
     description: str   # 1-2 предложения простым русским
     order: int         # порядок рендера ВНУТРИ категории (1, 2, 3...)
+
+
+@dataclasses.dataclass(frozen=True)
+class MigrationRow:
+    """RLR-05-ADMIN: строка migration manifest снятого rephrasing-пути.
+
+    `kind`: "catalog" (ключ есть в REGISTRY), "env" (env-only ClassVar
+    config/settings.py) или "behaviour" (снятое поведение без отдельного
+    параметра; `former_control` — что им управляло раньше).
+    """
+
+    name: str
+    kind: str
+    migration_class: str
+    consumer: str            # реальный потребитель в рантайме ("" нет)
+    ui: str                  # что админка показывает владельцу
+    former_control: str = ""
+    note: str = ""
+    # Фактическое состояние КОДА на этом кандидате (не целевое). Нужно,
+    # чтобы манифест не выдавал ещё живой post-L2 reroll за уже снятый:
+    # снятие выполняет RLR-04, а класс строки остаётся целевым.
+    current_state: str = ""
+
+
+# ── RLR-05-ADMIN: migration manifest (источник истины для UI-волны) ────────
+# JSON-зеркало: plans/features/remove-legacy-rephrasing/migration-manifest.json
+# (тест test_rlr_admin_manifest.py проверяет паритет). UI (UR-F/PVR) обязан
+# показывать только `ui`-формулировки: «Единое написание ответа», «Сохранение
+# исходного смысла при явном редактировании», «Техническая очистка сообщений»,
+# без панели машинных флагов.
+LEGACY_REPHRASING_MIGRATION: tuple[MigrationRow, ...] = (
+    # --- gateway/retry-переключатели снятого пути -------------------------
+    MigrationRow(
+        "SYSTEM2_DIRECT_ENABLED", "env", MIGRATION_DEPRECATED_COMPAT,
+        consumer="нет в новом маршруте: config.settings."
+                 "resolve_legacy_rephrasing_env_flag() всегда возвращает "
+                 "False; RLR-02 удаляет сам call site",
+        ui="не показывать; старое значение .env читается без ошибки и "
+           "игнорируется (истории/ревизий у ключа нет — env-only)",
+        note="false/0/null/true одинаково не включают двойной Writer"),
+    MigrationRow(
+        "prompts.direct_chat_synthesizer_system_prompt", "catalog",
+        MIGRATION_DEPRECATED_COMPAT,
+        consumer="нет в новом маршруте: _synthesize_direct_answer отключён "
+                 "(SYSTEM2_DIRECT_ENABLED резолвится False), reader удаляет "
+                 "RLR-02",
+        ui="не показывать в Prompt Library; текст и история остаются "
+           "читаемыми, значение не удаляется",
+        note="текст промпта, factory baseline и журнал версий не меняются; "
+             "вербализатор direct_chat_verbalizer_system_prompt не трогаем — "
+             "его читает живой L2"),
+    MigrationRow(
+        "SYSTEM2_VALIDATOR_LOOP_ENABLED", "env",
+        MIGRATION_RETAINED_EXPLICIT,
+        consumer="services.negative_constraints.verbalize_validated — только "
+                 "при form_contract (явное редактирование/перевод); свободный "
+                 "L2 его не читает после RLR-04",
+        ui="не показывать (env-only, вне админки)",
+        note="имя историческое; клише/формат/метатекст — наблюдение, не reroll"),
+    MigrationRow(
+        "MCA_POSTPROCESS_FORM_GUARD_ENABLED", "catalog",
+        MIGRATION_RETAINED_EXPLICIT,
+        consumer="mca_gates.postprocess_form_guard_enabled → "
+                 "negative_constraints form G1–G3 при наличии form_contract",
+        ui="показывать как «Форм-гард явного редактирования»; не обещает "
+           "перегенерацию обычного ответа",
+        note="свободный ответ не переписывается и не перегенерируется"),
+    MigrationRow(
+        "MCA_NUMERIC_CLAIM_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_EXPLICIT,
+        consumer="mca_gates.numeric_claim_guard_enabled → numeric contract "
+                 "внутри явной трансформации; свободный пост-эдит числа "
+                 "удаляется RLR-04",
+        ui="не показывать (env-only, вне админки)",
+        note="структурная проверка MetricResult остаётся data-stage"),
+    MigrationRow(
+        "MCA_RESPONSE_FRESHNESS_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="services.response_freshness: маркеры идемпотентности "
+                 "события/доставки + наблюдение совпадения текста",
+        ui="не показывать (env-only, вне админки)",
+        note="reroll по совпадению текста удаляется RLR-04 (R-05); "
+             "идемпотентность доставки остаётся"),
+    MigrationRow(
+        "EVIDENCE_EGRESS_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="services.evidence_policy.egress_guard_enabled → "
+                 "наблюдение EVIDENCE_EGRESS_CHECK (BGS-02), текст байт-в-байт",
+        ui="не показывать (env-only, вне админки)",
+        note="lookup/rewrite/drop уже сняты; остаётся provenance/диагностика"),
+    MigrationRow(
+        "EVIDENCE_ROUTING_POLICY_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="services.evidence_policy.policy_enabled → pre-Writer "
+                 "маршрутизация/обязательность evidence",
+        ui="не показывать (env-only, вне админки)",
+        note="вход Writer'а, не пост-L2 правка"),
+    # --- специализированные пайплайны (НЕ обычный free-form) ---------------
+    MigrationRow(
+        "SYSTEM2_FACTCHECK_ENABLED", "env",
+        MIGRATION_RETAINED_SPECIALIZED,
+        consumer="фактчек-конвейер: claims → evidence → verdict до "
+                 "финального текста (PVR-FC)",
+        ui="не показывать (env-only, вне админки)"),
+    MigrationRow(
+        "SYSTEM2_SUMMARY_ENABLED", "env",
+        MIGRATION_RETAINED_SPECIALIZED,
+        consumer="саммари/сон — отдельный продукт со своими стадиями",
+        ui="не показывать (env-only, вне админки)"),
+    # --- технические guard'ы/идемпотентность (не удалять по слову guard) --
+    MigrationRow(
+        "TELEGRAM_SEND_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="services.outgoing_guard.sanitize_outgoing — удаление "
+                 "настоящих машинных маркеров перед отправкой",
+        ui="не показывать (env-only, вне админки)"),
+    MigrationRow(
+        "MCA_EGRESS_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="mca_gates.egress_guard_enabled — loopback/SSRF-контроль",
+        ui="не показывать (env-only, вне админки)"),
+    MigrationRow(
+        "MCA_TOOL_DELIVERY_GUARD_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="mca_gates.tool_delivery_guard_enabled — идемпотентность "
+                 "доставки инструмента",
+        ui="не показывать (env-only, вне админки)"),
+    MigrationRow(
+        "MCA_SEND_RECHECK_ENABLED", "catalog",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="mca_gates.send_recheck_enabled — проверка повторной "
+                 "отправки одного логического события",
+        ui="показывать как техническую защиту от повторной отправки; "
+           "не обещает переписывание текста"),
+    MigrationRow(
+        "MCA_CONTEXT_ANSWER_CACHE_ENABLED", "env",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="mca_gates.context_answer_cache_enabled — кэш ответов "
+                 "контекста/идемпотентность",
+        ui="не показывать (env-only, вне админки)"),
+    MigrationRow(
+        "ANTICLICHE_MAX_PATTERNS", "catalog",
+        MIGRATION_RETAINED_TECHNICAL,
+        consumer="детектор клише: только диагностика/наблюдение, "
+                 "не перегенерация (anti_cliche_retries == 0)",
+        ui="показывать как лимит детектора; не обещает повторную генерацию"),
+    # --- снятые поведения без отдельного параметра ------------------------
+    MigrationRow(
+        "system2_direct_two_call", "behaviour", MIGRATION_REMOVED,
+        consumer="нет: путь недостижим, флаг резолвится False",
+        ui="нет переключателя",
+        former_control="SYSTEM2_DIRECT_ENABLED",
+        note="RLR-02 удаляет _synthesize_direct_answer и его call sites",
+        current_state="code site ещё присутствует, но недостижим "
+                      "(SYSTEM2_DIRECT_ENABLED=False при любом env); "
+                      "удаление — RLR-02"),
+    MigrationRow(
+        "duplicate_text_regeneration", "behaviour", MIGRATION_REMOVED,
+        consumer="ЕЩЁ АКТИВЕН: direct_chat_service.py:5414 "
+                 "duplicate_guard_retry делает LLM-вызов при совпадении "
+                 "текста; снимается RLR-04",
+        ui="нет переключателя",
+        former_control="MCA_RESPONSE_FRESHNESS_GUARD_ENABLED",
+        note="RLR-04/R-05: два разных события могут дать одинаковый текст",
+        current_state="active until RLR-04"),
+    MigrationRow(
+        "form_freeform_retry", "behaviour", MIGRATION_REMOVED,
+        consumer="нет",
+        ui="нет переключателя",
+        former_control="SYSTEM2_VALIDATOR_LOOP_ENABLED",
+        note="форма проверяется только при явной трансформации"),
+    MigrationRow(
+        "numeric_freeform_postedit", "behaviour", MIGRATION_REMOVED,
+        consumer="ЕЩЁ АКТИВЕН: direct_chat_service.py:5328 "
+                 "apply_numeric_guard на обычном финале (verified_phrase/"
+                 "снятие); снимается RLR-04",
+        ui="нет переключателя",
+        former_control="MCA_NUMERIC_CLAIM_GUARD_ENABLED",
+        note="RLR-04: структурные MetricResult проверяются до Writer",
+        current_state="active until RLR-04"),
+    MigrationRow(
+        "evidence_egress_rewrite_drop", "behaviour", MIGRATION_REMOVED,
+        consumer="нет (остаётся наблюдение/диагностика)",
+        ui="нет переключателя",
+        former_control="EVIDENCE_EGRESS_GUARD_ENABLED",
+        note="BGS-02 уже исполнен в services/evidence_policy"),
+    MigrationRow(
+        "public_speech_cut", "behaviour", MIGRATION_REMOVED,
+        consumer="нет (guard_public_text возвращает текст байт-в-байт)",
+        ui="нет переключателя",
+        former_control="",
+        note="BGS-03: у словаря не было и нет env/config-ключа; "
+             "модуль не читает файлы/env"),
+    MigrationRow(
+        "format_retry", "behaviour", MIGRATION_REMOVED,
+        consumer="нет (формат — наблюдение; Telegram-renderer не просит LLM)",
+        ui="нет переключателя",
+        former_control="SYSTEM2_VALIDATOR_LOOP_ENABLED",
+        note="FORMAT_GUARDS/plain_no_tables/bullet_list больше не reroll"),
+    MigrationRow(
+        "cliche_metatext_retry", "behaviour", MIGRATION_REMOVED,
+        consumer="нет (anti-cliche/metatext — диагностические коды)",
+        ui="нет переключателя",
+        former_control="SYSTEM2_VALIDATOR_LOOP_ENABLED",
+        note="RLR-04: наблюдение не меняет текст"),
+)
+
+
+def legacy_migration_manifest() -> dict:
+    """RLR-05-ADMIN: нормализованный migration manifest (ключи + поведения).
+
+    Используется тестом паритета с JSON и будущей UI-волной (UR-F/PVR).
+    """
+    rows = [dataclasses.asdict(row) for row in LEGACY_REPHRASING_MIGRATION]
+    return {
+        "schema": "admin-migration-manifest-v1",
+        "feature": "remove-legacy-rephrasing",
+        "slice": "RLR-05-ADMIN",
+        "classes": list(MIGRATION_CLASSES),
+        "keys": [row for row in rows if row["kind"] != "behaviour"],
+        "behaviours": [row for row in rows if row["kind"] == "behaviour"],
+    }
 
 
 # ── 84.24.2: реестр групп (68 шт.; покрытие параметров категорий) ────────────
@@ -2960,12 +3206,14 @@ _CHARACTER: list[ParamSpec] = [
                           "Аварийный env: MCA_STYLE_SCOPE_ENABLED."),
     ParamSpec("MCA_POSTPROCESS_FORM_GUARD_ENABLED",
               "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
-              CATEGORY_FLAGS, "Форм-гард постобработки", "bool",
+              CATEGORY_FLAGS, "Форм-гард явного редактирования", "bool",
               pg_id="flags.postprocess_form_guard_enabled",
               group="flags_character",
               progressive_level="advanced",
-              description="Гард формы ответа на постобработке. Аварийный "
-                          "env: MCA_POSTPROCESS_FORM_GUARD_ENABLED."),
+              description="Проверка формы только при явном редактировании/"
+                          "переводе готового текста (form_contract). Обычный "
+                          "ответ бота не переписывается и не перегенерируется. "
+                          "Аварийный env: MCA_POSTPROCESS_FORM_GUARD_ENABLED."),
 ]
 
 
@@ -3177,6 +3425,30 @@ for _hidden_key in _HIDDEN_CATALOG_PG_KEYS:
     _hidden_spec = REGISTRY.get(_hidden_key)
     if _hidden_spec is not None:
         REGISTRY[_hidden_key] = dataclasses.replace(_hidden_spec, hidden=True)
+
+# RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING v2.0 §6.2): аддитивная
+# миграционная разметка каталоговых ключей снятого rephrasing-пути.
+# Fail-fast: если каталожная строка манифеста исчезла — это ошибка, а не
+# «мёртвая» запись в docs. Значения/история/ревизии не затрагиваются.
+for _mig_row in LEGACY_REPHRASING_MIGRATION:
+    if _mig_row.kind != "catalog":
+        continue
+    _mig_spec = REGISTRY.get(_mig_row.name)
+    if _mig_spec is None:
+        raise ValueError(
+            "legacy migration manifest: catalog key missing: "
+            f"{_mig_row.name}")
+    REGISTRY[_mig_row.name] = dataclasses.replace(
+        _mig_spec,
+        migration_class=_mig_row.migration_class,
+        migration_consumer=_mig_row.consumer,
+        migration_ui=_mig_row.ui,
+        # `removed`/`deprecated_compat` не имеют редактируемого контрола:
+        # запись остаётся в реестре/правах, значение читаемо, но UI/API её
+        # не предлагают (ADR-1023-2, тот же механизм, что hidden-ключи).
+        hidden=(_mig_spec.hidden or _mig_row.migration_class in (
+            MIGRATION_REMOVED, MIGRATION_DEPRECATED_COMPAT)),
+    )
 
 # Раунд 10.4 (B-7/B-8): select-виджеты — опции/подписи (без роста записей).
 _SELECT_WIDGET_PRESETS: dict[str, dict] = {
