@@ -110,13 +110,20 @@ def test_enums_closed_and_mapped_to_existing_reason_codes():
         ep.EvidenceSkipReason.QUALIFIED_VERIFIED_REUSE) == "exact_match_used"
 
 
-def test_exactly_three_new_reason_codes_added():
-    """§1.4: аддитивно ровно три кода, второго словаря нет."""
+def test_evidence_reason_codes_registered_and_observation_is_active():
+    """§1.4 + BGS-02: коды словаря зарегистрированы, активен — наблюдение.
+
+    Три кода ASAP-EVIDENCE-ROUTING-01 остаются; BGS-02 добавляет код
+    НАБЛЮДЕНИЯ (``..._observed``) и оставляет ``..._removed`` только
+    декодером уже записанных строк истории — производителя у него нет
+    (проверяется поведением guard'а в остальных тестах файла)."""
     for code in (ep.REASON_EVIDENCE_SKIPPED, ep.REASON_EVIDENCE_REUSED,
-                 ep.REASON_EVIDENCE_CLAIM_REMOVED):
+                 ep.REASON_EVIDENCE_CLAIM_OBSERVED):
         assert code in mca_events.REASON_CODES
     assert ep.REASON_EVIDENCE_SKIPPED == "evidence_skipped"
     assert ep.REASON_EVIDENCE_REUSED == "evidence_reused"
+    assert ep.REASON_EVIDENCE_CLAIM_OBSERVED == \
+        "evidence_unverified_claim_observed"
     assert ep.REASON_EVIDENCE_CLAIM_REMOVED == \
         "evidence_unverified_claim_removed"
 
@@ -319,29 +326,33 @@ def test_external_claims_parsed_from_single_l1_call():
     assert len(keys) == 1 and keys[0].version == "4.1"
 
 
-# ── Сценарий 7/8/16/24: bounded outbound guard ─────────────────────────────
+# ── Сценарий 7/8/16/24 + BGS-02: egress = наблюдение, не постцензура ───────
 
 
-def test_scenario7_categorical_nonexistence_needs_source():
-    """Сценарий 7: категорическое «модель X не существует» без источника —
-    ровно один адресный lookup, затем регенерация, затем удаление claim'а."""
+def test_scenario7_categorical_nonexistence_is_observed_not_deleted():
+    """Сценарий 7 + BGS-02: «модель X не существует» без источника —
+    наблюдение (код + место) и НИ ОДНОЙ правки готового текста.
+
+    Раньше: lookup → повторная генерация → удаление предложения. Теперь
+    отсутствие подтверждения = неопределённость: текст доставляется как есть,
+    а факт наблюдения едет в событие. Проверка claim↔evidence сохранена — она
+    отвечает на вопрос «подтверждено ли», а не «что вырезать»."""
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual")
     answer = "Модели GeForce RTX 9090 не существует. Ну и ладно."
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="")
-    assert verdict.action == ep.GUARD_ONE_LOOKUP
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="", lookup_used=True)
-    assert verdict.action == ep.GUARD_HINT_RETRY
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="", lookup_used=True,
-                              retry_used=True)
-    assert verdict.action == ep.GUARD_DROP_CLAIM
-    assert verdict.reason_code == ep.REASON_EVIDENCE_CLAIM_REMOVED
-    rest = ep.drop_claim_sentence(answer, verdict.sentence)
-    assert "Ну и ладно." in rest
-    assert "не существует" not in rest
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert observation.reason_code == ep.REASON_EVIDENCE_CLAIM_OBSERVED
+    assert "не существует" in observation.sentence
+    # Место указано точно и попадает в исходный текст.
+    assert observation.sentence_index == 0
+    assert answer[observation.char_start:observation.char_end] \
+        == observation.sentence
+    # Никакого «удалить» в контракте результата нет.
+    assert not hasattr(observation, "drop_allowed")
+    assert not hasattr(ep, "drop_claim_sentence")
+    assert not hasattr(ep, "GUARD_DROP_CLAIM")
 
 
 def test_scenario17_metaphor_and_mat_are_outside_guard():
@@ -354,58 +365,60 @@ def test_scenario17_metaphor_and_mat_are_outside_guard():
 
 
 @pytest.mark.asyncio
-async def test_scenario16_egress_one_lookup_one_retry_keeps_joke():
-    """Сценарий 16: одна адресная попытка и не более одной регенерации;
-    шутка сохраняется, добавленный claim удаляется только при исчерпании."""
-    calls = {"lookup": 0, "rewrite": 0}
+async def test_scenario16_guard_hit_makes_no_second_call_and_keeps_joke():
+    """Сценарий 16 + BGS-02: срабатывание guard'а не стоит ни одного вызова.
 
-    async def lookup(claim):
-        calls["lookup"] += 1
-        return "iPhone 18 официально анонсирован к выходу в 2027 году, 256 ГБ"
-
-    async def rewrite(hint, extra):
-        calls["rewrite"] += 1
-        return "Ну и мрак. Кстати, iPhone 18 выйдет в 2027."
-
+    Второго поиска нет, повторной генерации нет, шутка и сам claim остаются в
+    тексте байт-в-байт: доставляется ровно то, что написал Writer."""
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual")
-    answer, stats = await dcs._run_evidence_egress_guard(
-        answer="Ну и мрак. Кстати, iPhone 18 выйдет в 2027.",
-        decision=decision, evidence_text="",
-        lookup=lookup, rewrite=rewrite)
-    assert calls["lookup"] == 1 and calls["rewrite"] <= 1
-    assert stats["lookup_used"] == 1
-    assert "Ну и мрак" in answer
+    answer = "Ну и мрак. Кстати, iPhone 18 выйдет в 2027."
+    delivered, stats = await dcs._run_evidence_egress_guard(
+        answer=answer, decision=decision, evidence_text="")
+    assert delivered == answer                       # ноль правок текста
+    assert stats["observed"] == 1
+    assert stats["code"] == ep.GUARD_OBSERVED_UNVERIFIED
+    assert stats["reason_code"] == ep.REASON_EVIDENCE_CLAIM_OBSERVED
+    # Место — именно второе предложение (шутка не в фокусе).
+    assert answer[stats["char_start"]:stats["char_end"]] \
+        == "Кстати, iPhone 18 выйдет в 2027."
+    # У guard'а больше нет ни lookup-, ни rewrite-параметров: вызвать второй
+    # поиск или повтор «ради фильтра» физически нечем.
+    import inspect
+    params = inspect.signature(dcs._run_evidence_egress_guard).parameters
+    assert "lookup" not in params and "rewrite" not in params
+    assert not hasattr(dcs.DirectChatService, "_evidence_lookup")
+    assert not hasattr(dcs.DirectChatService, "_evidence_rewrite")
 
 
-def test_scenario24_only_new_claim_is_checked_in_mixed_reply():
-    """Сценарий 24: пересказ чужого + своя новая цена → проверяется только
+def test_scenario24_only_new_claim_is_observed_in_mixed_reply():
+    """Сценарий 24: пересказ чужого + своя новая цена → наблюдается только
     добавка; предложение-атрибуция не считается неподтверждённым."""
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual")
     answer = ("По словам участников, цена уже 500$. "
               "Новая цена будет 700$.")
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="")
-    assert verdict.action == ep.GUARD_ONE_LOOKUP
-    assert "700" in verdict.sentence
-    assert "500" not in verdict.sentence
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert "700" in observation.sentence
+    assert "500" not in observation.sentence
     answer2 = "Участники спорили об акциях. Новая цена будет 500$."
-    verdict2 = ep.guard_egress(answer=answer2, decision=decision,
-                               evidence_text="")
-    assert verdict2.action == ep.GUARD_ONE_LOOKUP
-    assert "500" in verdict2.sentence
+    observation2 = ep.guard_egress(answer=answer2, decision=decision,
+                                   evidence_text="")
+    assert observation2.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert "500" in observation2.sentence
 
 
 def test_scenario8_snippet_is_not_a_read_source():
     """Сценарий 8: без доставленной выдержки число не подтверждается —
-    «прочитал документацию» не проходит guard."""
+    «прочитал документацию» даёт наблюдение, а с выдержкой — нет."""
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual")
     answer = "Я прочитал документацию: там 16 ГБ видеопамяти."
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="")
-    assert verdict.action == ep.GUARD_ONE_LOOKUP
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
     supported = ep.guard_egress(
         answer=answer, decision=decision,
         evidence_text="Спецификация: видеопамяти 16 ГБ, шина 256 бит.")
@@ -495,12 +508,17 @@ def test_scenario29_initiative_path_structure():
 
     handle_used = _used("handle_initiative")
     for forbidden in ("_l1_tool_phase", "_l1_tool_subset", "_evidence_preflight",
-                      "_evidence_lookup", "run_simple_tools"):
+                      "_evidence_lookup", "_evidence_rewrite",
+                      "run_simple_tools"):
         assert forbidden not in handle_used, forbidden
     reply_used = _used("generate_initiative_reply")
     for required in ("_evidence_preflight", "_l1_tool_subset", "_l1_tool_phase",
-                     "_evidence_lookup", "_run_evidence_egress_guard"):
+                     "_run_evidence_egress_guard"):
         assert required in reply_used, required
+    # BGS-02: ни второго поиска, ни повторной генерации после Writer'а —
+    # у инициативы ровно тот же postprocess, что у Direct.
+    for gone in ("_evidence_lookup", "_evidence_rewrite"):
+        assert gone not in reply_used, gone
 
 
 class _InitMemory:
@@ -601,8 +619,8 @@ async def test_scenario28_initiative_silent_makes_no_calls(monkeypatch):
 def test_review_decimal_number_is_not_a_version_claim():
     """Review fix 1: дробное число само по себе — не claim о версии.
 
-    «версия 1.5» и «1.2.3» остаются высокорисковыми, а «1.5 часа» — нет:
-    иначе guard искал бы в вебе по обычной арифметике в болтовне."""
+    «версия 1.5» и «1.2.3» остаются высокорисковыми (наблюдаются), а
+    «1.5 часа» — нет: иначе guard помечал бы обычную арифметику в болтовне."""
     factual = ep.EvidenceDecision(required=True,
                                   evidence_class="externally_factual")
     assert ep.guard_egress(
@@ -610,48 +628,38 @@ def test_review_decimal_number_is_not_a_version_claim():
         decision=factual, evidence_text="").action == ep.GUARD_NONE
     assert ep.guard_egress(
         answer="Вышла версия 1.5 этого ядра.",
-        decision=factual, evidence_text="").action == ep.GUARD_ONE_LOOKUP
+        decision=factual, evidence_text="").action == \
+        ep.GUARD_OBSERVED_UNVERIFIED
     assert ep.guard_egress(
         answer="Сборка 1.2.3 падает на старте.",
-        decision=factual, evidence_text="").action == ep.GUARD_ONE_LOOKUP
+        decision=factual, evidence_text="").action == \
+        ep.GUARD_OBSERVED_UNVERIFIED
 
 
 @pytest.mark.asyncio
 async def test_review_social_reply_with_decimal_makes_no_lookup():
-    """Review fix 1/2: социальная реплика с «1.5 часа» → GUARD_NONE, 0 запросов.
+    """Review fix 1/2 + BGS-02: социальная реплика с «1.5 часа» → тишина.
 
-    Guard для социального класса ТЕПЕРЬ ЗАПУСКАЕТСЯ (review fix 2: в шутке
-    может быть добавленный Writer'ом новый внешний факт), но детектор высокого
-    риска её не трогает: «1.5 часа» — арифметика, а не claim о версии. Ни
-    лишнего веб-поиска, ни удаления предложения."""
+    Guard для социального класса запускается (в шутке может быть добавленный
+    Writer'ом новый внешний факт), но детектор высокого риска её не трогает:
+    «1.5 часа» — арифметика, а не claim о версии. Ни наблюдения, ни правки."""
     plan = _plan(response_act="banter")
     decision = ep.evaluate_evidence_need(
         plan=plan, task_kind="social_chat", supplied=ep.SuppliedSources(),
         runtime_state=ep.RuntimeState(), context=_ok_ctx())
     assert not decision.required
-    verdict = ep.guard_egress(
+    observation = ep.guard_egress(
         answer="Я потратил 1.5 часа на этот баг, зато выспался.",
         decision=decision, evidence_text="")
-    assert verdict.action == ep.GUARD_NONE
-    assert verdict.lookup_allowed is False
-    assert verdict.note != "not_externally_factual"   # guard реально проверял
-    assert verdict.note == ""                         # и ничего не нашёл
-    calls = {"lookup": 0, "rewrite": 0}
-
-    async def lookup(claim):
-        calls["lookup"] += 1
-        return "нашлось"
-
-    async def rewrite(hint, extra):
-        calls["rewrite"] += 1
-        return "иное"
-
+    assert observation.action == ep.GUARD_NONE
+    assert observation.note != "not_externally_factual"   # guard реально проверял
+    assert observation.note == ""                         # и ничего не нашёл
     answer, stats = await dcs._run_evidence_egress_guard(
         answer="Я потратил 1.5 часа на этот баг, зато выспался.",
-        decision=decision, evidence_text="", lookup=lookup, rewrite=rewrite)
+        decision=decision, evidence_text="")
     assert answer == "Я потратил 1.5 часа на этот баг, зато выспался."
-    assert calls == {"lookup": 0, "rewrite": 0}
-    assert stats["guard_action"] == ep.GUARD_NONE
+    assert stats["observed"] == 0
+    assert stats["code"] == ep.GUARD_NONE
 
 
 # ── Review fix 2: guard НЕ выключен для шутки и атрибутированного пересказа ─
@@ -681,85 +689,51 @@ def _attributed_decision() -> "ep.EvidenceDecision":
 
 
 @pytest.mark.asyncio
-async def test_review_fix2_joke_with_added_nonexistence_is_checked():
-    """Сценарий 16: «Кстати, модели GeForce RTX 9090 не существует» в шутке.
+async def test_review_fix2_joke_with_added_nonexistence_is_observed():
+    """Сценарий 16 + BGS-02: «Кстати, модели GeForce RTX 9090 не существует»
+    в шутке — наблюдение, но НЕ удаление.
 
-    Класс `social` больше не глушит guard: добавленный Writer'ом новый внешний
-    факт — это НАШ claim. Реакция ограничена: один адресный lookup, одна
-    регенерация, и только потом удаляется ровно это предложение."""
+    Класс `social` не глушит guard: добавленный Writer'ом новый внешний факт —
+    это НАШ claim, и он должен быть виден в телеметрии. Реакции на него больше
+    нет: шутка и claim доставляются байт-в-байт (раньше был lookup + повтор +
+    вырезание предложения)."""
     decision = _banter_decision()
     answer = "Ну и мрак. Кстати, модели GeForce RTX 9090 не существует."
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="")
-    assert verdict.action == ep.GUARD_ONE_LOOKUP
-    assert "не существует" in verdict.sentence
-    assert "Ну и мрак" not in verdict.sentence     # шутка не в фокусе
-
-    calls = {"lookup": 0, "rewrite": 0}
-    seen: list[str] = []
-
-    async def lookup(claim):
-        calls["lookup"] += 1
-        seen.append(str(claim))
-        return ""                                  # выдержки нет
-
-    async def rewrite(hint, extra):
-        calls["rewrite"] += 1
-        assert "Не пиши, что ты что-то проверял" in hint
-        return "Ну и мрак."                        # claim убран, шутка цела
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert "не существует" in observation.sentence
+    assert "Ну и мрак" not in observation.sentence     # шутка не в фокусе
 
     text, stats = await dcs._run_evidence_egress_guard(
-        answer=answer, decision=decision, evidence_text="",
-        lookup=lookup, rewrite=rewrite)
-    assert calls == {"lookup": 1, "rewrite": 1}
-    assert seen and "не существует" in seen[0]
-    assert text == "Ну и мрак."
-    assert stats["lookup_used"] == 1 and stats["retry_used"] == 1
-    assert stats["dropped_claim"] == 0
-
-    # Writer проигнорировал подсказку → удаляется ТОЛЬКО это предложение.
-    async def stubborn(hint, extra):
-        return answer
-
-    text2, stats2 = await dcs._run_evidence_egress_guard(
-        answer=answer, decision=decision, evidence_text="",
-        lookup=lookup, rewrite=stubborn)
-    assert "не существует" not in text2
-    assert "Ну и мрак" in text2
-    assert stats2["dropped_claim"] == 1
+        answer=answer, decision=decision, evidence_text="")
+    assert text == answer                              # байт-в-байт
+    assert stats["observed"] == 1
+    assert stats["code"] == ep.GUARD_OBSERVED_UNVERIFIED
+    assert answer[stats["char_start"]:stats["char_end"]] \
+        == "Кстати, модели GeForce RTX 9090 не существует."
 
 
 @pytest.mark.asyncio
-async def test_review_fix2_attributed_retelling_checks_only_the_addition():
-    """Сценарий 24: атрибуция + НОВАЯ цена → проверяется только добавка.
+async def test_review_fix2_attributed_retelling_observes_only_the_addition():
+    """Сценарий 24: атрибуция + НОВАЯ цена → наблюдается только добавка.
 
     «По словам участников, цена 500$» — чужая речь (попредложенческий skip),
-    «Новая цена будет 700$» — собственный claim Writer'а: он и уходит в
-    адресную проверку, а пересказ остаётся в тексте."""
+    «Новая цена будет 700$» — собственный claim Writer'а: он и попадает в
+    наблюдение, а пересказ остаётся в тексте."""
     decision = _attributed_decision()
     answer = ("По словам участников, цена уже 500$. "
               "Новая цена будет 700$.")
-    verdict = ep.guard_egress(answer=answer, decision=decision,
-                              evidence_text="")
-    assert verdict.action == ep.GUARD_ONE_LOOKUP
-    assert "700" in verdict.sentence and "500" not in verdict.sentence
-
-    seen: list[str] = []
-
-    async def lookup(claim):
-        seen.append(str(claim))
-        return ""
-
-    async def rewrite(hint, extra):
-        return "По словам участников, цена уже 500$."
+    observation = ep.guard_egress(answer=answer, decision=decision,
+                                  evidence_text="")
+    assert observation.action == ep.GUARD_OBSERVED_UNVERIFIED
+    assert "700" in observation.sentence and "500" not in observation.sentence
 
     text, stats = await dcs._run_evidence_egress_guard(
-        answer=answer, decision=decision, evidence_text="",
-        lookup=lookup, rewrite=rewrite)
-    assert len(seen) == 1 and "700" in seen[0] and "500" not in seen[0]
-    assert text == "По словам участников, цена уже 500$."
-    assert "700" not in text
-    assert stats["dropped_claim"] == 0
+        answer=answer, decision=decision, evidence_text="")
+    assert text == answer
+    assert "700" in text
+    assert stats["observed"] == 1
 
     # Та же реплика БЕЗ добавки — guard молчит, атрибуция не наш claim.
     clean = ep.guard_egress(
@@ -896,55 +870,35 @@ async def test_review_fix3_initiative_required_without_query_is_unmet(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_review_egress_lookup_respects_allowed_gate(monkeypatch):
-    """Review fix 2: адресный lookup НЕ обходит §1.5.
+async def test_egress_observation_never_calls_the_network():
+    """BGS-02: у egress-проверки нет сетевого пути вовсе.
 
-    Положительный контроль: разрешено → ровно один web_search. Рубильник
-    «Модуль Поиск» выключен, явный запрет пользователя или отсутствие
-    `web_search` в решении политики → ноль сетевых вызовов."""
+    Раньше адресный lookup после Writer'а перепроверял `allowed()` (RBAC →
+    запрет сети → провайдер → квота). Теперь второго поиска нет по построению:
+    сборка из одного tool-шага даёт НОЛЬ вызовов даже при полностью
+    разрешённом контексте — рубильник/RBAC/SSRF охраняют единственный
+    pre-Writer путь (`_evidence_preflight` → `_l1_tool_subset`/`_l1_tool_phase`),
+    их собственные коды проверяются отдельно
+    (`test_rbac_quota_ssrf_codes_are_specific`, `test_c3_*`)."""
     router = _Router(outputs={"execute_web_search": "DeepSeek 4.1"})
     svc = _service(router)
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual",
                                    required_caps=("web_search",))
+    # Контекст полностью разрешающий: если бы у guard'а оставался сетевой
+    # путь, он бы им воспользовался.
+    assert ep.allowed("web_search", _ok_ctx())[0] is True
+    _ = svc
 
-    async def _permissive(chat_id, required_caps=(), *, user_forbids=False):
-        return _ok_ctx(user_forbids_external=bool(user_forbids))
-
-    monkeypatch.setattr(dcs, "_evidence_context", _permissive)
-    found = await svc._evidence_lookup(
-        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
-        correlation_id="run-lk", lore=False, image=False, decision=decision)
-    assert found
-    assert [d["tool"] for d in router.dispatched] == ["execute_web_search"]
-
-    async def _off(chat_id, required_caps=(), *, user_forbids=False):
-        return _ok_ctx(network_allowed={"web_search": False,
-                                        "fetch_url": True},
-                       user_forbids_external=bool(user_forbids))
-
-    router.dispatched.clear()
-    monkeypatch.setattr(dcs, "_evidence_context", _off)
-    assert await svc._evidence_lookup(
-        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
-        correlation_id="run-lk", lore=False, image=False,
-        decision=decision) == ""
-    assert router.dispatched == []          # рубильник: 0 сетевых вызовов
-
-    monkeypatch.setattr(dcs, "_evidence_context", _permissive)
-    assert await svc._evidence_lookup(
-        _ctx("без интернета, скажи просто"), "какая версия DeepSeek",
-        chat_id=CHAT, correlation_id="run-lk", lore=False, image=False,
-        decision=decision, user_forbids=True) == ""
-    assert router.dispatched == []          # явный запрет: 0 сетевых вызовов
-
-    no_caps = ep.EvidenceDecision(required=True,
-                                  evidence_class="externally_factual")
-    assert await svc._evidence_lookup(
-        _ctx(), "какая версия DeepSeek", chat_id=CHAT,
-        correlation_id="run-lk", lore=False, image=False,
-        decision=no_caps) == ""
-    assert router.dispatched == []
+    answer = "Вышла версия 1.5 этого ядра."
+    delivered, stats = await dcs._run_evidence_egress_guard(
+        answer=answer, decision=decision, evidence_text="")
+    assert router.dispatched == []          # 0 сетевых вызовов
+    assert delivered == answer
+    assert stats["observed"] == 1
+    assert stats["code"] == ep.GUARD_OBSERVED_UNVERIFIED
+    # Ни «адресного запроса», ни повторной генерации в статистике нет.
+    assert "lookup_used" not in stats and "retry_used" not in stats
 
 
 def test_review_user_forbidden_is_valid_skip_not_failure():
@@ -1276,7 +1230,8 @@ def test_policy_gate_off_returns_previous_behaviour():
 
 @pytest.mark.asyncio
 async def test_egress_gate_off_keeps_answer_byte_identical():
-    """§8.2: EVIDENCE_EGRESS_GUARD_ENABLED OFF → ответ не меняется."""
+    """§8.2 + BGS-02: EVIDENCE_EGRESS_GUARD_ENABLED OFF → ни наблюдения, ни
+    правок (ответ байт-в-байт даже без guard'а)."""
     ep.EGRESS_ENABLED_OVERRIDE = False
     decision = ep.EvidenceDecision(required=True,
                                    evidence_class="externally_factual")
@@ -1284,7 +1239,8 @@ async def test_egress_gate_off_keeps_answer_byte_identical():
         answer="Модели X не существует.", decision=decision,
         evidence_text="")
     assert answer == "Модели X не существует."
-    assert stats["guard_action"] == ep.GUARD_NONE
+    assert stats["observed"] == 0
+    assert stats["code"] == ep.GUARD_NONE
 
 
 # ── Волна 3: reuse подключён к реальному пути Direct (§1.6/§3.2/§3.4/§4.3) ──
