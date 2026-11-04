@@ -225,7 +225,7 @@ async def test_envelope_claim_matches_publication_and_keeps_target():
         target_ref={"chat_id": CHAT_ID,
                     "target_tg_message_id": envelope.target_tg_message_id},
         allow_needs_context=False)
-    plan = fsp.build_retrieval_plan(decision, ctx=None,
+    plan = fsp.build_retrieval_plan(decision,
                                     claim_text=envelope.claim_text)
     assert plan is None or plan.claim_text == envelope.claim_text
 
@@ -1041,7 +1041,7 @@ async def test_deadline_skipped_fetch_is_counted_not_hidden(monkeypatch):
         fsg.evaluate_suitability(top, None, None,
                                  target_ref={"chat_id": CHAT_ID},
                                  allow_needs_context=False),
-        ctx=None, claim_text=top)
+        claim_text=top)
 
     class SlowAgg:
         async def search(self, query, max_symbols, **kwargs):
