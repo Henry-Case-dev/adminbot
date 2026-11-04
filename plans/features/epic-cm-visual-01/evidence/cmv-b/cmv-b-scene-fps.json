@@ -2,7 +2,7 @@
  "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\CMV-B-SCENE-PHYSICS-fd07ff453848-2433b50f",
  "nodes": 702,
  "edges": 2400,
- "payload_sha256": "6aa74ed7ed2c8c876f5e536592180d223bc3195de8a3da027fa49e6a04dabaa5",
+ "payload_sha256": "cda339a46267054fbfc2b6ac4e8fb6f4528ee35f16f9f38eb3c1a8f203be1971",
  "render_mode": "headless-gpu(ANGLE d3d11)",
  "shots": [
   "cmv-b-desktop-fit.png",
@@ -12,7 +12,8 @@
   "cmv-b-mobile-fit.png",
   "cmv-b-mobile-fit-selected.png",
   "cmv-b-mobile-zoom2.png",
-  "cmv-b-desktop-reduced-motion.png"
+  "cmv-b-desktop-reduced-motion.png",
+  "cmv-b-desktop-selection-zoom2x.png"
  ],
  "checks": [
   {
@@ -45,7 +46,7 @@
   },
   {
    "ok": true,
-   "message": "desktop: подписи на обзоре есть (13 подписей, §4.4)"
+   "message": "desktop: подписи на обзоре есть (16 подписей, §4.4)"
   },
   {
    "ok": true,
@@ -53,11 +54,23 @@
   },
   {
    "ok": true,
-   "message": "desktop: обзор заполняет кадр (fillH=0.90, fillW=0.23)"
+   "message": "desktop: обзор заполняет кадр (fillH=0.90, fillW=0.64)"
   },
   {
    "ok": true,
-   "message": "desktop: в кадре есть связная видимая область (2); разделение групп на обзоре — задача агрегатов LOD (CMV-C)"
+   "message": "desktop: обзор использует ширину кадра (fillW=0.64)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: узлы не стоят стеной (пересечений 906 = 1.29 на узел, макс. 11.1 px)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: нет совпавших центров (ровно поверх: 0; ближе 1.5 px: 10)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: в кадре есть связная видимая область (1); разделение групп на обзоре — задача агрегатов LOD (CMV-C)"
   },
   {
    "ok": true,
@@ -69,11 +82,11 @@
   },
   {
    "ok": true,
-   "message": "desktop: hoverNode определяет узел под курсором ('fact:-1001234567890:615')"
+   "message": "desktop: hoverNode определяет узел под курсором ('fact:-1001234567890:332')"
   },
   {
    "ok": true,
-   "message": "desktop: клик выбрал реальный узел ('fact:-1001234567890:615')"
+   "message": "desktop: клик выбрал реальный узел ('fact:-1001234567890:332')"
   },
   {
    "ok": true,
@@ -93,6 +106,14 @@
   },
   {
    "ok": true,
+   "message": "desktop: подсвеченные связи выбранного нарисованы поверх узлов (12 из 12 инцидентных)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: слой fx реально рисовал связи выбора (264 линий)"
+  },
+  {
+   "ok": true,
    "message": "desktop: Esc закрывает карточку"
   },
   {
@@ -101,7 +122,7 @@
   },
   {
    "ok": true,
-   "message": "desktop: точка жеста в кадре (883, 519 при 1536x960)"
+   "message": "desktop: точка жеста в кадре (758, 503 при 1536x960)"
   },
   {
    "ok": true,
@@ -109,7 +130,7 @@
   },
   {
    "ok": true,
-   "message": "desktop: после зума в кадре остаются реальные узлы (686)"
+   "message": "desktop: после зума в кадре остаются реальные узлы (676)"
   },
   {
    "ok": true,
@@ -121,7 +142,7 @@
   },
   {
    "ok": true,
-   "message": "desktop: FPS панорамирования ≥ 45 (медиана 54.9, прогоны [54.9, 55.3, 54.6], p95 46.3)"
+   "message": "desktop: FPS панорамирования ≥ 45 (медиана 47.2, прогоны [47.2, 46.9, 48.3], p95 42.0)"
   },
   {
    "ok": true,
@@ -129,7 +150,7 @@
   },
   {
    "ok": true,
-   "message": "простой: кадров декора ≤ 24 fps (60 за 3009 мс, лимит 84)"
+   "message": "простой: кадров декора ≤ 24 fps (61 за 3003 мс, лимит 84)"
   },
   {
    "ok": true,
@@ -173,7 +194,7 @@
   },
   {
    "ok": true,
-   "message": "mobile: подписи на обзоре есть (12 подписей, §4.4)"
+   "message": "mobile: подписи на обзоре есть (11 подписей, §4.4)"
   },
   {
    "ok": true,
@@ -182,6 +203,14 @@
   {
    "ok": true,
    "message": "mobile: обзор заполняет кадр (fillH=0.89, fillW=0.84)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: обзор использует ширину кадра (fillW=0.84)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: узлы не стоят стеной сверх плотного кадра (3074 = 4.38 на узел; агрегаты LOD — CMV-C)"
   },
   {
    "ok": true,
@@ -197,11 +226,11 @@
   },
   {
    "ok": true,
-   "message": "mobile: hoverNode определяет узел под курсором ('ent:-1001234567890:567')"
+   "message": "mobile: hoverNode определяет узел под курсором ('fact:-1001234567890:620')"
   },
   {
    "ok": true,
-   "message": "mobile: клик выбрал реальный узел ('ent:-1001234567890:567')"
+   "message": "mobile: клик выбрал реальный узел ('belief:-1001234567890:562')"
   },
   {
    "ok": true,
@@ -221,6 +250,14 @@
   },
   {
    "ok": true,
+   "message": "mobile: подсвеченные связи выбранного нарисованы поверх узлов (13 из 13 инцидентных)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: слой fx реально рисовал связи выбора (207 линий)"
+  },
+  {
+   "ok": true,
    "message": "mobile: Esc закрывает карточку"
   },
   {
@@ -229,7 +266,7 @@
   },
   {
    "ok": true,
-   "message": "mobile: точка жеста в кадре (280, 602 при 390x844)"
+   "message": "mobile: точка жеста в кадре (99, 593 при 390x844)"
   },
   {
    "ok": true,
@@ -237,7 +274,7 @@
   },
   {
    "ok": true,
-   "message": "mobile: после зума в кадре остаются реальные узлы (2)"
+   "message": "mobile: после зума в кадре остаются реальные узлы (4)"
   },
   {
    "ok": true,
@@ -269,11 +306,23 @@
   },
   {
    "ok": true,
-   "message": "reduced-motion: за 1202 мс ни одного кадра анимации (0)"
+   "message": "reduced-motion: за 1206 мс ни одного кадра анимации (0)"
   },
   {
    "ok": true,
    "message": "reduced-motion: спрайты не пересоздаются"
+  },
+  {
+   "ok": true,
+   "message": "DPR 2: слой fx = сцена · 2 ([2504, 636] при [1252, 318])"
+  },
+  {
+   "ok": true,
+   "message": "zoom: связи выбранного нарисованы поверх узлов (14)"
+  },
+  {
+   "ok": true,
+   "message": "zoom: подписи в кадре не накладываются (0)"
   }
  ],
  "fails": [],
@@ -298,23 +347,29 @@
     "opacityBelow": 2400,
     "opacityAbove": 0
    },
-   "labels": 13,
+   "labels": 16,
    "forcedLabels": 0,
    "duplicateLabels": 0,
    "labelOverlaps": 0,
-   "bigGroups": 2,
+   "bigGroups": 1,
    "groups": [
-    674,
-    12,
+    668,
     5,
-    5,
-    3,
+    4,
+    4,
     2,
-    1
+    2,
+    2,
+    2
    ],
-   "fillW": 0.23243830767543272,
-   "fillH": 0.9035122382092466,
+   "fillW": 0.6438694474717571,
+   "fillH": 0.9035307200444814,
    "inView": 702,
+   "nodeOverlaps": 906,
+   "nodePairs": 13444,
+   "coincident": 0,
+   "worstOverlap": 11.054179699461578,
+   "nearCentres": 10,
    "selected": null,
    "selectedLabeled": false,
    "counters": {
@@ -328,20 +383,22 @@
     "paused": false,
     "observerCount": 2,
     "listeners": 11,
-    "frames": 13,
+    "frames": 14,
     "settled": true,
-    "fitScale": 0.07391738918202738,
+    "fitScale": 0.07367250486516541,
     "lod": 1,
     "fxCanvas": true,
     "fxSprites": 14,
     "fxGradients": 14,
-    "fxPaints": 17,
-    "fxDraws": 10164,
+    "fxPaints": 18,
+    "fxDraws": 10890,
     "fxPooled": 702,
-    "draws": 17,
+    "fxEdgeDraws": 0,
+    "fxActiveEdges": 0,
+    "draws": 18,
     "pulseCount": 24,
     "positions": 702,
-    "labelsShown": 13
+    "labelsShown": 16
    },
    "fxSize": [
     1252,
@@ -351,35 +408,38 @@
     1252,
     318
    ],
-   "fitScale": 0.07391738918202738,
-   "scale": 0.07391738918202738,
+   "fitScale": 0.07367250486516541,
+   "scale": 0.07367250486516541,
    "dpr": 1,
    "lod": 1
   },
-  "hover": "fact:-1001234567890:615",
+  "hover": "fact:-1001234567890:332",
   "selection": {
-   "target": "ent:-1001234567890:469",
-   "degree": 14,
-   "selected": "fact:-1001234567890:615",
+   "target": "fact:-1001234567890:332",
+   "degree": 12,
+   "selected": "fact:-1001234567890:332",
    "selectedLabeled": true,
    "card": true,
    "labelOverlaps": 0,
-   "labels": 14,
+   "labels": 15,
    "edgeStats": {
     "total": 2400,
     "smooth": 0,
     "arrow": 65,
     "opacityBelow": 2400,
     "opacityAbove": 0
-   }
+   },
+   "activeEdges": 12,
+   "edgeDraws": 264,
+   "incident": 12
   },
   "afterEscape": {
-   "sel": "fact:-1001234567890:615",
+   "sel": "fact:-1001234567890:332",
    "card": false
   },
   "zoomed": {
-   "fitScale": 0.07391738918202738,
-   "scale": 0.11904469445154696,
+   "fitScale": 0.07367250486516541,
+   "scale": 0.11865030581039758,
    "ratio": 1.6105100000000006,
    "lod": 1,
    "labels": 14,
@@ -397,14 +457,16 @@
     "listeners": 11,
     "frames": 68,
     "settled": true,
-    "fitScale": 0.07391738918202738,
+    "fitScale": 0.07367250486516541,
     "lod": 1,
     "fxCanvas": true,
     "fxSprites": 51,
     "fxGradients": 51,
     "fxPaints": 93,
-    "fxDraws": 65329,
+    "fxDraws": 65253,
     "fxPooled": 702,
+    "fxEdgeDraws": 864,
+    "fxActiveEdges": 12,
     "draws": 93,
     "pulseCount": 24,
     "positions": 702,
@@ -413,33 +475,33 @@
   }
  },
  "fps_pan": {
-  "frames": 166,
-  "elapsed": 3003.7000000178814,
-  "fps": 55.265172953028525,
-  "p50": 18.19999998807907,
-  "p95": 21.599999994039536,
-  "fpsP95": 46.29629630907164,
-  "fxPaints": 166,
+  "frames": 141,
+  "elapsed": 3009.5999999940395,
+  "fps": 46.85007974490937,
+  "p50": 21.100000023841858,
+  "p95": 23.799999982118607,
+  "fpsP95": 42.016806754257104,
+  "fxPaints": 141,
   "runs": [
-   54.9,
-   55.3,
-   54.6
+   47.2,
+   46.9,
+   48.3
   ],
-  "median": 54.94505494505495
+  "median": 47.209016257095854
  },
  "fps_pan_vis_only": {
-  "frames": 179,
-  "elapsed": 3007.399999976158,
-  "fps": 59.51985103458771,
-  "p50": 16.69999998807907,
-  "p95": 20.799999982118607,
-  "fpsP95": 48.07692311825396,
+  "frames": 166,
+  "elapsed": 3008.300000011921,
+  "fps": 55.18066682157438,
+  "p50": 17.80000001192093,
+  "p95": 21.299999982118607,
+  "fpsP95": 46.94835684692498,
   "fxPaints": 0
  },
  "idle": {
-  "elapsed": 3008.800000011921,
-  "draws": 60,
-  "frames": 59,
+  "elapsed": 3002.800000011921,
+  "draws": 61,
+  "frames": 60,
   "sprites": 0,
   "gradients": 0,
   "rafActive": true,
@@ -456,15 +518,17 @@
    "listeners": 11,
    "frames": 132,
    "settled": true,
-   "fitScale": 0.07391738918202738,
+   "fitScale": 0.07367250486516541,
    "lod": 1,
    "fxCanvas": true,
    "fxSprites": 51,
    "fxGradients": 51,
-   "fxPaints": 650,
-   "fxDraws": 466994,
+   "fxPaints": 584,
+   "fxDraws": 416478,
    "fxPooled": 702,
-   "draws": 650,
+   "fxEdgeDraws": 6756,
+   "fxActiveEdges": 12,
+   "draws": 584,
    "pulseCount": 24,
    "positions": 702,
    "labelsShown": 15
@@ -492,18 +556,24 @@
     "opacityBelow": 2400,
     "opacityAbove": 0
    },
-   "labels": 12,
+   "labels": 11,
    "forcedLabels": 0,
    "duplicateLabels": 0,
    "labelOverlaps": 0,
    "bigGroups": 1,
    "groups": [
-    700,
+    698,
+    2,
     2
    ],
    "fillW": 0.8418645390050947,
    "fillH": 0.8948119942884339,
    "inView": 702,
+   "nodeOverlaps": 3074,
+   "nodePairs": 12174,
+   "coincident": 290,
+   "worstOverlap": 24,
+   "nearCentres": 843,
    "selected": null,
    "selectedLabeled": false,
    "counters": {
@@ -517,20 +587,22 @@
     "paused": false,
     "observerCount": 2,
     "listeners": 9,
-    "frames": 7,
+    "frames": 6,
     "settled": true,
     "fitScale": 0.1891956211327939,
     "lod": 1,
     "fxCanvas": true,
-    "fxSprites": 18,
-    "fxGradients": 18,
-    "fxPaints": 11,
-    "fxDraws": 5616,
+    "fxSprites": 24,
+    "fxGradients": 24,
+    "fxPaints": 10,
+    "fxDraws": 7260,
     "fxPooled": 702,
-    "draws": 11,
-    "pulseCount": 0,
+    "fxEdgeDraws": 0,
+    "fxActiveEdges": 0,
+    "draws": 10,
+    "pulseCount": 24,
     "positions": 702,
-    "labelsShown": 12
+    "labelsShown": 11
    },
    "fxSize": [
     676,
@@ -545,25 +617,28 @@
    "dpr": 2,
    "lod": 1
   },
-  "hover": "ent:-1001234567890:567",
+  "hover": "fact:-1001234567890:620",
   "selection": {
-   "target": "ent:-1001234567890:469",
-   "degree": 14,
-   "selected": "ent:-1001234567890:567",
+   "target": "belief:-1001234567890:562",
+   "degree": 13,
+   "selected": "belief:-1001234567890:562",
    "selectedLabeled": true,
    "card": true,
    "labelOverlaps": 0,
-   "labels": 10,
+   "labels": 11,
    "edgeStats": {
     "total": 2400,
     "smooth": 0,
     "arrow": 65,
     "opacityBelow": 2400,
     "opacityAbove": 0
-   }
+   },
+   "activeEdges": 13,
+   "edgeDraws": 207,
+   "incident": 13
   },
   "afterEscape": {
-   "sel": "ent:-1001234567890:567",
+   "sel": "belief:-1001234567890:562",
    "card": false
   },
   "zoomed": {
@@ -584,17 +659,19 @@
     "paused": false,
     "observerCount": 2,
     "listeners": 9,
-    "frames": 68,
+    "frames": 64,
     "settled": true,
     "fitScale": 0.1891956211327939,
     "lod": 2,
     "fxCanvas": true,
-    "fxSprites": 102,
-    "fxGradients": 102,
-    "fxPaints": 125,
-    "fxDraws": 47116,
+    "fxSprites": 104,
+    "fxGradients": 104,
+    "fxPaints": 121,
+    "fxDraws": 47943,
     "fxPooled": 702,
-    "draws": 125,
+    "fxEdgeDraws": 785,
+    "fxActiveEdges": 2,
+    "draws": 121,
     "pulseCount": 24,
     "positions": 702,
     "labelsShown": 1
@@ -625,7 +702,7 @@
    },
    {
     "ok": true,
-    "message": "reduced-motion: за 1202 мс ни одного кадра анимации (0)"
+    "message": "reduced-motion: за 1206 мс ни одного кадра анимации (0)"
    },
    {
     "ok": true,
@@ -634,7 +711,7 @@
   ],
   "fails": [],
   "idle": {
-   "elapsed": 1202,
+   "elapsed": 1205.6000000238419,
    "draws": 0,
    "frames": 0,
    "sprites": 0,
@@ -653,18 +730,20 @@
     "listeners": 11,
     "frames": 0,
     "settled": true,
-    "fitScale": 0.07220052674598128,
+    "fitScale": 0.07315053367684946,
     "lod": 1,
     "fxCanvas": true,
-    "fxSprites": 16,
-    "fxGradients": 16,
+    "fxSprites": 18,
+    "fxGradients": 18,
     "fxPaints": 12,
     "fxDraws": 7269,
     "fxPooled": 702,
+    "fxEdgeDraws": 80,
+    "fxActiveEdges": 10,
     "draws": 12,
     "pulseCount": 24,
     "positions": 702,
-    "labelsShown": 14
+    "labelsShown": 16
    }
   },
   "state": {
@@ -682,22 +761,30 @@
     "opacityBelow": 2400,
     "opacityAbove": 0
    },
-   "labels": 13,
-   "forcedLabels": 1,
+   "labels": 16,
+   "forcedLabels": 0,
    "duplicateLabels": 0,
    "labelOverlaps": 0,
-   "bigGroups": 1,
+   "bigGroups": 2,
    "groups": [
-    687,
-    7,
-    3,
-    3,
-    2
+    669,
+    10,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1
    ],
-   "fillW": 0.22432911265324854,
-   "fillH": 0.9036418127327215,
+   "fillW": 0.6404177313354209,
+   "fillH": 0.9035701140964297,
    "inView": 702,
-   "selected": "fact:-1001234567890:634",
+   "nodeOverlaps": 938,
+   "nodePairs": 13966,
+   "coincident": 2,
+   "worstOverlap": 8.488719720475132,
+   "nearCentres": 8,
+   "selected": "ent:-1001234567890:580",
    "selectedLabeled": true,
    "counters": {
     "netCount": 1,
@@ -712,18 +799,20 @@
     "listeners": 11,
     "frames": 0,
     "settled": true,
-    "fitScale": 0.07220052674598128,
+    "fitScale": 0.07315053367684946,
     "lod": 1,
     "fxCanvas": true,
-    "fxSprites": 16,
-    "fxGradients": 16,
+    "fxSprites": 18,
+    "fxGradients": 18,
     "fxPaints": 12,
     "fxDraws": 7269,
     "fxPooled": 702,
+    "fxEdgeDraws": 80,
+    "fxActiveEdges": 10,
     "draws": 12,
     "pulseCount": 24,
     "positions": 702,
-    "labelsShown": 14
+    "labelsShown": 16
    },
    "fxSize": [
     1252,
@@ -733,13 +822,127 @@
     1252,
     318
    ],
-   "fitScale": 0.07220052674598128,
-   "scale": 0.07220052674598128,
+   "fitScale": 0.07315053367684946,
+   "scale": 0.07315053367684946,
    "dpr": 1,
    "lod": 1
   },
   "shots": [
    "cmv-b-desktop-reduced-motion.png"
   ]
+ },
+ "selection_zoom": {
+  "checks": [
+   {
+    "ok": true,
+    "message": "DPR 2: слой fx = сцена · 2 ([2504, 636] при [1252, 318])"
+   },
+   {
+    "ok": true,
+    "message": "zoom: связи выбранного нарисованы поверх узлов (14)"
+   },
+   {
+    "ok": true,
+    "message": "zoom: подписи в кадре не накладываются (0)"
+   }
+  ],
+  "fails": [],
+  "state": {
+   "nodes": 702,
+   "edges": 2400,
+   "shapes": {
+    "dot": 562,
+    "hexagon": 56,
+    "diamond": 84
+   },
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   },
+   "labels": 16,
+   "forcedLabels": 0,
+   "duplicateLabels": 0,
+   "labelOverlaps": 0,
+   "bigGroups": 1,
+   "groups": [
+    665,
+    5,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "fillW": 0.6567107517020727,
+   "fillH": 0.9033643521832498,
+   "inView": 702,
+   "nodeOverlaps": 881,
+   "nodePairs": 12999,
+   "coincident": 1,
+   "worstOverlap": 8.16851334746029,
+   "nearCentres": 9,
+   "selected": null,
+   "selectedLabeled": false,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": true,
+    "rafRunning": true,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 11,
+    "frames": 14,
+    "settled": true,
+    "fitScale": 0.07587687902648532,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 18,
+    "fxGradients": 18,
+    "fxPaints": 18,
+    "fxDraws": 10890,
+    "fxPooled": 702,
+    "fxEdgeDraws": 0,
+    "fxActiveEdges": 0,
+    "draws": 18,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 16
+   },
+   "fxSize": [
+    2504,
+    636
+   ],
+   "elSize": [
+    1252,
+    318
+   ],
+   "fitScale": 0.07587687902648532,
+   "scale": 0.07587687902648532,
+   "dpr": 2,
+   "lod": 1
+  },
+  "selection": {
+   "id": "ent:-1001234567890:469",
+   "degree": 14,
+   "activeEdges": 14,
+   "edgeDraws": 224,
+   "labelOverlaps": 0
+  },
+  "shots": [
+   "cmv-b-desktop-selection-zoom2x.png"
+  ],
+  "clip": {
+   "x": 675.3457408733,
+   "y": 377.71219577666426,
+   "width": 340,
+   "height": 220
+  }
  }
 }

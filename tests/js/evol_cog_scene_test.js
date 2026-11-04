@@ -263,6 +263,8 @@ function newCtx(extra) {
     _cogSyncFxSize: methods._cogSyncFxSize,
     _cogSyncPositions: methods._cogSyncPositions,
     _cogApplyNodeSizes: methods._cogApplyNodeSizes,
+    _cogFitLayoutToFrame: methods._cogFitLayoutToFrame,
+    _cogRelaxOverlaps: methods._cogRelaxOverlaps,
     _cogBuildPulse: methods._cogBuildPulse,
     _cogNeighborIds: methods._cogNeighborIds,
     _cogSetHover: methods._cogSetHover,
@@ -505,19 +507,70 @@ function newCtx(extra) {
   // Песочница с минимальным DOM: проверяем РЕАЛЬНУЮ проводку слоя (создание
   // канваса, размер по DPR, кэш спрайтов, пауза, снос), а не только математику.
   const fxGradient = { made: 0, canvases: 0 };
-  function stubCtx2d() {
-    return {
+  /* Заглушка 2d-контекста ЗАПИСЫВАЕТ операции, а не только считает вызовы.
+   * Без записи мутации «чёрная плашка вернулась» (fillRect под подписью) или
+   * «выбранный узел потерял подпись» не падают: тест видел бы только факт
+   * вызова. `ops` — единый журнал кадра: тип + аргументы + стиль на момент
+   * вызова; `measureText` отдаёт правдоподобную ширину кириллицы, чтобы слой
+   * подписей считал боксы как в браузере. */
+  function makeCtx(log, canvas) {
+    const rec = {
+      __ops: log,
+      canvas: canvas || null,
       globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '', font: '',
-      textAlign: '', textBaseline: '', lineJoin: '',
+      textAlign: '', textBaseline: '', lineJoin: '', lineCap: '',
       createRadialGradient() {
         fxGradient.made += 1;
         return { addColorStop() {} };
       },
-      clearRect() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {},
-      quadraticCurveTo() {}, closePath() {}, arc() {}, stroke() {}, fill() {},
-      save() {}, restore() {}, setTransform() {}, fillText() {},
-      strokeText() {}, drawImage() {},
+      measureText(text) {
+        const size = parseFloat(String(rec.font).replace(/[^0-9.]/g, '')) || 12;
+        return { width: String(text).length * size * 0.62 };
+      },
+      clearRect(x, y, w, h) {
+        log.push({ op: 'clearRect', x, y, w, h });
+      },
+      fillRect(x, y, w, h) {
+        log.push({ op: 'fillRect', x, y, w, h, style: rec.fillStyle,
+                   alpha: rec.globalAlpha });
+      },
+      beginPath() { log.push({ op: 'beginPath' }); },
+      moveTo(x, y) { log.push({ op: 'moveTo', x, y }); },
+      lineTo(x, y) { log.push({ op: 'lineTo', x, y }); },
+      quadraticCurveTo(x1, y1, x2, y2) {
+        log.push({ op: 'quadraticCurveTo', x1, y1, x2, y2 });
+      },
+      closePath() { log.push({ op: 'closePath' }); },
+      arc(x, y, r) { log.push({ op: 'arc', x, y, r }); },
+      stroke() {
+        log.push({ op: 'stroke', style: rec.strokeStyle,
+                   width: rec.lineWidth, alpha: rec.globalAlpha });
+      },
+      fill() {
+        log.push({ op: 'fill', style: rec.fillStyle, alpha: rec.globalAlpha });
+      },
+      save() { log.push({ op: 'save' }); },
+      restore() { log.push({ op: 'restore' }); },
+      setTransform(a, b, c, d, e, f) {
+        log.push({ op: 'setTransform', a, b, c, d, e, f });
+      },
+      fillText(text, x, y) {
+        log.push({ op: 'fillText', text, x, y, style: rec.fillStyle,
+                   font: rec.font, alpha: rec.globalAlpha });
+      },
+      strokeText(text, x, y) {
+        log.push({ op: 'strokeText', text, x, y, style: rec.strokeStyle,
+                   width: rec.lineWidth, font: rec.font,
+                   alpha: rec.globalAlpha });
+      },
+      drawImage(img, x, y, w, h) {
+        log.push({ op: 'drawImage', x, y, w, h, alpha: rec.globalAlpha });
+      },
     };
+    return rec;
+  }
+  function stubCtx2d() {
+    return makeCtx([], null);
   }
   function domSceneEl() {
     const children = [];
@@ -540,11 +593,18 @@ function newCtx(extra) {
   global.document.createElement = function (tag) {
     if (tag !== 'canvas') return prevCreate(tag);
     fxGradient.canvases += 1;
+    const log = [];
     const canvas = {
       tagName: 'CANVAS', width: 300, height: 150, className: '',
       style: {}, parentNode: null,
+      // Журнал операций ЭТОГО канваса: по нему видно, ЧТО нарисовано, а не
+      // только сколько раз вызвали метод (иначе мутации подписей/плашек живы).
+      __ops: log,
       setAttribute() {},
-      getContext() { return stubCtx2d(); },
+      getContext() {
+        if (!this.__ctx) this.__ctx = makeCtx(log, canvas);
+        return this.__ctx;
+      },
     };
     return canvas;
   };
@@ -584,6 +644,80 @@ function newCtx(extra) {
     'подписи: слой отдал хотя бы одну подпись');
   ok(ctxFx._cogLabels.labels.some((l) => l.id === 'par:1:3'),
     'подписи: выбранный узел подписан всегда (приоритет 0)');
+  const fxCanvas = fxEl.children[0];
+  const fxOps = fxCanvas.__ops || [];
+  const texts = fxOps.filter((o) => o.op === 'strokeText');
+  const fills = fxOps.filter((o) => o.op === 'fillText');
+  ok(texts.length > 0, 'подписи: текст РЕАЛЬНО нарисован контуром (strokeText)');
+  eq(texts.length, fills.length,
+    'подписи: у каждого текста есть и контур, и заливка (без плашки)');
+  // §4.4 спеки: «никаких чёрных прямоугольников под каждой подписью».
+  // Проверяем не отсутствие метода, а ОПЕРАЦИИ: под подписью не должно быть
+  // закрашенного прямоугольника (мутация «вернуть плашку» это ломает).
+  const labelBoxes = texts.map((t) => ({
+    text: t.text,
+    x: t.x,
+    y: t.y,
+    width: Math.max(12, String(t.text).length * 12 * 0.55) + 6,
+    height: 17,
+  }));
+  const plates = fxOps.filter((o) => o.op === 'fillRect'
+    && o.w > 8 && o.h > 6 && o.h < 60
+    && labelBoxes.some((b) => Math.abs((o.x + o.w / 2) - b.x) < b.width / 2
+      && Math.abs((o.y + o.h / 2) - b.y) < b.height / 2 + 4));
+  eq(plates.map((o) => o.style), [],
+    'подписи: ни одной закрашенной плашки под текстом (§4.4)');
+  // Ширина контура: замечание ревью — при кегле 11–12 px lineWidth 3 читался
+  // как тяжёлая тёмная полоса (стало 2.2; у принудительной подписи +0.6).
+  ok(texts.every((t) => t.width <= 3.0) && texts.some((t) => t.width <= 2.6),
+    'подписи: контур не толще 2.6 px при кегле 11–12 (замечание ревью)');
+
+  /* ── forced-подпись: выбранный подписан ДАЖЕ если аллокатор его отсёк ───── */
+  // Мутация B11 («выбранный теряет подпись») выживала, потому что аллокатор в
+  // песочнице и так отдавал выбранный узел. Здесь аллокатор его ЯВНО отсекает
+  // (как на краю кадра/при коллизии с престижной парадигмой) — слой обязан
+  // дорисовать подпись сам (§4.4 спеки, §5.5 контракта).
+  const realAllocate = global.window.CognitiveMap.allocateLabels;
+  let allocCalls = 0;
+  let lastAllocOpts = null;
+  global.window.CognitiveMap.allocateLabels = function (items, opts) {
+    allocCalls += 1;
+    lastAllocOpts = opts;
+    const plan = realAllocate(items, opts);
+    // Отсекаем ВЫБРАННЫЙ из плана аллокатора: подпись должна прийти из
+    // принудительного слоя, а не из плана.
+    plan.labels = plan.labels.filter((l) => String(l.id) !== 'par:1:3');
+    return plan;
+  };
+  try {
+    ctxFx._cogScene.labelKey = null;      // пересчитать план заново
+    ctxFx._cogScene.labelPlan = null;
+    fxCanvas.__ops.length = 0;
+    ctxFx._cogPaintStatic();
+    ok(allocCalls > 0, 'forced: аллокатор вызван (план посчитан)');
+    const planHasSelected = (ctxFx._cogLabels.labels || []).some(
+      (l) => String(l.id) === 'par:1:3');
+    eq(planHasSelected, false,
+      'forced: аллокатор действительно отсёк выбранный узел (предусловие)');
+    const forcedOne = (ctxFx._cogLabels.forced || []).find(
+      (l) => String(l.id) === 'par:1:3');
+    ok(forcedOne, 'forced: подпись выбранного в списке принудительных');
+    ok((fxCanvas.__ops || []).some(
+      (o) => o.op === 'fillText' && o.text === forcedOne.text),
+      'forced: текст принудительной подписи реально нарисован (fillText)');
+    // §5.1 спеки: LOD подписей считается от ОТНОСИТЕЛЬНОГО r = scale/fitScale,
+    // а не от абсолютного vis-масштаба (мутация B15 «scale: cam.scale»).
+    ok(lastAllocOpts && typeof lastAllocOpts.scale === 'number',
+      'LOD: аллокатор получил масштаб подписей');
+    const relScale = global.window.CogVisual.relativeScale(
+      1.25, ctxFx._cogFitScale);
+    ok(Math.abs(lastAllocOpts.scale - relScale) < 1e-9,
+      'LOD: в аллокатор уходит ОТНОСИТЕЛЬНЫЙ масштаб r = scale/fitScale');
+    ok(Math.abs(lastAllocOpts.scale - 1.25) > 1e-6,
+      'LOD: абсолютный vis-масштаб в аллокатор не уходит');
+  } finally {
+    global.window.CognitiveMap.allocateLabels = realAllocate;
+  }
   const pulseIds = (ctxFx._cogScene.pulse || []).map((e) => e.id);
   ok(pulseIds.indexOf('par:1:3') >= 0,
     'пульс: выбранный узел входит в набор «живых»');
@@ -615,6 +749,56 @@ function newCtx(extra) {
   rmCtx._cogPaintStatic();
   eq(rmCtx._cogDebugCounters().rafActive, false,
     'reduced-motion: клик не запускает кадровый цикл');
+
+  /* ── 8. Раскладка на коротком кадре: нормализация, плотность, разведение ── */
+  // §6.2/§12.1 спеки: на встроенной карте (широкий короткий кадр) изотропная
+  // раскладка vis занимала 23 % ширины, а 702 узла стояли стеной. Проверяем
+  // три механизма на реальном контексте, а не только чистые функции.
+  const ctxFit = newCtx();
+  const fitEl = sceneEl('embedded');
+  fitEl.clientWidth = 1200;
+  fitEl.clientHeight = 320;
+  ctxFit.$refs.cognitionGraph = fitEl;
+  await methods.renderCognitionGraph.call(ctxFit);
+  ctxFit.cognitionNetwork.emit('stabilizationIterationsDone');
+  const fitScene = ctxFit._cogScene;
+  ok(fitScene.frameFit && fitScene.frameFit.kx > 1.2,
+    'раскладка: свободная ось кадра растянута (kx > 1.2)');
+  eq(fitScene.frameFit.ky, 1, 'раскладка: ограничивающая ось не тронута');
+  eq(ctxFit._cogFitLayoutToFrame(), fitScene.frameFit,
+    'раскладка: нормализация выполняется ровно один раз');
+  ok(ctxFit._cogFitScale > 0,
+    'раскладка: fitScaleRef пересчитан после нормализации');
+  // §5.1 спеки: экранный диаметр ограничен локальной плотностью — предел
+  // обязан быть посчитан для всех узлов витрины и лежать в полосе спеки.
+  const caps = fitScene.caps || {};
+  eq(Object.keys(caps).length, 3,
+    'плотность: предел посчитан для всех узлов витрины');
+  ok(Object.keys(caps).every((id) => caps[id] >= 5.5 && caps[id] <= 24),
+    'плотность: пределы в полосе [min, max] экранного диаметра');
+  // §6.2 спеки/§8.1 контракта: разведение совпавших ядер.
+  const fakeFit = ctxFit.cognitionNetwork;
+  const savedPos = fakeFit.getPositions;
+  fakeFit.getPositions = function () {
+    return {
+      'fact:1:1': { x: 10, y: 10 },
+      'belief:1:2': { x: 10, y: 10 },     // точное совпадение центров
+      'par:1:3': { x: 400, y: 120 },
+    };
+  };
+  ctxFit._cogSyncPositions();
+  const movedCount = ctxFit._cogRelaxOverlaps();
+  fakeFit.getPositions = savedPos;
+  ok(movedCount > 0, 'разведение: совпавшие узлы сдвинуты');
+  const movedRows = (ctxFit._cognitionNodesDS.rows || [])
+    .filter((r) => typeof r.x === 'number' && typeof r.y === 'number');
+  ok(movedRows.length >= 2,
+    'разведение: новые координаты ушли в DataSet (батч, не на кадр)');
+  const rowA = movedRows.find((r) => r.id === 'fact:1:1');
+  const rowB = movedRows.find((r) => r.id === 'belief:1:2');
+  ok(rowA && rowB && (rowA.x !== rowB.x || rowA.y !== rowB.y),
+    'разведение: центры совпавших узлов больше не совпадают');
+  methods.destroyCognitionGraph.call(ctxFit);
 
   // Снос: canvas снят, спрайты освобождены, повторный destroy безопасен.
   methods.destroyCognitionGraph.call(ctxFx);

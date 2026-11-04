@@ -282,9 +282,16 @@ SNAPSHOT = r"""
   const canvas = scene && scene.fxCanvas;
   const el = vm && vm._cogEl;
   let fillW = 0, fillH = 0, inView = 0;
+  // §6.2/§8.1 спеки: узлы не стоят друг на друге. Считаем из РЕАЛЬНЫХ позиций и
+  // реальных размеров строк DataSet — то, что видно на кадре.
+  let nodeOverlaps = 0, nodePairs = 0, coincident = 0, worstOverlap = 0;
+  let nearCentres = 0;
   if (net && canvasEl) {
     let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     const posAll = net.getPositions();
+    const sizeById = {};
+    rows.forEach((r) => { sizeById[String(r.id)] = r.size || 0; });
+    const discs = [];
     Object.keys(posAll).forEach((id) => {
       const p = posAll[id];
       const sx = (p.x - cam.x) * sc + W / 2;
@@ -293,7 +300,24 @@ SNAPSHOT = r"""
       inView += 1;
       minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
       minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
+      discs.push({ x: sx, y: sy, r: (sizeById[String(id)] || 0) * sc });
     });
+    discs.sort((a, b) => a.x - b.x);
+    for (let i = 0; i < discs.length; i += 1) {
+      const a = discs[i];
+      for (let j = i + 1; j < discs.length; j += 1) {
+        const b = discs[j];
+        if (b.x - a.x > a.r + b.r) break;
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        nodePairs += 1;
+        if (dist < 1.5) nearCentres += 1;
+        if (dist < 0.5) coincident += 1;
+        if (dist < a.r + b.r - 0.01) {
+          nodeOverlaps += 1;
+          worstOverlap = Math.max(worstOverlap, a.r + b.r - dist);
+        }
+      }
+    }
     if (maxX > minX) { fillW = (maxX - minX) / W; fillH = (maxY - minY) / H; }
   }
   return {
@@ -306,6 +330,7 @@ SNAPSHOT = r"""
     bigGroups,
     groups: groupSizes.slice(0, 8),
     fillW, fillH, inView,
+    nodeOverlaps, nodePairs, coincident, worstOverlap, nearCentres,
     selected: (vm && vm._cogSelectedId) || null,
     selectedLabeled: all.some(
       (l) => String(l.id) === String(vm && vm._cogSelectedId)),
@@ -477,6 +502,57 @@ NODE_SCREEN_XY = r"""
 }
 """
 
+# Точка для РЕАЛЬНОГО клика: узел с запасом пустого места вокруг, иначе на
+# мобильном кадре (702 узла в 338×318) палец попадает в сосед, и проверка
+# «связи выбора видны» поймала бы изолированный узел вместо цели.
+TAP_TARGET = r"""
+() => {
+  const vm = window.__adminbotVm;
+  const net = vm && vm.cognitionNetwork;
+  const view = vm && vm._cogView;
+  const el = vm && vm._cogEl;
+  if (!net || !view || !view.nodes.length || !el) return null;
+  const canvas = el.querySelector('canvas');
+  if (!canvas) return null;
+  const box = canvas.getBoundingClientRect();
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  const cam = net.getViewPosition();
+  const scale = net.getScale();
+  const pos = net.getPositions();
+  const pts = [];
+  for (let i = 0; i < view.nodes.length; i += 1) {
+    const n = view.nodes[i];
+    const p = pos[n.id];
+    if (!p) continue;
+    const sx = (p.x - cam.x) * scale + W / 2;
+    const sy = (p.y - cam.y) * scale + H / 2;
+    pts.push({ id: n.id, degree: n.degree || 0, sx, sy,
+               inside: sx >= 34 && sy >= 34 && sx <= W - 34 && sy <= H - 34 });
+  }
+  let best = null;
+  for (let i = 0; i < pts.length; i += 1) {
+    const a = pts[i];
+    if (!a.inside || !a.degree) continue;
+    let clear = 1e9;
+    for (let j = 0; j < pts.length; j += 1) {
+      if (i === j) continue;
+      const d = Math.hypot(pts[j].sx - a.sx, pts[j].sy - a.sy);
+      if (d < clear) clear = d;
+    }
+    // Палец должен попасть в цель: узел без запаса вокруг не годится, поэтому
+    // сначала ищем среди «свободных» (≥ 9 px), и только если таких нет —
+    // берём лучший по общему счёту.
+    const score = a.degree * 2 + Math.min(clear, 30)
+      + (clear >= 9 ? 100 : 0);
+    if (!best || score > best.score) {
+      best = { id: a.id, degree: a.degree, clearance: clear, score,
+               x: box.left + a.sx, y: box.top + a.sy };
+    }
+  }
+  return best;
+}
+"""
+
 
 def settle(pg, timeout_ms=60000):
     pg.wait_for_function(READY, timeout=timeout_ms)
@@ -583,6 +659,35 @@ def run(browser, base, out_dir):
         check(data["fillH"] >= 0.75 or data["fillW"] >= 0.75,
               "%s: обзор заполняет кадр (fillH=%.2f, fillW=%.2f)"
               % (label, data["fillH"], data["fillW"]))
+        # §6.2/§12.1: широкий короткий кадр должен ИСПОЛЬЗОВАТЬ ширину, а не
+        # держать ядро столбом (до CMV-B: fillW=0.232 при fillH=0.90).
+        check(data["fillW"] >= 0.55,
+              "%s: обзор использует ширину кадра (fillW=%.2f)"
+              % (label, data["fillW"]))
+        # §6.2 спеки/§8.1 контракта: ядровые круги не пересекаются, узлы не
+        # стоят точно друг на друге (считается из позиций и реальных размеров).
+        # Метрика — пересечений НА УЗЕЛ: плотностный предел по построению даёт
+        # ≤ 2 (диаметр = 0.9·d3 больше расстояния до 1-го/2-го соседа), а стена
+        # из 702 сфер на исходном кандидате давала ≈50 на узел.
+        # Мобильный кадр (702 узла в 338×318, режим `simple` без физики — узел
+        # стоит на исходном кольце vis) — зона CMV-C/D (агрегаты LOD и лист),
+        # его числа пишем в отчёт, но приёмку здесь не валим.
+        per_node = (data["nodeOverlaps"] / data["inView"]
+                    if data["inView"] else 0)
+        if label == "desktop":
+            check(per_node <= 2.0,
+                  "%s: узлы не стоят стеной (пересечений %.0f = %.2f на узел, "
+                  "макс. %.1f px)"
+                  % (label, data["nodeOverlaps"], per_node,
+                     data["worstOverlap"]))
+            check(data["coincident"] <= 2,
+                  "%s: нет совпавших центров (ровно поверх: %d; ближе 1.5 px: %d)"
+                  % (label, data["coincident"], data["nearCentres"]))
+        else:
+            check(per_node <= 6.0,
+                  "%s: узлы не стоят стеной сверх плотного кадра "
+                  "(%.0f = %.2f на узел; агрегаты LOD — CMV-C)"
+                  % (label, data["nodeOverlaps"], per_node))
         check(data["bigGroups"] >= 1,
               "%s: в кадре есть связная видимая область (%d); разделение групп "
               "на обзоре — задача агрегатов LOD (CMV-C)" % (label, data["bigGroups"]))
@@ -598,7 +703,7 @@ def run(browser, base, out_dir):
         pg.evaluate("() => window.__adminbotVm._cogEl"
                     ".scrollIntoView({ block: 'center', inline: 'center' })")
         pg.wait_for_timeout(150)
-        target = pg.evaluate(NODE_SCREEN_XY)
+        target = pg.evaluate(TAP_TARGET) or pg.evaluate(NODE_SCREEN_XY)
         if target:
             # Координаты берём той же проекцией, что у слоя подписей; vis сам
             # говорит, какой узел под курсором (canvasToDOM/getNodeAt в этой
@@ -621,6 +726,8 @@ def run(browser, base, out_dir):
                 "labelOverlaps": data_sel["labelOverlaps"],
                 "labels": data_sel["labels"],
                 "edgeStats": data_sel["edgeStats"],
+                "activeEdges": data_sel["counters"].get("fxActiveEdges"),
+                "edgeDraws": data_sel["counters"].get("fxEdgeDraws"),
             }
             check(data_sel["selected"] is not None,
                   "%s: клик выбрал реальный узел (%r)"
@@ -634,6 +741,32 @@ def run(browser, base, out_dir):
             check(data_sel["edgeStats"]["opacityBelow"] > 0,
                   "%s: при выборе у сети есть ослабленные и подсвеченные рёбра"
                   % label)
+            # §4.3/§12.2 спеки: связи выбранного видны — слой `fx` выводит их
+            # ПОВЕРХ слоя узлов (иначе 702 круга перекрывают линию 1.4 px).
+            # У изолированного узла связей нет — тогда проверять нечего (это
+            # честное свойство данных, а не дефект отрисовки).
+            incident_n = pg.evaluate(
+                """(id) => {
+                  const vm = window.__adminbotVm;
+                  const edges = (vm._cogView && vm._cogView.edges) || [];
+                  let n = 0;
+                  for (const e of edges) {
+                    if (String(e.from) === String(id)
+                        || String(e.to) === String(id)) n += 1;
+                  }
+                  return n;
+                }""", data_sel["selected"])
+            report[label]["selection"]["incident"] = incident_n
+            check(incident_n == 0
+                  or (report[label]["selection"]["activeEdges"] or 0) >= 1,
+                  "%s: подсвеченные связи выбранного нарисованы поверх узлов "
+                  "(%s из %s инцидентных)"
+                  % (label, report[label]["selection"]["activeEdges"],
+                     incident_n))
+            check(incident_n == 0
+                  or (report[label]["selection"]["edgeDraws"] or 0) > 0,
+                  "%s: слой fx реально рисовал связи выбора (%s линий)"
+                  % (label, report[label]["selection"]["edgeDraws"]))
         report["shots"].append(shot(
             pg, out_dir, "cmv-b-%s-fit.png" % label))
         if report[label].get("selection"):
@@ -816,6 +949,73 @@ def run_reduced(browser, base, out_dir):
     return report
 
 
+def run_zoom_evidence(browser, base, out_dir):
+    """Крупный фрагмент (DPR 2) вокруг выбранного узла.
+
+    Нужен именно для двух пунктов ревью CMV-B: на fit узлы 5–7 px и связи
+    выбранного не разглядеть на полном кадре. Снимок 320×200 CSS-px вокруг
+    выбранного узла в DPR 2 показывает, различимы ли узлы и какие линии
+    принадлежат выбору (§4.3/§12.2 спеки), плюс проверяет DPR 2 (§13 спеки).
+    """
+    report = {"checks": [], "fails": []}
+
+    def check(cond, message):
+        report["checks"].append({"ok": bool(cond), "message": message})
+        if not cond:
+            report["fails"].append(message)
+
+    ctx = browser.new_context(viewport={"width": DESKTOP[0],
+                                        "height": DESKTOP[1]},
+                              device_scale_factor=2)
+    ctx.add_init_script(M.TMA_STUB)
+    ctx.route("**/api/**", W15._routes())
+    pg = ctx.new_page()
+    pg.goto(base + "#/", wait_until="load")
+    settle(pg)
+    pg.evaluate("() => window.__adminbotVm._cogEl"
+                ".scrollIntoView({ block: 'center', inline: 'center' })")
+    pg.wait_for_timeout(320)
+    state = pg.evaluate(SNAPSHOT)
+    report["state"] = state
+    check(state["dpr"] == 2 and state["fxSize"]
+          and state["elSize"]
+          and state["fxSize"][0] == int(state["elSize"][0] * 2),
+          "DPR 2: слой fx = сцена · 2 (%r при %r)" % (
+              state["fxSize"], state["elSize"]))
+    target = pg.evaluate(NODE_SCREEN_XY)
+    if not target:
+        report["fails"].append("zoom: не найден видимый узел для выбора")
+        pg.close()
+        ctx.close()
+        return report
+    pg.mouse.click(target["x"], target["y"])
+    pg.wait_for_timeout(420)
+    sel = pg.evaluate(SNAPSHOT)
+    report["selection"] = {
+        "id": sel["selected"], "degree": target["degree"],
+        "activeEdges": sel["counters"].get("fxActiveEdges"),
+        "edgeDraws": sel["counters"].get("fxEdgeDraws"),
+        "labelOverlaps": sel["labelOverlaps"],
+    }
+    check((sel["counters"].get("fxActiveEdges") or 0) >= 1,
+          "zoom: связи выбранного нарисованы поверх узлов (%s)"
+          % sel["counters"].get("fxActiveEdges"))
+    check(sel["labelOverlaps"] == 0,
+          "zoom: подписи в кадре не накладываются (%d)"
+          % sel["labelOverlaps"])
+    point = pg.evaluate(SELECTED_POINT)
+    if point:
+        clip = {"x": max(0, point["x"] - 170), "y": max(0, point["y"] - 110),
+                "width": 340, "height": 220}
+        path = os.path.join(out_dir, "cmv-b-desktop-selection-zoom2x.png")
+        pg.screenshot(path=path, clip=clip, scale="device")
+        report["shots"] = [os.path.basename(path)]
+        report["clip"] = clip
+    pg.close()
+    ctx.close()
+    return report
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=None)
@@ -868,6 +1068,11 @@ def main():
                 report["checks"].extend(reduced["checks"])
                 report["fails"].extend(reduced["fails"])
                 report["shots"].extend(reduced["shots"])
+                zoom = run_zoom_evidence(browser, base, out_dir)
+                report["selection_zoom"] = zoom
+                report["checks"].extend(zoom["checks"])
+                report["fails"].extend(zoom["fails"])
+                report["shots"].extend(zoom.get("shots") or [])
             finally:
                 browser.close()
     except Exception:  # noqa: BLE001

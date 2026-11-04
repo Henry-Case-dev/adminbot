@@ -568,6 +568,179 @@ const MODEL = CM.normalizePayload(modelPayload());
   ok(withSel.some((e) => e.id === 'n1'), 'пульс: сосед выбранного в наборе');
 })();
 
+/* ── 5b. Сцена на приёмочном кадре: раскладка, плотность, разведение ─────── */
+(function sceneGeometry() {
+  /* §6.2/§12.1 спеки: встроенная карта — широкий короткий кадр (1252×318),
+   * а bbox изотропной раскладки почти квадратный. Без нормализации занято
+   * 23 % ширины (замер: fillW = 0.232) и ядро стоит столбом. */
+  const wide = { spanX: 3900, spanY: 3800, cx: 0, cy: 0, minX: -1950,
+                 minY: -1900, maxX: 1950, maxY: 1900, count: 702 };
+  const k = V.aspectStretch(wide, 1252, 318);
+  ok(k.kx >= 2.7 && k.kx <= V.CONFIG.layout.aspectCap,
+    'раскладка: свободная ось тянется к кадру (до потолка aspectCap)');
+  eq(k.ky, 1, 'раскладка: ограничивающая ось не меняется');
+  const square = V.aspectStretch(wide, 1000, 1000);
+  eq([square.kx, square.ky], [1, 1],
+    'раскладка: квадратный кадр не искажает граф');
+  // Обратный случай: широкая раскладка в высоком кадре — тянется ось y.
+  const tall = V.aspectStretch(wide, 400, 1200);
+  eq(tall.kx, 1, 'раскладка: широкая раскладка в узком кадре — ось x не тянется');
+  ok(tall.ky > 1, 'раскладка: свободная ось y растягивается');
+  eq(V.aspectStretch(null, 1252, 318).kx, 1,
+    'раскладка: нет bbox — нормализации нет');
+  const capped = V.aspectStretch({ spanX: 100, spanY: 100 }, 4000, 300);
+  ok(capped.kx <= V.CONFIG.layout.aspectCap,
+    'раскладка: потолок растяжения соблюдён (сообщества не «сосиски»)');
+  const tiny = V.aspectStretch({ spanX: 3800, spanY: 1000 }, 1252, 318);
+  ok(tiny.ratio > 1 && tiny.kx === 1,
+    'раскладка: мёртвая зона не дёргает почти совпавшие аспекты');
+  // Растяжение действительно расширяет bbox и поднимает заполнение по W.
+  const posWide = V.bboxOf({
+    a: { x: -1900, y: -1900 }, b: { x: 1900, y: 1900 },
+  });
+  const before = V.fitCamera(posWide, 1252, 318);
+  const fillWBefore = posWide.spanX * before.scale / 1252;
+  const stretchedBox = { spanX: posWide.spanX * k.kx, spanY: posWide.spanY };
+  const afterCam = V.fitCamera({
+    spanX: stretchedBox.spanX, spanY: stretchedBox.spanY, cx: 0, cy: 0,
+    minX: -stretchedBox.spanX / 2, minY: -1900,
+    maxX: stretchedBox.spanX / 2, maxY: 1900, count: 2,
+  }, 1252, 318);
+  const fillWAfter = stretchedBox.spanX * afterCam.scale / 1252;
+  ok(fillWAfter > fillWBefore * 2.5,
+    'раскладка: заполнение по ширине растёт ('
+    + fillWBefore.toFixed(3) + ' → ' + fillWAfter.toFixed(3) + ')');
+
+  /* §5.1 спеки: «содержимое зависит от плотности на экране» — экранный диаметр
+   * ограничен расстоянием до 3-го соседа; уединённый узел остаётся в полосе
+   * спеки 14–24 px. */
+  const dense = [
+    { id: 'd1', kind: 'fact', degree: 3 }, { id: 'd2', kind: 'fact', degree: 3 },
+    { id: 'd3', kind: 'fact', degree: 3 }, { id: 'd4', kind: 'fact', degree: 3 },
+    { id: 'lonely', kind: 'paradigm', degree: 0 },
+  ];
+  const densePos = {
+    d1: { x: 0, y: 0 }, d2: { x: 10, y: 0 }, d3: { x: 0, y: 10 },
+    d4: { x: 10, y: 10 }, lonely: { x: 5000, y: 5000 },
+  };
+  const caps = V.densityCaps(dense, densePos, 1);
+  eq(Object.keys(caps).length, dense.length,
+    'плотность: предел посчитан для каждого узла');
+  ok(caps.d1 < V.targetDiameter('fact', 3),
+    'плотность: в тесной группе диаметр меньше целевого (§5.1)');
+  ok(caps.lonely > 20,
+    'плотность: уединённый узел остаётся крупным (полоса спеки 14–24 px)');
+  ok(Object.keys(caps).every((id) => caps[id] >= V.CONFIG.node.minScreenDiameter
+    && caps[id] <= V.CONFIG.node.maxScreenDiameter),
+    'плотность: пределы в полосе [min, max] экранного диаметра');
+  const before5 = JSON.stringify(dense);
+  V.densityCaps(dense, densePos, 1);
+  eq(JSON.stringify(dense), before5,
+    'плотность: модель и входы не мутируются');
+  // Масштабная инвариантность: позиции и fitScale в одних единицах ⇒ тот же
+  // экранный предел (различимость сохраняется на любом зуме).
+  const capsHalf = V.densityCaps(dense, {
+    d1: { x: 0, y: 0 }, d2: { x: 20, y: 0 }, d3: { x: 0, y: 20 },
+    d4: { x: 20, y: 20 }, lonely: { x: 10000, y: 10000 },
+  }, 0.5);
+  near(capsHalf.d1, caps.d1, 'плотность: предел не зависит от единиц (r-инвариант)');
+
+  // Размер узла: экранные пределы применяются ДО перевода в сетевые единицы.
+  const uncapped = V.nodeRow({ id: 'n', kind: 'paradigm', degree: 300 }, {});
+  const cappedRow = V.nodeRow({ id: 'n', kind: 'paradigm', degree: 300 },
+    { fitScale: 0.5, screenDiameter: 9, maxScreenDiameter: 24 });
+  ok(cappedRow.size < uncapped.size,
+    'размер: локальная плотность уменьшает экранный диаметр узла');
+  near(cappedRow.size * 2 * 0.5, 9,
+    'размер: предел плотности задаёт диаметр на экране при r = 1');
+  const hardCap = V.nodeRow({ id: 'n', kind: 'paradigm', degree: 300 },
+    { fitScale: 0.5, maxScreenDiameter: 24 });
+  near(hardCap.size * 2 * 0.5, 24,
+    'размер: потолок спеки 24 px сильнее degree-роста (хаб не «шар»)');
+
+  /* §6.2 спеки/§8.1 контракта: совпавшие ядра разводятся детерминированно. */
+  const stuck = [
+    { id: 's1', kind: 'fact', degree: 2 },
+    { id: 's2', kind: 'fact', degree: 2 },
+    { id: 's3', kind: 'belief', degree: 4 },
+  ];
+  const stuckPos = { s1: { x: 0, y: 0 }, s2: { x: 0, y: 0 }, s3: { x: 400, y: 0 } };
+  const rel = V.relaxOverlaps(stuck, stuckPos, 1);
+  ok(Object.keys(rel).length >= 2, 'разведение: совпавшие узлы сдвинуты');
+  ok(rel.s1 && rel.s2 && (rel.s1.x !== rel.s2.x || rel.s1.y !== rel.s2.y),
+    'разведение: центры совпавших узлов больше не совпадают');
+  ok(Math.abs(rel.s1.x - stuckPos.s1.x) <= V.CONFIG.node.relaxMaxShift + 0.001,
+    'разведение: смещение ограничено (раскладка не «взрывается»)');
+  eq(JSON.stringify(V.relaxOverlaps(stuck, stuckPos, 1)), JSON.stringify(rel),
+    'разведение: детерминировано (без Math.random)');
+  eq(Object.keys(V.relaxOverlaps(stuck, {
+    s1: { x: 0, y: 0 }, s2: { x: 400, y: 0 }, s3: { x: 800, y: 0 },
+  }, 1)).length, 0,
+    'разведение: разнесённые узлы не двигаются');
+
+  /* §4.3/§12.2 спеки: связи выбранного видны ПОВЕРХ узлов — слой `fx` рисует
+   * их ещё раз (vis рисует рёбра под ядрами, и линия 1.4 px исчезает). */
+  const edgeLog = [];
+  function logCtx() {
+    return {
+      globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '', font: '',
+      lineCap: '', lineJoin: '',
+      createRadialGradient() { return { addColorStop() {} }; },
+      clearRect() {}, fillRect() {}, beginPath() {},
+      moveTo(x, y) { edgeLog.push({ op: 'moveTo', x, y }); },
+      lineTo(x, y) { edgeLog.push({ op: 'lineTo', x, y }); },
+      quadraticCurveTo() {}, closePath() {}, arc() {},
+      stroke() {
+        edgeLog.push({ op: 'stroke', style: this.strokeStyle,
+                       width: this.lineWidth });
+      },
+      fill() {}, save() {}, restore() {}, setTransform() {},
+      fillText() {}, strokeText() {},
+      drawImage() {},
+    };
+  }
+  const edgeFx = V.createFx({
+    dpr: 1,
+    makeCanvas: (w, h) => ({ width: w, height: h, getContext: () => logCtx() }),
+  });
+  const edgeFrame = (extra) => Object.assign({
+    now: 0, width: 800, height: 400,
+    camera: { x: 0, y: 0, scale: 1 },
+    positions: { f1: { x: 0, y: 0 }, b1: { x: 200, y: 0 } },
+    nodes: [{ id: 'f1', kind: 'fact', degree: 2 },
+            { id: 'b1', kind: 'belief', degree: 3 }],
+    edges: [], incident: [{ id: 'x', from: 'f1', to: 'b1' }],
+    selection: 'f1', hover: null, fitScale: 1, lod: 2,
+    keyIds: null, pulse: null, flash: 0, reducedMotion: false,
+  }, extra || {});
+  edgeFx.paint(logCtx(), edgeFrame());
+  const lines = edgeLog.filter((o) => o.op === 'lineTo');
+  eq(lines.length, 1, 'связи выбора: линия к реальному соседу нарисована');
+  ok(lines[0].x > 400 && lines[0].y === 200,
+    'связи выбора: линия идёт от выбранного узла к соседу (экранные координаты)');
+  const activeStrokes = edgeLog.filter((o) => o.op === 'stroke'
+    && o.width === V.CONFIG.edge.activeWidth);
+  eq(activeStrokes.length, 1,
+    'связи выбора: сигнальная линия нужной ширины (§4.3: толще базы 0.7)');
+  ok(activeStrokes[0].style.indexOf('rgba(') === 0,
+    'связи выбора: сигнальный цвет оттенка типа');
+  // Без выбора (и без hover) подсвеченных линий нет.
+  edgeLog.length = 0;
+  edgeFx.paint(logCtx(), edgeFrame({ selection: null, incident: [] }));
+  eq(edgeLog.filter((o) => o.op === 'lineTo').length, 0,
+    'связи выбора: без выбора лишних линий нет');
+  // Связь, оба конца которой за кадром, не рисуется (§5.4 спеки).
+  edgeLog.length = 0;
+  edgeFx.paint(logCtx(), edgeFrame({
+    positions: { f1: { x: -3000, y: 0 }, b1: { x: -2000, y: 0 } },
+    nodes: [{ id: 'f1', kind: 'fact', degree: 2 },
+            { id: 'b1', kind: 'belief', degree: 3 }],
+    incident: [{ id: 'x', from: 'f1', to: 'b1' }],
+  }));
+  eq(edgeLog.filter((o) => o.op === 'lineTo').length, 0,
+    'связи выбора: связь вне кадра не рисуется');
+})();
+
 /* ── 6. Физика: таблица итераций и структура §8.1 ──────────────────────── */
 (function physics() {
   eq(V.physicsIterations(10), 150, 'физика: ≤200 узлов — 150 итераций');

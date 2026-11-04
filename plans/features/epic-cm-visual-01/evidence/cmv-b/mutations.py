@@ -79,6 +79,20 @@ MUTATIONS = [
     ("B15 LOD подписей от абсолютного масштаба", "web/app.js",
      "            scale: r,",
      "            scale: cam.scale,", SCENE),
+    # ── CMV-B, исправления ревью: раскладка/плотность/связи выбора ──────────
+    ("B16 раскладка не нормализуется к кадру", "web/app.js",
+     "            if (!hasLayout) self._cogFitLayoutToFrame();",
+     "            if (false) self._cogFitLayoutToFrame();", SCENE),
+    ("B17 предел плотности игнорируется", "web/static/cog-visual.js",
+     "      var cap = finite(opts.screenDiameter);",
+     "      var cap = null;", VISUAL),
+    ("B18 связи выбора не рисуются поверх узлов", "web/static/cog-visual.js",
+     "          activeEdges = drawActiveEdges(ctx, frame, String(active.id), active);",
+     "          activeEdges = 0;", VISUAL),
+    ("B19 совпавшие ядра не разводятся", "web/app.js",
+     "        var moved = V.relaxOverlaps(view.nodes, scene.pos || {},\n"
+     "          this._cogFitScale, { caps: caps });",
+     "        var moved = {};", SCENE),
 ]
 
 

@@ -29957,6 +29957,11 @@
       // текущая подсветка/выбор, МАСШТАБ ОБЗОРА (размер узла в сетевых
       // единицах зависит от `fitScale`, §3.4 контракта). Модель только читается.
       _cogRowOpts: function (positions) {
+        var scene = this._cogScene || null;
+        var V = cogVis();
+        var maxD = (V && V.CONFIG && V.CONFIG.node
+          && typeof V.CONFIG.node.maxScreenDiameter === 'number')
+          ? V.CONFIG.node.maxScreenDiameter : 0;
         return {
           positions: positions || {},
           highlighted: this._cogHighlight || null,
@@ -29965,6 +29970,9 @@
           edgeFocus: this._cogEdgeFocus || null,
           fitScale: (typeof this._cogFitScale === 'number' && this._cogFitScale > 0)
             ? this._cogFitScale : 0,
+          // §5.1 спеки: экранный диаметр ограничен локальной плотностью кадра.
+          screenCaps: (scene && scene.caps) ? scene.caps : null,
+          maxScreenDiameter: maxD,
         };
       },
       // Локальное обновление существующей сети: DataSet меняется, ИНСТАНС
@@ -30053,10 +30061,15 @@
         var V = cogVis();
         if (!V || typeof V.nodeRow !== 'function') return null;
         var highlighted = !!(this._cogHighlight && this._cogHighlight[node.id]);
+        var scene = this._cogScene || null;
+        var caps = scene && scene.caps ? scene.caps : null;
         return V.nodeRow(node, {
           pos: pos || null,
           fitScale: this._cogFitScale || 0,
           dim: !!(this._cogSelectedId && !highlighted),
+          screenDiameter: caps ? caps[String(node.id)] : null,
+          maxScreenDiameter: (V.CONFIG && V.CONFIG.node)
+            ? V.CONFIG.node.maxScreenDiameter : 0,
         });
       },
       // Строка ребра: тонкая и малоконтрастная; производное ребро — пунктир
@@ -30106,6 +30119,11 @@
         if (!V || typeof V.nodeRows !== 'function') {
           throw new Error('cog-visual.js не загружен');
         }
+        // §5.1 контракта: витрина этого инстанса доступна ВСЕМ шагам создания
+        // (строки DataSet, размеры по плотности, подписи). Синхронный путь
+        // (`simple`/restored layout вызывает `settleView` сразу) иначе видел бы
+        // пустую витрину и не посчитал ни размеры, ни нормализацию раскладки.
+        this._cogView = view;
         var rowOpts = this._cogRowOpts(positions);
         var nodeRows = V.nodeRows(view.nodes, rowOpts);
         var edgeRows = V.edgeRows(view.edges, rowOpts);
@@ -30184,6 +30202,9 @@
           visPaintedAt: 0, lastPaintAt: 0, paintToken: -1,
           edgeState: null, draws: 0, cam: null, incident: null,
           labelItems: null, keyLod: null,
+          // CMV-B: пределы экранного диаметра по плотности (§5.1 спеки) и
+          // нормализация раскладки к кадру (один раз на раскладку).
+          caps: null, frameFit: null,
         };
         var scene = this._cogScene;
         if (hasLayout) {
@@ -30286,6 +30307,9 @@
             self._cogRefreshFitScale();
           } else {
             self._cogCamera = null;
+            // §6.2/§12.1 спеки: свежая раскладка нормализуется к кадру (один
+            // раз), иначе на короткой широкой сцене ядро стоит столбом.
+            if (!hasLayout) self._cogFitLayoutToFrame();
             self._cogApplyFit(false);
           }
           // CMV-B: раскладка готова ⇒ кэш позиций, размеры узлов по реальному
@@ -30590,14 +30614,24 @@
         scene.posRev = (scene.posRev || 0) + 1;
         return count;
       },
-      // §3.4 контракта: размер узла в сетевых единицах зависит от
-      // `fitScaleRef`. Пересчёт — ОДИН батч `ds.update(rows)` на смену
-      // масштаба обзора (создание сети/resize), не на кадр и не на выбор.
+      /* §3.4 контракта + §5.1 спеки: размер узла в сетевых единицах зависит от
+       * `fitScaleRef`, а экранный диаметр дополнительно ограничен ЛОКАЛЬНОЙ
+       * плотностью кадра (`CogVisual.densityCaps`). Пересчёт — ОДИН батч
+       * `ds.update(rows)` на смену масштаба обзора (создание сети/resize),
+       * не на кадр и не на выбор. */
       _cogApplyNodeSizes: function () {
         var ds = this._cognitionNodesDS;
+        var scene = this._cogScene || null;
         var view = this._cogView || { nodes: [] };
         var fitScale = this._cogFitScale;
+        var V = cogVis();
         if (!ds || !fitScale || !view.nodes || !view.nodes.length) return 0;
+        if (!V || typeof V.nodeRows !== 'function') return 0;
+        // Позиции — вход только для ПРЕДЕЛА размера (плотность). bbox и
+        // `fitScaleRef` от размеров не зависят, петли нет (§4.1 контракта).
+        if (scene && typeof V.densityCaps === 'function') {
+          scene.caps = V.densityCaps(view.nodes, scene.pos || {}, fitScale);
+        }
         var rows = [];
         for (var i = 0; i < view.nodes.length; i += 1) {
           var node = view.nodes[i];
@@ -30608,6 +30642,97 @@
         try {
           if (rows.length) ds.update(rows);
         } catch (e) { /* сеть уничтожена */ }
+        return rows.length;
+      },
+      /* Раскладка vis изотропна ⇒ bbox почти квадратный, а кадр встроенной
+       * карты вчетверо шире, чем выше: `fitScaleRef` упирается в высоту, сцена
+       * занимает 23 % ширины, а 702 узла наваливаются друг на друга (§6.2,
+       * §12.1 спеки). Здесь ОДИН раз на раскладку координаты растягиваются по
+       * свободной оси кадра (`CogVisual.aspectStretch`, потолок `aspectCap`).
+       * Камера и физика не перезапускаются: правится только геометрия позиций,
+       * поэтому нет ни «прыжка», ни повторной стабилизации (§8.5). */
+      _cogFitLayoutToFrame: function () {
+        var scene = this._cogScene;
+        var net = this.cognitionNetwork;
+        var V = cogVis();
+        if (!scene || !net || !V || typeof V.aspectStretch !== 'function') {
+          return null;
+        }
+        // Ровно один раз на инстанс: раскладка уже нормализована ранее (или её
+        // не пересчитывали), повторное растяжение исказило бы сообщества.
+        if (scene.frameFit) return scene.frameFit;
+        var el = scene.el || this._cogEl || null;
+        var w = el ? (el.clientWidth || 0) : 0;
+        var h = el ? (el.clientHeight || 0) : 0;
+        if (w < 2 || h < 2) return null;
+        var positions = null;
+        try { positions = net.getPositions() || {}; } catch (e) { return null; }
+        var view = this._cogView || {};
+        var ids = [];
+        for (var i = 0; i < (view.nodes || []).length; i += 1) {
+          ids.push(view.nodes[i].id);
+        }
+        var bbox = V.bboxOf(positions, ids);
+        var stretch = V.aspectStretch(bbox, w, h);
+        scene.frameFit = stretch;
+        if (bbox && (stretch.kx !== 1 || stretch.ky !== 1)) {
+          var ds = this._cognitionNodesDS;
+          var rows = [];
+          for (var k in positions) {
+            if (!Object.prototype.hasOwnProperty.call(positions, k)) continue;
+            var p = positions[k];
+            if (!p) continue;
+            rows.push({
+              id: k,
+              x: bbox.cx + (p.x - bbox.cx) * stretch.kx,
+              y: bbox.cy + (p.y - bbox.cy) * stretch.ky,
+            });
+          }
+          try {
+            if (ds && rows.length) ds.update(rows);
+          } catch (e) { /* сеть уничтожена */ }
+          // Кэш позиций и `fitScaleRef` пересчитываются от новой геометрии.
+          this._cogSyncPositions();
+          this._cogRefreshFitScale();
+        }
+        // §6.2/§8.1: совпавшие центры разводятся на различимый просвет (после
+        // растяжения, до батча размеров — размеры считаются от новых позиций).
+        // Выполняется и когда растяжения нет (квадратный кадр/мобильный вид).
+        this._cogRelaxOverlaps();
+        return stretch;
+      },
+      /* §6.2 спеки / §8.1 контракта: «узлы не должны визуально стоять точно один
+       * поверх другого», «пересечение ядровых кругов запрещено». Сила vis
+       * оставляет десятки узлов почти в одной точке — здесь один детерминированный
+       * проход разведения (`CogVisual.relaxOverlaps`), тоже в рамках создания
+       * раскладки: физика и камера не перезапускаются. */
+      _cogRelaxOverlaps: function () {
+        var scene = this._cogScene;
+        var net = this.cognitionNetwork;
+        var V = cogVis();
+        var ds = this._cognitionNodesDS;
+        var view = this._cogView || { nodes: [] };
+        if (!scene || !net || !ds || !V || typeof V.relaxOverlaps !== 'function') {
+          return 0;
+        }
+        if (!view.nodes || !view.nodes.length || !this._cogFitScale) return 0;
+        var caps = (typeof V.densityCaps === 'function')
+          ? V.densityCaps(view.nodes, scene.pos || {}, this._cogFitScale)
+          : null;
+        var moved = V.relaxOverlaps(view.nodes, scene.pos || {},
+          this._cogFitScale, { caps: caps });
+        var rows = [];
+        var key;
+        for (key in moved) {
+          if (!Object.prototype.hasOwnProperty.call(moved, key)) continue;
+          rows.push({ id: key, x: moved[key].x, y: moved[key].y });
+        }
+        if (!rows.length) return 0;
+        try {
+          ds.update(rows);
+        } catch (e) { return 0; }
+        this._cogSyncPositions();
+        this._cogRefreshFitScale();
         return rows.length;
       },
       // §7.1 контракта: набор «живых» узлов (детерминированный, ≤ 24).
@@ -30904,6 +31029,25 @@
         var r = V.relativeScale(cam.scale, this._cogFitScale);
         var margin = V.CONFIG.glow.margin;
         var alloc = scene.labelPlan;
+        // Ширина символа для бокса подписи: адаптер считает её долей fontSize
+        // (по умолчанию 0.55). Реальный жирный кириллический текст шире, и
+        // боксы «сходились», пока текст на экране налезал (§4.4 спеки запрещает
+        // наложение читаемых подписей). Меряем фактическую ширину ОДИН раз на
+        // пересчёт плана — не на кадр и не на узел.
+        var sampleLabel = 'Доверие строится постепенно 0000';
+        var charWidth = 0.55;
+        if (ctx && typeof ctx.measureText === 'function') {
+          try {
+            ctx.font = '600 ' + fontPx
+              + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+            var measured = ctx.measureText(sampleLabel);
+            var mw = (measured && typeof measured.width === 'number')
+              ? measured.width : 0;
+            if (mw > 0) {
+              charWidth = mw / (sampleLabel.length * fontPx);
+            }
+          } catch (e) { charWidth = 0.55; }
+        }
         var labelKey = [
           Math.round(cam.x * 2) / 2, Math.round(cam.y * 2) / 2,
           Math.round(cam.scale * 1000) / 1000, scene.lod || 0,
@@ -30913,6 +31057,7 @@
           (view.nodes || []).length,
           scene.posRev || 0,
           Math.round(cssW), Math.round(cssH),
+          Math.round(charWidth * 100),
         ].join(':');
         if (alloc && scene.labelKey === labelKey) {
           // §5.8 контракта: при неизменном ключе кадра подписи переиспользуются
@@ -30949,6 +31094,7 @@
             mobile: simple,
             fontSize: fontPx,
             maxLabelChars: cfg.maxChars,
+            charWidth: charWidth,
           });
           scene.labelKey = labelKey;
           scene.labelPlan = alloc;
@@ -30997,7 +31143,7 @@
           if (text.length > cfg.maxChars) {
             text = text.slice(0, cfg.maxChars - 1).replace(/\s+$/, '') + '…';
           }
-          var wBox = Math.max(fontPx, text.length * fontPx * 0.55) + 6;
+          var wBox = Math.max(fontPx, text.length * fontPx * charWidth) + 6;
           var hBox = fontPx * 1.4;
           var bx = (mustPos.x - cam.x) * cam.scale + cssW / 2;
           var by = (mustPos.y - cam.y) * cam.scale + cssH / 2 + cfg.offset;
@@ -31049,7 +31195,7 @@
           var fl = forced[f];
           ctx.font = selectedFont;
           ctx.globalAlpha = 1;
-          ctx.lineWidth = cfg.strokeWidth + 1;
+          ctx.lineWidth = cfg.strokeWidth + 0.6;
           ctx.strokeStyle = cfg.stroke;
           ctx.lineJoin = 'round';
           ctx.strokeText(fl.text, fl.x, fl.y);
@@ -31128,6 +31274,10 @@
           fxPaints: fx ? fx.paints : 0,
           fxDraws: fx ? fx.draws : 0,
           fxPooled: fx ? fx.pooled : 0,
+          // §4.3/§12.2 спеки: подсвеченные связи активного узла рисуются в
+          // слое `fx` поверх узлов — счётчик приёмки «связи реально видны».
+          fxEdgeDraws: fx ? fx.edgeDraws : 0,
+          fxActiveEdges: fx ? fx.activeEdges : 0,
           draws: scene ? (scene.draws || 0) : 0,
           pulseCount: (scene && scene.pulse) ? scene.pulse.length : 0,
           positions: scene ? Object.keys(scene.pos || {}).length : 0,

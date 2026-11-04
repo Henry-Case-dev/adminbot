@@ -2254,6 +2254,10 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       _cogSyncFxSize: methods._cogSyncFxSize,
       _cogSyncPositions: methods._cogSyncPositions,
       _cogApplyNodeSizes: methods._cogApplyNodeSizes,
+      // CMV-B (исправления ревью): нормализация раскладки к кадру и разведение
+      // совпавших ядер — часть создания раскладки, контекст должен их видеть.
+      _cogFitLayoutToFrame: methods._cogFitLayoutToFrame,
+      _cogRelaxOverlaps: methods._cogRelaxOverlaps,
       _cogBuildPulse: methods._cogBuildPulse,
       _cogNeighborIds: methods._cogNeighborIds,
       _cogSetHover: methods._cogSetHover,
