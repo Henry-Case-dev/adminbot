@@ -5395,8 +5395,8 @@ class DirectChatService:
                                     "text_chars": len(answer)})
                     logger.info(
                         "[direct] repeated text observed — delivered as "
-                        "written | chat=%s | exempt=%s",
-                        chat_id, _dup.exempt)
+                        "written | chat=%s | code=%s",
+                        chat_id, _dup.reason_code)
             if coordinator is not None:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
