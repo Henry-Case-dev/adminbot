@@ -1954,12 +1954,22 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const fs = require('fs');
     const jsSrc = fs.readFileSync(
       path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf-8');
-    assert.ok(jsSrc.indexOf("solver: 'barnesHut'") >= 0,
+    // CMV-B (§8.1 контракта CM-VISUAL): опции физики собраны в едином
+    // конфиг-слое `web/static/cog-visual.js` (`physicsOptions`), а `app.js`
+    // передаёт их в vis-network. Значения/решение те же — проверяем оба файла.
+    const visSrc = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'static', 'cog-visual.js'),
+      'utf-8');
+    assert.ok(jsSrc.indexOf('V.physicsOptions(') >= 0,
+      'F2: опции физики приходят из единого конфиг-слоя');
+    assert.ok(visSrc.indexOf("solver: 'barnesHut'") >= 0,
       'F2: physics.solver == barnesHut');
-    assert.ok(jsSrc.indexOf('gravitationalConstant: -8000') >= 0,
+    assert.ok(visSrc.indexOf('gravitationalConstant: -8000') >= 0,
       'F2: расталкивание gravitationalConstant=-8000');
-    assert.ok(jsSrc.indexOf('avoidOverlap: 0.2') >= 0,
-      'F2: avoidOverlap=0.2 (не слипаются)');
+    // CMV-B §8.1: avoidOverlap 0.2 → 0.5 (узлы не стоят друг на друге,
+    // «между центральными элементами разумный просвет», спека §6.2).
+    assert.ok(visSrc.indexOf('avoidOverlap: 0.5') >= 0,
+      'F2: avoidOverlap=0.5 (не слипаются)');
 
     // _graphSignature не изменилась: degree входит в подпись (ISSUE-4).
     const sA = methods._graphSignature.call({}, {
@@ -2022,6 +2032,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
         graphClearDetail: methods.graphClearDetail,
         // D15/T-5265: подписи neighborhood (presentation-only) — стаб.
         graphApplySelectionLabels() {},
+        // CMV-B: импульс поиска на найденном узле (§7.2 спеки) — в этом
+        // минимальном ctx кадрового слоя нет, поэтому методы-заглушки.
+        _cogPulseSelected() {}, _cogBuildPulse() {}, _cogPaintStatic() {},
       }, extra || {});
     }
 
@@ -2126,12 +2139,21 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     const fs = require('fs');
     const jsSrc = fs.readFileSync(
       path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf-8');
-    assert.ok(jsSrc.indexOf('GRAPH_PHYSICS_ITERATIONS = 150') >= 0,
-      'F4: iterations=150 — код-константа');
+    // CMV-B §8.1 контракта CM-VISUAL: итерации стабилизации стали таблицей
+    // «по размеру набора» (≤200 → 150, 201–400 → 90, >400 → 60) и живут в
+    // едином конфиг-слое; прежнее поведение для небольших графов = 150.
+    const visSrc = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'web', 'static', 'cog-visual.js'),
+      'utf-8');
+    assert.ok(visSrc.indexOf('iterationsSmall: 150') >= 0,
+      'F4: базовые iterations=150 — код-константа');
+    assert.ok(visSrc.indexOf('iterationsMiddle: 90') >= 0
+      && visSrc.indexOf('iterationsLarge: 60') >= 0,
+    'F4: итерации по размеру набора (90/60 для крупных графов)');
     assert.ok(jsSrc.indexOf('GRAPH_PHYSICS_DISABLE_ON_STABILIZE = true') >= 0,
       'F4: флаг авто-отключения физики');
-    assert.ok(jsSrc.indexOf('iterations: GRAPH_PHYSICS_ITERATIONS') >= 0,
-      'F4: опции используют GRAPH_PHYSICS_ITERATIONS');
+    assert.ok(jsSrc.indexOf('V.physicsOptions(') >= 0,
+      'F4: опции физики приходят из конфиг-слоя');
     assert.ok(jsSrc.indexOf('stabilizationIterationsDone') >= 0,
       'F4: слушатель stabilizationIterationsDone');
     assert.ok(jsSrc.indexOf("'stabilized'") >= 0,
@@ -2143,8 +2165,9 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.ok(jsSrc.indexOf('physics: this.reducedMotion') < 0,
       'CMV-A: reduced-motion больше не отменяет РАСКЛАДКУ (иначе — кольцо '
       + 'узлов и «белый ковёр» рёбер, §7.3/§12.1 спеки)');
-    assert.ok(jsSrc.indexOf('updateInterval: 25, fit: false') >= 0,
-      'CMV-A: кадр обзора выставляем сами (stabilization.fit=false)');
+    assert.ok(visSrc.indexOf('fit: false') >= 0
+      || jsSrc.indexOf('updateInterval: 25, fit: false') >= 0,
+    'CMV-A: кадр обзора выставляем сами (stabilization.fit=false)');
 
     const FakeDataSet = function (rows) { this.rows = rows; };
     let netCreated = null;
@@ -2223,8 +2246,22 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       _cogPaintFrame: methods._cogPaintFrame,
       _cogDebugCounters: methods._cogDebugCounters,
       _cogApplyHighlight: methods._cogApplyHighlight,
+      _cogFocusColor: methods._cogFocusColor,
       _cogFallbackPosition: methods._cogFallbackPosition,
       _cogDrawLabels: methods._cogDrawLabels,
+      // CMV-B: слой `fx` и реактивные состояния кадра.
+      _cogEnsureFx: methods._cogEnsureFx,
+      _cogSyncFxSize: methods._cogSyncFxSize,
+      _cogSyncPositions: methods._cogSyncPositions,
+      _cogApplyNodeSizes: methods._cogApplyNodeSizes,
+      _cogBuildPulse: methods._cogBuildPulse,
+      _cogNeighborIds: methods._cogNeighborIds,
+      _cogSetHover: methods._cogSetHover,
+      _cogPulseSelected: methods._cogPulseSelected,
+      _cogPaintStatic: methods._cogPaintStatic,
+      _cogPaintFx: methods._cogPaintFx,
+      _cogPaintFromVis: methods._cogPaintFromVis,
+      _cogPaintLabels: methods._cogPaintLabels,
       graphApplyZoomLevel: methods.graphApplyZoomLevel,
       _graphZoomModeOf: methods._graphZoomModeOf,
     };

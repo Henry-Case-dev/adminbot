@@ -182,6 +182,10 @@ const ALLOWED = [
   // api-модуль и его регистрация. Оптика (стекло/фон/линза) не тронута:
   // защищённые файлы проверяются побайтово выше.
   'web/app.py', 'web/api/initiative_publications.py',
+  // EPIC-CM-VISUAL-01 (CMV-B): визуальный слой карты памяти — ореолы/формы/
+  // подписи на отдельном canvas. Это НЕ оптика (стекло/фон/линза), поэтому
+  // он не входит в PROTECTED; защищённые файлы по-прежнему байт-в-байт.
+  'web/static/cog-visual.js',
 ];
 changed.forEach(function (rel) {
   assert.ok(ALLOWED.indexOf(rel) >= 0,

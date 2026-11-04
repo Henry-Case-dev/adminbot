@@ -1,0 +1,745 @@
+{
+ "repo": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\CMV-B-SCENE-PHYSICS-fd07ff453848-2433b50f",
+ "nodes": 702,
+ "edges": 2400,
+ "payload_sha256": "6aa74ed7ed2c8c876f5e536592180d223bc3195de8a3da027fa49e6a04dabaa5",
+ "render_mode": "headless-gpu(ANGLE d3d11)",
+ "shots": [
+  "cmv-b-desktop-fit.png",
+  "cmv-b-desktop-fit-selected.png",
+  "cmv-b-desktop-zoom2.png",
+  "cmv-b-desktop-after-pan.png",
+  "cmv-b-mobile-fit.png",
+  "cmv-b-mobile-fit-selected.png",
+  "cmv-b-mobile-zoom2.png",
+  "cmv-b-desktop-reduced-motion.png"
+ ],
+ "checks": [
+  {
+   "ok": true,
+   "message": "desktop: в сцене 702 узлов (ждали 702)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: в сцене 2400 связей (ждали 2400)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: ни одного прямоугольного узла (§4.1)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: разные формы по типам (dot/hexagon/diamond): {'dot': 562, 'hexagon': 56, 'diamond': 84}"
+  },
+  {
+   "ok": true,
+   "message": "desktop: все рёбра прямые (smooth=false, §10.1)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: ни одного непрозрачного «белого» ребра (§4.3)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подписи не накладываются (0 пересечений)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подписи на обзоре есть (13 подписей, §4.4)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: спрайты свечения построены"
+  },
+  {
+   "ok": true,
+   "message": "desktop: обзор заполняет кадр (fillH=0.90, fillW=0.23)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: в кадре есть связная видимая область (2); разделение групп на обзоре — задача агрегатов LOD (CMV-C)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: один градиент на спрайт, не на узел"
+  },
+  {
+   "ok": true,
+   "message": "desktop: canvas слоя fx = размер сцены · dpr ([1252, 318] при dpr=1, сцена [1252, 318])"
+  },
+  {
+   "ok": true,
+   "message": "desktop: hoverNode определяет узел под курсором ('fact:-1001234567890:615')"
+  },
+  {
+   "ok": true,
+   "message": "desktop: клик выбрал реальный узел ('fact:-1001234567890:615')"
+  },
+  {
+   "ok": true,
+   "message": "desktop: клик открыл карточку выбранного узла"
+  },
+  {
+   "ok": true,
+   "message": "desktop: подпись выбранного узла видна всегда (§4.4)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: после выбора подписи не накладываются"
+  },
+  {
+   "ok": true,
+   "message": "desktop: при выборе у сети есть ослабленные и подсвеченные рёбра"
+  },
+  {
+   "ok": true,
+   "message": "desktop: Esc закрывает карточку"
+  },
+  {
+   "ok": true,
+   "message": "desktop: закрытие карточки не снимает выбор (§8.2)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: точка жеста в кадре (883, 519 при 1536x960)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: зум увеличил масштаб (r=1.61)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: после зума в кадре остаются реальные узлы (686)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: при зуме подписи не накладываются"
+  },
+  {
+   "ok": true,
+   "message": "desktop: выбранный узел остаётся подписанным при зуме"
+  },
+  {
+   "ok": true,
+   "message": "desktop: FPS панорамирования ≥ 45 (медиана 54.9, прогоны [54.9, 55.3, 54.6], p95 46.3)"
+  },
+  {
+   "ok": true,
+   "message": "desktop: слой fx реально рисовал во время панорамирования"
+  },
+  {
+   "ok": true,
+   "message": "простой: кадров декора ≤ 24 fps (60 за 3009 мс, лимит 84)"
+  },
+  {
+   "ok": true,
+   "message": "простой: мягкая жизнь продолжается (кадры декора есть)"
+  },
+  {
+   "ok": true,
+   "message": "простой: новых спрайтов не создаётся"
+  },
+  {
+   "ok": true,
+   "message": "простой: градиенты в кадре не создаются"
+  },
+  {
+   "ok": true,
+   "message": "mobile: в сцене 702 узлов (ждали 702)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: в сцене 2400 связей (ждали 2400)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: ни одного прямоугольного узла (§4.1)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: разные формы по типам (dot/hexagon/diamond): {'dot': 562, 'hexagon': 56, 'diamond': 84}"
+  },
+  {
+   "ok": true,
+   "message": "mobile: все рёбра прямые (smooth=false, §10.1)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: ни одного непрозрачного «белого» ребра (§4.3)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подписи не накладываются (0 пересечений)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подписи на обзоре есть (12 подписей, §4.4)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: спрайты свечения построены"
+  },
+  {
+   "ok": true,
+   "message": "mobile: обзор заполняет кадр (fillH=0.89, fillW=0.84)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: в кадре есть связная видимая область (1); разделение групп на обзоре — задача агрегатов LOD (CMV-C)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: один градиент на спрайт, не на узел"
+  },
+  {
+   "ok": true,
+   "message": "mobile: canvas слоя fx = размер сцены · dpr ([676, 636] при dpr=2, сцена [338, 318])"
+  },
+  {
+   "ok": true,
+   "message": "mobile: hoverNode определяет узел под курсором ('ent:-1001234567890:567')"
+  },
+  {
+   "ok": true,
+   "message": "mobile: клик выбрал реальный узел ('ent:-1001234567890:567')"
+  },
+  {
+   "ok": true,
+   "message": "mobile: клик открыл карточку выбранного узла"
+  },
+  {
+   "ok": true,
+   "message": "mobile: подпись выбранного узла видна всегда (§4.4)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: после выбора подписи не накладываются"
+  },
+  {
+   "ok": true,
+   "message": "mobile: при выборе у сети есть ослабленные и подсвеченные рёбра"
+  },
+  {
+   "ok": true,
+   "message": "mobile: Esc закрывает карточку"
+  },
+  {
+   "ok": true,
+   "message": "mobile: закрытие карточки не снимает выбор (§8.2)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: точка жеста в кадре (280, 602 при 390x844)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: зум увеличил масштаб (r=2.38)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: после зума в кадре остаются реальные узлы (2)"
+  },
+  {
+   "ok": true,
+   "message": "mobile: при зуме подписи не накладываются"
+  },
+  {
+   "ok": true,
+   "message": "mobile: выбранный узел остаётся подписанным при зуме"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: свечение построено (не «урезанный режим»)"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: статический кадр декора нарисован"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: подписи видны"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: выбранный узел и его подпись сохранены"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: кадрового цикла нет"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: за 1202 мс ни одного кадра анимации (0)"
+  },
+  {
+   "ok": true,
+   "message": "reduced-motion: спрайты не пересоздаются"
+  }
+ ],
+ "fails": [],
+ "desktop": {
+  "viewport": [
+   1536,
+   960
+  ],
+  "dpr": 1,
+  "snapshot": {
+   "nodes": 702,
+   "edges": 2400,
+   "shapes": {
+    "dot": 562,
+    "hexagon": 56,
+    "diamond": 84
+   },
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   },
+   "labels": 13,
+   "forcedLabels": 0,
+   "duplicateLabels": 0,
+   "labelOverlaps": 0,
+   "bigGroups": 2,
+   "groups": [
+    674,
+    12,
+    5,
+    5,
+    3,
+    2,
+    1
+   ],
+   "fillW": 0.23243830767543272,
+   "fillH": 0.9035122382092466,
+   "inView": 702,
+   "selected": null,
+   "selectedLabeled": false,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": true,
+    "rafRunning": true,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 11,
+    "frames": 13,
+    "settled": true,
+    "fitScale": 0.07391738918202738,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 14,
+    "fxGradients": 14,
+    "fxPaints": 17,
+    "fxDraws": 10164,
+    "fxPooled": 702,
+    "draws": 17,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 13
+   },
+   "fxSize": [
+    1252,
+    318
+   ],
+   "elSize": [
+    1252,
+    318
+   ],
+   "fitScale": 0.07391738918202738,
+   "scale": 0.07391738918202738,
+   "dpr": 1,
+   "lod": 1
+  },
+  "hover": "fact:-1001234567890:615",
+  "selection": {
+   "target": "ent:-1001234567890:469",
+   "degree": 14,
+   "selected": "fact:-1001234567890:615",
+   "selectedLabeled": true,
+   "card": true,
+   "labelOverlaps": 0,
+   "labels": 14,
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   }
+  },
+  "afterEscape": {
+   "sel": "fact:-1001234567890:615",
+   "card": false
+  },
+  "zoomed": {
+   "fitScale": 0.07391738918202738,
+   "scale": 0.11904469445154696,
+   "ratio": 1.6105100000000006,
+   "lod": 1,
+   "labels": 14,
+   "labelOverlaps": 0,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": true,
+    "rafRunning": true,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 11,
+    "frames": 68,
+    "settled": true,
+    "fitScale": 0.07391738918202738,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 51,
+    "fxGradients": 51,
+    "fxPaints": 93,
+    "fxDraws": 65329,
+    "fxPooled": 702,
+    "draws": 93,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 15
+   }
+  }
+ },
+ "fps_pan": {
+  "frames": 166,
+  "elapsed": 3003.7000000178814,
+  "fps": 55.265172953028525,
+  "p50": 18.19999998807907,
+  "p95": 21.599999994039536,
+  "fpsP95": 46.29629630907164,
+  "fxPaints": 166,
+  "runs": [
+   54.9,
+   55.3,
+   54.6
+  ],
+  "median": 54.94505494505495
+ },
+ "fps_pan_vis_only": {
+  "frames": 179,
+  "elapsed": 3007.399999976158,
+  "fps": 59.51985103458771,
+  "p50": 16.69999998807907,
+  "p95": 20.799999982118607,
+  "fpsP95": 48.07692311825396,
+  "fxPaints": 0
+ },
+ "idle": {
+  "elapsed": 3008.800000011921,
+  "draws": 60,
+  "frames": 59,
+  "sprites": 0,
+  "gradients": 0,
+  "rafActive": true,
+  "counters": {
+   "netCount": 1,
+   "netTotal": 1,
+   "instance": 1,
+   "scenes": 1,
+   "canvases": 2,
+   "rafActive": true,
+   "rafRunning": true,
+   "paused": false,
+   "observerCount": 2,
+   "listeners": 11,
+   "frames": 132,
+   "settled": true,
+   "fitScale": 0.07391738918202738,
+   "lod": 1,
+   "fxCanvas": true,
+   "fxSprites": 51,
+   "fxGradients": 51,
+   "fxPaints": 650,
+   "fxDraws": 466994,
+   "fxPooled": 702,
+   "draws": 650,
+   "pulseCount": 24,
+   "positions": 702,
+   "labelsShown": 15
+  },
+  "spritesBefore": 51
+ },
+ "mobile": {
+  "viewport": [
+   390,
+   844
+  ],
+  "dpr": 2,
+  "snapshot": {
+   "nodes": 702,
+   "edges": 2400,
+   "shapes": {
+    "dot": 562,
+    "hexagon": 56,
+    "diamond": 84
+   },
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   },
+   "labels": 12,
+   "forcedLabels": 0,
+   "duplicateLabels": 0,
+   "labelOverlaps": 0,
+   "bigGroups": 1,
+   "groups": [
+    700,
+    2
+   ],
+   "fillW": 0.8418645390050947,
+   "fillH": 0.8948119942884339,
+   "inView": 702,
+   "selected": null,
+   "selectedLabeled": false,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": true,
+    "rafRunning": true,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 9,
+    "frames": 7,
+    "settled": true,
+    "fitScale": 0.1891956211327939,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 18,
+    "fxGradients": 18,
+    "fxPaints": 11,
+    "fxDraws": 5616,
+    "fxPooled": 702,
+    "draws": 11,
+    "pulseCount": 0,
+    "positions": 702,
+    "labelsShown": 12
+   },
+   "fxSize": [
+    676,
+    636
+   ],
+   "elSize": [
+    338,
+    318
+   ],
+   "fitScale": 0.1891956211327939,
+   "scale": 0.1891956211327939,
+   "dpr": 2,
+   "lod": 1
+  },
+  "hover": "ent:-1001234567890:567",
+  "selection": {
+   "target": "ent:-1001234567890:469",
+   "degree": 14,
+   "selected": "ent:-1001234567890:567",
+   "selectedLabeled": true,
+   "card": true,
+   "labelOverlaps": 0,
+   "labels": 10,
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   }
+  },
+  "afterEscape": {
+   "sel": "ent:-1001234567890:567",
+   "card": false
+  },
+  "zoomed": {
+   "fitScale": 0.1891956211327939,
+   "scale": 0.4493396001903855,
+   "ratio": 2.375,
+   "lod": 2,
+   "labels": 1,
+   "labelOverlaps": 0,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": true,
+    "rafRunning": true,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 9,
+    "frames": 68,
+    "settled": true,
+    "fitScale": 0.1891956211327939,
+    "lod": 2,
+    "fxCanvas": true,
+    "fxSprites": 102,
+    "fxGradients": 102,
+    "fxPaints": 125,
+    "fxDraws": 47116,
+    "fxPooled": 702,
+    "draws": 125,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 1
+   }
+  }
+ },
+ "reduced_motion": {
+  "checks": [
+   {
+    "ok": true,
+    "message": "reduced-motion: свечение построено (не «урезанный режим»)"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: статический кадр декора нарисован"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: подписи видны"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: выбранный узел и его подпись сохранены"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: кадрового цикла нет"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: за 1202 мс ни одного кадра анимации (0)"
+   },
+   {
+    "ok": true,
+    "message": "reduced-motion: спрайты не пересоздаются"
+   }
+  ],
+  "fails": [],
+  "idle": {
+   "elapsed": 1202,
+   "draws": 0,
+   "frames": 0,
+   "sprites": 0,
+   "gradients": 0,
+   "rafActive": false,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": false,
+    "rafRunning": false,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 11,
+    "frames": 0,
+    "settled": true,
+    "fitScale": 0.07220052674598128,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 16,
+    "fxGradients": 16,
+    "fxPaints": 12,
+    "fxDraws": 7269,
+    "fxPooled": 702,
+    "draws": 12,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 14
+   }
+  },
+  "state": {
+   "nodes": 702,
+   "edges": 2400,
+   "shapes": {
+    "dot": 562,
+    "hexagon": 56,
+    "diamond": 84
+   },
+   "edgeStats": {
+    "total": 2400,
+    "smooth": 0,
+    "arrow": 65,
+    "opacityBelow": 2400,
+    "opacityAbove": 0
+   },
+   "labels": 13,
+   "forcedLabels": 1,
+   "duplicateLabels": 0,
+   "labelOverlaps": 0,
+   "bigGroups": 1,
+   "groups": [
+    687,
+    7,
+    3,
+    3,
+    2
+   ],
+   "fillW": 0.22432911265324854,
+   "fillH": 0.9036418127327215,
+   "inView": 702,
+   "selected": "fact:-1001234567890:634",
+   "selectedLabeled": true,
+   "counters": {
+    "netCount": 1,
+    "netTotal": 1,
+    "instance": 1,
+    "scenes": 1,
+    "canvases": 2,
+    "rafActive": false,
+    "rafRunning": false,
+    "paused": false,
+    "observerCount": 2,
+    "listeners": 11,
+    "frames": 0,
+    "settled": true,
+    "fitScale": 0.07220052674598128,
+    "lod": 1,
+    "fxCanvas": true,
+    "fxSprites": 16,
+    "fxGradients": 16,
+    "fxPaints": 12,
+    "fxDraws": 7269,
+    "fxPooled": 702,
+    "draws": 12,
+    "pulseCount": 24,
+    "positions": 702,
+    "labelsShown": 14
+   },
+   "fxSize": [
+    1252,
+    318
+   ],
+   "elSize": [
+    1252,
+    318
+   ],
+   "fitScale": 0.07220052674598128,
+   "scale": 0.07220052674598128,
+   "dpr": 1,
+   "lod": 1
+  },
+  "shots": [
+   "cmv-b-desktop-reduced-motion.png"
+  ]
+ }
+}

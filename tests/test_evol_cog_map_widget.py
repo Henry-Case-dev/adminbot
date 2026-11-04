@@ -812,7 +812,9 @@ def test_cmv_node_suites_run():
     if not node:
         pytest.skip("node недоступен — JS-unit пропущен")
     for script, marker in (
-        ("evol_cog_visual_test.js", "EVOL-CMV-A-VISUAL-OK"),
+        # CMV-B: визуальный тест теперь покрывает формы/палитру/свечение/
+        # импульсы/пульс/физику — маркер пакета B.
+        ("evol_cog_visual_test.js", "EVOL-CMV-B-VISUAL-OK"),
         ("evol_cog_scene_test.js", "EVOL-CMV-A-SCENE-OK"),
         ("routing_test.js", "JS-UNIT-OK"),
     ):

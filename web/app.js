@@ -1490,11 +1490,9 @@
   var _AVATAR_CACHE_MAX = 200;
 
   // ═══ F4 (graph-physics-stabilization-round1018, ADR-1018-4) ═══
-  // Физика графа: короткая стабилизация (150 итераций вместо 250) и
-  // авто-отключение physics после первичной расстановки по событию
-  // stabilizationIterationsDone/stabilized → ~60 FPS при 500–800 узлах (F3).
+  // Физика графа: короткая стабилизация и авто-отключение physics после
+  // первичной расстановки (§8.1 контракта CMV: итерации — по размеру набора).
   // Каталог-Δ=0 — только код-константы (маркеры JS-тестов).
-  var GRAPH_PHYSICS_ITERATIONS = 150;
   var GRAPH_PHYSICS_DISABLE_ON_STABILIZE = true;
   // ── D15 (asap5-final-fixes, T-5265, §13B): semantic zoom — presentation- ──
   // layer only. DataSet (nodes/edges) НЕ режется: канонический `node.label`
@@ -1528,6 +1526,10 @@
   // сам слой подписей (перенос без изменения вида — отдельный шаг).
   // Страховка терминации физики (§8.2): события стабилизации могут не прийти.
   var COG_SETTLE_WATCHDOG_MS = 3000;
+  // CMV-B: слой `fx` (свечение/декор/импульсы/кольцо) живёт на своём canvas.
+  // Класс обязателен: CSS `.cog-fx` = `pointer-events:none` + z-index выше
+  // vis-canvas (§6 контракта, §2.1/§4.4 спеки «слои и pointer-events»).
+  var COG_FX_CLASS = 'cog-fx';
   // Счётчик ЖИВЫХ vis.Network на страницу: одна карта = один инстанс
   // (§6.6/§10.2 спеки). Значение доступно через `_cogDebugCounters()`.
   var _cogLiveNets = 0;
@@ -29872,6 +29874,13 @@
         // computed/шаблон, публикуется в реактивные поля СРАЗУ (B1): иначе
         // счётчики и сообщение о пустоте расходились с фактической сценой.
         this._cogView = view;
+        // CMV-B §5.8: новая витрина инвалидирует кэш подписей/рёбер активного
+        // узла. Без этого план, посчитанный при создании сети (витрина ещё не
+        // присвоена), залипал бы пустым — «карта без имён».
+        if (this._cogScene) {
+          this._cogScene.viewRev = (this._cogScene.viewRev || 0) + 1;
+          this._cogScene.incidentRev = -1;
+        }
         this.cogViewNodes = (view.nodes || []).length;
         this.cogViewEdges = (view.edges || []).length;
         // F11 (§16/D4): mobile — упрощённая сцена; отдельный экран полного
@@ -29945,19 +29954,17 @@
         this._cogRedraw();
       },
       // Состояние отображения для единого преобразователя: позиции из vis,
-      // текущая подсветка/выбор. Модель (`view.nodes`) только читается.
+      // текущая подсветка/выбор, МАСШТАБ ОБЗОРА (размер узла в сетевых
+      // единицах зависит от `fitScale`, §3.4 контракта). Модель только читается.
       _cogRowOpts: function (positions) {
-        var C = window.CognitiveMap;
         return {
           positions: positions || {},
           highlighted: this._cogHighlight || null,
           selectedId: (this._cogSelectedId === undefined)
             ? null : this._cogSelectedId,
           edgeFocus: this._cogEdgeFocus || null,
-          styleFor: function (kind) {
-            return (C && typeof C.nodeStyle === 'function')
-              ? C.nodeStyle(kind) : undefined;
-          },
+          fitScale: (typeof this._cogFitScale === 'number' && this._cogFitScale > 0)
+            ? this._cogFitScale : 0,
         };
       },
       // Локальное обновление существующей сети: DataSet меняется, ИНСТАНС
@@ -29994,7 +30001,20 @@
         // Камера при этом НЕ двигается (пользователя не отправляем в центр).
         this._cogRefreshFitScale();
         this._cogRestoreCamera(false);
+        // CMV-B: новый набор = новые позиции/размеры/набор пульса. Без этого
+        // декор ссылался бы на исчезнувшие узлы.
+        var scene = this._cogScene;
+        if (scene) {
+          scene.edgeState = null;
+          // §5.8: новый набор данных инвалидирует кэш подписей/рёбер.
+          scene.viewRev = (scene.viewRev || 0) + 1;
+          scene.incidentRev = -1;
+        }
+        this._cogSyncPositions();
+        this._cogApplyNodeSizes();
+        this._cogBuildPulse();
         this._cogApplyHighlight();
+        this._cogPaintStatic();
       },
       // Детерминированная позиция нового узла: рядом с уже размещённым
       // реальным соседом, иначе — спираль по хешу id. Math.random НЕ
@@ -30026,18 +30046,16 @@
         return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
       },
       // Строка узла для vis-network. Вся визуальная арифметика (форма, цвет,
-      // размер из degree, притушение) — в ЕДИНОМ преобразователе
+      // размер из degree и fitScale, притушение) — в ЕДИНОМ преобразователе
       // `web/static/cog-visual.js` (§3/§10.1(3) контракта). Здесь только
       // состояние отображения; поля модели не переписываются.
       _cogNodeRow: function (node, pos) {
         var V = cogVis();
         if (!V || typeof V.nodeRow !== 'function') return null;
-        var C = window.CognitiveMap;
         var highlighted = !!(this._cogHighlight && this._cogHighlight[node.id]);
         return V.nodeRow(node, {
           pos: pos || null,
-          style: (C && typeof C.nodeStyle === 'function')
-            ? C.nodeStyle(node.kind) : undefined,
+          fitScale: this._cogFitScale || 0,
           dim: !!(this._cogSelectedId && !highlighted),
         });
       },
@@ -30046,9 +30064,24 @@
       _cogEdgeRow: function (edge) {
         var V = cogVis();
         if (!V || typeof V.edgeRow !== 'function') return null;
+        var focused = !!(this._cogEdgeFocus && this._cogEdgeFocus[edge.id]);
         return V.edgeRow(edge, {
-          focused: !!(this._cogEdgeFocus && this._cogEdgeFocus[edge.id]),
+          focused: focused,
+          dimmed: !!this._cogSelectedId && !focused,
+          lod: (this._cogScene && typeof this._cogScene.lod === 'number')
+            ? this._cogScene.lod : 1,
+          focusColor: focused ? this._cogFocusColor() : null,
         });
+      },
+      // Оттенок подсвеченных связей = тип активного узла (§4.1 спеки): белые
+      // длинные линии на тёмной сцене читаются как царапины.
+      _cogFocusColor: function () {
+        var V = cogVis();
+        var id = this._cogSelectedId;
+        if (!V || id == null) return null;
+        var node = ((this.cognitionGraphData || {}).byId || {})[String(id)];
+        if (!node) return null;
+        return V.rgba(V.colorOf(node.kind), 0.55);
       },
       _cogCreateNetwork: function (el, view, mode, simple, prevPositions,
                                    restoreCamera) {
@@ -30086,14 +30119,17 @@
         var cfg = V.CONFIG;
         var options = {
           // Подписи vis выключены полностью: их рисует собственный
-          // screen-space слой (`afterDrawing`), иначе «стена текста» (RCA GR1).
+          // screen-space слой (`fx`), иначе «стена текста» (RCA GR1).
           nodes: { shape: 'dot', size: 12, font: { size: 0 },
                    borderWidth: cfg.node.borderWidth,
                    borderWidthSelected: cfg.node.borderWidthSelected },
           edges: {
+            // Стрелка по умолчанию выключена: включается только для реального
+            // смыслового направления (`revised_by`) в строке ребра (§4.3).
             arrows: { to: { enabled: false } },
-            smooth: { type: cfg.edge.smooth.type,
-                      roundness: cfg.edge.smooth.roundness },
+            // §10.1 контракта: ПРЯМЫЕ линии. bezier на 2400 рёбрах — самая
+            // тяжёлая операция кадра; «сигнальные линии» читаются лучше клубка.
+            smooth: cfg.edge.smooth ? cfg.edge.smoothOptions : false,
             color: { color: cfg.edge.base, highlight: cfg.edge.highlight },
             width: cfg.edge.width, selectionWidth: cfg.edge.selectionWidth,
             hoverWidth: cfg.edge.hoverWidth,
@@ -30108,21 +30144,10 @@
           // теряется). Поэтому стабилизация выполняется всегда (это разовый
           // расчёт позиций, а не движение на экране), а вот движение после неё
           // для reduced-motion запрещено — физика гасится сразу по завершении.
-          physics: {
-            solver: 'barnesHut',
-            barnesHut: {
-              gravitationalConstant: -8000,
-              centralGravity: 0.3,
-              springLength: 120,
-              springConstant: 0.04,
-              damping: 0.09,
-              avoidOverlap: 0.2,
-            },
-            stabilization: { enabled: true,
-                             iterations: GRAPH_PHYSICS_ITERATIONS,
-                             updateInterval: 25, fit: false },
-            minVelocity: 0.75,
-          },
+          // §8.1 контракта: итерации по размеру набора, `avoidOverlap`,
+          // `minVelocity` (ранний выход), `stabilization.fit = false` — кадр
+          // обзора выставляем сами (`_cogApplyFit`).
+          physics: V.physicsOptions(view.nodes.length, this._cogFitScale || 0),
         };
         // Раскладка уже известна (fullscreen ↔ embedded, возврат на вкладку):
         // физика не запускается ВООБЩЕ — ни стабилизации с fit, ни движения
@@ -30147,6 +30172,18 @@
           settled: false, fitScale: 0, bbox: null, lod: null,
           ro: null, io: null, watchdog: null,
           handlers: 0, frames: 0, paintedAt: 0, onFrame: null,
+          // CMV-B: слой `fx` и состояние кадра. `fx` = null, если у контейнера
+          // нет appendChild (node-песочница): тогда декора нет, а кадр живёт.
+          fx: null, fxCanvas: null, fxCtx: null, fxDpr: 1,
+          // Кэш позиций (§5.1 контракта): `getPositions()`/`canvasToDOM` на
+          // кадре панорамирования НЕ вызываются, только на событиях.
+          pos: {}, posRev: 0,
+          viewRev: 0, selectionRev: 0,
+          hoverId: null, hoverAt: 0,
+          pulse: null, pulseMap: null, pulseHit: null,
+          visPaintedAt: 0, lastPaintAt: 0, paintToken: -1,
+          edgeState: null, draws: 0, cam: null, incident: null,
+          labelItems: null, keyLod: null,
         };
         var scene = this._cogScene;
         if (hasLayout) {
@@ -30161,7 +30198,13 @@
           } catch (e) { /* noop */ }
         }
         if (net && typeof net.on === 'function') {
-          net.on('afterDrawing', function (ctx) { self._cogDrawLabels(ctx); });
+          // CMV-B §6 контракта: `afterDrawing` — сигнал кадра и источник
+          // камеры, но рисует ВСЕГДА только `_cogPaintFx` (точка входа одна,
+          // дубль кадра исключён). Подписи переехали в тот же слой `fx`:
+          // иначе glow перекрывал бы текст (порядок §2.1 спеки).
+          net.on('afterDrawing', function () {
+            self._cogPaintFromVis();
+          });
           net.on('selectNode', function (params) {
             var id = params && params.nodes && params.nodes[0];
             if (id != null) self.graphSelectNode(id);
@@ -30174,12 +30217,21 @@
             self.graphClearDetail();
             self.graphApplySelectionLabels([]);
           });
+          // §4.3 спеки: hover отличается от выбора (ярче свечение + реальные
+          // соседние связи), уход — затухание за 150–220 ms, таймеров не плодим.
+          net.on('hoverNode', function (params) {
+            self._cogSetHover(params && params.node);
+          });
+          net.on('blurNode', function () {
+            self._cogSetHover(null);
+          });
           // W7-S3: клик по узлу/ребру открывает карточку. Это ДЕЙСТВИЕ
           // пользователя (программное `selectNodes` события `click` не даёт),
           // поэтому поиск и переходы карточку не «прыгают» сами.
           net.on('click', function (params) {
             if (!params) return;
             if (params.nodes && params.nodes.length) {
+              self._cogPulseSelected('click', params.nodes[0]);
               self.openCogNodeCard(params.nodes[0]);
               return;
             }
@@ -30202,8 +30254,12 @@
               self._cogCamera = self._cogCameraOf(
                 net.getViewPosition(), net.getScale());
             } catch (e) { /* сеть уничтожена */ }
+            // §5.1: перемещение узла меняет позиции — обновляем кэш на событии,
+            // а не на кадре (иначе 702 записи на каждый кадр панорамирования).
+            self._cogSyncPositions();
+            self._cogPaintStatic();
           });
-          scene.handlers += 5;
+          scene.handlers += 8;
         }
         // F4 (ADR-1018-4 D2): физика выключается ПОСЛЕ первичной расстановки;
         // `once` (не `on`) — слушатели не копятся при повторных рендерах.
@@ -30232,7 +30288,16 @@
             self._cogCamera = null;
             self._cogApplyFit(false);
           }
+          // CMV-B: раскладка готова ⇒ кэш позиций, размеры узлов по реальному
+          // `fitScaleRef` (один батч, §3.4), набор пульса и первый кадр декора.
+          self._cogSyncPositions();
+          self._cogApplyNodeSizes();
+          self._cogBuildPulse();
+          self._cogPaintStatic();
         };
+        // §6 контракта: слой `fx` создаётся ВМЕСТЕ со сценой (один canvas на
+        // карту) — до первого кадра, чтобы `settleView` мог его покрасить.
+        this._cogEnsureFx();
         // Стабилизация идёт всегда, когда физика ещё не выключена: и для
         // обычного режима, и для `prefers-reduced-motion` (там это разовый
         // расчёт раскладки, а движение после него сразу гасится).
@@ -30284,7 +30349,12 @@
         // ослабляется, значение просто становится верным.
         if (typeof net.on === 'function') {
           net.on('animationFinished', function () {
-            if (net === self.cognitionNetwork) self._cogCaptureCamera();
+            if (net === self.cognitionNetwork) {
+              self._cogCaptureCamera();
+              // §5.1: после программной анимации камеры позиции не менялись,
+              // но кадр `fx` должен совпасть с итоговым видом.
+              self._cogPaintStatic();
+            }
           });
           if (scene) scene.handlers += 1;
         }
@@ -30292,6 +30362,9 @@
         try {
           this.graphApplyZoomLevel(net.getScale ? net.getScale() : null);
         } catch (e) { /* noop */ }
+        // Первый кадр декора: сцена измерена и камера обзора поставлена (или
+        // будет поставлена по `stabilizationIterationsDone`).
+        this._cogPaintStatic();
       },
       _cogRedraw: function () {
         var net = this.cognitionNetwork;
@@ -30418,13 +30491,190 @@
         if (w === scene.width && h === scene.height) return;
         scene.width = w;
         scene.height = h;
+        // §6 контракта: размер слоя `fx` переустанавливается здесь, не на кадре.
+        this._cogSyncFxSize();
         this._cogRefreshFitScale();
         if (this._cogCamera) this._cogRestoreCamera(false);
+        // §3.4: размеры узлов зависят от `fitScaleRef` — один батч на resize.
+        this._cogApplyNodeSizes();
+        this._cogPaintStatic();
       },
-      // Единственный кадровый владелец карты (single-flight). CMV-B подключает
-      // сюда отрисовку слоя `fx` (`scene.onFrame`); в пакете A кадр — только
-      // точка кадра. Второй RAF на ту же карту завести нельзя: пока `raf != null`
-      // новый не запрашивается, при `paused`/`hidden`/reduced-motion — тоже.
+      // ── CMV-B: слой `fx` (§6 контракта) ────────────────────────────────
+      // Один canvas на сцену, `pointer-events:none`, DPR ≤ 2. Он НЕ владеет
+      // кадром: кадр по-прежнему один (`_cogRequestFrame` + `afterDrawing`).
+      _cogEnsureFx: function () {
+        var scene = this._cogScene;
+        if (!scene) return null;
+        if (scene.fx) return scene.fx;
+        var el = scene.el || this._cogEl;
+        var V = cogVis();
+        if (!el || typeof el.appendChild !== 'function'
+            || !V || typeof V.createFx !== 'function') {
+          return null;                 // node-песочница: декора нет, кадр живёт
+        }
+        var canvas = null;
+        try {
+          if (typeof document !== 'undefined'
+              && typeof document.createElement === 'function') {
+            canvas = document.createElement('canvas');
+            canvas.className = COG_FX_CLASS;
+            // §4.4 спеки: декоративный слой кликов не перехватывает.
+            canvas.setAttribute('aria-hidden', 'true');
+            el.appendChild(canvas);
+          }
+        } catch (e) { canvas = null; }
+        if (!canvas) return null;
+        var dpr = 1;
+        try {
+          var raw = (typeof window !== 'undefined' && window.devicePixelRatio)
+            ? window.devicePixelRatio : 1;
+          dpr = Math.min(Math.max(1, raw || 1), V.CONFIG.fx.dprMax);
+        } catch (e) { dpr = 1; }
+        scene.fxCanvas = canvas;
+        scene.fxDpr = dpr;
+        try {
+          scene.fxCtx = canvas.getContext('2d');
+        } catch (e) { scene.fxCtx = null; }
+        scene.fx = V.createFx({ dpr: dpr, cfg: V.CONFIG });
+        this._cogSyncFxSize();
+        return scene.fx;
+      },
+      // Геометрия слоя: `canvas.width = W·dpr`, рисуем в CSS-px. Размер
+      // переустанавливается в ResizeObserver/создании, НЕ на кадре.
+      _cogSyncFxSize: function () {
+        var scene = this._cogScene;
+        if (!scene || !scene.fxCanvas) return;
+        var el = scene.el || this._cogEl;
+        var w = el ? (el.clientWidth || 0) : 0;
+        var h = el ? (el.clientHeight || 0) : 0;
+        if (w < 2 || h < 2) return;
+        var dpr = scene.fxDpr || 1;
+        var pw = Math.round(w * dpr);
+        var ph = Math.round(h * dpr);
+        if (scene.fxCanvas.width !== pw) scene.fxCanvas.width = pw;
+        if (scene.fxCanvas.height !== ph) scene.fxCanvas.height = ph;
+        if (scene.fx && typeof scene.fx.resize === 'function') {
+          scene.fx.resize(dpr);
+        }
+      },
+      // §5.1 контракта: позиции кэшируются и обновляются ТОЛЬКО на событиях
+      // (`stabilizationIterationsDone`, `dragEnd`, `animationFinished`,
+      // `_cogApplyData`, resize) — на кадре панорамирования `getPositions()`
+      // не вызывается (иначе 702 аллокации на кадр).
+      _cogSyncPositions: function () {
+        var scene = this._cogScene;
+        var net = this.cognitionNetwork;
+        if (!scene || !net || typeof net.getPositions !== 'function') return 0;
+        var raw = null;
+        try { raw = net.getPositions() || {}; } catch (e) { return 0; }
+        var cache = scene.pos || (scene.pos = {});
+        var seen = {};
+        var count = 0;
+        var key;
+        for (key in raw) {
+          if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+          var p = raw[key];
+          if (!p) continue;
+          var rec = cache[key];
+          if (!rec) { rec = { x: 0, y: 0 }; cache[key] = rec; }
+          rec.x = p.x;
+          rec.y = p.y;
+          seen[key] = true;
+          count += 1;
+        }
+        // Узлы, исчезнувшие из набора, не должны тянуть декор за собой.
+        for (key in cache) {
+          if (!Object.prototype.hasOwnProperty.call(cache, key)) continue;
+          if (!seen[key]) delete cache[key];
+        }
+        scene.posRev = (scene.posRev || 0) + 1;
+        return count;
+      },
+      // §3.4 контракта: размер узла в сетевых единицах зависит от
+      // `fitScaleRef`. Пересчёт — ОДИН батч `ds.update(rows)` на смену
+      // масштаба обзора (создание сети/resize), не на кадр и не на выбор.
+      _cogApplyNodeSizes: function () {
+        var ds = this._cognitionNodesDS;
+        var view = this._cogView || { nodes: [] };
+        var fitScale = this._cogFitScale;
+        if (!ds || !fitScale || !view.nodes || !view.nodes.length) return 0;
+        var rows = [];
+        for (var i = 0; i < view.nodes.length; i += 1) {
+          var node = view.nodes[i];
+          var row = this._cogNodeRow(node, null);
+          if (!row) continue;
+          rows.push({ id: row.id, size: row.size });
+        }
+        try {
+          if (rows.length) ds.update(rows);
+        } catch (e) { /* сеть уничтожена */ }
+        return rows.length;
+      },
+      // §7.1 контракта: набор «живых» узлов (детерминированный, ≤ 24).
+      _cogBuildPulse: function () {
+        var scene = this._cogScene;
+        var V = cogVis();
+        var view = this._cogView || { nodes: [] };
+        if (!scene || !V || typeof V.pulsePlan !== 'function') return 0;
+        var map = {};
+        var plan = V.pulsePlan(view.nodes || [], {
+          selectedId: this._cogSelectedId,
+          neighborIds: this._cogNeighborIds(),
+        });
+        for (var i = 0; i < plan.length; i += 1) map[plan[i].id] = plan[i];
+        scene.pulse = plan;
+        scene.pulseMap = map;
+        scene.keyLod = null;
+        return plan.length;
+      },
+      _cogNeighborIds: function () {
+        var ids = [];
+        var highlight = this._cogHighlight || null;
+        var selected = this._cogSelectedId;
+        if (!highlight || selected == null) return ids;
+        for (var key in highlight) {
+          if (!Object.prototype.hasOwnProperty.call(highlight, key)) continue;
+          if (String(key) !== String(selected)) ids.push(key);
+        }
+        return ids;
+      },
+      // Hover отличается от выбора (§7.2 спеки): усиливает свет и проявляет
+      // РЕАЛЬНЫЕ соседние связи; затухание — по времени в самом слое.
+      _cogSetHover: function (nodeId) {
+        var scene = this._cogScene;
+        if (!scene) return;
+        var next = (nodeId === undefined || nodeId === null) ? null : nodeId;
+        if (scene.hoverId === next) return;
+        scene.hoverId = next;
+        // §7.2 спеки: курсор отличает «навёл на узел» от «тащу полотно».
+        var el = scene.el || this._cogEl;
+        if (el && el.style) el.style.cursor = next ? 'pointer' : '';
+        scene.hoverAt = (typeof performance !== 'undefined' && performance.now)
+          ? performance.now() : Date.now();
+        this._cogRequestFrame();
+      },
+      // Реактивный импульс (§7.2): click — один, search — 1–2 мягких пульса.
+      _cogPulseSelected: function (kind, id) {
+        var scene = this._cogScene;
+        var V = cogVis();
+        if (!scene || !V) return;
+        var cfg = (V.CONFIG && V.CONFIG.motion) ? V.CONFIG.motion : {};
+        var target = (id === undefined || id === null)
+          ? this._cogSelectedId : id;
+        scene.pulseHit = {
+          id: (target == null) ? null : String(target),
+          kind: kind || 'click',
+          at: (typeof performance !== 'undefined' && performance.now)
+            ? performance.now() : Date.now(),
+          duration: kind === 'search'
+            ? (cfg.searchMs || 900) * (cfg.searchBeats || 2)
+            : (cfg.clickMs || 600),
+        };
+        this._cogRequestFrame();
+      },
+      // Единственный кадровый владелец карты (single-flight). CMV-B: отсюда
+      // рисуется слой `fx` (пульс/импульсы в покое). При `paused`/`hidden`/
+      // `reduced-motion` кадров нет вовсе (§7.3).
       _cogRequestFrame: function () {
         var self = this;
         var scene = this._cogScene;
@@ -30445,11 +30695,382 @@
       _cogPaintFrame: function (t) {
         var scene = this._cogScene;
         if (!scene || scene.net !== this.cognitionNetwork) return;
-        scene.frames += 1;
-        scene.paintedAt = (typeof t === 'number') ? t : 0;
-        if (typeof scene.onFrame === 'function') scene.onFrame(t);
-        // Непрерывной анимации в пакете A нет: цикл не продолжает сам себя.
         scene.running = false;
+        var now = (typeof t === 'number') ? t : 0;
+        var V = cogVis();
+        var idleGap = 1000 / (((V && V.CONFIG && V.CONFIG.motion
+          && V.CONFIG.motion.idleFps) || 24) * 1) - 2;
+        // Если vis уже покрасил кадр в этом же тике, `fx` нарисован из
+        // `afterDrawing`: второй проход не нужен (§6 контракта — один кадр).
+        var visFresh = scene.visPaintedAt
+          && Math.abs(now - scene.visPaintedAt) < 17;
+        // Частотный потолок покоя (§7.3): бесплатные rAF-тики не рисуем чаще
+        // `idleFps` — активный узел/пульс обслуживает `afterDrawing`.
+        var due = !scene.lastPaintAt || (now - scene.lastPaintAt) >= idleGap;
+        if (!visFresh && due) {
+          scene.frames += 1;
+          scene.lastPaintAt = now;
+          scene.paintedAt = now;
+          if (typeof scene.onFrame === 'function') scene.onFrame(now);
+          this._cogPaintFx(now);
+        }
+        if (!this.reducedMotion && !scene.paused
+            && typeof document !== 'undefined' && !document.hidden) {
+          this._cogRequestFrame();
+        }
+      },
+      // `afterDrawing` — сигнал кадра и источник камеры; рисование только через
+      // `_cogPaintFx` (единая точка входа, §6 контракта).
+      _cogPaintFromVis: function () {
+        var scene = this._cogScene;
+        if (!scene || scene.net !== this.cognitionNetwork) return;
+        scene.visPaintedAt = (typeof performance !== 'undefined'
+          && performance.now) ? performance.now() : Date.now();
+        this._cogPaintFx(scene.visPaintedAt);
+        // Пульс продолжается своим циклом; второй RAF не плодится
+        // (`_cogRequestFrame` возвращает false, пока кадр уже в очереди).
+        if (!this.reducedMotion) this._cogRequestFrame();
+      },
+      // Один статический кадр (reduced-motion, смена размера, первый кадр):
+      // без времени — вся информация видна, движения нет (§7.3 спеки).
+      _cogPaintStatic: function () {
+        var scene = this._cogScene;
+        if (!scene) return;
+        this._cogSyncFxSize();
+        this._cogPaintFx(null);
+      },
+      // §7.3 контракта: `reduced-motion` — статичная альфа (среднее), формы,
+      // свечение, выделение и подписи сохраняются полностью.
+      _cogPaintFx: function (t) {
+        var scene = this._cogScene;
+        if (!scene || !scene.fx || !scene.fxCtx) return 0;
+        if (scene.net !== this.cognitionNetwork) return 0;
+        var now = (typeof t === 'number') ? t : 0;
+        // Один и тот же кадр не рисуется дважды (§6 контракта).
+        if (now && scene.paintToken === now) return 0;
+        scene.paintToken = now;
+        var ctx = scene.fxCtx;
+        var W = scene.fxCanvas ? scene.fxCanvas.width : 0;
+        var H = scene.fxCanvas ? scene.fxCanvas.height : 0;
+        if (!W || !H) return 0;
+        var dpr = scene.fxDpr || 1;
+        var cssW = W / dpr;
+        var cssH = H / dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+        var frame = this._cogFrameState(now, cssW, cssH);
+        if (!frame) return 0;
+        ctx.save();
+        var drawn = scene.fx.paint(ctx, frame);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        scene.draws = (scene.draws || 0) + 1;
+        // Переход LOD: альфа рёбер обновляется ОДНИМ батчем (§10.5), не на кадре.
+        if (scene.lodDirty) {
+          scene.lodDirty = false;
+          this._cogApplyHighlight();
+        }
+        return drawn;
+      },
+      // LOD по относительному масштабу `r = scale/fitScale` (§4.2 контракта) с
+      // гистерезисом 12 %: одна чистая точка для свечения, подписей и альфы
+      // рёбер. Возвращает УРОВЕНЬ (0/1/2) и не рисует ничего сам.
+      _cogResolveLod: function (scale) {
+        var scene = this._cogScene;
+        var V = cogVis();
+        if (!scene || !V) return 1;
+        var r = V.relativeScale(scale, this._cogFitScale);
+        var prev = (typeof scene.lod === 'number') ? scene.lod : 1;
+        var lod = prev;
+        var t1 = V.CONFIG.label.t1;
+        var t2 = V.CONFIG.label.t2;
+        var d = 0.12;
+        if (r >= t2 * (1 + d)) lod = 2;
+        else if (lod === 2 && r < t2 * (1 - d)) lod = (r < t1 * (1 - d)) ? 0 : 1;
+        else if (lod === 0 && r >= t1 * (1 + d)) lod = 1;
+        else if (lod === 1 && r < t1 * (1 - d)) lod = 0;
+        else if (lod === 1 && r >= t2 * (1 - d)) lod = 2;
+        scene.lod = lod;
+        if (prev !== lod) {
+          scene.keyLod = null;
+          // Альфа рёбер (§10.5) переключается ОДНИМ батчем на переходе LOD,
+          // а не на кадре: помечаем и обновляем после кадра.
+          scene.lodDirty = true;
+        }
+        return lod;
+      },
+      // Состояние кадра: камера (2 дешёвых вызова), кэш позиций, рёбра
+      // активного узла, LOD свечения. Буферы переиспользуются между кадрами.
+      _cogFrameState: function (now, cssW, cssH) {
+        var scene = this._cogScene;
+        var net = this.cognitionNetwork;
+        var V = cogVis();
+        if (!scene || !net || !V) return null;
+        var scale = 1;
+        var viewPos = null;
+        try {
+          scale = (typeof net.getScale === 'function') ? net.getScale() : 1;
+          viewPos = net.getViewPosition ? net.getViewPosition() : null;
+        } catch (e) { return null; }
+        var cam = scene.cam || (scene.cam = { x: 0, y: 0, scale: 1 });
+        cam.x = (viewPos && typeof viewPos.x === 'number') ? viewPos.x : 0;
+        cam.y = (viewPos && typeof viewPos.y === 'number') ? viewPos.y : 0;
+        cam.scale = (typeof scale === 'number' && scale > 0) ? scale : 1;
+        var view = this._cogView || { nodes: [], edges: [] };
+        var selected = this._cogSelectedId;
+        var hover = scene.hoverId;
+        var activeId = (selected != null) ? selected : hover;
+        var incident = scene.incident || (scene.incident = []);
+        // Рёбра активного узла пересчитываются ТОЛЬКО при смене выбора/данных
+        // (не на кадре: 2400 сравнений + String() каждый кадр не бесплатны).
+        var incidentKey = String(activeId) + '|' + (scene.selectionRev || 0)
+          + '|' + (scene.viewRev || 0);
+        if (scene.incidentRev !== incidentKey) {
+          scene.incidentRev = incidentKey;
+          incident.length = 0;
+          if (activeId != null && view.edges) {
+            for (var i = 0; i < view.edges.length; i += 1) {
+              var edge = view.edges[i];
+              if (String(edge.from) === String(activeId)
+                  || String(edge.to) === String(activeId)) {
+                incident.push(edge);
+              }
+            }
+          }
+        }
+        // LOD СВЕЧЕНИЯ (§4.3 контракта): от `r = scale/fitScale`, гистерезис
+        // 12 % — дрожание колеса у порога не мигает. Подписи берут свой бюджет
+        // из того же `r` (слой LOD/коллизий продолжает CMV-C).
+        var lod = this._cogResolveLod(cam.scale);
+        var keyIds = null;
+        if (lod < 2) {
+          keyIds = scene.keyLod;
+          if (!keyIds) {
+            keyIds = scene.keyLod = {};
+            var plan = scene.pulse || [];
+            for (var k = 0; k < plan.length; k += 1) keyIds[plan[k].id] = true;
+          }
+          if (selected != null) keyIds[String(selected)] = true;
+        }
+        var self = this;
+        // §7.2 спеки: click — один короткий импульс, search — мягкие пульсы.
+        // В reduced-motion времени нет: вспышка не рисуется (§7.3).
+        var flash = 0;
+        var hit = scene.pulseHit;
+        if (hit && !this.reducedMotion && hit.duration > 0) {
+          var age = now - hit.at;
+          if (age >= 0 && age < hit.duration) {
+            flash = 1 - (age / hit.duration);
+            if (hit.kind === 'search') {
+              flash *= 0.55 + 0.45 * Math.cos((age / hit.duration) * Math.PI * 4);
+            }
+          }
+        }
+        return {
+          now: now,
+          width: cssW,
+          height: cssH,
+          camera: cam,
+          positions: scene.pos || {},
+          nodes: view.nodes || [],
+          edges: view.edges || [],
+          incident: incident,
+          selection: selected,
+          hover: hover,
+          fitScale: this._cogFitScale || 0,
+          lod: lod,
+          keyIds: keyIds,
+          pulse: scene.pulseMap || null,
+          flash: flash < 0 ? 0 : flash,
+          reducedMotion: !!this.reducedMotion,
+          drawLabels: function (c) { self._cogPaintLabels(c, cssW, cssH); },
+        };
+      },
+      // §4.4/§5 контракта: подписи — экранные координаты, приоритет+коллизии
+      // из адаптера, но БЕЗ чёрной плашки: `strokeText` тёмным контуром +
+      // `fillText` светлым. Полный текст — в инспекторе (данные не режем).
+      _cogPaintLabels: function (ctx, cssW, cssH) {
+        var scene = this._cogScene;
+        var C = window.CognitiveMap;
+        var V = cogVis();
+        if (!scene || !C || !V || !ctx) return 0;
+        if (typeof C.allocateLabels !== 'function') return 0;
+        var view = this._cogView || { nodes: [], edges: [] };
+        var positions = scene.pos || {};
+        var cam = scene.cam || { x: 0, y: 0, scale: 1 };
+        var cfg = V.CONFIG.label;
+        var simple = this._cognitionGraphMode === 'simple';
+        var fontPx = simple ? cfg.fontPx : cfg.fontPx + 1;
+        var r = V.relativeScale(cam.scale, this._cogFitScale);
+        var margin = V.CONFIG.glow.margin;
+        var alloc = scene.labelPlan;
+        var labelKey = [
+          Math.round(cam.x * 2) / 2, Math.round(cam.y * 2) / 2,
+          Math.round(cam.scale * 1000) / 1000, scene.lod || 0,
+          scene.selectionRev || 0, scene.viewRev || 0,
+          // Число узлов витрины входит в ключ: план, посчитанный при создании
+          // сети (витрина ещё пустая) или до синхронизации позиций, не залипает.
+          (view.nodes || []).length,
+          scene.posRev || 0,
+          Math.round(cssW), Math.round(cssH),
+        ].join(':');
+        if (alloc && scene.labelKey === labelKey) {
+          // §5.8 контракта: при неизменном ключе кадра подписи переиспользуются
+          // (аллокатор — самый дорогой шаг слоя: sort 702 + O(n·placed)).
+        } else {
+          var items = scene.labelItems || (scene.labelItems = []);
+          items.length = 0;
+          for (var i = 0; i < view.nodes.length; i += 1) {
+            var node = view.nodes[i];
+            var p = positions[node.id];
+            if (!p) continue;
+            var sx = (p.x - cam.x) * cam.scale + cssW / 2;
+            var sy = (p.y - cam.y) * cam.scale + cssH / 2;
+            // §5.2 контракта: узел вне кадра в разбор коллизий не попадает.
+            if (sx < -margin || sy < -margin || sx > cssW + margin
+                || sy > cssH + margin) continue;
+            items.push({
+              id: node.id,
+              x: sx,
+              y: sy + cfg.offset,
+              kind: node.kind,
+              title: node.title,
+              degree: node.degree,
+              selected: !!(this._cogHighlight && this._cogHighlight[node.id]),
+            });
+          }
+          alloc = C.allocateLabels(items, {
+            // §5.1 спеки: пороги LOD — от `r` (относительно `fitScale`), а не от
+            // абсолютного vis-масштаба: на большом графе LOD не «залипает».
+            scale: r,
+            overviewScale: cfg.t1,
+            detailScale: cfg.t2,
+            viewport: { width: cssW, height: cssH },
+            mobile: simple,
+            fontSize: fontPx,
+            maxLabelChars: cfg.maxChars,
+          });
+          scene.labelKey = labelKey;
+          scene.labelPlan = alloc;
+        }
+        // Диагностика приёмки: сколько подписей реально нарисовано и какой LOD.
+        this._cogLabels = alloc;
+        // §4.4/§5.5 спеки: выбранный/наведённый узел подписан ВСЕГДА — даже
+        // если аллокатор отсёк его метку (край кадра, коллизия с престижными
+        // парадигмами). Такая подпись снимает конфликтующие и рисуется сверху.
+        var forced = scene.forcedLabels || (scene.forcedLabels = []);
+        forced.length = 0;
+        var mustIds = [this._cogSelectedId, scene.hoverId];
+        for (var m = 0; m < mustIds.length; m += 1) {
+          var mustId = mustIds[m];
+          if (mustId == null) continue;
+          var mustPos = positions[mustId];
+          if (!mustPos) continue;
+          var hitLabel = null;
+          for (var q = 0; q < alloc.labels.length; q += 1) {
+            if (String(alloc.labels[q].id) === String(mustId)) {
+              hitLabel = alloc.labels[q];
+              break;
+            }
+          }
+          if (hitLabel) continue;
+          // Две принудительные подписи не должны накладываться друг на друга:
+          // вторая (обычно hover) уступает уже показанной выбранной.
+          var clashForced = false;
+          for (var ff = 0; ff < forced.length; ff += 1) {
+            var prevForced = forced[ff];
+            if (Math.abs(prevForced.x - ((mustPos.x - cam.x) * cam.scale
+              + cssW / 2)) * 2 < (prevForced.width + 120)
+              && Math.abs(prevForced.y - ((mustPos.y - cam.y) * cam.scale
+                + cssH / 2 + cfg.offset)) * 2 < (prevForced.height + 20)) {
+              clashForced = true;
+              break;
+            }
+          }
+          if (clashForced) continue;
+          var mNode = ((this.cognitionGraphData || {}).byId || {})[String(mustId)]
+            || ((view.byId || {})[String(mustId)]) || null;
+          var rawText = mNode ? mNode.title : null;
+          if (typeof rawText !== 'string' || !rawText) continue;
+          // §4.4: до 2 строк с многоточием, оригинал в данных не режется.
+          var text = rawText.replace(/\s+/g, ' ').trim();
+          if (text.length > cfg.maxChars) {
+            text = text.slice(0, cfg.maxChars - 1).replace(/\s+$/, '') + '…';
+          }
+          var wBox = Math.max(fontPx, text.length * fontPx * 0.55) + 6;
+          var hBox = fontPx * 1.4;
+          var bx = (mustPos.x - cam.x) * cam.scale + cssW / 2;
+          var by = (mustPos.y - cam.y) * cam.scale + cssH / 2 + cfg.offset;
+          // Метка выбранного остаётся у своей точки, но не за краем кадра.
+          bx = Math.min(Math.max(bx, wBox / 2 + 2), cssW - wBox / 2 - 2);
+          by = Math.min(Math.max(by, hBox / 2 + 2), cssH - hBox / 2 - 2);
+          forced.push({
+            id: mustId, x: bx, y: by, text: text,
+            width: wBox, height: hBox, selected: true,
+          });
+          // Конфликтующие подписи снимаются (§5.5): они не должны перекрывать
+          // подпись выбранного узла.
+          var kept = [];
+          for (var r2 = 0; r2 < alloc.labels.length; r2 += 1) {
+            var cand = alloc.labels[r2];
+            var clash = Math.abs(cand.x - bx) * 2 < (cand.width + wBox)
+              && Math.abs(cand.y - by) * 2 < (cand.height + hBox);
+            if (!clash) kept.push(cand);
+          }
+          alloc.labels = kept;
+        }
+        if (!alloc.labels.length && !forced.length) return 0;
+        alloc.forced = forced;
+        var hasSelection = this._cogSelectedId != null;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        var font = '500 ' + fontPx
+          + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+        var selectedFont = '600 ' + fontPx
+          + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+        for (var k = 0; k < alloc.labels.length; k += 1) {
+          var label = alloc.labels[k];
+          var selected = !!(this._cogHighlight && this._cogHighlight[label.id]);
+          var dimmed = hasSelection && !selected;
+          ctx.font = selected ? selectedFont : font;
+          ctx.globalAlpha = dimmed ? cfg.dimAlpha : 1;
+          // Контур вместо плашки (§4.4 спеки): «лёгкий тёмный подложенный
+          // контур», а не прямоугольник под КАЖДОЙ подписью.
+          ctx.lineWidth = cfg.strokeWidth;
+          ctx.strokeStyle = cfg.stroke;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(label.text, label.x, label.y);
+          ctx.fillStyle = selected ? cfg.selectedColor : cfg.color;
+          ctx.fillText(label.text, label.x, label.y);
+        }
+        // Принудительно показанные подписи (выбранный/hover) — поверх остальных.
+        for (var f = 0; f < forced.length; f += 1) {
+          var fl = forced[f];
+          ctx.font = selectedFont;
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = cfg.strokeWidth + 1;
+          ctx.strokeStyle = cfg.stroke;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(fl.text, fl.x, fl.y);
+          ctx.fillStyle = cfg.selectedColor;
+          ctx.fillText(fl.text, fl.x, fl.y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        alloc.shown = alloc.labels.length + forced.length;
+        return alloc.shown;
+      },
+      // Совместимость по имени (D15/T-265, живые пробы и старые тесты):
+      // подписи теперь рисуются в слое `fx`, поэтому внешний ctx — no-op.
+      _cogDrawLabels: function (ctx) {
+        var scene = this._cogScene;
+        if (!scene || !scene.fxCtx) return 0;
+        if (ctx && ctx !== scene.fxCtx) return 0;
+        var w = scene.fxCanvas ? scene.fxCanvas.width / (scene.fxDpr || 1) : 0;
+        var h = scene.fxCanvas ? scene.fxCanvas.height / (scene.fxDpr || 1) : 0;
+        if (!w || !h) return 0;
+        return this._cogPaintLabels(ctx, w, h);
       },
       _cogPauseScene: function () {
         var scene = this._cogScene;
@@ -30482,6 +31103,8 @@
         try {
           canvases = document.querySelectorAll('.cognition-graph canvas').length;
         } catch (e) { canvases = 0; }
+        var fx = (scene && scene.fx && typeof scene.fx.counters === 'function')
+          ? scene.fx.counters() : null;
         return {
           netCount: _cogLiveNets,
           netTotal: _cogTotalNets,
@@ -30497,6 +31120,18 @@
           settled: !!(scene && scene.settled),
           fitScale: this._cogFitScale || 0,
           lod: scene ? scene.lod : null,
+          // CMV-B диагностика слоя `fx` (§10.3 спеки): спрайты создаются один
+          // раз, в кадре градиенты не создаются, буферы переиспользуются.
+          fxCanvas: !!(scene && scene.fxCanvas),
+          fxSprites: fx ? fx.sprites : 0,
+          fxGradients: fx ? fx.gradients : 0,
+          fxPaints: fx ? fx.paints : 0,
+          fxDraws: fx ? fx.draws : 0,
+          fxPooled: fx ? fx.pooled : 0,
+          draws: scene ? (scene.draws || 0) : 0,
+          pulseCount: (scene && scene.pulse) ? scene.pulse.length : 0,
+          positions: scene ? Object.keys(scene.pos || {}).length : 0,
+          labelsShown: (this._cogLabels && this._cogLabels.shown) || 0,
         };
       },
       // Камера снимается на каждом кадре (и перед сменой экрана): при смене
@@ -30549,93 +31184,6 @@
       },
       // Слой подписей: экранное разрешение коллизий + LOD по масштабу.
       // Приоритеты/потолки — константы адаптера (26 / 12 на мобильном).
-      _cogDrawLabels: function (ctx) {
-        var net = this.cognitionNetwork;
-        var C = window.CognitiveMap;
-        if (!net || !C || !ctx) return;
-        var el = this._cogEl || (this.$refs ? this.$refs.cognitionGraph : null);
-        if (!el || typeof el.querySelector !== 'function') return;
-        var canvas = el.querySelector('canvas');
-        if (!canvas) return;
-        var cssW = canvas.clientWidth || el.clientWidth || 0;
-        var cssH = canvas.clientHeight || el.clientHeight || 0;
-        if (!cssW || !cssH) return;
-        // Снимаем камеру только у измеренной сцены: у скрытого/0×0 холста
-        // «вид» ничего не значит и перекрыл бы последующий fit (B1).
-        this._cogCaptureCamera();
-        var view = this._cogView || { nodes: [], edges: [] };
-        var positions;
-        try {
-          positions = net.getPositions() || {};
-        } catch (e) { return; }
-        var items = [];
-        var i;
-        for (i = 0; i < view.nodes.length; i += 1) {
-          var node = view.nodes[i];
-          var p = positions[node.id];
-          if (!p) continue;
-          var dom;
-          try {
-            dom = net.canvasToDOM({ x: p.x, y: p.y });
-          } catch (e) { continue; }
-          items.push({
-            id: node.id,
-            x: dom.x,
-            y: dom.y + COG_MAP_LABEL_OFFSET,
-            kind: node.kind,
-            title: node.title,
-            degree: node.degree,
-            selected: !!(this._cogHighlight && this._cogHighlight[node.id]),
-          });
-        }
-        var scale = 1;
-        try {
-          scale = net.getViewScale ? net.getViewScale() : 1;
-        } catch (e) { scale = 1; }
-        var simple = this._cognitionGraphMode === 'simple';
-        var alloc = C.allocateLabels(items, {
-          scale: scale,
-          viewport: { width: cssW, height: cssH },
-          mobile: simple,
-          // На большом экране подпись на 1 px крупнее: важно читается, а
-          // бюджет подписей тот же (L01312 — не «все сразу»).
-          fontSize: simple ? COG_MAP_LABEL_FONT_PX
-            : COG_MAP_LABEL_FONT_PX + 1,
-          maxLabelChars: COG_MAP_LABEL_CHARS,
-        });
-        // Диагностика приёмки: сколько подписей реально нарисовано и какой LOD.
-        this._cogLabels = alloc;
-        if (!alloc.labels.length) return;
-        var ratio = (canvas.width && cssW) ? (canvas.width / cssW) : 1;
-        ctx.save();
-        // Подписи рисуются в CSS-пикселях: канвас внутри имеет DPR-масштаб.
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = '500 ' + COG_MAP_LABEL_FONT_PX
-          + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
-        for (i = 0; i < alloc.labels.length; i += 1) {
-          var label = alloc.labels[i];
-          var selected = !!(this._cogHighlight && this._cogHighlight[label.id]);
-          // Остальное притушено вместе с узлами (L01281): подпись не должна
-          // светиться ярче самого узла.
-          var dimmed = !!this._cogSelectedId && !selected;
-          var left = label.x - label.width / 2;
-          var top = label.y - label.height / 2;
-          ctx.globalAlpha = dimmed ? 0.45 : 1;
-          ctx.fillStyle = 'rgba(8,11,18,.72)';
-          this._cogRoundRect(ctx, left, top, label.width, label.height, 5);
-          ctx.fill();
-          ctx.font = (selected ? '600 ' : '500 ')
-            + (this._cognitionGraphMode === 'simple'
-              ? COG_MAP_LABEL_FONT_PX : COG_MAP_LABEL_FONT_PX + 1)
-            + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
-          ctx.fillStyle = selected ? '#f8fafc' : 'rgba(226,232,240,.90)';
-          ctx.fillText(label.text, label.x, label.y + 0.5);
-        }
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      },
       _cogRoundRect: function (ctx, x, y, w, h, r) {
         var radius = Math.min(r, w / 2, h / 2);
         ctx.beginPath();
@@ -30959,13 +31507,21 @@
         node = hits[this._graphSearchIdx];
         var anim = this.reducedMotion
           ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
+        // Масштаб фокуса — от обзора (`fitScale`): абсолютные 1.1 на большом
+        // графе дают ×5.8 от fit (гигантский узел), спека §12.2 просит ×2–×3.
+        var fitNow = this._cogFitScale;
+        var focusScale = (fitNow && fitNow > 0)
+          ? Math.max(fitNow * 1.9, Math.min(fitNow * 3, 1.1)) : 1.1;
         this.cognitionNetwork.focus(node.id,
-          { scale: 1.1, animation: anim });
+          { scale: focusScale, animation: anim });
         this.cognitionNetwork.selectNodes([node.id]);
         // Найденный узел показывается и в панели подробностей (иначе поиск
         // фокусировал бы «молча»; L01297 — поиск с фокусировкой найденного).
         this.graphSelectNode(node.id);
         this.graphApplySelectionLabels([node.id]);
+        // §7.2 спеки: найденный узел делает 1–2 мягких пульса и остаётся
+        // выделенным (в Canvas он не «прыгает» и не теряется).
+        this._cogPulseSelected('search');
         var title = node.title || node.id;
         this.graphSearchStatus = 'Найден: ' + title +
           (hits.length > 1
@@ -30982,6 +31538,9 @@
         this._cogSelectedId = null;
         this._cogEdgeFocus = null;
         if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
+        // CMV-B: набор «живых» узлов и кадр декора. Хуки необязательны —
+        // минимальные пробные контексты (routing/search) их не содержат.
+        if (typeof this._cogBuildPulse === 'function') this._cogBuildPulse();
         if (typeof this._cogApplyHighlight === 'function') {
           this._cogApplyHighlight();
         }
@@ -30991,6 +31550,7 @@
           // кадр (`_cogApplyFit`), а не `vis.fit()` с масштабом от размеров узлов.
           this._cogApplyFit(true);
         }
+        if (typeof this._cogPaintStatic === 'function') this._cogPaintStatic();
       },
       // F11 (§16/D4): «ближайшие связи» — соседи по РЕАЛЬНЫМ рёбрам модели.
       graphNeighborsOf: function (nodeId) {
@@ -31062,10 +31622,16 @@
       },
       graphApplyZoomLevel: function (scale) {
         var mode = this._graphZoomModeOf(scale);
-        if (mode === this._graphZoomMode) return;
+        if (mode === this._graphZoomMode) {
+          // LOD свечения считается от `r` (может смениться без смены vis-режима):
+          // перерисовываем только слой `fx`, сеть не трогаем.
+          this._cogPaintStatic();
+          return;
+        }
         this._graphZoomMode = mode;
         // Подписи пересчитывает слой (LOD/коллизии), узлы и рёбра не режутся.
         this._cogRedraw();
+        this._cogPaintStatic();
       },
       // Сохранено по имени (D15/T-265): подписи выбранного neighborhood
       // приоритетны — аллокатор ставит их первыми, DataSet не мутируется.
@@ -31101,7 +31667,17 @@
           }
         }
         this.graphPinNeighborhoodLabels(Object.keys(highlight));
+        // §7.1 контракта: выбранный/соседи входят в набор пульса; выбор
+        // меняет и LOD-ключи (свечение выбранного видно на любом уровне).
+        this._cogBuildPulse();
+        // §5.8: смена выбора инвалидирует кэш подписей и рёбер активного узла.
+        var sceneSel = this._cogScene;
+        if (sceneSel) {
+          sceneSel.selectionRev = (sceneSel.selectionRev || 0) + 1;
+          sceneSel.incidentRev = -1;
+        }
         this._cogApplyHighlight();
+        this._cogPaintStatic();
       },
       // Притушение/подсветка через DataSet.update (инстанс не пересоздаётся).
       // CMV-A §10.2(4): строки — частичные (id + цвет/альфа), а не полная
@@ -31128,33 +31704,59 @@
           } catch (e) { /* сеть уничтожена */ }
         }
         if (eds) {
-          var rows = (V && typeof V.edgeRows === 'function')
-            ? V.edgeRows(view.edges, this._cogRowOpts(null))
-            : null;
-          if (!rows) {
-            rows = [];
-            for (i = 0; i < view.edges.length; i += 1) {
-              rows.push(this._cogEdgeRow(view.edges[i]));
-            }
+          // §10.2(4) контракта: строки ЧАСТИЧНЫЕ (id + альфа + ширина) и только
+          // для рёбер, чьё состояние реально изменилось — полная пересборка
+          // 2400 строк на каждый клик не нужна. Геометрия не пересылается.
+          var state = this._cogScene ? (this._cogScene.edgeState
+            || (this._cogScene.edgeState = {})) : {};
+          var lod = this._cogScene ? this._cogScene.lod : 1;
+          var focusColor = this._cogFocusColor();
+          var deltas = [];
+          for (i = 0; i < view.edges.length; i += 1) {
+            var viewEdge = view.edges[i];
+            var focused = !!(this._cogEdgeFocus && this._cogEdgeFocus[viewEdge.id]);
+            var dimmed = !!this._cogSelectedId && !focused;
+            var target = focused ? 2 : (dimmed ? 0 : 1);
+            var stateKey = target + ':' + (typeof lod === 'number' ? lod : 1)
+              + ':' + (focused ? String(focusColor) : '');
+            if (state[viewEdge.id] === stateKey) continue;
+            state[viewEdge.id] = stateKey;
+            var delta = (V && typeof V.edgeDeltaRow === 'function')
+              ? V.edgeDeltaRow(viewEdge, {
+                focused: focused, dimmed: dimmed, lod: lod,
+                focusColor: focusColor,
+              })
+              : null;
+            if (delta) deltas.push(delta);
           }
           try {
-            if (rows.length) eds.update(rows);
+            if (deltas.length) eds.update(deltas);
           } catch (e) { /* сеть уничтожена */ }
         }
         this._cogRedraw();
       },
       // F11 (§16/D4): фокус на узле/соседе — камера + выделение (сеть не
       // пересоздаётся; layout не трогается).
+      // F11 (§16/D4): фокус на узле/соседе — камера + выделение (сеть не
+      // пересоздаётся; layout не трогается). Масштаб фокуса считается ОТ обзора
+      // (`fitScale`), а не абсолютной константой: на большом графе `scale: 1.1`
+      // — это ×5.8 от fit, где узел превращается в гигантский круг (§12.2
+      // спеки требует ×2–×3). CMV-B §4.2: единственная шкала — относительная.
       focusGraphNode: function (nodeId) {
         if (!this.cognitionNetwork || nodeId == null) return;
         var anim = this.reducedMotion
           ? false : { duration: 500, easingFunction: 'easeInOutQuad' };
+        var fit = this._cogFitScale;
+        var target = (fit && fit > 0)
+          ? Math.max(fit * 1.9, Math.min(fit * 3, 1.1)) : 1.1;
         try {
-          this.cognitionNetwork.focus(nodeId, { scale: 1.1, animation: anim });
+          this.cognitionNetwork.focus(nodeId, {
+            scale: target, animation: anim });
           this.cognitionNetwork.selectNodes([nodeId]);
         } catch (e) { /* noop: сеть уничтожена */ }
         this.graphSelectNode(nodeId);
         this.graphApplySelectionLabels([nodeId]);
+        this._cogPulseSelected('search');
       },
       // Витринные фильтры (тип/кластер/производные рёбра): данные не меняются,
       // сети-запросов нет, камера сохраняется (см. renderCognitionGraph).
@@ -31238,6 +31840,18 @@
             scene.watchdog = null;
           }
           scene.onFrame = null;
+          // §6 контракта: спрайты и пул буферов сносятся ВМЕСТЕ со сценой
+          // (иначе 20 переключений режима оставляли бы кэш на каждый инстанс).
+          if (scene.fx && typeof scene.fx.dispose === 'function') {
+            try { scene.fx.dispose(); } catch (e) { /* noop */ }
+          }
+          scene.fx = null;
+          scene.fxCtx = null;
+          if (scene.fxCanvas && scene.fxCanvas.parentNode) {
+            try { scene.fxCanvas.parentNode.removeChild(scene.fxCanvas); }
+            catch (e) { /* noop */ }
+          }
+          scene.fxCanvas = null;
         }
         if (this.cognitionNetwork) {
           try { this.cognitionNetwork.destroy(); } catch (e) { /* noop */ }

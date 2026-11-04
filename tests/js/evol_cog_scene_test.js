@@ -227,6 +227,7 @@ function newCtx(extra) {
     toast() {},
     graphSelectNode() {}, graphClearDetail() {},
     graphApplySelectionLabels() {}, graphNeighborsOf() { return []; },
+    graphPinNeighborhoodLabels: methods.graphPinNeighborhoodLabels,
     graphApplyZoomLevel: methods.graphApplyZoomLevel,
     _graphZoomModeOf: methods._graphZoomModeOf,
     ensureVisNetwork: methods.ensureVisNetwork,
@@ -238,6 +239,7 @@ function newCtx(extra) {
     _cogCreateNetwork: methods._cogCreateNetwork,
     _cogNodeRow: methods._cogNodeRow,
     _cogEdgeRow: methods._cogEdgeRow,
+    _cogFocusColor: methods._cogFocusColor,
     _cogRowOpts: methods._cogRowOpts,
     _cogRedraw: methods._cogRedraw,
     _cogCaptureCamera: methods._cogCaptureCamera,
@@ -256,6 +258,21 @@ function newCtx(extra) {
     _cogApplyHighlight: methods._cogApplyHighlight,
     _cogFallbackPosition: methods._cogFallbackPosition,
     _cogDrawLabels: methods._cogDrawLabels,
+    // CMV-B: слой `fx` и его кадр (в песочнице без DOM он честно выключен).
+    _cogEnsureFx: methods._cogEnsureFx,
+    _cogSyncFxSize: methods._cogSyncFxSize,
+    _cogSyncPositions: methods._cogSyncPositions,
+    _cogApplyNodeSizes: methods._cogApplyNodeSizes,
+    _cogBuildPulse: methods._cogBuildPulse,
+    _cogNeighborIds: methods._cogNeighborIds,
+    _cogSetHover: methods._cogSetHover,
+    _cogPulseSelected: methods._cogPulseSelected,
+    _cogPaintFromVis: methods._cogPaintFromVis,
+    _cogPaintStatic: methods._cogPaintStatic,
+    _cogPaintFx: methods._cogPaintFx,
+    _cogFrameState: methods._cogFrameState,
+    _cogResolveLod: methods._cogResolveLod,
+    _cogPaintLabels: methods._cogPaintLabels,
     destroyCognitionGraph: methods.destroyCognitionGraph,
   };
   Object.assign(ctx, extra || {});
@@ -278,8 +295,12 @@ function newCtx(extra) {
   eq(roAlive, 1, 'циклы: один ResizeObserver');
   eq(ioAlive, 1, 'циклы: один IntersectionObserver');
   const listeners = baseline.listeners;
-  eq(listeners, 8, 'циклы: 6 обработчиков + 2 once-слушателя стабилизации');
-  eq(baseline.rafActive, false, 'циклы: кадров в покое нет');
+  // 8 обычных обработчиков (кадр/выбор/снятие/hover/hover-out/клик/зум/перетаск)
+  // + 2 `once` стабилизации + 1 `animationFinished` = 11 (CMV-B добавил hover
+  // и `afterDrawing` как единый сигнал кадра §6 контракта).
+  eq(listeners, 11, 'циклы: 8 обработчиков + 2 once + animationFinished');
+  eq(baseline.rafActive, false, 'циклы: кадров до стабилизации нет');
+  eq(baseline.fxCanvas, false, 'циклы: в песочнице без DOM слоя `fx` нет');
 
   let steady = null;
   for (let i = 0; i < 20; i += 1) {
@@ -297,7 +318,9 @@ function newCtx(extra) {
     ok(counters.listeners <= listeners,
       'цикл ' + i + ': обработчиков не больше, чем на первом кадре');
     eq(counters.observerCount, 2, 'цикл ' + i + ': наблюдатели не выросли');
-    eq(counters.canvases, 0, 'цикл ' + i + ': наших канвасов нет (fx = CMV-B)');
+    eq(counters.canvases, 0,
+      'цикл ' + i + ': чужих канвасов в песочнице нет');
+    eq(counters.fxCanvas, false, 'цикл ' + i + ': слоя `fx` без DOM нет');
     eq(counters.rafActive, false, 'цикл ' + i + ': лишних RAF нет');
     eq(roAlive, 1, 'цикл ' + i + ': один ResizeObserver на карту');
     eq(ioAlive, 1, 'цикл ' + i + ': один IntersectionObserver на карту');
@@ -322,11 +345,11 @@ function newCtx(extra) {
   methods.destroyCognitionGraph.call(ctx);
   eq(ctx._cogDebugCounters().netCount, 0, 'циклы: повторный destroy безопасен');
 
-  /* ── 2. Один RAF-владелец: single-flight, пауза, возврат ─────────────────── */
+  /* ── 2. Один RAF-владелец: single-flight, потолок 24 fps, пауза ─────────── */
   const ctx2 = newCtx();
   await methods.renderCognitionGraph.call(ctx2);
-  // После создания сети кадр не запрошен: покой — это ноль кадров.
-  eq(ctx2._cogDebugCounters().rafActive, false, 'RAF: в покое кадров нет');
+  // До стабилизации кадр не запрошен: покой — это ноль кадров.
+  eq(ctx2._cogDebugCounters().rafActive, false, 'RAF: до стабилизации кадров нет');
   eq(ctx2._cogRequestFrame(), true, 'RAF: первый кадр запланирован');
   eq(ctx2._cogRequestFrame(), false, 'RAF: второй кадр не дублируется');
   eq(ctx2._cogDebugCounters().rafActive, true, 'RAF: кадр активен');
@@ -334,10 +357,26 @@ function newCtx(extra) {
   ctx2._cogScene.onFrame = function () { painted += 1; };
   eq(flushFrames(16), 1, 'RAF: исполнен ровно один кадр');
   eq(painted, 1, 'RAF: хук кадра вызван один раз');
-  eq(ctx2._cogDebugCounters().rafActive, false,
-    'RAF: цикл не продолжает сам себя (в пакете A анимации нет)');
+  // CMV-B: кадры продолжаются (пульс), но не чаще 24 fps: тик 32 ms после
+  // 16 ms пропускается по частотному потолку, следующий рисует.
+  eq(ctx2._cogDebugCounters().rafActive, true,
+    'RAF: цикл продолжается сам себя (мягкая жизнь §7.1)');
+  eq(rafQueue.size, 1, 'RAF: в очереди ровно один кадр');
+  flushFrames(32);
+  eq(painted, 1, 'RAF: 32 ms < порога 24 fps — кадр не рисуется');
+  flushFrames(48);
+  eq(painted, 1, 'RAF: 48 ms — ещё в пределах потолка 24 fps');
+  flushFrames(64);
+  eq(painted, 2, 'RAF: следующий тик после порога — кадр нарисован');
+  // Скрытый vis-кадр в этом же тике: `fx` уже нарисован из `afterDrawing`,
+  // второй проход не делается (§6 контракта — один кадр).
+  ctx2._cogScene.visPaintedAt = 100;
+  flushFrames(104);
+  eq(painted, 2, 'RAF: кадр vis не дублируется своим RAF (один кадр)');
+  ctx2._cogScene.visPaintedAt = 0;
+  flushFrames(140);
+  eq(painted, 3, 'RAF: после vis-кадра свой цикл продолжает рисовать');
 
-  ctx2._cogRequestFrame();
   ctx2._cogPauseScene();
   eq(ctx2._cogDebugCounters().rafActive, false, 'RAF: пауза снимает кадр');
   eq(rafQueue.size, 0, 'RAF: отменённый кадр не висит в очереди');
@@ -358,9 +397,9 @@ function newCtx(extra) {
   global.document.hidden = false;
   ctx2._cogResumeScene();
   eq(rafQueue.size, 1, 'RAF: после возврата ровно один кадр');
-  flushFrames(32);
-  eq(ctx2._cogDebugCounters().rafActive, false,
-    'RAF: после кадра снова покой (нет второго цикла)');
+  // На возврате цикл снова живёт ровно одной копией (утечки нет).
+  flushFrames(1024);
+  eq(rafQueue.size, 1, 'RAF: после возврата одна копия цикла');
 
   // reduced-motion: непрерывных кадров нет вовсе (читаемость остаётся).
   const ctxRm = newCtx({ reducedMotion: true });
@@ -368,6 +407,9 @@ function newCtx(extra) {
   eq(ctxRm._cogRequestFrame(), false, 'RAF: reduced-motion не запускает кадры');
   eq(ctxRm._cogDebugCounters().rafActive, false, 'RAF: reduced-motion — покой');
   ok(ctxRm.cognitionNetwork, 'reduced-motion: сцена и выбор доступны');
+  // Статический кадр всё равно рисуется: формы/свечение/выделение (§7.3).
+  eq(ctxRm._cogPaintStatic(), undefined,
+    'reduced-motion: статический кадр вызывается без кадрового цикла');
 
   /* ── 3. Данные: смена набора не переписывает модель и не двигает камеру ──── */
   const frozenView = {
@@ -459,5 +501,133 @@ function newCtx(extra) {
   eq(ctxRm2._cogDebugCounters().settled, true,
     'reduced-motion: сцена стабилизирована и готова к выбору');
 
+  /* ── 7. Слой `fx`: один canvas на сцену, спрайты кэшируются, снос полный ─── */
+  // Песочница с минимальным DOM: проверяем РЕАЛЬНУЮ проводку слоя (создание
+  // канваса, размер по DPR, кэш спрайтов, пауза, снос), а не только математику.
+  const fxGradient = { made: 0, canvases: 0 };
+  function stubCtx2d() {
+    return {
+      globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '', font: '',
+      textAlign: '', textBaseline: '', lineJoin: '',
+      createRadialGradient() {
+        fxGradient.made += 1;
+        return { addColorStop() {} };
+      },
+      clearRect() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {},
+      quadraticCurveTo() {}, closePath() {}, arc() {}, stroke() {}, fill() {},
+      save() {}, restore() {}, setTransform() {}, fillText() {},
+      strokeText() {}, drawImage() {},
+    };
+  }
+  function domSceneEl() {
+    const children = [];
+    const el = {
+      clientWidth: 900, clientHeight: 480, isConnected: true,
+      style: {}, children,
+      appendChild(node) { children.push(node); node.parentNode = el; return node; },
+      removeChild(node) {
+        const at = children.indexOf(node);
+        if (at >= 0) children.splice(at, 1);
+        node.parentNode = null;
+        return node;
+      },
+      querySelector() { return null; },
+    };
+    return el;
+  }
+  const prevCreate = global.document.createElement;
+  function elCount(el) { return el.children.length; }
+  global.document.createElement = function (tag) {
+    if (tag !== 'canvas') return prevCreate(tag);
+    fxGradient.canvases += 1;
+    const canvas = {
+      tagName: 'CANVAS', width: 300, height: 150, className: '',
+      style: {}, parentNode: null,
+      setAttribute() {},
+      getContext() { return stubCtx2d(); },
+    };
+    return canvas;
+  };
+  global.window.devicePixelRatio = 2;
+
+  const ctxFx = newCtx();
+  const fxEl = domSceneEl();
+  ctxFx.$refs.cognitionGraph = fxEl;
+  await methods.renderCognitionGraph.call(ctxFx);
+  eq(ctxFx._cogDebugCounters().fxCanvas, true, 'fx: слой создан вместе со сценой');
+  eq(fxEl.children.length, 1, 'fx: на сцену ровно один canvas');
+  eq(fxEl.children[0].className, 'cog-fx', 'fx: класс слоя (CSS pointer-events)');
+  eq(fxEl.children[0].width, 900 * 2, 'fx: ширина canvas = W · dpr (≤ 2)');
+  eq(fxEl.children[0].height, 480 * 2, 'fx: высота canvas = H · dpr');
+  eq(ctxFx._cogScene.fxDpr, 2, 'fx: DPR = min(devicePixelRatio, 2)');
+  // Стабилизация: кэш позиций + первый кадр декора.
+  ctxFx.cognitionNetwork.emit('stabilizationIterationsDone');
+  const afterSettle = ctxFx._cogDebugCounters();
+  ok(afterSettle.fxPaints >= 1, 'fx: первый кадр нарисован по завершении layout');
+  ok(afterSettle.fxSprites > 0, 'fx: спрайты свечения построены');
+  eq(afterSettle.positions, 3, 'fx: позиции всех узлов в кэше (§5.1)');
+  const spritesAfterFirst = afterSettle.fxSprites;
+  const gradsAfterFirst = afterSettle.fxGradients;
+  for (let i = 0; i < 5; i += 1) ctxFx._cogPaintStatic();
+  const afterFrames = ctxFx._cogDebugCounters();
+  eq(afterFrames.fxSprites, spritesAfterFirst,
+    'fx: кэш спрайтов не растёт с кадрами (§10.2(5))');
+  eq(afterFrames.fxGradients, gradsAfterFirst,
+    'fx: в кадре градиенты не создаются');
+  ok(afterFrames.fxDraws > spritesAfterFirst,
+    'fx: спрайты реально компонуются (drawImage)');
+
+  // Подписи: коллизии/приоритет из адаптера, но БЕЗ чёрной плашки (§4.4).
+  methods.graphApplySelectionLabels.call(ctxFx, ['par:1:3']);
+  ctxFx._cogPaintStatic();
+  ok(ctxFx._cogLabels && ctxFx._cogLabels.shown >= 1,
+    'подписи: слой отдал хотя бы одну подпись');
+  ok(ctxFx._cogLabels.labels.some((l) => l.id === 'par:1:3'),
+    'подписи: выбранный узел подписан всегда (приоритет 0)');
+  const pulseIds = (ctxFx._cogScene.pulse || []).map((e) => e.id);
+  ok(pulseIds.indexOf('par:1:3') >= 0,
+    'пульс: выбранный узел входит в набор «живых»');
+  ok(pulseIds.length <= 24, 'пульс: не более 24 узлов на 3-узловом наборе');
+
+  // Hover: отдельное состояние + курсор + кадр запрошен (§7.2 спеки).
+  ctxFx._cogSetHover('fact:1:1');
+  eq(ctxFx._cogScene.hoverId, 'fact:1:1', 'hover: состояние записано');
+  eq(fxEl.style.cursor, 'pointer', 'hover: курсор меняется на pointer');
+  eq(ctxFx._cogDebugCounters().rafActive, true, 'hover: запрошен кадр реакции');
+  ctxFx._cogSetHover(null);
+  eq(fxEl.style.cursor, '', 'hover: уход сбрасывает курсор');
+  ctxFx._cogPaintStatic();
+
+  // Клик: один световой импульс (в reduced-motion не заводится).
+  ctxFx._cogPulseSelected('click', 'fact:1:1');
+  ok(ctxFx._cogScene.pulseHit && ctxFx._cogScene.pulseHit.duration > 0,
+    'клик: импульс заведён на выбранный узел');
+  const rmCtx = newCtx({ reducedMotion: true });
+  const rmEl = domSceneEl();
+  rmCtx.$refs.cognitionGraph = rmEl;
+  await methods.renderCognitionGraph.call(rmCtx);
+  rmCtx.cognitionNetwork.emit('stabilizationIterationsDone');
+  eq(rmCtx._cogDebugCounters().rafActive, false,
+    'reduced-motion: кадрового цикла нет');
+  ok(rmCtx._cogDebugCounters().fxPaints >= 1,
+    'reduced-motion: статический кадр со свечением и подписями есть');
+  rmCtx._cogPulseSelected('click', 'fact:1:1');
+  rmCtx._cogPaintStatic();
+  eq(rmCtx._cogDebugCounters().rafActive, false,
+    'reduced-motion: клик не запускает кадровый цикл');
+
+  // Снос: canvas снят, спрайты освобождены, повторный destroy безопасен.
+  methods.destroyCognitionGraph.call(ctxFx);
+  eq(fxEl.children.length, 0, 'fx: canvas удалён вместе со сценой');
+  eq(ctxFx._cogDebugCounters().fxCanvas, false, 'fx: сцена снесена');
+  methods.destroyCognitionGraph.call(ctxFx);
+  eq(elCount(rmEl), 1, 'fx: у второй сцены свой единственный canvas');
+  methods.destroyCognitionGraph.call(rmCtx);
+  eq(elCount(rmEl), 0, 'fx: reduced-motion сцена снесена так же');
+
+  global.document.createElement = prevCreate;
+  delete global.window.devicePixelRatio;
+
   console.log('EVOL-CMV-A-SCENE-OK checks=' + checks);
+  console.log('EVOL-CMV-B-SCENE-OK checks=' + checks);
 })();

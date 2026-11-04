@@ -200,27 +200,81 @@ const MODEL = CM.normalizePayload(modelPayload());
     });
   });
 
-  // Форма/цвет — из адаптера (`nodeStyle`), а не из локальной таблицы.
+  // Форма/цвет — из ЕДИНОЙ визуальной спецификации (§3.3 контракта, §4.1
+  // спеки). Адаптер `cognitive-map.js` остаётся владельцем МОДЕЛИ и легенды;
+  // сцена рисует по `CogVisual.CONFIG.spec`, поэтому палитра проверяется здесь.
   const fact = rows.find((r) => r.id === 'fact:-1001:1');
-  const factStyle = CM.nodeStyle('fact');
-  eq(fact.shape, factStyle.shape, 'узел: форма из адаптера');
-  eq(fact.color.background, factStyle.color, 'узел: цвет из адаптера');
+  eq(fact.shape, 'dot', 'узел: факт — круглая световая точка');
+  eq(fact.color.background, '#32C8F3', 'узел: факт — циан #32C8F3');
+  eq(V.shapeKeyOf('fact'), 'dot', 'shapeKey: факт');
+  eq(V.shapeKeyOf('belief'), 'dotRing', 'shapeKey: убеждение — круг с кольцом');
+  eq(V.shapeKeyOf('paradigm'), 'hex', 'shapeKey: парадигма — шестиугольник');
+  eq(V.shapeKeyOf('evolution_event'), 'diamond', 'shapeKey: изменение — ромб');
+  eq(V.shapeKeyOf('entity'), 'sphere', 'shapeKey: сущность — сфера');
+  eq(V.shapeKeyOf('observation'), 'diamondDim', 'shapeKey: наблюдение — ромб');
+  eq(V.shapeKeyOf('other'), 'dotNeutral', 'shapeKey: прочее — нейтральная точка');
+  eq(V.shapeKeyOf('неизвестный'), 'dotNeutral',
+    'shapeKey: незнакомый тип — нейтральный, без новой категории');
+  // §4.1 спеки: `entity` перестал быть прямоугольником (прямое требование).
+  const entity = rows.find((r) => r.id === 'ent:-1001:4');
+  ok(entity.shape !== 'box' && entity.shape !== 'rounded',
+    'узел: сущность — не прямоугольник');
+  eq(entity.color.background, '#9FB4CE', 'узел: сущность — серебристо-голубой');
+  // Форма строки DataSet = `spec.vis` КАЖДОГО типа (мутация «вернуть box»
+  // обязана ломать именно это, а не только shapeKey).
+  ['fact', 'belief', 'paradigm', 'evolution_event', 'observation',
+    'entity', 'other'].forEach((kind) => {
+    const row = V.nodeRow({ id: 'k-' + kind, kind, degree: 1 }, {});
+    eq(row.shape, V.specFor(kind).vis, 'узел: vis-примитив по спеке — ' + kind);
+    ok(row.shape !== 'box' && row.shape !== 'rounded',
+      'узел: ' + kind + ' — не прямоугольник (§4.1 спеки)');
+  });
   const unknown = V.nodeRow({ id: 'x', kind: 'неизвестный', degree: 0 }, {});
   eq(unknown.color.background, V.NEUTRAL_STYLE.color,
     'узел: неизвестный тип → нейтральный стиль (без выдуманной категории)');
+  // Палитра §4.1: у каждого типа свой оттенок, и все они различимы.
+  const palette = ['fact', 'belief', 'paradigm', 'evolution_event',
+    'observation', 'entity', 'other'].map((k) => V.colorOf(k));
+  eq(new Set(palette).size, palette.length,
+    'палитра: у каждого типа свой оттенок (семь разных значений)');
 
-  // Размер: базовый размер типа + логарифм degree с потолком (не гигант).
+  // Размер: §3.4 — базовый диаметр типа + логарифм degree с потолком.
   const paradigm = V.nodeRow({ id: 'p', kind: 'paradigm', degree: 300 }, {});
-  ok(paradigm.size <= CM.nodeStyle('paradigm').size + V.CONFIG.node.degreeGrowth,
-    'узел: размер ограничен сверху (хаб не закрывает граф)');
+  eq(V.targetDiameter('paradigm', 300), V.CONFIG.baseDiameter.paradigm
+    + V.CONFIG.node.degreeCap, 'размер: degree-потолок 8 px');
+  eq(paradigm.size, (V.targetDiameter('paradigm', 300) / 2)
+    * V.radiusScaleFor(0), 'узел: radiusNet = targetD/2 · U');
+  ok(V.nodeRadius('paradigm', 900, 0.002) <= V.CONFIG.node.radiusMax,
+    'узел: радиус ограничен сверху (хаб не закрывает граф)');
   const isolated = V.nodeRow({ id: 'i', kind: 'other', degree: 0 }, {});
-  eq(isolated.size, CM.nodeStyle('other').size,
-    'узел: degree=0 → базовый размер (не выдуманный вес)');
+  eq(isolated.size, (V.CONFIG.baseDiameter.other / 2) * V.radiusScaleFor(0),
+    'узел: degree=0 → базовый диаметр типа (не выдуманный вес)');
+  // Диаметр на экране при r = 1 равен целевому (перевод через U = 1/fitScale).
+  const fitS = 0.5;
+  const screenD = V.nodeRadius('fact', 0, fitS) * 2 * fitS;
+  near(screenD, V.targetDiameter('fact', 0),
+    'размер: диаметр на экране = targetD при r = 1');
+  // Диапазон спеки §4.1: базовый диаметр важных 14–24 px; рост по degree
+  // ограничен сверху (16 единиц роста к базе — потолок degreeCap 8, т.е. +16
+  // диаметра в крайнем случае «300+ связей» остаётся в разумной полосе).
+  ok(V.targetDiameter('paradigm', 0) >= 14
+    && V.targetDiameter('paradigm', 0) <= 24,
+  'размер: парадигма без связей в полосе 14–24 px');
+  ok(V.targetDiameter('paradigm', 4000) <= 30,
+    'размер: даже хаб-парадигма не превращается в шар (потолок degreeCap)');
+  ok(V.targetDiameter('other', 0) >= 8 && V.targetDiameter('other', 0) <= 14,
+    'размер: прочие в полосе 8–14 px');
+  // Анти-петля: размер НЕ зависит от fitScale в сетевых единицах и НЕ зависит
+  // от bbox — только degree/kind (иначе layout «разъезжался» бы сам).
+  eq(V.targetDiameter('fact', 5), V.targetDiameter('fact', 5),
+    'размер: чистый (детерминированный)');
 
   // Ребро: производное — пунктир, стрелка только у смыслового направления.
   const derived = edges.find((r) => r.id === 'e2');
   eq(derived.dashes, V.CONFIG.edge.derivedDashes, 'ребро: derived → пунктир');
   eq(derived.color.color, V.CONFIG.edge.derived, 'ребро: derived — тише базы');
+  ok(derived.color.opacity < V.CONFIG.edge.baseOpacity,
+    'ребро: derived прозрачнее базы');
   const base = edges.find((r) => r.id === 'e1');
   eq(base.dashes, false, 'ребро: обычное — сплошное');
   eq(base.arrows.to.enabled, false, 'ребро: без стрелки без направления');
@@ -228,11 +282,33 @@ const MODEL = CM.normalizePayload(modelPayload());
   eq(revised.arrows.to.enabled, true,
     'ребро: стрелка только для revised_by (реальное поле)');
   eq(base.width, V.CONFIG.edge.width, 'ребро: ширина из конфиг-слоя');
+  eq(base.smooth, false, 'ребро: ПРЯМАЯ линия (§10.1 — не bezier)');
+  // §4.3 спеки: ИТОГОВАЯ альфа базы в полосе 0.08–0.20 («не белый ковёр»).
+  // `color.opacity` — множитель для `rgba(148,163,184,.34)`, поэтому итоговая
+  // альфа = opacity × 0.34 (таблица по LOD §10.5 контракта).
+  const BASE_RGBA_ALPHA = 0.34;
+  const effAlpha = (row) => row.color.opacity * BASE_RGBA_ALPHA;
+  ok(effAlpha(base) >= 0.08 && effAlpha(base) <= 0.20,
+    'ребро: итоговая альфа в полосе 0.08–0.20 (%.3f)' + effAlpha(base));
+  eq(V.CONFIG.edge.alphaByLod.length, 3,
+    'ребро: три фиксированные альфы по LOD (§10.5)');
+  ok(V.CONFIG.edge.alphaByLod[2] < V.CONFIG.edge.alphaByLod[1],
+    'ребро: в детальном LOD сеть тише (измерено: иначе «паутина» поперечных линий)');
 
   // Инцидентное выбранному — заметнее (иначе сеть остаётся «тихой»).
   const focused = V.edgeRow(frozen.edges[0], { focused: true });
   eq(focused.width, V.CONFIG.edge.focusWidth, 'ребро: фокус — толще');
   ok(focused.color.color !== base.color.color, 'ребро: фокус — ярче');
+  eq(focused.color.opacity, V.CONFIG.edge.focusOpacity,
+    'ребро: фокус — альфа 0.85 (§4.3 спеки: 0.55–0.9)');
+  const dimmedEdge = V.edgeDeltaRow(frozen.edges[0], { dimmed: true });
+  eq(Object.keys(dimmedEdge).sort(), ['color', 'id', 'width'],
+    'ребро: частичная строка — только id/цвет/ширина');
+  near(dimmedEdge.color.opacity * BASE_RGBA_ALPHA, 0.12,
+    'ребро: неинцидентное при выборе — итоговая альфа 0.12 в рабочем LOD');
+  const dimL2 = V.edgeDeltaRow(frozen.edges[0], { dimmed: true, lod: 2 });
+  near(dimL2.color.opacity * BASE_RGBA_ALPHA, V.CONFIG.edge.dimAlphaByLod[2],
+    'ребро: в детальном LOD неинцидентные ещё тише (измерено)');
 
   // Притушение выбранным узлом: opacity из конфиг-слоя, а не литерал.
   const dimRows = V.nodeRows(frozen.nodes, {
@@ -256,4 +332,262 @@ const MODEL = CM.normalizePayload(modelPayload());
     JSON.stringify(rows), 'данные: преобразование детерминировано');
 })();
 
-console.log('EVOL-CMV-A-VISUAL-OK checks=' + checks);
+/* ── 4. Свечение: три слоя, разные значения по типу (§4.2 спеки) ─────────── */
+(function glow() {
+  const near = V.glowSpec('fact', 'near');
+  const far = V.glowSpec('fact', 'far');
+  const active = V.glowSpec('fact', 'active');
+  // Три ЯВНО разных слоя: радиус 1.3–1.8 / 2–3 радиуса ядра (§4.2).
+  ok(near.ratio >= 1.3 && near.ratio <= 1.8, 'glow: ближний ореол 1.3–1.8 r');
+  ok(far.ratio >= 2 && far.ratio <= 3, 'glow: дальний ореол 2–3 r');
+  ok(far.alpha < near.alpha, 'glow: дальний слабее ближнего');
+  ok(active.alpha > near.alpha, 'glow: активный узел ярче обычного');
+  // Оттенок ореола — от типа узла (тип узнаётся по свечению, не только по ядру).
+  ok(V.glowSpec('fact', 'near').color !== V.glowSpec('belief', 'near').color,
+    'glow: у факта и убеждения разные ореолы');
+  const colors = ['fact', 'belief', 'paradigm', 'evolution_event',
+    'observation', 'entity', 'other'].map((k) => V.glowSpec(k, 'near').color);
+  eq(new Set(colors).size, colors.length, 'glow: семь различимых оттенков');
+
+  /* Спрайты: ключ (слой|форма|бакет|dpr), центральная часть прозрачна,
+   * размер квантуется по 2 px ⇒ ограниченный кэш (§6 контракта). */
+  const a = V.spriteSpec('fact', 'near', 5.1, 1);
+  const b = V.spriteSpec('fact', 'near', 5.9, 1);
+  eq(a.key, b.key, 'спрайт: радиус 5.1 и 5.9 → один бакет (2 px)');
+  eq(a.bucket, 6, 'спрайт: бакет округлён к 2 px');
+  ok(V.spriteSpec('fact', 'near', 5, 1).key
+    !== V.spriteSpec('fact', 'near', 9, 1).key, 'спрайт: разные радиусы — разный кэш');
+  ok(V.spriteSpec('fact', 'near', 5, 1).key
+    !== V.spriteSpec('fact', 'far', 5, 1).key, 'спрайт: слои кэшируются раздельно');
+  ok(V.spriteSpec('fact', 'near', 5, 1).key
+    !== V.spriteSpec('fact', 'near', 5, 2).key, 'спрайт: DPR входит в ключ (резкость)');
+  eq(a.stops[0].alpha, 0, 'спрайт: центр прозрачен (ядро vis видно)');
+  eq(a.stops[a.stops.length - 1].alpha, 0, 'спрайт: край растворяется в 0');
+  ok(a.size > a.bucket * 2, 'спрайт: ореол шире ядра');
+
+  /* FxLayer: спрайты создаются ОДИН раз, в кадре градиенты не создаются. */
+  const made = { canvases: 0, gradients: 0, ops: [], alphas: [] };
+  function stubCtx() {
+    return {
+      globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '',
+      font: '', textAlign: '', textBaseline: '', lineJoin: '',
+      createRadialGradient() {
+        made.gradients += 1;
+        return { addColorStop() {} };
+      },
+      clearRect() { made.ops.push('clear'); },
+      fillRect() {},
+      beginPath() { made.ops.push('path'); },
+      moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {},
+      arc() { made.ops.push('arc'); },
+      stroke() {}, fill() {},
+      save() {}, restore() {}, setTransform() {},
+      fillText(t) { made.ops.push('text:' + t); },
+      strokeText() { made.ops.push('strokeText'); },
+      drawImage() {
+        made.ops.push('image');
+        made.alphas.push(Math.round(this.globalAlpha * 1000) / 1000);
+      },
+    };
+  }
+  const fx = V.createFx({
+    dpr: 1,
+    makeCanvas(w, h) {
+      made.canvases += 1;
+      return { width: w, height: h, getContext: () => stubCtx() };
+    },
+  });
+  const NODES = [
+    { id: 'f1', kind: 'fact', degree: 2 },
+    { id: 'b1', kind: 'belief', degree: 3 },
+    { id: 'p1', kind: 'paradigm', degree: 9 },
+    { id: 'e1', kind: 'entity', degree: 1 },
+    { id: 'far', kind: 'fact', degree: 0 },
+  ];
+  const POS = {
+    f1: { x: 0, y: 0 }, b1: { x: 160, y: 60 }, p1: { x: -160, y: 40 },
+    e1: { x: 60, y: -90 }, far: { x: 9000, y: 9000 },
+  };
+  function frame(extra) {
+    return Object.assign({
+      now: 0, width: 800, height: 400,
+      camera: { x: 0, y: 0, scale: 1 },
+      positions: POS, nodes: NODES,
+      edges: [{ id: 'x', from: 'f1', to: 'b1' }],
+      incident: [{ id: 'x', from: 'f1', to: 'b1' }],
+      selection: 'f1', hover: null, fitScale: 1, lod: 2,
+      keyIds: null, pulse: null, flash: 0, reducedMotion: false,
+    }, extra || {});
+  }
+  const ctx = stubCtx();
+  const drawn1 = fx.paint(ctx, frame({ now: 1000 }));
+  ok(drawn1 > 0, 'fx: кадр нарисован');
+  // Пульс: при разных `now` яркость дальнего ореола РАЗНАЯ (жизнь есть),
+  // при reduced-motion — одинаковая (времени нет). §7.1/§7.3 спеки.
+  const PULSE_MAP = { f1: { id: 'f1', period: 4000, phase: 0, amp: 0.18 } };
+  made.alphas.length = 0;
+  fx.paint(ctx, frame({ now: 1200, pulse: PULSE_MAP }));
+  const alphaA = made.alphas.join(',');
+  made.alphas.length = 0;
+  fx.paint(ctx, frame({ now: 1900, pulse: PULSE_MAP }));
+  const alphaB = made.alphas.join(',');
+  ok(alphaA !== alphaB, 'пульс: яркость ореолов зависит от времени');
+  made.alphas.length = 0;
+  fx.paint(ctx, frame({ now: 1200, pulse: PULSE_MAP, reducedMotion: true }));
+  const alphaRm1 = made.alphas.join(',');
+  made.alphas.length = 0;
+  fx.paint(ctx, frame({ now: 1900, pulse: PULSE_MAP, reducedMotion: true }));
+  const alphaRm2 = made.alphas.join(',');
+  eq(alphaRm1, alphaRm2,
+    'reduced-motion: яркость статична (нет непрерывного движения)');
+  ok(alphaRm1.length > 0, 'reduced-motion: ореолы всё равно нарисованы');
+  const c1 = fx.counters();
+  ok(c1.sprites > 0, 'fx: спрайты созданы');
+  eq(c1.gradients, c1.sprites, 'fx: ОДИН градиент на спрайт (не на узел/кадр)');
+  ok(c1.draws >= 5, 'fx: свечение скомпоновано для видимых узлов');
+  // Второй и третий кадры: новых канвасов/градиентов НЕТ (§10.2(5)).
+  fx.paint(ctx, frame({ now: 1042 }));
+  fx.paint(ctx, frame({ now: 1084 }));
+  const c2 = fx.counters();
+  eq(c2.sprites, c1.sprites, 'fx: кэш спрайтов не растёт с кадрами');
+  eq(c2.gradients, c1.gradients, 'fx: в кадре градиенты не создаются');
+  eq(made.canvases, c1.sprites, 'fx: offscreen-канвасов ровно по числу спрайтов');
+  // Буферы кадра переиспользуются (нет аллокаций на 700 узлов).
+  ok(fx.poolRef() === fx.poolRef(), 'fx: пул слотов кадра стабилен');
+
+  // Внеэкранные узлы не обрабатываются (§5.2/§10.2: «только экранные»).
+  const onlyFar = V.createFx({
+    dpr: 1,
+    makeCanvas: (w, h) => ({ width: w, height: h, getContext: () => stubCtx() }),
+  });
+  onlyFar.paint(ctx, frame({
+    nodes: [{ id: 'far', kind: 'fact', degree: 0 }], selection: null,
+    incident: [],
+  }));
+  eq(onlyFar.counters().draws, 0, 'fx: узел за кадром не рисуется');
+
+  /* Формы различаются ДЕКОРОМ, а не только цветом: убеждение — кольцо,
+   * парадигма — грань, изменение — блик, сущность — светлое ядро. */
+  function decorOpsFor(kind) {
+    const tally = { arc: 0, path: 0, fill: 0, stroke: 0, image: 0 };
+    const one = V.createFx({
+      dpr: 1,
+      makeCanvas: (w, h) => ({
+        width: w, height: h, getContext: () => stubCtx(),
+      }),
+    });
+    const realCtx = stubCtx();
+    realCtx.arc = function () { tally.arc += 1; };
+    realCtx.beginPath = function () { tally.path += 1; };
+    realCtx.fill = function () { tally.fill += 1; };
+    realCtx.stroke = function () { tally.stroke += 1; };
+    realCtx.drawImage = function () { tally.image += 1; };
+    one.paint(realCtx, frame({
+      now: 0, nodes: [{ id: 'n', kind, degree: 4 }], selection: 'n',
+      incident: [], width: 400, height: 300,
+      positions: { n: { x: 0, y: 0 } },
+    }));
+    return tally;
+  }
+  const dFact = decorOpsFor('fact');
+  const dBelief = decorOpsFor('belief');
+  const dParadigm = decorOpsFor('paradigm');
+  const dEvo = decorOpsFor('evolution_event');
+  const dEntity = decorOpsFor('entity');
+  eq(dBelief.arc, dFact.arc + 1, 'декор: у убеждения внутреннее кольцо (+1 дуга)');
+  ok(dParadigm.path > dFact.path, 'декор: у парадигмы внутренняя грань (путь)');
+  eq(dEvo.arc, dFact.arc + 1, 'декор: у изменения угловой блик (+1 дуга)');
+  eq(dEntity.fill, dFact.fill + 1, 'декор: у сущности светлое ядро (заливка)');
+  ok(dFact.stroke > 0, 'декор: кольцо выделения есть у всех типов');
+
+  /* Импульсы идут ТОЛЬКО по реальным инцидентным рёбрам (§4.3 спеки). */
+  const impOps = [];
+  const imp = V.createFx({
+    dpr: 1,
+    makeCanvas: (w, h) => ({ width: w, height: h, getContext: () => stubCtx() }),
+  });
+  const impCtx = stubCtx();
+  impCtx.arc = function () { impOps.push('arc'); };
+  const edge = { id: 'x', from: 'f1', to: 'b1' };
+  // База без времени (now = 0): выделение + декор, но без «дыхания».
+  imp.paint(impCtx, frame({ now: 0, incident: [] }));
+  const arcsBase = impOps.length;
+  impOps.length = 0;
+  imp.paint(impCtx, frame({ now: 500, incident: [edge] }));
+  ok(impOps.length > arcsBase,
+    'импульсы: световой импульс рисуется по реальному ребру');
+  // reduced-motion: форма/свечение/выделение на месте, времени нет.
+  impOps.length = 0;
+  imp.paint(impCtx, frame({ now: 500, reducedMotion: true, incident: [edge] }));
+  eq(impOps.length, arcsBase,
+    'reduced-motion: импульсы по рёбрам не рисуются (движения нет)');
+  ok(imp.counters().draws > 0, 'reduced-motion: свечение остаётся');
+  // Импульсы идут ТОЛЬКО по реальным рёбрам из `frame.incident`: ребро с
+  // концом, которого нет в кэше позиций, не превращается в «декоративную»
+  // линию между несвязанными узлами (§4.3 спеки — не выдумывать отношения).
+  impOps.length = 0;
+  imp.paint(impCtx, frame({ now: 0, incident: [
+    { id: 'ghost', from: 'f1', to: 'нет-такого-узла' },
+  ] }));
+  eq(impOps.length, arcsBase,
+    'импульсы: ребро с неизвестным концом не рисуется (нет выдуманных связей)');
+})();
+
+/* ── 5. Пульс: детерминированный набор, период 3–5 s, разные фазы ───────── */
+(function pulse() {
+  const nodes = [];
+  for (let i = 0; i < 600; i += 1) {
+    nodes.push({ id: 'n' + i, kind: i % 2 ? 'fact' : 'belief', degree: i % 11 });
+  }
+  const plan = V.pulsePlan(nodes, {});
+  ok(plan.length <= V.CONFIG.motion.pulseBudget,
+    'пульс: набор не больше 24 узлов (не «все 2400 рёбер» живыми)');
+  eq(plan.length, Math.min(24, Math.ceil(600 / 30)),
+    'пульс: бюджет min(24, ⌈n/30⌉)');
+  eq(JSON.stringify(V.pulsePlan(nodes, {})), JSON.stringify(plan),
+    'пульс: план детерминирован (без Math.random)');
+  plan.forEach((e) => {
+    ok(e.period >= 3000 && e.period <= 5000, 'пульс: период в полосе 3–5 s');
+    ok(e.amp > 0 && e.amp <= 0.25, 'пульс: амплитуда мала (геометрия стабильна)');
+  });
+  const phases = new Set(plan.map((e) => e.phase));
+  ok(phases.size > 1, 'пульс: фазы разнесены (не все узлы синхронно)');
+  // Множитель альфы: в полосе [0.82, 1.0] и реально меняется во времени.
+  const entry = plan[0];
+  const f0 = V.pulseFactor(entry, 0);
+  const f1 = V.pulseFactor(entry, entry.period / 4);
+  ok(f0 >= 0.82 && f0 <= 1.0000001, 'пульс: альфа в полосе 0.82–1.0');
+  ok(Math.abs(f0 - f1) > 0.02, 'пульс: яркость реально дышит');
+  eq(V.pulseFactor(entry, entry.period + 0), V.pulseFactor(entry, 0),
+    'пульс: период воспроизводим (та же фаза через период)');
+  // Выбранный узел и его соседи входят в набор даже у большого графа.
+  const withSel = V.pulsePlan(nodes, {
+    selectedId: 'n599', neighborIds: ['n1', 'n2'],
+  });
+  ok(withSel.some((e) => e.id === 'n599'), 'пульс: выбранный узел всегда в наборе');
+  ok(withSel.some((e) => e.id === 'n1'), 'пульс: сосед выбранного в наборе');
+})();
+
+/* ── 6. Физика: таблица итераций и структура §8.1 ──────────────────────── */
+(function physics() {
+  eq(V.physicsIterations(10), 150, 'физика: ≤200 узлов — 150 итераций');
+  eq(V.physicsIterations(200), 150, 'физика: граница 200 — 150');
+  eq(V.physicsIterations(201), 90, 'физика: 201–400 — 90 итераций');
+  eq(V.physicsIterations(400), 90, 'физика: граница 400 — 90');
+  eq(V.physicsIterations(702), 60, 'физика: >400 — 60 итераций (не блокируем поток)');
+  const opts = V.physicsOptions(702, 0.8);
+  eq(opts.stabilization.fit, false, 'физика: кадр обзора выставляем сами');
+  eq(opts.stabilization.iterations, 60, 'физика: итерации по размеру набора');
+  eq(opts.barnesHut.avoidOverlap, 0.5, 'физика: avoidOverlap — узлы не слипаются');
+  eq(opts.minVelocity, 2.5, 'физика: ранний выход по minVelocity');
+  eq(opts.adaptiveTimestep, true, 'физика: adaptiveTimestep');
+  // springLength = 70·U (§8.1): при обзоре 0.5 сетевых единиц в px — 140.
+  near(V.springLengthFor(0.5), 140, 'физика: springLength = 70·U');
+  ok(V.springLengthFor(0.01) <= V.CONFIG.physics.springMax,
+    'физика: пружина ограничена сверху (огромный граф не «взрывается»)');
+  // r = scale/fitScale (§4.2) — вход слоя подписей и LOD свечения.
+  near(V.relativeScale(0.4, 0.5), 0.8, 'LOD: r = scale/fitScale');
+  near(V.relativeScale(1, 0), 1, 'LOD: без fitScale r = 1 (без NaN)');
+})();
+
+console.log('EVOL-CMV-B-VISUAL-OK checks=' + checks);
