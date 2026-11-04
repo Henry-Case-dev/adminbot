@@ -346,6 +346,137 @@ def _embed_response_meta(data, vectors) -> dict:
     return meta
 
 
+# ── UR-18 (UNIFIED-REPLY §7): структурированный результат генерации ────────
+# Обратная совместимость: `generate()` остаётся текстовым фасадом над
+# `generate_with_metadata()`; новые потребители получают объект с
+# finish_reason/usage/max_output_tokens_sent и диагностикой fallback.
+
+# Провайдерские эквиваленты «output оборван по лимиту длины» (нормализованные,
+# т.е. уже strip().lower()): OpenAI/DeepSeek — 'length'; Anthropic — 'max_tokens'.
+# Ничего не додумываем: значения вне этого сета остаются как есть.
+_TRUNCATION_FINISH_REASONS = frozenset({"length", "max_tokens"})
+
+# Поле finish_reason отсутствует/нестрока/пусто → честный 'unknown'.
+# НЕ 'stop': незнакомое поле нельзя выдавать за штатное завершение (UR-18).
+_FINISH_REASON_UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class LLMProviderAttempt:
+    """UR-18: одна НОГА цепочки провайдеров в одном вызове generate.
+
+    ``channel='primary'`` — основной провайдер, ``channel='fallback'`` —
+    LLM_FALLBACK_*. Ретраи ВНУТРИ ноги (``_post``/LLM_MAX_RETRIES) отдельными
+    ногами НЕ считаются: здесь только результат ноги, который видит generate.
+    ``error_type is None`` → нога успешна.
+
+    R17: ``error`` — ``_safe_exc_text`` (маскировка секретов, ≤200 симв.),
+    без ключей и без полных URL.
+    """
+
+    channel: str
+    model: str
+    provider: str | None
+    error_type: str | None = None
+    error: str | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.error_type is None
+
+    def as_dict(self) -> dict:
+        return {"channel": self.channel, "model": self.model,
+                "provider": self.provider, "error_type": self.error_type,
+                "error": self.error}
+
+
+@dataclass(frozen=True)
+class LLMCompletion:
+    """UR-18: полный результат /chat/completions для новых потребителей.
+
+    ``generate_with_metadata()`` отдаёт этот объект; ``generate()`` продолжает
+    возвращать ``str`` (байт-в-байт для всех существующих вызовов).
+
+    Гарантии:
+    * ``text`` — ровно ``choices[0].message.content`` (как у ``generate()``);
+    * ``finish_reason`` — нормализованный (strip + lower) токен провайдера;
+      отсутствующее/нестроковое/пустое поле → ``"unknown"``, НЕ ``"stop"``;
+    * ``finish_reason_raw`` — исходное значение провайдера без изменений
+      (``None``, если поля не было);
+    * ``provider``/``model`` — провайдер и модель, которые РЕАЛЬНО произвели
+      текст (при срабатывании fallback — фоллбэк-нога);
+    * ``usage`` — ``usage`` ответа как есть; отсутствует → ``None`` (не нули);
+    * ``max_output_tokens_sent`` — ``max_tokens`` из фактически отправленного
+      тела (после fallback-recompose); ключ не отправлялся → ``None``;
+    * ``attempt`` — номер успешной ноги: 1 = primary, 2 = первый fallback;
+    * ``correlation_id`` — проброшенный вызывающим id (``None`` → ``None``,
+      не выдумывается);
+    * ``fallback_chain`` — неуспешные ноги ДО успешной, в порядке выполнения.
+    """
+
+    text: str
+    finish_reason: str
+    provider: str | None
+    model: str
+    usage: dict | None
+    max_output_tokens_sent: int | None
+    attempt: int
+    correlation_id: str | None
+    fallback_chain: tuple[LLMProviderAttempt, ...] = ()
+    finish_reason_raw: str | None = None
+
+    @property
+    def fallback_used(self) -> bool:
+        """True, когда текст произвела не primary-модель."""
+        return self.attempt > 1
+
+    @property
+    def is_truncated(self) -> bool:
+        """UR-18: ``length``/эквивалент = НЕЗАКОНЧЕННЫЙ output, а не готовый
+        ответ. Это только статус: продолжение/отказ решает вызывающий
+        (UR-19), сам llm_client ничего не перегенеряет."""
+        return self.finish_reason in _TRUNCATION_FINISH_REASONS
+
+
+def _choice_finish_reason(data) -> tuple[str, str | None]:
+    """(нормализованный, сырой) finish_reason первого choice.
+
+    Отсутствие/пустое/нестроковое значение → ``("unknown", None)``. Сырое
+    значение сохраняется как есть (без lower/strip) для честной диагностики.
+    """
+    raw = None
+    if isinstance(data, dict):
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            raw = choices[0].get("finish_reason")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip().lower(), raw.strip()
+    return _FINISH_REASON_UNKNOWN, None
+
+
+def _sent_body(sent, payload: dict) -> tuple[str, dict]:
+    """Фактически отправленное тело: последняя запись ``sent`` либо payload.
+
+    ``sent`` заполняют точки отправки (``_post``/``_post_fallback``) РОВНО теми
+    телами, что ушли в HTTP; поэтому model/max_tokens берутся отсюда, а не из
+    исходного payload (fallback подменяет model, adapter — messages).
+    """
+    if sent:
+        channel, body = sent[-1]
+        if isinstance(body, dict):
+            return str(channel), body
+    return "primary", payload if isinstance(payload, dict) else {}
+
+
+def _sent_max_output_tokens(body: dict) -> int | None:
+    """``max_tokens`` из отправленного тела; ключа нет/некорректный/<=0 → None."""
+    try:
+        value = int(body.get("max_tokens"))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
 class LLMClient:
     """Provider-agnostic async client for chat completions and embeddings."""
 
@@ -1359,6 +1490,31 @@ class LLMClient:
                        fallback_payload_adapter=None,
                        supervised_transport: dict | None = None,
                        max_output_tokens: int | None = None) -> str:
+        """Текстовый фасад: ровно ``(await generate_with_metadata(...)).text``.
+
+        UR-18: сигнатура и возвращаемый ``str`` не менялись — все прежние
+        потребители (и тест-двойники, переопределяющие ``generate``) работают
+        байт-в-байт. Полный контракт (payload, ретраи, fallback, логи,
+        аналитика) — в ``generate_with_metadata()``.
+        """
+        completion = await self.generate_with_metadata(
+            messages, temperature, chat_id, module=module, step=step,
+            correlation_id=correlation_id,
+            fallback_payload_adapter=fallback_payload_adapter,
+            supervised_transport=supervised_transport,
+            max_output_tokens=max_output_tokens)
+        return completion.text
+
+    async def generate_with_metadata(self, messages: list[dict[str, str]],
+                                     temperature: float | None = None,
+                                     chat_id: int | None = None, *,
+                                     module: str | None = None,
+                                     step: str | None = None,
+                                     correlation_id: str | None = None,
+                                     fallback_payload_adapter=None,
+                                     supervised_transport: dict | None = None,
+                                     max_output_tokens: int | None = None
+                                     ) -> LLMCompletion:
         """POST /chat/completions → choices[0].message.content.
 
         Epic 60 (65.8, T-476): temperature — опциональный kwarg; None →
@@ -1397,6 +1553,13 @@ class LLMClient:
         ``_fallback_with_retries`` ВЫКЛЮЧЕН — provider-fallback решает
         Supervisor (no retry multiplication: 1 primary + ≤1 primary
         transport retry + ≤1 fallback + ≤1 fallback transport retry).
+
+        UR-18 (UNIFIED-REPLY §7): возвращает ``LLMCompletion`` — тот же текст
+        плюс finish_reason/provider/model/usage/max_output_tokens_sent/
+        attempt/correlation_id и цепочку fallback-ног. Поведение вызова
+        (ретраи, таймауты, temperature, выбор модели, промпты, бюджеты,
+        логи, аналитика) НЕ менялось: это ровно прежний generate + сбор
+        метаданных из уже полученного ответа (никаких новых LLM-вызовов).
         """
         # ФИКС R6: key/source — per-call локалы (нет гонки параллельных чатов).
         key, source = await self._resolve_api_key_and_source(chat_id)
@@ -1418,6 +1581,8 @@ class LLMClient:
         # INS-EXACT/INS-TRACE: per-call список фактически отправленных тел
         # (канал, тело). Журнал берёт ПОСЛЕДНЕЕ — то, что реально ушло.
         sent: list = []
+        # UR-18: неуспешные ноги цепочки провайдеров ДО успешной.
+        fallback_chain: list[LLMProviderAttempt] = []
         try:
             if supervised_transport is not None:
                 # ASAP 4.1 волна 4: supervised Summary-канал — per-call
@@ -1455,6 +1620,13 @@ class LLMClient:
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
             _LLM_STATS["fallbacks"] += 1
+            # UR-18: отказ primary фиксируется ДО отправки fallback-ноги, чтобы
+            # метаданные успешного фоллбэка всегда содержали причину перехода.
+            fallback_chain.append(LLMProviderAttempt(
+                channel="primary", model=str(self._chat_model),
+                provider=_provider_host(self._base_url),
+                error_type=type(exc).__name__,
+                error=_safe_exc_text(exc)))
             logger.warning(
                 "LLM fallback attempt | primary_error=%s | provider=%s",
                 exc, _provider_host(self._fallback_base_url))
@@ -1532,7 +1704,26 @@ class LLMClient:
                                      module=module, step=step,
                                      correlation_id=correlation_id,
                                      chat_id=chat_id, model=used_model)
-        return content
+        # UR-18: метаданные собираются из УЖЕ полученного ответа и последнего
+        # фактически отправленного тела — новых вызовов/изменений поведения нет.
+        finish_reason, finish_reason_raw = _choice_finish_reason(data)
+        sent_channel, sent_body = _sent_body(sent, payload)
+        provider = _provider_host(
+            self._fallback_base_url if sent_channel == "fallback"
+            else self._base_url)
+        model = str(sent_body.get("model") or used_model)
+        return LLMCompletion(
+            text=content,
+            finish_reason=finish_reason,
+            provider=provider,
+            model=model,
+            usage=usage if isinstance(usage, dict) else None,
+            max_output_tokens_sent=_sent_max_output_tokens(sent_body),
+            attempt=len(fallback_chain) + 1,
+            correlation_id=correlation_id,
+            fallback_chain=tuple(fallback_chain),
+            finish_reason_raw=finish_reason_raw,
+        )
 
     async def generate_background(self, messages: list[dict[str, str]], *,
                                   purpose: str, deadline: float,
