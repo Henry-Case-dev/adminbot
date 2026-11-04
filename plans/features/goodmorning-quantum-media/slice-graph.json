@@ -1,0 +1,47 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "goodmorning-quantum-media",
+  "note": "Три среза строго последовательны: сначала доказать причину (read-only), затем менять выбор, затем подтвердить сохранение существующего контракта. Параллельных писателей нет; services/mca_random_source.py — общий файл с meme-лейнами, правка сериализуется.",
+  "slices": [
+    {
+      "id": "GM-DIAG",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/goodmorning-quantum-media/evidence/"
+      ],
+      "mode": "read-only + evidence",
+      "req_ids": ["GM-01", "GM-02"],
+      "acceptance": "На текущем кандидате доказано, почему новые медиафайлы не попадают в отправку (или доказано, что сканирование свежее, а блокер лежит в деплое файлов/пути/расширении): есть скан каталога, строки лога и проба «файл добавлен после старта — попал в кандидаты».",
+      "risk": "R1",
+      "next_role": "Builder"
+    },
+    {
+      "id": "GM-DRAW",
+      "depends_on": ["GM-DIAG"],
+      "write_scope": [
+        "services/goodmorning_relay.py",
+        "services/goodmorning_scheduler.py",
+        "services/mca_random_source.py",
+        "tests/test_goodmorning_quantum_media.py"
+      ],
+      "mode": "writer",
+      "req_ids": ["GM-03", "GM-04", "GM-05"],
+      "acceptance": "Отправка выбирает медиа и подпись только через существующий draw-контур (sanctioned purpose, без локального random и без нового провайдера); каждая отправка оставляет совпадающую с доставленным диагностическую запись; при недоступной энтропии утро всё равно уходит с честно помеченным fallback; тест различает квантовый и fallback-путь по фактическому источнику.",
+      "risk": "R2",
+      "next_role": "Reviewer"
+    },
+    {
+      "id": "GM-COMPAT",
+      "depends_on": ["GM-DRAW"],
+      "write_scope": [
+        "tests/test_goodmorning_quantum_media.py",
+        "tests/test_goodmorning_scheduler.py"
+      ],
+      "mode": "writer",
+      "req_ids": ["GM-06"],
+      "acceptance": "Тесты и проба подтверждают неизменность расписания, targets, per-chat гейта schedule, отсутствия дублей в тике, обработки типов и ledger; в коде выбора нет собственной логики времени, поэтому контракт UR-28.5 (час из GOODMORNING_TIME, пояс из ChatClock чата) применим без переписывания медиа-рассылки.",
+      "risk": "R1",
+      "next_role": "Reviewer"
+    }
+  ]
+}
