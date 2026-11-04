@@ -165,3 +165,97 @@ class TestPublicClaimsStillSearch:
         assert "tesla" in sent
         assert "маш" not in sent, f"алиас утёк в запрос: {sent!r}"
         assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+
+# ── раунд 3 ревью: прозрачный пред-субъектный прогон ────────────────────────
+#
+# Находка ревью UR-B (третья): то же утверждение об участнике, но с наречием/
+# вводным словом перед подлежащим, снова уходило провайдеру — тема сдвигалась
+# на наречие:
+#   «Вчера Маша ждёт ребёнка на третьем месяце» → «вчера ждёт ребёнка …»
+#   «Слушай, Маша ждёт ребёнка на третьем месяце» → «слушай ждёт ребёнка …»
+# Правило: наречия/вводные слова и знаки препинания перед подлежащим
+# прозрачны — подлежащее то же («Маша»), приватность та же.
+
+#: Те же две реплики из находки + тот же класс (другие вводные слова).
+PREPENDED_LEADS = (
+    "Вчера Маша ждёт ребёнка на третьем месяце",
+    "Слушай, Маша ждёт ребёнка на третьем месяце",
+    "Кстати, Маша ждёт ребёнка на третьем месяце",
+    "честно говоря, Маша ждёт ребёнка на третьем месяце",
+)
+
+
+class TestPrependedLeadIsTransparent:
+    @pytest.mark.parametrize("query", PREPENDED_LEADS)
+    @pytest.mark.asyncio
+    async def test_lead_word_before_subject_makes_no_call(self, query):
+        search = _SearchProvider("Ответ\nтекст\nhttps://example.com/x")
+        plan = _plan(knowledge_origin="open_world",
+                     capabilities_needed=["web_search"])
+        result = await _run(plan, query, search, private_terms=("Маша",),
+                            required_caps=("web_search",))
+        _assert_blocked(result, search,
+                        private_text=("ждёт ребёнка", "маша"))
+
+    @pytest.mark.parametrize("query", PREPENDED_LEADS)
+    def test_topic_stays_on_alias_not_on_lead_word(self, query):
+        """Тема — подлежащее-алиас, наречие/пунктуация её не сдвигают."""
+        assert _dx._participant_reference(query, ("Маша",)) is True, query
+        tokens, topics = _dx._claim_topic_flags(query)
+        subject = [token for token, is_topic in zip(tokens, topics)
+                   if is_topic and token.lower().startswith("маш")]
+        assert subject, f"алиас потерял позицию подлежащего: {query!r}"
+
+
+# ── раунд 3 ревью: «у нас» в общем вопросе — не утверждение об участнике ────
+
+
+class TestPossessiveUsIsNotAPersonalClaim:
+    @pytest.mark.parametrize("query", [
+        "какой курс доллара у нас",
+        "у меня есть вопрос, какой сейчас курс доллара",
+    ])
+    @pytest.mark.asyncio
+    async def test_general_question_searches_normally(self, query):
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/rate")
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, query, search)
+        assert len(search.queries) == 1, f"общий вопрос заблокирован: {query!r}"
+        assert "доллара" in search.queries[0].lower()
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
+    @pytest.mark.parametrize("query", [
+        "у меня задержка",
+        "что у меня со здоровьем",
+        "у Маши задержка на третьем месяце",
+    ])
+    def test_possessive_personal_assertion_still_blocked(self, query):
+        """Притяжательная конструкция не открывает личное утверждение."""
+        task = _dx.build_search_query(
+            _plan(knowledge_origin="open_world"), query=query,
+            private_terms=("Маша",))
+        assert task.blocked is True, f"личное ушло в поиск: {query!r}"
+        assert task.query == ""
+
+
+class TestControlPolygonUnchanged:
+    """Соседние публичные запросы регрессией не задеты."""
+
+    @pytest.mark.parametrize("query,private_terms,expected", [
+        ("Вчера Tesla показала новую модель", ("Маша",), "tesla"),
+        ("Маша сказала что SpaceX перенесла запуск", ("Маша",), "spacex"),
+        ("какой курс биткоина, спросил Вася", ("Вася",), "биткоина"),
+        ("какой сейчас курс доллара", (), "доллара"),
+        ("что слышно про Газпром и дивиденды", (), "газпром"),
+    ])
+    @pytest.mark.asyncio
+    async def test_public_requests_still_search(self, query, private_terms,
+                                               expected):
+        search = _SearchProvider("Заголовок\nфакт\nhttps://example.com/ok")
+        plan = _plan(knowledge_origin="open_world")
+        result = await _run(plan, query, search, private_terms=private_terms)
+        assert len(search.queries) == 1, f"публичный запрос не искался: {query!r}"
+        assert expected in search.queries[0].lower()
+        assert result.evidence.search_status == _dx.SEARCH_STATUS_OK
+
