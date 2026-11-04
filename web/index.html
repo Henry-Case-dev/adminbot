@@ -13112,28 +13112,59 @@
             <div v-if="isGlobalAdmin && !graphFullVisible"
                  class="card p-4 status-graph sg-12" data-cog-map
                  :data-cog-state="cogStatus.kind">
-              <div class="flex items-center gap-2 mb-1 flex-wrap">
-                <div class="text-xs font-bold">Когнитивная карта</div>
-                <span v-if="cognitionGraphData" class="text-xs text-gray-500"
-                      data-cog-counters>
-                  {{ cogCounters }}
-                </span>
-                <!-- Честная полнота: «показано X из Y» — НЕЙТРАЛЬНО (серый
-                     текст без предупреждений). После правки S1 это нормальное
-                     состояние почти любого реального чата (окрестность сидов
-                     + сироты), а не сбой. -->
-                <span v-if="cogCompleteness.active && !cogEmpty"
-                      class="text-xs text-gray-500 cog-completeness"
-                      data-cog-completeness>{{ cogCompleteness.text }}</span>
-                <span v-if="cogStaleLabel" class="text-xs text-gray-500"
-                      data-cog-stale>{{ cogStaleLabel }}</span>
-                <button class="btn-ghost text-xs" type="button"
-                        @click="loadCognitionGraph()"
-                        :disabled="!cognitionGraphData"
-                        aria-label="Обновить карту" title="Обновить карту">⟳</button>
-                <button class="btn-ghost text-xs ml-auto" type="button"
-                        @click="openGraphFull()"
-                        title="Полное исследование карты">⛶ Полный экран</button>
+              <!-- CMV-D §2.3 спеки: на телефоне первая строка — заголовок и
+                   «Полный экран», вторая — честные числа. Поэтому шапка делится
+                   на «строку действий» и «мета-строку»: при 390 px кнопка не
+                   переносится в середину названия и не обрезается. -->
+              <div class="cog-head">
+                <div class="cog-head__row">
+                  <div class="text-xs font-bold">Когнитивная карта</div>
+                  <button ref="cogFullBtn" class="btn-ghost text-xs ml-auto
+                          cog-head__full" type="button"
+                          data-cog-open-full
+                          @click="openGraphFull()"
+                          title="Полное исследование карты">⛶ Полный экран</button>
+                </div>
+                <div class="cog-head__meta">
+                  <!-- §9.9 спеки: ЧЕТЫРЕ величины раздельно (в базе / из API /
+                       после фильтра / на экране). Части размечены данными,
+                       чтобы различие проверялось тестом, а не читалось «на глаз». -->
+                  <span v-if="cognitionGraphData" class="text-xs text-gray-500"
+                        data-cog-counters>
+                    <template v-for="(part, pi) in cogCounterParts"
+                              :key="'cc' + part.key">
+                      <span v-if="pi" class="cog-count__sep">·</span>
+                      <span class="cog-count" :data-cog-count="part.key">{{ part.text }}</span>
+                    </template>
+                  </span>
+                  <!-- §2.2 спеки: усечённый ответ помечается ЯВНО и объясняется
+                       по hover/клику (числа — в подсказке, не выдуманные). -->
+                  <span v-if="cogTruncated.active && !cogEmpty"
+                        class="text-xs cog-truncated" data-cog-truncated
+                        :title="cogTruncated.hint"
+                        tabindex="0" role="note">Показана часть графа</span>
+                  <!-- Честная полнота: «показано X из Y» — НЕЙТРАЛЬНО (серый
+                       текст без предупреждений). После правки S1 это нормальное
+                       состояние почти любого реального чата (окрестность сидов
+                       + сироты), а не сбой. -->
+                  <span v-if="cogCompleteness.active && !cogEmpty"
+                        class="text-xs text-gray-500 cog-completeness"
+                        data-cog-completeness>{{ cogCompleteness.text }}</span>
+                  <span v-if="cogStaleLabel" class="text-xs text-gray-500"
+                        data-cog-stale>{{ cogStaleLabel }}</span>
+                  <!-- §11 спеки (CMV-ERR-06): отказ сети назван словами и имеет
+                       действие повтора. Прежний исправный граф при этом остаётся
+                       на экране и честно помечен устаревшим. -->
+                  <span v-if="cogLoadErrorLabel" class="text-xs text-amber-300"
+                        data-cog-load-error role="status">{{ cogLoadErrorLabel }}</span>
+                  <button v-if="cogLoadErrorLabel" class="btn-ghost text-xs"
+                          type="button" data-cog-load-retry
+                          @click="loadCognitionGraph()">Повторить</button>
+                  <button class="btn-ghost text-xs" type="button"
+                          @click="loadCognitionGraph()"
+                          :disabled="!cognitionGraphData"
+                          aria-label="Обновить карту" title="Обновить карту">⟳</button>
+                </div>
               </div>
               <!-- Легенда ОБЯЗАТЕЛЬНА (ТЗ 1285): компактная, видимая без
                    документации. Слова — владельца: Факты/Убеждения/Парадигмы/
@@ -13215,6 +13246,12 @@
                    @keydown.enter.prevent="openCogSelectedCard()"
                    @keydown.space.prevent="openCogSelectedCard()"
                    :hidden="cogEmpty"></div>
+              <!-- CMV-D (§8.2 спеки, CMV-CARD-08): инспектор встроенной карты —
+                   компактная панель ПОД сценой, а не «плавающая» карточка в углу
+                   поверх узлов. Слот существует всегда: карточка телепортируется
+                   сюда (один слой — одно место показа). -->
+              <div id="cog-embed-inspector" class="cog-embed-slot"
+                   data-cog-inspector-slot="embed"></div>
               <!-- W7-S3: подробности выбранной записи — ОДНА карточка-слой
                    (`cogCard`, разметка ниже вне сетки), общая для встроенной
                    карты и полного экрана. Прежний встроенный бейдж-блок удалён,
@@ -14580,96 +14617,133 @@
                  экрана сохраняет выбранный узел, масштаб, камеру и фильтры. -->
             <div v-if="isGlobalAdmin && graphFullVisible"
                  ref="graphFullPanel" tabindex="-1"
-                 class="status-graph-full" role="dialog" aria-modal="true"
+                 class="status-graph-full" :class="{ 'has-inspector': cogCardOpen }"
+                 role="dialog" aria-modal="true"
                  aria-label="Полное исследование когнитивной карты"
-                 :data-cog-state="cogStatus.kind">
-              <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-sm font-bold">Когнитивная карта</div>
+                 :data-cog-state="cogStatus.kind" data-cog-full>
+              <!-- §3.1 спеки: верхняя панель 56–64 px с ОДНИМ порядком
+                   «Когнитивная карта → счётчики → поиск → фильтры → Сбросить
+                   вид → Закрыть». Это тот же интерфейс исследования, а не
+                   растянутый холст: сцена и инспектор живут под панелью. -->
+              <div class="cog-fs__bar">
+                <div class="cog-fs__brand text-sm font-bold">Когнитивная карта</div>
                 <span v-if="cognitionGraphData" class="text-xs text-gray-500"
                       data-cog-counters>
-                  {{ cogCounters }}
+                  <template v-for="(part, pi) in cogCounterParts"
+                            :key="'cf' + part.key">
+                    <span v-if="pi" class="cog-count__sep">·</span>
+                    <span class="cog-count" :data-cog-count="part.key">{{ part.text }}</span>
+                  </template>
                 </span>
-                <span v-if="cogCompleteness.active && !cogEmpty"
-                      class="text-xs text-gray-500 cog-completeness"
-                      data-cog-completeness>{{ cogCompleteness.text }}</span>
-                <button class="btn-ghost text-xs ml-auto" type="button"
-                        @click="closeGraphFull()">✕ Закрыть</button>
+                <div class="graph-search cog-fs__search">
+                  <input type="search" class="field input graph-search__input"
+                         placeholder="Поиск по имени или алиасу…"
+                         aria-label="Поиск узла по имени или алиасу"
+                         v-model.trim="graphSearchQuery"
+                         @keydown.enter.prevent="searchCognitionGraph()"
+                         @keydown.esc="clearCognitionGraphSearch()">
+                  <button class="btn-ghost text-xs" type="button"
+                          @click="searchCognitionGraph()"
+                          :disabled="!cognitionNetwork">Найти</button>
+                  <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по типу узла"
+                          v-model="graphFilterGroup" @change="applyGraphFilter()">
+                    <option value="">Все типы</option>
+                    <option v-for="g in graphGroupOptions" :key="'ggf' + g.id"
+                            :value="g.id">{{ g.label }} ({{ g.count }})</option>
+                  </select>
+                  <select class="field text-xs w-36 shrink-0" aria-label="Фильтр по кластеру"
+                          v-model="cognitionMapCluster" @change="applyGraphFilter()"
+                          data-cog-cluster>
+                    <option value="">Все кластеры</option>
+                    <option v-for="cl in cogClusters" :key="'clf' + cl.id"
+                            :value="cl.id">{{ cl.label }}</option>
+                  </select>
+                  <button class="btn-ghost text-xs" type="button"
+                          @click="graphResetView()"
+                          :disabled="!cognitionNetwork">Сбросить вид</button>
+                  <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
+                </div>
+                <button class="btn-ghost text-xs cog-fs__close" type="button"
+                        data-cog-close @click="closeGraphFull()">✕ Закрыть</button>
               </div>
-              <div class="cog-legend" data-cog-legend role="list"
-                   aria-label="Обозначения когнитивной карты">
-                <span v-for="lg in cogLegend" :key="'lgf' + lg.kind"
-                      class="cog-legend__item" role="listitem"
-                      :class="{ 'cog-legend__item--extra': !lg.required }"
-                      :data-cog-legend-kind="lg.kind">
-                  <span class="cog-legend__swatch"
-                        :class="'cog-legend__swatch--' + lg.kind"
-                        aria-hidden="true"></span>{{ lg.label }}
-                </span>
+              <div class="cog-fs__body">
+                <div class="cog-fs__scene">
+                  <!-- Честные факты о данных — ОТДЕЛЬНОЙ строкой под панелью:
+                       §3.1 перечисляет содержимое панели точно (название,
+                       счётчики, поиск, фильтры, сброс, закрытие), а полнота и
+                       отказ сети требуют места и слов (§2.2/§11 спеки). -->
+                  <div class="cog-fs__meta">
+                    <span v-if="cogTruncated.active && !cogEmpty"
+                          class="text-xs cog-truncated" data-cog-truncated
+                          :title="cogTruncated.hint"
+                          tabindex="0" role="note">Показана часть графа</span>
+                    <span v-if="cogCompleteness.active && !cogEmpty"
+                          class="text-xs text-gray-500 cog-completeness"
+                          data-cog-completeness>{{ cogCompleteness.text }}</span>
+                    <span v-if="cogStaleLabel" class="text-xs text-gray-500"
+                          data-cog-stale>{{ cogStaleLabel }}</span>
+                    <span v-if="cogLoadErrorLabel" class="text-xs text-amber-300"
+                          data-cog-load-error role="status">{{ cogLoadErrorLabel }}</span>
+                    <button v-if="cogLoadErrorLabel" class="btn-ghost text-xs"
+                            type="button" data-cog-load-retry
+                            @click="loadCognitionGraph()">Повторить</button>
+                  </div>
+                  <div class="cog-legend" data-cog-legend role="list"
+                       aria-label="Обозначения когнитивной карты">
+                    <span v-for="lg in cogLegend" :key="'lgf' + lg.kind"
+                          class="cog-legend__item" role="listitem"
+                          :class="{ 'cog-legend__item--extra': !lg.required }"
+                          :data-cog-legend-kind="lg.kind">
+                      <span class="cog-legend__swatch"
+                            :class="'cog-legend__swatch--' + lg.kind"
+                            aria-hidden="true"></span>{{ lg.label }}
+                    </span>
+                  </div>
+                  <!-- Та же ОДНА видимая строка статуса, что во встроенном
+                       виджете (§9.1); пустое состояние в полном экране тоже даёт
+                       переход в «Память» (контракт §4). -->
+                  <div v-if="cogStatus.kind !== 'ready'"
+                       class="cog-state text-xs"
+                       :class="cogStatus.degraded ? 'text-amber-300' : 'text-gray-500'"
+                       :data-cog-state="cogStatus.kind"
+                       :data-cog-degraded="cogStatus.degraded ? '1' : null">
+                    {{ cogStatus.text }}
+                    <button v-if="cogStatus.kind === 'stale'" type="button"
+                            class="btn-ghost text-xs"
+                            @click="loadCognitionGraph()">Обновить</button>
+                    <button v-if="cogStatus.kind === 'empty'
+                                 || cogStatus.kind === 'renderer_failed'"
+                            type="button" class="btn-ghost text-xs"
+                            @click="openMemoryFromCogMap()">Открыть в Памяти</button>
+                    <button v-if="cogStatus.kind === 'degraded'" type="button"
+                            class="btn-ghost text-xs"
+                            @click="loadCognitionGraph()">Повторить</button>
+                  </div>
+                  <div v-else-if="cogFilterEmpty" class="cog-state text-xs text-gray-500"
+                       data-cog-state="filtered">
+                    по выбранному фильтру узлов нет
+                    <button class="btn-ghost text-xs" type="button"
+                            @click="graphResetView()">Сбросить фильтры</button>
+                  </div>
+                  <div v-if="cogViewCounters" class="text-xs text-gray-500"
+                       data-cog-view-counters>{{ cogViewCounters }}</div>
+                  <div ref="cognitionGraph"
+                       class="cognition-graph cognition-graph--full" data-glass="c"
+                       tabindex="0" data-cog-scene
+                       role="application"
+                       aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
+                       @keydown.enter.prevent="openCogSelectedCard()"
+                       @keydown.space.prevent="openCogSelectedCard()"
+                       :hidden="cogEmpty"></div>
+                </div>
+                <!-- §3.1 спеки (CMV-FS-02/CMV-VIS-09): инспектор — ОТДЕЛЬНАЯ
+                     КОЛОНКА 300–360 px справа, сцена сужается. Не абсолютная
+                     панель поверх узлов. Пустая колонка места не занимает:
+                     сцена расширяется, камера не сбрасывается (§3.1/FS-03). -->
+                <aside id="cog-inspector-slot" class="cog-fs__inspector"
+                       data-cog-inspector-slot="full"
+                       aria-label="Инспектор узла"></aside>
               </div>
-              <div class="graph-search">
-                <input type="search" class="field input graph-search__input"
-                       placeholder="Поиск по имени или алиасу…"
-                       aria-label="Поиск узла по имени или алиасу"
-                       v-model.trim="graphSearchQuery"
-                       @keydown.enter.prevent="searchCognitionGraph()"
-                       @keydown.esc="clearCognitionGraphSearch()">
-                <button class="btn-ghost text-xs" type="button"
-                        @click="searchCognitionGraph()"
-                        :disabled="!cognitionNetwork">Найти</button>
-                <select class="field text-xs w-28 shrink-0" aria-label="Фильтр по типу узла"
-                        v-model="graphFilterGroup" @change="applyGraphFilter()">
-                  <option value="">Все типы</option>
-                  <option v-for="g in graphGroupOptions" :key="'ggf' + g.id"
-                          :value="g.id">{{ g.label }} ({{ g.count }})</option>
-                </select>
-                <select class="field text-xs w-36 shrink-0" aria-label="Фильтр по кластеру"
-                        v-model="cognitionMapCluster" @change="applyGraphFilter()"
-                        data-cog-cluster>
-                  <option value="">Все кластеры</option>
-                  <option v-for="cl in cogClusters" :key="'clf' + cl.id"
-                          :value="cl.id">{{ cl.label }}</option>
-                </select>
-                <button class="btn-ghost text-xs" type="button"
-                        @click="graphResetView()"
-                        :disabled="!cognitionNetwork">Сбросить вид</button>
-                <span v-if="graphSearchStatus" class="text-xs text-gray-500">{{ graphSearchStatus }}</span>
-              </div>
-              <!-- Та же ОДНА видимая строка статуса, что во встроенном виджете
-                   (§9.1); пустое состояние в полном экране тоже даёт переход в
-                   «Память» (контракт §4). -->
-              <div v-if="cogStatus.kind !== 'ready'"
-                   class="cog-state text-xs"
-                   :class="cogStatus.degraded ? 'text-amber-300' : 'text-gray-500'"
-                   :data-cog-state="cogStatus.kind"
-                   :data-cog-degraded="cogStatus.degraded ? '1' : null">
-                {{ cogStatus.text }}
-                <button v-if="cogStatus.kind === 'stale'" type="button"
-                        class="btn-ghost text-xs"
-                        @click="loadCognitionGraph()">Обновить</button>
-                <button v-if="cogStatus.kind === 'empty'
-                             || cogStatus.kind === 'renderer_failed'"
-                        type="button" class="btn-ghost text-xs"
-                        @click="openMemoryFromCogMap()">Открыть в Памяти</button>
-                <button v-if="cogStatus.kind === 'degraded'" type="button"
-                        class="btn-ghost text-xs"
-                        @click="loadCognitionGraph()">Повторить</button>
-              </div>
-              <div v-else-if="cogFilterEmpty" class="cog-state text-xs text-gray-500"
-                   data-cog-state="filtered">
-                по выбранному фильтру узлов нет
-                <button class="btn-ghost text-xs" type="button"
-                        @click="graphResetView()">Сбросить фильтры</button>
-              </div>
-              <div v-if="cogViewCounters" class="text-xs text-gray-500"
-                   data-cog-view-counters>{{ cogViewCounters }}</div>
-              <div ref="cognitionGraph"
-                   class="cognition-graph cognition-graph--full" data-glass="c"
-                   tabindex="0" data-cog-scene
-                   role="application"
-                   aria-label="Когнитивная карта: Enter открывает карточку выбранного узла, Esc закрывает"
-                   @keydown.enter.prevent="openCogSelectedCard()"
-                   @keydown.space.prevent="openCogSelectedCard()"
-                   :hidden="cogEmpty"></div>
               <!-- W7-S3: подробности — та же ОДНА карточка-слой, что и во
                    встроенном виджете (общий элемент, без дубля разметки). -->
             </div>
@@ -14681,18 +14755,42 @@
                  Памяти», «Показать связи»: у неработающей видна причина, а не
                  пустая декорация. Закрытие (✕ / Esc / Back) возвращает фокус на
                  сцену и НЕ меняет камеру, зум и фильтры. -->
+            <!-- CMV-D (контракт §9.1): ОДИН слой карточки переезжает в слот
+                 своего режима — колонка полного экрана / панель под сценой
+                 встроенной карты. Телепорт, а не вторая разметка: модель
+                 `cogCard` и обработчики одни. Цели-слоты объявлены ВЫШЕ по
+                 документу, поэтому на момент монтирования они уже в DOM. -->
+            <teleport v-if="cogCard" :to="cogCardSlot">
             <div v-if="cogCard" id="cog-card" ref="cogCardPanel"
-                 class="cog-card" :class="'cog-card--' + cogCard.kind"
+                 class="cog-card"
+                 :class="['cog-card--' + cogCard.kind, cogCardClasses]"
+                 :data-cog-placement="cogCardPlacement"
                  data-glass="b"
                  role="dialog" aria-modal="true" tabindex="-1"
                  :data-cog-card="cogCard.kind" :data-cog-card-id="cogCard.id"
                  :aria-label="cogCard.kind === 'edge'
                    ? 'Связь когнитивной карты' : 'Запись когнитивной карты'"
                  @keydown="cogCardKeydown($event)">
+              <!-- CMV-D (§3.2 спеки): «ручка» листа на телефоне. Свайп вниз
+                   сворачивает/закрывает карточку и НЕ двигает страницу;
+                   кнопка-ручка работает и с клавиатуры (Enter/Space). -->
+              <button type="button" class="cog-card__grip" data-cog-sheet-grip
+                      aria-label="Развернуть или свернуть карточку"
+                      :aria-expanded="cogCardSheetExpanded ? 'true' : 'false'"
+                      @click="toggleCogSheet()"
+                      @touchstart="cogSheetTouchStart($event)"
+                      @touchmove="cogSheetTouchMove($event)"
+                      @touchend="cogSheetTouchEnd()"></button>
               <div class="cog-card__head">
                 <span class="badge badge-muted" data-cog-card-kind>{{ cogCard.kindLabel }}</span>
                 <span v-if="cogCard.kind === 'node'" class="cog-card__scope"
                       data-cog-card-scope>{{ cogCardScopeLabel }}</span>
+                <button v-if="cogCardPlacement === 'embed'" type="button"
+                        class="btn-ghost text-xs cog-card__toggle"
+                        data-cog-card-expand @click="toggleCogCardEmbed()"
+                        :aria-expanded="cogCardEmbedExpanded ? 'true' : 'false'">
+                  {{ cogCardEmbedExpanded ? 'Свернуть' : 'Подробнее' }}
+                </button>
                 <button class="btn-ghost text-xs ml-auto" type="button"
                         data-cog-card-close @click="closeCogCard()"
                         aria-label="Закрыть карточку">✕</button>
@@ -14789,17 +14887,35 @@
                     <span class="cog-card__label-hint">записанные в данных</span></div>
                   <div v-if="cogCard.neighbors.length"
                        :class="{ 'cog-card__links--collapsed': !cogCardLinksExpanded }">
-                    <button v-for="nb in cogCard.neighbors" :key="'cn' + nb.edgeId"
-                            type="button" class="cog-card__link"
-                            :data-cog-neighbor="nb.id"
-                            @click="openCogEdgeCard(nb.edgeId)">
-                      {{ nb.title }}
-                      <span class="cog-card__hint">{{ nb.relationLabel }}</span>
-                    </button>
+                    <div v-for="nb in cogCard.neighbors" :key="'cn' + nb.edgeId"
+                         class="cog-card__neighbor">
+                      <!-- Тап/клик по строке открывает РЕБРО (тип связи и её
+                           обоснование — §8.1(5) спеки). -->
+                      <button type="button" class="cog-card__link"
+                              :data-cog-neighbor="nb.id"
+                              @click="openCogEdgeCard(nb.edgeId)">
+                        {{ nb.title }}
+                        <span class="cog-card__hint">{{ nb.relationLabel }}</span>
+                      </button>
+                      <!-- §9 спеки (CMV-NAV-05): «Перейти» переводит камеру к
+                           соседу и обновляет карточку/подсветку. -->
+                      <button type="button" class="cog-card__go"
+                              :data-cog-neighbor-go="nb.id"
+                              :aria-label="'Перейти к соседу: ' + nb.title"
+                              @click="cogFocusNeighbor(nb.id)">Перейти</button>
+                    </div>
                   </div>
                   <div v-else class="cog-card__absent" data-cog-links-absent>
                     связей не записано
                   </div>
+                  <button v-if="cogCard.neighbors.length" type="button"
+                          class="cog-card__link cog-card__link--more"
+                          data-cog-links-toggle
+                          :aria-expanded="cogCardLinksExpanded ? 'true' : 'false'"
+                          @click="cogCardLinksExpanded = !cogCardLinksExpanded">
+                    {{ cogCardLinksExpanded ? 'Свернуть связи'
+                       : 'Показать все связи (' + cogCard.neighbors.length + ')' }}
+                  </button>
                 </div>
 
                 <div class="cog-card__actions" data-cog-card-actions>
@@ -14852,6 +14968,7 @@
                 </div>
               </template>
             </div>
+            </teleport>
             </template>
           </template>
           <template v-else-if="activeTab === 'info'">

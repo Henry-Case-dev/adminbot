@@ -1583,7 +1583,10 @@
        узлы → подписи → выделение». `backdrop-filter` на сцене запрещён (§10.4). */
     .cognition-graph {
       position: relative; isolation: isolate; overflow: hidden;
-      height: 320px; width: 100%; border: 1px solid rgba(255,255,255,.08);
+      /* CMV-D (§2.1 спеки, CMV-EMB-02): область графа в карточке «Статуса» —
+         минимум 400 CSS px, рабочая цель 420 (было 320 — «полоска»). Телефон —
+         от 340 px до доступной высоты; горизонтального скролла нет. */
+      height: 420px; width: 100%; border: 1px solid rgba(255,255,255,.08);
       border-radius: 10px;
       background-color: #070a12;
       background-image:
@@ -1594,6 +1597,12 @@
         radial-gradient(46% 52% at 62% 24%,
           rgba(167,123,255,.07) 0%, rgba(167,123,255,0) 74%);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+      /* Жесты сцены (пинч/пан) не должны прокручивать страницу — но только
+         ВНУТРИ области графа (спека §3.2, CMV-FSM-04). */
+      touch-action: none;
+    }
+    @media (max-width: 767px) {
+      .cognition-graph { height: clamp(340px, 46dvh, 420px); }
     }
     .cognition-graph > .vis-network { background: transparent; }
     /* Декоративный слой сцены: только чтение. `pointer-events:none` обязателен —
@@ -1658,6 +1667,53 @@
     .cog-state .btn-ghost { margin-left: 6px; }
     .cog-state .btn-ghost:first-child { margin-left: 0; }
     .cog-completeness { font-variant-numeric: tabular-nums; }
+    /* ═══ EPIC-CM-VISUAL-01 (CMV-D): шапка карточки и честные числа ═════════
+       §2.2 спеки: строка 1 — название и «Полный экран», мета-строка — реальные
+       счётчики. §2.3: при 390 px заголовок и кнопка остаются в первой строке,
+       поиск — во всю ширину второй, фильтры — ниже. */
+    .cog-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cog-head__row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      row-gap: 4px; min-width: 0;
+    }
+    /* §2.3 спеки: на телефоне заголовок и «Полный экран» — ОДНА строка, а не
+       две. Заголовок ужимается (многоточие), кнопка сохраняет полное название
+       и не обрезается; полный текст названия остаётся в `title`-подсказке. */
+    @media (max-width: 767px) {
+      .cog-head__row { flex-wrap: nowrap; }
+      .cog-head__row > .font-bold {
+        min-width: 0; flex: 1 1 auto; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap;
+      }
+    }
+    /* Кнопка не обрезается и не выдавливается за экран: при нехватке места
+       она переносится на следующую строку (§2.3 — без обрезки). */
+    .cog-head__full { flex: 0 0 auto; white-space: nowrap; max-width: 100%; }
+    .cog-head__meta {
+      display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap;
+      min-width: 0;
+    }
+    /* §9.9: части счётчиков — одна строка с явными разделителями; каждая часть
+       размечена `data-cog-count`, чтобы различие величин было проверяемым. */
+    .cog-count__sep { color: #475569; margin: 0 4px; }
+    /* Части переносятся по строкам, но не вылезают за вьюпорт даже при
+       увеличенном системном шрифте (320 px / font200 / pagezoom200). */
+    .cog-count {
+      font-variant-numeric: tabular-nums; min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    /* §2.2: «Показана часть графа» — заметная, но НЕЙТРАЛЬНАЯ пометка (§9.1
+       контракта: неполнота окрестности — норма, а не сбой). Заметность даёт
+       рамка/вес, а не цвет предупреждения. */
+    .cog-truncated {
+      display: inline-flex; align-items: center; padding: 1px 7px;
+      border: 1px solid rgba(148, 163, 184, .38); border-radius: 999px;
+      color: #cbd5e1; font-weight: 600; letter-spacing: .01em;
+      cursor: help; white-space: nowrap;
+    }
+    .cog-truncated:focus-visible {
+      outline: 2px solid rgba(148, 163, 184, .75); outline-offset: 2px;
+    }
     /* ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ════════════════════════
        Desktop — выдвижная панель справа; телефон — нижний лист. Это СЛОЙ, а не
        экран: карта остаётся читаемой, камера/зум/фильтры не меняются. Материал
@@ -1710,7 +1766,26 @@
       cursor: pointer; overflow-wrap: anywhere;
     }
     .cog-card__link:hover { color: #f8fafc; }
-    .cog-card__links--collapsed .cog-card__link:nth-child(n+3) { display: none; }
+    .cog-card__links--collapsed .cog-card__neighbor:nth-child(n+3) { display: none; }
+    .cog-card__neighbor {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .cog-card__neighbor .cog-card__link { flex: 1 1 auto; min-width: 0; }
+    /* «Перейти» — навигация к соседу (§9 спеки), отдельная от открытия ребра. */
+    .cog-card__go {
+      flex: 0 0 auto; border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.04); color: #cbd5e1;
+      border-radius: 999px; padding: 3px 10px; font-size: 10.5px;
+      cursor: pointer; white-space: nowrap;
+    }
+    .cog-card__go:hover { color: #f8fafc; border-color: rgba(255,255,255,.32); }
+    .cog-card__go:focus-visible {
+      outline: 2px solid rgba(139, 92, 246, .8); outline-offset: 2px;
+    }
+    .cog-card__link--more { color: #94a3b8; font-size: 10.5px; margin-top: 2px; }
+    /* «Ручка» телефонного листа: видна только на узких экранах (CMV-FSM-03). */
+    .cog-card__grip { display: none; }
+    .cog-card__toggle { flex: 0 0 auto; }
     .cog-card__actions {
       display: flex; flex-direction: column; gap: 4px;
       border-top: 1px solid rgba(255,255,255,.06); padding-top: 6px;
@@ -1718,16 +1793,72 @@
     .cog-card__action { display: flex; flex-wrap: wrap; gap: 6px; }
     @media (max-width: 767px) {
       /* Телефон: нижний лист — управляемый, а не «второй экран»: карта над
-         листом остаётся видимой (§2.7 «не уничтожает видимость карты»). */
+         листом остаётся видимой (§2.7 «не уничтожает видимость карты»).
+         CMV-D (§3.2 спеки, CMV-FSM-03): стартовая высота 40 % (полоса 35–45),
+         раскрытие до 80 % (полоса 75–85), свайп вниз закрывает лист. */
       .cog-card {
         top: auto; right: 0; left: 0; bottom: 0;
-        width: auto; max-width: none; max-height: 52dvh;
+        width: auto; max-width: none;
+        height: 40dvh; max-height: 85dvh;
         border-radius: 14px 14px 0 0;
+        padding-top: 4px;
         padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        overflow-y: auto; overscroll-behavior: contain;
+        transition: height .18s ease-out;
+      }
+      .cog-card--expanded { height: 80dvh; }
+      .cog-card__grip {
+        display: block; width: 100%; height: 18px; flex: 0 0 auto;
+        margin: -2px 0 2px; padding: 0; border: 0; background: none;
+        cursor: grab; position: relative; touch-action: none;
+      }
+      .cog-card__grip::after {
+        content: ''; position: absolute; left: 50%; top: 7px;
+        width: 42px; height: 4px; margin-left: -21px; border-radius: 2px;
+        background: rgba(226, 232, 240, .38);
+      }
+      .cog-card__grip:focus-visible {
+        outline: 2px solid rgba(139, 92, 246, .8); outline-offset: 2px;
+      }
+      /* Шапка всегда видима: закрытие не «уезжает» при прокрутке (§3.1/FS-04). */
+      .cog-card__head {
+        position: sticky; top: 0; z-index: 1;
+        background: linear-gradient(180deg, rgba(14, 19, 30, .96) 70%,
+          rgba(14, 19, 30, .72) 100%);
+        padding-bottom: 4px;
       }
       /* Тач-цели действий не меньше 44 px (coarse pointer). */
       .cog-card__link { padding: 6px 0; }
-      .cog-card__action .btn-ghost { min-height: 40px; }
+      .cog-card__go { min-height: 36px; padding: 6px 14px; font-size: 11px; }
+      .cog-card__action .btn-ghost { min-height: 44px; }
+      .cog-card__toggle { min-height: 44px; }
+    }
+    /* Desktop и планшет: шапка карточки тоже не уезжает (свой scroll). */
+    @media (min-width: 768px) {
+      .cog-card__head {
+        position: sticky; top: 0; z-index: 1;
+        background: linear-gradient(180deg, rgba(14, 19, 30, .96) 70%,
+          rgba(14, 19, 30, .72) 100%);
+        padding-bottom: 4px;
+      }
+      .cog-card__go { min-height: 26px; }
+    }
+    /* ── CMV-D (§8.2 спеки, CMV-CARD-08): инспектор ВСТРОЕННОЙ карты ────────
+       Компактная панель ПОД сценой с собственным скроллом, а не карточка,
+       плавающая в углу поверх узлов. Раскрывается кнопкой «Подробнее». */
+    .cog-embed-slot { min-width: 0; }
+    .cog-embed-slot:empty { display: none; }
+    .cog-card--embed {
+      position: static; right: auto; top: auto; bottom: auto; left: auto;
+      width: auto; max-width: none; margin-top: 8px;
+      max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain;
+      border-radius: 12px; padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.07);
+    }
+    .cog-card--embed .cog-card__grip { display: none; }
+    /* Свёрнутый вид панели: шапка + название + текст записи, без секций. */
+    .cog-card--embed:not(.cog-card--expanded) .cog-card__section {
+      display: none;
     }
     @media (max-width: 479px) {
       .cog-legend { gap: 3px 9px; font-size: 9.5px; }
@@ -1998,9 +2129,122 @@
       display: flex; flex-direction: column; gap: .5rem;
       padding: .75rem; background: var(--glass-bg-strong);
       -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur); min-width: 0; }
+      backdrop-filter: var(--glass-blur); min-width: 0;
+      /* CMV-D (§3.2 спеки, CMV-FSM-01): полный экран занимает ВИДИМУЮ высоту
+         Mini App. `dvh` учитывает системные полосы Telegram, safe-area —
+         вырезы; страница под диалогом не прокручивается вовсе (иначе открытие
+         клавиатуры в поиске «уводило» бы сцену, CMV-VIS-12). */
+      height: 100dvh; overflow: hidden; overflow: clip;
+      padding-top: calc(.5rem + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(.5rem + env(safe-area-inset-bottom, 0px));
+      padding-left: calc(.75rem + env(safe-area-inset-left, 0px));
+      padding-right: calc(.75rem + env(safe-area-inset-right, 0px)); }
     .status-graph-full .cognition-graph--full { flex: 1 1 auto;
       height: auto; min-height: 240px; }
+
+    /* ═══ EPIC-CM-VISUAL-01 (CMV-D): fullscreen-интерфейс исследования ══════
+       Спека §3.1/§3.2: панель 56–64 px (название → счётчики → поиск → фильтры
+       → «Сбросить вид» → «Закрыть»), под ней сцена во всю высоту и инспектор
+       ОТДЕЛЬНОЙ КОЛОНКОЙ 300–360 px справа (не абсолютная панель поверх узлов).
+       Пустая колонка места не занимает — сцена расширяется. */
+    .cog-fs__bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      min-height: 60px; padding: 6px 8px; border-radius: 12px;
+      background: rgba(12, 17, 28, .55);
+      border: 1px solid rgba(255, 255, 255, .07);
+      min-width: 0;
+    }
+    .cog-fs__brand { flex: 0 0 auto; white-space: nowrap; }
+    .cog-fs__bar .graph-search {
+      flex: 1 1 320px; margin-top: 0; max-width: none; min-width: 0;
+    }
+    .cog-fs__close { flex: 0 0 auto; margin-left: auto; }
+    .cog-fs__body {
+      flex: 1 1 auto; min-height: 0; display: grid; gap: 10px;
+      grid-template-columns: minmax(0, 1fr);
+      /* Сужение/расширение сцены под инспектор — плавно и БЕЗ сброса камеры
+         (§3.1/FS-03): меняется только ширина колонки. */
+      transition: grid-template-columns .18s ease-out;
+    }
+    .cog-fs__scene {
+      min-width: 0; min-height: 0; display: flex; flex-direction: column;
+      gap: 4px;
+    }
+    .cog-fs__inspector { display: none; min-width: 0; min-height: 0; }
+    .cog-fs__scene .cognition-graph--full { min-height: 0; }
+    /* Мета-строка фактов о данных (полнота/усечение/устаревание/ошибка):
+       не входит в панель 56–64 px, но видна сразу под ней. */
+    .cog-fs__meta {
+      display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap;
+      min-width: 0;
+    }
+    .cog-fs__meta:empty { display: none; }
+    @media (max-width: 767px) {
+      /* Слот инспектора существует всегда (иначе телепорту некуда деть
+         карточку), но места не занимает: на телефоне это нижний лист
+         (`position: fixed`, CMV-FSM-03), а граф остаётся видимым сверху. */
+      .status-graph-full .cog-fs__inspector { display: block; height: 0; }
+    }
+    @media (min-width: 768px) {
+      .status-graph-full.has-inspector .cog-fs__body {
+        grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 360px);
+      }
+      .status-graph-full.has-inspector .cog-fs__inspector {
+        display: flex; align-items: stretch;
+      }
+    }
+    /* Одна строка панели — только там, где она реально помещается (§3.1 опорный
+       viewport 1536×960). На 768 панель переносится, а не выдавливает контролы
+       за экран (§2.3: без обрезки последней кнопки). */
+    @media (min-width: 1100px) {
+      .cog-fs__bar { flex-wrap: nowrap; }
+      .cog-fs__bar .graph-search { flex-wrap: nowrap; }
+      .cog-fs__bar .graph-search__input { flex: 1 1 140px; min-width: 90px; }
+    }
+    /* Телефон (§3.2): панель — компактная сетка, а не столбик из пяти рядов.
+       Заголовок и «Закрыть» в одной строке, счётчики отдельной строкой,
+       поиск с «Найти» и пара «фильтры + Сбросить» — двумя строками. Иначе
+       панель съедала бы половину видимой высоты Mini App (§3.2/CMV-FSM-01) и
+       граф над листом оставался бы полоской. */
+    @media (max-width: 767px) {
+      .cog-fs__bar {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center; gap: 6px 8px; min-height: 0; padding: 6px 8px;
+      }
+      .cog-fs__bar > .cog-fs__brand { grid-column: 1; grid-row: 1; }
+      .cog-fs__bar > .cog-fs__close {
+        grid-column: 2; grid-row: 1; margin-left: 0;
+      }
+      .cog-fs__bar > [data-cog-counters] {
+        grid-column: 1 / -1; grid-row: 2; white-space: normal;
+      }
+      .cog-fs__bar .graph-search {
+        grid-column: 1 / -1; grid-row: 3; flex: 1 1 100%;
+      }
+      /* Поиск и его кнопка — ОДНА строка во всю ширину (§2.3): кнопка «Найти»
+         не отрывается от поля и не уезжает в ряд фильтров. */
+      .status-graph .graph-search .graph-search__input,
+      .status-graph-full .graph-search .graph-search__input {
+        flex: 1 1 auto; min-width: 0;
+      }
+      .status-graph-full .graph-search select.field {
+        flex: 1 1 0; width: auto; min-width: 0;
+        /* Три контрола в ряд на 360 px: полный текст «Все кластеры» обязан
+           читаться, а не обрезаться многоточием нативного селекта (§2.3). */
+        font-size: 12px; padding: 0.35rem 0.45rem;
+      }
+      .status-graph-full .graph-search .btn-ghost { flex: 0 0 auto; }
+    }
+    /* Панель инспектора в полном экране: свой scroll содержимого (§3.1).
+       Только ≥768: на телефоне полный экран показывает тот же лист, что и
+       встроенная карта (CMV-FSM-03), поэтому `--dock` не перебивает лист. */
+    @media (min-width: 768px) {
+      .cog-card--dock {
+        position: static; width: auto; max-width: none; height: auto;
+        max-height: 100%; margin: 0; border-radius: 12px;
+        padding: 10px 12px; overflow-y: auto; overscroll-behavior: contain;
+      }
+    }
     /* HOTFIX10 (ADR-1025-18 D1, T-2848/T-2849): КОНТРАКТ GlassSurface.
        Контейнер задаёт геометрию заранее; декоративные слои библиотеки
        (`absolute; inset:0; pointer-events:none` из vendored CSS) лежат НИЖЕ

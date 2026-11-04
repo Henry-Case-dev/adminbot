@@ -3997,6 +3997,18 @@
         // фильтру, статус), обязано быть здесь, иначе DOM показывает старое.
         cogViewNodes: 0,               // видимых узлов в текущей витрине
         cogViewEdges: 0,               // видимых рёбер в текущей витрине
+        // CMV-D (спека §9.9): ЧЕТЫРЕ разные величины (в БД / из API / после
+        // фильтра / на экране) публикуются в реактивные данные ОДНИМ объектом
+        // `CognitiveMap.countSummary`. Внутренние `_cog*` читать в шаблоне
+        // нельзя (они не реактивны) — поэтому объект живёт здесь.
+        cogCounts: null,
+        // Ошибка ПОСЛЕДНЕЙ загрузки карты (спека §11, CMV-ERR-06):
+        // сообщение + время. Исправный last-known-good граф при этом НЕ
+        // стирается — он явно помечается устаревшим.
+        cogLoadError: null,
+        // Поколение загрузки карты: смена чата инвалидирует ответ прошлого
+        // чата (спека §11: чужой чат не показывается ни кадра).
+        _cogChatGen: 0,
         _cognitionGraphSig: null,      // подпись данных (ISSUE-4: без пере-рендера)
         _cognitionGraphMode: null,     // F11 §16: 'simple' (mobile) | 'full'
         cognitionVisLoaded: false,     // lazy-load vis-network
@@ -4171,6 +4183,13 @@
         // сетевого запроса открытие карточки не делает.
         cogCard: null,
         cogCardLinksExpanded: false,
+        // CMV-D (§3.1/§8.2 спеки): карточка — ОДИН слой, но три места показа:
+        // колонка справа в полном экране (desktop), нижний лист (телефон),
+        // компактная панель ПОД сценой во встроенной карте. Здесь — состояние
+        // этих мест, а не второй источник данных.
+        cogCardEmbedExpanded: true,    // встроенная карта: панель развёрнута
+        cogCardSheetExpanded: false,   // телефон: лист раскрыт до 80dvh
+        _cogSheetTouch: null,          // жест листа (startY/lastY), не реактивно
         // Что именно просили открыть в каталоге «Памяти» (название/тип узла):
         // по этому полю считается честная заметка «записи в каталоге нет».
         cogMemoryTarget: null,
@@ -8739,13 +8758,94 @@
           sources: st.notice.sources || [],
         };
       },
+      // CMV-D (§9.9/§2.2 спеки): счётчики в шапке — ЧЕТЫРЕ РАЗНЫЕ величины,
+      // а не одно смешанное число. Формулировки не дают принять выдачу API за
+      // «всего в базе» и наоборот:
+      //   * `db`     — только если СЕРВЕР прислал итог (`shown_of.totals`);
+      //   * `api`    — принято из ответа API;
+      //   * `filter` — отдельной строкой (`cogViewCounters`, существующая);
+      //   * `screen` — поштучно нарисованные узлы + свёрнутые в районы.
+      cogCounterParts: function () {
+        var counts = this.cogCounts || null;
+        if (!counts) return [];
+        var out = [];
+        var db = counts.db || {};
+        var api = counts.api || {};
+        var screen = counts.screen || {};
+        var filter = counts.filter || {};
+        if (db.known === true) {
+          var dbBits = [];
+          if (db.nodes != null) dbBits.push(db.nodes + ' узлов');
+          if (db.edges != null) dbBits.push(db.edges + ' связей');
+          if (dbBits.length) {
+            out.push({ key: 'db', text: 'в базе ' + dbBits.join(' · ') });
+          }
+        }
+        out.push({
+          key: 'api',
+          text: 'из API ' + (api.nodes || 0) + ' узлов · '
+            + (api.edges || 0) + ' связей',
+        });
+        // «На экране» отличается от «в фильтре» только когда на экране реально
+        // что-то свёрнуто в районы (LOD 0) — иначе это одно и то же число и
+        // второй строкой оно было бы шумом, а не различием.
+        var aggregated = screen.aggregated || 0;
+        if (aggregated > 0) {
+          out.push({
+            key: 'screen',
+            text: 'на экране ' + (screen.nodes || 0) + ' узлов поштучно'
+              + ' · ' + (screen.aggregates || 0) + ' районов ('
+              + aggregated + ' записей)',
+          });
+        } else if (filter.nodes != null && filter.nodes !== api.nodes) {
+          out.push({
+            key: 'screen',
+            text: 'на экране ' + (screen.nodes || 0) + ' узлов · '
+              + (screen.edges || 0) + ' связей',
+          });
+        }
+        return out;
+      },
+      // §11 спеки (CMV-ERR-06): ошибка сети называется словами и не прячется
+      // за «красивой обёрткой». Показывается вместе с действием «Повторить».
+      cogLoadErrorLabel: function () {
+        var err = this.cogLoadError;
+        if (!err) return '';
+        var msg = String(err.message || '').trim() || 'неизвестная ошибка';
+        var when = (err.at != null && typeof this.fmtClock === 'function')
+          ? this.fmtClock(err.at) : '';
+        return 'карта не обновилась: ' + msg
+          + (when ? ' · попытка ' + when : '') + '.';
+      },
       cogCounters: function () {
-        var C = window.CognitiveMap;
+        var parts = this.cogCounterParts || [];
+        var texts = [];
+        for (var i = 0; i < parts.length; i += 1) texts.push(parts[i].text);
+        return texts.join(' · ');
+      },
+      // §2.2 спеки: усечённый ответ помечается ЯВНО («Показана часть графа») и
+      // объясняется по hover/клику. Заметность — не цветом предупреждения
+      // (нейтральность §9.1 контракта сохранена: это нормальное состояние
+      // реального чата), а рамкой/весом и подсказкой с точными числами.
+      cogTruncated: function () {
         var model = this.cognitionGraphData || null;
-        if (!C || !model) return '';
-        var nodes = (model.nodes || []).length;
-        var edges = (model.edges || []).length;
-        return nodes + ' узлов · ' + edges + ' связей';
+        if (!model) return { active: false, hint: '' };
+        var tr = model.truncated || {};
+        var comp = this.cogCompleteness || { active: false };
+        var active = tr.nodes === true || tr.edges === true
+          || comp.active === true;
+        if (!active) return { active: false, hint: '' };
+        var parts = [];
+        if (comp.nodes && comp.nodes.truncated) {
+          parts.push(comp.nodes.shown + ' из ' + comp.nodes.total + ' узлов');
+        }
+        if (comp.edges && comp.edges.truncated) {
+          parts.push(comp.edges.shown + ' из ' + comp.edges.total + ' связей');
+        }
+        var hint = (parts.length ? 'Показано ' + parts.join(' · ') + '. ' : '')
+          + 'Остальное сервер не отдал в этом ответе: поиск и переходы идут '
+          + 'только по показанной части графа.';
+        return { active: true, hint: hint };
       },
       // Видимый набор (после фильтров) — та же модель, что у рендера:
       // счётчики витрины реактивны и не могут расходиться с сообщением о
@@ -8795,6 +8895,31 @@
       // именно это поле, других признаков в проекте не заводится).
       cogCardOpen: function () {
         return !!(this.cogCard && this.cogCard.kind);
+      },
+      // CMV-D (§3.1/§8.2 спеки): МЕСТО показа одного и того же слоя.
+      // `full` — колонка справа в полном экране; `embed` — панель под сценой
+      // встроенной карты. Телефонный лист — это CSS-вид того же места `full`.
+      cogCardPlacement: function () {
+        return this.graphFullVisible === true ? 'full' : 'embed';
+      },
+      // Селектор слота телепорта: карточка не дублируется в разметке, а
+      // переезжает в нужное место DOM (один слой — одно место показа).
+      cogCardSlot: function () {
+        return this.cogCardPlacement === 'full'
+          ? '#cog-inspector-slot' : '#cog-embed-inspector';
+      },
+      // Классы карточки: место показа + состояние раскрытия. Один узел стилей
+      // (`.cog-card`) + модификаторы, второй «карточки» не заводится.
+      cogCardClasses: function () {
+        var card = this.cogCard || null;
+        return {
+          'cog-card--dock': this.cogCardPlacement === 'full',
+          'cog-card--embed': this.cogCardPlacement === 'embed',
+          'cog-card--expanded': this.cogCardPlacement === 'full'
+            ? this.cogCardSheetExpanded === true
+            : this.cogCardEmbedExpanded === true,
+          'cog-card--edge': !!(card && card.kind === 'edge'),
+        };
       },
       // Чат/область записи — человеческим именем существующего списка чатов
       // (`chatTitleFor`), глобальная область названа явно. Пусто, если область
@@ -9468,6 +9593,10 @@
         if (typeof this.initiativeTabEnter === 'function') {
           this.initiativeTabEnter(this.workspaceTab);
         }
+        // CMV-D (§11 спеки, CMV-ERR-07): когнитивная карта — ПО ЧАТУ. Прежняя
+        // модель сбрасывается сразу (никакого «чужого графа» ни кадра), а
+        // ответ прошлого чата отбрасывается по поколению запроса.
+        this._cogInvalidateForChatSwitch();
       },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
       // не переключать UI в пустой editing state; вернуть на канонический
@@ -29757,8 +29886,15 @@
         if (!this.isGlobalAdmin) return;
         var self = this;
         var C = window.CognitiveMap;
+        // Поколение запроса: смена чата/области инвалидирует ответ прошлого
+        // чата (спека §11: чужой граф не показывается даже коротким кадром).
+        var gen = this._cogChatGen || 0;
+        var chatId = this.activeChatId;
         try {
           var payload = await this.api(COG_MAP_ENDPOINT + this._cidQuery(true));
+          if (gen !== (this._cogChatGen || 0) || chatId !== this.activeChatId) {
+            return;                       // ответ устаревшей области — отброшен
+          }
           if (!C || typeof C.normalizePayload !== 'function') {
             // Адаптер не загрузился: данные не разбираем «на глаз», состояние
             // честно уходит в renderer_failed (данные/счётчики не теряются).
@@ -29771,14 +29907,24 @@
             { aliases: aliases });
           this.cognitionMapVisMissing = false;
           this.cognitionMapFailed = false;
+          // Успешный ответ снимает видимую ошибку прошлой попытки.
+          this.cogLoadError = null;
           // W7-S3: карточка живёт на тех же данных — обновляем/закрываем её
           // молча (фокус и камера не трогаются, запросов не добавляется).
           if (typeof this._cogRefreshCard === 'function') this._cogRefreshCard();
         } catch (e) {
           // Данные не пришли: прежняя карта остаётся (и честно помечается
           // устаревшей по `generated_at`); пустой «красивый» граф не рисуем.
-          if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
-            this.toast('Когнитивная карта: ' + e.message, 'err');
+          // Ошибка запоминается ВИДИМО (§11, CMV-ERR-06): сообщение плюс
+          // действие «Повторить», а не только всплывающий тост.
+          if (e && (e.status === 401 || e.status === 403 || e.status === 503)) {
+            this.cogLoadError = null;  // доступ/сервис: состояние скажет шапка
+          } else {
+            this.cogLoadError = {
+              message: (e && e.message) ? String(e.message) : 'сеть недоступна',
+              at: Date.now(),
+            };
+            this.toast('Когнитивная карта: ' + this.cogLoadError.message, 'err');
           }
         }
         this.$nextTick(function () { self.renderCognitionGraph(); });
@@ -29854,7 +30000,17 @@
         }
         this._cogDeferCount = 0;
         var model = this.cognitionGraphData || null;
-        if (!model || !C) return;                    // состояние даёт шаблон
+        // CMV-D (§11 спеки): данных нет — на экране НЕ остаётся прошлый граф
+        // (смена чата/области). Сцена сносится штатным путём, состояние
+        // «загружается/пусто» показывает шаблон.
+        if (!model) {
+          if (this.cognitionNetwork || this._cogScene) this.destroyCognitionGraph();
+          if (typeof this._cogRefreshCounts === 'function') {
+            this._cogRefreshCounts();
+          }
+          return;
+        }
+        if (!C) return;                              // состояние даёт шаблон
         // CMV-A (§10.1(3)): единственное преобразование «модель → DataSet» —
         // `cog-visual.js`. Без него карта не рисуется вовсе: честное состояние
         // «визуализация не загрузилась» лучше пустой «красивой» сцены.
@@ -29883,6 +30039,11 @@
         }
         this.cogViewNodes = (view.nodes || []).length;
         this.cogViewEdges = (view.edges || []).length;
+        // CMV-D §9.9: ранняя публикация счётчиков — до возможного await
+        // (иначе шапка показывала бы числа прошлой витрины).
+        if (typeof this._cogRefreshCounts === 'function') {
+          this._cogRefreshCounts();
+        }
         // F11 (§16/D4): mobile — упрощённая сцена; отдельный экран полного
         // исследования — полный режим. Один движок, разные композиции.
         var simpleGraph = this.isMobileShell && !this.graphFullVisible;
@@ -29951,6 +30112,12 @@
         this._cogView = view;
         this.cogViewNodes = (view.nodes || []).length;
         this.cogViewEdges = (view.edges || []).length;
+        // CMV-D §9.9: счётчики публикуются после подмены витрины и сцены.
+        // Хук необязателен: минимальные пробные контексты (routing) его не
+        // содержат — карта без счётчиков остаётся рабочей.
+        if (typeof this._cogRefreshCounts === 'function') {
+          this._cogRefreshCounts();
+        }
         this._cogRedraw();
       },
       // Состояние отображения для единого преобразователя: позиции из vis,
@@ -30031,9 +30198,14 @@
         this._cogApplyHighlight();
         this._cogPaintStatic();
       },
-      // Детерминированная позиция нового узла: рядом с уже размещённым
-      // реальным соседом, иначе — спираль по хешу id. Math.random НЕ
-      // используется: повторный рендер даёт тот же кадр.
+      // Детерминированная позиция нового узла. CMV-D: корневая причина
+      // мобильного «комка» (найдена CMV-C) — прежняя формула возвращала ОДНУ
+      // И ТУ ЖЕ точку «центроид соседей + 22» для всех узлов с общим соседом.
+      // На `simple`-сцене (телефон, физика выключена) такие позиции не
+      // разъезжались никогда: фильтр/раскрытие валили новые узлы в кучу.
+      // Теперь узел встаёт на СВОЁ место кольца вокруг центроида (угол от хеша
+      // id, шаг кольца — от `springLength` физики), занятые точки пропускаются.
+      // Math.random не используется: повторный рендер даёт тот же кадр.
       _cogFallbackPosition: function (node, positions) {
         var model = this.cognitionGraphData || {};
         var adjacency = model.adjacency || {};
@@ -30041,24 +30213,56 @@
         var sumX = 0;
         var sumY = 0;
         var count = 0;
-        for (var i = 0; i < neighbors.length; i += 1) {
+        var i;
+        for (i = 0; i < neighbors.length; i += 1) {
           var p = positions[neighbors[i]];
           if (!p) continue;
           sumX += p.x;
           sumY += p.y;
           count += 1;
         }
-        if (count) {
-          return { x: (sumX / count) + 22, y: (sumY / count) + 22 };
-        }
         var id = String(node.id);
         var hash = 0;
-        for (var k = 0; k < id.length; k += 1) {
-          hash = (hash * 31 + id.charCodeAt(k)) % 100003;
+        for (i = 0; i < id.length; i += 1) {
+          hash = (hash * 31 + id.charCodeAt(i)) % 100003;
         }
-        var angle = (hash % 360) * Math.PI / 180;
-        var radius = 80 + (hash % 260);
-        return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+        // Шаг кольца: естественный просвет физики (`springBase`), а не «+22»
+        // по обеим осям (такой сдвиг давал диагональную свалку в одну точку).
+        var V = cogVis();
+        var gap = (V && V.CONFIG && V.CONFIG.physics
+          && typeof V.CONFIG.physics.springBase === 'number')
+          ? V.CONFIG.physics.springBase : 60;
+        // Занята ли точка (совпадающие центры и есть наблюдаемый «комок»).
+        var taken = function (x, y) {
+          var min = gap * 0.55;
+          var min2 = min * min;
+          for (var key in positions) {
+            if (!Object.prototype.hasOwnProperty.call(positions, key)) continue;
+            var q = positions[key];
+            if (!q) continue;
+            var dx = q.x - x;
+            var dy = q.y - y;
+            if ((dx * dx + dy * dy) < min2) return true;
+          }
+          return false;
+        };
+        var angle0 = (hash % 360) * Math.PI / 180;
+        var cx = count ? (sumX / count) : 0;
+        var cy = count ? (sumY / count) : 0;
+        var x = 0;
+        var y = 0;
+        for (var step = 0; step < 16; step += 1) {
+          var angle = angle0 + (Math.PI / 3) * step;
+          var radius = count
+            ? gap * (1 + Math.floor(step / 6))
+            : (gap + (hash % (gap * 4)) + step * gap);
+          x = cx + Math.cos(angle) * radius;
+          y = cy + Math.sin(angle) * radius;
+          if (!taken(x, y)) return { x: x, y: y };
+        }
+        // Все шестнадцать мест заняты (очень плотный кадр) — детерминированный
+        // сдвиг по спирали: позиция остаётся различимой, но не «в куче».
+        return { x: x + gap, y: y + gap };
       },
       // Строка узла для vis-network. Вся визуальная арифметика (форма, цвет,
       // размер из degree и fitScale, притушение) — в ЕДИНОМ преобразователе
@@ -31116,6 +31320,25 @@
           } : null,
         });
       },
+      // Публикация счётчиков в РЕАКТИВНЫЕ данные (шаблон не читает `_cog*`).
+      // Дешёвый сигнатурный guard: вызывается из точек перерисовки, но
+      // пересчёт идёт только когда изменился кадр (LOD/витрина/число районов).
+      _cogRefreshCounts: function () {
+        var scene = this._cogScene;
+        var sig = [
+          scene ? (scene.lod == null ? '-' : scene.lod) : '-',
+          (scene && scene.aggregates) ? scene.aggregates.length : 0,
+          this.cogViewNodes || 0,
+          this.cogViewEdges || 0,
+          this.cognitionGraphData ? 1 : 0,
+        ].join('|');
+        if (sig === this._cogCountsSig) return this.cogCounts || null;
+        this._cogCountsSig = sig;
+        var counts = null;
+        try { counts = this._cogCounts(); } catch (e) { counts = null; }
+        this.cogCounts = counts || null;
+        return counts;
+      },
       // Hover отличается от выбора (§7.2 спеки): усиливает свет и проявляет
       // РЕАЛЬНЫЕ соседние связи; затухание — по времени в самом слое.
       _cogSetHover: function (nodeId) {
@@ -31216,6 +31439,12 @@
         if (!scene) return;
         this._cogSyncFxSize();
         this._cogPaintFx(null);
+        // CMV-D (§9.9 спеки): «на экране» зависит от уровня детализации —
+        // публикуем счётчики ЗДЕСЬ, где LOD и состав районов уже посчитаны.
+        // Хук необязателен: песочницы без него рисуют кадр как раньше.
+        if (typeof this._cogRefreshCounts === 'function') {
+          this._cogRefreshCounts();
+        }
       },
       // §7.3 контракта: `reduced-motion` — статичная альфа (среднее), формы,
       // свечение, выделение и подписи сохраняются полностью.
@@ -31892,6 +32121,101 @@
         else if (typeof this.navigateTo === 'function') this.navigateTo('#/memory');
         else this.route = '#/memory';
       },
+      // Смена чата/глобальной области: карта ПО ЧАТУ, поэтому прежняя модель
+      // не остаётся на экране ни кадра (спека §11, CMV-ERR-07), а ответ
+      // прошлого чата отбрасывается по поколению (`loadCognitionGraph`).
+      _cogInvalidateForChatSwitch: function () {
+        var prev = this._cogChatId;
+        var next = (this.activeChatId == null) ? null : this.activeChatId;
+        this._cogChatId = next;
+        if (prev === next) return;                 // не смена — ничего не делаем
+        var hadPrev = prev !== undefined && prev !== null;
+        this._cogChatGen = (this._cogChatGen || 0) + 1;
+        this.cognitionGraphData = null;
+        this.cogCounts = null;
+        this._cogCountsSig = null;
+        this.cogCard = null;
+        this.cogCardLinksExpanded = false;
+        this.cogCardEmbedExpanded = true;
+        this.cogCardSheetExpanded = false;
+        this.cogViewNodes = 0;
+        this.cogViewEdges = 0;
+        this._cogView = null;
+        this.graphSearchStatus = '';
+        this._graphSearchMatches = [];
+        this._graphSearchMatchIds = [];
+        if (typeof this.graphClearDetail === 'function') this.graphClearDetail();
+        var self = this;
+        this.$nextTick(function () {
+          if (typeof self.renderCognitionGraph === 'function') {
+            self.renderCognitionGraph();
+          }
+        });
+        // Явный перезапрос: иначе карта ждала бы следующего 15-секундного тика.
+        if (hadPrev && this.isGlobalAdmin && this.activeTab === 'status'
+            && typeof this.loadCognitionGraph === 'function') {
+          this.loadCognitionGraph();
+        }
+      },
+      // ── CMV-D: места показа карточки, жесты листа, переход к соседу ──────
+      // Встроенная карта: компактная панель ПОД сценой, раскрываемая вручную
+      // (§8.2 спеки: не плавает над графом в углу).
+      toggleCogCardEmbed: function () {
+        this.cogCardEmbedExpanded = this.cogCardEmbedExpanded !== true;
+      },
+      // Телефон: лист раскрывается до 80dvh и сворачивается до 40dvh.
+      toggleCogSheet: function () {
+        this.cogCardSheetExpanded = this.cogCardSheetExpanded !== true;
+      },
+      // Свайп по «ручке» листа: вверх — раскрыть, вниз — свернуть или закрыть.
+      // Страница при этом НЕ прокручивается (событие не уходит в скролл).
+      cogSheetTouchStart: function (ev) {
+        var t = (ev && ev.touches && ev.touches[0]) || null;
+        this._cogSheetTouch = t ? { y0: t.clientY, y: t.clientY, moved: 0 } : null;
+      },
+      cogSheetTouchMove: function (ev) {
+        var st = this._cogSheetTouch;
+        var t = (ev && ev.touches && ev.touches[0]) || null;
+        if (!st || !t) return;
+        st.y = t.clientY;
+        st.moved = st.y - st.y0;
+        if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      },
+      cogSheetTouchEnd: function () {
+        var st = this._cogSheetTouch;
+        this._cogSheetTouch = null;
+        if (!st) return;
+        if (st.moved > 48) {
+          // Вниз: раскрытый лист сворачивается, свёрнутый — закрывается.
+          // Карточка никогда не «утаскивает» за собой страницу.
+          if (this.cogCardSheetExpanded === true) this.cogCardSheetExpanded = false;
+          else this.closeCogCard();
+          return;
+        }
+        if (st.moved < -48) this.cogCardSheetExpanded = true;
+      },
+      // §9 спеки (CMV-NAV-05): выбор соседа ПЛАВНО переводит камеру к нему,
+      // обновляет список (та же карточка показывает соседа) и подсветку.
+      // Масштаб фокуса — от обзора (`fitScale`), как у поиска: ×1.9–×3.
+      cogFocusNeighbor: function (nodeId) {
+        if (nodeId == null) return null;
+        var net = this.cognitionNetwork;
+        if (net && typeof net.focus === 'function') {
+          var anim = this.reducedMotion
+            ? false : { duration: 600, easingFunction: 'easeInOutQuad' };
+          var fitNow = this._cogFitScale;
+          var focusScale = (fitNow && fitNow > 0)
+            ? Math.max(fitNow * 1.9, Math.min(fitNow * 3, 1.1)) : 1.1;
+          try {
+            net.focus(nodeId, { scale: focusScale, animation: anim });
+            if (typeof net.selectNodes === 'function') net.selectNodes([nodeId]);
+          } catch (e) { /* сеть уничтожена — карточка всё равно обновится */ }
+        }
+        this.graphSelectNode(nodeId);
+        this.graphApplySelectionLabels([nodeId]);
+        this._cogPulseSelected('click', nodeId);
+        return this.openCogNodeCard(nodeId);
+      },
       // ═══ EVOL-COG-MAP (W7-S3): карточка узла/ребра ═══════════════════════
       // Модель строит адаптер (`nodeCard`/`edgeCard`) — здесь только показ и
       // АДРЕСНЫЕ переходы. Открытие карточки не делает запросов, не двигает
@@ -31919,7 +32243,11 @@
         var same = !!(prev && prev.kind === 'node'
           && String(prev.id) === String(node.id));
         this.cogCard = C.nodeCard(node, model);
+        // Новая запись открывается в компактном виде: раскрытие списка/
+        // листа принадлежало ПРЕЖНЕЙ записи (§3.2 спеки: 35–45 %).
         if (!same) this.cogCardLinksExpanded = false;
+        if (!same) this.cogCardSheetExpanded = false;
+        if (!same) this.cogCardEmbedExpanded = true;
         if (!(opts && opts.silent)) this._cogFocusCard();
         return this.cogCard;
       },
@@ -31940,6 +32268,8 @@
           && String(prevEdge.id) === String(edge.id));
         this.cogCard = C.edgeCard(edge, model);
         if (!sameEdge) this.cogCardLinksExpanded = false;
+        if (!sameEdge) this.cogCardSheetExpanded = false;
+        if (!sameEdge) this.cogCardEmbedExpanded = true;
         if (!(opts && opts.silent)) this._cogFocusCard();
         return this.cogCard;
       },
@@ -32003,6 +32333,10 @@
         var had = this.cogCardOpen;
         this.cogCard = null;
         this.cogCardLinksExpanded = false;
+        // Раскрытие листа/панели принадлежит показанной записи: следующая
+        // открывается в компактном виде (§3.2 спеки: 35–45 % высоты).
+        this.cogCardSheetExpanded = false;
+        this.cogCardEmbedExpanded = true;
         // Фокус возвращается на сцену с выбранным узлом: карточка — слой, а
         // не новый экран; камера/зум/фильтры не трогаются вовсе.
         if (!had) return;
@@ -32123,7 +32457,10 @@
         }
         var renderer = 'ready';
         if (this.cognitionMapFailed) renderer = 'failed';
-        else if (!this.cognitionNetwork) {
+        else if (this.cognitionGraphData && !this.cognitionNetwork) {
+          // «Нет сети» — факт о РЕНДЕРЕРЕ только когда есть что рисовать.
+          // Пока данных нет (загрузка/смена чата), честнее «загружается», а не
+          // «визуализация не загрузилась» (CMV-D §11: состояния не врут).
           renderer = this.cognitionMapVisMissing ? 'failed' : 'missing';
         }
         return C.mapClientState({
@@ -32462,6 +32799,11 @@
         this.cognitionMapCluster = '';
         this.cogHideDerived = false;
         this.graphClearDetail();
+        // CMV-D (§9 спеки, CMV-NAV-04): сброс вида снимает выделение — значит
+        // и карточку: иначе открытый инспектор показывал бы запись, которая
+        // больше не выбрана (расхождение «видно ≠ выбрано»). Карточка — слой
+        // этого экрана, отдельного подтверждения не требует.
+        this.closeCogCard();
         this.clearCognitionGraphSearch();
         this._cogCamera = null;
         this.$nextTick(function () {
@@ -32490,7 +32832,11 @@
       },
       closeGraphFull: function () {
         this._cogCaptureCamera();
-        if (this.graphFullOpen) { this.graphFullOpen = false; return; }
+        if (this.graphFullOpen) {
+          this.graphFullOpen = false;
+          this._cogReturnFocusToFullBtn();
+          return;
+        }
         // ASAP-UI-02 §4.2/§11 (L01958): fullscreen-граф — СЛОЙ Back-стека,
         // поэтому закрывать его через `goBack()` нельзя: goBack → верхний
         // слой = граф → снова сюда (бесконечная рекурсия, найденная живым
@@ -32499,7 +32845,45 @@
         var parent = routeParent(this.route) || '#/';
         if (typeof this.navigateTo === 'function') this.navigateTo(parent);
         else this.route = parent;
+        // §9 спеки (CMV-NAV-06): фокус возвращается на кнопку открытия —
+        // после закрытия полноэкранного диалога клавиатура не теряет место.
+        this._cogReturnFocusToFullBtn();
       },
+      // Кнопка «Полный экран» — точка возврата фокуса (CMV-NAV-06).
+      // После смены маршрута встроенный граф рендерится не сразу, а `$refs`
+      // может ещё указывать на узел, который вот-вот заменят (фокус на таком
+      // узле молча уходит в BODY). Поэтому успех проверяется по факту:
+      // `document.activeElement` действительно стал этой кнопкой, иначе —
+      // ограниченный повтор (6 попыток по 60 мс, без вечного таймера).
+      _cogReturnFocusToFullBtn: function () {
+        var self = this;
+        var tries = 0;
+        var focusBtn = function () {
+          var ref = self.$refs ? self.$refs.cogFullBtn : null;
+          if (Array.isArray(ref)) ref = ref[ref.length - 1];
+          if (!ref || typeof ref.focus !== 'function') return false;
+          try { ref.focus({ preventScroll: true }); } catch (e) {
+            try { ref.focus(); } catch (e2) { return false; }
+          }
+          var active = (typeof document !== 'undefined') ? document.activeElement : null;
+          return !!(active && (active === ref
+            || (ref.contains && ref.contains(active))));
+        };
+        var attempt = function () {
+          if (focusBtn()) return;
+          tries += 1;
+          if (tries >= 6) return;
+          if (typeof setTimeout === 'function') setTimeout(attempt, 60);
+        };
+        if (typeof this.$nextTick === 'function') {
+          this.$nextTick(attempt);
+        } else {
+          attempt();
+        }
+      },
+      // CMV-D: карточка — ОДИН слой, а место показа выбирает `<teleport>`
+      // (`cogCardSlot`, контракт §9.1): колонка полного экрана или панель под
+      // сценой встроенной карты. Перенос делает Vue, второй карточки нет.
       // F11 (L-F11S-3, §16/D4): initial focus на полноэкранном диалоге графа —
       // Esc/навигация с клавиатуры работают без мыши (preventScroll ≠ прыжок).
       _focusGraphFull: function () {
