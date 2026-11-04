@@ -2101,7 +2101,7 @@
                          :class="memeSaveResult.ok ? 'text-green-400' : 'text-red-300'"
                          data-meme-save-state>{{ memeSaveResult.text }}</div>
                     <div v-if="memeDraftDirty" class="text-xs mt-1 text-amber-300"
-                         data-meme-dirty-hint>
+                         data-meme-dirty-hint data-meme-dirty>
                       Изменения не сохранены. При переключении вкладок они
                       сохранятся; при смене чата или закрытии страницы приложение
                       спросит подтверждение. Сохранить — кнопкой
@@ -2112,26 +2112,32 @@
                       глобальные значения не меняются).
                     </div>
 
-                    <div class="ini-prompts">
+                    <div class="ini-prompts pv-grid">
+                      <!-- PVR-S4: каждый промпт мемов — ТА ЖЕ карточка версий,
+                           что в остальных редакторах (§2.1 ТЗ). Два поля рядом
+                           на широком экране, последовательно на мобильном;
+                           подсказка {joke} — спокойная, в раскрываемом виде. -->
                       <div class="meme-prompt-field" data-ini-prompt="joke">
-                        <div class="ini-prompt__head">
-                          <label for="meme-prompt-joke" class="ini-prompt__title">Промпт прикола</label>
-                          <span class="badge"
-                                :class="memeSettingsView.promptJoke.differs_from_factory
-                                  ? 'badge-warn' : 'badge-muted'"
-                                data-meme-prompt-joke-source>
-                            {{ memePromptSourceLabel(memeSettingsView.promptJoke.source) }}
-                          </span>
-                          <span class="text-gray-600">· ревизия
-                            {{ memeSettingsView.promptJoke.revision || '—' }}
-                            (заводская: {{ memeSettingsView.promptJoke.factory_revision || '—' }})</span>
-                        </div>
-                        <textarea id="meme-prompt-joke" class="field meme-prompt-input"
-                                  rows="4"
-                                  v-model="memeDraft.prompt_joke"
-                                  :aria-invalid="memeFieldError('prompt_joke') ? 'true' : 'false'"
-                                  :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_joke') }"
-                                  data-meme-prompt-joke></textarea>
+                        <prompt-version-card
+                          title="Промпт прикола"
+                          :prompt-key="memeSettingsView.promptJoke.setting_key"
+                          :chat-id="activeChatId"
+                          :chat-title="activeChatTitleLabel"
+                          v-model="memeDraft.prompt_joke"
+                          :effective-text="memeSettingsView.promptJoke.text || ''"
+                          :can-edit="true"
+                          :dirty="memeFieldDirty('prompt_joke')"
+                          :busy="memeSettingsSaving"
+                          :reload-token="promptVersionReload"
+                          :rows="4"
+                          :invalid="!!memeFieldError('prompt_joke')"
+                          :save-label="'Сохранить'"
+                          :notice="memeCardNotice('prompt_joke')"
+                          :notice-ok="!memeFieldError('prompt_joke')"
+                          data-meme-prompt-joke
+                          @save="saveMemeSettings()"
+                          @discard="memePromptRevertDraft('prompt_joke')"
+                          @refresh="afterPromptVersionChange()"></prompt-version-card>
                         <div v-if="memeFieldError('prompt_joke')" class="meme-field-error"
                              data-meme-prompt-error-joke>{{ memeFieldError('prompt_joke') }}</div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -2145,31 +2151,32 @@
                       </div>
 
                       <div class="meme-prompt-field" data-ini-prompt="image">
-                        <div class="ini-prompt__head">
-                          <label for="meme-prompt-image" class="ini-prompt__title">Шаблон изображения</label>
-                          <span class="badge"
-                                :class="memeSettingsView.promptImage.differs_from_factory
-                                  ? 'badge-warn' : 'badge-muted'"
-                                data-meme-prompt-image-source>
-                            {{ memePromptSourceLabel(memeSettingsView.promptImage.source) }}
-                          </span>
-                          <span class="text-gray-600">· ревизия
-                            {{ memeSettingsView.promptImage.revision || '—' }}
-                            (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
-                          <span class="badge"
-                                :class="memeSettingsView.templateValid ? 'badge-muted' : 'badge-err'"
-                                data-meme-template-state>
-                            {{ memeSettingsView.templateValid
-                              ? ('{joke}: ' + memeSettingsView.templatePlaceholders)
-                              : 'шаблон невалиден' }}
-                          </span>
+                        <prompt-version-card
+                          title="Шаблон изображения"
+                          :prompt-key="memeSettingsView.promptImage.setting_key"
+                          :chat-id="activeChatId"
+                          :chat-title="activeChatTitleLabel"
+                          v-model="memeDraft.prompt_image"
+                          :effective-text="memeSettingsView.promptImage.text || ''"
+                          :can-edit="true"
+                          :dirty="memeFieldDirty('prompt_image')"
+                          :busy="memeSettingsSaving"
+                          :reload-token="promptVersionReload"
+                          :rows="4"
+                          :invalid="!!memeFieldError('prompt_image')"
+                          :hint="memeJokeModeHint"
+                          :hint-title="'Как подставляется прикол'"
+                          :save-label="'Сохранить'"
+                          :notice="memeCardNotice('prompt_image')"
+                          :notice-ok="!memeFieldError('prompt_image')"
+                          data-meme-prompt-image
+                          @save="saveMemeSettings()"
+                          @discard="memePromptRevertDraft('prompt_image')"
+                          @refresh="afterPromptVersionChange()"></prompt-version-card>
+                        <div class="text-[10px] text-gray-600" data-meme-template-state
+                             :data-meme-joke-mode="memeJokeModeKey">
+                          {{ memeJokeModeSummary }}
                         </div>
-                        <textarea id="meme-prompt-image" class="field meme-prompt-input"
-                                  rows="4"
-                                  v-model="memeDraft.prompt_image"
-                                  :aria-invalid="memeFieldError('prompt_image') ? 'true' : 'false'"
-                                  :class="{ 'meme-prompt-input--error': !!memeFieldError('prompt_image') }"
-                                  data-meme-prompt-image></textarea>
                         <div v-if="memeFieldError('prompt_image')" class="meme-field-error"
                              data-meme-prompt-error-image>{{ memeFieldError('prompt_image') }}</div>
                         <div v-if="!memeSettingsView.templateValid" class="meme-field-error"
@@ -4149,8 +4156,9 @@
                            d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
                     </button>
                   </div>
-                  <div class="text-sm font-bold">{{ configItemTitle(workspacePromptFocus) }}</div>
-                  <tech-key :value="workspacePromptFocus.key" class="mb-1"></tech-key>
+                  <!-- PVR-S4: заголовок и технический ключ показывает сама
+                       карточка версий (ключ — в раскрываемых «Подробностях»),
+                       поэтому дублирующая строка здесь не повторяется. -->
                   <div v-if="configItemNotice(workspacePromptFocus)"
                        class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(workspacePromptFocus) }}</div>
                   <!-- EVOL-038 (W12): конфликт версий (старая вкладка / параллельный
@@ -4163,188 +4171,43 @@
                     <button type="button" class="btn-ghost text-xs ml-1"
                             @click="loadConfig()">Обновить и сравнить</button>
                   </div>
-                  <!-- EVOL-044 (W11): перенос строк в длинном промпте — явная
-                       опция (по умолчанию перенос включён, как раньше), а не
-                       скрытое поведение; сам редактор не переставляется. -->
-                  <div class="flex items-center gap-2 flex-wrap mb-1"
-                       data-prompt-wrap-toggle>
-                    <span class="ctl-seg" role="group" aria-label="Перенос строк в редакторе">
-                      <button type="button" class="ctl-seg__btn"
-                              :aria-checked="workspacePromptNoWrap ? 'false' : 'true'"
-                              @click="workspacePromptNoWrap = false">Перенос</button>
-                      <button type="button" class="ctl-seg__btn"
-                              :aria-checked="workspacePromptNoWrap ? 'true' : 'false'"
-                              @click="workspacePromptNoWrap = true">Без переноса</button>
-                    </span>
-                    <span class="ctl-hint">Длинные строки прокручиваются внутри поля</span>
-                  </div>
-                  <textarea class="field scroll-thin ctl-textarea ctl-mono ctl-editor-area"
-                            rows="12"
-                            :data-nowrap="workspacePromptNoWrap ? '1' : '0'"
-                            :data-prompt-textarea="workspacePromptFocus.key"
-                            :data-focus-id="'prompt:' + workspacePromptFocus.key"
-                            v-model="workspacePromptFocus.value"
-                            :disabled="!canEditConfig(workspacePromptFocus.key)"></textarea>
-                  <div class="prompt-editor-meta" data-prompt-editor-meta
-                       aria-label="Объект правки">
-                    <span>prompt_id: <code>{{ workspacePromptFocus.key }}</code></span>
-                    <span>потребитель: {{ workspaceModule ? workspaceModule.title : '—' }}</span>
-                    <span>scope: {{ configSourceLabel(workspacePromptFocus) || 'глобальная настройка' }}</span>
-                    <span v-if="promptHistory.data">активная: {{ promptHistoryActiveLabel }}</span>
-                    <span v-if="phWhen(phActiveCreated)">изменён: {{ phWhen(phActiveCreated) }}</span>
-                  </div>
-                  <!-- EVOL-017: «История версий» — журнал ревизий/активаций,
-                       сравнение (difflib unified), полный текст, откат/вперёд.
-                       Это ВЫБОР сохранённого состояния, а не правка: версии
-                       не редактируются, история не удаляется; ручная редакция —
-                       нормальное состояние, а не неисправность. -->
-                  <div class="prompt-history mt-2" data-prompt-history>
-                    <button class="btn-ghost text-xs prompt-history-toggle"
-                            type="button"
-                            data-prompt-history-toggle
-                            :aria-expanded="promptHistory.open ? 'true' : 'false'"
-                            aria-controls="prompt-history-body"
-                            @click="togglePromptHistory()">
-                      <span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span>
-                      История версий
-                      <span class="msr prompt-history-chevron" aria-hidden="true">{{ iconGlyph(promptHistory.open ? 'expand_less' : 'expand_more') }}</span>
-                    </button>
-                    <div v-if="promptHistory.open" id="prompt-history-body"
-                         class="prompt-history-body" data-prompt-history-body>
-                      <div v-if="promptHistory.loading"
-                           class="text-xs text-gray-500" data-prompt-history-loading>
-                        Загрузка истории…
-                      </div>
-                      <div v-else-if="promptHistory.error"
-                           class="text-xs text-amber-300"
-                           data-prompt-history-error>{{ promptHistory.error }}</div>
-                      <template v-else-if="promptHistory.data">
-                        <div v-if="!promptHistory.data.journal_available"
-                             class="text-xs text-amber-300 mb-1" data-prompt-history-unavailable>
-                          Журнал версий недоступен (PostgreSQL) — история и
-                          переключение версий временно невозможны; текущий
-                          текст работает как раньше.
-                        </div>
-                        <!-- Активная редакция: метка/время/область + заводская -->
-                        <div class="prompt-history-active" data-prompt-history-active>
-                          <span class="badge"
-                                :class="promptHistory.data.active && promptHistory.data.active.origin === 'factory' ? 'badge-info' : 'badge-ok'">
-                            {{ promptHistoryActiveLabel }}
-                          </span>
-                          <span class="text-xs text-gray-400">{{ promptHistoryScopeLabel }}</span>
-                          <span v-if="phWhen(phActiveCreated)" class="text-[10px] text-gray-500"
-                                data-prompt-history-created>версия от {{ phWhen(phActiveCreated) }}</span>
-                          <span v-if="phActivationNote" class="text-[10px] text-gray-500"
-                                data-prompt-history-activation>{{ phActivationNote }}</span>
-                          <span v-if="promptHistory.data.active" class="text-[10px] text-gray-500 font-mono"
-                                data-prompt-history-sha>{{ promptHistory.data.active.sha256_12 }}</span>
-                        </div>
-                        <div class="text-[10px] mb-1" data-prompt-history-factory>
-                          <span class="text-gray-500">Актуальная заводская:
-                            <span class="font-mono">{{ promptHistory.data.factory_revision || '—' }}</span></span>
-                          <span v-if="promptHistory.data.active"
-                                :class="promptHistory.data.factory_matches_active ? 'text-emerald-300' : 'text-amber-300'">
-                            — активная {{ promptHistory.data.factory_matches_active ? 'совпадает с ней' : 'отличается от неё' }}
-                          </span>
-                        </div>
-                        <div v-if="!promptHistory.data.revisions.length"
-                             class="text-xs text-gray-500 mb-1" data-prompt-history-empty>
-                          Сохранённых версий ещё нет — первая появится после
-                          заводской поставки или правки.
-                        </div>
-                        <!-- Сравнение: любые две сохранённые ревизии -->
-                        <div class="prompt-history-diff-controls flex flex-wrap gap-1 items-center" v-if="promptHistory.data.revisions.length > 1">
-                          <select class="field prompt-history-select" data-prompt-history-diff-a
-                                  v-model="promptHistory.selA" aria-label="Ревизия «было»">
-                            <option v-for="rev in promptHistory.data.revisions" :key="'a-'+rev.revision_id" :value="rev.revision_id">
-                              {{ phOriginLabel(rev) }}{{ rev.created_at ? ' · ' + phWhen(rev.created_at) : '' }}
-                            </option>
-                          </select>
-                          <span class="text-gray-500 text-xs px-1">→</span>
-                          <select class="field prompt-history-select" data-prompt-history-diff-b
-                                  v-model="promptHistory.selB" aria-label="Ревизия «стало»">
-                            <option v-for="rev in promptHistory.data.revisions" :key="'b-'+rev.revision_id" :value="rev.revision_id">
-                              {{ phOriginLabel(rev) }}{{ rev.created_at ? ' · ' + phWhen(rev.created_at) : '' }}
-                            </option>
-                          </select>
-                          <button class="btn-ghost text-xs" type="button" data-prompt-history-diff-run
-                                  :disabled="promptHistory.diffLoading || promptHistory.selA === promptHistory.selB"
-                                  @click="loadPromptDiff()">Сравнить</button>
-                          <button class="btn-ghost text-xs" type="button" data-prompt-history-factory-compare
-                                  v-if="phFactoryCompareAvailable"
-                                  :disabled="promptHistory.diffLoading"
-                                  @click="comparePromptFactory()"
-                                  title="Активная версия против последней заводской">Активная ⇄ заводская</button>
-                        </div>
-                        <div v-if="promptHistory.diffError" class="text-xs text-amber-300">{{ promptHistory.diffError }}</div>
-                        <pre v-if="promptHistory.diff && promptHistory.diff.length"
-                             class="prompt-history-diff scroll-thin" data-prompt-history-diff><span
-                              v-for="(ln, i) in promptHistory.diff" :key="'d' + i"
-                              :class="phDiffClass(ln)">{{ ln }}
-</span></pre>
-                        <!-- Полный текст просмотренной ревизии -->
-                        <div v-if="promptHistory.viewLoading" class="text-xs text-gray-500">Загрузка текста…</div>
-                        <pre v-else-if="promptHistory.viewId && promptHistory.viewBody !== ''"
-                             class="prompt-history-view scroll-thin" data-prompt-history-view>{{ promptHistory.viewBody }}</pre>
-                        <!-- Хранимые версии -->
-                        <div class="prompt-history-section" v-if="promptHistory.data.revisions.length"
-                             data-prompt-history-versions aria-label="Хранимые версии">
-                          <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">Хранимые версии</div>
-                          <div v-for="rev in phRevisionsNewestFirst()" :key="rev.revision_id"
-                               class="prompt-history-row" :data-prompt-history-revision="rev.revision_id"
-                               :class="promptHistory.data.active && promptHistory.data.active.revision_id === rev.revision_id ? 'is-active' : ''">
-                            <div class="prompt-history-row-main">
-                              <span class="badge"
-                                    :class="rev.origin === 'factory' ? 'badge-info' : (rev.origin === 'legacy' ? 'badge-warn' : 'badge-ok')">{{ phOriginLabel(rev) }}</span>
-                              <span class="font-mono text-[10px] text-gray-500">{{ rev.sha256_12 }}</span>
-                              <span class="text-[10px] text-gray-500">{{ phWhen(rev.created_at) }}</span>
-                              <span v-if="rev.schema_compat" class="badge badge-warn" data-prompt-history-reason
-                                    :title="phBlockReason(rev)">schema: {{ rev.schema_compat }}</span>
-                              <span v-if="rev.retired" class="badge badge-warn">блок снят с регистрации</span>
-                              <span v-if="promptHistory.data.active && promptHistory.data.active.revision_id === rev.revision_id" class="badge">активная</span>
-                            </div>
-                            <div class="prompt-history-row-meta text-[10px] text-gray-500">
-                              {{ phAuthor(rev) }}<template v-if="rev.release_id"> · релиз <span class="font-mono">{{ rev.release_id }}</span></template>
-                            </div>
-                            <div class="prompt-history-actions">
-                              <button class="btn-ghost text-xs" type="button" data-prompt-history-view-btn
-                                      @click="viewPromptRevision(rev)">{{ promptHistory.viewId === rev.revision_id ? 'Скрыть текст' : 'Текст' }}</button>
-                              <button v-if="promptHistory.data.can_activate && phCanActivate(rev) && !phIsActive(rev)"
-                                      class="btn-ghost text-xs prompt-history-activate" type="button"
-                                      data-prompt-history-activate
-                                      :disabled="promptHistory.busyRev !== ''"
-                                      @click="activatePromptRevision(rev)">{{ phActivateLabel(rev) }}</button>
-                              <span v-else-if="promptHistory.data.can_activate && !phIsActive(rev)"
-                                    class="text-[10px] text-amber-300" data-prompt-history-blocked>{{ phBlockReason(rev) }}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <!-- События включения -->
-                        <div class="prompt-history-section" data-prompt-history-events aria-label="События включения">
-                          <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">События</div>
-                          <div v-if="!promptHistory.data.activations.length" class="text-xs text-gray-500">
-                            Событий включения ещё не было.
-                          </div>
-                          <div v-for="(ev, i) in promptHistory.data.activations" :key="'ev' + i"
-                               class="prompt-history-row" :data-prompt-history-event="ev.kind">
-                            <span class="text-xs">{{ phEventLabel(ev) }}</span>
-                            <span class="badge" :class="ev.outcome === 'applied' ? 'badge-ok' : (ev.outcome === 'failed' ? 'badge-warn' : '')">{{ phOutcomeLabel(ev) }}</span>
-                            <span class="text-[10px] text-gray-500">{{ phAuthor(ev) }}</span>
-                            <span v-if="ev.release_id" class="text-[10px] text-gray-500 font-mono">{{ ev.release_id }}</span>
-                          </div>
-                        </div>
-                        <div v-if="promptHistory.result"
-                             class="text-xs mb-1" :class="promptHistory.result.ok ? 'text-emerald-300' : 'text-amber-300'"
-                             data-prompt-history-result role="status" aria-live="polite">{{ promptHistory.result.text }}</div>
-                        <div class="text-[10px] text-gray-500">
-                          Правка текста создаёт новую версию (версии не
-                          редактируются на месте); история не удаляется при
-                          откате; новая заводская поставка позже активируется
-                          автоматически.
-                        </div>
-                      </template>
+                  <!-- PVR-S4: единый компонент контроля версий. ОДНА разметка
+                       на все редакторы (вкладка «Промпты»); технические
+                       act:/fac:/sha/revision_id остались в раскрываемых
+                       «Подробностях», не в карточке (§2.1 ТЗ). -->
+                  <prompt-version-card
+                    :title="configItemTitle(workspacePromptFocus)"
+                    :prompt-key="workspacePromptFocus.key"
+                    :chat-id="activeChatId"
+                    :chat-title="activeChatTitleLabel"
+                    :model-value="workspacePromptFocus.value"
+                    :effective-text="promptSavedText(workspacePromptFocus.key)"
+                    :can-edit="canEditConfig(workspacePromptFocus.key)"
+                    :dirty="workspacePromptDirty"
+                    :busy="promptSaveBusy"
+                    :reload-token="promptVersionReload"
+                    :no-wrap-toggle="true"
+                    :no-wrap="workspacePromptNoWrap"
+                    :rows="12"
+                    :save-label="'Сохранить'"
+                    :notice="promptEditorNotice"
+                    :notice-ok="promptEditorNoticeOk"
+                    @update:no-wrap="workspacePromptNoWrap = $event"
+                    @update:model-value="workspacePromptFocus.value = $event"
+                    @save="saveConfig()"
+                    @discard="discardPromptDraft()"
+                    @refresh="afterPromptVersionChange()"></prompt-version-card>
+                  <!-- Технические данные объекта правки: свёрнуто по
+                       умолчанию — в основной карточке их нет. -->
+                  <details class="prompt-editor-meta" data-prompt-editor-meta
+                           aria-label="Объект правки">
+                    <summary>Подробности / диагностика</summary>
+                    <div>
+                      <span>prompt_id: <code>{{ workspacePromptFocus.key }}</code></span>
+                      <span>потребитель: {{ workspaceModule ? workspaceModule.title : '—' }}</span>
+                      <span>scope: {{ configSourceLabel(workspacePromptFocus) || 'глобальная настройка' }}</span>
                     </div>
-                  </div>
+                  </details>
                 </section>
                 </teleport>
                 <section v-if="!workspacePromptFocus" class="prompt-editor card p-4 text-xs text-gray-500">
@@ -4758,53 +4621,17 @@
                         <span class="text-[10px] text-gray-500 font-mono">{{ p.pg_key || p.block_id }}</span>
                       </button>
                     </div>
-                    <div v-if="promptCatalog.focusKey" class="prompt-history mt-2"
+                    <!-- PVR-S4: каталог показывает ту же панель истории (одна
+                         реализация). Значение здесь не редактируется:
+                         редактор — на странице модуля. -->
+                    <div v-if="promptCatalog.focusKey" class="mt-2"
                          data-prompt-catalog-history>
-                      <div class="text-xs font-bold mb-1">История версий</div>
-                      <div v-if="promptHistory.loading" class="text-xs text-gray-500">Загрузка истории…</div>
-                      <div v-else-if="promptHistory.error" class="text-xs text-amber-300">{{ promptHistory.error }}</div>
-                      <template v-else-if="promptHistory.data">
-                        <div class="prompt-history-active" data-prompt-history-active>
-                          <span class="badge">{{ promptHistoryActiveLabel }}</span>
-                          <span class="text-xs text-gray-400">{{ promptHistoryScopeLabel }}</span>
-                          <span v-if="phWhen(phActiveCreated)" class="text-[10px] text-gray-500">версия от {{ phWhen(phActiveCreated) }}</span>
-                        </div>
-                        <div class="text-[10px] mb-1">
-                          Заводская: <span class="font-mono">{{ promptHistory.data.factory_revision || '—' }}</span>
-                          <span v-if="promptHistory.data.active">
-                            — {{ promptHistory.data.factory_matches_active ? 'совпадает' : 'отличается' }}
-                          </span>
-                        </div>
-                        <div class="prompt-history-diff-controls" v-if="promptHistory.data.revisions.length > 1">
-                          <select class="field prompt-history-select" v-model="promptHistory.selA"
-                                  aria-label="Ревизия «было»">
-                            <option v-for="rev in promptHistory.data.revisions" :key="'ca-'+rev.revision_id"
-                                    :value="rev.revision_id">{{ phOriginLabel(rev) }}</option>
-                          </select>
-                          <select class="field prompt-history-select" v-model="promptHistory.selB"
-                                  aria-label="Ревизия «стало»">
-                            <option v-for="rev in promptHistory.data.revisions" :key="'cb-'+rev.revision_id"
-                                    :value="rev.revision_id">{{ phOriginLabel(rev) }}</option>
-                          </select>
-                          <button class="btn-ghost text-xs" type="button" @click="loadPromptDiff()">Сравнить</button>
-                        </div>
-                        <pre v-if="promptHistory.diff && promptHistory.diff.length"
-                             class="prompt-history-diff scroll-thin"><span
-                              v-for="(ln, i) in promptHistory.diff" :key="'cd'+i"
-                              :class="phDiffClass(ln)">{{ ln }}
-</span></pre>
-                        <div v-for="rev in phRevisionsNewestFirst()" :key="'cr-' + rev.revision_id"
-                             class="prompt-history-row">
-                          <span class="badge">{{ phOriginLabel(rev) }}</span>
-                          <button class="btn-ghost text-xs" type="button" @click="viewPromptRevision(rev)">Текст</button>
-                          <button v-if="promptHistory.data.can_activate && phCanActivate(rev) && !phIsActive(rev)"
-                                  class="btn-ghost text-xs" type="button"
-                                  @click="activatePromptRevision(rev)">{{ phActivateLabel(rev) }}</button>
-                          <span v-else-if="!phIsActive(rev)" class="text-[10px] text-amber-300">{{ phBlockReason(rev) }}</span>
-                        </div>
-                        <div v-if="promptHistory.result" class="text-xs" role="status" aria-live="polite"
-                             :class="promptHistory.result.ok ? 'text-emerald-300' : 'text-amber-300'">{{ promptHistory.result.text }}</div>
-                      </template>
+                      <prompt-version-card
+                        variant="history"
+                        :title="promptCatalogFocusTitle"
+                        :prompt-key="promptCatalog.focusKey"
+                        :chat-id="null"
+                        :can-edit="false"></prompt-version-card>
                     </div>
                   </div>
                 </div>
@@ -4965,6 +4792,18 @@
                               <tech-key :value="item.key" class="mb-1"></tech-key>
                               <div class="text-xs text-gray-400 mb-2">{{ configItemDescription(item) }}</div>
                               <textarea class="field scroll-thin" rows="6" :data-cfg-key="item.key" v-model="item.value"></textarea>
+                              <!-- PVR-S4: компактная полоса версий — ТА ЖЕ
+                                   карточка компонента, что в библиотеке,
+                                   мемах и Speech (не вторая реализация). -->
+                              <prompt-version-card v-if="isPromptConfigKey(item.key)"
+                                variant="bar"
+                                :title="configItemTitle(item)"
+                                :prompt-key="item.key"
+                                :chat-id="activeChatId"
+                                :chat-title="activeChatTitleLabel"
+                                :can-edit="canEditConfig(item.key)"
+                                :reload-token="promptVersionReload"
+                                @refresh="afterPromptVersionChange()"></prompt-version-card>
                               <!-- F4 (ASAP 8 §4.3, C7): server-compiled
                                    preview «Стиль обложки» — тот же POST
                                    /api/cover/preview-compile (mode
@@ -5095,6 +4934,16 @@
                                 <tech-key :value="item.key" class="mb-1"></tech-key>
                                 <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                                 <textarea class="field scroll-thin" rows="6" :data-cfg-key="item.key" v-model="item.value"></textarea>
+                                <!-- PVR-S4: та же полоса версий компонента. -->
+                                <prompt-version-card v-if="isPromptConfigKey(item.key)"
+                                  variant="bar"
+                                  :title="configItemTitle(item)"
+                                  :prompt-key="item.key"
+                                  :chat-id="activeChatId"
+                                  :chat-title="activeChatTitleLabel"
+                                  :can-edit="canEditConfig(item.key)"
+                                  :reload-token="promptVersionReload"
+                                  @refresh="afterPromptVersionChange()"></prompt-version-card>
                               </div>
                             </div>
                           </details>
@@ -12494,19 +12343,30 @@
                       · доказательство: {{ speechBlockDetail.production_kind }}
                       · заводская ревизия: {{ speechBlockDetail.factory_revision }}
                     </div>
-                    <label class="block mt-2">
-                      <span class="text-xs text-gray-400">Текст ({{ speechBlockDraft.length }} зн.)</span>
-                      <textarea class="field w-full speech-editor scroll-thin" rows="8"
-                                spellcheck="false" data-autogrow
-                                :readonly="!speechBlockDetail.can_edit || !speechBlockDetail.editable"
-                                aria-label="Текст блока"
-                                :value="speechBlockDraft"
-                                @input="speechBlockDraft = $event.target.value; autoGrowEditor($event)"></textarea>
-                    </label>
+                    <!-- PVR-S4: та же карточка версий, что в остальных
+                         редакторах. Bounded-журнал (12 записей) больше не
+                         используется: история — из общего журнала, без потолка. -->
+                    <div class="mt-2">
+                      <prompt-version-card
+                        :title="speechBlockDetail.block_id"
+                        :prompt-key="speechBlockDetail.pg_key || speechBlockDetail.block_id"
+                        :chat-id="speechScopeFor('all') === 'chat' ? speechChatId : null"
+                        :chat-title="'этот чат'"
+                        v-model="speechBlockDraft"
+                        :effective-text="speechBlockDetail.saved.text || ''"
+                        :can-edit="!!(speechBlockDetail.can_edit && speechBlockDetail.editable)"
+                        :dirty="speechBlockDraft !== (speechBlockDetail.saved.text || '')"
+                        :busy="speechBusy"
+                        :reload-token="promptVersionReload"
+                        :rows="8"
+                        :save-label="'Сохранить'"
+                        :notice="speechBlockNotice"
+                        :notice-ok="speechBlockNoticeOk"
+                        @save="saveSpeechBlock()"
+                        @discard="speechBlockRevertDraft()"
+                        @refresh="afterPromptVersionChange()"></prompt-version-card>
+                    </div>
                     <div class="speech-actions">
-                      <button type="button" class="btn-accent text-sm"
-                              :disabled="speechBusy || !speechBlockDetail.can_edit || !speechBlockDetail.editable"
-                              @click="saveSpeechBlock()">Сохранить</button>
                       <button type="button" class="btn-ghost text-sm" @click="speechBlockDiff = !speechBlockDiff">
                         {{ speechBlockDiff ? 'Скрыть заводской' : 'Заводской вариант' }}
                       </button>
@@ -12548,20 +12408,6 @@
                     <div v-if="speechBlockDetail.diagnostics && speechBlockDetail.diagnostics.length"
                          class="text-xs text-gray-500">
                       диагностика: {{ speechBlockDetail.diagnostics.join(', ') }}
-                    </div>
-                    <div v-if="speechBlockDetail.history && speechBlockDetail.history.length" class="mt-2">
-                      <div class="text-xs text-gray-400 mb-1">История ({{ speechBlockDetail.history.length }})</div>
-                      <div v-for="h in speechBlockDetail.history" :key="'bh-' + h.sha256_12" class="speech-hist">
-                        <span class="text-xs">{{ speechHistKind(h.kind) }} · {{ speechHistScope(h.scope) }}
-                          · {{ h.chars }} зн. · {{ h.updated_at || '—' }}</span>
-                        <details class="text-xs text-gray-500">
-                          <summary class="text-xs">Технические данные ревизии</summary>
-                          <span>{{ h.kind }} · {{ h.scope }} · {{ h.sha256_12 }}</span>
-                        </details>
-                        <button type="button" class="btn-ghost text-xs"
-                                :disabled="speechBusy || !speechBlockDetail.can_edit"
-                                @click="rollbackSpeechBlock(speechBlockDetail.block_id, h, 'all')">Откатить</button>
-                      </div>
                     </div>
                     <div v-if="speechBlockDetail.factory_plan && speechBlockDetail.factory_plan.applies"
                          class="text-xs text-gray-500 mt-2" data-speech-factory-plan>
@@ -16025,6 +15871,276 @@
         </div>
       </teleport>
     </span>
+  </script>
+
+  <!-- ═══ EPIC-PROMPT-VERSIONING-UX-01 (PVR-S4) ═══════════════════════════
+       ЕДИНЫЙ компонент контроля версий промпта (`prompt-version-card`,
+       зарегистрирован в web/app.js; provide/inject: root).
+       Одна разметка монтируется во ВСЕХ редакторах промптов:
+         1) вкладка «Промпты» — редактор библиотеки (data-prompt&#8209;editor);
+         2) карточки модулей — компактная полоса (variant="bar");
+         3) «Инициатива → Мемы» — два промпта, у каждого своя история;
+         4) Speech/Character — редактор блока (data-speech-block-detail);
+         + каталог зарегистрированных промптов (variant="history").
+       Вторая похожая реализация запрещена (arch §6): правки — только здесь.
+       Карточка не показывает act:/fac:/sha/revision_id — они в раскрываемых
+       «Подробностях». «Применить» существует только при непустом revision_id
+       и actionable; иначе показывается причина (нет прав / code-only /
+       несовместима / retired / журнал недоступен), а не кнопка-пустышка.
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <script type="text/x-template" id="prompt-version-card-tpl">
+    <div class="pv" :class="'pv--' + variant" :data-pv-key="promptKey"
+         :data-pv-variant="variant" data-prompt-history>
+      <div class="pv-head">
+        <span v-if="variant !== 'bar'" class="pv-title">{{ title }}</span>
+        <span class="badge badge-muted pv-scope" data-pv-scope>{{ scopeLabel }}</span>
+        <span class="pv-state" :class="'pv-state--' + state.kind" data-pv-state
+              role="status" aria-live="polite">{{ state.text }}<template
+              v-if="state.detail"> · {{ state.detail }}</template></span>
+        <span v-if="dirty" class="pv-dirty" data-pv-dirty>черновик не сохранён</span>
+        <span class="flex-1"></span>
+        <button type="button" class="btn-ghost text-xs pv-history-btn"
+                data-prompt-history-toggle
+                :aria-expanded="hist.open ? 'true' : 'false'"
+                @click="openHistory()">
+          <span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span>
+          История версий
+        </button>
+        <button type="button" class="btn-ghost text-xs pv-more-btn"
+                data-pv-more-toggle aria-haspopup="menu"
+                aria-label="Ещё действия с промптом"
+                :aria-expanded="menu ? 'true' : 'false'"
+                @click="menu = !menu">⋯</button>
+      </div>
+
+      <div v-if="menu" class="pv-menu" role="menu" data-pv-more-menu
+           @keydown.esc="menu = false">
+        <button type="button" class="more-menu-item" role="menuitem"
+                data-pv-more-history @click="menu = false; openHistory()">История версий</button>
+        <button type="button" class="more-menu-item" role="menuitem"
+                data-pv-more-details @click="menu = false; details = !details">
+          {{ details ? 'Скрыть подробности' : 'Подробности и диагностика' }}
+        </button>
+        <button type="button" class="more-menu-item" role="menuitem"
+                data-pv-more-factory @click="menu = false; restoreFactory()">
+          Вернуть исходную из кода…
+        </button>
+        <button v-if="hasBaseline" type="button" class="more-menu-item" role="menuitem"
+                data-pv-more-clear-baseline @click="menu = false; clearBaseline()">
+          Снять назначение базовой
+        </button>
+        <button v-if="hasBaseline" type="button" class="more-menu-item" role="menuitem"
+                data-pv-more-restore-baseline @click="menu = false; restoreBaseline()">
+          {{ isChatScope ? 'Восстановить базовую для чата…' : 'Восстановить базовую…' }}
+        </button>
+        <button v-for="ln in detailsLines" :key="'dl-' + ln" type="button"
+                class="more-menu-item pv-detail-line" role="menuitem" disabled>{{ ln }}</button>
+      </div>
+
+      <!-- ── Редактируемый текст (действующий; черновик отличается явно) ── -->
+      <template v-if="variant === 'card'">
+        <div v-if="noWrapToggle" class="flex items-center gap-2 flex-wrap mb-1"
+             data-prompt-wrap-toggle>
+          <span class="ctl-seg" role="group" aria-label="Перенос строк в редакторе">
+            <button type="button" class="ctl-seg__btn"
+                    :aria-checked="noWrap ? 'false' : 'true'"
+                    @click="toggleNoWrap(false)">Перенос</button>
+            <button type="button" class="ctl-seg__btn"
+                    :aria-checked="noWrap ? 'true' : 'false'"
+                    @click="toggleNoWrap(true)">Без переноса</button>
+          </span>
+          <span class="ctl-hint">Длинные строки прокручиваются внутри поля</span>
+        </div>
+        <label class="pv-text-wrap" :for="taId">
+          <span class="sr-only">{{ title || 'Текст промпта' }}</span>
+          <textarea class="field scroll-thin ctl-textarea ctl-mono ctl-editor-area pv-text"
+                    v-bind="$attrs"
+                    :id="taId" :rows="rows"
+                    :class="{ 'pv-text--dirty': dirty }"
+                    :data-nowrap="noWrap ? '1' : '0'"
+                    :data-prompt-textarea="promptKey"
+                    :aria-invalid="invalid ? 'true' : 'false'"
+                    :readonly="!canEdit"
+                    aria-label="Текст промпта"
+                    :value="modelValue"
+                    @input="draftChanged($event)"></textarea>
+        </label>
+        <!-- Эффективный текст сервера виден отдельно от черновика: правка
+             никогда не выдаётся за действующую. -->
+        <details v-if="dirty" class="pv-effective" data-pv-effective>
+          <summary>Действующий текст (сохранён на сервере)</summary>
+          <pre class="pv-pre scroll-thin">{{ effectiveText || '(пусто)' }}</pre>
+        </details>
+        <div v-if="hint" class="pv-hint">
+          <details data-pv-hint>
+            <summary>{{ hintTitle || 'Подсказка' }}</summary>
+            <div class="pv-hint__text">{{ hint }}</div>
+          </details>
+        </div>
+        <div v-if="notice" class="pv-notice" data-pv-notice
+             :class="noticeOk ? 'text-emerald-300' : 'text-amber-300'"
+             role="status" aria-live="polite">{{ notice }}</div>
+        <div class="pv-foot">
+          <button type="button" class="btn-ghost text-xs" data-pv-discard
+                  :disabled="busy || !dirty"
+                  @click="emitDiscard()">Отменить несохранённое</button>
+          <span class="flex-1"></span>
+          <button type="button" class="btn-accent text-xs" data-pv-save
+                  :disabled="busy || !dirty || !canEdit"
+                  @click="emitSave()">{{ busy ? 'Сохранение…' : saveLabel }}</button>
+        </div>
+      </template>
+
+      <!-- ── «История версий»: боковая панель / полноэкранная на мобильном ── -->
+      <teleport to="body">
+        <div v-if="hist.open" class="pv-scrim" data-pv-panel-scrim
+             @click.self="closeHistory()">
+          <aside ref="panel" class="pv-panel" role="dialog" aria-modal="true"
+                 tabindex="-1" data-pv-panel
+                 :aria-label="'История версий промпта ' + (title || promptKey)"
+                 @keydown.esc="closeHistory()">
+            <header class="pv-panel__head">
+              <div class="pv-panel__title">{{ title || promptKey }}</div>
+              <button type="button" class="btn-ghost text-xs" data-pv-panel-close
+                      @click="closeHistory()">Закрыть</button>
+            </header>
+            <div class="pv-panel__meta" data-pv-panel-meta>
+              <span class="pv-panel__scope" data-pv-panel-scope>область: {{ scopeLabel }}</span>
+              <span data-pv-panel-active>действует: {{ activeLabel }}</span>
+              <span data-pv-panel-factory>исходный из кода: {{ factoryLabel }}</span>
+              <span data-pv-panel-baseline>базовый по выбору владельца: {{ baselineLabel }}</span>
+            </div>
+            <div class="pv-panel__legend" data-pv-panel-legend>
+              Полный список сохранений и включений, новые сверху: номер и дата ·
+              источник · кто · область · статус. «Посмотреть» — дословный текст,
+              «Сравнить» — «было → стало».
+            </div>
+            <div class="pv-panel__body scroll-thin">
+              <div v-if="hist.loading" class="text-xs text-gray-500"
+                   data-pv-panel-loading>Загрузка истории…</div>
+              <div v-else-if="hist.error" class="pv-warn" data-pv-panel-error>
+                {{ hist.error }}
+              </div>
+              <template v-else-if="data">
+                <div v-if="!entries.length" class="text-xs text-gray-500"
+                     data-prompt-history-empty>
+                  Сохранённых версий ещё нет — первая появится после заводской
+                  поставки или правки.
+                </div>
+                <div v-else class="pv-rows" data-prompt-history-versions>
+                  <div v-for="entry in entries" :key="'pv-' + entry.order"
+                       class="pv-row" data-pv-row
+                       :data-prompt-history-revision="entry.revision_id || ''"
+                       :data-pv-order="entry.order"
+                       :data-pv-status="entry.status"
+                       :class="{ 'is-active': isActiveEntry(entry),
+                                 'is-baseline': isBaselineEntry(entry) }">
+                    <div class="pv-row__main">
+                      <span class="pv-row__order">#{{ entry.order }}</span>
+                      <span class="pv-row__when">{{ rowWhen(entry) || 'время неизвестно' }}</span>
+                      <span class="badge badge-muted pv-row__source"
+                            data-pv-row-source>{{ sourceLabel(entry) }}</span>
+                      <span v-if="rowActor(entry)" class="pv-row__actor"
+                            data-pv-row-actor>{{ rowActor(entry) }}</span>
+                      <span class="pv-row__scope">{{ rowScope(entry) }}</span>
+                      <span class="badge pv-row__status"
+                            :class="entry.status === 'active' ? 'badge-ok'
+                                    : (entry.status === 'retired' || entry.status === 'incompatible'
+                                       ? 'badge-warn' : 'badge-muted')"
+                            data-pv-row-status>{{ rowStatus(entry) }}</span>
+                    </div>
+                    <div class="pv-row__actions">
+                      <button v-if="canViewBody(entry)" type="button"
+                              class="btn-ghost text-xs" data-pv-row-view
+                              @click="view(entry)">
+                        {{ hist.viewId === entry.revision_id ? 'Скрыть текст' : 'Посмотреть' }}
+                      </button>
+                      <button v-if="entry.revision_id" type="button"
+                              class="btn-ghost text-xs" data-pv-row-compare
+                              :disabled="hist.diffLoading" @click="compare(entry)">Сравнить</button>
+                      <button v-if="canActivate(entry)" type="button"
+                              class="btn-ghost text-xs" data-pv-row-activate
+                              :disabled="hist.busyRev !== ''" @click="activate(entry)">
+                        Применить эту версию
+                      </button>
+                      <button v-if="canAssign(entry)" type="button"
+                              class="btn-ghost text-xs" data-pv-row-baseline
+                              :disabled="hist.busyRev !== ''" @click="assignBaseline(entry)">
+                        Назначить базовой
+                      </button>
+                      <button v-if="canViewBody(entry)" type="button"
+                              class="btn-ghost text-xs" data-pv-row-copy
+                              @click="copy(entry)">Скопировать</button>
+                      <button v-if="canCopyToGlobal() && entry.revision_id" type="button"
+                              class="btn-ghost text-xs" data-pv-row-copy-global
+                              :disabled="hist.busyRev !== ''" @click="copyToGlobal(entry)">
+                        Скопировать глобально
+                      </button>
+                    </div>
+                    <div v-if="entry.revision_id && !canActivate(entry) && !isActiveEntry(entry)
+                              && rowReason(entry)"
+                         class="pv-row__reason" data-pv-row-reason>{{ rowReason(entry) }}</div>
+                    <div v-if="entry.revision_id && hist.viewId === entry.revision_id"
+                         class="pv-row__view" data-prompt-history-view>
+                      <div v-if="hist.viewLoading" class="text-xs text-gray-500">
+                        Загрузка текста…
+                      </div>
+                      <div v-else-if="hist.viewError" class="pv-warn" data-pv-view-error>
+                        {{ hist.viewError }}
+                      </div>
+                      <pre v-else class="pv-pre pv-pre--full scroll-thin"
+                           data-pv-view-body>{{ hist.viewBody }}</pre>
+                    </div>
+                  </div>
+                </div>
+                <div class="pv-more" data-pv-more>
+                  <button v-if="hist.more" type="button" class="btn-ghost text-xs"
+                          data-pv-load-more :disabled="hist.moreLoading"
+                          @click="loadMore()">
+                    {{ hist.moreLoading ? 'Загрузка…' : 'Показать более ранние версии' }}
+                  </button>
+                  <span v-else class="text-[10px] text-gray-500" data-pv-end>
+                    Это вся доступная история — старее записей нет.
+                  </span>
+                  <span v-if="hist.moreError" class="pv-warn">{{ hist.moreError }}</span>
+                </div>
+              </template>
+              <div v-if="hist.diffTitle" class="pv-diff-title" data-pv-diff-title>
+                {{ hist.diffTitle }}
+              </div>
+              <div v-if="hist.diffError" class="pv-warn" data-pv-diff-error>
+                {{ hist.diffError }}
+              </div>
+              <pre v-if="hist.diff && hist.diff.length" class="pv-diff scroll-thin"
+                   data-prompt-history-diff><span v-for="(ln, i) in hist.diff"
+                   :key="'pd' + i" :class="diffClass(ln)">{{ ln }}
+</span></pre>
+              <div v-if="hist.result" class="pv-result" data-prompt-history-result
+                   role="status" aria-live="polite"
+                   :class="hist.result.ok ? 'text-emerald-300' : 'text-amber-300'">
+                {{ hist.result.text }}
+              </div>
+            </div>
+            <footer class="pv-panel__foot" data-pv-panel-actions>
+              <button type="button" class="btn-ghost text-xs" data-pv-clear-baseline
+                      :disabled="!hasBaseline || hist.busyRev !== ''"
+                      :title="hasBaseline ? 'Вернуть эталон из кода' : 'Назначение базовой не задано'"
+                      @click="clearBaseline()">Снять назначение</button>
+              <button type="button" class="btn-ghost text-xs" data-pv-restore-baseline
+                      :disabled="!hasBaseline || hist.busyRev !== ''"
+                      @click="restoreBaseline()">
+                {{ isChatScope ? 'Восстановить базовую для чата' : 'Восстановить базовую' }}
+              </button>
+              <span class="flex-1"></span>
+              <button type="button" class="btn-ghost text-xs" data-pv-factory-restore
+                      :disabled="hist.busyRev !== ''" @click="restoreFactory()">
+                Вернуть исходную из кода
+              </button>
+            </footer>
+          </aside>
+        </div>
+      </teleport>
+    </div>
   </script>
 
   <!-- KV-редактор (3.5.2): шаблон компонента kv-editor для полей c

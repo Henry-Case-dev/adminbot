@@ -672,22 +672,37 @@ function settingsPayload(extra) {
 
 // ── 8. Разметка карточки: реальные поля, числа, оба блока ────────────────
 (function () {
-  // Оба промпта — РЕАЛЬНЫЕ поля ввода (v-model на черновик), не пассивный текст.
-  const textareas = CARD.match(/<textarea[\s\S]*?<\/textarea>/g) || [];
-  assert.strictEqual(textareas.length, 2, 'в карточке ровно два поля промптов');
-  const taJoke = textareas.filter(function (t) {
+  // PVR-S4: оба поля мемов — ОДИН компонент версий (`prompt-version-card`).
+  // Сам textarea один и живёт в общем шаблоне компонента: второго редактора
+  // промпта в карточке быть не должно.
+  const mounts = CARD.match(/<prompt-version-card[\s\S]*?<\/prompt-version-card>/g)
+    || [];
+  assert.strictEqual(mounts.length, 2, 'в карточке ровно два поля-компонента');
+  const mJoke = mounts.filter(function (t) {
     return t.indexOf('data-meme-prompt-joke') >= 0;
   })[0];
-  const taImage = textareas.filter(function (t) {
+  const mImage = mounts.filter(function (t) {
     return t.indexOf('data-meme-prompt-image') >= 0;
   })[0];
-  assert.ok(taJoke, 'нет поля промпта прикола');
-  assert.ok(taImage, 'нет поля шаблона картинки');
-  assert.ok(taJoke.indexOf('v-model="memeDraft.prompt_joke"') >= 0,
+  assert.ok(mJoke, 'нет поля промпта прикола');
+  assert.ok(mImage, 'нет поля шаблона картинки');
+  assert.ok(mJoke.indexOf('v-model="memeDraft.prompt_joke"') >= 0,
     'поле прикола не связано с черновиком');
-  assert.ok(taImage.indexOf('v-model="memeDraft.prompt_image"') >= 0,
+  assert.ok(mImage.indexOf('v-model="memeDraft.prompt_image"') >= 0,
     'поле шаблона не связано с черновиком');
-  // Пассивный текст шаблона убран.
+  // Маркеры полей адресуются textarea компонента через $attrs (одна реализация).
+  assert.ok(APP_JS_SRC.indexOf('inheritAttrs: false') >= 0);
+  assert.ok(INDEX.indexOf('v-bind="$attrs"') >= 0);
+  const tplHead = INDEX.indexOf('id="prompt-version-card-tpl"');
+  const tplBody = INDEX.slice(tplHead, INDEX.indexOf('</script>', tplHead));
+  assert.strictEqual((tplBody.match(/<textarea/g) || []).length, 1,
+    'редактор промпта — один textarea в общем шаблоне');
+  assert.ok(tplBody.indexOf('data-prompt-textarea') >= 0);
+  // Сырой технический счётчик `{joke}: N` в видимой строке не выводится —
+  // вместо него спокойная человеческая подсказка в раскрываемом виде.
+  assert.strictEqual(CARD.indexOf('{joke}: '), -1,
+    'сырой `{joke}: N` заменён человеческой подсказкой');
+  assert.ok(CARD.indexOf('data-meme-joke-mode') >= 0);
   assert.strictEqual(CARD.indexOf('data-meme-prompt-text'), -1);
   // Три числа §3 ТЗ.
   ['data-meme-limit-ceiling', 'data-meme-limit-template',

@@ -1,4 +1,4 @@
-﻿/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
+/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.
  * Vue 3 Options API (global build), zero-build. Все запросы — через api()
  * с заголовком X-Telegram-Init-Data (84.6). 401 → сессия устарела;
  * 403 → запрет. Вкладки «Статус» и «Справка» видны ВСЕГДА.
@@ -1488,15 +1488,6 @@
   // снова); лимит ~200 URL, при переполнении revoke самого старого.
   var _avatarCache = new Map();
   var _AVATAR_CACHE_MAX = 200;
-
-  // ═══ EVOL-017: кэш состояния «Истории версий» промпта ═══
-  // Ключ `key|global` / `key|chat:<id>` → снапшот панели (data/selA/selB/
-  // diff/текст/скролл). Переключение промпта/области НЕ теряет выбор и
-  // позицию списка; свежесть 60 c (старше — честная перезагрузка), лимит
-  // 24 записи (вытеснение самой старой) — панель одна на фокус.
-  var _promptHistoryCache = new Map();
-  var _PROMPT_HISTORY_TTL_MS = 60000;
-  var _PROMPT_HISTORY_CACHE_MAX = 24;
 
   // ═══ F4 (graph-physics-stabilization-round1018, ADR-1018-4) ═══
   // Физика графа: короткая стабилизация (150 итераций вместо 250) и
@@ -3280,20 +3271,6 @@
         // EVOL-017: «История версий» активного промпта (панель в редакторе
         // библиотеки). Ручная редакция — НОРМАЛЬНОЕ состояние (не авария);
         // при провале активации активная версия остаётся, UI говорит об этом.
-        promptHistory: {
-          open: false,            // панель развернута
-          loading: false,
-          error: '',              // ошибка загрузки истории
-          data: null,             // ответ GET /api/prompts/<key>/versions
-          selA: '', selB: '',     // выбранные ревизии для сравнения
-          diff: null,             // строки unified-diff
-          diffLoading: false, diffError: '',
-          viewId: '',             // ревизия полного текста ("" — скрыт)
-          viewBody: '', viewLoading: false,
-          busyRev: '',            // activate в полёте (revision_id)
-          result: null,           // {ok: boolean, text: string}
-          cacheKey: '',           // ключ, под которым снимок лежит в кэше
-        },
         // EVOL-017: каталог ВСЕХ зарегистрированных промптов на существующей
         // вкладке «Промпты» (не новая вкладка меню). Внутренние/кодовые
         // блоки видны для истории; включение — только у совместимых pg-ключей.
@@ -3307,6 +3284,10 @@
           // «ИИ» не путала пустой каталог с ещё не загруженным.
           loaded: false,
         },
+        // PVR-S4: тик перечитывания состояния версий в едином компоненте
+        // (после Save/Применить/Назначить карточка читает сервер заново —
+        // оптимистического «сохранено» нет).
+        promptVersionReload: 0,
         // MCA-19 (T-5103/T-5116): живая effective-линия карточки «Распознава­
         // ние изображений» (GET /api/vision/state при открытии вкладки
         // «Модели»; null → линия скрыта, 403/RBAC — честно без линии).
@@ -5073,66 +5054,85 @@
         });
         return out;
       },
-      // ═══ EVOL-017: «История версий» — computed ═══
-      // Ключ кэша состояния: промпт + область (global/chat:<id>). Смена
-      // промпта ИЛИ области → watcher перезагружает/восстанавливает панель.
-      promptHistoryCacheKey: function () {
-        if (this.promptCatalog && this.promptCatalog.focusKey
-            && !(this.workspace && this.workspace.promptKey)) {
-          return 'catalog:' + this.promptCatalog.focusKey + '|global';
-        }
-        var it = this.workspacePromptFocus;
-        if (!it || !it.key) return '';
-        return it.key + '|' + (this.activeChatId == null
-          ? 'global' : ('chat:' + this.activeChatId));
+      // ═══ PVR-S4: данные хоста для единой карточки версий ═══
+      // Единый компонент отвечает за историю/действия; хост даёт только
+      // черновик, действующий текст и честный статус сохранения.
+      activeChatTitleLabel: function () {
+        return this.activeChatId == null ? '' : (this.activeChatTitle || '');
       },
-      promptHistoryActiveLabel: function () {
-        var d = this.promptHistory.data;
-        if (!d) return '';
-        if (!d.active) return 'Активная версия не зафиксирована';
-        return this.phOriginLabel(d.active);
-      },
-      promptHistoryScopeLabel: function () {
-        var d = this.promptHistory.data;
-        if (!d) return '';
-        return d.scope === 'chat'
-          ? ('Область: чат ' + d.chat_id) : 'Область: глобальная';
-      },
-      // Время ревизии активной версии (честная метка данных журнала).
-      phActiveCreated: function () {
-        var d = this.promptHistory.data;
-        return (d && d.active && d.active.created_at) || '';
-      },
-      // Шорткат «Активная ⇄ заводская»: есть обе ревизии (последняя
-      // заводская — из хронологии, origin=factory).
-      phFactoryCompareAvailable: function () {
-        var d = this.promptHistory.data;
-        if (!d || !d.active || !d.active.revision_id) return false;
-        return !!this.phLatestFactoryRevision();
-      },
-      // Событие, которым текущая ревизия стала активной. Время события
-      // активации журнал отдаёт (prompt_activations.created_at) — показываем
-      // его честно; старые строки без времени не превращаются в выдуманные
-      // часы (никакого «таймера активации не отдаётся» в UI больше нет).
-      phActivationNote: function () {
-        var d = this.promptHistory.data;
-        if (!d || !d.active) return '';
-        var rows = d.activations || [];
-        var hit = null;
-        for (var i = 0; i < rows.length; i++) {
-          if (rows[i].revision_id === d.active.revision_id
-              && (rows[i].outcome === 'applied'
-                  || rows[i].outcome === 'skipped_same')) {
-            hit = rows[i];
-            break;
+      promptCatalogFocusTitle: function () {
+        var c = this.promptCatalog || {};
+        var key = c.focusKey;
+        if (!key) return '';
+        var fams = c.families || [];
+        for (var i = 0; i < fams.length; i++) {
+          var rows = fams[i].prompts || [];
+          for (var j = 0; j < rows.length; j++) {
+            if ((rows[j].pg_key || rows[j].block_id) === key) {
+              return rows[j].purpose || key;
+            }
           }
         }
-        if (!hit) return 'Событие включения для активной версии не зафиксировано';
-        var when = this.phWhen(hit.created_at);
-        return 'Включена ' + (when ? when + ' · ' : '')
-          + 'событием: ' + this.phEventLabel(hit);
+        return key;
       },
-      // §9.3 spec: инвариант покрытия §117(1–4) — ДОКАЗАТЕЛЬНЫЙ.
+      // Черновик редактора библиотеки отличается от сохранённого значения:
+      // сравнение с УЖЕ существующим снимком конфигурации (второго baseline
+      // и второй модели «изменено» не вводится).
+      workspacePromptDirty: function () {
+        var it = this.workspacePromptFocus;
+        if (!it || it.key == null) return false;
+        var snap = this.configSnapshot || {};
+        if (!Object.prototype.hasOwnProperty.call(snap, it.key)) return false;
+        return snap[it.key] !== this._serializeValue(it.value);
+      },
+      promptSaveBusy: function () {
+        return this.saveState === 'saving';
+      },
+      // Единственный статус сохранения карточки. Оптимистического
+      // «сохранено» нет: только «сохраняем», конфликт и ошибка.
+      promptEditorNotice: function () {
+        if (this.saveState === 'saving') return 'Сохраняем на сервер…';
+        if (this.saveState === 'conflict') {
+          return 'Версия изменилась в другом окне или релизе: сохранение '
+            + 'остановлено, ваш черновик остался в поле.';
+        }
+        if (this.saveState === 'error') {
+          return 'Сохранение не удалось: черновик остался в поле.';
+        }
+        return '';
+      },
+      promptEditorNoticeOk: function () {
+        return this.saveState !== 'conflict' && this.saveState !== 'error';
+      },
+      // §2.1 ТЗ: сырой технический счётчик `{joke}: N` больше не показывается.
+      // Три режима шаблона остаются теми же (append / slot / ошибка ≥2).
+      memeJokeModeKey: function () {
+        var v = this.memeSettingsView;
+        if (!v) return 'unknown';
+        if (!v.templateValid) return 'invalid';
+        return v.templatePlaceholders >= 1 ? 'slot' : 'append';
+      },
+      memeJokeModeHint: function () {
+        var k = this.memeJokeModeKey;
+        var v = this.memeSettingsView;
+        if (k === 'invalid') {
+          return (v && v.templateError) || 'Шаблон неверен: допускается не более '
+            + 'одного {joke}.';
+        }
+        if (k === 'slot') {
+          return 'Прикол вставится в отмеченное место — там, где в шаблоне '
+            + 'стоит {joke}.';
+        }
+        return 'Прикол автоматически добавится после шаблона: отдельная метка '
+          + '{joke} не нужна, менять текст шаблона не требуется.';
+      },
+      memeJokeModeSummary: function () {
+        var k = this.memeJokeModeKey;
+        if (k === 'invalid') return 'конфигурация шаблона неверна';
+        if (k === 'slot') return 'прикол вставляется в отмеченное место';
+        return 'прикол добавляется после шаблона';
+      },
+      // §9.3 spec: инвариант покрытия §117(1-4) - ДОКАЗАТЕЛЬНЫЙ.
       workspaceCoverage: function () {
         var m = this.workspaceModule;
         if (!m) return { groups: [], missing: [] };
@@ -9447,16 +9447,6 @@
       workspacePromptStale: function (stale) {
         if (stale) this.promptBackToList();
       },
-      // EVOL-017: смена промпта или области не теряет выбор версий —
-      // снимок уходит в кэш, новый ключ восстанавливается или грузится.
-      promptHistoryCacheKey: function (key, prev) {
-        if (prev && prev !== key && typeof this._phSaveCache === 'function') {
-          this._phSaveCache(prev);
-        }
-        if (key && typeof this._phApplyCache === 'function') {
-          this._phApplyCache(key);
-        }
-      },
       // F11 (§16/D4): смена режима графа (mobile-упрощение ↔ отдельный экран
       // полного исследования) — пере-рендер vis.Network (режим входит в
       // сигнатуру рендера). Сеть читается только на «Статусе».
@@ -13173,6 +13163,10 @@
           };
           this.toast('Настройки мемов сохранены для этого чата', 'ok');
           this.loadMemeDiagnostics();
+          // PVR-S4: карточки версий перечитывают журнал после записи —
+          // «сохранено» не рисуется до ответа сервера, а состояние версий
+          // не должно отставать от только что записанных байтов.
+          this.promptVersionReload = (this.promptVersionReload || 0) + 1;
         } catch (e) {
           var fieldErrors = this.memeFieldErrorsFrom(e);
           var labels = {
@@ -19421,359 +19415,77 @@
         if (!ws) return;
         this.navigateTo('#/ai/prompts/' + ws.slug);
       },
-      // ═══ EVOL-017: «История версий» ═══
-      phOriginLabel: function (rev) {
-        if (!rev) return '';
-        var origin = rev.origin || '';
-        if (origin === 'factory') {
-          var label = rev.factory_revision || '';
-          if (!label && this.promptHistory && this.promptHistory.data) {
-            var rows = this.promptHistory.data.revisions || [];
-            for (var i = 0; i < rows.length; i++) {
-              if (rows[i].revision_id === rev.revision_id) {
-                label = rows[i].factory_revision || '';
-                break;
-              }
-            }
-          }
-          return label ? ('Заводская #' + label) : 'Заводская';
+      // ═══ PVR-S4: методы хоста для единой карточки версий ═══
+      // Действующий (сохранённый на сервере) текст промпта витрины библиотеки:
+      // берётся из существующего снимка конфигурации, не из черновика.
+      promptSavedText: function (key) {
+        var snap = this.configSnapshot || {};
+        if (!Object.prototype.hasOwnProperty.call(snap, key)) return '';
+        try {
+          var v = JSON.parse(snap[key]);
+          return v == null ? '' : String(v);
+        } catch (e) {
+          return String(snap[key] == null ? '' : snap[key]);
         }
-        if (origin === 'manual') return 'Изменена в админке';
-        if (origin === 'restored') return 'Восстановлена из истории';
-        // Импорт неизвестного старого текста — не автор и не дата правки.
-        if (origin === 'legacy') return 'импортировано при переходе';
-        return origin || 'версия';
       },
-      phWhen: function (iso) {
-        if (!iso) return '';
-        var s = String(iso);
-        if (s.length >= 16) return s.slice(0, 16).replace('T', ' ');
-        return s;
+      discardPromptDraft: function () {
+        var it = this.workspacePromptFocus;
+        if (!it || it.key == null) return;
+        it.value = this.promptSavedText(it.key);
       },
-      // Пусто для legacy и для строки без актора: не выдумываем автора.
-      phAuthor: function (row) {
-        if (!row) return '';
-        if (row.origin === 'legacy' || row.reason === 'legacy_import'
-            || row.kind === 'legacy_import'
-            || row.detail_code === 'legacy_import') return '';
-        var actor = String(row.actor || '').trim();
-        return actor ? ('кто: ' + actor) : '';
+      // Ключи реестра промптов живут в пространстве `prompts.*`
+      // (единственный источник имён — существующий каталог, второго реестра
+      // на фронте нет). Прочие поля модулей карточку версий не получают.
+      isPromptConfigKey: function (key) {
+        return !!key && String(key).indexOf('prompts.') === 0;
       },
-      phEventLabel: function (ev) {
-        var kind = ev && ev.kind;
-        var map = {
-          deploy_activate: 'заводская поставка',
-          factory_apply: 'заводская поставка',
-          manual_edit: 'правка в админке',
-          manual_rollback: 'откат на сохранённую версию',
-          manual_forward: 'возврат вперёд',
-          legacy_import: 'импортировано при переходе',
-          integrity_reject: 'поставка отклонена',
-        };
-        return map[kind] || (kind || 'событие');
-      },
-      phOutcomeLabel: function (ev) {
-        var outcome = ev && ev.outcome;
-        if (outcome === 'applied') return 'включено';
-        if (outcome === 'skipped_same') return 'уже было активно';
-        if (outcome === 'failed') return 'не включено';
-        if (outcome === 'skipped_empty') return 'пусто, пропущено';
-        return outcome || '';
-      },
-      phIsActive: function (rev) {
-        var d = this.promptHistory && this.promptHistory.data;
-        return !!(rev && d && d.active
-                  && d.active.revision_id === rev.revision_id);
-      },
-      phSchemaOk: function (rev) {
-        if (!rev || !rev.schema_compat) return true;
-        var allowed = (this.promptHistory && this.promptHistory.data
-                       && this.promptHistory.data.supported_schema_compat) || [];
-        return allowed.indexOf(rev.schema_compat) >= 0;
-      },
-      phCanActivate: function (rev) {
-        if (!rev || rev.retired) return false;
-        if (!this.phSchemaOk(rev)) return false;
-        var d = this.promptHistory && this.promptHistory.data;
-        if (d && d.manageable === false) return false;
-        return true;
-      },
-      phBlockReason: function (rev) {
-        if (!rev) return '';
-        if (rev.retired) {
-          return 'Снята с регистрации (retired): включение заблокировано. '
-            + 'Просмотр и сравнение доступны.';
+      // После Применить/Назначить/Восстановить карточка обязана показать
+      // ФАКТИЧЕСКОЕ состояние сервера: перечитываем конфигурацию.
+      afterPromptVersionChange: function () {
+        this.promptVersionReload = (this.promptVersionReload || 0) + 1;
+        if (typeof this.loadConfig !== 'function') return;
+        if (this.workspacePromptDirty
+            && typeof window !== 'undefined'
+            && typeof window.confirm === 'function'
+            && !window.confirm('Действующий текст промпта изменён на сервере. '
+              + 'Загрузить его и заменить несохранённый черновик? '
+              + 'Отказ оставит черновик в поле.')) {
+          return;
         }
-        if (rev.schema_compat && !this.phSchemaOk(rev)) {
-          return 'Несовместима со схемой «' + rev.schema_compat
-            + '» (schema_incompatible): включение заблокировано. '
-            + 'Просмотр и сравнение доступны. Безопасный путь — новая '
-            + 'заводская поставка или новая правка, совместимая с текущей схемой.';
-        }
-        var d = this.promptHistory && this.promptHistory.data;
-        if (d && d.manageable === false) {
-          return 'Нет переключаемого значения в базе: включение из админки '
-            + 'недоступно. Просмотр истории доступен.';
-        }
-        return 'Включение недоступно';
+        return this.loadConfig();
       },
-      phActivateLabel: function (rev) {
-        var d = this.promptHistory && this.promptHistory.data;
-        var active = d && d.active;
-        var rows = (d && d.revisions) || [];
-        var ai = -1;
-        var ri = -1;
-        for (var i = 0; i < rows.length; i++) {
-          if (active && rows[i].revision_id === active.revision_id) ai = i;
-          if (rev && rows[i].revision_id === rev.revision_id) ri = i;
-        }
-        if (ri >= 0 && ai >= 0 && ri < ai) return 'Откатить сюда';
-        if (ri >= 0 && ai >= 0 && ri > ai) return 'Вернуть вперёд';
-        return 'Включить';
+      memeFieldDirty: function (field) {
+        var d = this.memeDraft || {};
+        var st = this.memeSettingsView;
+        if (!st) return false;
+        var view = (field === 'prompt_joke') ? st.promptJoke : st.promptImage;
+        var server = String((view && view.text) || '');
+        return String(d[field] == null ? '' : d[field]) !== server;
       },
-      phRevisionsNewestFirst: function () {
-        var d = this.promptHistory && this.promptHistory.data;
-        var rows = (d && d.revisions) ? d.revisions.slice() : [];
-        rows.reverse();
-        return rows;
+      memePromptRevertDraft: function (field) {
+        var st = this.memeSettingsView;
+        if (!st || (field !== 'prompt_joke' && field !== 'prompt_image')) return;
+        var view = (field === 'prompt_joke') ? st.promptJoke : st.promptImage;
+        this.memeDraft[field] = String((view && view.text) || '');
+        var errs = Object.assign({}, this.memeFieldErrors || {});
+        errs[field] = '';
+        this.memeFieldErrors = errs;
       },
-      phLatestFactoryRevision: function () {
-        var d = this.promptHistory && this.promptHistory.data;
-        var rows = (d && d.revisions) || [];
-        var found = null;
-        for (var i = 0; i < rows.length; i++) {
-          if (rows[i].origin === 'factory' && !rows[i].retired) found = rows[i];
-        }
-        return found;
+      memeCardNotice: function (field) {
+        // Карточка показывает только СВОЮ ошибку поля: общий результат
+        // сохранения настроек мемов остаётся в шапке секции (data-meme-save-state).
+        return this.memeFieldError(field) || '';
       },
-      phDiffClass: function (ln) {
-        var s = String(ln || '');
-        if (s.indexOf('+++') === 0 || s.indexOf('---') === 0) return 'ph-diff-meta';
-        if (s.indexOf('+') === 0) return 'ph-diff-add';
-        if (s.indexOf('-') === 0) return 'ph-diff-del';
-        if (s.indexOf('@@') === 0) return 'ph-diff-hunk';
+      speechBlockNotice: function () {
         return '';
       },
-      _phTarget: function () {
-        if (this.promptCatalog && this.promptCatalog.focusKey
-            && !(this.workspace && this.workspace.promptKey)) {
-          return { key: this.promptCatalog.focusKey, chatId: null, global: true };
-        }
-        var it = this.workspacePromptFocus;
-        if (!it || !it.key) return null;
-        if (this.activeChatId == null) {
-          return { key: it.key, chatId: null, global: true };
-        }
-        return { key: it.key, chatId: this.activeChatId, global: false };
+      speechBlockNoticeOk: function () {
+        return true;
       },
-      _phSaveCache: function (key) {
-        var h = this.promptHistory;
-        if (!h || !key) return;
-        var snap = {
-          at: Date.now(),
-          open: !!h.open,
-          selA: h.selA || '',
-          selB: h.selB || '',
-          viewId: h.viewId || '',
-          data: h.data || null,
-        };
-        _promptHistoryCache.delete(key);
-        _promptHistoryCache.set(key, snap);
-        while (_promptHistoryCache.size > _PROMPT_HISTORY_CACHE_MAX) {
-          var oldest = _promptHistoryCache.keys().next().value;
-          _promptHistoryCache.delete(oldest);
-        }
-      },
-      _phApplyCache: function (key) {
-        var h = this.promptHistory;
-        if (!h) return;
-        h.cacheKey = key || '';
-        h.diff = null;
-        h.diffError = '';
-        h.result = null;
-        h.error = '';
-        var snap = key ? _promptHistoryCache.get(key) : null;
-        var fresh = snap && (Date.now() - snap.at) < _PROMPT_HISTORY_TTL_MS;
-        if (fresh) {
-          h.open = !!snap.open;
-          h.selA = snap.selA || '';
-          h.selB = snap.selB || '';
-          h.viewId = snap.viewId || '';
-          h.data = snap.data || null;
-          h.viewBody = '';
-          if (h.open && !h.data) this.loadPromptHistory(false);
-          return;
-        }
-        h.data = null;
-        h.selA = '';
-        h.selB = '';
-        h.viewId = '';
-        h.viewBody = '';
-        if (h.open) this.loadPromptHistory(false);
-      },
-      togglePromptHistory: function () {
-        var h = this.promptHistory;
-        h.open = !h.open;
-        if (h.open && !h.data && !h.loading) this.loadPromptHistory(false);
-        if (h.cacheKey) this._phSaveCache(h.cacheKey);
-      },
-      loadPromptHistory: async function (force) {
-        var target = this._phTarget();
-        var h = this.promptHistory;
-        if (!target) {
-          h.error = 'Промпт не выбран';
-          return;
-        }
-        if (h.loading) return;
-        h.loading = true;
-        h.error = '';
-        try {
-          var data = await this.api(
-            '/api/prompts/' + encodeURIComponent(target.key) + '/versions',
-            { global: target.global, chatId: target.chatId, silent403: true });
-          if (this.promptHistoryCacheKey
-              && this._phTarget()
-              && this._phTarget().key !== target.key) return;
-          h.data = data;
-          var revs = (data && data.revisions) || [];
-          if (!h.selA && revs.length) h.selA = revs[0].revision_id;
-          if (!h.selB && revs.length > 1) h.selB = revs[revs.length - 1].revision_id;
-          if (h.selA && !revs.some(function (r) { return r.revision_id === h.selA; })) {
-            h.selA = revs.length ? revs[0].revision_id : '';
-          }
-          if (h.selB && !revs.some(function (r) { return r.revision_id === h.selB; })) {
-            h.selB = revs.length ? revs[revs.length - 1].revision_id : '';
-          }
-          if (force) h.result = null;
-        } catch (e) {
-          h.error = (e && e.message) ? String(e.message) : 'Не удалось загрузить историю';
-          h.data = null;
-        } finally {
-          h.loading = false;
-          if (h.cacheKey) this._phSaveCache(h.cacheKey);
-        }
-      },
-      loadPromptDiff: async function () {
-        var h = this.promptHistory;
-        if (!h.selA || !h.selB || h.selA === h.selB) {
-          h.diffError = 'Выберите две разные версии';
-          return;
-        }
-        h.diffLoading = true;
-        h.diffError = '';
-        h.diff = null;
-        var target = this._phTarget();
-        try {
-          var data = await this.api(
-            '/api/prompts/revisions/diff?a=' + encodeURIComponent(h.selA)
-            + '&b=' + encodeURIComponent(h.selB),
-            { global: !target || target.global, chatId: target && target.chatId,
-              silent403: true });
-          h.diff = (data && data.diff) || [];
-          if (!h.diff.length) h.diffError = 'Тексты совпадают — отличий нет';
-        } catch (e) {
-          h.diffError = (e && e.message) ? String(e.message) : 'Сравнение не удалось';
-        } finally {
-          h.diffLoading = false;
-        }
-      },
-      comparePromptFactory: function () {
-        var d = this.promptHistory.data;
-        var factory = this.phLatestFactoryRevision();
-        if (!d || !d.active || !factory) return;
-        this.promptHistory.selA = d.active.revision_id;
-        this.promptHistory.selB = factory.revision_id;
-        this.loadPromptDiff();
-      },
-      viewPromptRevision: async function (rev) {
-        var h = this.promptHistory;
-        if (!rev) return;
-        if (h.viewId === rev.revision_id) {
-          h.viewId = '';
-          h.viewBody = '';
-          return;
-        }
-        h.viewLoading = true;
-        h.viewId = rev.revision_id;
-        h.viewBody = '';
-        var target = this._phTarget();
-        try {
-          var data = await this.api(
-            '/api/prompts/revisions/' + encodeURIComponent(rev.revision_id) + '/source',
-            { global: !target || target.global, chatId: target && target.chatId,
-              silent403: true });
-          h.viewBody = (data && data.body != null) ? String(data.body) : '';
-        } catch (e) {
-          h.viewBody = '';
-          h.result = {
-            ok: false,
-            text: (e && e.message) ? String(e.message) : 'Текст не загрузился',
-          };
-        } finally {
-          h.viewLoading = false;
-        }
-      },
-      activatePromptRevision: async function (rev) {
-        var h = this.promptHistory;
-        if (!rev || h.busyRev) return;
-        if (!this.phCanActivate(rev) || this.phIsActive(rev)) return;
-        var label = this.phOriginLabel(rev);
-        var msg = 'Включить сохранённую версию «' + label + '»? '
-          + 'Это выбор сохранённого состояния: история не удаляется, '
-          + 'версия не переписывается. Новая заводская поставка позже '
-          + 'снова станет активной автоматически.';
-        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
-            || !window.confirm(msg)) {
-          h.result = {
-            ok: false,
-            text: 'Включение отменено. Активная версия не изменилась.',
-          };
-          return;
-        }
-        var previousId = (h.data && h.data.active && h.data.active.revision_id) || '';
-        var target = this._phTarget();
-        if (!target) return;
-        h.busyRev = rev.revision_id;
-        h.result = null;
-        try {
-          var data = await this.api(
-            '/api/prompts/' + encodeURIComponent(target.key) + '/activate',
-            { method: 'POST',
-              body: JSON.stringify({ revision_id: rev.revision_id }),
-              global: target.global, chatId: target.chatId, silent403: true });
-          if (!data || data.applied !== true && data.outcome !== 'skipped_same') {
-            var why = (data && (data.reason_text || data.reason)) || 'отказ сервера';
-            h.result = {
-              ok: false,
-              text: String(why) + ' Активная версия не изменилась.',
-            };
-            return;
-          }
-          await this.loadPromptHistory(true);
-          var now = (h.data && h.data.active && h.data.active.revision_id) || '';
-          if (now && now !== rev.revision_id && data.outcome !== 'skipped_same') {
-            h.result = {
-              ok: false,
-              text: 'Сервер не подтвердил смену активной версии. '
-                + 'Прежняя активная версия осталась.',
-            };
-            return;
-          }
-          h.result = {
-            ok: true,
-            text: 'Сервер подтвердил: активна «' + this.phOriginLabel(
-              (h.data && h.data.active) || rev) + '».',
-          };
-        } catch (e) {
-          h.result = {
-            ok: false,
-            text: ((e && e.message) ? String(e.message) : 'Ошибка включения')
-              + ' Активная версия не изменилась'
-              + (previousId ? ' (' + previousId + ').' : '.'),
-          };
-        } finally {
-          h.busyRev = '';
-        }
+      speechBlockRevertDraft: function () {
+        var d = this.speechBlockDetail;
+        if (!d) return;
+        this.speechBlockDraft = (d.saved && d.saved.text) || '';
       },
       togglePromptCatalog: function () {
         var c = this.promptCatalog;
@@ -19798,17 +19510,9 @@
       },
       openPromptCatalogItem: function (item) {
         if (!item) return;
-        var key = item.pg_key || item.block_id;
-        this.promptCatalog.focusKey = key;
-        this.promptHistory.open = true;
-        this.promptHistory.data = null;
-        this.promptHistory.selA = '';
-        this.promptHistory.selB = '';
-        this.promptHistory.diff = null;
-        this.promptHistory.viewId = '';
-        this.promptHistory.viewBody = '';
-        this.promptHistory.result = null;
-        this.loadPromptHistory(true);
+        // PVR-S4: каталог только выбирает промпт — историю рисует единый
+        // компонент версий (вторая реализация панели запрещена).
+        this.promptCatalog.focusKey = item.pg_key || item.block_id;
       },
       // §48: выбор промпта в дереве (desktop — центр; mobile — полный экран).
       // ASAP-2.1 (T-3981, Q6 фикс 1): URL строится ПО stage КЛИКНУТОГО item'а —
@@ -23938,20 +23642,6 @@
         this.stickyFailedKeys = failed.map(function (f) { return f.key; });
         if (!opts.silent && typeof this.notify === 'function') {
           this.notify(operationId, result, list);
-        }
-        // EVOL-017: успешная правка промпта создаёт новый снимок на сервере
-        // (существующий POST /api/config). Открытая история перечитывается,
-        // локальный указатель активной версии сам не подменяется.
-        if (saved.length && this.promptHistory && this.promptHistory.open
-            && typeof this.loadPromptHistory === 'function') {
-          var focus = (typeof this.promptHistoryCacheKey === 'string')
-            ? this.promptHistoryCacheKey : '';
-          for (var ph = 0; ph < saved.length; ph++) {
-            if (focus && focus.indexOf(saved[ph]) === 0) {
-              this.loadPromptHistory(true);
-              break;
-            }
-          }
         }
         return result;
       },
@@ -32659,6 +32349,810 @@
       + '<span class="tech-key__copy-label">{{ copied ? \'скопировано\' : \'копировать\' }}</span>'
       + '</button>'
       + '</div>',
+  });
+
+  // ═══ EPIC-PROMPT-VERSIONING-UX-01 (PVR-S4): ЕДИНЫЙ контроль версий ════
+  // Один переиспользуемый компонент на ВСЕ редакторы промптов (arch §6):
+  //   1) вкладка «Промпты» — редактор библиотеки `<prompt-version-card>`;
+  //   2) карточки модулей — та же карточка в компактном виде (`variant="bar"`);
+  //   3) «Инициатива → Мемы» — два промпта, у каждого своя история;
+  //   4) Speech/Character — редактор блока (data-speech-block-detail);
+  //   + каталог зарегистрированных промптов (`variant="history"`).
+  // Вторая похожая реализация запрещена: правки вносятся ТОЛЬКО сюда.
+  // Карточка не показывает `act:`/`fac:`/sha/revision_id — они живут в
+  // раскрываемых «Подробностях». Действия рисуются по фактическим правам:
+  // «Применить» существует только при непустом revision_id и actionable,
+  // иначе показывается честная причина (нет прав / code-only / несовместима /
+  // retired / журнал недоступен), а не активная кнопка-пустышка.
+  // ─────────────────────────────────────────────────────────────────────
+  //: Короткий кэш состояния (активная/базовая/права) — чтобы полоса в
+  //: карточках модулей не делала запрос на каждое поле при каждом рендере.
+  var _pvStateCache = new Map();
+  var _PV_STATE_TTL_MS = 20000;
+
+  //: «03.11 23:42» из ISO журнала. Не выдумывает время: нет метки — пусто.
+  function pvShortWhen(iso) {
+    if (!iso) return '';
+    var s = String(iso);
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (!m) return s.slice(0, 16).replace('T', ' ');
+    return m[3] + '.' + m[2] + ' ' + m[4] + ':' + m[5];
+  }
+
+  //: Человеческие подписи источника ревизии (§2.2 п.3 ТЗ): ручная /
+  //: импортирована / из релиза / восстановлена. Технические токены API
+  //: (`manual`, `legacy`, `factory`, `restored`) в карточку не попадают.
+  var _PV_SOURCE_LABELS = {
+    manual: 'ручная',
+    imported: 'импортирована',
+    from_release: 'из релиза',
+    restored: 'восстановлена',
+    legacy: 'до версионирования',
+  };
+
+  app.component('prompt-version-card', {
+    name: 'prompt-version-card',
+    inject: ['root'],
+    // Маркеры конкретного поля (data-meme-prompt-joke и т.п.) адресуются
+    // textarea: единственный редактор живёт здесь, а не в каждой карточке.
+    inheritAttrs: false,
+    props: {
+      title: { type: String, default: '' },
+      promptKey: { type: String, default: '' },      // pg_key блока реестра
+      chatId: { type: [Number, String], default: null },  // null → global
+      chatTitle: { type: String, default: '' },
+      modelValue: { type: String, default: '' },     // несохранённый черновик
+      effectiveText: { type: String, default: '' },  // действующий текст сервера
+      canEdit: { type: Boolean, default: false },
+      dirty: { type: Boolean, default: false },
+      busy: { type: Boolean, default: false },
+      invalid: { type: Boolean, default: false },
+      variant: { type: String, default: 'card' },    // card | bar | history
+      noWrap: { type: Boolean, default: false },     // перенос строк в редакторе
+      saveLabel: { type: String, default: 'Сохранить' },
+      notice: { type: String, default: '' },
+      noticeOk: { type: Boolean, default: true },
+      noWrapToggle: { type: Boolean, default: false },
+      hint: { type: String, default: '' },
+      hintTitle: { type: String, default: '' },
+      rows: { type: Number, default: 10 },
+      reloadToken: { type: Number, default: 0 },
+    },
+    emits: ['update:modelValue', 'save', 'discard', 'refresh'],
+    data: function () {
+      return {
+        menu: false,
+        details: false,
+        // Одна панель истории на карточку: боковая на десктопе,
+        // полноэкранная на мобильном (CSS-медиа, не второй экран-страница).
+        hist: {
+          open: false,
+          loading: false,
+          error: '',
+          data: null,
+          entries: [],
+          nextCursor: '',
+          more: false,
+          moreLoading: false,
+          moreError: '',
+          viewId: '',
+          viewBody: '',
+          viewError: '',
+          viewLoading: false,
+          diff: null,
+          diffTitle: '',
+          diffLoading: false,
+          diffError: '',
+          busyRev: '',
+          result: null,
+        },
+      };
+    },
+    computed: {
+      chatIdNum: function () {
+        if (this.chatId == null || this.chatId === '') return null;
+        var n = Number(this.chatId);
+        return isNaN(n) ? null : n;
+      },
+      isChatScope: function () { return this.chatIdNum != null; },
+      scopeLabel: function () {
+        if (!this.isChatScope) return 'Глобально';
+        return this.chatTitle ? ('этот чат · ' + this.chatTitle) : 'этот чат';
+      },
+      taId: function () {
+        return 'pv-text-' + String(this.promptKey || 'prompt')
+          .replace(/[^A-Za-z0-9_-]+/g, '-');
+      },
+      data: function () { return this.hist.data || null; },
+      capabilities: function () {
+        return (this.data && this.data.capabilities) || {};
+      },
+      baseline: function () {
+        var b = this.data && this.data.baseline;
+        if (!b || !b.baseline) return null;
+        return b.baseline;
+      },
+      hasBaseline: function () { return !!this.baseline; },
+      // Одна человеческая фраза о состоянии (§2.1 ТЗ). Никаких id/хешей.
+      state: function () {
+        if (!this.promptKey) {
+          return { kind: 'muted', text: 'Промпт не выбран', detail: '' };
+        }
+        if (this.hist.error) {
+          return { kind: 'warn', text: 'Состояние версий недоступно',
+                   detail: this.hist.error };
+        }
+        if (!this.data) {
+          return { kind: 'muted', text: 'Проверяем состояние версий…', detail: '' };
+        }
+        var a = this.data.active || null;
+        var base = this.baseline;
+        var when = (a && a.created_at) ? pvShortWhen(a.created_at) : '';
+        if (this.isChatScope && !a) {
+          return { kind: 'inherit', text: 'Наследуется от глобального', detail: '' };
+        }
+        if (a && base && base.revision_id === a.revision_id) {
+          return { kind: 'baseline', text: 'Базовый по выбору владельца',
+                   detail: when ? ('действует с ' + when) : '' };
+        }
+        if (a && a.origin === 'factory') {
+          return { kind: 'factory', text: 'Исходный из кода',
+                   detail: when ? ('поставка ' + when) : '' };
+        }
+        if (a && a.origin === 'manual') {
+          return this.isChatScope
+            ? { kind: 'chat', text: 'Действует в этом чате',
+                detail: when ? ('изменён вручную · ' + when) : 'изменён вручную' }
+            : { kind: 'global', text: 'Изменён глобально',
+                detail: when ? ('вручную · ' + when) : 'вручную' };
+        }
+        if (a && a.origin === 'restored') {
+          return { kind: 'active', text: 'Действует восстановленная версия',
+                   detail: when ? ('восстановлена ' + when) : '' };
+        }
+        if (a) {
+          return { kind: 'active', text: 'Действует сохранённая версия',
+                   detail: when ? ('записана ' + when) : '' };
+        }
+        if (this.isChatScope) {
+          return { kind: 'inherit', text: 'Наследуется от глобального', detail: '' };
+        }
+        return { kind: 'factory', text: 'Исходный из кода', detail: '' };
+      },
+      activeLabel: function () {
+        var a = this.data && this.data.active;
+        if (!a) return this.isChatScope ? 'наследуется от глобального' : 'версия из кода';
+        var src = _PV_SOURCE_LABELS[a.source] || 'сохранённая';
+        var when = a.created_at ? pvShortWhen(a.created_at) : '';
+        return when ? (src + ' · ' + when) : src;
+      },
+      factoryLabel: function () {
+        if (!this.data) return '—';
+        return this.data.factory_matches_active
+          ? 'из кода (действует сейчас)' : 'из кода (не действует)';
+      },
+      baselineLabel: function () {
+        var b = this.data && this.data.baseline;
+        if (!b) return '—';
+        if (!b.baseline) {
+          if (b.cleared_at) {
+            return 'назначение снято ' + pvShortWhen(b.cleared_at);
+          }
+          return 'не назначен';
+        }
+        var when = b.baseline.assigned_at ? pvShortWhen(b.baseline.assigned_at) : '';
+        var who = String(b.baseline.assigned_by || '').trim();
+        var tail = who ? (' · кто: ' + who) : '';
+        return when ? ('назначен ' + when + tail) : ('назначен' + tail);
+      },
+      entries: function () { return this.hist.entries || []; },
+      detailsLines: function () {
+        var d = this.data;
+        if (!d) return [];
+        var out = [];
+        out.push('блок: ' + (d.block_id || '—'));
+        out.push('ключ: ' + (d.pg_key || this.promptKey || '—'));
+        out.push('область: ' + (d.scope === 'chat' ? 'чат ' + d.chat_id : 'глобальная'));
+        if (d.sealed_revision) out.push('печать кода: ' + d.sealed_revision);
+        if (d.factory_revision) out.push('заводская ревизия: ' + d.factory_revision);
+        if (d.active) {
+          out.push('действующая ревизия: ' + (d.active.revision_id || '—'));
+          if (d.active.sha256_12) out.push('sha256/12: ' + d.active.sha256_12);
+          if (d.active.factory_revision_applied) {
+            out.push('применённая заводская метка: ' + d.active.factory_revision_applied);
+          }
+        }
+        var b = this.baseline;
+        if (b) out.push('базовая ревизия: ' + (b.revision_id || '—'));
+        return out;
+      },
+    },
+    watch: {
+      promptKey: function () { this.resetPanel(); this.primeState(); },
+      chatIdNum: function () { this.resetPanel(); this.primeState(); },
+      reloadToken: function () { this.resetPanel(); this.loadHistory(true); },
+    },
+    mounted: function () { this.primeState(); },
+    methods: {
+      iconGlyph: function (name) {
+        if (this.root && typeof this.root.iconGlyph === 'function') {
+          return this.root.iconGlyph(name);
+        }
+        return '';
+      },
+      errText: function (err) {
+        var status = (err && err.status) || 0;
+        var msg = (err && err.message) ? String(err.message) : 'ошибка';
+        if (status === 503) {
+          return 'Журнал версий недоступен: ' + msg;
+        }
+        if (status === 409) {
+          return 'Конфликт: настройки изменены в другом окне. ' + msg;
+        }
+        if (status === 422) return 'Запрос отклонён: ' + msg;
+        if (status === 403) return 'Нет прав на это действие.';
+        if (status === 0) return 'Нет связи с сервером.';
+        return msg;
+      },
+      resetPanel: function () {
+        var h = this.hist;
+        h.data = null;
+        h.entries = [];
+        h.nextCursor = '';
+        h.more = false;
+        h.moreError = '';
+        h.error = '';
+        h.viewId = '';
+        h.viewBody = '';
+        h.viewError = '';
+        h.diff = null;
+        h.diffTitle = '';
+        h.diffError = '';
+        h.result = null;
+      },
+      _cacheKey: function () {
+        return String(this.promptKey || '') + '|'
+          + (this.chatIdNum == null ? 'global' : ('chat:' + this.chatIdNum));
+      },
+      // Состояние карточки (активная/базовая/права). Кэш — только для
+      // первичного показа: действия всегда перечитывают сервер.
+      primeState: function () {
+        var self = this;
+        var key = this.promptKey;
+        if (!key) return;
+        var cacheKey = this._cacheKey();
+        var hit = _pvStateCache.get(cacheKey);
+        if (hit && (Date.now() - hit.at) < _PV_STATE_TTL_MS) {
+          this.hist.data = hit.data;
+          return;
+        }
+        this.loadHistory(true);
+      },
+      openHistory: function () {
+        this.menu = false;
+        this.hist.open = true;
+        var self = this;
+        // Панель всегда читает сервер заново: показанное состояние не должно
+        // отставать от фактического после Save/Применить/Назначить.
+        this.loadHistory(true);
+        if (typeof this.$nextTick === 'function') {
+          this.$nextTick(function () {
+            try {
+              if (self.$refs && self.$refs.panel
+                  && typeof self.$refs.panel.focus === 'function') {
+                self.$refs.panel.focus();
+              }
+            } catch (e) { /* панель могла не отрисоваться */ }
+          });
+        }
+      },
+      closeHistory: function () {
+        this.hist.open = false;
+        this.hist.result = null;
+      },
+      loadHistory: async function (force) {
+        var key = this.promptKey;
+        var h = this.hist;
+        if (!key) return;
+        if (h.loading) return;
+        h.loading = true;
+        h.error = '';
+        h.moreError = '';
+        var cacheKey = this._cacheKey();
+        try {
+          var data = await this.root.api(
+            '/api/prompts/' + encodeURIComponent(key)
+              + '/versions?page_size=50',
+            { global: !this.isChatScope, chatId: this.chatIdNum,
+              silent403: true });
+          if (this._cacheKey() !== cacheKey) return;
+          h.data = data || null;
+          h.entries = (data && data.entries) || [];
+          h.nextCursor = (data && data.page && data.page.next_cursor) || '';
+          h.more = !!(data && data.page && data.page.has_more);
+          _pvStateCache.set(cacheKey, { at: Date.now(), data: h.data });
+          if (force) {
+            h.viewId = '';
+            h.viewBody = '';
+            h.viewError = '';
+            h.diff = null;
+            h.diffError = '';
+          }
+        } catch (err) {
+          if (this._cacheKey() !== cacheKey) return;
+          h.error = this.errText(err);
+          h.data = null;
+          h.entries = [];
+          h.more = false;
+        } finally {
+          h.loading = false;
+        }
+      },
+      // Постраничная догрузка: полный список, а не «последние 50».
+      loadMore: async function () {
+        var h = this.hist;
+        if (!h.more || h.moreLoading || !h.nextCursor) return;
+        var cacheKey = this._cacheKey();
+        h.moreLoading = true;
+        h.moreError = '';
+        try {
+          var data = await this.root.api(
+            '/api/prompts/' + encodeURIComponent(this.promptKey)
+              + '/versions?page_size=50&cursor='
+              + encodeURIComponent(h.nextCursor),
+            { global: !this.isChatScope, chatId: this.chatIdNum,
+              silent403: true });
+          if (this._cacheKey() !== cacheKey) return;
+          var seen = {};
+          h.entries.forEach(function (e) {
+            seen[String(e.order)] = true;
+          });
+          ((data && data.entries) || []).forEach(function (e) {
+            if (!seen[String(e.order)]) h.entries.push(e);
+          });
+          h.nextCursor = (data && data.page && data.page.next_cursor) || '';
+          h.more = !!(data && data.page && data.page.has_more);
+        } catch (err) {
+          if (this._cacheKey() !== cacheKey) return;
+          h.moreError = this.errText(err);
+        } finally {
+          h.moreLoading = false;
+        }
+      },
+      sourceLabel: function (entry) {
+        if (!entry) return '';
+        if (entry.source_label) return String(entry.source_label);
+        return _PV_SOURCE_LABELS[entry.source] || 'источник неизвестен';
+      },
+      rowWhen: function (entry) {
+        return pvShortWhen(entry && entry.created_at);
+      },
+      rowActor: function (entry) {
+        var actor = String((entry && entry.actor) || '').trim();
+        if (!actor) return '';                 // неизвестен — не выдумываем
+        return 'кто: ' + actor;
+      },
+      rowScope: function (entry) {
+        if (!entry) return '';
+        return entry.scope === 'chat'
+          ? ('чат' + (entry.chat_id != null ? ' ' + entry.chat_id : ''))
+          : 'глобально';
+      },
+      rowStatus: function (entry) {
+        if (!entry) return '';
+        if (entry.status_label) return String(entry.status_label);
+        return entry.status || '';
+      },
+      isActiveEntry: function (entry) {
+        var d = this.data;
+        return !!(entry && d && d.active
+                  && entry.revision_id
+                  && d.active.revision_id === entry.revision_id);
+      },
+      isBaselineEntry: function (entry) {
+        var b = this.baseline;
+        return !!(entry && b && entry.revision_id
+                  && b.revision_id === entry.revision_id);
+      },
+      canViewBody: function (entry) {
+        return !!(entry && entry.revision_id && entry.body_available !== false);
+      },
+      // «Применить» — только когда есть revision_id, запись actionable и есть
+      // право. Возврат false означает: кнопки не будет, будет причина.
+      canActivate: function (entry) {
+        if (!entry || !entry.revision_id) return false;
+        if (entry.actionable === false) return false;
+        if (this.isActiveEntry(entry)) return false;
+        if (this.capabilities && this.capabilities.can_assign_baseline === false
+            && this.data && this.data.manageable === false) return false;
+        if (this.data && this.data.can_activate === false) return false;
+        return true;
+      },
+      canAssign: function (entry) {
+        if (!entry || !entry.revision_id) return false;
+        if (entry.actionable === false) return false;
+        if (this.capabilities && this.capabilities.can_assign_baseline === false) {
+          return false;
+        }
+        return !this.isBaselineEntry(entry);
+      },
+      canCopyToGlobal: function () {
+        return !!this.isChatScope
+          && !!(this.capabilities && this.capabilities.can_copy_to_global);
+      },
+      // Почему действие недоступно (§2.2 п.8): нет прав / code-only /
+      // несовместима / retired / журнал недоступен. Текст сервера
+      // (`reason_text`) приоритетнее: он про конкретную запись.
+      rowReason: function (entry) {
+        if (!entry) return '';
+        if (!entry.revision_id) {
+          return 'Это событие журнала: сохранённого текста у него нет — '
+            + 'применять нечего, можно только читать историю.';
+        }
+        if (entry.status === 'retired') {
+          return 'retired: версия снята с регистрации — читать и сравнивать '
+            + 'можно, применять и назначать базовой нельзя.';
+        }
+        if (entry.status === 'incompatible') {
+          return (entry.reason_text
+            || 'несовместима: версия из другой схемы — читать и сравнивать '
+               + 'можно, применять нельзя.');
+        }
+        if (this.data && this.data.manageable === false) {
+          return 'code-only: значение задаётся кодом, а не в базе — '
+            + 'историю можно смотреть, применять нечего.';
+        }
+        if (this.hist.error) return 'журнал недоступен: ' + this.hist.error;
+        if (this.data && this.data.can_activate === false) {
+          return 'нет прав: у вашей роли нет права включать версии этого промпта.';
+        }
+        return entry.reason_text || '';
+      },
+      view: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
+        if (h.viewId === entry.revision_id) {
+          h.viewId = '';
+          h.viewBody = '';
+          h.viewError = '';
+          return;
+        }
+        var cacheKey = this._cacheKey();
+        h.viewId = entry.revision_id;
+        h.viewBody = '';
+        h.viewError = '';
+        h.viewLoading = true;
+        try {
+          var data = await this.root.api(
+            '/api/prompts/revisions/' + encodeURIComponent(entry.revision_id)
+              + '/source',
+            { global: !this.isChatScope, chatId: this.chatIdNum, silent403: true });
+          if (this._cacheKey() !== cacheKey) return;
+          if (data && data.body != null) {
+            h.viewBody = String(data.body);
+          } else if (data && data.body_available === false) {
+            h.viewError = 'Полный текст этой версии недоступен: он не сохранён '
+              + 'в журнале. Показать нечего — пустой текст не подставляем.';
+          } else {
+            h.viewError = 'Полный текст этой версии недоступен.';
+          }
+        } catch (err) {
+          if (this._cacheKey() !== cacheKey) return;
+          h.viewError = this.errText(err);
+        } finally {
+          h.viewLoading = false;
+        }
+      },
+      diffClass: function (line) {
+        var s = String(line || '');
+        if (s.indexOf('+++') === 0 || s.indexOf('---') === 0) return 'pv-diff__meta';
+        if (s.indexOf('@@') === 0) return 'pv-diff__hunk';
+        if (s.indexOf('+') === 0) return 'pv-diff__add';
+        if (s.indexOf('-') === 0) return 'pv-diff__del';
+        return 'pv-diff__ctx';
+      },
+      // Сравнение «было → стало»: выбранная версия против действующей.
+      compare: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
+        var d = this.data;
+        var target = (d && d.active && d.active.revision_id) || '';
+        if (!target) {
+          h.diffError = 'Нечего сравнивать: действующая версия не зафиксирована.';
+          h.diff = null;
+          return;
+        }
+        if (target === entry.revision_id) {
+          h.diffError = 'Это и есть действующая версия — отличий нет.';
+          h.diff = null;
+          return;
+        }
+        var cacheKey = this._cacheKey();
+        h.diffTitle = 'было → стало: ' + this.sourceLabel(entry) + ' → действующая';
+        h.diffLoading = true;
+        h.diffError = '';
+        h.diff = null;
+        try {
+          var data = await this.root.api(
+            '/api/prompts/revisions/diff?a=' + encodeURIComponent(entry.revision_id)
+              + '&b=' + encodeURIComponent(target),
+            { global: !this.isChatScope, chatId: this.chatIdNum, silent403: true });
+          if (this._cacheKey() !== cacheKey) return;
+          h.diff = (data && data.diff) || [];
+          if (!h.diff.length) h.diffError = 'Тексты совпадают — отличий нет.';
+        } catch (err) {
+          if (this._cacheKey() !== cacheKey) return;
+          h.diffError = this.errText(err);
+        } finally {
+          h.diffLoading = false;
+        }
+      },
+      copyText: async function (text) {
+        var value = text == null ? '' : String(text);
+        var ok = false;
+        try {
+          if (typeof navigator !== 'undefined' && navigator.clipboard
+              && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(value);
+            ok = true;
+          }
+        } catch (e) { ok = false; }
+        if (!ok) {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = value;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            ok = !!(document.execCommand && document.execCommand('copy'));
+            document.body.removeChild(ta);
+          } catch (e2) { ok = false; }
+        }
+        return ok;
+      },
+      copy: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id) return;
+        var body = (h.viewId === entry.revision_id) ? h.viewBody : '';
+        if (!body) {
+          try {
+            var data = await this.root.api(
+              '/api/prompts/revisions/' + encodeURIComponent(entry.revision_id)
+                + '/source',
+              { global: !this.isChatScope, chatId: this.chatIdNum, silent403: true });
+            body = (data && data.body != null) ? String(data.body) : '';
+          } catch (err) {
+            h.result = { ok: false, text: this.errText(err) };
+            return;
+          }
+        }
+        if (!body) {
+          h.result = { ok: false, text: 'Текст этой версии недоступен — копировать нечего.' };
+          return;
+        }
+        var ok = await this.copyText(body);
+        h.result = ok
+          ? { ok: true, text: 'Текст версии скопирован (полностью, без обрезки).' }
+          : { ok: false, text: 'Копирование недоступно в этом клиенте.' };
+      },
+      _post: async function (path, body, method) {
+        return this.root.api(path, {
+          method: method || 'POST',
+          body: body == null ? undefined : JSON.stringify(body),
+          global: !this.isChatScope,
+          chatId: this.chatIdNum,
+          silent403: true,
+        });
+      },
+      activate: async function (entry) {
+        var h = this.hist;
+        if (!this.canActivate(entry) || h.busyRev) return;
+        var msg = 'Применить эту версию как действующий текст промпта? '
+          + 'История не удаляется, сохранённые версии не переписываются.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Применение отменено. Активная версия не изменилась.' };
+          return;
+        }
+        h.busyRev = entry.revision_id;
+        h.result = null;
+        try {
+          var data = await this._post(
+            '/api/prompts/' + encodeURIComponent(this.promptKey) + '/activate',
+            { revision_id: entry.revision_id });
+          if (!data || (data.applied !== true && data.outcome !== 'skipped_same')) {
+            var why = (data && (data.reason_text || data.reason)) || 'отказ сервера';
+            h.result = { ok: false, text: String(why) + ' Активная версия не изменилась.' };
+            return;
+          }
+          await this.loadHistory(true);
+          var now = (this.data && this.data.active && this.data.active.revision_id) || '';
+          if (now && now !== entry.revision_id && data.outcome !== 'skipped_same') {
+            h.result = { ok: false,
+                         text: 'Сервер не подтвердил смену версии. Прежняя осталась.' };
+            return;
+          }
+          h.result = { ok: true,
+                       text: 'Сервер подтвердил: действует выбранная версия («'
+                         + this.sourceLabel(entry) + '»).' };
+          this.$emit('refresh');
+        } catch (err) {
+          h.result = { ok: false,
+                       text: this.errText(err) + ' Активная версия не изменилась.' };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      assignBaseline: async function (entry) {
+        var h = this.hist;
+        if (!this.canAssign(entry) || h.busyRev) return;
+        var msg = 'Назначить эту версию базовой? Меняется только эталон '
+          + '(к нему возвращает «Восстановить базовую»). Действующий текст '
+          + 'промпта останется прежним.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Назначение отменено. Базовая версия не изменилась.' };
+          return;
+        }
+        h.busyRev = entry.revision_id;
+        h.result = null;
+        try {
+          var data = await this._post(
+            '/api/prompts/' + encodeURIComponent(this.promptKey) + '/baseline',
+            { revision_id: entry.revision_id });
+          if (!data || data.applied !== true) {
+            var why = (data && (data.reason_text || data.reason)) || 'отказ сервера';
+            h.result = { ok: false, text: String(why) };
+            return;
+          }
+          await this.loadHistory(true);
+          h.result = { ok: true,
+                       text: 'Базовая версия изменена, действующий текст пока прежний.' };
+        } catch (err) {
+          h.result = { ok: false, text: this.errText(err) };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      clearBaseline: async function () {
+        var h = this.hist;
+        if (h.busyRev || !this.hasBaseline) return;
+        var msg = 'Снять назначение базовой? Эталоном снова станет встроенная '
+          + 'версия из кода. Действующий текст промпта не изменится.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Снятие отменено.' };
+          return;
+        }
+        h.busyRev = 'baseline';
+        try {
+          var data = await this._post(
+            '/api/prompts/' + encodeURIComponent(this.promptKey) + '/baseline',
+            null, 'DELETE');
+          if (!data || data.applied !== true) {
+            h.result = { ok: false,
+                         text: (data && (data.reason_text || data.reason)) || 'отказ сервера' };
+            return;
+          }
+          await this.loadHistory(true);
+          h.result = { ok: true,
+                       text: 'Назначение базовой снято, действующий текст прежний.' };
+        } catch (err) {
+          h.result = { ok: false, text: this.errText(err) };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      restoreBaseline: async function () {
+        var h = this.hist;
+        if (h.busyRev || !this.hasBaseline) return;
+        var msg = this.isChatScope
+          ? 'Восстановить базовую версию для этого чата? Действующий текст чата '
+            + 'станет равен базовой версии. Другие чаты не затрагиваются.'
+          : 'Восстановить базовую версию? Действующий текст станет равен базовой версии.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Восстановление отменено.' };
+          return;
+        }
+        h.busyRev = 'restore';
+        try {
+          var data = await this._post(
+            '/api/prompts/' + encodeURIComponent(this.promptKey) + '/baseline/restore',
+            {});
+          if (!data || (data.applied !== true && data.outcome !== 'skipped_same')) {
+            h.result = { ok: false,
+                         text: (data && (data.reason_text || data.reason)) || 'отказ сервера' };
+            return;
+          }
+          await this.loadHistory(true);
+          h.result = { ok: true, text: 'Сервер подтвердил: базовая версия восстановлена.' };
+          this.$emit('refresh');
+        } catch (err) {
+          h.result = { ok: false, text: this.errText(err) };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      restoreFactory: async function () {
+        var h = this.hist;
+        if (h.busyRev) return;
+        var msg = 'Вернуть исходную версию из кода? Действующий текст станет равен '
+          + 'встроенной заводской версии этого релиза. Назначение базовой '
+          + 'сохранится, история не удаляется.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Возврат к исходной отменён.' };
+          return;
+        }
+        h.busyRev = 'factory';
+        try {
+          var data = await this._post(
+            '/api/prompts/' + encodeURIComponent(this.promptKey) + '/factory/restore',
+            {});
+          if (!data || (data.applied !== true && data.outcome !== 'skipped_same')) {
+            h.result = { ok: false,
+                         text: (data && (data.reason_text || data.reason)) || 'отказ сервера' };
+            return;
+          }
+          await this.loadHistory(true);
+          h.result = { ok: true, text: 'Сервер подтвердил: действует исходная версия из кода.' };
+          this.$emit('refresh');
+        } catch (err) {
+          h.result = { ok: false, text: this.errText(err) };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      copyToGlobal: async function (entry) {
+        var h = this.hist;
+        if (!entry || !entry.revision_id || h.busyRev) return;
+        var msg = 'Скопировать этот текст как НОВУЮ глобальную версию промпта? '
+          + 'Версия чата останется на месте; в историю добавится новая запись.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = { ok: false, text: 'Копирование отменено.' };
+          return;
+        }
+        h.busyRev = entry.revision_id;
+        try {
+          var data = await this._post(
+            '/api/prompts/revisions/' + encodeURIComponent(entry.revision_id)
+              + '/copy-to-global', {});
+          if (!data || data.applied === false) {
+            h.result = { ok: false,
+                         text: (data && (data.reason_text || data.reason)) || 'отказ сервера' };
+            return;
+          }
+          await this.loadHistory(true);
+          h.result = { ok: true,
+                       text: (data.created === false)
+                         ? 'Такая глобальная версия уже существует — дубль не создан.'
+                         : 'Текст скопирован как новая глобальная версия.' };
+        } catch (err) {
+          h.result = { ok: false, text: this.errText(err) };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      draftChanged: function (event) {
+        this.$emit('update:modelValue', event.target.value);
+      },
+      emitSave: function () {
+        if (this.busy || !this.dirty || !this.canEdit) return;
+        this.$emit('save');
+      },
+      emitDiscard: function () {
+        if (this.busy || !this.dirty) return;
+        this.$emit('discard');
+      },
+      toggleNoWrap: function (value) {
+        this.$emit('update:noWrap', !!value);
+      },
+    },
+    template: '#prompt-version-card-tpl',
   });
 
   // ═══ D12 (§18I.11): Unified Run Card — центральный диагностический

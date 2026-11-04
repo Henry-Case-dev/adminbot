@@ -183,10 +183,20 @@ function mkPromptsCtx(sharedItems, gid) {
     assert.ok(start >= 0, 'c: master-detail в шаблоне');
     const end = INDEX.indexOf('F3 (10.19, ADR-1019-3 D1/D4', start);
     const block = INDEX.slice(start, end > start ? end : start + 8000);
-    assert.ok(block.indexOf('data-prompt-textarea') >= 0,
+    assert.ok(block.indexOf('<prompt-version-card') >= 0,
       'c: основной редактор промпта присутствует');
-    assert.ok(block.indexOf('<details') < 0,
-      'c: редактор НЕ спрятан в аккордеон');
+    // Редактор не спрятан в <details>: единственный <details> в блоке —
+    // технические «Подробности» (prompt_id/потребитель/scope), а сам
+    // редактор (компонент версий) всегда виден.
+    const det = block.indexOf('<details');
+    if (det >= 0) {
+      const detEnd = block.indexOf('</details>', det);
+      const inside = block.slice(det, detEnd > det ? detEnd : det + 2000);
+      assert.ok(inside.indexOf('prompt-version-card') < 0,
+        'c: редактор НЕ спрятан в скрытый блок');
+      assert.ok(inside.indexOf('prompt_id') >= 0,
+        'c: в <details> только техническая диагностика');
+    }
 
     // promptsShowAccordion в новых раскладках = false (V2 ON).
     const sec = { advanced: [{ key: 'x' }] };

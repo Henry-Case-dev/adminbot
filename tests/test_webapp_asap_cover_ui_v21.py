@@ -291,9 +291,12 @@ class TestFavoritesRemoved:
 
 class TestHistoryAndCoverTimer:
     def test_history_shows_activation_date(self):
-        block = _block(APP_JS, "phActivationNote: function",
-                       "workspaceCoverage: function")
-        assert "this.phWhen(hit.created_at)" in block
+        # PVR-S4: панель истории одна и живёт в едином компоненте версий.
+        # Дата берётся из журнала (`active.created_at`); отдельного «таймера
+        # активации» в UI нет.
+        block = _block(APP_JS, "activeLabel: function", "factoryLabel: function")
+        assert "a.created_at" in block
+        assert "pvShortWhen(a.created_at)" in block
         # Устаревшая сноска «таймер активации не отдаётся» удалена.
         assert "таймер\n" not in INDEX
         assert "Отдельный таймер" not in INDEX

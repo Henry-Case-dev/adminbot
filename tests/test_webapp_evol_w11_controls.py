@@ -324,17 +324,23 @@ class TestMarkupWiring:
         assert 'data-progress-anomaly' in INDEX
 
     def test_prompt_editor_gets_wrap_option_and_inner_scroll(self):
+        # PVR-S4: сам редактор (textarea + переключатель переноса) живёт в
+        # шаблоне единого компонента; хост по-прежнему владеет состоянием
+        # `workspacePromptNoWrap` и передаёт его пропом.
         assert "data-prompt-wrap-toggle" in INDEX
         assert "ctl-textarea" in INDEX and "ctl-editor-area" in INDEX
-        assert ':data-nowrap="workspacePromptNoWrap' in INDEX
+        assert ':data-nowrap="noWrap' in INDEX, \
+            "переносом управляет САМ компонент (одна реализация редактора)"
+        assert ':no-wrap="workspacePromptNoWrap' in INDEX
+        assert '@update:no-wrap="workspacePromptNoWrap' in INDEX
         assert "workspacePromptNoWrap: false" in APP_JS, \
             "по умолчанию перенос включён (поведение не меняется молча)"
         assert "ctl-seg__btn" in INDEX
 
     def test_no_new_fullscreen_trigger_for_editor(self):
         """Редактор промпта — внутристраничный, app-fullscreen не вызывается."""
-        block = INDEX[INDEX.index("data-prompt-editor"):]
-        block = block[:block.index("</section>", block.index("data-prompt-history"))]
+        start = INDEX.index("data-prompt-editor")
+        block = INDEX[start:INDEX.index("</section>", start)]
         for forbidden in ("requestFullscreen", "FullscreenPolicy.request",
                           "toggleAppFullscreen"):
             assert forbidden not in block, \
