@@ -1151,6 +1151,61 @@ const S4 = (function testCmvC() {
   eq4(CM.lodFor(2.3, 2, dense), 2, 'плотность не отменяет детальный уровень');
   eq4(CM.lodFor(1.0, 0, dense), 0, 'обзор по плотности устойчив (нет мигания)');
   eq4(CM.lodFor(1.0, 0, sparse), 1, 'обзор выходит, когда кадр перестал быть плотным');
+  // Регресс F1 (ревью CMV-C): плотностная граница не мигает. Раньше выход из
+  // обзора по плотности был жёстким `r > 1.05`, и при 702 узлах уровень
+  // переключался на каждом событии колеса (1.045/1.060 = 12 переключений).
+  const denseWalk = { nodes: 702, density: 176 };
+  function denseTrace(startR, endR, step, prev) {
+    const out = [];
+    let p = prev;
+    const dir = endR >= startR ? 1 : -1;
+    for (let r = startR; dir > 0 ? r <= endR + 1e-9 : r >= endR - 1e-9;
+      r += dir * step) {
+      p = CM.lodFor(Math.round(r * 1000) / 1000, p, denseWalk);
+      out.push({ r: Math.round(r * 1000) / 1000, lod: p });
+    }
+    return out;
+  }
+  function switches(trace) {
+    let n = 0;
+    for (let i = 1; i < trace.length; i += 1) {
+      if (trace[i].lod !== trace[i - 1].lod) n += 1;
+    }
+    return n;
+  }
+  const upBand = denseTrace(1.0, 1.15, 0.005, 0);
+  eq4(switches(upBand), 0,
+    '§5.1: обход 1.00→1.15 в плотном кадре не переключает уровень');
+  const backBand = denseTrace(1.15, 1.0, 0.005, 0);
+  eq4(switches(backBand), 0,
+    '§5.1: обход 1.15→1.00 в плотном кадре не переключает уровень');
+  const roundTrip = upBand.concat(backBand.slice(1));
+  eq4(switches(roundTrip), 0,
+    '§5.1: плотностная полоса гасит дрожание ±1.5 % у границы 1.05');
+  ok4(upBand.every((s) => s.lod === 0),
+    '§5.1: внутри полосы плотный кадр остаётся обзором');
+  // Выход из плотного обзора — только с запасом: r > denseMax·(1+δ) = 1.176.
+  eq4(CM.lodFor(1.17, 0, denseWalk), 0, '§5.1: r=1.17 ещё внутри полосы обзора');
+  eq4(CM.lodFor(1.19, 0, denseWalk), 1, '§5.1: r=1.19 уже вне полосы — рабочий вид');
+  eq4(CM.lodFor(1.19, 1, denseWalk), 1, '§5.1: обратно в обзор по плотности не тянет');
+  eq4(CM.lodFor(1.04, 1, denseWalk), 0, '§5.1: вход в обзор по плотности — до 1.05');
+  // Дрожание ±0.01 около самой границы входа: переход возможен не более одного
+  // раза (вход в обзор), обратных переключений быть не должно.
+  let jprev = 1;
+  const jseen = [jprev];
+  for (let i = 0; i < 60; i += 1) {
+    jprev = CM.lodFor(i % 2 === 0 ? 1.04 : 1.06, jprev, denseWalk);
+    jseen.push(jprev);
+  }
+  ok4(switches(jseen.map((lod) => ({ lod }))) <= 1,
+    '§5.1: дрожание ±0.01 у 1.05 даёт не более одного переключения');
+  eq4(jseen[jseen.length - 1], 0,
+    '§5.1: после дрожания у границы уровень остаётся обзорным');
+  // Гистерезис плотности: кадр, переставший быть плотным, отпускает обзор.
+  eq4(CM.lodFor(1.0, 0, { nodes: 702, density: 50 }), 0,
+    '§5.1: плотность в 20 % полосе (50 из 60) ещё держит обзор');
+  eq4(CM.lodFor(1.0, 0, { nodes: 702, density: 40 }), 1,
+    '§5.1: плотность ниже 48/100k отпускает обзор');
   // Плотность считается от площади кадра, а не от константы.
   near4(CM.lodDensity(702, 1252, 318), 176.32165893061668,
     'плотность = узлы на 100k px²');
@@ -1349,6 +1404,96 @@ const S4 = (function testCmvC() {
   const mixed = agg.groups.filter((g) => g.dominantShare < 0.8);
   ok4(mixed.every((g) => g.label.indexOf(CM.GROUP_NEUTRAL_LABEL) === 0),
     'L0: смешанный район подписан нейтрально («' + CM.GROUP_NEUTRAL_LABEL + '»)');
+  // Регресс F2 (ревью CMV-C): тема района — ДОМИНИРУЮЩАЯ парадигма, а не первая
+  // по алфавиту. Раньше подпись брала лексикографически первый заголовок и
+  // выдавала его за тему всего района (§5.2/§13).
+  function oneDistrict(members) {
+    const nodes = [];
+    const positions = {};
+    members.forEach((m, idx) => {
+      nodes.push({ id: m.id, kind: m.kind, degree: 1, title: m.title });
+      positions[m.id] = { x: 40 + (idx % 3) * 30, y: 40 + Math.floor(idx / 3) * 26 };
+    });
+    return CM.buildAggregates({
+      nodes: nodes, edges: [], positions: positions, fitScale: 1,
+      camera: { x: 0, y: 0, scale: 1 }, viewport: { width: 900, height: 400 },
+      tileCss: 220, minMembers: 6,
+    });
+  }
+  // Три равновесные парадигмы: «Альфа» первая по алфавиту, но не доминирует.
+  const splitMembers = [];
+  ['Альфа', 'Бета', 'Гамма'].forEach((title, t) => {
+    for (let i = 0; i < 3; i += 1) {
+      splitMembers.push({ id: 'p' + t + i, kind: 'paradigm', title: title });
+    }
+  });
+  for (let i = 0; i < 3; i += 1) {
+    splitMembers.push({ id: 'sf' + i, kind: 'fact', title: 'Наблюдение ' + i });
+  }
+  const splitAgg = oneDistrict(splitMembers);
+  eq4(splitAgg.groups.length, 1, '§5.2: район из 12 узлов собран в один');
+  const splitGroup = splitAgg.groups[0];
+  ok4(splitGroup.dominantKind === 'paradigm' && splitGroup.dominantShare >= 0.6,
+    '§5.2: парадигмы — доминирующий тип района');
+  ok4(splitGroup.paradigmShare < 0.6,
+    '§5.2: ни одна парадигма не доминирует (доля ' + splitGroup.paradigmShare + ')');
+  eq4(splitGroup.label, CM.GROUP_NEUTRAL_LABEL + ' · 12',
+    '§5.2: район без доминирующей парадигмы подписан нейтрально («'
+      + splitGroup.label + '»)');
+  ok4(splitGroup.label.indexOf('Альфа') < 0,
+    '§5.2: алфавитно первая парадигма не выдаётся за тему района');
+  // Даже когда парадигмы — 90 % состава, в подписи не появляется КОНКРЕТНОЕ
+  // название: тема не выдумывается, называется только тип.
+  const kindOnlyMembers = splitMembers.slice(0, 9);
+  kindOnlyMembers.push({ id: 'kf0', kind: 'fact', title: 'Единственный факт' });
+  const kindOnlyGroup = oneDistrict(kindOnlyMembers).groups[0];
+  ok4(kindOnlyGroup.dominantKind === 'paradigm' && kindOnlyGroup.paradigmShare < 0.6,
+    '§5.2: тип парадигм доминирует, конкретное название — нет');
+  ok4(kindOnlyGroup.label.indexOf('Альфа') < 0
+    && kindOnlyGroup.label.indexOf('Бета') < 0
+    && kindOnlyGroup.label.indexOf('Гамма') < 0,
+  '§5.2: ни одно недоминирующее название не попадает в подпись ('
+    + kindOnlyGroup.label + ')');
+  // Одна парадигма ≥60 % — её название район подписать вправе.
+  const dominantMembers = [];
+  for (let i = 0; i < 7; i += 1) {
+    dominantMembers.push({ id: 'd' + i, kind: 'paradigm', title: 'Доверие' });
+  }
+  for (let i = 0; i < 3; i += 1) {
+    dominantMembers.push({ id: 'df' + i, kind: 'fact', title: 'Факт ' + i });
+  }
+  const dominantAgg = oneDistrict(dominantMembers);
+  eq4(dominantAgg.groups.length, 1, '§5.2: район с доминантой собран в один');
+  const dominantGroup = dominantAgg.groups[0];
+  ok4(dominantGroup.paradigmTitle === 'Доверие',
+    '§5.2: тема района — самая частая парадигма («' + dominantGroup.paradigmTitle + '»)');
+  eq4(dominantGroup.label, CM.KIND_LABELS.paradigm + ': Доверие · 10',
+    '§5.2: доминирующая парадигма называется в подписи района');
+  // Та же парадигма доминирует по ТИПУ, но её заголовок — лишь 5 из 12:
+  // название темы всё равно не выводится (иначе район назван по 1 узлу).
+  const thinMembers = [];
+  for (let i = 0; i < 5; i += 1) {
+    thinMembers.push({ id: 'td' + i, kind: 'paradigm', title: 'Доверие' });
+  }
+  ['Воля', 'Ирония', 'Тревога', 'Надежда', 'Сомнение'].forEach((title, t) => {
+    thinMembers.push({ id: 'tu' + t, kind: 'paradigm', title: title });
+  });
+  for (let i = 0; i < 2; i += 1) {
+    thinMembers.push({ id: 'tf' + i, kind: 'fact', title: 'Факт ' + i });
+  }
+  const thinAgg = oneDistrict(thinMembers);
+  const thinGroup = thinAgg.groups[0];
+  ok4(thinGroup.dominantKind === 'paradigm' && thinGroup.dominantShare >= 0.6
+    && thinGroup.paradigmShare < 0.6,
+  '§5.2: тип доминирует, а конкретный заголовок — нет ('
+    + thinGroup.paradigmShare + ')');
+  ok4(thinGroup.paradigmTitle === 'Доверие',
+    '§5.2: самая частая парадигма всё же определяется («' + thinGroup.paradigmTitle + '»)');
+  ok4(thinGroup.label.indexOf('Доверие') < 0 && thinGroup.label.indexOf('Воля') < 0,
+    '§5.2: парадигма с долей ниже 0.6 не становится темой района ('
+      + thinGroup.label + ')');
+  eq4(thinGroup.label, CM.KIND_LABELS.paradigm + ' · 12',
+    '§5.2: при 0.83 парадигм называется ТИП, а не конкретное название');
   // Пустой вход — пустой выход (никаких «центров в нуле»).
   const aggEmpty = CM.buildAggregates({ nodes: [], edges: [], positions: {} });
   eq4([aggEmpty.groups.length, aggEmpty.total, aggEmpty.grouped], [0, 0, 0],

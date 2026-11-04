@@ -42,11 +42,11 @@ MUTATIONS = [
      "    var fall1 = t1 * (1 - d);",
      "    var fall1 = t1;", MAP),
     ("C3 плотность не учитывается (нет обзора на 702)", MAPJS,
-     "      denseIn = density >= numberOr(cfg.densePer100k, DEFAULTS.lod.densePer100k);",
-     "      denseIn = false;", MAP),
+     "    var denseIn = denseMeasured && density >= densePer100k;",
+     "    var denseIn = false;", MAP),
     ("C4 плотность возвращает в обзор при зуме", MAPJS,
-     "    if (nodes >= denseNodes && density !== null && value <= denseMax) {",
-     "    if (nodes >= denseNodes && density !== null) {", MAP),
+     "    if (denseIn && value <= denseInRatio) return 0;",
+     "    if (denseIn) return 0;", MAP),
     ("C5 сцена игнорирует плотность кадра", APPJS,
      "        var density = C.lodDensity(onScreen, scene.width, scene.height);",
      "        var density = null;", SCENE),
@@ -104,6 +104,22 @@ MUTATIONS = [
     ("C22 сущности снова прямоугольники", MAPJS,
      "    entity: { color: '#9FB4CE', shape: 'sphere', size: 11, legend: false },",
      "    entity: { color: '#9FB4CE', shape: 'box', size: 11, legend: false },", MAP),
+    # ── Ревью CMV-C: правки F1/F2 ──────────────────────────────────────────
+    # F1: без полосы по r плотностная граница мигает (12 переключений на обходе).
+    ("C23 плотностная граница без полосы по r (мигание)", MAPJS,
+     "    var denseOutRatio = denseMax * (1 + d);",
+     "    var denseOutRatio = denseMax;", MAP),
+    # F1: без гистерезиса плотности кадр держит обзор до самого нуля.
+    ("C24 плотность не отпускает обзор (нет 20 % полосы)", MAPJS,
+     "    var denseOut = !denseMeasured\n      || density < densePer100k * numberOr(cfg.denseExitRatio,\n        DEFAULTS.lod.denseExitRatio);",
+     "    var denseOut = !denseMeasured;", MAP),
+    # F2: тема района снова берётся по алфавиту, а не по доминированию.
+    ("C25 район назван недоминирующей парадигмой", MAPJS,
+     "          && dominantShare >= 0.6 && paradigmShare >= 0.6) {",
+     "          && dominantShare >= 0.6) {", MAP),
+    ("C26 тема района = первая по алфавиту парадигма", MAPJS,
+     "        if (titleCounts[titleKeys[tk]] > paradigmCount) {",
+     "        if (paradigmTitle === null) {", MAP),
 ]
 
 

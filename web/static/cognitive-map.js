@@ -871,7 +871,7 @@
       var grp = merged[i];
       var kinds = {};
       var apex = null;
-      var paradigmTitle = null;
+      var titleCounts = {};
       var groupComps = {};
       for (var n = 0; n < grp.nodeIds.length; n += 1) {
         var rec2 = byId[grp.nodeIds[n]];
@@ -882,11 +882,24 @@
             || (rec2.degree === apex.degree && rec2.id < apex.id)) {
           apex = rec2;
         }
-        if (rec2.kind === 'paradigm' && rec2.title
-            && (paradigmTitle === null || rec2.title < paradigmTitle)) {
-          paradigmTitle = rec2.title;
+        // §5.2/§13: тема района — самая ЧАСТАЯ реальная парадигма, а не первая
+        // по алфавиту. Алфавитный выбор называл район произвольным заголовком:
+        // при трёх парадигмах без доминанты подпись выдавала одну из них за
+        // тему всего района.
+        if (rec2.kind === 'paradigm' && rec2.title) {
+          titleCounts[rec2.title] = (titleCounts[rec2.title] || 0) + 1;
         }
       }
+      var paradigmTitle = null;
+      var paradigmCount = 0;
+      var titleKeys = Object.keys(titleCounts).sort();
+      for (var tk = 0; tk < titleKeys.length; tk += 1) {
+        if (titleCounts[titleKeys[tk]] > paradigmCount) {
+          paradigmTitle = titleKeys[tk];
+          paradigmCount = titleCounts[titleKeys[tk]];
+        }
+      }
+      var paradigmShare = grp.count > 0 ? paradigmCount / grp.count : 0;
       var dominantKind = null;
       var bestCount = -1;
       var kindKeys = Object.keys(kinds).sort();
@@ -907,11 +920,13 @@
       dominantKind = dominantKind || 'other';
       var dominantShare = grp.count > 0
         ? (kinds[dominantKind] || 0) / grp.count : 0;
-      // §5.2 спеки: название — только там, где оно РЕАЛЬНО известно (однородный
-      // состав или реальное название парадигмы). Смешанный район получает
-      // НЕЙТРАЛЬНУЮ маркировку и честное число, а не выдуманную «тему».
+      // §5.2 спеки: название — только там, где оно РЕАЛЬНО известно и реально
+      // доминирует (однородный состав, тип ≥ 0.8 или парадигма с долей ≥ 0.6).
+      // Смешанный район получает НЕЙТРАЛЬНУЮ маркировку и честное число, а не
+      // выдуманную «тему» (§13).
       var baseLabel;
-      if (dominantKind === 'paradigm' && paradigmTitle && dominantShare >= 0.6) {
+      if (dominantKind === 'paradigm' && paradigmTitle
+          && dominantShare >= 0.6 && paradigmShare >= 0.6) {
         baseLabel = KIND_LABELS.paradigm + ': ' + paradigmTitle;
       } else if (dominantShare >= 0.8) {
         baseLabel = KIND_LABELS[dominantKind] || KIND_LABELS.other;
@@ -935,6 +950,10 @@
         kinds: kinds,
         dominantKind: dominantKind,
         dominantShare: dominantShare,
+        // Самая частая РЕАЛЬНАЯ парадигма района и её доля: подпись берёт
+        // название только при доминировании (см. baseLabel выше).
+        paradigmTitle: paradigmTitle,
+        paradigmShare: paradigmShare,
         // Честная подпись: реальный тип/название + реальное число элементов.
         label: baseLabel + ' · ' + grp.count,
         x: grp.cx, y: grp.cy,
@@ -1086,9 +1105,12 @@
    * Дополнительно — «корректировка по плотности» из §5.2 спеки: плотный кадр
    * (density ≥ opts.densePer100k видимых узлов на 100 000 CSS-px²) читается как
    * уровень 0 даже при r ≈ 1 (fit на 702 узлах — это физически обзор, а не
-   * рабочий вид). Выход из такого обзора — по плотности ниже `denseExitRatio`
-   * (20 % полоса) ИЛИ по росту r выше T1·(1+δ). Детальный уровень (r ≥ T2·(1+δ))
-   * приоритетнее плотности всегда: приближение пользователя не отменяется.
+   * рабочий вид). Плотностная поправка имеет ДВЕ полосы: по r (вход в обзор —
+   * до denseMax, выход — только выше denseMax·(1+δ)) и по плотности (вход 60,
+   * выход 48 узлов на 100k). Вместе они дают мёртвую зону у всех границ, поэтому
+   * дрожание колеса/щипка и колебания числа видимых узлов не переключают уровень.
+   * Детальный уровень (r ≥ T2·(1+δ)) приоритетнее плотности всегда: приближение
+   * пользователя не отменяется.
    *
    * Функция чистая: `prev` — предыдущий уровень (память гистерезиса), никакого
    * состояния модуля, никаких Date/Math.random.
@@ -1110,19 +1132,22 @@
     var nodes = numberOr(opts.nodes, 0);
     var density = numberOr(opts.density, null);
     var denseNodes = numberOr(cfg.denseNodes, DEFAULTS.lod.denseNodes);
-    var denseIn = false;
-    var denseOut = true;
-    // Плотность учитывается ТОЛЬКО в кадре обзора (r не больше 1.05): при
-    // движении внутрь плотного кольца видимых узлов становится не меньше, и без
-    // этого ограничения уровень возвращался бы в 0 посреди приближения —
-    // то самое мигание, которое запрещено §5.1 спеки.
+    var densePer100k = numberOr(cfg.densePer100k, DEFAULTS.lod.densePer100k);
     var denseMax = numberOr(cfg.denseMaxRatio, DEFAULTS.lod.denseMaxRatio);
-    if (nodes >= denseNodes && density !== null && value <= denseMax) {
-      denseIn = density >= numberOr(cfg.densePer100k, DEFAULTS.lod.densePer100k);
-      denseOut = density
-        < numberOr(cfg.densePer100k, DEFAULTS.lod.densePer100k)
-        * numberOr(cfg.denseExitRatio, DEFAULTS.lod.denseExitRatio);
-    }
+    // Полоса r для плотностной поправки: ВХОД в обзор по плотности — не выше
+    // denseMax, ВЫХОД из него — только выше denseMax·(1+δ). Мёртвая полоса по r
+    // (12 %) гасит дрожание колеса/щипка у границы: уйти из обзора и вернуться
+    // в него можно только с запасом, а не от каждого события ±1.5 % (§5.1).
+    var denseInRatio = denseMax;
+    var denseOutRatio = denseMax * (1 + d);
+    // Плотность учитывается только на большом наборе: мелкий граф всегда читаем
+    // поштучно. «Плотно» и «уже не плотно» разведены коэффициентом
+    // denseExitRatio — у самой плотности своя 20 % полоса гистерезиса.
+    var denseMeasured = nodes >= denseNodes && density !== null;
+    var denseIn = denseMeasured && density >= densePer100k;
+    var denseOut = !denseMeasured
+      || density < densePer100k * numberOr(cfg.denseExitRatio,
+        DEFAULTS.lod.denseExitRatio);
     // 1. Детальный уровень: приближение пользователя важнее плотности.
     if (value >= rise2) return 2;
     if (p === 2) {
@@ -1131,15 +1156,21 @@
     }
     // 2. Обзор: по r с гистерезисом ИЛИ по плотности кадра (§5.2 спеки).
     if (p === 0) {
-      // Выход — только когда И r выше верхнего порога, И кадр уже не плотный:
-      // иначе обзор, включённый по плотности, мгновенно «схлопывался» бы
-      // обратно (r на fit больше нижнего порога по построению).
-      if (value >= rise1 && !denseIn) return 1;
+      // r вышел за верхнюю границу плотностной полосы — пользователь
+      // приближается, обзор снят масштабом.
+      if (value > denseOutRatio) return 1;
+      // r за порогом T1·(1+δ): обзор держится, только пока кадр остаётся
+      // плотным. Гистерезис плотности — выход ниже densePer100k·denseExitRatio
+      // (`denseOut`), а не на самой границе входа: иначе обзор мигал бы от
+      // каждого изменения числа видимых узлов.
+      if (value >= rise1 && denseOut) return 1;
       return 0;
     }
     // p === 1
     if (value < fall1) return 0;
-    if (denseIn) return 0;
+    // В плотный обзор возвращаемся только внутри полосы входа (r ≤ denseMax):
+    // между denseMax и denseMax·(1+δ) уровень остаётся рабочим.
+    if (denseIn && value <= denseInRatio) return 0;
     return 1;
   }
 
