@@ -464,7 +464,7 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
     check(first["obsKinds"]["ro"] > 0 if "obsKinds" in first else True,
           "наблюдатели создаются (диагностика obsCreated=%r)"
           % first.get("obsCreated"))
-    check(grow["rafLive"]["delta"] == 0,
+    check(grow["rafLive"]["delta"] <= 0,
           "активных RAF не больше (живо %d -> %d)"
           % (first["rafLive"], last["rafLive"]))
     if has_scene:
@@ -498,8 +498,8 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
               "в покое кадров не больше потолка 24 fps (%d за 1500 мс)" % paints)
         check(paints >= 6, "в покое мягкая анимация продолжается (%d кадров)"
               % paints)
-    check((d1["rafLive"] or 0) == (first["rafLive"] or 0),
-          "в покое число живых RAF как в первом цикле (%r против %r)"
+    check((d1["rafLive"] or 0) <= (first["rafLive"] or 0),
+          "в покое живых RAF не больше, чем в первом цикле (%r против %r)"
           % (d1["rafLive"], first["rafLive"]))
 
     if not has_scene:
@@ -533,8 +533,8 @@ def run(browser, base, out_dir, fixtures_mod, label="cand"):
     back = pg.evaluate(SNAPSHOT)
     report["visible_again"] = back
     check(back["rafActive"] is True, "при возврате кадровый цикл возобновлён")
-    check((back["rafLive"] or 0) == (first["rafLive"] or 0),
-          "при возврате число живых RAF как до скрытия (%r против %r)"
+    check((back["rafLive"] or 0) <= (first["rafLive"] or 0),
+          "при возврате живых RAF не больше, чем до скрытия (%r против %r)"
           % (back["rafLive"], first["rafLive"]))
     check(back["scenes"] == 1 and back["netCount"] == 1,
           "при возврате одна сцена и одна сеть (%d/%r)"

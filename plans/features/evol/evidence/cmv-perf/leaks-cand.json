@@ -5,7 +5,7 @@
   1536,
   960
  ],
- "started_at": "2026-11-05T03:44:41",
+ "started_at": "2026-11-05T04:09:44",
  "checks": [
   {
    "ok": true,
@@ -57,7 +57,7 @@
   },
   {
    "ok": true,
-   "message": "обработчики ЖИВОЙ сцены не растут (scene.handlers 10 -> 10)"
+   "message": "обработчики ЖИВОЙ сцены не растут (scene.handlers 12 -> 12)"
   },
   {
    "ok": true,
@@ -65,19 +65,19 @@
   },
   {
    "ok": true,
-   "message": "после принудительного GC куча не выросла больше 8 МБ (цикл1 26.4 МБ -> цикл20 27.5 МБ, +1145 КБ)"
+   "message": "после принудительного GC куча не выросла больше 8 МБ (цикл1 26.6 МБ -> цикл20 27.7 МБ, +1062 КБ)"
   },
   {
    "ok": true,
-   "message": "в покое кадров не больше потолка 24 fps (31 за 1500 мс)"
+   "message": "в покое кадров не больше потолка 24 fps (30 за 1500 мс)"
   },
   {
    "ok": true,
-   "message": "в покое мягкая анимация продолжается (31 кадров)"
+   "message": "в покое мягкая анимация продолжается (30 кадров)"
   },
   {
    "ok": true,
-   "message": "в покое число живых RAF как в первом цикле (5 против 5)"
+   "message": "в покое живых RAF не больше, чем в первом цикле (5 против 5)"
   },
   {
    "ok": true,
@@ -105,7 +105,7 @@
   },
   {
    "ok": true,
-   "message": "при возврате число живых RAF как до скрытия (5 против 5)"
+   "message": "при возврате живых RAF не больше, чем до скрытия (5 против 5)"
   },
   {
    "ok": true,
@@ -198,9 +198,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 1
    },
    "rafLive": 5,
-   "rafTotal": 328,
-   "rafDone": 321,
-   "canvasesCreated": 51,
+   "rafTotal": 340,
+   "rafDone": 333,
+   "canvasesCreated": 57,
    "networkCreated": 0,
    "domScenes": 1,
    "domCanvases": 4,
@@ -210,10 +210,10 @@
    "netTotal": 1,
    "rafActive": true,
    "paused": false,
-   "frames": 14,
-   "draws": 20,
-   "fxPaints": 20,
-   "sprites": 34,
+   "frames": 15,
+   "draws": 21,
+   "fxPaints": 21,
+   "sprites": 40,
    "instance": 1,
    "listenersApp": 12,
    "observersApp": 2,
@@ -224,7 +224,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 27291244
+   "heapBytes": 27449640
   },
   "cycle1": {
    "added": 924,
@@ -293,10 +293,10 @@
    "targetsAlive": 439,
    "targetsCollected": 1,
    "obsCreated": 21,
-   "obsAlive": 16,
+   "obsAlive": 18,
    "obsByKind": {
-    "ro": 9,
-    "io": 1,
+    "ro": 10,
+    "io": 2,
     "mo": 6
    },
    "obsStacks": {
@@ -313,9 +313,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 3
    },
    "rafLive": 5,
-   "rafTotal": 532,
-   "rafDone": 523,
-   "canvasesCreated": 86,
+   "rafTotal": 546,
+   "rafDone": 537,
+   "canvasesCreated": 88,
    "networkCreated": 2,
    "domScenes": 1,
    "domCanvases": 4,
@@ -325,12 +325,12 @@
    "netTotal": 3,
    "rafActive": true,
    "paused": false,
-   "frames": 2,
-   "draws": 20,
-   "fxPaints": 20,
-   "sprites": 26,
+   "frames": 0,
+   "draws": 2,
+   "fxPaints": 2,
+   "sprites": 0,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false,
    "liveObjects": {
@@ -339,7 +339,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 27689456
+   "heapBytes": 27928648
   },
   "cycle10": {
    "added": 1401,
@@ -389,7 +389,7 @@
    "windowListeners": 25,
    "documentListeners": 2,
    "liveConnected": 838,
-   "liveDetached": 264,
+   "liveDetached": 229,
    "liveByTag": {
     "BUTTON": 718,
     "CANVAS": 9,
@@ -399,19 +399,19 @@
    },
    "detByTag": {
     "?": 5,
-    "INPUT": 90,
-    "BUTTON": 52,
-    "SELECT": 60,
-    "DIV": 15,
-    "CANVAS": 42
+    "INPUT": 78,
+    "BUTTON": 45,
+    "SELECT": 52,
+    "DIV": 13,
+    "CANVAS": 36
    },
-   "targetsAlive": 560,
-   "targetsCollected": 51,
+   "targetsAlive": 541,
+   "targetsCollected": 70,
    "obsCreated": 57,
-   "obsAlive": 28,
+   "obsAlive": 24,
    "obsByKind": {
-    "ro": 15,
-    "io": 7,
+    "ro": 13,
+    "io": 5,
     "mo": 6
    },
    "obsStacks": {
@@ -428,9 +428,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 21
    },
    "rafLive": 5,
-   "rafTotal": 1087,
-   "rafDone": 1060,
-   "canvasesCreated": 412,
+   "rafTotal": 1101,
+   "rafDone": 1074,
+   "canvasesCreated": 455,
    "networkCreated": 20,
    "domScenes": 1,
    "domCanvases": 4,
@@ -440,9 +440,9 @@
    "netTotal": 21,
    "rafActive": true,
    "paused": false,
-   "frames": 1,
-   "draws": 3,
-   "fxPaints": 3,
+   "frames": 0,
+   "draws": 2,
+   "fxPaints": 2,
    "sprites": 0,
    "instance": 1,
    "listenersApp": 12,
@@ -454,7 +454,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 28458556
+   "heapBytes": 28699092
   },
   "cycle20": {
    "added": 1931,
@@ -504,7 +504,7 @@
    "windowListeners": 25,
    "documentListeners": 2,
    "liveConnected": 838,
-   "liveDetached": 197,
+   "liveDetached": 232,
    "liveByTag": {
     "BUTTON": 718,
     "CANVAS": 9,
@@ -514,19 +514,19 @@
    },
    "detByTag": {
     "?": 5,
-    "INPUT": 66,
-    "BUTTON": 38,
-    "SELECT": 44,
-    "DIV": 11,
-    "CANVAS": 33
+    "INPUT": 78,
+    "BUTTON": 45,
+    "SELECT": 52,
+    "DIV": 13,
+    "CANVAS": 39
    },
-   "targetsAlive": 524,
-   "targetsCollected": 277,
+   "targetsAlive": 543,
+   "targetsCollected": 258,
    "obsCreated": 97,
-   "obsAlive": 22,
+   "obsAlive": 24,
    "obsByKind": {
-    "ro": 12,
-    "io": 4,
+    "ro": 13,
+    "io": 5,
     "mo": 6
    },
    "obsStacks": {
@@ -543,9 +543,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
    },
    "rafLive": 5,
-   "rafTotal": 1727,
-   "rafDone": 1680,
-   "canvasesCreated": 809,
+   "rafTotal": 1689,
+   "rafDone": 1642,
+   "canvasesCreated": 872,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -555,12 +555,12 @@
    "netTotal": 41,
    "rafActive": true,
    "paused": false,
-   "frames": 2,
-   "draws": 20,
-   "fxPaints": 20,
-   "sprites": 20,
+   "frames": 1,
+   "draws": 3,
+   "fxPaints": 3,
+   "sprites": 0,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false,
    "liveObjects": {
@@ -569,7 +569,7 @@
     "MutationObserver": 6,
     "visNetwork": 1
    },
-   "heapBytes": 28862664
+   "heapBytes": 29016464
   }
  },
  "vis_patched": true,
@@ -582,12 +582,12 @@
   },
   "liveDetached": {
    "before": 40,
-   "after": 197,
-   "delta": 157
+   "after": 232,
+   "delta": 192
   },
   "obsAlive": {
-   "before": 16,
-   "after": 22,
+   "before": 18,
+   "after": 24,
    "delta": 6
   },
   "rafLive": {
@@ -602,8 +602,8 @@
   },
   "targetsAlive": {
    "before": 439,
-   "after": 524,
-   "delta": 85
+   "after": 543,
+   "delta": 104
   },
   "windowListeners": {
    "before": 25,
@@ -627,18 +627,18 @@
   }
  },
  "obs_alive_diag": {
-  "cycle1": 16,
-  "cycle20": 22,
+  "cycle1": 18,
+  "cycle20": 24,
   "note": "WeakRef-строки; решает liveObjects"
  },
  "heap_growth": {
-  "cycle1": 27689456,
-  "cycle20": 28862664,
-  "delta": 1173208,
-  "start": 27291244
+  "cycle1": 27928648,
+  "cycle20": 29016464,
+  "delta": 1087816,
+  "start": 27449640
  },
  "idle_after_cycles": {
-  "paints": 31,
+  "paints": 30,
   "ms": 1500,
   "before": {
    "added": 1931,
@@ -722,9 +722,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
    },
    "rafLive": 5,
-   "rafTotal": 1887,
-   "rafDone": 1840,
-   "canvasesCreated": 809,
+   "rafTotal": 1861,
+   "rafDone": 1814,
+   "canvasesCreated": 894,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -734,12 +734,12 @@
    "netTotal": 41,
    "rafActive": true,
    "paused": false,
-   "frames": 15,
-   "draws": 33,
-   "fxPaints": 33,
-   "sprites": 20,
+   "frames": 14,
+   "draws": 20,
+   "fxPaints": 20,
+   "sprites": 18,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false
   },
@@ -825,9 +825,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
    },
    "rafLive": 5,
-   "rafTotal": 2342,
-   "rafDone": 2295,
-   "canvasesCreated": 809,
+   "rafTotal": 2316,
+   "rafDone": 2269,
+   "canvasesCreated": 894,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -837,12 +837,12 @@
    "netTotal": 41,
    "rafActive": true,
    "paused": false,
-   "frames": 46,
-   "draws": 64,
-   "fxPaints": 64,
-   "sprites": 20,
+   "frames": 44,
+   "draws": 50,
+   "fxPaints": 50,
+   "sprites": 18,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false
   }
@@ -932,9 +932,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
    },
    "rafLive": 2,
-   "rafTotal": 2380,
-   "rafDone": 2334,
-   "canvasesCreated": 809,
+   "rafTotal": 2354,
+   "rafDone": 2308,
+   "canvasesCreated": 894,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -944,12 +944,12 @@
    "netTotal": 41,
    "rafActive": false,
    "paused": true,
-   "frames": 46,
-   "draws": 64,
-   "fxPaints": 64,
-   "sprites": 20,
+   "frames": 44,
+   "draws": 50,
+   "fxPaints": 50,
+   "sprites": 18,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false
   },
@@ -1035,9 +1035,9 @@
     "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
    },
    "rafLive": 2,
-   "rafTotal": 2548,
-   "rafDone": 2502,
-   "canvasesCreated": 809,
+   "rafTotal": 2524,
+   "rafDone": 2478,
+   "canvasesCreated": 894,
    "networkCreated": 40,
    "domScenes": 1,
    "domCanvases": 4,
@@ -1047,12 +1047,12 @@
    "netTotal": 41,
    "rafActive": false,
    "paused": true,
-   "frames": 46,
-   "draws": 64,
-   "fxPaints": 64,
-   "sprites": 20,
+   "frames": 44,
+   "draws": 50,
+   "fxPaints": 50,
+   "sprites": 18,
    "instance": 1,
-   "listenersApp": 10,
+   "listenersApp": 12,
    "observersApp": 2,
    "full": false
   }
@@ -1139,9 +1139,9 @@
    "IntersectionObserver @     at Proxy._cogAttachSceneObservers (/web/app.js?v=__APP_VERSION__:N:24) |     at Proxy._cogCreateNetwork (/web/app.js?v=__APP_VERSION__:N:14) |     at Proxy.renderCognitionGraph (/web/app.js?v=__AP": 41
   },
   "rafLive": 5,
-  "rafTotal": 2916,
-  "rafDone": 2867,
-  "canvasesCreated": 809,
+  "rafTotal": 2892,
+  "rafDone": 2843,
+  "canvasesCreated": 894,
   "networkCreated": 40,
   "domScenes": 1,
   "domCanvases": 4,
@@ -1151,17 +1151,17 @@
   "netTotal": 41,
   "rafActive": true,
   "paused": false,
-  "frames": 71,
-  "draws": 90,
-  "fxPaints": 90,
-  "sprites": 20,
+  "frames": 68,
+  "draws": 75,
+  "fxPaints": 75,
+  "sprites": 18,
   "instance": 1,
-  "listenersApp": 10,
+  "listenersApp": 12,
   "observersApp": 2,
   "full": false
  },
  "shots": [
-  "cmv-e-leaks-after-cycles-cand3.png"
+  "cmv-e-leaks-after-cycles-final.png"
  ],
  "console_errors": []
 }
