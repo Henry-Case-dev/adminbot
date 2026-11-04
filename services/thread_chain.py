@@ -104,6 +104,12 @@ class ChainItem(NamedTuple):
     reply_to_item_id: str = ""
     quote_author_name: str = ""
     media_type: str = ""
+    # UNIFIED-REPLY UR-23 (аддитивно): происхождение бот-хода и его
+    # хронологические метаданные. `"bot_output"` = durable ledger (реальная
+    # дата отправки/ревизия/correlation), `"bot_replies"` = TTL-кеш.
+    source_kind: str = ""
+    correlation_id: str = ""
+    revision_no: int = 1
 
 
 def speaker_tag(name: str, uid, *, is_bot: bool = False,
@@ -202,6 +208,32 @@ async def _get_bot_reply_parent(db, chat_id: int, tg_message_id: int):
             "thread_chain: bot_reply_parents read failed | chat=%s msg=%s",
             chat_id, tg_message_id, exc_info=True)
         return None
+
+
+async def _bot_ledger_meta(db, chat_id: int, tg_message_id: int) -> dict:
+    """UR-23.2: метаданные бот-хода из durable ledger (дата/ревизия/parent).
+
+    TTL-кеш `bot_replies` не хранит времени отправки (R16) — реальную дату
+    даёт только ledger. Gate OFF/ошибка/нет строки → `{}`: дата остаётся
+    неизвестной, «сейчас» не подставляется."""
+    try:
+        from services import bot_output_ledger as _ledger
+        record = await _ledger.resolve_bot_output_by_tg(db, chat_id,
+                                                        tg_message_id)
+    except Exception:
+        logger.debug("thread_chain: ledger meta read failed | chat=%s msg=%s",
+                     chat_id, tg_message_id, exc_info=True)
+        return {}
+    if not record:
+        return {}
+    return {
+        "output_id": record.get("output_id"),
+        "sent_at": record.get("sent_at"),
+        "parent_message_ref": record.get("parent_message_ref") or "",
+        "correlation_id": record.get("correlation_id") or "",
+        "revision_no": record.get("revision_no") or 1,
+        "content_ref": record.get("content_ref") or "",
+    }
 
 
 async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
@@ -331,6 +363,15 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
         bot_text = await get_report(chat_id, current_id)
         bot_sent_at = None
         bot_reply_to = ""
+        bot_meta: dict = {}
+        if bot_text is not None:
+            # UNIFIED-REPLY UR-23.2: ход бота из TTL-кеша тоже получает
+            # РЕАЛЬНУЮ дату отправки (sent_at) и ревизию — durable ledger
+            # остаётся источником истины, кеш лишь ускоряет текст. Дата не
+            # подставляется «сейчас»: нет ledger-строки → ts неизвестен.
+            bot_meta = await _bot_ledger_meta(db, chat_id, current_id)
+            bot_sent_at = bot_meta.get("sent_at") or None
+            bot_reply_to = str(bot_meta.get("parent_message_ref") or "")
         if bot_text is None:
             # MCA-22 (C2, T-4288; ADR-1028-6 D2): bot_replies TTL/LRU протух
             # → durable ledger `mca_bot_outputs` восстанавливает ход бота и
@@ -356,7 +397,10 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                         uid=None, name=bot_name, text=bot_text, is_bot=True,
                         ts=bot_sent_at, item_id=f"tg:{current_id}",
                         forward_source=None,
-                        reply_to_item_id=bot_reply_to))
+                        reply_to_item_id=bot_reply_to,
+                        source_kind="bot_output",
+                        correlation_id=str(_rec.get("correlation_id") or ""),
+                        revision_no=int(_rec.get("revision_no") or 1)))
                     if _parent_ref.startswith("tg:"):
                         try:
                             current_id = int(_parent_ref.split(":", 1)[1])
@@ -369,12 +413,25 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
             _resolve_pending_quote(True)   # цитировали ход бота
             chain.append(ChainItem(
                 uid=None, name=bot_name, text=bot_text, is_bot=True,
-                ts=None, item_id=f"tg:{current_id}", forward_source=None))
+                ts=bot_sent_at, item_id=f"tg:{current_id}", forward_source=None,
+                reply_to_item_id=bot_reply_to,
+                source_kind=("bot_output" if bot_meta.get("output_id")
+                             is not None else "bot_replies"),
+                correlation_id=str(bot_meta.get("correlation_id") or ""),
+                revision_no=int(bot_meta.get("revision_no") or 1)))
             parent = await get_parent(chat_id, current_id)
             if parent is not None:
                 # EVOL v5: явное основание Reply для речевой проекции.
                 chain[-1] = chain[-1]._replace(
                     reply_to_item_id=_parent_item_id(parent))
+            elif bot_reply_to.startswith("tg:"):
+                # UR-23.3: TTL-кеш `bot_reply_parents` мог протухнуть, но
+                # durable ledger знает исходный parent_message_ref — идём по
+                # нему, а не обрываем цепочку («вчера ты обещал…»).
+                try:
+                    parent = int(bot_reply_to.split(":", 1)[1])
+                except (TypeError, ValueError):
+                    parent = None
             if parent is None:
                 break
             current_id = parent

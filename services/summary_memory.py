@@ -488,6 +488,194 @@ _EMBED_TOUCH_SECONDS = 60.0
 _RUNNING_SUMMARY_HEAD_MAX_CHARS = 60000
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# UNIFIED-REPLY UR-12: условие обновления конспекта — по непокрытому
+# диапазону/watermark, а не по магическому числу строк.
+#
+# `CHAT_CONTEXT_FILL_RATIO` перестаёт быть триггером (его доля строк окна —
+# не заполнение окна модели). `CHAT_LEVEL2_MIN_RAW_COUNT` перестаёт быть
+# порогом: широкий фон обновляется при РЕАЛЬНОМ приросте покрытого диапазона.
+# `RUNNING_SUMMARY_TTL_MINUTES` — только TTL хранения, не «забывание»:
+# актуальность определяется covered_to_ts/raw_count и новыми репликами.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Сколько живых verbatim-реплик allocator гарантирует в рабочем контексте
+#: (P1-пол `CHAT_FRESH_TAIL_MIN_MESSAGES`). Всё, что старше и не покрыто
+#: конспектом, при следующем приросте вытесняется → кандидат на конспект.
+RUNNING_SUMMARY_WORKING_WINDOW_DEFAULT = 20
+
+
+def _working_window_messages() -> int:
+    """Живой рабочий хвост (тот же P1-пол, что защищает allocator)."""
+    try:
+        from services.direct_context_composer import fresh_tail_min_messages
+        return max(1, int(fresh_tail_min_messages()))
+    except Exception:      # pragma: no cover - защитная ветка
+        return RUNNING_SUMMARY_WORKING_WINDOW_DEFAULT
+
+
+def _content_rows(rows) -> list:
+    """Содержательные строки окна (пустые/без текста не считаются приростом)."""
+    return [row for row in (rows or ()) if str(_row_text(row) or "").strip()]
+
+
+def running_summary_decision(rows, *, watermark_ts: int = 0,
+                             working_window_messages: int
+                             = RUNNING_SUMMARY_WORKING_WINDOW_DEFAULT
+                             ) -> dict:
+    """Нужен ли пересбор конспекта (UR-12) — чистая функция.
+
+    Принцип: конспект нужен, когда появились содержательные сообщения,
+    которые иначе ВЫТЕСНЯЮТСЯ из рабочего контекста, то есть их больше, чем
+    живой verbatim-хвост, и они не покрыты watermark'ом. Одинаковый диапазон
+    (watermark не отстаёт) повторно не сжимается.
+
+    Возврат: ``{"refresh": bool, "reason_code": str,
+    "uncovered_messages": int, "uncovered_since_ts": int,
+    "newest_ts": int}``.
+    """
+    content = _content_rows(rows)
+    try:
+        working = max(1, int(working_window_messages or 1))
+    except (TypeError, ValueError):
+        working = RUNNING_SUMMARY_WORKING_WINDOW_DEFAULT
+    try:
+        watermark = int(watermark_ts or 0)
+    except (TypeError, ValueError):
+        watermark = 0
+    if not content:
+        return {"refresh": False, "reason_code": "empty_window",
+                "uncovered_messages": 0, "uncovered_since_ts": 0,
+                "newest_ts": 0}
+    newest_ts = 0
+    for row in content:
+        ts = _row_int_ts(row)
+        if ts > newest_ts:
+            newest_ts = ts
+    uncovered = [row for row in content if _row_int_ts(row) > watermark]
+    uncovered_since = _row_int_ts(uncovered[0]) if uncovered else 0
+    if not uncovered:
+        return {"refresh": False, "reason_code": "watermark_current",
+                "uncovered_messages": 0, "uncovered_since_ts": 0,
+                "newest_ts": newest_ts}
+    if len(uncovered) <= working:
+        return {"refresh": False, "reason_code": "fits_working_window",
+                "uncovered_messages": len(uncovered),
+                "uncovered_since_ts": uncovered_since, "newest_ts": newest_ts}
+    return {"refresh": True, "reason_code": "displaced_by_new_messages",
+            "uncovered_messages": len(uncovered),
+            "uncovered_since_ts": uncovered_since, "newest_ts": newest_ts}
+
+
+def _row_text(row) -> str:
+    try:
+        if isinstance(row, dict):
+            return str(row.get("text") or "")
+        return str(row["text"] or "")
+    except Exception:
+        return ""
+
+
+def _row_int_ts(row) -> int:
+    try:
+        if isinstance(row, dict):
+            value = row.get("timestamp")
+        else:
+            value = row["timestamp"]
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
+def level2_advance_decision(prev_l1_row, *, covered_identity: dict | None,
+                            existing: dict | None = None) -> dict:
+    """Нужно ли обновить широкий фон L2 (UR-12) — чистая функция.
+
+    Заменяет порог `CHAT_LEVEL2_MIN_RAW_COUNT`: обновление идёт по приросту
+    ПОКРЫТОГО ДИАПАЗОНА (watermark `window_end_ts`), а не по числу строк.
+    Точный повтор/устаревший диапазон работу не создаёт; легаси-гард по
+    `msg_count_highwater` остаётся только при отсутствии durable-версии
+    источника.
+
+    ``covered_identity`` — сохранённая версия источника L2
+    (``{"window_end_ts": int, "raw_count": int}``) или None.
+    """
+    summary_text = ""
+    try:
+        summary_text = str(prev_l1_row["summary"] or "")
+    except Exception:
+        summary_text = ""
+    try:
+        prev_end = int(prev_l1_row["window_end_ts"] or 0)
+    except Exception:
+        prev_end = 0
+    try:
+        prev_raw = int(prev_l1_row["raw_count"] or 0)
+    except Exception:
+        prev_raw = 0
+    if not summary_text.strip():
+        return {"build": False, "reason_code": "no_source_summary"}
+    if covered_identity is not None:
+        try:
+            covered_end = int(covered_identity.get("window_end_ts") or 0)
+        except (TypeError, ValueError):
+            covered_end = 0
+        if prev_end and covered_end and prev_end <= covered_end:
+            return {"build": False, "reason_code": "range_already_covered"}
+        if not prev_end and not covered_end:
+            # Секундной точности нет ни там, ни там — работа не начинается
+            # «по догадке»: сначала должен появиться реальный watermark.
+            return {"build": False, "reason_code": "no_watermark"}
+        return {"build": True, "reason_code": "uncovered_range_advanced"}
+    # Легаси (версии нет): прежний гард по счётчику — чтобы не пересобирать
+    # неизменившееся, пока новый код не записал identity.
+    if existing is not None:
+        try:
+            highwater = int(existing["msg_count_highwater"] or 0)
+        except Exception:
+            highwater = 0
+        if highwater >= prev_raw:
+            return {"build": False, "reason_code": "legacy_highwater_current"}
+    return {"build": True, "reason_code": "legacy_first_build"}
+
+
+async def summary_coverage(db, chat_id: int, *, now_ts: int | None = None,
+                           newest_ts: int = 0) -> dict:
+    """Что покрыто конспектом (UR-12): «охвачено сообщений/до какой даты».
+
+    Возвращает честный статус для UI/инспектора вместо «бот забыл через час»:
+    ``{"text","covered_to_ts","raw_count","new_since_ts","level","ttl_expires_at",
+    "stale_by_watermark"}``. TTL показывается как срок записи, а не как
+    забывание; истёкший TTL не удаляет и не делает конспект свежим."""
+    out = {"text": "", "covered_to_ts": 0, "raw_count": 0, "new_since_ts": 0,
+           "level": 0, "ttl_expires_at": 0, "stale_by_watermark": False,
+           "present": False}
+    if db is None:
+        return out
+    moment = float(now_ts if now_ts is not None else time.time())
+    try:
+        row = await db.get_running_summary(chat_id, moment)
+    except Exception:
+        row = None
+    if row is None:
+        return out
+    try:
+        covered_to = int(row["window_end_ts"] or 0)
+        raw_count = int(row["raw_count"] or 0)
+        ttl = int(row["expires_at"] or 0)
+    except Exception:
+        covered_to, raw_count, ttl = 0, 0, 0
+    out.update({
+        "text": str(row["summary"] or ""), "covered_to_ts": covered_to,
+        "raw_count": raw_count, "level": 1, "ttl_expires_at": ttl,
+        "present": bool(str(row["summary"] or "").strip()),
+    })
+    if newest_ts and covered_to and int(newest_ts) > covered_to:
+        out["new_since_ts"] = int(newest_ts) - covered_to
+        out["stale_by_watermark"] = True
+    return out
+
+
 # MCA-07 (T-3847, ADR-1027-7 D4): версия ПРЕДОБРАБОТКИ текста перед embed.
 # Меняется, если меняется нормализация (сейчас casefold+strip); входит в
 # identity-fingerprint (cache key = текст + provider/model/dims/preproc+endpoint).
@@ -3230,9 +3418,16 @@ class MemoryManager:
 
     async def get_window_messages(self, chat_id: int) -> list:
         """L1: messages within SUMMARY_WINDOW_HOURS, one SQL pass.
-        Epic 60 (64.6, T-467): окно ≥ CHAT_CONTEXT_FILL_RATIO ×
-        SUMMARY_MAX_WINDOW_MESSAGES и нет свежего конспекта → fire-and-forget
-        бегущего конспекта (лениво, чат НЕ ждёт LLM)."""
+
+        Окно — быстрый КАНДИДАТНЫЙ хвост (UR-09), его лимит по строкам не
+        является информационным потолком модели.
+
+        UNIFIED-REPLY UR-12: условие обновления running summary больше НЕ
+        зависит от `CHAT_CONTEXT_FILL_RATIO` × числа строк. Конспект
+        запускается, когда появились содержательные сообщения, которые иначе
+        ВЫТЕСНЯЮТСЯ из рабочего контекста (непокрытый watermark'ом диапазон
+        больше живого verbatim-хвоста), и не пересобирается на неизменившемся
+        диапазоне (проверка watermark + source range)."""
         # N4: window_hours — or 0 (None из кэша → 0 = без окна, не падаем)
         since = int(time.time()) - int((hot.get(
             "limits.summary_window_hours", settings.SUMMARY_WINDOW_HOURS) or 0) * 3600)
@@ -3247,18 +3442,27 @@ class MemoryManager:
             "SmartModule L1: window_size=%d | chat_id=%s | since_ts=%d",
             len(rows), chat_id, since,
         )
-        fill_threshold = int(hot.get("limits.chat_context_fill_ratio", settings.CHAT_CONTEXT_FILL_RATIO)
-                             * (_max_win or 0))
         # T-619: флаг бегущего конспекта — горячая точка (фолбек settings).
         # F-14 (S1, spec §4.2): гейт через chat_summary_enabled — ЛС не
         # наследует глобальный ON (саммари в ЛС по умолчанию OFF).
-        if await chat_summary_enabled(chat_id) and rows and \
-                len(rows) >= fill_threshold:
+        working_window = _working_window_messages()
+        if rows and len(rows) > working_window and \
+                await chat_summary_enabled(chat_id):
             try:
                 current = await self.db.get_running_summary(chat_id, time.time())
-                last_ts = rows[-1]["timestamp"]
-                if current is None or current["window_end_ts"] < last_ts:
+                watermark = (int(current["window_end_ts"] or 0)
+                             if current is not None else 0)
+                decision = running_summary_decision(
+                    rows, watermark_ts=watermark,
+                    working_window_messages=working_window)
+                if decision["refresh"]:
                     self._schedule_running_summary(chat_id, rows)
+                else:
+                    logger.debug(
+                        "SmartModule L1: summary refresh skipped | chat_id=%s "
+                        "| reason=%s | uncovered=%d | working=%d",
+                        chat_id, decision["reason_code"],
+                        decision["uncovered_messages"], working_window)
             except Exception:
                 logger.warning(
                     "SmartModule L1: running summary trigger check failed | chat_id=%s",
@@ -3431,38 +3635,41 @@ class MemoryManager:
         """E2/T-804 (spec §3.E2.2): сжатие ПРЕДЫДУЩЕГО level-1 в level 2
         («широкий фон», chat_summary_levels) тем же COMPRESS_PROMPT (единый
         compress-канон — новая константа/миграция НЕ вводятся, Q13); user =
-        текст prev-l1 конспекта. Условия запуска (здесь, ДО LLM):
-        prev_l1.raw_count >= limits.chat_level2_min_raw_count (default 250)
-        И источник СВЕЖЕ построенного: D09/§18F.3 (M10) — идентичность
-        источника по ДИАПАЗОНУ (window_end_ts + raw_count), не по размеру
-        окна: новое равное по размеру окно с новым контентом ОБНОВЛЯЕТ
-        широкий фон, точный повтор диапазона не создаёт работу, устаревший
-        (меньший) диапазон не перезаписывает свежий. Версия источника —
-        durable kv в task_jobs (прецедент intent_heartbeat_liveness).
+        текст prev-l1 конспекта. Условия запуска (здесь, ДО LLM) —
+        UNIFIED-REPLY UR-12 (`level2_advance_decision`): прирост ПОКРЫТОГО
+        ДИАПАЗОНА по watermark `window_end_ts`, а не магический порог строк
+        (`CHAT_LEVEL2_MIN_RAW_COUNT` больше не триггер, остаётся legacy-ключом
+        каталога). Идентичность источника — по ДИАПАЗОНУ (window_end_ts +
+        raw_count), не по размеру окна: новое равное по размеру окно с новым
+        контентом ОБНОВЛЯЕТ широкий фон, точный повтор диапазона не создаёт
+        работу, устаревший (меньший) диапазон не перезаписывает свежий.
+        Версия источника — durable kv в task_jobs (прецедент
+        intent_heartbeat_liveness).
         Результат (непустой, ≤ 10 строк) → UPSERT (level=2) с
         msg_count_highwater = prev_l1.raw_count. Пустой/LLMError/ошибка БД →
         WARNING, без записи (fail-open, NFR-6). Вызывается ТОЛЬКО из
         fire_and_forget."""
         try:
             raw_count = int(prev_l1_row["raw_count"] or 0)
-            min_raw = int(hot.get("limits.chat_level2_min_raw_count",
-                                  settings.CHAT_LEVEL2_MIN_RAW_COUNT) or 0)
-            if raw_count < (min_raw or 250):
-                return
             identity = {
                 "window_end_ts": _row_int(prev_l1_row, "window_end_ts"),
                 "raw_count": raw_count}
             stored = await _load_l2_source_version(self.db, chat_id)
             existing = await self.db.get_summary_level(chat_id, 2)
-            if stored is not None:
-                # M10: гард по версии источника (диапазон, не размер окна).
-                if existing is not None and \
-                        _l2_identity_key(identity) <= \
-                        _l2_identity_key(stored):
-                    return      # точный повтор / устаревший диапазон
-            elif existing is not None and \
-                    int(existing["msg_count_highwater"] or 0) >= raw_count:
-                # легаси (версии ещё нет): прежний count-highwater гард.
+            # UNIFIED-REPLY UR-12: порог `CHAT_LEVEL2_MIN_RAW_COUNT`
+            # (магическое число строк) заменён продвижением по НЕПОКРЫТОМУ
+            # диапазону и source watermark: широкий фон обновляется при
+            # реальном приросте, точный повтор диапазона работу не создаёт,
+            # устаревший (меньший) диапазон свежий не перезаписывает.
+            decision = level2_advance_decision(
+                prev_l1_row,
+                covered_identity=(dict(stored) if stored is not None else None),
+                existing=existing)
+            if not decision["build"]:
+                logger.debug(
+                    "level2: skip | chat_id=%s | reason=%s | end=%s raw=%s",
+                    chat_id, decision["reason_code"],
+                    identity["window_end_ts"], raw_count)
                 return
             summary = str((await self.llm.generate([
                 {"role": "system", "content": hot.get(

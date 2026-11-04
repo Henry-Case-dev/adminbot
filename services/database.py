@@ -5249,6 +5249,59 @@ class DatabaseService:
         except Exception:
             return []
 
+    async def list_bot_outputs_between(self, chat_id: int, *, since_ts: int = 0,
+                                       until_ts: int = 0, limit: int = 200,
+                                       kinds: tuple[str, ...] | None = None
+                                       ) -> list[dict]:
+        """Delivered-outputs чата в диапазоне `sent_at` (UR-23 read-path).
+
+        Аддитивный read-only доступ к ДОСТАВЛЕННЫМ строкам ledger'а для
+        хронологии хода: диапазон `[since_ts, until_ts]`, ASC по фактической
+        отправке (неизвестное время `sent_at IS NULL` остаётся вне диапазона
+        и честно не датируется). `kinds` — фильтр `output_kind` (None = все).
+        Индексы v22 (`chat_tg`/`hash`/`corr`) сохраняются; новых DDL нет."""
+        try:
+            clauses = ["chat_id = ?", "delivery_status = 'delivered'"]
+            params: list = [int(chat_id)]
+            if since_ts:
+                clauses.append("sent_at IS NOT NULL AND sent_at >= ?")
+                params.append(int(since_ts))
+            if until_ts:
+                clauses.append("(sent_at IS NULL OR sent_at <= ?)")
+                params.append(int(until_ts))
+            if kinds:
+                marks = ",".join("?" for _ in kinds)
+                clauses.append(f"output_kind IN ({marks})")
+                params.extend(kinds)
+            sql = ("SELECT * FROM mca_bot_outputs WHERE "
+                   + " AND ".join(clauses)
+                   + " ORDER BY sent_at ASC, output_id ASC LIMIT ?")
+            params.append(max(1, int(limit)))
+            cursor = await self.db.execute(sql, tuple(params))
+            rows = await cursor.fetchall()
+            return [d for d in (self._bot_output_row_to_dict(r)
+                                for r in rows) if d is not None]
+        except Exception:
+            return []
+
+    async def get_bot_output_revisions(self, chat_id: int,
+                                       tg_message_id: int) -> list[dict]:
+        """Все ревизии одного собственного сообщения (UR-23.3/23.4).
+
+        Append-only: правка = новая строка; актуальная — `revision_no` max.
+        История доступна только для явного вопроса о правке."""
+        try:
+            cursor = await self.db.execute(
+                "SELECT * FROM mca_bot_outputs "
+                "WHERE chat_id = ? AND tg_message_id = ? "
+                "ORDER BY revision_no ASC, output_id ASC",
+                (int(chat_id), int(tg_message_id)))
+            rows = await cursor.fetchall()
+            return [d for d in (self._bot_output_row_to_dict(r)
+                                for r in rows) if d is not None]
+        except Exception:
+            return []
+
     async def list_recent_bot_outputs(self, chat_id: int, limit: int = 20,
                                       kinds: tuple[str, ...] | None = None
                                       ) -> list[dict]:
