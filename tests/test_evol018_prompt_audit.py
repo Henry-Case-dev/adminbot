@@ -79,6 +79,44 @@ def test_grep_audit_finds_no_unregistered_prompt_constants():
         + repr(problems))
 
 
+def test_grep_audit_counts_are_stable():
+    """Цифры «фактического прогона» в контракте §5 запинены (PVR-S5, F1).
+
+    Документ обязан описывать фактическое состояние; числа, снятые руками,
+    тихо устаревают (именно так §5 разошёлся на 3 кандидата). Пин делает
+    дрейф громким: меняется состав ``services/``/``handlers/`` или реестра —
+    падает этот тест и заставляет обновить §5 в том же коммите.
+
+    Как считаем: ``audit_unregistered_prompt_constants`` с пустым реестром и
+    пустым allowlist даёт всех кандидатов (72); с реальным allowlist —
+    остальных (71), значит 1 кандидат в allowlist; на реальном реестре —
+    0 нарушений, значит остальные 71 закрыты ``code_source``.
+    """
+    files = sum(len(list((ROOT / sub).glob("*.py")))
+                for sub in pr._AUDIT_SCAN_MODULES)
+    assert files == 294, (
+        f"файлов под аудитом {files}: обновите §5 контракта и этот пин")
+    assert files < pr._AUDIT_TREE_MAX_FILES, (
+        "потолок _AUDIT_TREE_MAX_FILES срезает обход — «294 файла» тогда "
+        "перестаёт быть полным числом")
+
+    every = pr.audit_unregistered_prompt_constants(ROOT, blocks=[],
+                                                   allowlist={})
+    after_allowlist = pr.audit_unregistered_prompt_constants(
+        ROOT, blocks=[], allowlist=pr.PROMPT_AUDIT_ALLOWLIST)
+    outside = pr.audit_unregistered_prompt_constants(ROOT)
+
+    assert len(every) == 72, (
+        f"кандидатов {len(every)}: обновите §5 контракта и этот пин")
+    assert len(every) - len(after_allowlist) == 1, (
+        "кандидатов в allowlist "
+        f"{len(every) - len(after_allowlist)}: обновите §5 и этот пин")
+    assert len(after_allowlist) == 71, (
+        f"закрыто code_source {len(after_allowlist)}: обновите §5 и этот пин")
+    assert outside == [], (
+        "кандидаты вне реестра: " + repr(outside))
+
+
 def test_allowlist_entries_have_reasons():
     for name, reason in pr.PROMPT_AUDIT_ALLOWLIST.items():
         assert name.replace("_PROMPT", "").replace("_SYSTEM", "").isupper() \
