@@ -449,6 +449,23 @@
       "coverage_complete": true,
       "source_note": "Правка существующей функции GoodMorning: причина отсутствия новых медиа + выбор медиа и подписи через существующий квантовый рандом на каждую отправку; сохранить таймаут/дедуп/target-гейты и не ломать совместимость с UR-28 (per-chat timezone scheduling).",
       "updated": "2026-11-05"
+    },
+    {
+      "id": "behavior-gates-simplification-01",
+      "ticket": "BEHAVIOR-GATES-SIMPLIFICATION-01",
+      "title": "Удалить поведенческие удавки, сохранить целостность системы",
+      "status": "PENDING",
+      "priority": "urgent_parity:unified-reply,pvr-fc-corrective-01",
+      "queue_position": "urgent_tier_after:unified-reply",
+      "blocked_by": [
+        "unified-reply"
+      ],
+      "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
+      "source_sha256": "4F5457440E958EFD20C50F8031AF97DA9C9D7A1D25E3094EA4EA75E607EC7284",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "BGS-01 (privacy-вето на поиск) уже выполняется в линии ur/b-search как замена UR-06/07/08; BGS-02/03/04 (postprocess guards) и BGS-06 (backend-настройки) независимы по файлам от UR-B и могут идти параллельно; BGS-05 (бюджеты) зависит от UR-C/UR-D; BGS-06 UI-часть — от UR-F/PVR UI; BGS-07 конфликтная матрица обязательна как приложение к результату. Не создавать вторую очередь.",
+      "updated": "2026-11-05"
     }
   ],
   "owner_inputs": [
@@ -1047,6 +1064,17 @@
       ],
       "reconciled": true,
       "note": "Проверить, почему новые медиафайлы не попадают в рассылку GoodMorning (выпадает или баг), и подключить существующий квантовый рандом (mca_random_source) к выбору медиа+подписи на каждую отправку. Без нового RandomSource."
+    },
+    {
+      "id": "OI-2026-11-05-BEHAVIOR-GATES-SIMPLIFICATION",
+      "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
+      "source_sha256": "4F5457440E958EFD20C50F8031AF97DA9C9D7A1D25E3094EA4EA75E607EC7284",
+      "kind": "new_task",
+      "target_task_ids": [
+        "behavior-gates-simplification-01"
+      ],
+      "reconciled": false,
+      "note": "Срочный эпик BGS-01..08: убрать privacy-вето на Web Search без замены новым классификатором; снять смысловую постцензуру Evidence Egress и Public Speech (только техническая очистка и наблюдение); убрать лишние retry и искусственные интеллектуальные потолки, согласовав бюджеты с UR; синхронизировать действующие и удалённые настройки в backend и админке; сохранить RBAC, секреты, SSRF/SafeFetcher, протокольную очистку, дедуп, лимиты API, доказательность фактчека, пользовательские промпты и характер. Конфликтная матрица: UR-06/07/08 (privacy) заменяются, UR-15 уточняется."
     }
   ]
 }
