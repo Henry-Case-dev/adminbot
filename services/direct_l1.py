@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import deque
 from dataclasses import dataclass
 
 from config.settings import settings
@@ -2428,6 +2429,99 @@ def get_l1_diagnostics(chat_id: int | None) -> dict | None:
         return None
 
 
+# ── UNIFIED-REPLY UR-A (§2.1): трасса хода несёт сам TurnRequest ─────────────
+# Трасса — process-local (как `_l1_diagnostics`): последние ходы чата вместе с
+# контрактным объектом `TurnRequest`, чтобы инспекция видела фактические поля
+# хода (тип, адресат, права, слот), а не реконструкцию по логам. Тексты чата
+# в БД/лог не пишутся (R17) — объект живёт только в памяти процесса.
+
+_TURN_TRACE_MAX_CHATS = 64
+_TURN_TRACE_MAX_TURNS = 4
+_turn_trace: dict[int, "deque[TurnTraceEntry]"] = {}
+
+
+@dataclass(frozen=True)
+class TurnTraceEntry:
+    """Запись трассы хода: контракт `TurnRequest` + резолв политики (UR-02)."""
+
+    turn_type: str
+    trigger_type: str
+    plan_schema: str
+    slot_policy: str
+    repair_policy: str
+    slot: str
+    model: str
+    capabilities: tuple[str, ...]
+    request: object            # services.turn_types.TurnRequest (сам объект)
+    ts: int
+
+
+def record_turn_trace(request, policy=None) -> "TurnTraceEntry | None":
+    """Запомнить ход в трассе чата (fail-open, bounded). Никогда не бросает."""
+    try:
+        from services import turn_types as _tt
+        if request is None:
+            return None
+        pol = policy or _tt.turn_policy(getattr(request, "trigger_type", ""))
+        slot_meta = getattr(request, "model_slot", None)
+        entry = TurnTraceEntry(
+            turn_type=str(getattr(pol, "turn_type", "") or ""),
+            trigger_type=str(getattr(request, "trigger_type", "") or ""),
+            plan_schema=str(getattr(pol, "plan_schema", "") or ""),
+            slot_policy=str(getattr(pol, "slot_policy", "") or ""),
+            repair_policy=str(getattr(pol, "repair_policy", "") or ""),
+            slot=str(getattr(slot_meta, "slot", "") or ""),
+            model=str(getattr(slot_meta, "model", "") or ""),
+            capabilities=tuple(getattr(request, "capabilities", ()) or ()),
+            request=request,
+            ts=int(time.time()))
+        chat_id = int(getattr(request, "chat_id", 0) or 0)
+        entry_queue = _turn_trace.get(chat_id)
+        if entry_queue is None:
+            entry_queue = deque(maxlen=_TURN_TRACE_MAX_TURNS)
+            _turn_trace[chat_id] = entry_queue
+            if len(_turn_trace) > _TURN_TRACE_MAX_CHATS:
+                try:
+                    oldest = min(_turn_trace, key=lambda c: (
+                        _turn_trace[c][-1].ts if _turn_trace[c] else 0))
+                    _turn_trace.pop(oldest, None)
+                except Exception:      # pragma: no cover - fail-open
+                    _turn_trace.clear()
+        entry_queue.append(entry)
+        return entry
+    except Exception:          # pragma: no cover - fail-open
+        return None
+
+
+def get_turn_trace(chat_id: int | None, limit: int = 1) -> list:
+    """Последние ходы чата (старые → новые), ``limit`` записей. Fail-open."""
+    try:
+        if chat_id is None:
+            return []
+        history = list(_turn_trace.get(int(chat_id)) or ())
+        count = max(1, int(limit))
+        return history[-count:]
+    except Exception:          # pragma: no cover - fail-open
+        return []
+
+
+def last_turn_request(chat_id: int | None):
+    """`TurnRequest` последнего хода чата (или None)."""
+    history = get_turn_trace(chat_id, limit=1)
+    return history[-1].request if history else None
+
+
+def reset_turn_trace(chat_id: int | None = None) -> None:
+    """Сбросить трассу чата (или всю) — для тестов и диагностики."""
+    try:
+        if chat_id is None:
+            _turn_trace.clear()
+        else:
+            _turn_trace.pop(int(chat_id), None)
+    except Exception:          # pragma: no cover - fail-open
+        pass
+
+
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
@@ -2446,6 +2540,8 @@ __all__ = [
     "emit_l1_plan_event", "build_l2_plan_block",
     "analysis_directive_needed", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
+    "TurnTraceEntry", "record_turn_trace", "get_turn_trace",
+    "last_turn_request", "reset_turn_trace",
     "KNOWLEDGE_ORIGINS", "SEARCH_INTENTS", "OPEN_WORLD_ORIGINS",
     "SEARCH_REQUIRED", "SEARCH_BENEFICIAL", "SEARCH_NOT_APPLICABLE",
     "SEARCH_CAPABILITY", "SearchAxis", "normalize_search_intent",

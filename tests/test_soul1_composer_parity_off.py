@@ -176,6 +176,13 @@ def build_service():
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
+        # UR-A: контракт/движок хода - те же методы реального сервиса.
+        _resolve_turn_slot_meta = D._resolve_turn_slot_meta
+        _resolve_turn_tool_state = D._resolve_turn_tool_state
+        _turn_aliases_snapshot = D._turn_aliases_snapshot
+        _build_reply_parent_ref = D._build_reply_parent_ref
+        _build_turn_request = D._build_turn_request
+        _execute_turn = D._execute_turn
 
         async def _history_partial(self, chat_id, window):
             # ASAP2 T10-BOUNDARY: в стенде окно = вся сохранённая история
