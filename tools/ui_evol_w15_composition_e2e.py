@@ -1950,7 +1950,10 @@ def run_cog_map(browser, base, report, fails, out_dir):
         " return el ? el.textContent.replace(/\\s+/g, ' ').trim() : ''; }")
     ok("видно 0 из 11" in view_counters,
        "фильтр-пусто: счётчики витрины не согласованы (%r)" % view_counters)
-    ok(pruned["counters"].startswith("11 узлов"),
+    # CMV-D (§9.9 спеки): счётчики в шапке показывают ЧЕТЫРЕ величины раздельно
+    # (в базе / из API / после фильтра / на экране), поэтому строка начинается
+    # с «в базе», а число из API подписано «из API» — смешивать их запрещено.
+    ok("11 узлов" in pruned["counters"] and "из API" in pruned["counters"],
        "фильтр-пусто: счётчики данных неверны (%r)" % pruned["counters"])
     shot(pg, "w15-cog-filter-empty-1280", ".status-graph")
     pg.evaluate("() => window.__adminbotVm.graphResetView()")
@@ -2003,7 +2006,7 @@ def run_cog_map(browser, base, report, fails, out_dir):
     ok(not pg.evaluate(
         "() => !!document.querySelector('[data-cog-state=\\'filtered\\']')"),
        "0→N: «по фильтру узлов нет» при пустых фильтрах")
-    ok(after["counters"].startswith("11 узлов"),
+    ok("11 узлов" in after["counters"] and "из API" in after["counters"],
        "0→N: счётчики не показывают данные (%r)" % after["counters"])
     ok(visible["total"] == 11,
        "0→N: в сцене %d узлов из 11" % visible["total"])
@@ -2205,20 +2208,25 @@ def run_cog_map(browser, base, report, fails, out_dir):
         ok([a["id"] for a in card["actions"]] == COG_CARD_ACTION_IDS,
            "%s: набор действий карточки %s" % (label,
                                                [a["id"] for a in card["actions"]]))
-        # Геометрия: desktop — панель у правого края, телефон — лист снизу.
-        if w >= 768:
-            ok(abs(card["rect"]["right"] - (card["vw"] - 12)) <= 2
-               and 300 <= card["rect"]["width"] <= 380,
-               "%s: карточка не панель справа (%s)" % (label, card["rect"]))
-            ok(card["rect"]["width"] < card["vw"] * 0.5,
-               "%s: панель занимает пол-экрана (%s)" % (label, card["rect"]))
-        else:
-            ok(abs(card["rect"]["bottom"] - card["vh"]) <= 2
-               and card["rect"]["left"] <= 1
-               and abs(card["rect"]["right"] - card["vw"]) <= 1,
-               "%s: карточка не нижний лист (%s)" % (label, card["rect"]))
-            ok(card["rect"]["height"] <= card["vh"] * 0.7,
-               "%s: лист закрывает почти всю карту (%s)" % (label, card["rect"]))
+        # CMV-D (§8.2 спеки, CMV-CARD-08): во ВСТРОЕННОЙ карте инспектор —
+        # компактная панель ПОД сценой, а не панель у правого края и не лист
+        # поверх карты. Колонка справа и нижний лист — это ПОЛНЫЙ ЭКРАН
+        # (стенд `tools/ui_cmv_d_fullscreen_e2e.py`).
+        scene_rect = pg.evaluate(
+            "() => { const el = document.querySelector('[data-cog-map] "
+            ".cognition-graph'); if (!el) return null;"
+            " const r = el.getBoundingClientRect();"
+            " return {top: r.top, bottom: r.bottom, left: r.left,"
+            "         right: r.right}; }")
+        ok(scene_rect is not None, "%s: сцена карты не найдена" % label)
+        ok(card["rect"]["top"] >= (scene_rect or {}).get("bottom", 0) - 2,
+           "%s: панель инспектора не под сценой (%s / %s)"
+           % (label, card["rect"], scene_rect))
+        ok(card["rect"]["left"] >= (scene_rect or {}).get("left", 0) - 2
+           and card["rect"]["right"] <= (scene_rect or {}).get("right", 0) + 2,
+           "%s: панель выходит за пределы карты (%s)" % (label, card["rect"]))
+        ok(card["rect"]["height"] <= card["vh"] * 0.7,
+           "%s: панель закрывает почти всю карту (%s)" % (label, card["rect"]))
         # Камера и зум открытием карточки не меняются.
         ok(same_camera(cam_of(cam_before), cam_of(settled_view(pg))),
            "%s: открытие карточки сдвинуло камеру %s"

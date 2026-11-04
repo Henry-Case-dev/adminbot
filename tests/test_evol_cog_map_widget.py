@@ -609,10 +609,14 @@ def test_card_layout_is_panel_on_desktop_and_sheet_on_mobile():
     assert "width: 344px" in block
     assert "max-height: calc(100dvh" in block
     mobile = _media_block(CSS, "max-width: 767px", ".cog-card {")
-    # «Та же сцена»: лист прижат к низу и не закрывает карту целиком
-    # (≈ половина экрана, остальное — прокручиваемое содержимое карточки).
-    assert "bottom: 0" in mobile and "max-height: 52dvh" in mobile, \
-        "телефон: нижний лист"
+    # CMV-D (§3.2 спеки, CMV-FSM-03): нижний лист стартует на 40 % высоты
+    # (полоса 35–45) и раскрывается до 80 % (полоса 75–85). Прежние «52dvh без
+    # раскрытия» контрактом не являются: свайп/ручка меняют высоту.
+    assert "bottom: 0" in mobile and "height: 40dvh" in mobile, \
+        "телефон: нижний лист 40 % высоты"
+    assert "max-height: 85dvh" in mobile, "телефон: лист раскрывается до 80–85 %"
+    expanded = _media_block(CSS, "max-width: 767px", ".cog-card--expanded {")
+    assert "height: 80dvh" in expanded, "телефон: раскрытие листа не реализовано"
     assert "top: auto" in mobile and "right: 0" in mobile, \
         "на телефоне панель перестаёт быть правой панелью"
     assert "safe-area-inset-bottom" in mobile
@@ -816,6 +820,8 @@ def test_cmv_node_suites_run():
         # импульсы/пульс/физику — маркер пакета B.
         ("evol_cog_visual_test.js", "EVOL-CMV-B-VISUAL-OK"),
         ("evol_cog_scene_test.js", "EVOL-CMV-A-SCENE-OK"),
+        # CMV-D: fullscreen/инспектор/лист/счётчики/смена чата/фокус.
+        ("evol_cmv_d_fullscreen_test.js", "EVOL-CMV-D-OK"),
         ("routing_test.js", "JS-UNIT-OK"),
     ):
         res = subprocess.run(
@@ -823,3 +829,233 @@ def test_cmv_node_suites_run():
             capture_output=True, text=True, timeout=120, cwd=ROOT)
         assert res.returncode == 0, script + ": " + res.stderr[-2000:]
         assert marker in res.stdout, script + ": " + res.stdout[-2000:]
+
+
+# ═══ CMV-D (EPIC-CM-VISUAL-01): fullscreen, инспектор, mobile, счётчики ══════
+# Спека §2.1-§2.3, §3.1-§3.2, §8.2, §9, §11, §12.3. Живые измерения — стенд
+# `tools/ui_cmv_d_fullscreen_e2e.py`; здесь закреплены ПРИЧИНЫ (структура,
+# стили, точки отказа), без которых живые проверки были бы случайными.
+
+D_BLOCK = _map_block(INDEX)
+
+
+def _fs_block(html: str) -> str:
+    """Разметка полноэкранного интерфейса исследования."""
+    start = html.index('class="status-graph-full"')
+    return html[start:html.index('id="cog-card"', start)]
+
+
+def test_cmv_d_fullscreen_is_a_research_ui_not_a_canvas():
+    """§3.1: панель с ОДНИМ порядком контролов + сцена и инспектор под ней."""
+    full = _fs_block(INDEX)
+    assert "cog-fs__bar" in full, "нет панели полного экрана"
+    order = ["cog-fs__brand", "data-cog-counters", "graph-search cog-fs__search",
+             "graphResetView()", "closeGraphFull()"]
+    positions = [full.index(marker) for marker in order]
+    assert positions == sorted(positions), \
+        "порядок панели нарушен: название → счётчики → поиск → фильтры → " \
+        "сброс → закрыть"
+    assert "cog-fs__body" in full and "cog-fs__scene" in full
+    assert 'id="cog-inspector-slot"' in full, \
+        "нет колонки инспектора в полном экране"
+    assert full.index("cog-fs__scene") < full.index("cog-inspector-slot"), \
+        "инспектор должен идти после сцены (отдельная колонка, не оверлей)"
+    # Панель — одна строка на опорных ширинах: 56–64 px по §3.1.
+    bar = _block(CSS, ".cog-fs__bar {", ".cog-fs__brand {")
+    assert "min-height: 60px" in bar
+
+
+def test_cmv_d_inspector_is_a_grid_column_not_an_overlay():
+    """§3.1/CMV-FS-02/CMV-VIS-09: колонка 300–360 px, сцена сужается."""
+    grid = _block(CSS, ".status-graph-full.has-inspector .cog-fs__body {",
+                  ".status-graph-full.has-inspector .cog-fs__inspector {")
+    assert "grid-template-columns" in grid and "clamp(300px" in grid \
+        and "360px" in grid, grid
+    dock = _media_block(CSS, "min-width: 768px", ".cog-card--dock {")
+    assert "position: static" in dock, \
+        "панель инспектора не должна быть абсолютно позиционированной"
+    assert "position: fixed" not in dock, "fixed-панель перекрывала бы сцену"
+    assert "overflow-y: auto" in dock, "у инспектора нет собственного scroll"
+    # Пустая колонка места не занимает (FS-03): display:none до появления записи.
+    inspector = _block(CSS, ".cog-fs__inspector {",
+                       ".cog-fs__scene .cognition-graph--full")
+    assert "display: none" in inspector
+    # Телефонный лист существует отдельно и места не занимает.
+    mobile = _media_block(CSS, "max-width: 767px",
+                          ".status-graph-full .cog-fs__inspector {")
+    assert "height: 0" in mobile, \
+        "слот инспектора на телефоне не должен занимать высоту"
+
+
+def test_cmv_d_embedded_inspector_sits_below_the_scene():
+    """§8.2/CMV-CARD-08: под сценой, а не «в углу поверх узлов»."""
+    block = D_BLOCK
+    assert 'id="cog-embed-inspector"' in block, \
+        "нет панели инспектора во встроенной карте"
+    assert block.index("data-cog-scene") < block.index('id="cog-embed-inspector"'), \
+        "панель должна быть ПОД сценой"
+    embed = _block(CSS, ".cog-card--embed {", ".cog-card--embed .cog-card__grip")
+    assert "position: static" in embed, "встроенный инспектор не должен плавать"
+    assert "max-height: 40dvh" in embed, "панель должна быть компактной"
+    assert "overflow-y: auto" in embed, "у панели нет собственного scroll"
+    # Один слой: та же карточка телепортируется в слот, второй разметки нет
+    # (контракт §9.1: маркер `<teleport>` + одна модель `cogCard`).
+    assert INDEX.count('id="cog-card"') == 1
+    assert '<teleport v-if="cogCard" :to="cogCardSlot">' in INDEX, \
+        "карточка не переезжает в слот своего режима"
+    assert "cogCardSlot: function () {" in APP_JS, "нет выбора слота показа"
+    assert "'#cog-inspector-slot' : '#cog-embed-inspector'" in APP_JS, \
+        "слоты режимов названы не те"
+    # Второй карточки/второй логики нет: ручной перенос DOM не нужен.
+    assert "_cogMountCard" not in APP_JS, \
+        "карточка должна переезжать телепортом, а не ручным appendChild"
+
+
+def test_cmv_d_scene_height_and_mobile_controls():
+    """§2.1 (400/420 px) и §2.3 (390 px, тач-цели ≥44)."""
+    scene = _block(CSS, ".cognition-graph {", ".cog-fx {")
+    assert "height: 420px" in scene, "рабочая цель §2.1 — 420 px"
+    assert "320px" not in scene, "осталась прежняя высота 320 px"
+    mobile_scene = _media_block(CSS, "max-width: 767px",
+                                ".cognition-graph { height: clamp(")
+    assert "clamp(340px" in mobile_scene, "на телефоне минимум 340 px"
+    assert "touch-action: none" in scene, \
+        "без touch-action сцена не может держать пинч/пан"
+    # 44 px для действий карточки и контролов шапки на телефоне.
+    mobile_card = _media_block(CSS, "max-width: 767px", ".cog-card {")
+    assert ".cog-card__action .btn-ghost { min-height: 44px; }" in mobile_card
+    assert ".cog-card__toggle { min-height: 44px; }" in mobile_card
+    assert ".status-graph-full .btn-ghost { min-height: 44px; }" in CSS
+    # Шапка на 390: заголовок и «Полный экран» — одна строка (мета отдельной).
+    head = _block(CSS, ".cog-head {", ".cog-count__sep")
+    assert "cog-head__row" in head and "flex-wrap: nowrap" in head
+    assert "cog-head__meta" in head and "flex-wrap: wrap" in head
+
+
+def test_cmv_d_counters_distinguish_four_values():
+    """§9.9/CMV-NAV-07: БД / API / фильтр / экран — разные величины."""
+    for block in (D_BLOCK, _fs_block(INDEX)):
+        assert "cogCounterParts" in block, "нет раздельных частей счётчиков"
+        assert ':data-cog-count="part.key"' in block, \
+            "части счётчиков не размечены данными (различие не проверяемо)"
+    body = _block(APP_JS, "cogCounterParts: function () {",
+                  "cogCounters: function () {")
+    for marker in ("'db'", "'api'", "'screen'", "в базе", "из API",
+                   "на экране"):
+        assert marker in body, marker
+    assert "countSummary" in _block(APP_JS, "_cogCounts: function () {",
+                                    "_cogRefreshCounts: function")
+    # Публикация в реактивные данные (шаблон не читает `_cog*`).
+    refresh = _block(APP_JS, "_cogRefreshCounts: function () {",
+                     "_cogSetHover: function")
+    assert "this.cogCounts = counts || null" in refresh
+    assert "this._cogCountsSig = sig" in refresh, "нет защиты от лишних пересчётов"
+    # «Фильтр» остаётся отдельной строкой существующего контракта.
+    assert "cogViewCounters" in D_BLOCK
+    assert "cogViewCounters" in _fs_block(INDEX)
+
+
+def test_cmv_d_truncated_is_labelled_and_explained():
+    """§2.2: «Показана часть графа» + объяснение; честность не ослаблена."""
+    for block in (D_BLOCK, _fs_block(INDEX)):
+        assert "data-cog-truncated" in block, "усечение не помечено"
+        assert ':title="cogTruncated.hint"' in block, \
+            "усечение не объясняется по hover"
+        assert "Показана часть графа" in block
+    body = _block(APP_JS, "cogTruncated: function () {",
+                  "cogViewCounters: function () {")
+    assert "tr.nodes === true" in body and "tr.edges === true" in body
+    assert "comp.active === true" in body
+    assert "сервер не отдал" in body, "поиск по неотданной части не оговорён"
+    # Нейтральность прежней строки полноты не тронута (регресс-контракт §9.1).
+    at = INDEX.index("data-cog-completeness")
+    assert "text-gray-500" in INDEX[at - 200:at + 40]
+
+
+def test_cmv_d_hint_line_is_compact_and_one_time():
+    """§2.2 строка 4 (CMV-HDR-04): подсказка жестов — не постоянная плашка."""
+    for block in (D_BLOCK, _fs_block(INDEX)):
+        pass
+    block = D_BLOCK
+    assert "data-cog-hint>" in block, "нет строки подсказки под сценой"
+    assert "cogHintText" in block
+    assert 'aria-describedby="cog-hint-text"' in block, \
+        "подсказка не связана со сценой (недоступна после скрытия)"
+    assert 'data-cog-hint-text' in block, "нет доступной копии текста"
+    assert ':title="cogHintText"' in block, "нет подсказки на самой сцене"
+    # Полный экран: та же доступная подсказка (сцена иная, текст один).
+    assert ':title="cogHintText"' in _fs_block(INDEX)
+    hint = _block(APP_JS, "cogHintText: function () {",
+                  "cogHintVisible: function () {")
+    for part in ("Колесо/щипок — масштаб", "Перетаскивание — перемещение",
+                 "Нажатие — связи"):
+        assert part in hint, part
+    visible = _block(APP_JS, "cogHintVisible: function () {",
+                     "// CMV-D (§3.1/§8.2 спеки): МЕСТО показа")
+    assert "this.cogHintSeen !== true" in visible and "this.cogEmpty" in visible
+    # Подсказка уходит после ПЕРВОГО действия с картой, а не по таймеру.
+    for method in ("graphSelectNode: function (nodeId) {",
+                   "applyGraphFilter: function () {"):
+        assert "this._cogHintDone();" in _block(APP_JS, method, "\n      },\n")
+    css = _block(CSS, ".cog-hint {", ".cog-hint__sr {")
+    assert "font-size" not in css or "1.35" in css
+    assert ".cog-hint__sr" in CSS, "нет визуально скрытой копии текста"
+
+
+def test_cmv_d_neighbour_navigation_and_focus_return():
+    """§9/CMV-NAV-05/06: «Перейти» и возврат фокуса на кнопку открытия."""
+    card = _card_block()
+    assert ':data-cog-neighbor-go="nb.id"' in card, "нет навигации «Перейти»"
+    assert '@click="cogFocusNeighbor(nb.id)"' in card
+    assert 'ref="cogFullBtn"' in D_BLOCK, "кнопка открытия — точка возврата"
+    focus = _block(APP_JS, "cogFocusNeighbor: function (nodeId) {",
+                   "// F2 (T-1560/1561")
+    assert "net.focus(" in focus and "graphApplySelectionLabels" in focus
+    assert "openCogNodeCard(nodeId)" in focus
+    # Открытие карточки по-прежнему не двигает камеру (§W7-S3).
+    node_card = _block(APP_JS, "openCogNodeCard: function (nodeId, opts) {",
+                       "openCogEdgeCard: function (edgeId, opts) {")
+    assert "net.focus(" not in node_card
+    close = _block(APP_JS, "closeGraphFull: function () {",
+                   "// Кнопка «Полный экран»")
+    assert "this._cogReturnFocusToFullBtn()" in close, \
+        "закрытие полного экрана не возвращает фокус"
+    ret = _block(APP_JS, "_cogReturnFocusToFullBtn: function () {",
+                 "// F11 (L-F11S-3, §16/D4): initial focus")
+    assert "document.activeElement" in ret, \
+        "успех фокуса не проверяется — отвязанный узел сойдёт за успех"
+    assert "setTimeout(attempt" in ret, "нет ограниченного повтора"
+
+
+def test_cmv_d_states_error_and_chat_switch_are_honest():
+    """§11: пусто/ошибка с повтором/last-known-good/чужой чат."""
+    for block in (D_BLOCK, _fs_block(INDEX)):
+        assert "data-cog-load-error" in block and "data-cog-load-retry" in block, \
+            "отказ загрузки не показан с действием повтора"
+    load = _block(APP_JS, "loadCognitionGraph: async function () {",
+                  "_graphSignature: function")
+    assert "this._cogChatGen" in load, "ответ прошлого чата не отбрасывается"
+    assert "this.cogLoadError = null" in load
+    assert "this.cogLoadError = {" in load
+    inval = _block(APP_JS, "_cogInvalidateForChatSwitch: function () {",
+                   "// ── CMV-D: места показа карточки")
+    assert "this.cognitionGraphData = null" in inval
+    assert "this._cogChatGen = (this._cogChatGen || 0) + 1" in inval
+    assert "if (hadPrev" in inval, "новый чат не перезапрашивает карту"
+    assert "this._cogInvalidateForChatSwitch();" in APP_JS
+    render = _block(APP_JS, "renderCognitionGraph: async function () {",
+                    "_cogApplyData: function")
+    assert "if (!model) {" in render and "destroyCognitionGraph()" in render, \
+        "прежний граф остаётся на экране при отсутствии модели"
+    # Пусто / одно-узловое состояние ведут в «Память» (контракт §4).
+    assert "openMemoryFromCogMap()" in D_BLOCK
+
+
+def test_cmv_d_cluster_label_is_most_frequent_title():
+    """Побочная находка ревью CMV-C: имя кластера — частая парадигма."""
+    body = _block(ADAPTER, "function computeClusters(model) {",
+                  "var GROUP_NEUTRAL_LABEL")
+    assert "titleCounts" in body, "частота заголовков не считается"
+    assert "tkCount > paradigmCount" in body, \
+        "кластер снова называется произвольным (самым коротким) заголовком"
+    assert "node.title.length < group.paradigmTitle.length" not in body
