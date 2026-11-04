@@ -862,6 +862,7 @@ async def verbalize_validated(
     fallback_text: str | None = None,
     numeric_contract: NumericContract | None = None,
     metatext_reason: Callable[[str], str | None] | None = None,
+    author_state: dict | None = None,
 ) -> tuple[str, dict]:
     """Один Writer-вызов + НАБЛЮДЕНИЯ по готовому тексту (без повторов).
 
@@ -870,12 +871,21 @@ async def verbalize_validated(
 
     * машинный протокол (структура JSON/схема/function-call) —
       ``repair_machine_payload`` (единственное место, где допустим повтор);
-    * готовая разговорная речь — ЭТА функция: ровно один вызов
-      ``generate_call``; форма, числа, отрицания, метатекст, «клише» и формат
-      доставки только наблюдаются (``stats['cliche_observed']``,
+    * готовая разговорная речь — ЭТА функция: ровно один вызов автора;
+      форма, числа, отрицания, метатекст, «клише» и формат доставки только
+      наблюдаются (``stats['cliche_observed']``,
       ``stats['format_observed']``, ``stats['metatext_observed']``,
       ``stats['numeric_claim_mismatch']``), текст доставляется как написан
-      автором. ``stats['semantic_rewrite_count']`` всегда 0.
+      автором.
+
+    ``stats['semantic_rewrite_count']`` — ИЗМЕРЕНИЕ, не литерал: это число
+    литературных вызовов ЭТОГО хода сверх первого авторского
+    (``max(0, literary_calls - 1)``). Считается обёрткой над
+    ``generate_call``, поэтому автоматически станет >0, если кто-то вернёт
+    цикл повтора/второго автора. ``author_state`` (необязательный словарь)
+    — учёт литературных вызовов на уровне хода: интеграция/тест видит
+    фактическое число вызовов, а уже сделанный в ходе литературный вызов
+    даёт честный ``semantic_rewrite_count``.
 
     Единственное меняющее текст действие свободного пути — технический
     ``scrubber`` (``sanitize_outgoing``: маркеры рассуждений/машинные метки,
@@ -917,13 +927,27 @@ async def verbalize_validated(
         "fallback": False,
         "retry_error": False,
         "enabled": True,
-        # Измеряемый инвариант: смысловых переписываний ровно 0 (R-04, §7).
-        "semantic_rewrite_count": 0,
         # Анти-клише не перегенерирует никогда (исторический инвариант).
         "anti_cliche_retries": 0,
         # Наблюдение стилевых сигналов (код в stats, без повтора).
         "cliche_observed": [],
     }
+    # Учёт ЛИТЕРАТУРНЫХ вызовов хода (R-07/R-04): словарь может прийти от
+    # вызывающего/интеграции, иначе ведём свой. `semantic_rewrite_count`
+    # считается из него, а не задаётся литералом.
+    ledger = author_state if isinstance(author_state, dict) else {}
+
+    async def _author_generate(messages):
+        """Единственный путь литературного вызова: каждый вызов учитывается."""
+        ledger["literary_calls"] = int(ledger.get("literary_calls") or 0) + 1
+        return await generate_call(messages)
+
+    def _result(value: str) -> tuple[str, dict]:
+        """Итог пути: счётчик лишних авторов = литературные вызовы сверх 1."""
+        literary_calls = int(ledger.get("literary_calls") or 0)
+        stats["semantic_rewrite_count"] = max(0, literary_calls - 1)
+        return scrubber(value), stats
+
     metatext_active = metatext_reason is not None
     if metatext_active:
         stats["metatext_observed"] = []
@@ -950,13 +974,13 @@ async def verbalize_validated(
 
     if not getattr(settings, "SYSTEM2_VALIDATOR_LOOP_ENABLED", True):
         stats["enabled"] = False
-        text = await generate_call(base_messages)
+        text = await _author_generate(base_messages)
         stats["attempts"] = 1
-        return scrubber(text), stats
+        return _result(text)
 
     # Материализуем один раз — итератор/генератор нельзя прокручивать повторно.
     dyn = tuple(dynamic_rules) if dynamic_rules else ()
-    text = await generate_call(base_messages)
+    text = await _author_generate(base_messages)
     stats["attempts"] = 1
     codes = find_forbidden_cliches(text, enabled_rules, dyn)
     style_codes, format_codes = split_rule_codes(codes)
@@ -980,7 +1004,7 @@ async def verbalize_validated(
 
     if not transform_active:
         # Свободная речь L2: текст автора уходит как написан (R-04.1).
-        return scrubber(text), stats
+        return _result(text)
 
     # ── Явная трансформация: узкая проверка защищённых данных, без повтора ──
     form_reason = check_form_contract(text, form_contract, scrubber=scrubber)
@@ -996,7 +1020,7 @@ async def verbalize_validated(
             stats["technical_cleanup"] = True
     if not (form_reason is not None and not technical_leak) \
             and numeric_reason is None:
-        return scrubber(text), stats
+        return _result(text)
 
     stats["protected_facts_mismatch"] = True
     source = str(fallback_text or "")
@@ -1008,7 +1032,7 @@ async def verbalize_validated(
         logger.warning(
             "[validator] explicit transform: protected facts changed | "
             "reason=%s | source=none", stats.get("form_guard_reason"))
-        return scrubber(text), stats
+        return _result(text)
     stats["fallback"] = True
     stats["form_fallback"] = bool(form_reason is not None and not technical_leak)
     if numeric_reason is not None:
@@ -1016,4 +1040,4 @@ async def verbalize_validated(
     logger.warning(
         "[validator] explicit transform: source restored | reason=%s | "
         "numeric=%s", stats.get("form_guard_reason"), numeric_reason)
-    return scrubber(source), stats
+    return _result(source)

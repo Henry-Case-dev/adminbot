@@ -265,6 +265,73 @@ def test_machine_validation_is_not_used_for_free_speech():
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# 3b. `semantic_rewrite_count` — измерение литературных вызовов, не литерал
+#     MUTATION: вернуть литерал ``0`` вместо расчёта от ``literary_calls`` →
+#     тест (б) становится красным.
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_semantic_rewrite_count_counts_from_literary_calls():
+    """(а) Свободный ответ: один литературный вызов → счётчик 0 и учёт 1."""
+    calls = 0
+
+    async def gen(messages):
+        nonlocal calls
+        calls += 1
+        return "обычный ответ без клише"
+
+    ledger: dict = {}
+    text, stats = await nc.verbalize_validated(
+        gen, list(_BASE), author_state=ledger)
+
+    assert calls == 1
+    assert text == "обычный ответ без клише"
+    assert ledger["literary_calls"] == 1          # фактические вызовы хода
+    assert stats["semantic_rewrite_count"] == 0   # лишних авторов нет
+
+
+@pytest.mark.asyncio
+async def test_second_literary_call_in_turn_fails_the_invariant():
+    """(б) В ходе уже был литературный вызов (инъекция через ``author_state``):
+    после нашего вызова `semantic_rewrite_count` = 1, инвариант падает."""
+    async def gen(messages):
+        return "обычный ответ"
+
+    ledger = {"literary_calls": 1}                # инъекция второго автора
+    text, stats = await nc.verbalize_validated(
+        gen, list(_BASE), author_state=ledger)
+
+    assert ledger["literary_calls"] == 2
+    assert stats["semantic_rewrite_count"] == 1   # измерение, а не литерал
+    assert stats["semantic_rewrite_count"] != 0   # инвариант «ровно один» падает
+    assert text == "обычный ответ"                # текст при этом не правится
+
+
+def test_machine_repair_does_not_count_as_literary_call():
+    """(в) Машинный ремонт протокола — не литературный вызов: он делает
+    несколько генераций, но литературный счётчик остаётся нулём."""
+    replies = ["{oops", json.dumps({"answer": "ок"})]
+    called = 0
+
+    async def machine_gen(messages):
+        nonlocal called
+        called += 1
+        return replies[min(called - 1, len(replies) - 1)]
+
+    _m_text, m_stats = _run(nc.repair_machine_payload(
+        machine_gen, list(_BASE), validator=_json_validator, max_retries=1))
+    assert called == 2                            # машинных вызовов два
+    assert m_stats["attempts"] == 2
+    assert "semantic_rewrite_count" not in m_stats
+
+    async def author_gen(messages):
+        return "обычный ответ"
+
+    _text, stats = _run(nc.verbalize_validated(author_gen, list(_BASE)))
+    assert stats["semantic_rewrite_count"] == 0   # литературный счётчик чист
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # 4. Инвариант кода: в свободном пути не осталось reroll-механизма
 #    MUTATION: если вернуть в verbalize_validated ветку повтора (второй
 #    ``await generate_call`` или импорт form/numeric retry-канона), этот тест
@@ -286,20 +353,30 @@ def test_free_form_path_has_no_reroll_mechanism_in_source():
         node for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "verbalize_validated")
-    # Ни одной петли/повторного вызова: два обращения к LLM — это
-    # kill-switch-ветка и единственный основной путь, оба одноразовые.
+    # Ни одной петли/повторного вызова: единственное обращение к LLM живёт
+    # внутри счётчика литературных вызовов (`_author_generate`), поэтому
+    # автоматически измеримо, если кто-то вернёт второй автор.
     assert not [node for node in ast.walk(function)
                 if isinstance(node, (ast.While, ast.For))], \
         "в свободном пути появилась петля повторов"
-    generate_awaits = [
+    generate_calls = [
         node for node in ast.walk(function)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
         and node.func.id == "generate_call"]
-    assert len(generate_awaits) == 2             # ровно два одиночных вызова
+    assert len(generate_calls) == 1              # только внутри счётчика
+    author_calls = [
+        node for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_author_generate"]
+    assert len(author_calls) == 2                # kill-switch + основной путь
     function_source = ast.get_source_segment(inspect.getsource(nc), function) or ""
     assert "retry_messages" not in function_source
     assert "stats[\"retries\"] += 1" not in function_source
+    # Счётчик смысловых переписываний — измерение, а не литерал.
+    assert 'stats["semantic_rewrite_count"] = max(' in function_source
+    assert 'stats["semantic_rewrite_count"] = 0' not in function_source
 
     used = {node.id for node in ast.walk(function)
             if isinstance(node, ast.Name)}
