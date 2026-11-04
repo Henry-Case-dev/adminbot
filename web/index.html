@@ -13235,7 +13235,7 @@
                    data-cog-state="filtered">
                 по выбранному фильтру узлов нет
                 <button class="btn-ghost text-xs" type="button"
-                        @click="graphResetView()">Сбросить фильтры</button>
+                        @click="graphResetFilters()">Сбросить фильтры</button>
               </div>
               <div v-if="cogViewCounters" class="text-xs text-gray-500"
                    data-cog-view-counters>{{ cogViewCounters }}</div>
@@ -14730,7 +14730,7 @@
                        data-cog-state="filtered">
                     по выбранному фильтру узлов нет
                     <button class="btn-ghost text-xs" type="button"
-                            @click="graphResetView()">Сбросить фильтры</button>
+                            @click="graphResetFilters()">Сбросить фильтры</button>
                   </div>
                   <div v-if="cogViewCounters" class="text-xs text-gray-500"
                        data-cog-view-counters>{{ cogViewCounters }}</div>

@@ -629,6 +629,75 @@ function normalize(p) {
        'без модели сцена сносится (граф прошлого чата не остаётся на экране)');
   }
 
+  // ── 11. «Сбросить вид» — только камера, состояние выбора не рушится ───────
+  // ЧТО ДОКАЗЫВАЕТСЯ: сброс кадра возвращает обзор, но НЕ снимает фильтр,
+  // НЕ чистит запрос поиска, НЕ сбрасывает выделение/подсветку и НЕ меняет
+  // число показанных узлов. Фильтры снимает отдельная кнопка.
+  {
+    const vm = makeVm();
+    vm.cognitionGraphData = normalize(payload());
+    // Рендер считает витрину из ТЕКУЩИХ фильтров — как настоящий
+    // `renderCognitionGraph` через `CognitiveMap.applyFilters`.
+    vm.renderCognitionGraph = async function () {
+      const view = CM.applyFilters(vm.cognitionGraphData, {
+        kinds: vm.graphFilterGroup ? [vm.graphFilterGroup] : [],
+        cluster: vm.cognitionMapCluster || '',
+        hideDerived: vm.cogHideDerived === true,
+      });
+      vm._cogView = view;
+      vm.cogViewNodes = (view.nodes || []).length;
+      vm.cogViewEdges = (view.edges || []).length;
+    };
+    let fits = 0;
+    let fitAnim = null;
+    vm._cogApplyFit = function (animate) { fits += 1; fitAnim = animate; return true; };
+    let cardCloses = 0;
+    vm.closeCogCard = function () { cardCloses += 1; };
+    let detailClears = 0;
+    vm.graphClearDetail = function () { detailClears += 1; };
+
+    // Состояние пользователя: фильтр типа + поиск + выделение с подсветкой.
+    vm.graphFilterGroup = 'fact';
+    vm.cognitionMapCluster = '';
+    vm.cogHideDerived = false;
+    vm.graphSearchQuery = 'кофе';
+    vm.graphSearchStatus = 'Найден: Любит утренний кофе без сахара';
+    const selId = 'fact:' + CHAT + ':1';
+    vm._cogSelectedId = selId;
+    vm._cogHighlight = {};
+    vm._cogHighlight[selId] = 1;
+    await vm.renderCognitionGraph();
+    const filteredNodes = vm.cogViewNodes;
+    ok(filteredNodes > 0 && filteredNodes < vm.cognitionGraphData.nodes.length,
+       'фикстура: фильтр типа реально сужает витрину (' + filteredNodes + ')');
+
+    await methods.graphResetView.call(vm);
+    await new Promise(function (r) { setImmediate(r); });
+
+    eq(fits, 1, 'сброс вида ставит обзор кадра (_cogApplyFit)');
+    eq(fitAnim, true, 'кадр возвращается анимацией общего вида');
+    eq(vm.graphFilterGroup, 'fact', '«Сбросить вид» не снимает фильтр типа');
+    eq(vm.cognitionMapCluster, '', '«Сбросить вид» не трогает фильтр кластера');
+    eq(vm.cogHideDerived, false, '«Сбросить вид» не включает/не снимает производные');
+    eq(vm.graphSearchQuery, 'кофе', '«Сбросить вид» сохраняет запрос поиска');
+    eq(vm._cogSelectedId, selId, '«Сбросить вид» сохраняет выбранный узел');
+    eq(vm._cogHighlight, (function () { const h = {}; h[selId] = 1; return h; })(),
+       '«Сбросить вид» сохраняет подсветку связей');
+    eq(vm.cogViewNodes, filteredNodes,
+       'число узлов под фильтром после сброса вида не изменилось');
+    eq(cardCloses, 0, '«Сбросить вид» не закрывает карточку выбранного узла');
+    eq(detailClears, 0, '«Сбросить вид» не чистит подробности выбора');
+
+    // Отдельная кнопка фильтров по-прежнему снимает фильтр и поиск.
+    await methods.graphResetFilters.call(vm);
+    await new Promise(function (r) { setImmediate(r); });
+    eq(vm.graphFilterGroup, '', '«Сбросить фильтры» снимает фильтр типа');
+    eq(vm.graphSearchQuery, '', '«Сбросить фильтры» чистит запрос поиска');
+    eq(vm.cogViewNodes, vm.cognitionGraphData.nodes.length,
+       'после снятия фильтра витрина снова показывает все узлы');
+    ok(fits >= 1, '«Сбросить фильтры» тоже возвращает обзор кадра');
+  }
+
   console.log('EVOL-CMV-D-OK checks=' + checks);
 }()).catch(function (e) {
   console.error(e && e.stack ? e.stack : e);
