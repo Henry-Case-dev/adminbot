@@ -565,6 +565,12 @@ class Settings:
         "SYSTEM2_FACTCHECK_ENABLED", True)
     SYSTEM2_SUMMARY_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_SUMMARY_ENABLED", True)
+    # RLR-02 (REMOVE-LEGACY-REPHRASING v2.0, §4/§6.4): DEPRECATED_COMPAT.
+    # Ключ намеренно остаётся ЧИТАЕМЫМ (старые .env/значения БД не ломают
+    # старт) и НЕ имеет ни одного потребителя в активном графе: legacy
+    # «Синтезатор → Вербализатор» для Direct удалён физически, поэтому
+    # `true/false/0/null` одинаково не включают второго автора текста.
+    # Классификация/миграция ключа (manifest, UI, param_catalog) — RLR-05.
     SYSTEM2_DIRECT_ENABLED: ClassVar[bool] = _env_bool(
         "SYSTEM2_DIRECT_ENABLED", True)
     # ── Раунд 10.23 (F3, ADR-1023-3): env-only ClassVar kill-switch умного
