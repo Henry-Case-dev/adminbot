@@ -379,11 +379,11 @@ def _guard_outbound(text: str, *, where: str,
                     chat_id: int | None = None) -> str:
     """public_speech_guard на одном исходящем тексте v2-контура.
 
-    Чистые тексты и honesty-классы проходят байт-в-байт; FORBIDDEN-маркеры
-    и overclaim-формулы срезаются детерминированно (факты/числа/ссылки не
-    меняются). Fail-soft (как в renderer-шве): любой сбой guard'а →
-    исходный текст — доставку не рвёт; вырожденный остаток → "" (шов
-    подставляет честный класс)."""
+    BGS-03: guard — наблюдение. Чистые тексты, honesty-классы и живые
+    речевые формулы проходят байт-в-байт; находки уходят в событие
+    `speech_observation` и в `egress_guard`-телеметрию, но текст не
+    срезается и не подменяется. Fail-soft: любой сбой guard'а → исходный
+    текст — доставку не рвёт."""
     try:
         from services.public_speech_guard import guard_public_text
         res = guard_public_text(text)
@@ -410,12 +410,13 @@ def _apply_delivery_guard(presentation: FactcheckPresentation,
                           verdict: CheckedVerdict
                           ) -> tuple[FactcheckPresentation, CheckedVerdict]:
     """Guard на presentation/delivery-шве (07C.1/.4): payload после Writer
-    (check_claim*/кеш-хит), ДО сериализации renderer'ом. Урезанный payload
-    сохраняет enum-вердикт (реальный статус CheckedVerdict); вырожденный
-    остаток → честный статус: заголовок enum или молчание с 🗿
-    (LLMBadResponseError) — fail-soft не выдаёт фиктивно уверенный
-    вердикт. Кеш пишет сырой текст: guard идемпотентен и применяется при
-    каждой доставке."""
+    (check_claim*/кеш-хит), ДО сериализации renderer'ом.
+
+    BGS-03: guard больше не меняет текст, поэтому нормальный путь —
+    байт-в-байт. Ветка деградации (enum-заголовок вместо «невыразимого»
+    остатка) сохранена совместимо: она срабатывает только если будущий
+    guard-контракт снова начнёт возвращать пустой текст. Кеш пишет сырой
+    текст: guard идемпотентен и применяется при каждой доставке."""
     guarded = _guard_outbound(presentation.text, where="delivery")
     if guarded == presentation.text:
         return presentation, verdict
