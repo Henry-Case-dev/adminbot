@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
   "source_sha256": "4f5457440e958efd20c50f8031af97da9c9d7a1d25e3094ea4ea75e607ec7284",
-  "candidate_commit": "",
+  "candidate_commit": "da6299e9",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,24 @@
       "acceptance": "Обсуждение человека, его реплики и непубличные события сами по себе не являются причиной запрещать Web Search: при исправной сети и доступном инструменте поиск выполняется, а тема разговора не меняет разрешение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Личные реплики и признаки участника не меняют разрешение поиска",
+          "observation": "PROBE_ALIAS/PROBE_PRONOUN и «Петя уволился из банка…» проходят через настоящий ToolRouter с подменным провайдером: один вызов, тема в запросе, claim_allowed.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00037-BGS-00.7",
@@ -34,8 +50,31 @@
       "acceptance": "Поведенческое вето (privacy_blocked из-за участника чата, блок списка фраз) удалено как препятствие мысли и поиску: в активных путях нет отказа этого класса, новые события не пишутся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Событие privacy_blocked новыми ходами не производится",
+          "observation": "SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED вне SEARCH_STATUSES; в трассе корпуса assert 'privacy' not in trace; skip-коды технические (user_forbidden/empty_query/tool_absent/no_tools/intent_not_applicable/participation_without_text).",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Статус privacy_blocked остался только читаемой legacy-константой",
+          "observation": "В services/direct_execution.py единственное вхождение privacy_blocked — SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED (test_module_source_never_emits_privacy_blocked требует ровно одного вхождения в модуле).",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "MAN-L00038-BGS-00.8",
@@ -58,7 +97,7 @@
       "source_text_sha256": "87f3f804d80c1b693b7411757bf7a966bf5df0a779282e078a97e462087cb9f1",
       "source_excerpt": "| Настроенная владельцем форма | запрет эмодзи, замена кавычек, стиль, частота инициативы | Сохранить, сделать проверяемым в UI |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено: настроенная владельцем форма (эмодзи/кавычки/стиль/частота инициативы) требует проверяемости в UI, а UI-часть BGS-06 в этой полосе не делалась и не принималась. Статус PENDING.",
       "req_id": "BGS-00.9",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Настроенная владельцем форма (запрет эмодзи, замена кавычек, стиль, частота инициативы) работает и проверяема в UI; независимые hardcode-ножницы и дубли удалены.",
@@ -773,8 +812,24 @@
       "acceptance": "Словари запрещённых тем, структурные классификаторы и их hard/soft ветви отсутствуют; повторное применение запрета на fallback, refinement, фактчеке и инициативе не найдено, а взамен не введён более хитрый классификатор, маска или whitelist с тем же эффектом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Корпус 21 ранее блокировавшейся реплики доходит до провайдера; классификаторов нет",
+          "observation": "TestFormerlyBlockedCorpusSearches требует ровно один реальный вызов провайдера и содержательный термин в запросе для всех 21 фразы; TestNoClassifierLeft проверяет отсутствие 17 имён структурных правил/словарей тем и поля SearchTask.blocked.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -788,8 +843,31 @@
       "acceptance": "Выходной постпроцессор не вырезает нормальные слова, предложения и смысловые части из-за метатекста, неподтверждённого внешнего факта, «ИИ-клише» или стиля; диагностика наблюдает, но не переписывает смысл.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Постпроцессор не вырезает нормальные слова и не переписывает смысл",
+          "observation": "test_natural_phrase_passthrough_byte_identical и test_quoted_phrase_passthrough_byte_identical для «по моим наблюдениям», «я нейросеть», «мои промпты», «сейчас пошучу» и их цитат: res.text == text, changed=False; test_no_extra_generation_for_style_or_format — gen.calls==1 для стиля, таблицы и списка.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00029",
@@ -827,7 +905,7 @@
       "source_text_sha256": "51a02f971bbf732735d869c7e5e4794be7cfefe1da47d50b2243f7ccc4bf1dc2",
       "source_excerpt": "5. **Не трогать заданные вручную промпты, характер, мат, сленг, выбранные правила кавычек и прочие решения владельца.** Не менять поведение фактчека в сторону лжи или фиктивных ссылок. Не начинать новый параллельный пайплайн.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено: сверка владельческих версий промптов/характера и утверждения, что фактчек не ослаблен в сторону лжи, вне тестов полосы BGS-03/04. Статус PENDING.",
       "req_id": "BGS-00.5",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Заданные вручную промпты, характер, мат, сленг, правила кавычек и прочие решения владельца не изменены; фактчек не ослаблен в сторону лжи или фиктивных ссылок; новый параллельный пайплайн не создан.",
@@ -878,8 +956,31 @@
       "acceptance": "В services/evidence_policy.py ветвь privacy_ok → BLOCK_PRIVACY устранена на актуальной ветке (не на релизном снимке); RBAC, разрешение сети, состояние провайдера, квота и SSRF остаются и проверяются отдельными пробами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ветвь privacy_ok → BLOCK_PRIVACY удалена из allowed()",
+          "observation": "test_policy_layer_has_no_privacy_criterion: нет BLOCK_PRIVACY, нет поля privacy_ok, allowed('web_search') == (True, ''); test_policy_technical_blocks_unchanged проверяет RBAC, network, provider, quota, SSRF по отдельности.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Политика доказательств больше не содержит privacy-критерия",
+          "observation": "В services/evidence_policy.py удалены BLOCK_PRIVACY, privacy_ok и ветвь проверки; RBAC_OR_PRIVACY_BLOCKED оставлен как историческое имя reason-кода для старых записей.",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00049",
@@ -893,8 +994,31 @@
       "acceptance": "В services/factcheck_planner.py не остаётся второй скрытой privacy-политики после изменения Direct; semantic claim→query, evidence coverage и уточняющие запросы фактчека сохранены и работают.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Из фактчека снята обязательная деперсонализация запроса",
+          "observation": "test_participant_name_reaches_query: клейм «Маша уволилась из Сбера» не переписан, имя и тема уходят в запрос; test_planner_has_no_chat_context_input: у build_retrieval_plan нет параметра ctx; числа/отрицание/цитата сохраняются.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs01_factcheck_no_name_strip.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Вторая скрытая privacy-политика в планировщике фактчека отсутствует",
+          "observation": "В services/factcheck_planner.py нет _strip_privacy; semantic claim→query, evidence coverage и уточняющие запросы сохранены (соответствующие тесты полосы зелёные).",
+          "type": "static",
+          "artifact_path": "services/factcheck_planner.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00050",
@@ -953,8 +1077,38 @@
       "acceptance": "В services/public_speech_guard.py разделены две природы: служебные маркеры остаются технической очисткой, а списки фраз и метатекст больше не редактируют живой ответ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "В public_speech_guard разделены служебные маркеры и живая речь",
+          "observation": "guard_public_text возвращает исходный текст байт-в-байт, находки идут в findings и событие speech_observation; test_real_machine_markers_are_still_stripped подтверждает, что техническую очистку выполняет отдельный outgoing_guard.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Срез-регэкспы и MachineArtifact.strip удалены из guard'а",
+          "observation": "В services/public_speech_guard.py удалены _strip_matches/_token_cut_re/_bracket_block_re/_INVERSE_STRIP_RE и MachineArtifact.strip; metatext_retry_reason всегда None, GuardResult.changed всегда False.",
+          "type": "static",
+          "artifact_path": "services/public_speech_guard.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -968,8 +1122,31 @@
       "acceptance": "Anti-Cliché в services/negative_constraints.py остаётся diagnostic-only: активная анти-клише цензура не создаётся заново, Form/Numeric/Metatext/Format-проверки не запускают повторную генерацию свободного ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Anti-Cliché остаётся diagnostic-only, свободный ответ не перегенерируется",
+          "observation": "test_no_extra_generation_for_style_or_format: gen.calls==1, stats['retries']==0, stats['anti_cliche_retries']==0; test_free_path_never_empties_reply_for_number: numeric_claim_retry=False, статистика расхождения отдельно.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00055",
@@ -983,8 +1160,38 @@
       "acceptance": "services/style_policy.py сохраняет жёсткие правила только для выбранных владельцем нормализаций и не меняет смысл текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "style_policy сохраняет только выбранные владельцем нормализации",
+          "observation": "test_owner_rules_apply_exactly_once: один проход даёт «Он сказал привет», повторный — no-op (repaired==0); test_owner_rules_keep_protected_spans и test_verbatim_quote_untouched_by_owner_rules: код, URL и дословная цитата не искажаются.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Модуль style_policy не менялся в полосе",
+          "observation": "git diff 5deb271b..2618cb1e по services/style_policy.py пуст: единый проход apply_style_policy сохранён как есть.",
+          "type": "static",
+          "artifact_path": "services/style_policy.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -998,8 +1205,38 @@
       "acceptance": "services/outgoing_guard.py::sanitize_outgoing продолжает удалять служебные <thought>, fact:ID, msg:ID и target-маркеры, оставаясь узким и идемпотентным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "sanitize_outgoing остаётся узким и идемпотентным",
+          "observation": "test_real_machine_markers_are_still_stripped: <thought>, fact:123, msg:45 и target-marker удаляются, текст вокруг цел, повторный вызов — no-op; test_speech_guard_does_not_touch_live_words_in_technical_cleanup: живые слова не трогаются.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "outgoing_guard не менялся в полосе",
+          "observation": "git diff 5deb271b..2618cb1e по services/outgoing_guard.py пуст: узкий технический санитайзер сохранён без расширения на живую речь.",
+          "type": "static",
+          "artifact_path": "services/outgoing_guard.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -1058,8 +1295,24 @@
       "acceptance": "Privacy-высылка поисковика удалена без скрытой замены: ни один внешний read-only инструмент не отказывает по признаку приватности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Privacy-высылка поисковика удалена без скрытой замены",
+          "observation": "Корпус и пробы доходят до провайдера, трасса без 'privacy'; в direct_execution/direct_l1/factcheck_planner не осталось критерия отказа по приватности.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -1088,8 +1341,31 @@
       "acceptance": "privacy_ok/BLOCK_PRIVACY/privacy_blocked не являются действующим критерием отказа для web_search/fetch_url и прочих внешних read-only инструментов: новых событий этого класса нет, исторические reason codes читаются только для старых записей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "privacy_ok/BLOCK_PRIVACY/privacy_blocked не являются действующим критерием отказа",
+          "observation": "Поле privacy_ok и BLOCK_PRIVACY удалены; allowed() проверяет RBAC→сеть→провайдер→квота→SSRF; test_policy_technical_blocks_unchanged подтверждает, что отказы идут только по техническим причинам.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Исторический reason code не выставляется новыми ходами",
+          "observation": "SEARCH_STATUS_LEGACY_PRIVACY_BLOCKED существует как константа чтения старых записей, но не входит в SEARCH_STATUSES и не производится кодом модуля.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00070",
@@ -1103,8 +1379,31 @@
       "acceptance": "Структурный классификатор UR-B, его словарные fallback и branch-specific privacy-проверки удалены; единое правило проверено на Direct, Initiative, фактчеке, adaptive tool-chain, поиске по URL, claim-поиске, retry/refinement и fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Структурный классификатор UR-B и словарные fallback удалены",
+          "observation": "test_no_privacy_classifier_left_in_module и test_no_structural_or_vocabulary_privacy_rule перечисляют 17 имён (участник, публичный якорь, темы, местоимения, словари) и требуют их отсутствия; фактчек-путь проверен отдельно тестом имени в клейме.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Фактчек/атрибуция больше не обезличивают клейм",
+          "observation": "tests/test_bgs01_factcheck_no_name_strip.py: имя участника остаётся в claim_text и в запросе; tool_router передаёт тезис клейма (with_claim_thesis) вместо external_safe_claim.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs01_factcheck_no_name_strip.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00071",
@@ -1118,8 +1417,24 @@
       "acceptance": "L1 выбирает поиск по информационной потребности: имя участника, слово темы, частный контекст и отсутствие «публичного якоря» не меняют решение; добавочного LLM-классификатора «можно ли искать» нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L1 выбирает поиск по информационной потребности, без добавочного классификатора",
+          "observation": "TestSearchAxisSchema нормализует open_world/mixed в required и сохраняет chat_only; test_identical_schema_for_initiative_path подтверждает ту же схему для Initiative; test_adaptive_mode_still_gets_real_search_first — реальный поиск в adaptive-режиме.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00072",
@@ -1133,8 +1448,24 @@
       "acceptance": "В поисковый запрос не уходит неконтролируемый дамп на 500 сообщений; полезные ключевые сведения допустимы, а обязательного обезличивателя, подменяющего удалённый блокер, нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Запрос — целевая задача, а не дамп чата; длина ограничена",
+          "observation": "test_whole_chat_is_not_sent: в провайдер уходят только релевантные термины; test_query_length_cap_kept: длина запроса ≤ _QUERY_MAX_CHARS; test_ids_stripped_names_kept — ID вычищаются, имя участника остаётся.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00073",
@@ -1148,8 +1479,24 @@
       "acceptance": "Сохранены права администратора/чата, выключатель сети, явное «не ищи в интернете», доступность инструмента, rate limit/стоимость, SSRF и запрет внутренних адресов; недоступность даёт честное состояние без имитации поиска и без общей отмены ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Технические гейты сохранены и дают честный исход",
+          "observation": "test_explicit_no_web_request_blocks (SKIP_USER_FORBIDDEN), test_tool_absent_is_honest_unavailable (unavailable), test_wordless_request_is_technical_skip (empty_query), test_silent_and_react_make_no_call; RBAC/сеть/квота/провайдер/SSRF — test_policy_technical_blocks_unchanged.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00074",
@@ -1163,8 +1510,31 @@
       "acceptance": "Полезный контекст не удаляется до L1 ради «приватности»: связь с именами и участниками сохраняется внутри L1/L2, и решение «поиск не нужен» не выводится из предварительной чистки контекста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Полезный контекст не вычищается до L1: имена остаются в формулировке",
+          "observation": "test_payload_stripper_is_hygiene_not_veto: _strip_sensitive не удаляет реплику целиком и сохраняет имя; test_inflected_alias_stays_in_public_query: косвенный падеж остаётся в запросе; private_terms — документный параметр.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Payload-гигиена ограничена техническими идентификаторами",
+          "observation": "_PRIVATE_PATTERNS маскируют tg-ссылку, URL, e-mail, @mention, телефон и длинные ID; смыслового классификатора темы в модуле нет.",
+          "type": "static",
+          "artifact_path": "services/direct_execution.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00075",
@@ -1178,8 +1548,24 @@
       "acceptance": "Телеметрия по умолчанию не хранит полный личный чат и секреты; из этой операционной гигиены не выводятся смысловые запреты в L1/Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Телеметрия не хранит полный личный чат и секреты",
+          "observation": "test_trace_fields_and_emission_are_private_safe проверяет приватно-безопасные поля трассы и событие; test_secret_masking_of_urls_and_logs_intact — safe_fetch.mask_text/mask_query маскируют ключи и токены.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -1208,8 +1594,24 @@
       "acceptance": "Ранее блокировавшиеся privacy-примеры доходят до обычного поиска при определённой L1 информационной потребности и доступном инструменте; слова, перефразы, местоимения и признаки участников не меняют статус разрешения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Все ранее блокировавшиеся privacy-примеры доходят до обычного поиска",
+          "observation": "21 параметр TestFormerlyBlockedCorpusSearches: один реальный вызов, ожидаемый термин в запросе, search_status=ok, can_claim_verified=True при непустой выдаче.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00080",
@@ -1223,8 +1625,24 @@
       "acceptance": "Пример «у Маши болит голова» ищет общие причины и отвечает, обсуждение RTX 3060/4060 ищет сравнение без блокировки из-за имени владельца карты; локальный вопрос о сказанном в чате может не искать, но не по privacy-вето.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Примеры «болит голова», RTX и локальный вопрос ведут себя по контракту",
+          "observation": "test_formerly_blocked_query_reaches_provider: «У Маши болит голова; какие общие причины» ищется; test_participant_name_kept_in_topic / test_whole_word_case_does_not_break_neighbours: «RTX 4060» остаётся в запросе; chat_only-шутка не ищет без privacy-причины.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00081",
@@ -1238,8 +1656,24 @@
       "acceptance": "Явное «не используй интернет» в запросе соблюдается без обходного поиска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Явное «не используй интернет» соблюдается без обходного поиска",
+          "observation": "test_explicit_no_web_request_blocks: ноль вызовов провайдера, search_status=skipped, skip_reason=SKIP_USER_FORBIDDEN, claim_policy=claim_forbidden_no_search; test_user_forbid_never_reaches_provider — тот же контракт на соседнем шве.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00082",
@@ -1253,8 +1687,24 @@
       "acceptance": "При недоступном Web Search модель не утверждает, что проверила сведения, и не подставляет фальшивый источник.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Недоступный поиск даёт честный статус без выдуманных источников",
+          "observation": "test_provider_down_honest, test_timeout_honest, test_no_invented_sources, test_empty_result_honest (can_claim_verified=False, claim_forbidden_no_evidence) и test_missing_search_tool_required_is_unavailable.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00083",
@@ -1268,8 +1718,31 @@
       "acceptance": "В трассе нет privacy-block при исправной сети, включая фактчек, инициативу и fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "В трассе нет privacy-block, включая фактчек и повторное использование",
+          "observation": "Корпус утверждает отсутствие 'privacy' в trace_fields; фактчек-путь с сохранением имени покрыт отдельным тестом; test_reuse_does_not_search_again подтверждает, что повторный проход не даёт скрытого отказа.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_no_topic_veto.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Фактчек-путь не содержит privacy-отказа",
+          "observation": "В tool_router/factcheck_attribution снят external_safe_claim; клейм передаётся тезисом, attribution_not_found остаётся техническим skip без внешнего поиска.",
+          "type": "static",
+          "artifact_path": "services/factcheck_planner.py",
+          "candidate_commit": "da6299e9"
+        },
+        {
+          "ref": "Сводка привязки доказательств BGS-01 (полосы ur/b-search, bgs/factcheck-privacy)",
+          "observation": "Документ перечисляет изменённые файлы, проверяемые утверждения тестов и локальный прогон объединённого кандидата: 127 passed по четырём тест-файлам полосы.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-01-evidence.md",
+          "candidate_commit": "da6299e9",
+          "artifact_sha256": "45206db1a556ca601adb826b3fd14ba66fbb4573a851916e11b92ef4211d045d"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -1478,8 +1951,31 @@
       "acceptance": "Public Speech Guard больше не редактирует и не блокирует живой ответ: речь проходит без потери слов, а машинные маркеры остаются очищенными.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Guard больше не редактирует и не блокирует живой ответ",
+          "observation": "Все параметры OWNER_PHRASES проходят байт-в-байт (changed=False, repaired=True), находки видны только как код события; ни одного случая среза текста в наборе 24 тестов.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00108",
@@ -1493,8 +1989,31 @@
       "acceptance": "Списки _BACKSTAGE_FAMILIES, claims_total_verification, find_semantic_metatext и мета-фразы не приводят к вырезанию слов, фраз или всего сообщения; их цитаты тоже не вырезаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Списки фраз, claims_total_verification и semantic metatext не вырезают слова и цитаты",
+          "observation": "test_natural_phrase_passthrough_byte_identical и test_quoted_phrase_passthrough_byte_identical проверяют и фразу, и её цитату в кавычках; срез-регэкспы удалены из модуля.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00109",
@@ -1508,8 +2027,31 @@
       "acceptance": "Обнаружение переведено в observability-only: код события и место срабатывания пишутся для владельца, модификация текста нулевая, LLM-retry по словарю и fail-closed для разговорного содержания отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Обнаружение переведено в observability-only",
+          "observation": "test_observation_codes_are_not_private_text: событие speech_observation с stage/component/chat_id и usage_json кодами, без полного текста; test_no_extra_generation_for_metatext: gen.calls==1, metatext_observed фиксируется; test_guard_is_fail_soft: сбой не рвёт доставку.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1523,8 +2065,31 @@
       "acceptance": "outgoing_guard.sanitize_outgoing сохранён для машинных маркеров (raw reasoning, внутренние ID, target-markers), остаётся узким и идемпотентным и не расширен на живые слова.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Технический sanitizer сохранён для настоящих машинных маркеров",
+          "observation": "test_real_machine_markers_are_still_stripped (raw reasoning, fact/msg ID, target-marker, идемпотентность) и test_conversation_with_colons_and_quotes_untouched (обычная речь с двоеточиями, кавычками и словом «аналитик» не повреждена).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00111",
@@ -1532,7 +2097,7 @@
       "source_text_sha256": "7f241389e1a3b3dfc4afee5f41af98d92710776350255b48b8d4cd4e48a81776",
       "source_excerpt": "4. Сохранить контроль доступа к внутренним конфигам, API-ключам, административным функциям. То, что бот может сказать «мои промпты», не должно означать возможность прочитать секретный prompt registry или отправить содержимое system secret. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено полосой BGS-03/04: контроль доступа к внутренним конфигам, API-ключам, prompt registry и админ-функциям не входит в дифф (менялся только guard). Нужна отдельная проверка чтения/утечки системного секрета; статус PENDING.",
       "req_id": "BGS-03.4",
       "slice": "BGS-03-SPEECH",
       "acceptance": "Доступ к внутренним конфигам, API-ключам и админ-функциям контролируется в операции чтения; фраза «мои промпты» не даёт доступа к секретному prompt registry и не отправляет содержимое системного секрета.",
@@ -1547,7 +2112,7 @@
       "source_text_sha256": "ec087e8a0be6e4bfc5edb02dd13af3a5b5f876a5a58fc7e04cf1b5be165b190b",
       "source_excerpt": "5. Настройки личности/идентичности владельца, выбор русского языка, мата/сленга и явно заданные правила стиля **не менять**. Если владелец хочет, чтобы бот не представлялся нейросетью, это instruction/persona, а не hardcode-ножницы, удаляющ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено: неизменность личности/языка/мата/сленга/правил стиля владельца не зафиксирована тестом или сверкой версий промптов в этой полосе. Статус PENDING.",
       "req_id": "BGS-03.5",
       "slice": "BGS-03-SPEECH",
       "acceptance": "Настройки личности, русского языка, мата/сленга и явно заданные правила стиля не изменены; желание не представляться нейросетью реализуется инструкцией, а не вырезанием куска предложения.",
@@ -1568,8 +2133,31 @@
       "acceptance": "Для служебных артефактов, повредивших структуру сообщения, используется единый технический sanitizer; при неудаче показывается честный диагностируемый исход, а не пустота вместо нормального текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Единый технический sanitizer и честный исход при сбое",
+          "observation": "test_guard_is_fail_soft: исключение внутри guard'а → исходный текст, findings пусты; test_false_match_never_empties_message: ответ из одной фразы словаря доставляется; test_real_machine_markers_are_still_stripped: очистку выполняет один sanitizer.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1598,8 +2186,31 @@
       "acceptance": "Приведённые естественные выражения и их цитаты возвращаются байт-в-байт после нерелевантного guard (кроме явно включённого правила владельца и независимой технической очистки маркеров).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Естественные выражения и их цитаты возвращаются байт-в-байт",
+          "observation": "Параметризованные тесты на четыре живые фразы и их цитаты: res.text == text, changed is False; исключение составляют только независимая техническая очистка маркеров и явно включённые правила владельца (test_owner_rules_*).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00118",
@@ -1613,8 +2224,31 @@
       "acceptance": "Настоящий <thought>/fact:123/target-marker остаётся очищенным, а обычный разговор с двоеточиями, кавычками и термином «аналитик» не повреждается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Настоящие маркеры очищаются, обычная речь не повреждается",
+          "observation": "test_real_machine_markers_are_still_stripped: <thought>/fact:123/msg:45/target-marker удалены; test_conversation_with_colons_and_quotes_untouched: «Аналитик сказал: «данные врут», и на этом всё.» проходит без изменений.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00119",
@@ -1628,8 +2262,31 @@
       "acceptance": "Ложное совпадение не превращает полный ответ в пустое Telegram-сообщение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ложное совпадение не даёт пустого сообщения",
+          "observation": "test_false_match_never_empties_message: каждая из четырёх фраз словаря, поданная как весь ответ, возвращается как есть; test_guard_is_fail_soft не приводит к пустоте.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards (кандидаты c8fb19d8, e0527a6b, 416c7d86)",
+          "observation": "Документ фиксирует контракт наблюдающих guard'ов, набор тестов и мутационные пробы: M1 (возврат среза по словарю) → 9 failed, M2 (возврат reroll по клише/формату) → 3 failed, после восстановления файлов 24 passed.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -1643,8 +2300,31 @@
       "acceptance": "Создание нового текста отделено от контроля изменений: свободная генерация не проходит через универсальное вето, а реальные трансформации сохраняют числа, имена и отрицания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Создание текста отделено от контроля изменений",
+          "observation": "Свободный путь: ровно один вызов генератора для стиля/списка/таблицы/метатекста; контроль чисел/имён/отрицаний работает только на паре input→transformed (test_form_contract_catches_changed_number_negation_and_new_name, test_transform_path_keeps_facts_and_stays_bounded).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00125",
@@ -1658,8 +2338,31 @@
       "acceptance": "Проверка сохранности чисел/имён/отрицаний применяется при детерминированном переформатировании, перефразировании, OCR/transcript-вербализации, цитировании и правке данных, но не как универсальное вето на свободную генерацию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Проверка сохранности чисел/имён/отрицаний применяется к трансформации, не как вето",
+          "observation": "test_form_contract_catches_changed_number_negation_and_new_name: потеря отрицания, подмена числа и новое имя ростера дают FORM_GUARD_REJECTED, исходный текст — None; test_free_path_never_empties_reply_for_number: на свободном пути повтора нет.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00126",
@@ -1673,8 +2376,31 @@
       "acceptance": "Form Guard и Numeric Claim Guard контролируют пару input→transformed при действительно выполненной трансформации; при недостижимой точности сохраняется исходный корректный текст вместо повторной творческой генерации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Form/Numeric guard контролирует пару input→transformed и сохраняет исходник",
+          "observation": "test_transform_path_keeps_facts_and_stays_bounded: gen.calls==2 (≤1 повтор), form_retry/form_fallback True, на выходе исходный корректный draft, а не новая творческая генерация.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00127",
@@ -1682,7 +2408,7 @@
       "source_text_sha256": "13b95ef7995f04d53c05fe3cb8dcce04b7693ed071fed755f1b880837fac5544",
       "source_excerpt": "3. В специализированном фактчеке контроль числовых выводов и подмены отрицания сохраняется без ослабления. Отдельно сохраняется точная передача quoted evidence и авторства, согласно UR-C и FC.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено: специализированный factcheck-набор (UR-C/FC — числа, отрицание, quoted evidence, авторство) на объединённом кандидате не прогонялся. Статус PENDING.",
       "req_id": "BGS-04.3",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "В специализированном фактчеке контроль числовых выводов, подмены отрицания, точной передачи quoted evidence и авторства сохранён без ослабления.",
@@ -1703,8 +2429,38 @@
       "acceptance": "verbalize_validated и его retry-loop ограничены невалидным протоколом/структурой или явно выбранными владельцем операциями; клише и метатекст не запускают полный reroll, метрики срабатывания фиксируются отдельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "verbalize_validated сокращён до реальной трансформации/протокола",
+          "observation": "test_no_extra_generation_for_metatext: метатекст только наблюдается; test_no_extra_generation_for_style_or_format: стиль/список/таблица не дают reroll; test_transform_path_keeps_facts_and_stays_bounded: единственный повтор — при нарушении form-контракта.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "format_retry-ветка и FORMAT_RETRY_REASON удалены",
+          "observation": "В services/negative_constraints.py повтор остался только для form_contract/numeric внутри трансформации; формат/метатекст/клише пишутся в статистику наблюдения.",
+          "type": "static",
+          "artifact_path": "services/negative_constraints.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00129",
@@ -1718,8 +2474,23 @@
       "acceptance": "plain_no_tables и bullet_list применяются как пользовательский формат только при реальном требовании канала или задания, а не как повод заставить модель писать заново.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "plain_no_tables/bullet_list — наблюдение, а не повод переписать ответ",
+          "observation": "test_no_extra_generation_for_style_or_format (правила plain/serious, gen.calls==1); test_table_in_plain_observed_not_regenerated (format_observed=['plain_no_tables'], gen.await_count==1); test_plain_table_delivered_without_third_call (Direct: 2 вызова, текст таблицы отдан как есть).",
+          "type": "test",
+          "artifact_path": "tests/test_direct_two_call_round1022.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00130",
@@ -1733,8 +2504,31 @@
       "acceptance": "Выбранные владельцем no_emoji/no_quotes/trailing_period работают одним согласованным проходом без последовательных взаимно противоречащих нормализаторов; protected spans (код, URL, цитаты при фактчеке) не искажаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Правила владельца применяются одним согласованным проходом",
+          "observation": "test_owner_rules_apply_exactly_once: no_emoji/no_quotes/trailing_period дают «Он сказал привет», второй проход — no-op; protected spans (код, URL) и дословная цитата целы.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00131",
@@ -1748,8 +2542,23 @@
       "acceptance": "Из prompt composer удалены продублированные машинные указания, требовавшие удалённых блокировок; вручную введённые владельцем промпты и версии не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "В композере нет машинных директив, требовавших удалённых блокировок",
+          "observation": "grep по services/prompt_composer.py (metatext|клише|cliche|format_retry|CLICHE_RETRY|FORMAT_RETRY|метатекст) даёт 0 совпадений; файл не менялся в полосе (git diff 5deb271b..2618cb1e пуст), версии промптов владельца не затронуты.",
+          "type": "static",
+          "artifact_path": "services/prompt_composer.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00132",
@@ -1763,8 +2572,31 @@
       "acceptance": "Anti-Cliché остаётся diagnostic-only, не объявляется вновь блокирующим, а отдельная функция работы с клише по настройке пользователя не сломана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Anti-Cliché diagnostic-only, активная цензура не воссоздана",
+          "observation": "stats['anti_cliche_retries']==0 и cliche_observed фиксируются как наблюдение (test_no_extra_generation_for_style_or_format); в диффе полосы нет новых блокирующих проверок клише.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Reviewer/builder сводка полосы bgs/speech-guards, матрица конфликтов BGS-03/04",
+          "observation": "Матрица фиксирует снятие метатекст-retry, перевод формата в наблюдение, сохранение form-гардов G1–G3 и numeric внутри трансформации, а также мутационные пробы M1/M2, доказывающие опровержимость тестов.",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-03-04-evidence.md",
+          "candidate_commit": "2618cb1e",
+          "artifact_sha256": "a93770187af8cf7d58e3d5e341443db4b2440c47d5f197fbe1b51ef0e1d4d028"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00134",
@@ -1793,8 +2625,23 @@
       "acceptance": "Свободные Direct и Initiative не теряют текст и не тратят дополнительную генерацию из-за стиля, списка, метатекста, неподтверждённого числа или фразы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Свободные Direct/writer не теряют текст и не тратят лишнюю генерацию",
+          "observation": "gen.calls==1 для стиля, таблицы и списка (test_no_extra_generation_for_style_or_format); test_free_path_never_empties_reply_for_number: numeric mismatch без повтора и без пустого ответа; test_plain_table_delivered_without_third_call: Direct отдаёт таблицу за 2 вызова; свободный L2/Initiative идёт тем же writer'ом (матрица UR-15 в сводке полосы).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00137",
@@ -1802,7 +2649,7 @@
       "source_text_sha256": "d7b65776adaa316eb76e8475d11dcc814b3e6ebb8b9a5688a7b80ffafbe185d3",
       "source_excerpt": "- Специальная операция «перефразируй без изменения фактов» не меняет `не`, числа и имена; если точность недостижима, исходные данные сохраняются и ошибка трассируется.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не проверено: операция «перефразируй без изменения фактов» (сохранение не/чисел/имён и исходника при недостижимой точности) тестами полосы не покрыта. Статус PENDING.",
       "req_id": "BGS-04.10",
       "slice": "BGS-04-GUARD-SCOPE",
       "acceptance": "Операция «перефразируй без изменения фактов» не меняет «не», числа и имена; при недостижимой точности исходные данные сохраняются, а ошибка трассируется.",
@@ -1823,8 +2670,23 @@
       "acceptance": "Настройки мата/сленга/кавычек работают как до изменения, без двойного применения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Пользовательские настройки формы применяются один раз, без двойной обработки",
+          "observation": "test_owner_rules_apply_exactly_once (второй проход no-op), test_owner_rules_keep_protected_spans, test_verbatim_quote_untouched_by_owner_rules: кавычки/эмодзи/trailing_period работают без повторного применения.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "2618cb1e"
+        },
+        {
+          "ref": "Артефакт не изменился при слиянии, поведение перепроверено в объединённом кандидате",
+          "observation": "git diff 2618cb1e..da6299e9 для tests/test_bgs0304_speech_observation.py пуст; прогон в da6299e9: test_bgs0304_speech_observation.py → 24 passed, test_direct_two_call_round1022.py → 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00142",
@@ -2789,7 +3651,7 @@
   ],
   "owner_input_id": "2026-11-05-behavior-gates-simplification",
   "task_id": "behavior-gates-simplification-01",
-  "evidence_convention": "PLANNING-ONLY: все строки PENDING, evidence пуст, candidate_commit пуст. Каждая закрытая строка требует candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл); для финальных отчётов — artifact_sha256. Число зелёных тестов, скриншот без утверждения о поведении и устное заверение доказательством не считаются.",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл). BGS-01-строки привязаны к da6299e9, строки BGS-03/04 — к 2618cb1e (кандидат полосы) с дополнительной проверкой неизменности артефакта и повторного прогона в da6299e9. Число зелёных тестов без утверждения о поведении и устное заверение доказательством не считаются. Строки, не покрытые этими полосами, остаются PENDING с указанной причиной.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=false у всех строк на этапе планирования: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (BGS-08.22) добавляется как live evidence на release-стадии, когда реальный кандидат задеплоен. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
@@ -2820,7 +3682,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED_WITH_UNRESOLVED_ARCH_DOC",
   "architecture_note": "arch/bgs-integration-contract.md в этом worktree ОТСУТСТВУЕТ (документ архитектора утерян при рестарте сервера). Настоящая карта не выдумывает контрактов: она использует фактически существующие контракты (evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22) и фиксирует только зависимости и порядок записи. Если Builder обнаружит новую общую границу (новый ToolEvidence-статус, изменение схемы настроек, общий валидатор речи на несколько подсистем), работа останавливается и вопрос уходит Architect — PM контракт не замораживает.",
   "placement": "Волна 1 (параллельно): BGS-01-PRIVACY (активный лейн ur/b-search, кандидат 1001514e на ревью), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-часть BGS-06-ADMIN. Волна 2: BGS-02-EGRESS (после BGS-01, общий файл services/evidence_policy.py). Волна 3: BGS-05-BUDGET после UR-C/UR-D; UI-часть BGS-06 после UR-F/PVR UI. Волна 4: BGS-07-MATRIX (join) и BGS-08-ACCEPT (финальные проверки).",
-  "merge_state": "not_started",
+  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS, BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
   "blocked_by_upstream": [
     "unified-reply:UR-C, unified-reply:UR-D — BGS-05-BUDGET пересчитывает пределы поверх их executor/budget",
     "unified-reply:UR-B — BGS-01 применяется к свежему UR-B дереву, а не к релизному снимку",
