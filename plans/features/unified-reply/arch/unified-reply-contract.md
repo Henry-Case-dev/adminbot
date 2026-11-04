@@ -119,7 +119,8 @@ class ContextSelection:
 class ToolEvidence:
     search_intent: str            # required|beneficial|not_applicable (нормализовано, §2.4)
     search_called: bool
-    search_status: str            # ok|empty|timeout|contradictory|privacy_blocked|unavailable|skipped_not_required
+    search_status: str            # ok|empty|timeout|contradictory|unavailable|skipped_not_required
+                                  # privacy_blocked — только чтение исторических событий (BGS-01: не генерируется)
     search_skip_reason: str       # машиночитаемая причина
     source_ids: tuple[str, ...]
     source_count: int
@@ -304,7 +305,7 @@ def attach_time_context(messages, snap, *, phase) -> list
 
 1. **UR-A** — `turn_types.py` (фриз контрактов TurnRequest/ContextSelection/ToolEvidence), общий L1-вход (`plan_initiative_decision` → общий planner, capabilities реальные), адаптеры handle/handle_initiative → `_execute_turn`. Delivery не меняется. **Checkpoint-1: контракты сфризены** — после него Time-lane и UR-B/C/D могут расходиться по файлам.
 2. **ChatClock/timezone backend** (UR-24/25/26 без UI) — параллельная линия после Checkpoint-1; точки интеграции — stage-assembly из §3.2.
-3. **UR-B** — tool-фаза/search-first: ось `search_intent` в L1Plan, унификация инициативной tool-фазы (13099–13102) на общий policy, privacy-safe query builder, честная трасса UR-08. Зависит от UR-A.
+3. **UR-B** — tool-фаза/search-first: ось `search_intent` в L1Plan, унификация инициативной tool-фазы (13099–13102) на общий policy, целевой query builder (BGS-01: без обязательной обезлички и без privacy-вето; секреты/телефоны/e-mail/полный чат не экспортируются), честная трасса UR-08. Зависит от UR-A.
 4. **UR-C** — ContextSelection production (полный Current Question, reply-цепи, retrieval, self-output read-path, running summary условия по watermark, Dynamic stage budget единственным путём). Зависит от UR-A; с UR-B не пересекается по файлам.
 5. **UR-D** — LLMCompletion + continuation + снятие 700/4096/16384 semantic-капов. Зависит от UR-A; `llm_client.py` — отдельный файл, может идти параллельно UR-B/C.
 6. **UR-E** — speech: снять автостиль, один deterministic style-pass, mood-hint → контекстный тон, diagnostic-only клише. После UR-D.
@@ -320,7 +321,7 @@ def attach_time_context(messages, snap, *, phase) -> list
 ### 7.1 Риски (R0 — недопустимо сломать)
 
 - **R0 Адресация/атрибуция:** merge ledger-строк в окно не должен перепутать `speaker_uid`/алиасы/reply-edges (RC v5 speech-projection manifest сохраняется). *Инвариант:* в fixture «диалог.txt» правильный `target_user_id` во всех репликах; бот-фрагменты имеют `speaker_uid=bot_id` и свой label.
-- **R0 Приватность поиска:** запрос к поисковику не содержит `user_id`/`tg_id`/приватных цитат/ссылок. *Инвариант:* payload `execute_web_search` на приватных fixture не содержит запрещённых токенов; неразрешимо → `privacy_blocked`, не фиктивный успех.
+- **R0 Поисковый payload и секреты (BGS-01):** запрос к поисковику не содержит `user_id`/`tg_id`, API-ключей/токенов, телефонов, e-mail, приватных ссылок и полного дампа переписки. Приватность темы или участие человека в разговоре **не** являются причиной отказа: `privacy_blocked` не генерируется, недоступность инструмента даёт техническую причину. *Инвариант:* payload `execute_web_search` на fixture «разговор с участником чата» содержит целевой запрос и не содержит запрещённых токенов; следов `privacy_blocked` в новых трассах нет.
 - **R1 Timezone/DST:** сдвиги зон, half-hour пояса, fold/gap, смена зоны посреди хода. *Инварианты:* §3.3 тест-матрица; slot-claim уникальность; после рестарта/смены зоны нет повторной публикации.
 - **R1 Самоподражание/авторитет:** bot_statement не попадает в стилевые инструкции и не повышает фактологическую достоверность. *Инвариант:* в payload L2 нет `<style_anchors>` при выключенных anchors и нет «подражай»-инструкций; «4 утра» из шутки не становится ответом «сейчас 4 утра».
 - **R2 Обрывы/continuation:** `finish_reason=length` не публикуется; continuation не меняет адресата/план;bounded attempts. *Инвариант:* payload-capture: ни один отправленный текст не заканчивается серединой слова при length; `incomplete_generation` трассируется.
@@ -337,3 +338,13 @@ def attach_time_context(messages, snap, *, phase) -> list
 ### 7.3 Что уже сделано на HEAD (не переделывать)
 
 `LLMChatResult.finish_reason`; model-aware L1 budget (оба режима); tool-фаза и evidence-pack инициативы; общий `_l2_write_answer`; ledger→thread_chain restore; ER-08 full-text Writer; running summary read-семантика TTL; Dynamic policy в `auto_budget`; sourced config-геттер; speech projection. Контракт опирается на них и достраивает, а не заменяет.
+
+### 7.4 Поправка BGS-01/BGS-04 (решение владельца 2026-11-05)
+
+Позднее продуктовое решение владельца (`plans/owner_inputs/2026-11-05-behavior-gates-simplification.md`, §0.1, §2, §5, §8) снимает privacy-вето на веб-поиск и ограничивает смысловую постцензуру. Что это меняет в настоящем контракте:
+
+- `privacy_ok`/`BLOCK_PRIVACY`/`privacy_blocked` больше **не** критерий отказа для `web_search`/`fetch_url` и иных внешних read-only инструментов; значение `privacy_blocked` в `search_status` читается только для исторических событий. Замена на другой «мягкий» классификатор приватности (`query_not_public`, `private_chat_claim`) запрещена.
+- §2.3 (`ToolEvidence`) и §6.3 (UR-B) сохраняют `ToolEvidence`, `search_intent`, трассу источников; меняется только правило построения запроса — целевая задача по смыслу, без обязательной privacy-перепаковки.
+- Технические границы неизменны: RBAC/права чата, `flags.search_enabled`, явное «не ищи в интернете», `SafeFetcher`/SSRF, rate limit/стоимость провайдера, отсутствие имитации поиска.
+- §7.1 R0 переформулирован: проверяется реальный payload (нет UID, ключей, телефонов, e-mail, полного чата), а не «приватность темы».
+- UR-15/UR-15.2 уточнены BGS-04: обязательные Form/Numeric/Format-проверки применяются к реальным трансформациям и протокольным ошибкам, а не к свободной генерации.

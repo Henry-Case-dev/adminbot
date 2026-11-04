@@ -77,14 +77,15 @@
         "services/search_aggregator.py",
         "tests/test_ur_search_first.py"
       ],
-      "acceptance": "Для REPLY обоих режимов один tool-этап и одна структура ToolEvidence; при knowledge_origin=open_world|mixed без search_intent решение нормализуется к required и до L2 происходит реальный execute_web_search; запрос не содержит приватных данных, privacy_blocked вместо фиктивного успеха; трасса содержит search_called/status/sources, а при пустой выдаче нет «я проверил».",
+      "acceptance": "Для REPLY обоих режимов один tool-этап и одна структура ToolEvidence; при knowledge_origin=open_world|mixed без search_intent решение нормализуется к required и до L2 происходит реальный execute_web_search; запрос целевой (без полного чата, ключей, токенов, телефонов, e-mail и приватных ссылок) и privacy_blocked не генерируется (BGS-01); трасса содержит search_called/status/sources, а при пустой выдаче нет «я проверил».",
       "can_parallel_with": [
         "UR-C"
       ],
       "join_barrier": "до UR-C-CLOCK (вызов time-helper в оркестраторе) и до UR-G",
       "risk": "R3",
       "next_role": "Architect (контракт ToolEvidence/search_intent) -> Builder",
-      "why_one_slice": "Один проверяемый результат — фактический поиск с честной трассой; отдельная ветка для инициативы запрещена источником."
+      "why_one_slice": "Один проверяемый результат — фактический поиск с честной трассой; отдельная ветка для инициативы запрещена источником.",
+      "bgs01_note": "Acceptance приведён к решению владельца BGS-01 (2026-11-05): privacy-вето удалено, обязательное обезличивание запроса больше не требуется."
     },
     {
       "id": "UR-C",
