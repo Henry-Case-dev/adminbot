@@ -426,7 +426,7 @@
       "id": "pvr-fc-corrective-01",
       "ticket": "PVR-FC-CORRECTIVE-01",
       "title": "Взрослый UX истории версий промптов + достоверный фактчек",
-      "status": "BLOCKED",
+      "status": "PENDING",
       "blocked_by": [
         "unified-reply"
       ],
