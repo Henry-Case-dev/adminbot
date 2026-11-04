@@ -266,6 +266,8 @@ from services import direct_llm_react as _llm_react
 # ── ASAP 7 (F1, §1.1–§1.5): pre-tool L1 Planner + capability allowlist. ────
 from services import direct_l1 as _l1
 from services import direct_capabilities as _caps
+# ── UNIFIED-REPLY UR-A (§2.1): фрозен-контракты одного хода (TurnRequest). ──
+from services import turn_types as _tt
 # ── ASAP 8 v6 (D04, §18C.7): execution modes / orchestrator / evidence. ────
 from services import direct_execution as _dx
 # ── ASAP-EVIDENCE-ROUTING-01 v3 (§1): runtime evidence policy. Единственный
@@ -3149,6 +3151,29 @@ def _correction_frame_facts(blocks) -> dict:
     return {}
 
 
+def _optional_int(value) -> int | None:
+    """Необязательное целое из строки/числа (иначе None). Никогда не бросает."""
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+#: UNIFIED-REPLY UR-A: оси диагностики L1, общие для обоих триггеров
+#: (R17-safe: числа/короткие коды; тексты чата сюда не попадают).
+_TURN_DIAGNOSTIC_KEYS = (
+    "source", "inherited", "fallback", "repair", "override",
+    "credential_source", "temperature_configured", "temperature_applied",
+    "temperature_unsupported", "l1_context_budget", "l1_context_source",
+    "l1_context_chars", "l1_line_chars_cap", "l1_reply_chars_cap",
+    "l1_reply_total_chars", "l1_reply_delivered_chars", "l1_reply_truncated",
+    "l1_kept_mid", "l1_profile_source", "l1_profile_chars",
+    "social_attribution",
+)
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -5737,6 +5762,364 @@ class DirectChatService:
             parts.append("clarify=assume")
         return " ".join(parts)
 
+    # ── UNIFIED-REPLY UR-A (§2, §6): один движок хода Direct/Initiative ──────
+    # Один резолв типа хода, слота/бюджета, прав и один код L1. Адаптеры
+    # (`handle` → `_plan_direct_l1`, `handle_initiative` →
+    # `plan_initiative_decision`) различаются только сборкой контекста и
+    # правом на молчание — исполнение одно.
+
+    async def _resolve_turn_slot_meta(self, chat_id: int, *,
+                                      prompt_text: str) -> tuple:
+        """UR-02.1: один резолв слота/ключа/бюджета L1 для обоих триггеров.
+
+        Возвращает ``(SlotBudgetMeta, L1ModelSlot)``: первый — данные
+        трассы/контракта (без секретов), второй — транспорт попытки
+        (api_key остаётся только здесь). ``NoApiKeyForChat`` пробрасывается:
+        решение «молчать или упасть» принимает адаптер (право говорить), а не
+        резолв.
+        """
+        credential_source = await _l1.authorize_l1_call(self.llm, chat_id)
+        slot = _l1.resolve_l1_model(chat_id)
+        try:
+            fallback_model = str(hot.get(
+                "models.llm_model_name",
+                getattr(settings, "LLM_MODEL_NAME", "")) or "")
+        except Exception:      # pragma: no cover - защитная ветка
+            fallback_model = ""
+        budget, budget_meta = await _l1.resolve_l1_context_budget(
+            base_url=slot.base_url, model=slot.model,
+            fallback_model=fallback_model,
+            mandatory_tokens=count_tokens(prompt_text))
+        return _tt.SlotBudgetMeta(
+            slot=("l1_slot" if slot.dedicated else "main"),
+            model=str(slot.model or ""),
+            base_url=str(slot.base_url or ""),
+            dedicated=bool(slot.dedicated),
+            budget_tokens=int(budget),
+            budget_source=str(budget_meta.get("source") or ""),
+            fallback_model=fallback_model,
+            credential_source=str(credential_source or "global"),
+            temperature=_l1.l1_temperature(None)), slot
+
+    async def _resolve_turn_tool_state(self, chat_id: int, *,
+                                       lore_enabled=None,
+                                       image_enabled=None):
+        """UR-01.5/UR-02.3: фактически доступные capabilities ДО планирования.
+
+        Одна копия для обоих триггеров: набор объявленных tools и его
+        capability-проекция. Прямой ход передаёт уже разрешённые им флаги
+        (там возможен pre-gate картинки), инициатива резолвит их сама тем же
+        каталоговым путём. Никогда не бросает.
+        """
+        if lore_enabled is None or image_enabled is None:
+            try:
+                from services.chat_params import get_chat_param as _cpg
+                lore_enabled = await _cpg(
+                    chat_id, "flags.lore_compiler_enabled",
+                    hot.get("flags.lore_compiler_enabled",
+                            settings.LORE_COMPILER_ENABLED))
+                from services import image_generation
+                image_enabled = await image_generation.resolve_module_enabled(
+                    chat_id)
+            except Exception:      # pragma: no cover - fail-open
+                logger.warning(
+                    "[direct] turn tool-state resolve failed — slim set | "
+                    "chat=%s", chat_id, exc_info=True)
+                lore_enabled, image_enabled = False, False
+        try:
+            announced = {t["function"]["name"] for t in
+                         active_tools(bool(lore_enabled), bool(image_enabled))
+                         if isinstance(t, dict) and t.get("function")}
+        except Exception:      # pragma: no cover - защитная ветка
+            announced = set()
+        capabilities = tuple(_caps.available_capabilities(announced))
+        return _tt.ToolStateSnapshot(
+            capabilities=capabilities,
+            announced=tuple(sorted(announced)),
+            search_available=("web_search" in capabilities),
+            fetch_available=("fetch_url" in capabilities),
+            source="active_tools")
+
+    def _turn_aliases_snapshot(self) -> dict:
+        """UR-01.3: действующие алиасы чата на момент хода (uid → имя)."""
+        try:
+            raw = dict(getattr(self.aliases, "aliases", None) or {})
+        except Exception:      # pragma: no cover - fail-open
+            return {}
+        snapshot: dict = {}
+        for key, value in raw.items():
+            try:
+                snapshot[int(key)] = str(value)
+            except (TypeError, ValueError):
+                continue
+        return snapshot
+
+    def _build_reply_parent_ref(self, message):
+        """Reply/quote-родитель хода как ссылочный объект (UR-01.3)."""
+        parent = getattr(message, "reply_to_message", None)
+        if parent is None:
+            return None
+        tg_id = getattr(parent, "message_id", None)
+        try:
+            tg_id = int(tg_id) if tg_id is not None else None
+        except (TypeError, ValueError):
+            tg_id = None
+        author = getattr(parent, "from_user", None)
+        author_uid = getattr(author, "id", None)
+        try:
+            author_uid = int(author_uid) if author_uid is not None else None
+        except (TypeError, ValueError):
+            author_uid = None
+        alias = ""
+        if author_uid is not None:
+            try:
+                alias = str(self.aliases.resolve(
+                    author_uid,
+                    getattr(author, "first_name", None),
+                    getattr(author, "username", None)) or "")
+            except Exception:      # pragma: no cover - fail-open
+                alias = ""
+        return _tt.ReplyParentRef(
+            tg_id=tg_id, author_uid=author_uid, alias=alias,
+            source_ref=(f"msg:{tg_id}" if tg_id is not None else ""))
+
+    async def _build_turn_request(self, *, trigger_type: str, chat_id: int,
+                                  correlation_id: str | None,
+                                  slot_meta,
+                                  source_message_id: int | None = None,
+                                  raw_text: str = "",
+                                  media_markers=(),
+                                  speaker_uid: int | None = None,
+                                  reply_parent=None,
+                                  addressee=None,
+                                  opportunity=None,
+                                  lore_enabled=None,
+                                  image_enabled=None,
+                                  delivery=None):
+        """UR-01: единственный конструктор `TurnRequest` для обоих входов."""
+        tool_state = await self._resolve_turn_tool_state(
+            chat_id, lore_enabled=lore_enabled, image_enabled=image_enabled)
+        return _tt.TurnRequest(
+            trigger_type=_tt.resolve_turn_type(trigger_type),
+            chat_id=int(chat_id),
+            correlation_id=str(correlation_id or ""),
+            source_message_id=source_message_id,
+            raw_text=str(raw_text or ""),
+            media_markers=tuple(media_markers or ()),
+            speaker_uid=speaker_uid,
+            reply_parent=reply_parent,
+            addressee=addressee,
+            aliases_snapshot=self._turn_aliases_snapshot(),
+            opportunity=opportunity,
+            capabilities=tool_state.capabilities,
+            tool_state=tool_state,
+            model_slot=slot_meta,
+            delivery=delivery or _tt.DeliveryPolicy(
+                trigger=_tt.resolve_turn_type(trigger_type)),
+            turn_started_at_utc=int(time.time()),
+            time_snapshot=None)
+
+    async def _execute_turn(self, req, *, slot, l1_messages: list[dict],
+                            l1_input_chars: int,
+                            message_id: int | None = None,
+                            meta: dict | None = None,
+                            started_monotonic: float | None = None) -> tuple:
+        """§2.1: единственный исполнитель планирующей стадии хода.
+
+        Резолвит тип хода (слот/схема/repair — одна таблица), пишет ход в
+        трассу вместе с `TurnRequest` и выполняет ОДИН код L1: permission-учёт
+        уже сделан в `req.model_slot.credential_source`, ladder слот→main,
+        bounded repair невалидного JSON, единственный retry без temperature,
+        учёт usage/plan_meta. Возвращает ``(L1Plan | None, meta)``.
+        ``NoApiKeyForChat`` не глотает — это делает адаптер по праву говорить.
+        """
+        policy = _tt.turn_policy(req.trigger_type)
+        _l1.record_turn_trace(req, policy=policy)
+        meta = meta if meta is not None else {}
+        meta.setdefault("source", "main")
+        meta.setdefault("inherited", True)
+        meta.setdefault("fallback", "")
+        meta.setdefault("repair", 0)
+        meta.setdefault("override", "")
+        meta["credential_source"] = str(
+            req.model_slot.credential_source or "global")
+        meta.setdefault("temperature_applied", False)
+        meta["l1_context_budget"] = int(req.model_slot.budget_tokens)
+        meta["l1_context_source"] = str(req.model_slot.budget_source or "")
+        meta["turn_type"] = policy.turn_type
+        meta["trigger_type"] = req.turn_type
+        meta["plan_schema"] = policy.plan_schema
+        chat_id = int(req.chat_id)
+        correlation_id = req.correlation_id or None
+        credential_source = str(meta["credential_source"] or "global")
+        started = (started_monotonic
+                   if started_monotonic is not None else time.monotonic())
+        input_chars = int(l1_input_chars)
+
+        def _record_llm_call(source_label: str, attempt_messages,
+                             current_slot, *, temperature=None):
+            async def _call():
+                if source_label == "l1_slot":
+                    assert current_slot is not None and current_slot.dedicated
+                    # dedicated: (content, usage)
+                    return await _l1.dedicated_generate(
+                        self.llm, attempt_messages, current_slot,
+                        max_output_tokens=_l1.l1_max_output_tokens(),
+                        timeout_seconds=_l1.l1_timeout_seconds(),
+                        temperature=temperature)
+                text = await asyncio.wait_for(
+                    self.llm.generate(
+                        attempt_messages,
+                        temperature=temperature,
+                        chat_id=chat_id, module="direct_chat",
+                        step="l1_planner", correlation_id=correlation_id,
+                        max_output_tokens=_l1.l1_max_output_tokens()),
+                    timeout=float(_l1.l1_timeout_seconds()))
+                return str(text or ""), None
+            return _call
+
+        plan: _l1.L1Plan | None = None
+        last_error: str = ""
+        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
+        # (2) main model — при fallback ON. Не-dedicated слот = inherit main:
+        # попытка одна (повтор того же вызова бессмыслен), далее
+        # deterministic fallback вызывающего.
+        attempts: list[tuple[str, bool]] = []
+        if slot.dedicated:
+            attempts.append(("l1_slot", True))
+            attempts.append(("main", True))       # fallback ON-гейт ниже
+        else:
+            attempts.append(("main", False))
+        raw_text = ""
+        temperature = _l1.l1_temperature(None)
+        meta["temperature_configured"] = (
+            float(temperature) if temperature is not None else None)
+        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
+            if needs_fallback_gate and attempt_index > 0 \
+                    and not _l1.l1_fallback_enabled():
+                break
+            try:
+                raw_text, usage = await _record_llm_call(
+                    label, l1_messages, slot, temperature=temperature)()
+                if label == "l1_slot":
+                    # D03: dedicated-слот — учёт вручную (llm.generate не
+                    # задействован); температура реально ушла в payload.
+                    meta["temperature_applied"] = temperature is not None
+                    await _l1.record_l1_usage(
+                        self.llm, usage=usage, messages=l1_messages,
+                        content=raw_text, model=slot.model, chat_id=chat_id,
+                        correlation_id=correlation_id,
+                        credential_source=credential_source)
+                plan = _l1.parse_l1_plan(raw_text)
+                if plan is not None:
+                    plan.source = "llm"
+                    meta["source"] = label
+                    meta["inherited"] = label != "l1_slot"
+                    break
+                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
+                if meta["repair"] == 0:
+                    meta["repair"] = 1
+                    repair_messages = _l1.build_repair_messages(l1_messages,
+                                                                raw_text)
+                    raw_text, usage2 = await _record_llm_call(
+                        label, repair_messages, slot, temperature=temperature)()
+                    if label == "l1_slot":
+                        # D03 (§18C.1): repair-попытка учтена ТАКЖЕ.
+                        await _l1.record_l1_usage(
+                            self.llm, usage=usage2,
+                            messages=repair_messages, content=raw_text,
+                            model=slot.model, chat_id=chat_id,
+                            correlation_id=correlation_id,
+                            credential_source=credential_source)
+                    plan = _l1.parse_l1_plan(raw_text)
+                    if plan is not None:
+                        plan.source = "repair"
+                        meta["source"] = label
+                        meta["inherited"] = label != "l1_slot"
+                        break
+            except NoApiKeyForChat:
+                # D03: политика ключей/бюджета блокирует попытку целиком —
+                # НЕ ladder (fallback на main те же ключи не получит).
+                raise
+            except Exception as exc:      # LLMError/TimeoutError → ladder
+                # D03 (§18C.6): dedicated-провайдер отверг temperature →
+                # честный единственный retry БЕЗ неё + флаг unsupported.
+                last_error = f"{type(exc).__name__}"
+                if (label == "l1_slot" and temperature is not None
+                        and not meta.get("temperature_unsupported")
+                        and "temperature" in str(exc).lower()):
+                    meta["temperature_unsupported"] = True
+                    meta["temperature_applied"] = False
+                    logger.warning(
+                        "[direct] l1 dedicated temperature unsupported — "
+                        "retry without | chat=%s", chat_id)
+                    try:
+                        raw_text, usage = await _record_llm_call(
+                            label, l1_messages, slot, temperature=None)()
+                        await _l1.record_l1_usage(
+                            self.llm, usage=usage, messages=l1_messages,
+                            content=raw_text, model=slot.model,
+                            chat_id=chat_id,
+                            correlation_id=correlation_id,
+                            credential_source=credential_source)
+                        plan = _l1.parse_l1_plan(raw_text)
+                        if plan is not None:
+                            plan.source = "llm"
+                            meta["source"] = label
+                            meta["inherited"] = False
+                            break
+                    except Exception as retry_exc:
+                        last_error = f"{type(retry_exc).__name__}"
+                logger.warning(
+                    "[direct] l1 planner attempt failed | chat=%s | "
+                    "source=%s | error=%s", chat_id, label,
+                    _exc_brief(exc))
+        latency_ms = int((time.monotonic() - started) * 1000)
+        fallback_flag = "deterministic" if plan is None else ""
+        if plan is None:
+            logger.warning(
+                "[direct] l1 planner outage — deterministic fallback | "
+                "chat=%s | trigger=%s | last_error=%s",
+                chat_id, req.turn_type, last_error or "invalid")
+        try:
+            resolved_caps, _rejected_caps = _caps.resolve_capabilities(
+                (plan.capabilities_needed if plan is not None else ()),
+                req.tool_state.announced)
+        except Exception:      # pragma: no cover - защитная ветка
+            resolved_caps = []
+        _l1.emit_l1_plan_event(
+            run_id=correlation_id, chat_id=chat_id,
+            message_id=message_id, plan=plan,
+            requested=(plan.capabilities_needed if plan is not None else ()),
+            resolved=tuple(resolved_caps),
+            inherited=bool(meta.get("inherited")),
+            fallback=fallback_flag, latency_ms=latency_ms,
+            input_chars=input_chars,
+            source=str(meta.get("source") or "main"))
+        # Диагностика: одни и те же оси у обоих триггеров + прикладные extras
+        # адаптера (капы цитаты, профиль решений) — читает Inspector.
+        diag: dict = {}
+        for key in _TURN_DIAGNOSTIC_KEYS:
+            diag[key] = meta.get(key)
+        diag.update({
+            "model": str(slot.model or ""),
+            "trigger_type": req.turn_type,
+            "turn_type": policy.turn_type,
+            "plan_schema": policy.plan_schema,
+            "slot_policy": policy.slot_policy,
+            "repair_policy": policy.repair_policy,
+            "available_capabilities": int(len(req.capabilities)),
+        })
+        _l1.record_l1_diagnostics(chat_id, **diag)
+        # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
+        # (reply/silent/react) идут через этот единственный вызов, строка
+        # step="l1_planner" уже записана (llm.generate / manual record).
+        await self._attach_l1_plan_meta(
+            correlation_id, plan, meta, chat_id=chat_id,
+            fallback_flag=fallback_flag,
+            latency_ms=latency_ms, input_chars=input_chars)
+        return plan, meta
+
     async def _plan_direct_l1(self, chat_id: int, message, query: str,
                               correlation_id: str | None, *, bundle,
                               target_name: str, user_id: int | None,
@@ -5766,59 +6149,29 @@ class DirectChatService:
         (генерится llm.generate; для dedicated слота — вручную) + agentic
         event ``L1_PLAN`` (§1.5). Никогда не бросает, КРОМЕ
         NoApiKeyForChat (блок политики); ``None``-план → сигнал
-        deterministic fallback (D13/D14)."""
+        deterministic fallback (D13/D14).
 
-        def _record_llm_call(source_label: str, attempt_messages, slot, *,
-                             temperature=None):
-            async def _call():
-                if source_label == "l1_slot":
-                    assert slot is not None and slot.dedicated
-                    # dedicated: (content, usage)
-                    return await _l1.dedicated_generate(
-                        self.llm, attempt_messages, slot,
-                        max_output_tokens=_l1.l1_max_output_tokens(),
-                        timeout_seconds=_l1.l1_timeout_seconds(),
-                        temperature=temperature)
-                text = await asyncio.wait_for(
-                    self.llm.generate(
-                        attempt_messages,
-                        temperature=temperature,
-                        chat_id=chat_id, module="direct_chat",
-                        step="l1_planner", correlation_id=correlation_id,
-                        max_output_tokens=_l1.l1_max_output_tokens()),
-                    timeout=float(_l1.l1_timeout_seconds()))
-                return str(text or ""), None
-            return _call
-
+        UR-A (§2.1): L1 больше не отдельный код — адаптер собирает контекст
+        прямого хода, строит `TurnRequest` и передаёт его единственному
+        исполнителю `_execute_turn` (слот/право/бюджет — общий резолв).
+        """
         started = time.monotonic()
         meta: dict = {"source": "main", "inherited": True, "fallback": "",
                       "repair": 0, "override": "",
                       "credential_source": "global",
                       "temperature_applied": False}
-        # ── D03 (§18C.1): единая permission-политика ПЕРЕД платными
-        # попытками (тот же resolver, что у обычных вызовов).
-        credential_source = await _l1.authorize_l1_call(self.llm, chat_id)
-        meta["credential_source"] = credential_source
-        # ── ER-08 (02.11.2026): бюджет пакета L1 выводится из РЕАЛЬНОГО окна
-        # L1-модели (Model Capacity Resolver + Stage Auto Budget, стадия
-        # direct.l1), а не из код-константы 1600. Слот резолвится здесь же:
-        # он нужен и для бюджета, и для ladder ниже.
-        slot = _l1.resolve_l1_model(chat_id)
-        try:
-            _fallback_model = str(hot.get(
-                "models.llm_model_name",
-                getattr(settings, "LLM_MODEL_NAME", "")) or "")
-        except Exception:      # pragma: no cover - защитная ветка
-            _fallback_model = ""
         system_prompt_l1 = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
-        _l1_budget, _l1_budget_meta = await _l1.resolve_l1_context_budget(
-            base_url=slot.base_url, model=slot.model,
-            fallback_model=_fallback_model,
-            mandatory_tokens=count_tokens(system_prompt_l1))
-        meta["l1_context_budget"] = int(_l1_budget)
-        meta["l1_context_source"] = str(_l1_budget_meta.get("source") or "")
+        # ── UR-A (UR-02.1): один резолв слота/ключа/бюджета на оба триггера.
+        # D03 (§18C.1): permission-политика — ПЕРЕД платными попытками
+        # (NoApiKeyForChat пробрасывается: тот же sandbox-путь).
+        _slot_meta, slot = await self._resolve_turn_slot_meta(
+            chat_id, prompt_text=system_prompt_l1)
+        meta["credential_source"] = str(_slot_meta.credential_source)
+        _l1_budget = int(_slot_meta.budget_tokens)
+        meta["l1_context_budget"] = _l1_budget
+        meta["l1_context_source"] = str(_slot_meta.budget_source or "")
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -5850,14 +6203,28 @@ class DirectChatService:
         meta["social_attribution"] = (
             str(getattr(_social_frame, "attribution_status", "")) or "")
         meta["social_hint"] = _social_hint
-        # §1.4: список доступных capability (по активному набору tools).
-        try:
-            announced = {t["function"]["name"] for t in
-                         active_tools(lore_enabled, image_enabled)
-                         if isinstance(t, dict) and t.get("function")}
-        except Exception:
-            announced = set()
-        available_caps = _caps.available_capabilities(announced)
+        # §1.4 + UR-A (UR-02.3): набор доступных capability — общий резолвер
+        # хода (тот же у инициативы), а не отдельная копия в адаптере.
+        _turn_req = await self._build_turn_request(
+            trigger_type="direct", chat_id=chat_id,
+            correlation_id=correlation_id, slot_meta=_slot_meta,
+            source_message_id=getattr(message, "message_id", None),
+            raw_text=query,
+            media_markers=extra_media_markers,
+            speaker_uid=user_id,
+            reply_parent=self._build_reply_parent_ref(message),
+            addressee=_tt.AddresseeRef(
+                user_id=user_id,
+                label=str(getattr(bundle, "addressee", None) or "чат"),
+                source=("bundle" if getattr(bundle, "addressee", None)
+                        else "chat")),
+            lore_enabled=bool(lore_enabled),
+            image_enabled=bool(image_enabled),
+            delivery=_tt.DeliveryPolicy(
+                kind="text", force_reply=bool(force_required),
+                direct_request=bool(force_required), recheck=False,
+                trigger="direct"))
+        available_caps = list(_turn_req.tool_state.capabilities)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
         _l1_gates = await _composer_resolve_gates(chat_id)
@@ -5925,147 +6292,14 @@ class DirectChatService:
             {"role": "user", "content": context_text},
         ]
         meta["input_chars"] = input_chars
-        plan: _l1.L1Plan | None = None
-        last_error: str = ""
-        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
-        # (2) main model — при fallback ON (когда slot dedicated). Не-
-        # dedicated слот = inherit main: попытка одна (повтор того же
-        # вызова бессмысленен), далее deterministic fallback.
-        attempts: list[tuple[str, bool]] = []
-        if slot.dedicated:
-            attempts.append(("l1_slot", True))
-            attempts.append(("main", True))       # fallback ON-гейт ниже
-        else:
-            attempts.append(("main", False))
-        raw_text = ""
-        temperature = _l1.l1_temperature(None)
-        meta["temperature_configured"] = (
-            float(temperature) if temperature is not None else None)
-        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
-            if needs_fallback_gate and attempt_index > 0 \
-                    and not _l1.l1_fallback_enabled():
-                break
-            try:
-                raw_text, usage = await _record_llm_call(
-                    label, messages, slot, temperature=temperature)()
-                if label == "l1_slot":
-                    # D03: dedicated-слот — учёт вручную (llm.generate не
-                    # задействован); температура реально ушла в payload.
-                    meta["temperature_applied"] = temperature is not None
-                    await _l1.record_l1_usage(
-                        self.llm, usage=usage, messages=messages,
-                        content=raw_text, model=slot.model, chat_id=chat_id,
-                        correlation_id=correlation_id,
-                        credential_source=credential_source)
-                plan = _l1.parse_l1_plan(raw_text)
-                if plan is not None:
-                    plan.source = "llm"
-                    meta["source"] = label
-                    meta["inherited"] = label != "l1_slot"
-                    break
-                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
-                if meta["repair"] == 0:
-                    meta["repair"] = 1
-                    repair_messages = _l1.build_repair_messages(messages,
-                                                                raw_text)
-                    raw_text, usage2 = await _record_llm_call(
-                        label, repair_messages, slot, temperature=temperature)()
-                    if label == "l1_slot":
-                        # D03 (§18C.1): repair-попытка учтена ТАКЖЕ.
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage2,
-                            messages=repair_messages, content=raw_text,
-                            model=slot.model, chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                    plan = _l1.parse_l1_plan(raw_text)
-                    if plan is not None:
-                        plan.source = "repair"
-                        meta["source"] = label
-                        meta["inherited"] = label != "l1_slot"
-                        break
-            except NoApiKeyForChat:
-                # D03: политика ключей/бюджета блокирует попытку целиком —
-                # НЕ ladder (fallback на main те же ключи не получит).
-                raise
-            except Exception as exc:      # LLMError/TimeoutError → ladder
-                # D03 (§18C.6): dedicated-провайдер отверг temperature →
-                # честный единственный retry БЕЗ неё + флаг unsupported.
-                last_error = f"{type(exc).__name__}"
-                if (label == "l1_slot" and temperature is not None
-                        and not meta.get("temperature_unsupported")
-                        and "temperature" in str(exc).lower()):
-                    meta["temperature_unsupported"] = True
-                    meta["temperature_applied"] = False
-                    logger.warning(
-                        "[direct] l1 dedicated temperature unsupported — "
-                        "retry without | chat=%s", chat_id)
-                    try:
-                        raw_text, usage = await _record_llm_call(
-                            label, messages, slot, temperature=None)()
-                        await _l1.record_l1_usage(
-                            self.llm, usage=usage, messages=messages,
-                            content=raw_text, model=slot.model,
-                            chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            credential_source=credential_source)
-                        plan = _l1.parse_l1_plan(raw_text)
-                        if plan is not None:
-                            plan.source = "llm"
-                            meta["source"] = label
-                            meta["inherited"] = False
-                            break
-                    except Exception as retry_exc:
-                        last_error = f"{type(retry_exc).__name__}"
-                logger.warning(
-                    "[direct] l1 planner attempt failed | chat=%s | "
-                    "source=%s | error=%s", chat_id, label,
-                    _exc_brief(exc))
-        latency_ms = int((time.monotonic() - started) * 1000)
-        fallback_flag = "deterministic" if plan is None else ""
-        if plan is None:
-            logger.warning(
-                "[direct] l1 planner outage — deterministic fallback | "
-                "chat=%s | last_error=%s", chat_id, last_error or "invalid")
-        _l1.emit_l1_plan_event(
-            run_id=correlation_id, chat_id=chat_id,
-            message_id=getattr(message, "message_id", None), plan=plan,
-            requested=(plan.capabilities_needed if plan is not None else ()),
-            resolved=(), inherited=bool(meta.get("inherited")),
-            fallback=fallback_flag, latency_ms=latency_ms,
-            input_chars=input_chars,
-            source=str(meta.get("source") or "main"))
-        _l1.record_l1_diagnostics(
-            chat_id,
-            model=str(slot.model or ""),
-            source=str(meta.get("source") or "main"),
-            credential_source=str(meta.get("credential_source") or "global"),
-            temperature_configured=meta.get("temperature_configured"),
-            temperature_applied=bool(meta.get("temperature_applied")),
-            temperature_unsupported=bool(
-                meta.get("temperature_unsupported")),
-            repair=int(meta.get("repair") or 0),
-            fallback=fallback_flag,
-            # ER-08-RC §3: те же оси, что в plan_meta (Inspector видит
-            # срез цитаты без обращения к durable-таблице).
-            l1_reply_chars_cap=meta.get("l1_reply_chars_cap"),
-            l1_line_chars_cap=meta.get("l1_line_chars_cap"),
-            l1_reply_total_chars=meta.get("l1_reply_total_chars"),
-            l1_reply_delivered_chars=meta.get("l1_reply_delivered_chars"),
-            l1_reply_truncated=meta.get("l1_reply_truncated"),
-            l1_kept_mid=meta.get("l1_kept_mid"),
-            # ASAP-FC-VOICE-01 / B: источник и размер профиля решений —
-            # frame | legacy (без текста профиля, R17).
-            l1_profile_source=meta.get("l1_profile_source"),
-            l1_profile_chars=meta.get("l1_profile_chars"))
-        # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
-        # (reply/silent/react) идут через этот единственный вызов, строка
-        # step="l1_planner" уже записана (llm.generate / manual record).
-        await self._attach_l1_plan_meta(
-            correlation_id, plan, meta, chat_id=chat_id,
-            fallback_flag=fallback_flag,
-            latency_ms=latency_ms, input_chars=input_chars)
-        return plan, meta
+        # ── UR-A (§2.1): единственный исполнитель планирующей стадии хода.
+        # Тип хода/слот/схема/repair/учёт usage — одна копия кода на оба
+        # триггера; адаптер отдаёт собранный контекст и TurnRequest.
+        return await self._execute_turn(
+            _turn_req, slot=slot, l1_messages=messages,
+            l1_input_chars=input_chars,
+            message_id=getattr(message, "message_id", None),
+            meta=meta, started_monotonic=started)
 
     async def _attach_l1_plan_meta(self, correlation_id, plan, meta, *,
                                    chat_id: int | None = None,
@@ -12572,9 +12806,14 @@ class DirectChatService:
         реакции, повод наблюдателя КАК ПРЕДЛОЖЕНИЕ (может отклонить). Форму
         участия (написать в чат / Telegram-reply на конкретное сообщение /
         реакция / молчание) выбирает ТОЛЬКО L1 — транспорта-резолвера больше
-        нет. Один вызов L1 (без repair-лестницы — инициатива вторична:
-        outage/невалидный JSON → None → SILENT, не повтор). Никогда не
-        бросает."""
+        нет.
+
+        UR-A (UR-02): исполнение — общий L1-исполнитель `_execute_turn`, тот
+        же, что у прямого хода: тот же резолв слота/ключа/бюджета, та же схема
+        плана, тот же bounded repair и учёт usage, те же фактические
+        capabilities. Отличаются только сборка контекста (повод вместо цитаты)
+        и право на молчание: outage/невалидный JSON после repair или блок
+        политики ключей → None → SILENT. Никогда не бросает."""
         # Граница хода: пин кадра предыдущего чата снимается — инициативный
         # цикл обходит несколько чатов, и кадр чата A не должен доехать до B
         # (ревью W2/P1, F1).
@@ -12657,23 +12896,24 @@ class DirectChatService:
             _init_conditions.append(
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
-        # ER-08: тот же бюджет пакета из реального окна L1-модели (инициатива —
-        # не отдельный контур; main-модель, слотовый fallback не применяется).
+        # ── UR-A (UR-02.1): тот же резолв слота/ключа/бюджета, что у Direct.
         _init_prompt = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
         try:
-            _init_model = str(hot.get(
-                "models.llm_model_name",
-                getattr(settings, "LLM_MODEL_NAME", "")) or "")
-            _init_base = str(hot.get(
-                "models.llm_base_url",
-                getattr(settings, "LLM_BASE_URL", "")) or "")
-        except Exception:      # pragma: no cover - защитная ветка
-            _init_model, _init_base = "", ""
-        _init_budget, _init_budget_meta = await _l1.resolve_l1_context_budget(
-            base_url=_init_base, model=_init_model,
-            mandatory_tokens=count_tokens(_init_prompt))
+            _slot_meta, slot = await self._resolve_turn_slot_meta(
+                chat_id, prompt_text=_init_prompt)
+        except NoApiKeyForChat as exc:
+            # Право инициативы на молчание: блокировка политики ключей/
+            # бюджета — не повод падать в heartbeat-цикле (в отличие от
+            # прямого обращения, где это осознанный sandbox-ответ).
+            if not _tt.turn_policy("initiative").silent_on_policy_block:
+                raise
+            logger.warning(
+                "[f6] initiative L1 blocked by key policy — silent | "
+                "chat=%s | reason=%s", chat_id, _exc_brief(exc))
+            return None
+        _init_budget = int(_slot_meta.budget_tokens)
         # ASAP-FC-VOICE-01 / B: тот же профиль решений, что у Direct (одна
         # точка сборки); кадр принимается только для ЭТОГО чата и только с
         # версией из `_initiative_ctx` (иначе — честный legacy/absent). Это
@@ -12682,10 +12922,33 @@ class DirectChatService:
         # существующие критерии silent).
         _init_profile = bot_persona.build_decision_profile_block(
             _initiative_ctx, chat_id=chat_id)
+        # ── UR-A (UR-01/UR-02.3): тот же `TurnRequest`, что у прямого хода, и
+        # те же ФАКТИЧЕСКИ доступные capabilities (раньше — пустой список,
+        # из-за чего инициатива не видела собственный инструментарий).
+        _turn_req = await self._build_turn_request(
+            trigger_type="initiative", chat_id=chat_id,
+            correlation_id=correlation_id, slot_meta=_slot_meta,
+            source_message_id=None,
+            raw_text="",
+            speaker_uid=None,
+            reply_parent=None,
+            addressee=_tt.AddresseeRef(
+                user_id=addressee_id, label=addressee_label,
+                source=("observer" if addressee_id is not None else "chat")),
+            opportunity=_tt.OpportunityRef(
+                intent_id=_optional_int(row.get("intent_id")),
+                goal=goal, kind=kind, origin=origin,
+                created_at=_optional_int(row.get("created_at")),
+                source_refs=tuple(
+                    str(ref) for ref in (row.get("source_refs") or ())
+                    if str(ref or "").strip())),
+            delivery=_tt.DeliveryPolicy(
+                kind="text", force_reply=False, direct_request=False,
+                recheck=True, trigger="initiative"))
         context_text = _l1.build_l1_context(
             query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
-            capabilities=(),
+            capabilities=list(_turn_req.tool_state.capabilities),
             force_line="; ".join(_init_conditions),
             decision_profile=_init_profile, bot_replies=bot_replies,
             # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
@@ -12697,22 +12960,22 @@ class DirectChatService:
         # капы; те же оси, что у Direct-сайта, в существующем канале.
         _init_reply_stats = _l1.reply_delivery_stats(
             context_text, _init_budget, total_chars=0)
-        _l1.record_l1_diagnostics(
-            chat_id, source="initiative_l1",
-            l1_context_budget=int(_init_budget),
-            l1_context_source=str(_init_budget_meta.get("source") or ""),
-            l1_reply_chars_cap=int(_init_reply_stats["chars_cap"]),
-            l1_line_chars_cap=int(_l1.window_line_chars(
+        meta: dict = {
+            "l1_reply_chars_cap": int(_init_reply_stats["chars_cap"]),
+            "l1_line_chars_cap": int(_l1.window_line_chars(
                 window, budget_tokens=_init_budget)),
-            l1_reply_total_chars=int(_init_reply_stats["total_chars"]),
-            l1_reply_delivered_chars=int(
+            "l1_reply_total_chars": int(_init_reply_stats["total_chars"]),
+            "l1_reply_delivered_chars": int(
                 _init_reply_stats["delivered_chars"]),
-            l1_reply_truncated=bool(_init_reply_stats["truncated"]),
-            l1_kept_mid=bool(_init_reply_stats["kept_mid"]),
-            # ASAP-FC-VOICE-01 / B: источник/размер профиля решений (frame|legacy).
-            l1_profile_source=bot_persona.decision_profile_source(
+            "l1_reply_truncated": bool(_init_reply_stats["truncated"]),
+            "l1_kept_mid": bool(_init_reply_stats["kept_mid"]),
+            # ASAP-FC-VOICE-01 / B: источник/размер профиля решений
+            # (frame|legacy).
+            "l1_profile_source": bot_persona.decision_profile_source(
                 _init_profile),
-            l1_profile_chars=int(len(_init_profile)))
+            "l1_profile_chars": int(len(_init_profile)),
+            "input_chars": int(len(context_text)),
+        }
         messages = [
             {"role": "system",
              "content": _init_prompt},
@@ -12725,20 +12988,19 @@ class DirectChatService:
                 _pcomp.compose_machine_system(
                     messages[0]["content"], writer="initiative_l1",
                     chat_id=chat_id, run_id=correlation_id))
-        try:
-            raw = await asyncio.wait_for(
-                self.llm.generate(
-                    messages, temperature=_l1.l1_temperature(None),
-                    chat_id=chat_id, module="direct_chat",
-                    step="l1_planner", correlation_id=correlation_id,
-                    max_output_tokens=_l1.l1_max_output_tokens()),
-                timeout=float(_l1.l1_timeout_seconds()))
-        except Exception:
+        # ── UR-A (§2.1): тот же исполнитель, что у Direct: резолв слота,
+        # bounded repair невалидного JSON, retry без temperature, учёт usage.
+        plan, _plan_meta = await self._execute_turn(
+            _turn_req, slot=slot, l1_messages=messages,
+            l1_input_chars=len(context_text), message_id=None, meta=meta,
+            started_monotonic=time.monotonic())
+        if plan is None:
+            # Инициатива вторична: outage/невалидный JSON после общего
+            # repair-маршрута → честное молчание (SILENT), не падение.
             logger.warning(
-                "[f6] initiative L1 decision unavailable — silent | chat=%s",
-                chat_id, exc_info=True)
-            return None
-        return _l1.parse_l1_plan(raw)
+                "[f6] initiative L1 decision unavailable — silent | "
+                "chat=%s", chat_id)
+        return plan
 
     async def generate_initiative_reply(self, chat_id: int,
                                         intent_row: dict, *,
