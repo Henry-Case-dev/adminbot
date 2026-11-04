@@ -206,8 +206,9 @@ def test_form_contract_catches_changed_number_negation_and_new_name():
 
 @pytest.mark.system2
 def test_transform_path_keeps_facts_and_stays_bounded():
-    """Stage-1 → Stage-2: нарушение формы → один повтор, затем проверенный
-    черновик; числа/имена/отрицания не теряются."""
+    """Явная трансформация: нарушение защищённых данных видно, второго
+    LLM-вызова нет — доставляются исходные данные (числа/имена/отрицания
+    не теряются)."""
     draft = "Вася не писал 12 сообщений, это точно."
 
     async def gen(messages):
@@ -220,9 +221,10 @@ def test_transform_path_keeps_facts_and_stays_bounded():
         form_contract=nc.FormContract(source_text=draft,
                                       roster_names=("Вася",)),
         fallback_text=draft))
-    assert gen.calls == 2                            # ≤1 form-повтор
-    assert stats["form_retry"] is True
+    assert gen.calls == 1                            # второго автора нет
+    assert stats["form_retry"] is False
     assert stats["form_fallback"] is True
+    assert stats["form_guard_reason"] == nc.FORM_GUARD_REJECTED
     assert out == draft                              # исходные факты целы
 
 

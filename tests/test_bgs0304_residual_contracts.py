@@ -156,7 +156,8 @@ def test_paraphrase_keeps_facts_without_extra_generation():
 ])
 def test_paraphrase_fact_break_returns_source_draft(candidate):
     """Потеря отрицания при числе, подмена числа и новое имя ростера →
-    ≤1 повтор, затем исходный черновик (факты сохранены) + трассировка."""
+    проверка видит искажение, второго LLM-вызова нет — доставляются исходные
+    данные (факты сохранены) + трассировка."""
     gen = _Gen([candidate])
     out, stats = _run(nc.verbalize_validated(
         gen,
@@ -164,9 +165,9 @@ def test_paraphrase_fact_break_returns_source_draft(candidate):
         form_contract=nc.FormContract(source_text=DRAFT,
                                       roster_names=ROSTER),
         fallback_text=DRAFT))
-    assert gen.calls == 2                       # 1 кандидат + ≤1 form-повтор
+    assert gen.calls == 1                       # ни одного повтора
     assert out == DRAFT                         # исходные данные сохранены
-    assert stats["form_retry"] is True
+    assert stats["form_retry"] is False
     assert stats["form_fallback"] is True
     assert stats["form_guard_reason"] == nc.FORM_GUARD_REJECTED
     assert stats["form_guard_rejects"] >= 1     # ошибка трассируется

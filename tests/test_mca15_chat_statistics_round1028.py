@@ -1101,9 +1101,9 @@ class TestNumericClaimsCheck:
 class TestNumericGuardVerbalize:
     @pytest.mark.system2
     @pytest.mark.asyncio
-    async def test_no_reroll_deterministic_correction(self, monkeypatch):
-        """BGS-04 §1-2: свободная генерация не перегенерируется за число —
-        ровно один вызов, детерминированная замена на verified_phrase."""
+    async def test_free_form_number_is_observation_only(self, monkeypatch):
+        """R-04.2: свободная речь не получает вставку verified_phrase —
+        ровно один вызов, авторский текст доставлен как написан."""
         monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
                             lambda: False)
         c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
@@ -1117,39 +1117,19 @@ class TestNumericGuardVerbalize:
         text, stats = await nc.verbalize_validated(
             gen, [{"role": "user", "content": "x"}], numeric_contract=c)
         assert len(calls) == 1                     # второго вызова LLM нет
-        assert text == "сообщений с совпадением: 9"
+        assert text == "он писал 7 сообщений"      # текст автора цел
         assert stats["numeric_claim_mismatch"] == 1
         assert stats["numeric_claim_retry"] is False
-        assert stats["numeric_claim_fallback"] is True
-        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_FALLBACK
+        assert stats["numeric_claim_fallback"] is False
+        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_MISMATCH
         assert stats["attempts"] == 1
+        assert stats["semantic_rewrite_count"] == 0
 
     @pytest.mark.system2
     @pytest.mark.asyncio
-    async def test_deterministic_fallback_single_attempt(self, monkeypatch):
-        """Нарушение без права повтора: одна попытка и проверенная фраза."""
-        monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
-                            lambda: False)
-        c = _contract(claims=(_claim(),), phrase="сообщений с совпадением: 9",
-                      expected=True)
-        calls = 0
-
-        async def gen(messages):
-            nonlocal calls
-            calls += 1
-            return "он писал 7 сообщений"
-
-        text, stats = await nc.verbalize_validated(
-            gen, [{"role": "user", "content": "x"}], numeric_contract=c)
-        assert calls == 1
-        assert text == "сообщений с совпадением: 9"     # verified_phrase
-        assert stats["numeric_claim_fallback"] is True
-        assert stats["numeric_claim_reason"] == nc.NUMERIC_CLAIM_FALLBACK
-        assert stats["attempts"] == 1                   # ≤1 коррекция
-
-    @pytest.mark.system2
-    @pytest.mark.asyncio
-    async def test_no_claims_caveat(self, monkeypatch):
+    async def test_no_claims_is_observation_not_caveat(self, monkeypatch):
+        """Нет подтверждённых измерений: оговорка не подставляется в готовую
+        речь — расхождение только в stats."""
         monkeypatch.setattr(mca_gates, "postprocess_form_guard_enabled",
                             lambda: False)
 
@@ -1159,8 +1139,10 @@ class TestNumericGuardVerbalize:
         text, stats = await nc.verbalize_validated(
             gen, [{"role": "user", "content": "x"}],
             numeric_contract=_contract(expected=True))
-        assert text == nc.NUMERIC_CLAIM_CAVEAT
-        assert stats["numeric_claim_fallback"] is True
+        assert text == "он писал 7 сообщений"
+        assert nc.NUMERIC_CLAIM_CAVEAT not in text
+        assert stats["numeric_claim_mismatch"] == 1
+        assert stats["numeric_claim_fallback"] is False
 
     @pytest.mark.system2
     @pytest.mark.asyncio
