@@ -51,7 +51,6 @@ from services import mca_gates
 from services import usage_events
 from services.prompt_composer import compose_speech_system
 from services.negative_constraints import (
-    NumericContract,
     channel_enabled_rules,
     verbalize_validated,
 )
@@ -1732,6 +1731,307 @@ def _downgrade_unbacked_positive(verdict: tf.TemporalVerdict,
         uncertainty=uncertainty, parts=parts)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# RLR (REMOVE-LEGACY-REPHRASING R-03.4/R-06/§3.4/§8): numeric-контракт
+# data-стадии фактчека.
+#
+# Числа финального текста обязаны происходить из СТРУКТУРНЫХ данных прогона:
+# ``MetricResult``/``NumericClaim`` (измерения этого хода), структурный анализ
+# (claim/findings/evidence с provenance), сам проверяемый тезис и даты
+# envelope. Валидированный набор чисел явно уходит Writer'у в payload ДО
+# генерации, а после генерации выполняется детерминированная (без LLM)
+# сверка. Неподтверждённое число НЕ переписывается, не вырезается из фразы и
+# не заменяется «проверенной формулировкой»: вместо пересказа публикуется
+# структурный отчёт той же проверки (вердикт + утверждения + источники).
+# Post-L2 numeric-правка (`apply_numeric_guard`/numeric-retry) в фактчеке
+# поэтому не применяется (R-04.2), а честность обеспечивается до публикации.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Токен числа: разделители тысяч, десятичная запятая/точка, диапазон/дробь.
+#: Дата ("15.06.2025") остаётся одним токеном — сравнение каноническое.
+NUMBER_TOKEN_RE = re.compile(r"\d+(?:[ \u00a0\u202f'.,/-]\d+)*")
+_URL_IN_TEXT_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
+_NUMBERS_PAYLOAD_CAP = 24
+_NUMERIC_REPORT_SOURCES_CAP = 3
+#: Служебный код исхода: число в пересказе не подтверждено структурой.
+NUMBER_UNVALIDATED = "factcheck_number_unvalidated"
+
+#: Честная рамка структурного отчёта (публичный текст, не инструкция модели).
+NUMERIC_REPORT_NOTE = (
+    "Пересказ не публикую: в нём были числа, которых нет в проверенных "
+    "данных. Ниже — только результат структурной проверки.")
+
+_SYSTEM2_STATUS_WORDS = {
+    "true": "подтверждается",
+    "false": "не подтверждается",
+    "misleading": "вводит в заблуждение",
+    "unverifiable": "проверить не удалось",
+}
+
+_PART_FACTUAL_WORDS = {
+    "supported": "подтверждается",
+    "refuted": "не подтверждается",
+    "mixed": "подтверждается частично",
+    "insufficient_evidence": "данных недостаточно",
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class NumericBinding:
+    """Число, привязанное к структурному источнику прогона (provenance).
+
+    ``source``: ``measurement`` (MetricResult/NumericClaim хода), ``evidence``
+    (выдержка источника), ``claim`` (проверяемый тезис), ``analysis``
+    (структурный разбор), ``date`` (даты envelope), ``part`` (компонент даты).
+    ``ref`` — metric_id/evidence_id/имя блока; выдуманных источников нет.
+    """
+    canon: str
+    raw: str
+    source: str
+    ref: str
+    unit: str = ""
+
+
+def _canon_number(token) -> str:
+    """Канонизация числа: пробелы/NBSP/' — разделители тысяч, ',' → '.'."""
+    text = (str(token).replace(" ", "").replace("\u00a0", "")
+            .replace("\u202f", "").replace("'", ""))
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    return text
+
+
+def number_tokens(text) -> list[str]:
+    """Все числовые токены текста в порядке появления (детерминированно)."""
+    return [m.group(0) for m in NUMBER_TOKEN_RE.finditer(str(text or ""))]
+
+
+def _fmt_ts_date(ts) -> str:
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).strftime("%d.%m.%Y")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
+
+
+def _bind_numbers(target: dict, text, *, source: str, ref: str,
+                  unit: str = "") -> None:
+    """Добавить привязки чисел текста (первое вхождение держит provenance)."""
+    for raw in number_tokens(text):
+        canon = _canon_number(raw)
+        if not canon:
+            continue
+        target.setdefault(canon, NumericBinding(
+            canon=canon, raw=raw, source=source, ref=ref,
+            unit=str(unit or "")))
+        # Компоненты даты ("12.05.2021" → 12/05/2021): пересказ даты словами
+        # не становится «выдуманным числом».
+        for piece in re.split(r"[./:-]", raw):
+            part = _canon_number(piece)
+            if part and part != canon:
+                target.setdefault(part, NumericBinding(
+                    canon=part, raw=piece, source="part", ref=ref))
+
+
+def build_numeric_contract(
+    *,
+    claim_text: str = "",
+    writer_payload: str = "",
+    metric_results=(),
+    evidence_rows=(),
+    temporal_context=None,
+) -> tuple[NumericBinding, ...]:
+    """Собрать ПРОВЕРЯЕМЫЙ набор чисел прогона (data-stage, без LLM).
+
+    ``writer_payload`` — именно то структурное представление, которое увидит
+    Writer: число, которого там нет, он не мог взять из facts-слоя.
+    ``metric_results`` — per-turn реестр измерений (MetricResult → NumericClaim
+    с metric_id/unit); ``evidence_rows`` — выдержки источников с evidence_id;
+    ``temporal_context`` — envelope (даты публикации/заявленного периода).
+    Никогда не бросает: любая ошибка источника просто не даёт привязки.
+    """
+    bindings: dict[str, NumericBinding] = {}
+    _bind_numbers(bindings, claim_text, source="claim", ref="claim")
+    _bind_numbers(bindings, writer_payload, source="analysis",
+                  ref="writer_payload")
+    for result in metric_results or ():
+        try:
+            from services import chat_statistics as _cs
+            claims = _cs.claims_for_result(result)
+        except Exception:      # не MetricResult/сбой реестра — нет привязки
+            continue
+        for claim in claims:
+            value = getattr(claim, "value", None)
+            if value is None:
+                continue
+            canon = _canon_number(value)
+            if not canon:
+                continue
+            bindings.setdefault(canon, NumericBinding(
+                canon=canon, raw=str(value), source="measurement",
+                ref=str(getattr(claim, "metric_id", "") or "measurement"),
+                unit=str(getattr(claim, "unit", "") or "")))
+    for row in evidence_rows or ():
+        if not isinstance(row, dict):
+            continue
+        ref = str(row.get("evidence_id") or row.get("url") or "evidence")
+        _bind_numbers(bindings, row.get("support"), source="evidence",
+                      ref=ref)
+        date = _fmt_ts_date(row.get("published_at"))
+        if date:
+            _bind_numbers(bindings, date, source="date", ref=ref)
+    if temporal_context is not None:
+        env = temporal_context
+        for ts in (getattr(env, "original_published_at", None),
+                   getattr(env, "repost_received_at", None),
+                   getattr(env, "claim_period_from", None),
+                   getattr(env, "claim_period_to", None)):
+            date = _fmt_ts_date(ts)
+            if date:
+                _bind_numbers(bindings, date, source="date",
+                              ref="temporal_context")
+    return tuple(bindings.values())
+
+
+def numeric_contract_payload(bindings) -> dict:
+    """Блок payload Writer'а: какие числа проверены и чем именно.
+
+    Список — только проверяемые привязки (измерения/источники/даты), без
+    тезиса и структурного разбора: у Writer'а они уже есть в самой структуре.
+    Пустой список честен: измерений и датированных выдержек не было.
+    """
+    checked: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
+    for binding in bindings or ():
+        if binding.source not in ("measurement", "evidence", "date"):
+            continue
+        key = (binding.canon, binding.source, binding.ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        item = {"value": binding.canon, "source": binding.source,
+                "ref": binding.ref}
+        if binding.unit:
+            item["unit"] = binding.unit
+        checked.append(item)
+        if len(checked) >= _NUMBERS_PAYLOAD_CAP:
+            break
+    return {
+        "checked": checked,
+        "note": ("числа из checked проверены по структурным данным этого "
+                 "прогона; остальные числа ответа не проверены"),
+    }
+
+
+def _number_is_bound(raw: str, allowed: frozenset[str]) -> bool:
+    canon = _canon_number(raw)
+    if canon in allowed:
+        return True
+    parts = [p for p in re.split(r"[./:-]", raw) if p.strip()]
+    if len(parts) > 1:
+        return all(_canon_number(p) in allowed for p in parts)
+    return False
+
+
+def unvalidated_numbers(text, bindings) -> tuple[str, ...]:
+    """Числа текста, которых НЕТ в проверенном наборе (детерминированно)."""
+    allowed = frozenset(b.canon for b in (bindings or ()))
+    return tuple(raw for raw in number_tokens(text)
+                 if not _number_is_bound(raw, allowed))
+
+
+def report_sources_from_text(*texts, limit: int = _NUMERIC_REPORT_SOURCES_CAP
+                             ) -> tuple[str, ...]:
+    """URL из материалов прогона (реальная выдача; ничего не изобретаем)."""
+    out: list[str] = []
+    for text in texts:
+        for match in _URL_IN_TEXT_RE.finditer(str(text or "")):
+            url = match.group(0).rstrip(".,;:!?)]}")
+            if url not in out:
+                out.append(url)
+            if len(out) >= limit:
+                return tuple(out)
+    return tuple(out)
+
+
+def deterministic_analysis_report(data: dict, *, sources=()) -> str:
+    """Структурный отчёт вместо пересказа (без LLM): вердикт + утверждения.
+
+    Текст собран ТОЛЬКО из проверенной структуры Stage-1 (claim/findings) и
+    ссылок фактической выдачи; числа в нём по построению привязаны к этой же
+    структуре. Verdict-класс не меняется и не «сглаживается».
+    """
+    lines: list[str] = []
+    verdict = str((data or {}).get("verdict") or "").strip()
+    if verdict:
+        lines.append(f"Вердикт: {verdict}")
+    for item in (data or {}).get("findings") or ():
+        if not isinstance(item, dict):
+            continue
+        assertion = str(item.get("assertion") or "").strip()
+        if not assertion:
+            continue
+        status = _SYSTEM2_STATUS_WORDS.get(str(item.get("status") or ""), "")
+        when = str(item.get("human_time") or "").strip()
+        tail = f" — {status}" if status else ""
+        if when and when != "без даты":
+            tail += f" ({when})"
+        lines.append(f"• {assertion}{tail}")
+    sources = tuple(s for s in (sources or ()) if str(s or "").strip())
+    if sources:
+        lines.append("Источники: " + ", ".join(sources))
+    else:
+        lines.append("Проверяемых ссылок в этот раз получить не удалось.")
+    lines.append(NUMERIC_REPORT_NOTE)
+    return "\n".join(lines).strip()
+
+
+def deterministic_temporal_report(env, verdict, *, evidence=(),
+                                  reason_code: str | None = None) -> str:
+    """Структурный отчёт temporal-ветки (без LLM): вердикт + части + даты.
+
+    ``factual_verdict``/``temporal_status`` берутся из уже проверенного
+    ``TemporalVerdict`` как есть: `insufficient_evidence` не превращается в
+    `mixed`/`supported`, `refuted` не смягчается.
+    """
+    pieces = ["Вердикт: " + _human_factual_verdict(verdict.factual_verdict)
+              + "."]
+    period = _human_evaluated_period(verdict.evaluated_period)
+    if period:
+        pieces.append(f"Проверялось {period}.")
+    orig = _fmt_ts_date(getattr(env, "original_published_at", None))
+    date_source = str(getattr(env, "date_source", "") or "")
+    if orig and date_source in ("telegram_origin", "telegram_message"):
+        kind = "оригинала" if date_source == "telegram_origin" else "сообщения"
+        pieces.append(f"Дата {kind}: {orig}.")
+    part_lines: list[str] = []
+    for part in (verdict.parts or ()):
+        if not isinstance(part, dict):
+            continue
+        text = str(part.get("text") or part.get("note") or "").strip()
+        if not text:
+            continue
+        label = _PART_FACTUAL_WORDS.get(
+            str(part.get("factual_verdict") or ""), "")
+        part_lines.append(f"• {text}" + (f" — {label}" if label else ""))
+        if len(part_lines) >= 4:
+            break
+    if part_lines:
+        pieces.append("Утверждения:\n" + "\n".join(part_lines))
+    links = report_sources_from_text(
+        *(str((row or {}).get("url") or "")
+          for row in (evidence or ()) if isinstance(row, dict)))
+    if links:
+        pieces.append("Источники: " + ", ".join(links))
+    technical = _RETRIEVAL_CAVEAT.get(str(reason_code or ""))
+    if technical:
+        pieces.append(technical[0].upper() + technical[1:] + ".")
+    pieces.append(NUMERIC_REPORT_NOTE)
+    return " ".join(pieces).strip()
+
+
 class FactCheckService:
     """Фактчек: поиск фактов по целевому тексту → LLM-вердикт → cleanup."""
 
@@ -1934,12 +2234,21 @@ class FactCheckService:
         verbalizer_system = await _compose_genre_speech(
             chat_id, writer="factcheck_verbalizer",
             base_prompt=verbalizer_base)
+        # RLR R-03.4/R-06/§3.4: проверенный набор чисел строится из
+        # СТРУКТУРНЫХ данных (Stage-1 facts + MetricResult этого хода) и
+        # отдаётся Writer'у ЯВНО — до генерации, а не правкой после неё.
+        stage2_data = stage2_payload(data)
+        numeric_bindings = build_numeric_contract(
+            claim_text=target_text,
+            writer_payload=json.dumps(stage2_data, ensure_ascii=False),
+            metric_results=getattr(raw_analyst, "metric_results", None) or ())
+        stage2_data["numbers"] = numeric_contract_payload(numeric_bindings)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
              # spec F3 §3.1: служебный response_mode в Stage-2 не утекает.
              "content": "АНАЛИЗ (JSON):\n" + json.dumps(
-                 stage2_payload(data), ensure_ascii=False)},
+                 stage2_data, ensure_ascii=False)},
         ]
 
         async def _generate(messages):
@@ -1951,25 +2260,14 @@ class FactCheckService:
         # буллиты в фактческе жанром не запрещены).
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
-        # MCA-15 (T-4931, D5; K2): числа в стат-контексте — только из
-        # измерений ЭТОГО хода (per-turn реестр). Нет измерений → пустой
-        # контракт: незаземлённое число не публикуется (оговорка/снятие).
-        numeric_contract = None
-        if mca_gates.numeric_claim_guard_enabled():
-            try:
-                from services import chat_statistics as _cs
-                claims: list = []
-                for result in (getattr(raw_analyst, "metric_results", None)
-                               or []):
-                    claims.extend(_cs.claims_for_result(result))
-                numeric_contract = NumericContract(claims=tuple(claims))
-            except Exception:
-                numeric_contract = None
+        # RLR R-04.2: post-L2 numeric-правки (`numeric_contract` →
+        # retry/verified_phrase/снятие части) здесь НЕТ. Числа проверяются
+        # data-стадией выше и детерминированной сверкой ниже; Writer-текст
+        # не переписывается.
         text, stats = await verbalize_validated(
             _generate, base_messages, max_retries=2,
             enabled_rules=enabled_rules,
             dynamic_rules=anticliche_cache.get_rules() or None,
-            numeric_contract=numeric_contract,
             metatext_reason=_metatext_retry_reason())
         logger.info(
             "factcheck system2 verbalizer | chat=%s | mode=%s | attempts=%d "
@@ -1978,7 +2276,19 @@ class FactCheckService:
             len(stats.get("hits") or []), bool(stats.get("fallback")))
         if stats.get("fallback"):
             return None
-        return self._finalize_text(text, used_tools, tool_context, rag, results)
+        final_text = self._finalize_text(text, used_tools, tool_context,
+                                        rag, results)
+        # RLR §3.4/§8: неподтверждённое число не публикуется как факт и НЕ
+        # правится в предложении — вместо пересказа идёт структурный отчёт.
+        unverified = unvalidated_numbers(final_text, numeric_bindings)
+        if unverified:
+            logger.warning(
+                "factcheck numeric | chat=%s | code=%s | unverified=%d | "
+                "action=structural_report", chat_id, NUMBER_UNVALIDATED,
+                len(unverified))
+            return deterministic_analysis_report(
+                data, sources=report_sources_from_text(results, tool_context))
+        return final_text
 
     async def _invoke_llm(self, messages, target_text, chat_id, *,
                           correlation_id: str | None = None,
@@ -2437,7 +2747,8 @@ class FactCheckService:
         # (включая fallback) получают один envelope.
         verdict_text = await self._temporal_verbalize(
             env, verdict, fallback_used, correlation_id,
-            retrieval_state=retrieval_state, coverage=claim_coverage)
+            retrieval_state=retrieval_state, coverage=claim_coverage,
+            evidence=evidence)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
@@ -2566,7 +2877,7 @@ class FactCheckService:
     async def _temporal_verbalize(
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
-        *, retrieval_state: str | None = None, coverage=(),
+        *, retrieval_state: str | None = None, coverage=(), evidence=(),
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -2633,6 +2944,15 @@ class FactCheckService:
         if claim_rows:
             payload["claims"] = claim_rows
         payload["claim"] = env.claim_text
+        # RLR R-03.4/R-06/§3.4: проверенный набор чисел — из структурного
+        # payload'а, evidence этого прогона и дат envelope; уходит Writer'у
+        # ЯВНО до генерации. Post-L2 numeric-правки здесь нет.
+        numeric_bindings = build_numeric_contract(
+            claim_text=env.claim_text,
+            writer_payload=json.dumps(payload, ensure_ascii=False),
+            evidence_rows=evidence,
+            temporal_context=env)
+        payload["numbers"] = numeric_contract_payload(numeric_bindings)
         situation = _RETRIEVAL_SITUATION.get(str(retrieval_state or ""))
         if situation:
             # §3.6: вербализатор не должен называть сбой «отсутствием фактов».
@@ -2692,7 +3012,19 @@ class FactCheckService:
             out = cleanup_llm_text(strip_reasoning_tags(str(text)))
         except Exception:
             return ""
-        return out.strip()
+        out = out.strip()
+        # RLR §3.4/§8: неподтверждённое число не публикуется и НЕ правится в
+        # готовой фразе — вместо пересказа идёт структурный отчёт проверки
+        # (тот же verdict-класс, те же источники).
+        unverified = unvalidated_numbers(out, numeric_bindings)
+        if unverified:
+            logger.warning(
+                "factcheck numeric | chat=%s | code=%s | unverified=%d | "
+                "action=structural_report", getattr(env, "chat_id", None),
+                NUMBER_UNVALIDATED, len(unverified))
+            return deterministic_temporal_report(
+                env, verdict, evidence=evidence, reason_code=retrieval_state)
+        return out
 
     @staticmethod
     def _temporal_fallback_text(env: tf.TemporalClaimEnvelope,

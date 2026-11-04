@@ -417,7 +417,10 @@ class TestStyleNoteLeakGone:
     @pytest.mark.asyncio
     async def test_payload_layout_bytes_snapshot(self, monkeypatch):
         """Байт-защита раскладки: обёртка/порядок человекочитаемых ключей
-        сохранены (period — даты по-человечески, никаких «unknown»)."""
+        сохранены (period — даты по-человечески, никаких «unknown»).
+        RLR R-03.4/R-06: блок ``numbers`` (проверенный набор чисел data-стадии)
+        добавлен ПОСЛЕ структурных полей — Writer видит ограничения до
+        генерации, а не получает правку после неё."""
         cap = _capture_verbalize(monkeypatch)
         svc = _make_service()
         period = {"from": 1750000000, "to": 1750086400, "precision": "day"}
@@ -431,6 +434,9 @@ class TestStyleNoteLeakGone:
             "period": "с 15.06.2025 по 16.06.2025",
             "parts": [],
             "claim": "в Килякете выпало 120 мм осадков за сутки",
+            "numbers": {"checked": [], "note":
+                        "числа из checked проверены по структурным данным "
+                        "этого прогона; остальные числа ответа не проверены"},
         }
         assert user == "ВЕРДИКТ (JSON):\n" + json.dumps(
             expected_payload, ensure_ascii=False)
