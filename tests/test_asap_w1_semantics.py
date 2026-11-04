@@ -107,7 +107,7 @@ def test_p0a_verbalizer_is_owner_text_with_documented_adaptation():
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): + секция «ДОСТАВЛЕННЫЕ
     # ДОКАЗАТЕЛЬСТВА» Writer'а. Реконструкция в этом файле отставала от
     # фактической композиции — приведена к ней.
-    # RC v5 «целостность контекста ответа» (2.58.154): + секция
+    # RC v5 «целостность контекста ответа» (2.58.155): + секция
     # «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ ОТВЕТ» (самокоррекция RCA1, 2 248 симв.,
     # +2 250 симв. к проду, удалённых инструкций 0). Ожидание здесь
     # отставало от фактической композиции — переутверждено, проверка
@@ -156,7 +156,7 @@ def test_p0a_verbalizer_registered_editable_resettable_and_used_in_l2():
     # POST-ASAP5 W2: секция технических расчётов (l2-writer-tech-reasoning)
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): метка сменилась на
     # l2-writer-evidence-discipline (секция «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА»);
-    # RC v5 (2.58.154): секция самокоррекции RCA1 сменила метку на
+    # RC v5 (2.58.155): секция самокоррекции RCA1 сменила метку на
     # l2-writer-self-correction-rca1. Ожидание в этом файле отставало от
     # фактической метки — переутверждено по факту фабрики.
     assert pr.factory_revision(block_id).startswith("fac:") and \
@@ -452,7 +452,7 @@ def test_91_factory_and_active_revisions_distinguishable():
     rev = pr.factory_revision("direct.base.l2_writer")
     # Метка l2_writer сменилась в волне 5 (было l2-writer-tech-reasoning,
     # стало l2-writer-evidence-discipline: секция «ДОСТАВЛЕННЫЕ
-    # ДОКАЗАТЕЛЬСТВА»), затем в RC v5 (2.58.154) — на
+    # ДОКАЗАТЕЛЬСТВА»), затем в RC v5 (2.58.155) — на
     # l2-writer-self-correction-rca1 (секция «ВОЗРАЖЕНИЕ И СВОЙ ПРЕДЫДУЩИЙ
     # ОТВЕТ»). Пин в этом файле отставал от фактической метки — переутверждён.
     assert rev.startswith("fac:") and "l2-writer-self-correction-rca1" in rev

@@ -208,7 +208,7 @@ def test_writer_prev_snapshot_and_step():
     assert steps[prev] == cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # ASAP-EVIDENCE-ROUTING-01 v3 (волна 5): ступень отката снимает секцию
     # «ДОСТАВЛЕННЫЕ ДОКАЗАТЕЛЬСТВА» → байты EVR0 (канон PA5W2).
-    # RC v5 (2.58.154, ревью 04.11.2026): новый канон
+    # RC v5 (2.58.155, ревью 04.11.2026): новый канон
     # l2-writer-self-correction-rca1 (44736968bc76) встал верхней ступенью,
     # прежний канон сохранён слепком PREV_CHAT_VERBALIZER_EVR1 — лестница
     # стала на шаг длиннее, прежние ступени не переписаны.
@@ -460,7 +460,7 @@ def test_no_new_layers_routers_or_classifiers():
 def test_labels_and_fingerprint_after_bump():
     # Волна 5: метки трёх канонов Direct отражают правку контракта evidence
     # (прежние метки — в слепках PREV_*_EVR0). EVOL W17: метка L1 — EVR2.
-    # RC v5 (2.58.154, ревью 04.11.2026): L2-писатель получил метку
+    # RC v5 (2.58.155, ревью 04.11.2026): L2-писатель получил метку
     # l2-writer-self-correction-rca1 (44736968bc76) — прежняя
     # l2-writer-evidence-discipline осталась в слепке PREV_CHAT_VERBALIZER_EVR1.
     assert "l1-planner-decision-profile" in pr.factory_revision(
