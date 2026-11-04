@@ -485,3 +485,9 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - `plans/features/cfg/evidence/cfg-final/canary/canary_final.py` всё ещё передаёт `ctx=` и читает `dropped_privacy` → теперь упал бы с `TypeError`; в рабочем пути не используется. Решение PM: помечать устаревшим на месте (починка не нужна), правка — отдельным bookkeeping-касанием cfg-evidence. Источник: ревью BGS-01 (`1da5fefa`).
 - Предсуществующие падения тестов (не от BGS-полос): аудит точек записи `217 vs 207` (`database.py`, лишний `prompt_release_policy.py`), `test_verbilizer_response_modes_round1023` (1 failed + 2 errors), мем `SEND_POINTS`, `mca07_answer_cache`, таксономия агрегатора (2), `history_w4` (8), `sent=`/`projection`, 3 падения пинов, 6 JS. Источник: прогоны полос BGS-01/03/04 (05.11.2026).
 - `tools/ui_cmv_d_fullscreen_e2e.py` и `tools/ui_evol_w15_composition_e2e.py` ожидают старый совмещённый контракт «Сбросить вид» (карточка закрыта / полный showcase восстановлен). Источник: ревью разделения контракта «Сбросить вид» (05.11.2026).
+
+## Координация: параллельная перезапись карты BGS (05.11.2026)
+
+- После коммита `731ef3c0` параллельный процесс в том же worktree перезаписал `plans/features/behavior-gates-simplification/requirements-map.json` (mtime 06:39, CRLF/indent 1): строки BGS-00.5, BGS-00.9, BGS-03.4, BGS-03.5, BGS-04.3, BGS-04.10 переведены в VERIFIED с одним и тем же тест-артефактом при сохранённом тексте причины «Не проверено…».
+- Действие: дельта сохранена в `WorkspaceData/runs/c742e4de9e92c489/behavior-gates-simplification-a31ccc56ff86/temp-549fef3b99/concurrent-writer-map.{json,diff}`, карта восстановлена к `731ef3c0` (41 VERIFIED, 6 PENDING с причинами).
+- Правило: одна карта — один писатель; закрытие строки требует доказательства именно её поведения, а не общего тест-файла полосы.
