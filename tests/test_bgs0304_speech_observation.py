@@ -191,16 +191,17 @@ def test_no_extra_generation_for_metatext():
 # 4. BGS-04 §2/§3: числа/имена/отрицания там, где трансформация реальна
 # ════════════════════════════════════════════════════════════════════════════
 
-def test_form_contract_catches_changed_number_negation_and_name():
+def test_form_contract_catches_changed_number_negation_and_new_name():
+    """G2/G3: отрицание, число и новое имя ростера меняют смысл ответа."""
     contract = nc.FormContract(source_text="Вася не писал 12 сообщений",
-                               roster_names=("Вася",))
+                               roster_names=("Петя",))
     assert nc.check_form_contract("Вася не писал 12 сообщений", contract) is None
     assert nc.check_form_contract("Вася писал 12 сообщений", contract) == \
         nc.FORM_GUARD_REJECTED                       # отрицание потеряно
     assert nc.check_form_contract("Вася не писал 13 сообщений", contract) == \
         nc.FORM_GUARD_REJECTED                       # число подменено
     assert nc.check_form_contract("Петя не писал 12 сообщений", contract) == \
-        nc.FORM_GUARD_REJECTED                       # чужое имя
+        nc.FORM_GUARD_REJECTED                       # новое имя ростера
 
 
 @pytest.mark.system2
