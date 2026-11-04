@@ -57,6 +57,38 @@ def test_previously_dropped_claim_is_now_delivered_byte_identical():
     assert stats["sentence_index"] == 0
 
 
+def test_sentence_index_counts_content_sentences_not_split_pieces():
+    """Пробельная строка между фразами не сдвигает номер места claim'а.
+
+    ``sentence_index`` — порядок СОДЕРЖАТЕЛЬНОГО предложения (0-based), а не
+    номер куска ``_SENTENCE_SPLIT_RE.split``: между фразами стоит строка из
+    одних пробелов, она даёт пустой сегмент, и нумерация по кускам показывала
+    бы 2 для ВТОРОЙ содержательной фразы. Место (``char_start``/``char_end``)
+    при этом указывает ровно на claim в исходном тексте, а сам текст
+    доставляется байт-в-байт."""
+    answer = ('Начнём с главного: "работает"\n'
+              ' \n'
+              'Новая модель GeForce RTX 9090 стоит 700 долларов.\n'
+              ' \n'
+              'Если что, спрашивайте.')
+    claim = "Новая модель GeForce RTX 9090 стоит 700 долларов."
+
+    delivered, stats = _run(dcs._run_evidence_egress_guard(
+        answer=answer, decision=_factual(), evidence_text=""))
+    assert delivered == answer                        # ни байта правок
+    assert stats["observed"] == 1                     # наблюдение есть
+    assert stats["sentence_index"] == 1               # вторая фраза, не кусок №2
+    assert answer[stats["char_start"]:stats["char_end"]] == claim
+
+    observation = ep.guard_egress(answer=answer, decision=_factual(),
+                                  evidence_text="")
+    assert observation.observed == 1
+    assert observation.sentence_index == 1
+    assert (observation.char_start, observation.char_end) == \
+        (stats["char_start"], stats["char_end"])
+    assert observation.location["sentence_index"] == 1
+
+
 def test_drop_branch_and_rewrite_helper_do_not_exist():
     """Эквивалентного postprocess/rewrite с тем же эффектом не осталось.
 
