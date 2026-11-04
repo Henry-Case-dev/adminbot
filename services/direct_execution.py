@@ -283,7 +283,8 @@ _QUERY_CAPS: dict[str, tuple[str, ...]] = {
 def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                         ctx=None, announced=(), addressee: str = "",
                         max_fetch_steps: int = 3, required_caps=(),
-                        search_query: str | None = None
+                        search_query: str | None = None,
+                        search_forbidden: bool = False
                         ) -> tuple[list[dict], list[str]]:
     """Детерминированные шаги simple_tools из L1 capabilities (0 LLM).
 
@@ -301,7 +302,14 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
     (``build_search_query``). Она уходит в инструмент ВЕРБАТИМ (внутренние
     инструменты по-прежнему получают исходный ``query``); сырой текст вопроса
     в поисковик не попадает. Без неё — структурный срез по границе слова,
-    а не буквальный ``[:256]``."""
+    а не буквальный ``[:256]``.
+
+    Review-fix UR-B-1: ``search_forbidden`` — структурный запрет сетевого
+    поиска на ход (приватный запрос / уже прочитанный источник). Тогда
+    `execute_web_search` вычищается из шагов (в т.ч. из fallback-ветки
+    `_SEARCH_RE`), а ``search_query`` НИКОГДА не подменяется сырым текстом:
+    иначе пустая безопасная формулировка возвращала приватный текст в сеть.
+    """
     steps: list[dict] = []
     limitations: list[str] = []
     try:
@@ -309,8 +317,8 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
         q = str(query or "").strip()
         # UR-07/UR-10.4: публичная формулировка не режется по символам;
         # legacy-путь — срез по границе токена (сущность не рвётся пополам).
-        q_bounded = str(search_query or "").strip() \
-            or _boundary_cut(q, 256)
+        q_bounded = "" if search_forbidden else (
+            str(search_query or "").strip() or _boundary_cut(q, 256))
         reply = str(reply_text or "")
         urls: list[str] = []
         try:
@@ -469,9 +477,23 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                 steps.remove(step)
                 limitations.append(
                     f"{step['tool']}: инструмент не активен — не исполнено")
+        # Review-fix UR-B-1: приватный запрос / уже прочитанный источник —
+        # сеть запрещена на уровне ШАГОВ (единственный исполнитель шагов), а
+        # не на уровне статуса. Иначе `execute_web_search` возвращался через
+        # capability-деривацию или fallback-ветку и приватный текст уезжал
+        # провайдеру, пока трасса писала `search_called=False`.
+        if search_forbidden:
+            dropped = [s for s in steps if s["tool"] == "execute_web_search"]
+            if dropped or "execute_web_search" in allowed:
+                steps = [s for s in steps
+                         if s["tool"] != "execute_web_search"]
+                limitations.append(
+                    "execute_web_search: сетевой поиск на этом ходе не "
+                    "выполняется (приватный запрос или уже прочитанный "
+                    "источник) — не исполнено")
         # Явный search-запрос без capability от плана (fallback-план) →
         # дет. web_search (§18C.3: planner failure не стирает required tool).
-        if not steps and q and _SEARCH_RE.search(q) \
+        if not steps and q and not search_forbidden and _SEARCH_RE.search(q) \
                 and "execute_web_search" in allowed:
             steps.append({"step_id": "web_fallback_1",
                           "tool": "execute_web_search",
@@ -687,7 +709,8 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
 async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
                            correlation_id, announced=(), addressee: str = "",
                            reply_text: str = "",
-                           required_caps=(), search_query: str | None = None
+                           required_caps=(), search_query: str | None = None,
+                           search_forbidden: bool = False
                            ) -> ChainResult | None:
     """simple_tools (§18C.7): детерминированные/параллельные tools →
     evidence sources. 0 LLM-вызовов (третий вызов запрещён). Шаги без
@@ -697,12 +720,18 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
 
     ``required_caps`` — runtime-обязательные read-only capabilities
     (ASAP-EVIDENCE-ROUTING-01 v3 §2.1): деривация шагов не зависит от того,
-    запросил ли их L1-план."""
+    запросил ли их L1-план.
+
+    ``search_forbidden`` (review-fix UR-B-1) — сетевой поиск запрещён на этом
+    ходе: `execute_web_search` не появляется ни из план-шагов, ни из
+    fallback-ветки, и сырой текст вопроса не становится поисковой
+    формулировкой."""
     try:
         steps, limitations = derive_simple_steps(
             plan, query=query, reply_text=reply_text, ctx=ctx,
             announced=announced, addressee=addressee,
-            required_caps=required_caps, search_query=search_query)
+            required_caps=required_caps, search_query=search_query,
+            search_forbidden=search_forbidden)
         if not steps:
             for line in limitations:
                 logger.info("[direct-exec] simple skip | %s", line)
@@ -1096,6 +1125,91 @@ _PRIVATE_RETELL_WORDS = frozenset({
     "спросил", "спросила", "спросили", "ответил", "ответила",
 })
 
+# ── Review-fix UR-B-2: минимальный ПУБЛИЧНЫЙ якорь ───────────────────────────
+# Наборы ниже — deny-правила консервативного отказа (не словарь «поводов
+# искать»): их наличие БЕЗ публичного якоря означает личный рассказ, а не
+# поисковый вопрос. Раньше после вычистки алиаса («Маша») приватный пересказ
+# («беременна третьем месяце говори никому») уходил провайдеру как обычные
+# «содержательные термины».
+#: Просьба сохранить тайну / не пересказывать — признак личной переписки.
+_PRIVATE_SECRECY_WORDS = frozenset({
+    "никому", "никого", "секрет", "секретно", "секретный", "по-секрету",
+    "тайна", "тайну", "тайно", "обещай", "обещала", "обещание", "молчи",
+    "молчать", "болтай", "болтать", "сплетня", "сплетни",
+})
+#: Личный статус/интимное — не публичная тема запроса. Глаголы с публичным
+#: смыслом («изменил» о курсе) сюда НЕ входят: лишний отказ ломает обычный
+#: поиск, поэтому набор минимальный и однозначно личный.
+_PRIVATE_STATUS_WORDS = frozenset({
+    "беременна", "беременность", "беременная", "аборт", "диагноз", "болею",
+    "болеет", "больна", "развожусь", "развелась", "развелся", "поругались",
+    "поссорились", "секс", "интим", "интимное",
+})
+#: Местоимения участников переписки (1-е/2-е/3-е лицо) — только в связке с
+#: глаголом пересказа: «спросил Вася» (атрибуция вопроса) сам по себе не
+#: делает фразу приватной, «он мне писал» — делает.
+_PRIVATE_PERSON_PRONOUNS = frozenset({
+    "я", "мне", "меня", "мной", "мною", "мы", "нас", "нам", "ты", "тебе",
+    "тебя", "тобой", "вы", "вас", "вам", "он", "она", "они", "ему", "ей",
+    "им", "его", "её", "ее", "их", "ним", "ней", "ними",
+})
+
+#: Публичный якорь (имя/продукт/версия/цитата): латиница, имя собственное
+#: внутри фразы, кавычки, версия. Строчные общие слова якорем НЕ являются.
+_LATIN_ANCHOR_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.\-]{2,}")
+_QUOTED_ANCHOR_RE = re.compile(r"«[^»]{2,80}»|\"[^\"]{2,80}\"")
+_VERSION_ANCHOR_RE = re.compile(r"\d+[.,]\d+")
+_CYRILLIC_PROPER_RE = re.compile(r"[А-ЯЁ][а-яё]{2,}")
+_SENTENCE_SPLIT_RE = re.compile(r"[.!?;:\n]+")
+
+
+def _has_public_anchor(body: str) -> bool:
+    """Есть ли в тексте публичная сущность (не строчное общее слово).
+
+    Якорь: латинский токен (`Tesla`, `bitcoin`), имя собственное ВНУТРИ фразы
+    (не первое слово предложения — иначе любое «Проверь …» считалось бы
+    сущностью), цитата в кавычках, номер версии. Строчные общие слова
+    («курс», «биткоина») — обычный запрос, но НЕ доказательство публичности,
+    когда рядом личный пересказ. Никогда не бросает."""
+    try:
+        text = str(body or "")
+        if not text.strip():
+            return False
+        if _QUOTED_ANCHOR_RE.search(text) or _VERSION_ANCHOR_RE.search(text):
+            return True
+        if _LATIN_ANCHOR_RE.search(text):
+            return True
+        for sentence in _SENTENCE_SPLIT_RE.split(text):
+            tokens = [t for t in _SEARCH_TOKEN_RE.findall(sentence) if t]
+            for token in tokens[1:]:        # первое слово предложения — не имя
+                if _CYRILLIC_PROPER_RE.fullmatch(token) \
+                        and token.lower() not in _PRIVATE_SECRECY_WORDS \
+                        and token.lower() not in _PRIVATE_STATUS_WORDS:
+                    return True
+        return False
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def _private_context(clean_body: str) -> bool:
+    """Фраза — личный рассказ/переписка, а не публичный вопрос.
+
+    Признаки (любой): просьба о тайне, личный статус/интимное, ЛИБО глагол
+    пересказа рядом с местоимением участника («он мне писал»). Голый глагол
+    пересказа без местоимения не блокирует: «какой курс биткоина, спросил
+    Вася» — публичный вопрос с атрибуцией. Никогда не бросает."""
+    try:
+        words = {w.lower()
+                 for w in _SEARCH_TOKEN_RE.findall(str(clean_body or ""))}
+        if not words:
+            return False
+        if words & _PRIVATE_SECRECY_WORDS or words & _PRIVATE_STATUS_WORDS:
+            return True
+        return bool(words & _PRIVATE_RETELL_WORDS
+                    and words & _PRIVATE_PERSON_PRONOUNS)
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
 
 def _boundary_cut(text: str, limit: int) -> str:
     """Срез по границе слова (никогда не рвёт токен/сущность пополам)."""
@@ -1229,6 +1343,16 @@ def build_search_query(plan, *, query: str = "", private_terms=(),
         # Публичный якорь обязателен: только служебная просьба/приватный текст
         # не образуют запрос (иначе приватная цитата ушла бы в поисковик).
         if not entities and not terms:
+            return SearchTask(source_request=source_request,
+                              blocked_reason="privacy_blocked",
+                              removed_count=removed_total)
+        # Review-fix UR-B-2: остатки личного рассказа («беременна третьем
+        # месяце говори никому») — это НЕ поисковый вопрос, даже если после
+        # вычистки алиаса в них остались «содержательные» строчные слова.
+        # Публичный якорь (claim-сущность/латиница/имя/цитата/версия) —
+        # единственное доказательство, что тема внешняя и публичная.
+        if not entities and _private_context(clean_body) \
+                and not _has_public_anchor(clean_body):
             return SearchTask(source_request=source_request,
                               blocked_reason="privacy_blocked",
                               removed_count=removed_total)
@@ -1553,6 +1677,12 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
         return evidence
     if search_task.blocked and evidence.search_intent in ("required",
                                                           "beneficial"):
+        # Review-fix UR-B-1: блокировка приватности не даёт права утверждать
+        # «вызова не было». Если (вопреки структурному запрету шагов) реальный
+        # tool event всё же случился — `search_called` ОБЯЗАН быть True, иначе
+        # трасса врёт о сетевом вызове.
+        called, _status, _skip = _search_status_from(raw)
+        evidence.search_called = bool(called)
         evidence.search_status = SEARCH_STATUS_PRIVACY_BLOCKED
         evidence.search_skip_reason = SKIP_PRIVACY
         return evidence
@@ -1575,6 +1705,12 @@ def _tool_evidence_from(raw, *, axis, search_task: SearchTask,
             # текста ошибки были бы выдуманным доказательством.
             continue
         ref = _content_ref(tool, body)
+        # Review-fix UR-B-4: `EvidenceSource.content_ref` (тот же ref, что
+        # печатает маркер обрезки в пакете) обязан открываться через
+        # `ToolEvidence.full_text`. Пакет адресует ЦЕЛУЮ выдачу инструмента,
+        # поэтому регистрируем её под диспетчерским ref — иначе маркер печатал
+        # `ev:ed6b16ca…`, а `full_text` знал только per-block `ev:a85d8c00…`.
+        content.setdefault(ref, body)
         if tool == "execute_web_search":
             sources.extend(_parse_search_sources(
                 body, tool=tool, content_sink=content))
@@ -1687,7 +1823,9 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     1. ось `knowledge_origin`/`search_intent` (нормализована в L1Plan);
     2. SILENT/REACT → 0 tool-вызовов (поиск ради отчётности запрещён);
     3. публичный поисковый запрос строится из claim-сущностей/терминов;
-       невозможен → `privacy_blocked`, сеть не трогается;
+       невозможен → `privacy_blocked`, сеть не трогается (запрет поиска
+       СТРУКТУРНЫЙ: ни capability-деривация, ни fallback-ветка не могут
+       вернуть `execute_web_search`);
     4. `required|beneficial` → минимум один реальный `execute_web_search`
        ДО L2 (для adaptive — дет. первый шаг, дальше обычный режим без
        повторного поиска: не более одного поиска за ход);
@@ -1758,6 +1896,12 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     # внутренние инструменты (история/лор/фактчек) остаются.
     suppress_search = (axis.search_intent == "not_applicable"
                        or search_task.blocked)
+    # Review-fix UR-B-1: сеть запрещена СТРУКТУРНО на шагах, а не только
+    # статусом. Приватный запрос и уже прочитанный источник (reuse) не дают
+    # права на новый `execute_web_search`: иначе пустая безопасная
+    # формулировка подменялась сырым текстом в fallback-ветке, а трасса
+    # писала `search_called=False` при реальном сетевом вызове.
+    search_forbidden = bool(search_task.blocked or reuse_used)
     plan_view = plan
     if suppress_search:
         try:
@@ -1821,7 +1965,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
                 chat_id=chat_id, correlation_id=correlation_id,
                 announced=announced, addressee=addressee,
                 reply_text=reply_text, required_caps=exec_required,
-                search_query=search_query or None)
+                search_query=search_query or None,
+                search_forbidden=search_forbidden)
             if raw is not None:
                 mode = EXECUTION_SIMPLE
     except asyncio.CancelledError:
@@ -1840,7 +1985,8 @@ async def run_tool_phase(*, plan, router, ctx, query: str, chat_id,
     if raw is not None or reuse_sources:
         pack = build_evidence_pack(
             raw, plan, capacity_chars=capacity_chars,
-            prepend_sources=reuse_sources)
+            prepend_sources=reuse_sources,
+            ref_resolver=evidence.full_text)
         delivered_external = any(
             int(getattr(src, "delivered_chars", 0) or 0) > 0
             and str(getattr(src, "tool", "") or "") in _EXTERNAL_TOOLS
@@ -2047,7 +2193,7 @@ def delivered_chars_by_claim(pack, claims) -> dict:
 
 def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
                         min_per_source: int = EVIDENCE_FLOOR_CHARS,
-                        prepend_sources=()
+                        prepend_sources=(), ref_resolver=None
                         ) -> EvidencePack:
     """Fair-allocation evidence pack (§18C.2):
       * per-source резервирование (равные доли + возврат излишка);
@@ -2155,8 +2301,17 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
             marker = ""
             if floor < len(piece):
                 src.truncated = True
-                ref_note = (f"; полный текст: {src.content_ref}"
-                            if src.content_ref else "")
+                ref = str(getattr(src, "content_ref", "") or "")
+                # Review-fix UR-B-4: печатаем ТОЛЬКО открываемый ref. Маркер,
+                # который нельзя разрешить через `ToolEvidence.full_text`,
+                # вводил Writer'а в заблуждение («полный текст: ev:…» → пусто).
+                if ref and ref_resolver is not None:
+                    try:
+                        if not str(ref_resolver(ref) or "").strip():
+                            ref = ""
+                    except Exception:      # pragma: no cover - защитная ветка
+                        ref = ""
+                ref_note = f"; полный текст: {ref}" if ref else ""
                 marker = (f"\n[…обрезано: показано {floor}/{len(piece)} "
                           f"симв.{ref_note}]")
                 limitations.append(

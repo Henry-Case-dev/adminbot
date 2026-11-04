@@ -723,8 +723,13 @@ def resolve_search_axis(plan, *, required_caps=(), explicit_request=False
 
     Порядок — контракт (не словарь слов):
 
-    1. явная просьба человека + разрешённый `web_search` → `required`
-       (``user_forced``): модель не демотирует прямое «проверь в интернете»;
+    1. явная просьба человека → `required` (``user_forced``): модель не
+       демотирует прямое поручение проверить. Признак поручения ставит
+       вызывающий детерминированно (`_evidence_explicit_request`), поэтому
+       здесь он СИЛЬНЕЕ плана и не зависит от `required_caps` и от наличия
+       ключевого слова в фразе. Доступность инструмента решает executor:
+       `required` без `execute_web_search` → честный ``unavailable``, а не
+       «тихий» пропуск;
     2. runtime-политика (`required_caps`, existing evidence-policy) требует
        `web_search` → `required` (``runtime_evidence``): пока канон промпта L1
        не содержит полей оси, это единственный живой сигнал в проде — мнение
@@ -745,7 +750,13 @@ def resolve_search_axis(plan, *, required_caps=(), explicit_request=False
         caps = {str(c or "").strip().lower() for c in (required_caps or ())
                 if str(c or "").strip()}
         runtime_required = SEARCH_CAPABILITY in caps
-        if runtime_required and explicit_request:
+        # UR-06 (review-fix UR-B-3): явная просьба человека — не «рекомендация
+        # круга», а требуемый поиск. Раньше `user_forced` рождался только при
+        # непустом `required_caps`: прямое поручение без capability и без
+        # ключевого слова молча превращалось в `not_applicable` (тихий
+        # пропуск). Отсутствие инструмента — забота executor'а: он отдаёт
+        # `unavailable`/`search_tool_absent`, а не «поиска не требовалось».
+        if explicit_request:
             return SearchAxis(origin, SEARCH_REQUIRED, "user_forced", True)
         if runtime_required:
             return SearchAxis(origin, SEARCH_REQUIRED, "runtime_evidence",
