@@ -262,6 +262,16 @@ class _MiniPgEngine:
                     and a["chat_id"] == chat
                     and a["outcome"] in ("applied", "skipped_same")]
             return rows[-1] if rows else None   # ORDER BY activation_id DESC LIMIT 1
+        if sql is prp._BASELINE_SQL:
+            # Owner baseline читается из ТОГО ЖЕ журнала активаций (§2.1):
+            # двойник обязан знать этот запрос, иначе реальный путь релиза
+            # падал бы на нём «незнакомым SQL».
+            bid, scope, chat = args
+            rows = [a for a in self.activations
+                    if a["block_id"] == bid and a["scope"] == scope
+                    and a["chat_id"] == chat
+                    and a["kind"] in ("baseline_assign", "baseline_clear")]
+            return rows[-1] if rows else None   # ORDER BY activation_id DESC
         if sql is prp._GET_REVISION_SQL:
             rid = args[0]
             return next((r for r in self.revisions

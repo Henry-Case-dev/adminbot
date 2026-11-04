@@ -215,6 +215,20 @@ WHERE block_id = $1 AND (chat_id = $2 OR (chat_id IS NULL AND $2 IS NULL))
 ORDER BY activation_id DESC LIMIT $3
 """
 _KNOWN_BLOCK_IDS_SQL = "SELECT DISTINCT block_id FROM prompt_revisions"
+#: Действующий owner baseline = ПОСЛЕДНЕЕ событие назначения/снятия по
+#: ``activation_id`` для (block_id, scope, chat_id) (контракт §2.1). Новых
+#: таблиц/колонок нет: baseline — событие существующего журнала, тело текста
+#: не копируется.
+_BASELINE_SQL = """
+SELECT activation_id, revision_id, kind, actor, detail_code, created_at
+FROM prompt_activations
+WHERE block_id = $1 AND scope = $2
+  AND (chat_id = $3 OR (chat_id IS NULL AND $3 IS NULL))
+  AND kind IN ('baseline_assign', 'baseline_clear')
+ORDER BY activation_id DESC LIMIT 1
+"""
+#: Виды событий, из которых читается owner baseline (порядок не важен).
+_BASELINE_KINDS = ("baseline_assign", "baseline_clear")
 _MARK_RETIRED_SQL = (
     "UPDATE prompt_revisions SET retired = true "
     "WHERE block_id = ANY($1) AND retired = false")
@@ -274,6 +288,26 @@ class AppliedState:
     revision_id: str
     factory_revision_applied: str
     kind: str = ""
+    activation_id: int = 0
+
+
+@dataclass
+class BaselineEvent:
+    """Событие журнала, задающее owner baseline (контракт §2.1).
+
+    ``kind='baseline_assign'`` + непустой ``revision_id`` — назначено;
+    ``kind='baseline_clear'`` — назначение снято (явное снятие, а не «не
+    было»). Тело текста здесь отсутствует: baseline — указатель.
+    """
+
+    block_id: str
+    scope: str
+    kind: str                      # baseline_assign | baseline_clear
+    revision_id: str = ""
+    chat_id: int | None = None
+    actor: str = ""
+    detail_code: str = ""
+    created_at: str = ""
     activation_id: int = 0
 
 
@@ -665,6 +699,25 @@ class MemoryPromptJournal:
                    == _scope_key(scope, chat_id)
                    for row in self.activations)
 
+    async def read_baseline_event(self, block_id: str, scope: str,
+                                  chat_id: int | None) -> "BaselineEvent | None":
+        """Последнее событие baseline для адресата (иначе ``None``)."""
+        found = None
+        for idx, row in enumerate(self.activations):
+            if (row.block_id == block_id and row.kind in _BASELINE_KINDS
+                    and _scope_key(row.scope, row.chat_id)
+                    == _scope_key(scope, chat_id)):
+                found = (idx, row)
+        if found is None:
+            return None
+        idx, row = found
+        return BaselineEvent(block_id=row.block_id, scope=row.scope,
+                             kind=row.kind, revision_id=row.revision_id or "",
+                             chat_id=row.chat_id, actor=row.actor or "",
+                             detail_code=row.detail_code or "",
+                             created_at=row.created_at or "",
+                             activation_id=idx + 1)
+
     async def get_revision(self, revision_id: str) -> RevisionRow | None:
         row = self.revisions.get(revision_id)
         return RevisionRow(**vars(row)) if row is not None else None
@@ -938,6 +991,26 @@ class PgPromptJournal:
             return bool(await conn.fetchval(_HAS_CUTOVER_SQL, block_id, scope,
                                             chat_id))
         return await self._run_on_conn(_run)
+
+    async def read_baseline_event(self, block_id: str, scope: str,
+                                  chat_id: int | None) -> "BaselineEvent | None":
+        """Последнее событие baseline по ``activation_id`` (§2.1).
+
+        Внутри транзакции читается на её коннекте (``_run_on_conn``) — гонка
+        с параллельным назначением невозможна: назначение и поставка
+        сериализованы тем же advisory-локом.
+        """
+        async def _run(conn):
+            return await conn.fetchrow(_BASELINE_SQL, block_id, scope, chat_id)
+        row = await self._run_on_conn(_run)
+        if row is None:
+            return None
+        return BaselineEvent(block_id=block_id, scope=scope,
+                             kind=row["kind"], revision_id=row["revision_id"] or "",
+                             chat_id=chat_id, actor=row["actor"] or "",
+                             detail_code=row["detail_code"] or "",
+                             created_at=str(row["created_at"] or ""),
+                             activation_id=int(row["activation_id"]))
 
     async def get_revision(self, revision_id: str) -> RevisionRow | None:
         async def _run(conn):
@@ -1527,12 +1600,20 @@ async def _apply_scope_release(store, spec, *, scope: str,
                                doc_state: dict[str, dict] | None = None
                                ) -> None:
     """Один прогон автомата для (block, scope, chat_id). Контракт §1.3/§1.4."""
+    # §2.4 п.3: закреплённый владельцем scope (есть owner baseline) не
+    # перетирается новой поставкой кода. Pin читается В ТОЙ ЖЕ транзакции
+    # релиза — иначе план считался бы по устаревшему состоянию.
+    baseline_event = await store.read_baseline_event(spec.block_id, scope,
+                                                     chat_id)
+    pinned = bool(baseline_event is not None
+                  and baseline_event.kind == "baseline_assign"
+                  and baseline_event.revision_id)
     plan = pr.activation_plan(
         code_label=code_label, sealed_sha=sealed_sha,
         text_sha12=pr.sha12(factory_body),
         applied_factory_revision=(state.factory_revision_applied
                                   if state is not None else ""),
-        has_import=has_import)
+        has_import=has_import, pinned=pinned)
 
     if plan.action == pr.PLAN_NOOP:
         # Рестарт: ни строки, ни записи — ручная правка остаётся активной.
@@ -1564,15 +1645,45 @@ async def _apply_scope_release(store, spec, *, scope: str,
 
     # Ревью F1: дрейф при НОВОЙ метке — снимок и активация заводской ревизии
     # в ЭТОЙ ЖЕ транзакции (второй старт для применения не нужен).
+    pinned_plan = plan.action == pr.PLAN_ACTIVATE_PINNED
     if state is not None and state.revision_id and current:
         drift = await _check_activation_drift(
             store, spec, scope, chat_id, state, current, release_id,
-            activate_after=True)
+            activate_after=not pinned_plan)
         if drift is not None:
             results.append(drift)   # ERROR-аудит + снимок; активация ниже
 
     if current is None:
         current = ""
+
+    if pinned_plan:
+        # §2.4 п.3: у scope есть owner baseline. Новая заводская ревизия
+        # пишется В ИСТОРИЮ, значение НЕ пишется, чатовый override не
+        # снимается. Указатель применённой метки двигается (outcome
+        # skipped_same) — следующий рестарт видит ту же метку и остаётся
+        # истинным no-op, ``activation_drift`` не возникает.
+        revision = await _insert_revision_once(
+            store, spec, origin="factory", body=factory_body, scope=scope,
+            chat_id=chat_id, factory_revision=plan.code_revision,
+            reason="factory_release_pinned", release_id=release_id)
+        active_revision = state.revision_id if state is not None else ""
+        await store.insert_activation(ActivationRow(
+            block_id=spec.block_id, scope=scope, chat_id=chat_id,
+            revision_id=active_revision,
+            factory_revision_applied=plan.code_revision,
+            kind="deploy_activate", outcome="skipped_same",
+            release_id=release_id, actor="",
+            detail_code="factory_superseded_pinned"))
+        results.append(BlockReleaseResult(
+            spec.block_id, scope, chat_id, plan.action, "skipped_same",
+            "factory_superseded_pinned", revision_id=active_revision,
+            factory_revision_applied=plan.code_revision))
+        logger.info("[prompt_release] pinned scope: заводская ревизия %s "
+                    "записана в историю, активный текст сохранён | block=%s | "
+                    "scope=%s | chat=%s | baseline=%s", revision.revision_id,
+                    spec.block_id, scope, chat_id,
+                    baseline_event.revision_id if baseline_event else "")
+        return
 
     if plan.action == pr.PLAN_LEGACY_CUTOVER and spec.pg_key:
         # Снимок ДО первой записи заводского текста (§1.4): даже байты,
@@ -2336,9 +2447,29 @@ def _foreign_scope_reason(revision, scope: str,
     return ""
 
 
+def _revision_gate(revision, scope: str, chat_id: int | None) -> str:
+    """Гейты ревизии для ЛЮБОГО действия с ней ("" — можно применять).
+
+    Один порядок для активации, назначения baseline и восстановления:
+    чужой scope/чат → ``retired`` → несовместимая ``schema_compat``. Такие
+    ревизии читаются и сравниваются, но не активируются и не становятся
+    рабочей базовой (§2.4 п.9).
+    """
+    foreign = _foreign_scope_reason(revision, scope, chat_id)
+    if foreign:
+        return foreign
+    if getattr(revision, "retired", False):
+        return "revision_retired"
+    schema = str(getattr(revision, "schema_compat", "") or "")
+    if schema and schema not in SUPPORTED_SCHEMA_COMPAT:
+        return "schema_incompatible"
+    return ""
+
+
 async def activate_revision(block_id: str, revision_id: str, *, scope: str =
                             "global", chat_id: int | None = None,
-                            actor=None, cache=None, store=None) -> dict:
+                            actor=None, cache=None, store=None,
+                            kind: str | None = None) -> dict:
     """Откат/вперёд: включить сохранённую совместимую ревизию (EVOL-017 API).
 
     Гейты: ревизия существует, не ``retired``, ``schema_compat`` совместим
@@ -2347,11 +2478,17 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
     указатель не меняется, прежняя активная остаётся. История не удаляется;
     ``factory_revision_applied`` сохраняется — следующая НОВАЯ метка снова
     включает заводской текст (контракт §1.4).
+
+    ``kind`` — вид события для ЯВНЫХ активаций эталона (§2.4 п.6–7:
+    ``baseline_restore`` / ``factory_restore``). По умолчанию классификация
+    откат/вперёд по порядку ревизий — прежнее поведение без изменений.
     """
     spec = pr.block(block_id)
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
                 "block_id": block_id}
+    if kind is not None and kind not in pr.ACTIVATION_KINDS:
+        raise ValueError(f"неизвестный вид активации: {kind}")
     check_permission(str(actor or ""), "prompt.activate", block_id=block_id,
                      scope=scope, chat_id=chat_id)
     store = store if store is not None else default_journal(cache)
@@ -2367,27 +2504,20 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
     if revision is None or revision.block_id != spec.block_id:
         return {"applied": False, "reason": "revision_unknown",
                 "block_id": block_id, "revision_id": revision_id}
-    foreign = _foreign_scope_reason(revision, scope, chat_id)
-    if foreign:
-        # §7.3 п.6: чужой scope/чат не активируется — ни одного изменения.
-        logger.warning("[prompt_release] %s | block=%s | revision=%s | "
-                       "revision_scope=%s/%s | requested=%s/%s", foreign,
-                       spec.block_id, revision_id, revision.scope,
+    gate = _revision_gate(revision, scope, chat_id)
+    if gate:
+        logger.warning("[prompt_release] %s на попытке включения | block=%s | "
+                       "revision=%s | revision_scope=%s/%s | requested=%s/%s",
+                       gate, spec.block_id, revision_id, revision.scope,
                        revision.chat_id, scope, chat_id)
-        return {"applied": False, "reason": foreign, "block_id": block_id,
-                "revision_id": revision_id, "revision_scope": revision.scope,
-                "revision_chat_id": revision.chat_id}
-    if revision.retired:
-        return {"applied": False, "reason": "revision_retired",
-                "block_id": block_id, "revision_id": revision_id}
-    if revision.schema_compat and revision.schema_compat not in \
-            SUPPORTED_SCHEMA_COMPAT:
-        logger.warning("[prompt_release] schema_incompatible на попытке "
-                       "включения | block=%s | revision=%s | schema=%s",
-                       spec.block_id, revision_id, revision.schema_compat)
-        return {"applied": False, "reason": "schema_incompatible",
-                "block_id": block_id, "revision_id": revision_id,
-                "schema_compat": revision.schema_compat}
+        result = {"applied": False, "reason": gate, "block_id": block_id,
+                  "revision_id": revision_id}
+        if gate == "revision_foreign_scope":
+            result.update({"revision_scope": revision.scope,
+                           "revision_chat_id": revision.chat_id})
+        elif gate == "schema_incompatible":
+            result["schema_compat"] = revision.schema_compat
+        return result
     # Ревью F2: активация указывает на ЗАПРОШЕННУЮ ревизию — клона origin=manual
     # не создаётся; байты записываются, origin сохраняется у самой ревизии
     # (rollback на manual-правку остаётся manual, forward на заводскую —
@@ -2400,15 +2530,16 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
     async with store.transaction() as tx:
         try:
             state = await store.read_applied(spec.block_id, scope, chat_id)
-            kind = "manual_rollback"
-            if state is not None and state.revision_id and \
+            activation_kind = kind or "manual_rollback"
+            if kind is None and state is not None and state.revision_id and \
                     state.revision_id != revision_id:
                 # Детерминированный порядок (вставка ревизий в журнал), не
                 # часы: цель создана раньше активной → откат; позже или
                 # порядок неизвестен → возврат вперёд (EVOL-017).
                 precedes = await store.revision_precedes(revision_id,
                                                          state.revision_id)
-                kind = "manual_rollback" if precedes else "manual_forward"
+                activation_kind = ("manual_rollback" if precedes
+                                   else "manual_forward")
             outcome = "applied"
             if scope == "global":
                 previous = _spec_current_text(spec, cache)
@@ -2432,7 +2563,7 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
                 revision_id=revision.revision_id,
                 factory_revision_applied=(state.factory_revision_applied
                                           if state is not None else ""),
-                kind=kind, outcome=outcome, release_id="",
+                kind=activation_kind, outcome=outcome, release_id="",
                 actor=str(actor or ""),
                 detail_code=f"activate:{revision.origin}"))
         except Exception:
@@ -2467,8 +2598,8 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
     logger.info("[prompt_release] revision activated | block=%s | scope=%s | "
                 "chat=%s | rev=%s | origin=%s | kind=%s | outcome=%s | "
                 "actor=%s", spec.block_id, scope, chat_id,
-                revision.revision_id, revision.origin, kind, outcome,
-                str(actor or ""))
+                revision.revision_id, revision.origin, activation_kind,
+                outcome, str(actor or ""))
     return {"applied": outcome == "applied", "reason": "ok",
             "block_id": spec.block_id, "pg_key": spec.pg_key,
             "scope": scope, "chat_id": chat_id,
@@ -2479,7 +2610,410 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
             "outcome": outcome, "journal_recorded": True,
             "activated_revision": revision_id,
             "activated_origin": revision.origin,
-            "activation_kind": kind}
+            "activation_kind": activation_kind}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Owner baseline: указатель на существующую ревизию (контракт §2, §4)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _empty_baseline_payload(spec, scope: str,
+                            chat_id: int | None) -> dict:
+    """Состояние baseline без события: действует встроенная из кода (§4)."""
+    return {"block_id": spec.block_id, "pg_key": spec.pg_key or "",
+            "scope": scope, "chat_id": chat_id, "source": "factory",
+            "baseline": None, "cleared_at": None, "cleared_by": ""}
+
+
+async def _baseline_payload(store, spec, event: "BaselineEvent | None",
+                            scope: str, chat_id: int | None) -> dict:
+    """Человекочитаемое состояние baseline: указатель + провенанс ревизии.
+
+    Тело текста сюда не входит (список/карточка не отдают тексты §3 п.7):
+    ``sha256_12`` и длина достаточны для честного отображения, полный текст
+    читается существующим ``get_revision_source``.
+    """
+    out = _empty_baseline_payload(spec, scope, chat_id)
+    if event is None:
+        return out
+    if event.kind == "baseline_clear":
+        # Явное снятие: действует встроенная из кода (§2.4 п.4).
+        out["cleared_at"] = event.created_at
+        out["cleared_by"] = event.actor
+        return out
+    revision = await store.get_revision(event.revision_id)
+    active = await store.read_applied(spec.block_id, scope, chat_id)
+    row: dict = {"revision_id": event.revision_id,
+                 "assigned_at": event.created_at,
+                 "assigned_by": event.actor,
+                 "detail_code": event.detail_code,
+                 "origin": (revision.origin if revision is not None else ""),
+                 "available": revision is not None,
+                 "is_active": bool(active is not None
+                                   and active.revision_id == event.revision_id)}
+    if revision is not None:
+        row.update({
+            "sha256_12": revision.content_sha12,
+            "chars": _revision_chars(revision),
+            "retired": bool(revision.retired),
+            "schema_compat": revision.schema_compat or "",
+            "compatible": _revision_gate(revision, scope, chat_id) == "",
+            "factory_revision": revision.factory_revision or "",
+            "created_at": revision.created_at,
+        })
+    out["baseline"] = row
+    out["source"] = "owner"
+    return out
+
+
+async def _baseline_store(store, cache):
+    """Стор журнала для baseline-операций (нет журнала → честный отказ)."""
+    store = store if store is not None else default_journal(cache)
+    if store is None:
+        raise JournalUnavailable(
+            "журнал версий недоступен: baseline не изменён")
+    try:
+        await store.ensure_journal()
+    except Exception as exc:
+        raise JournalUnavailable(
+            f"журнал версий недоступен: {type(exc).__name__}") from exc
+    return store
+
+
+async def read_baseline(block_id: str, *, scope: str = "global",
+                        chat_id: int | None = None, cache=None, store=None,
+                        actor=None) -> dict:
+    """Действующий owner baseline для (block_id, scope, chat_id) (§2.1).
+
+    Читается ПОСЛЕДНЕЕ событие ``baseline_assign``/``baseline_clear``; тела
+    текста не возвращаются. Журнал недоступен → :class:`JournalUnavailable`
+    (HTTP 503), а не «baseline нет»: отсутствие события и недоступность
+    журнала — разные факты.
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None:
+        return {"known": False, "reason": "block_unknown",
+                "block_id": block_id}
+    scope = str(scope or "global")
+    check_permission(str(actor or ""), "prompt.read_baseline",
+                     block_id=spec.block_id, scope=scope, chat_id=chat_id)
+    store = await _baseline_store(store, cache)
+    try:
+        event = await store.read_baseline_event(spec.block_id, scope, chat_id)
+        out = await _baseline_payload(store, spec, event, scope, chat_id)
+    except JournalUnavailable:
+        raise
+    except Exception as exc:
+        logger.warning("[prompt_release] baseline недоступен", exc_info=True)
+        raise JournalUnavailable(
+            f"baseline read failed: {type(exc).__name__}") from exc
+    out.update({"known": True, "journal_available": True,
+                "factory_revision": pr.factory_revision(spec.block_id),
+                "sealed_revision": pr.sealed_factory_revision(spec.block_id),
+                "pg_managed": bool(spec.pg_key)})
+    return out
+
+
+async def assign_baseline(block_id: str, revision_id: str, *, scope: str =
+                          "global", chat_id: int | None = None, actor=None,
+                          cache=None, store=None, reason: str = "") -> dict:
+    """«Назначить базовой»: только указатель, БЕЗ активации (§2.4 п.1).
+
+    Дисциплина записи ровно как у :func:`activate_revision`: ``ensure_journal``
+    → тот же advisory-лок ``prompt_release_apply`` → одна транзакция с
+    ``SET LOCAL lock_timeout='5s'``; все чтения (ревизия, текущий baseline)
+    внутри транзакции. Событие пишется с ``outcome='recorded'`` — «активная
+    ревизия» и активный текст не двигаются, откат кода безопасен (§2.2).
+
+    Повторное назначение уже назначенной ревизии идемпотентно: новой строки
+    журнала не появляется (§2.4 п.2 ТЗ).
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
+    scope = str(scope or "global")
+    if scope not in ("global", "chat"):
+        return {"applied": False, "reason": "unknown_scope",
+                "block_id": spec.block_id, "scope": scope}
+    if scope == "chat" and chat_id is None:
+        return {"applied": False, "reason": "chat_scope_requires_chat_id",
+                "block_id": spec.block_id}
+    check_permission(str(actor or ""), "prompt.assign_baseline",
+                     block_id=spec.block_id, scope=scope, chat_id=chat_id)
+    store = await _baseline_store(store, cache)
+    revision = None
+    async with store.apply_lock():
+        async with store.transaction():
+            revision = await store.get_revision(str(revision_id or ""))
+            if revision is None or revision.block_id != spec.block_id:
+                return {"applied": False, "reason": "revision_unknown",
+                        "block_id": spec.block_id,
+                        "revision_id": revision_id}
+            gate = _revision_gate(revision, scope, chat_id)
+            if gate:
+                logger.warning("[prompt_release] %s на попытке назначения "
+                               "базовой | block=%s | revision=%s",
+                               gate, spec.block_id, revision_id)
+                result = {"applied": False, "reason": gate,
+                          "block_id": spec.block_id,
+                          "revision_id": revision_id}
+                if gate == "schema_incompatible":
+                    result["schema_compat"] = revision.schema_compat
+                if gate == "revision_foreign_scope":
+                    result.update({"revision_scope": revision.scope,
+                                   "revision_chat_id": revision.chat_id})
+                return result
+            current = await store.read_baseline_event(spec.block_id, scope,
+                                                      chat_id)
+            if (current is not None and current.kind == "baseline_assign"
+                    and current.revision_id == revision.revision_id):
+                payload = await _baseline_payload(store, spec, current, scope,
+                                                  chat_id)
+                return {"applied": False, "outcome": "skipped_same",
+                        "reason": "baseline_same", "idempotent": True,
+                        "revision_id": revision.revision_id,
+                        "journal_recorded": True,
+                        "active_text_changed": False,
+                        "active_unchanged": True, "baseline": payload}
+            state = await store.read_applied(spec.block_id, scope, chat_id)
+            await store.insert_activation(ActivationRow(
+                block_id=spec.block_id, scope=scope, chat_id=chat_id,
+                revision_id=revision.revision_id,
+                factory_revision_applied=(state.factory_revision_applied
+                                          if state is not None else ""),
+                kind="baseline_assign", outcome="recorded", release_id="",
+                actor=str(actor or ""),
+                detail_code=f"baseline:{revision.origin}"))
+            event = await store.read_baseline_event(spec.block_id, scope,
+                                                    chat_id)
+            payload = await _baseline_payload(store, spec, event, scope,
+                                              chat_id)
+    logger.info("[prompt_release] baseline assigned | block=%s | scope=%s | "
+                "chat=%s | rev=%s | origin=%s | actor=%s | reason=%s",
+                spec.block_id, scope, chat_id, revision.revision_id,
+                revision.origin, str(actor or ""), reason)
+    return {"applied": True, "outcome": "recorded", "reason": "ok",
+            "revision_id": revision.revision_id,
+            "assigned_origin": revision.origin,
+            "journal_recorded": True, "active_text_changed": False,
+            "active_unchanged": True, "baseline": payload}
+
+
+async def clear_baseline(block_id: str, *, scope: str = "global",
+                         chat_id: int | None = None, actor=None, cache=None,
+                         store=None, reason: str = "") -> dict:
+    """«Снять назначение»: baseline снова — встроенная из кода (§2.4 п.4).
+
+    Пишется ``baseline_clear`` (``revision_id=''``); активный текст НЕ
+    меняется. После снятия действует обычная релизная политика: следующая
+    новая заводская метка снова активирует заводской текст.
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
+    scope = str(scope or "global")
+    if scope == "chat" and chat_id is None:
+        return {"applied": False, "reason": "chat_scope_requires_chat_id",
+                "block_id": spec.block_id}
+    check_permission(str(actor or ""), "prompt.clear_baseline",
+                     block_id=spec.block_id, scope=scope, chat_id=chat_id)
+    store = await _baseline_store(store, cache)
+    async with store.apply_lock():
+        async with store.transaction():
+            current = await store.read_baseline_event(spec.block_id, scope,
+                                                      chat_id)
+            if current is None or current.kind == "baseline_clear":
+                return {"applied": False, "outcome": "skipped_same",
+                        "reason": "baseline_absent", "idempotent": True,
+                        "journal_recorded": True,
+                        "active_text_changed": False,
+                        "active_unchanged": True,
+                        "baseline": _empty_baseline_payload(spec, scope,
+                                                            chat_id)}
+            state = await store.read_applied(spec.block_id, scope, chat_id)
+            await store.insert_activation(ActivationRow(
+                block_id=spec.block_id, scope=scope, chat_id=chat_id,
+                revision_id="",
+                factory_revision_applied=(state.factory_revision_applied
+                                          if state is not None else ""),
+                kind="baseline_clear", outcome="recorded", release_id="",
+                actor=str(actor or ""), detail_code="baseline_clear"))
+            event = await store.read_baseline_event(spec.block_id, scope,
+                                                    chat_id)
+            payload = await _baseline_payload(store, spec, event, scope,
+                                              chat_id)
+    logger.info("[prompt_release] baseline cleared | block=%s | scope=%s | "
+                "chat=%s | actor=%s | reason=%s", spec.block_id, scope,
+                chat_id, str(actor or ""), reason)
+    return {"applied": True, "outcome": "recorded", "reason": "ok",
+            "cleared_revision_id": (current.revision_id or ""),
+            "journal_recorded": True, "active_text_changed": False,
+            "active_unchanged": True, "baseline": payload}
+
+
+async def restore_baseline(block_id: str, *, scope: str = "global",
+                           chat_id: int | None = None, actor=None, cache=None,
+                           store=None) -> dict:
+    """«Восстановить базовую» — ЯВНАЯ активация эталона (§2.4 п.6).
+
+    Тот же путь, что ручной откат: ``activate_revision`` (те же гейты
+    ``retired``/``schema_compat``/чужой scope), вид события —
+    ``baseline_restore``. Снятие чатового override — отдельная операция и
+    здесь не выполняется (§7.3 п.7 ТЗ).
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
+    scope = str(scope or "global")
+    store = await _baseline_store(store, cache)
+    event = await store.read_baseline_event(spec.block_id, scope, chat_id)
+    if (event is None or event.kind != "baseline_assign"
+            or not event.revision_id):
+        # Нет owner baseline: восстанавливать нечего, встроенная из кода
+        # включается отдельным действием «Вернуть исходную из кода».
+        return {"applied": False, "reason": "baseline_absent",
+                "block_id": spec.block_id, "scope": scope,
+                "chat_id": chat_id, "baseline_restore": True,
+                "active_unchanged": True}
+    result = await activate_revision(
+        spec.block_id, event.revision_id, scope=scope, chat_id=chat_id,
+        actor=actor, cache=cache, store=store, kind="baseline_restore")
+    state_event = await store.read_baseline_event(spec.block_id, scope,
+                                                  chat_id)
+    result.update({"baseline_restore": True,
+                   "restored_revision_id": event.revision_id,
+                   "baseline": await _baseline_payload(
+                       store, spec, state_event, scope, chat_id)})
+    return result
+
+
+async def restore_shipped_factory(block_id: str, *, scope: str = "global",
+                                  chat_id: int | None = None, actor=None,
+                                  cache=None, store=None,
+                                  confirm: bool = False) -> dict:
+    """«Вернуть исходную из кода» — подтверждённая активация (§2.4 п.7).
+
+    Допускается только при ЦЕЛОЙ печати блока (``sha12(factory_text)`` равна
+    подписи реестра); иначе ``factory_unverifiable`` и значение не меняется.
+    Это активация (``kind='factory_restore'``); owner baseline НЕ снимается —
+    снятие отдельным действием. ``origin`` ревизии никогда не переписывается:
+    заводская ревизия берётся из ``factory_text``, ручная не переименовывается.
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
+    if confirm is not True:
+        return {"applied": False, "reason": "confirmation_required",
+                "block_id": spec.block_id, "scope": scope,
+                "chat_id": chat_id, "active_unchanged": True}
+    scope = str(scope or "global")
+    check_permission(str(actor or ""), "prompt.restore_factory",
+                     block_id=spec.block_id, scope=scope, chat_id=chat_id)
+    seal_label, sealed_sha = (pr.FACTORY_REVISION_SEALS.get(spec.block_id)
+                              or ("", ""))
+    body = pr.factory_text(spec.block_id)
+    if not seal_label or not sealed_sha or pr.sha12(body) != sealed_sha:
+        logger.error("[prompt_release] factory_unverifiable | block=%s — "
+                     "возврат к исходной из кода отклонён", spec.block_id)
+        return {"applied": False, "reason": "factory_unverifiable",
+                "block_id": spec.block_id, "scope": scope,
+                "chat_id": chat_id, "active_unchanged": True}
+    store = await _baseline_store(store, cache)
+    revision_id = pr.revision_id_for(spec.block_id, scope, chat_id, "factory",
+                                     pr.sha12(body))
+    if await store.get_revision(revision_id) is None:
+        # Заводская ревизия этой метки ещё не попадала в историю этого scope
+        # (например, до cutover): пишем её ОДИН раз в той же дисциплине.
+        async with store.apply_lock():
+            async with store.transaction():
+                if await store.get_revision(revision_id) is None:
+                    await _insert_revision_once(
+                        store, spec, origin="factory", body=body, scope=scope,
+                        chat_id=chat_id,
+                        factory_revision=pr.sealed_factory_revision(
+                            spec.block_id),
+                        reason="factory_restore", actor=str(actor or ""))
+    result = await activate_revision(
+        spec.block_id, revision_id, scope=scope, chat_id=chat_id, actor=actor,
+        cache=cache, store=store, kind="factory_restore")
+    state_event = await store.read_baseline_event(spec.block_id, scope,
+                                                  chat_id)
+    result.update({"factory_restore": True, "baseline_cleared": False,
+                   "baseline": await _baseline_payload(
+                       store, spec, state_event, scope, chat_id)})
+    return result
+
+
+async def copy_revision_to_global(block_id: str, revision_id: str, *,
+                                  actor=None, cache=None, store=None,
+                                  target_chat_id: int | None = None) -> dict:
+    """«Скопировать как новую глобальную версию» (§2.4 п.8).
+
+    Текст чужого scope переносится как НОВАЯ ревизия целевого (global) scope:
+    ``origin='restored'``, ``reason='copied_from_chat:<revision_id>'``.
+    ``revision_id`` источника не перепривязывается, его scope/чат не меняются,
+    активный текст не меняется (копирование — не активация).
+    """
+    spec = pr.block(block_id) or pr.by_pg_key(block_id)
+    if spec is None or not spec.pg_key:
+        return {"applied": False, "reason": "block_not_pg_managed",
+                "block_id": block_id}
+    if target_chat_id is not None:
+        return {"applied": False, "reason": "copy_target_is_global_only",
+                "block_id": spec.block_id, "chat_id": target_chat_id}
+    check_permission(str(actor or ""), "prompt.copy_to_global",
+                     block_id=spec.block_id, revision_id=revision_id)
+    store = await _baseline_store(store, cache)
+    async with store.apply_lock():
+        async with store.transaction():
+            source = await store.get_revision(str(revision_id or ""))
+            if source is None or source.block_id != spec.block_id:
+                return {"applied": False, "reason": "revision_unknown",
+                        "block_id": spec.block_id,
+                        "revision_id": revision_id}
+            if source.scope != "chat" or source.chat_id is None:
+                return {"applied": False, "reason": "copy_source_not_chat",
+                        "block_id": spec.block_id,
+                        "revision_id": revision_id,
+                        "revision_scope": source.scope}
+            # §2.4 п.9: retired/несовместимую ревизию нельзя ни включить, ни
+            # назначить, ни перенести в другой scope как рабочую версию —
+            # провенанс (schema_compat) копируется как есть.
+            gate = ""
+            if source.retired:
+                gate = "revision_retired"
+            elif source.schema_compat and \
+                    source.schema_compat not in SUPPORTED_SCHEMA_COMPAT:
+                gate = "schema_incompatible"
+            if gate:
+                return {"applied": False, "reason": gate,
+                        "block_id": spec.block_id,
+                        "revision_id": revision_id}
+            copy_reason = f"copied_from_chat:{source.revision_id}"
+            target_id = pr.revision_id_for(spec.block_id, "global", None,
+                                           "restored",
+                                           pr.sha12(source.body or ""))
+            created = await store.get_revision(target_id) is None
+            row = await _insert_revision_once(
+                store, spec, origin="restored", body=source.body or "",
+                scope="global", chat_id=None, actor=str(actor or ""),
+                reason=copy_reason, schema_compat=source.schema_compat or "")
+    logger.info("[prompt_release] revision copied to global | block=%s | "
+                "source=%s | chat=%s | new=%s | actor=%s", spec.block_id,
+                source.revision_id, source.chat_id, row.revision_id,
+                str(actor or ""))
+    return {"applied": True, "reason": "ok", "created": created,
+            "revision_id": row.revision_id,
+            "source_revision_id": source.revision_id,
+            "source_scope": source.scope, "source_chat_id": source.chat_id,
+            "scope": "global", "chat_id": None, "origin": "restored",
+            "sha256_12": row.content_sha12, "copy_reason": copy_reason,
+            "journal_recorded": True, "active_text_changed": False,
+            "active_unchanged": True}
 
 
 async def list_versions(block_id: str, *, scope: str = "global",
@@ -2540,6 +3074,18 @@ async def list_versions(block_id: str, *, scope: str = "global",
             # global/chat и адресат ревизии видны в строке истории.
             "scope": r.scope, "chat_id": r.chat_id,
         })
+    # §2.4: owner baseline — часть состояния «Истории версий» того же ответа
+    # (UI не делает второй запрос). Нет журнала — baseline честно не известен.
+    baseline = _empty_baseline_payload(spec, scope, chat_id)
+    if store is not None:
+        try:
+            event = await store.read_baseline_event(spec.block_id, scope,
+                                                    chat_id)
+            baseline = await _baseline_payload(store, spec, event, scope,
+                                              chat_id)
+        except Exception:      # pragma: no cover — baseline не рушит историю
+            logger.warning("[prompt_release] baseline недоступен в истории",
+                           exc_info=True)
     return {
         "block_id": spec.block_id,
         "pg_key": spec.pg_key or "",
@@ -2550,6 +3096,7 @@ async def list_versions(block_id: str, *, scope: str = "global",
             active and active["sha256_12"] == pr.sha12(
                 pr.factory_text(block_id))),
         "active": active,
+        "baseline": baseline,
         "revisions": rows,
         "activations": [{
             "kind": a.kind, "outcome": a.outcome,
@@ -2623,7 +3170,8 @@ async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
 __all__ = [
     "CUTOVER_RELEASE_ID", "JOURNAL_DDL", "SUPPORTED_SCHEMA_COMPAT",
     "LOCK_TIMEOUT_SQL", "NON_TEXT_VALUE_KEYS",
-    "RevisionRow", "ActivationRow", "AppliedState", "BlockReleaseResult",
+    "RevisionRow", "ActivationRow", "AppliedState", "BaselineEvent",
+    "BlockReleaseResult",
     "PromptWriteItem", "JournalWriteGrant",
     "JournalUnavailable", "PromptJournalError", "PromptPermissionError",
     "PromptJournalBypass",
@@ -2635,4 +3183,6 @@ __all__ = [
     "remove_prompt_override", "capture_pre_versioning_values",
     "activate_revision", "list_versions", "get_revision_source",
     "diff_revisions",
+    "read_baseline", "assign_baseline", "clear_baseline",
+    "restore_baseline", "restore_shipped_factory", "copy_revision_to_global",
 ]
