@@ -3,7 +3,7 @@
   "source_path": "plans/owner_inputs/2026-11-04-epic-prompt-versioning-ux-01.md",
   "source_sha256": "893621d84365cb201d41ec1ea1f4b63531075c4d19e05afed78627654bfe3054",
   "candidate_commit": "44e1e589a45b97792561d1991bafdd10a6bc52d7",
-  "deployed_commit": "",
+  "deployed_commit": "f4a44167",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "OI-2026-11-04-EPIC-PROMPT-VERSIONING-UX-01",
@@ -30,7 +30,8 @@
       "notes": [
         "Эпик-цель («все редактируемые LLM-промпты получают одинаковый настоящий долговечный контроль версий»): доказуема только после PVR-S4-UX (панель на всех редакторах) и PVR-S6-AUDIT. На срезе S0 не проверяема — PENDING здесь честное состояние, а не дефект карты.",
         "Владение строкой: сейчас PVR-S0-GUARD. Предложение Orchestrator/Architect — перенести в PVR-S7-VERIFY; сам не переносил, чтобы не менять владение среза молча.",
-        "Пока строка PENDING, гейт --slice PVR-S0-GUARD завершается ошибкой по этой строке. Это ожидаемо."
+        "Пока строка PENDING, гейт --slice PVR-S0-GUARD завершается ошибкой по этой строке. Это ожидаемо.",
+        "Живой журнал, baseline и UI уже работают на проде (deployment_binding), но цель эпика закрывается только вместе со S7: независимая проверка бэкенда/мемов/фронтенда и отрицательных случаев ещё не проведена."
       ]
     },
     {
@@ -73,8 +74,29 @@
       "acceptance": "Один переиспользуемый компонент истории/активации (без отдельного SPA) применён ко всем текстовым редакторам промптов: Direct, FactCheck, Memory, Speech/Character, Initiative/Memes, Summary, Vision, Experience и источники; второго похожего компонента в коде нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Поклаузно п.1 + Re-review 2 B1 — единственная реализация истории на всех поверхностях",
+          "observation": "Библиотека: 1 карточка, 1 кнопка истории, `promptHistory/phWhen/loadPromptHistory` = undefined; карточки модулей: 23 полосы variant=bar для всех prompts.*; мемы: 2 карточки; Speech/Character: карточка в редакторе блока, и в «Характере» Re-review 2 B1 подтвердил ту же карточку (cards=1, data-pv-key=core.personality), а вторая реализация удалена по-настоящему (`rollbackSpeechBlock`, `speechHistKind`, `speechHistScope` отсутствуют, «Откатить» — 0 вхождений).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "tests/test_prompt_field_audit.py — аудит «поле ↔ редактор ↔ журнальный путь» для каждого промпта",
+          "observation": "Аудит импортирует реальные prompt_registry/param_catalog/prompt_release_policy/create_app; test_version_ui_routes_exist_for_every_prompt и test_every_editable_prompt_has_reachable_surface покрывают «у каждого редактируемого поля есть поверхность и маршруты версий»; мутация «удалён baseline/restore» и «промпт скрыт из каталога» ловятся (S5 review §4, D/E CAUGHT).",
+          "type": "test",
+          "artifact_path": "tests/test_prompt_field_audit.py",
+          "candidate_commit": "40cf25ea",
+          "candidate_commit_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+          "merged_in": "cad6766ae109224ac69f30d160ceb6be4ddb8b3b",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_04",
@@ -89,7 +111,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "notes": [
+        "Карточка проверена (S4 review §Поклаузно п.2), но клаузула включает кнопки редактора «Отменить несохранённое» и «Сохранить» — они существуют до пакета и в S4 не менялись, отдельным наблюдением не подтверждены."
+      ]
     },
     {
       "source_id": "MANUAL_05",
@@ -143,6 +168,16 @@
           "candidate_commit_full": "c3ea182b59120c21c933612070f1cc407326f323",
           "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §3 — миграция baseline никому не назначила эталон",
+          "observation": "Прод: GET /api/prompts/initiative.meme.joke/baseline → 200, source=factory, baseline=null, cleared_at=null, journal_available=true, capabilities={assign:true, clear:false, restore_baseline:false, restore_factory:true}; событий `baseline%` в prompt_activations — 0; действующие значения и источники остались прежними (changed=0).",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": []
@@ -159,8 +194,19 @@
       "acceptance": "docs/prompt-versioning-contract.md и нормативные инструкции агентов/Reviewer, действующие в репозитории на текущем HEAD, обновлены обязательным правилом о едином реестре, полном журнале, одинаковой UI-панели версий, diff, активации, owner baseline и восстановлении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "S5 review §1 п.1 (PROVEN) + Re-review 2 Approved — правило в нормативных документах",
+          "observation": "Правило внесено в `docs/prompt-versioning-contract.md` §1 и в `AGENTS.md` (абзац «Блокер релиза», авточитаемые инструкции агентов) и в README; выложенное дерево содержит те же файлы байт-в-байт (AGENTS.md f70ed268ea).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md",
+          "candidate_commit": "40cf25ea",
+          "candidate_commit_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+          "merged_in": "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_08",
@@ -174,8 +220,19 @@
       "acceptance": "Дословная формулировка проектного правила («Любой промпт, отображаемый для редактирования ... Новое поле промпта без этого функционала — архитектурная регрессия и блокер релиза») внесена в нормативные документы и проверяется аудитом, а не только упомянута в отчёте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "S5 review §1 п.1 (PROVEN) — дословная формулировка владельца и её проверяемость",
+          "observation": "Цитата после нормализации markdown идентична формулировке владельца (387 символов, сравнение строк) и размещена в нормативных документах; выполнение правила обслуживает аудит полей/маршрутов (S5 review §1 п.3: тест падает на фиктивном обходе, мутации A/B/C и D/E CAUGHT), а не только отчёт.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md",
+          "candidate_commit": "40cf25ea",
+          "candidate_commit_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+          "merged_in": "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_09",
@@ -268,7 +325,8 @@
       "evidence": [],
       "notes": [
         "Добавлено по решению координатора 2026-11-04: закрывает пробел покрытия, зафиксированный в строке PVR-APPLY-01 (L00067) — серверная часть назначения базовой доказана в S2, а UI-подтверждение и описание последствий своей строки не имели.",
-        "Точная формулировка сообщения «Базовая версия изменена, действующий текст пока прежний» остаётся в PVR-BASE-05; здесь проверяется сам факт подтверждения/предупреждения до действия."
+        "Точная формулировка сообщения «Базовая версия изменена, действующий текст пока прежний» остаётся в PVR-BASE-05; здесь проверяется сам факт подтверждения/предупреждения до действия.",
+        "Диалог подтверждения для «Назначить базовой»/«Восстановить базовую» не наблюдался: доказано только, что назначение не активирует версию (Re-review 2 B3/M4) и что текст предупреждения существует. Нужен один UI-прогон на проде."
       ]
     }
   ],
@@ -360,7 +418,7 @@
       "acceptance": "Байтовая неизменность текстов initiative.meme.joke / prompts.meme_joke и initiative.meme.image / prompts.meme_image: sha256 до правок (snapshot из живого конфига) и после релиза совпадают на эффективном тексте (global + chat); UI-правка счётчика {joke} не меняет ни одного байта промпта.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S0/S1 review §7 — независимый пересчёт байтового эталона мемных промптов",
@@ -383,6 +441,16 @@
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §1/§3 — байты мемных промптов на проде до и после 2.58.155",
+          "observation": "Прод после релиза: sha256 эффективных текстов совпадают с эталоном до правок — global joke 2f30ca1f9a6b (95 Б), image f81fe7e4b505 (51 Б), summary отсутствует; чат 1 joke 539ceb6970ea / image 11cf82f45c3a; чат 2 joke 4bc3425f2f3d / image 11388ab3a936; release apply changed=0. Единственная правка текста в чате 1 сделана владельцем в 04:47:01 UTC до релиза, старые байты сохранены ревизией rev:99b88b0b89d7 (reason=drift_recovery) — агенты текст не меняли.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": [
@@ -432,7 +500,7 @@
       "acceptance": "Ни один текст существующего промпта (глобальный, чатовый, заводской, ручной, действующий) не изменён: дифф всех PG-управляемых значений и заводских редакций реестра пуст, кроме метаданных/событий; проверка автоматизирована и приложена к отчёту.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S0/S1 review §10 — дифф не трогает тексты промптов, audit-тест и печати",
@@ -444,6 +512,16 @@
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §1/§3 — ни один текст промпта не перезаписан релизом",
+          "observation": "Прод: `release applied | blocks=110 | changed=0 | retired=0`; sha256 всех мемных текстов (global + два чата) до и после совпадают; DDL нет, user_version=41; в PG добавились только события/метаданные (2 legacy_import + записи журнала).",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": [
@@ -462,8 +540,19 @@
       "acceptance": "В пакете нет переписывания промптов, Writer, Personality Core, Humor Craft, FactCheck, Initiative и генерации картинок: нет новых LLM-вызовов, перегенераций, токен-бюджетов, лимитов длины и скрытых преобразований текста; диффы этих модулей пусты либо содержат только вызовы единого слоя версий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "S0/S1 review §10 + прод-байты — пакет не переписывает промпты и не добавляет LLM-вызовов",
+          "observation": "Дифф пакета не содержит переписывания текстов Writer/Personality Core/Humor Craft/FactCheck/Initiative/генерации картинок: изменения — только единый слой версий и его вызовы; на проде после релиза байты мемных промптов совпадают с эталоном (changed=0), новых LLM-вызовов и токен-бюджетов в диффе нет.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md",
+          "candidate_commit": "7dd02046",
+          "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
+          "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
+          "reviewed_on": "2026-11-04"
+        }
+      ],
       "notes": [
         "Не покрыто ни ревью S0/S1, ни ревью S2: нет проверки, что пакет не переписывает Writer, Personality Core, Humor Craft, FactCheck, Initiative и генерацию картинок и что в нём нет новых LLM-вызовов, перегенераций, токен-бюджетов, лимитов длины и скрытых преобразований текста.",
         "Косвенно доказаны только отсутствие правок промптов и новых маршрутов (S0/S1 §10) и отсутствие max_tokens/token_budget/llm_client в диффе S2 (§9). Этого недостаточно для VERIFIED всей клаузы.",
@@ -524,8 +613,29 @@
       "acceptance": "Визуальная система админки (Dark Aurora/glass/refraction/анимации) и прежнее управление сохранены: перекомпонованы только метаданные и интерфейс промптов; скриншоты до/после подтверждают неизменность остальных страниц и эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §1/§2 — UI на проде совпадает с одобренными байтами",
+          "observation": "/web/index.html 200 (18 вхождений prompt-version-card, шаблон #prompt-version-card-tpl, pv-grid), /web/app.js 200; Playwright на публичном домене: заголовок «AdminBot — админка», Vue отрисован, 0 ошибок JS. sha256 на сервере: index.html 4c648efb…, app.js 22267af7… — байт-в-байт как у одобренного S4-кандидата 217cde65. Оговорка: app.css на проде содержит пост-ревью правку z-index (см. §2/§5 файла учёта), серверная сумма CSS не снималась.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.7/п.9 — визуальная система не изменена, перекомпонован только интерфейс промптов",
+          "observation": "CSS аддитивен (токены --surface-border/--ctl-*, blur), новой палитры нет; focus-visible 2px, кнопки 36 px (44 px на <=767); панель 560x768 на 1366 и полноэкранная 390x844, горизонтального скролла 0 на 1536/1366/768/390/360; дифф services/** и web/api/** пуст, байты промптов без изменений (агрегат 51425b07d299). Прод-часть — предыдущая запись: UI отдаётся байт-в-байт как у одобренного кандидата.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00025",
@@ -562,6 +672,16 @@
           "candidate_commit_full": "c3ea182b59120c21c933612070f1cc407326f323",
           "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §1/§3 — второго хранилища нет, DDL в релизе нет",
+          "observation": "Прод: user_version=41 без изменений (DDL не применялся); в БД один журнал и один реестр — 171 ревизия / 102 блока / 166 активаций; таблицы prompt_versions_v2 и второго store нет.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": []
@@ -578,7 +698,7 @@
       "acceptance": "При недоступном PG/журнале редактор показывает причину и сохраняет несохранённый текст локально в форме, а сервер не объявляет «сохранено» и не пишет значение без гарантии фиксации версии (честный 503).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S0/S1 review §2 — честный 503 без записи значения",
@@ -589,6 +709,16 @@
           "candidate_commit": "7dd02046",
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S4 review §Поклаузно п.8 + S0/S1 review §2 — недоступный журнал: причина, черновик цел, 503 без записи",
+          "observation": "e2e: при 503 журнала панель показывает «Журнал версий недоступен...», кнопок действий нет, черновик в форме цел; серверная сторона — честный 503 без записи значения (S0/S1 review §2).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
           "reviewed_on": "2026-11-04"
         }
       ],
@@ -639,8 +769,19 @@
       "acceptance": "Счётчик template.placeholders показан человеку как режим вставки: 0 -> «Прикол автоматически добавится после шаблона», 1 -> «Прикол вставится в отмеченное место»; вставка плейсхолдера не навязывается, шаблон не переписывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.5 — режим вставки прикола человеческим языком",
+          "observation": "placeholders=0 → «Прикол автоматически добавится после шаблона: отдельная метка {joke} не нужна...»; 1 → «Прикол вставится в отмеченное место - там, где в шаблоне стоит {joke}»; 2 → предупреждение про не более одного {joke}. Вставка не навязывается, шаблон не переписывается (байты мемов те же).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -746,6 +887,16 @@
           "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
           "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §3 — живой журнал отдаётся и совпадает с БД",
+          "observation": "Прод: GET /api/prompts/initiative.meme.joke/versions (global) → 200, 4 записи (2 ревизии + 2 активации), journal_available=true; в БД ровно 2+2; legacy-записи не пересозданы и не перезаписаны — добавлены только захватом.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": [
@@ -794,8 +945,19 @@
       "acceptance": "В основной карточке только человекочитаемые факты: активность, область (глобальный/чат), источник наследования, время последней доказанной записи; сырые act:/fac:/revision_id/sha/factory seal видны только в раскрываемых «Подробностях»/диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки (VERIFIED поведением) + §Поклаузно п.2 — метаданные карточки без сырых id",
+          "observation": "В свёрнутой карточке только человекочитаемые факты («этот чат · Чат A», «Действует в этом чате · изменён вручную · 03.11 23:42»), регэксп по act:/fac:/rev:/sha256/revision_id/12hex не находится; технические строки (блок/ключ/область/печать/заводская/действующая ревизия/sha256-12) доступны только в раскрываемых «Подробностях». Re-review 2 B2: «Подробности и диагностика» раскрывают постоянный блок, в свёрнутом виде строк 0 в DOM.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -809,8 +971,19 @@
       "acceptance": "Два промпта мемов показаны рядом на широком экране и последовательно на мобильном, каждая карточка имеет собственную кнопку «История версий»; в других разделах используется тот же компонент, а не отдельная реализация.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.1/п.7 — два мемных промпта с собственной историей",
+          "observation": "Мемы: 2 карточки (`initiative.meme.joke`, `initiative.meme.image`), у каждой своя кнопка «История версий» и одна панель в DOM; на 1366 они рядом, на 390 — последовательно, горизонтального скролла 0; байты мемных текстов при этом не изменены (п.9).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00055",
@@ -824,8 +997,19 @@
       "acceptance": "Карточка явно различает состояния «изменён для чата», «наследуется от глобального», «базовый по выбору владельца», «исходный из кода» и показывает эффективный текст отдельно от несохранённого черновика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.2 — пять состояний области видимости",
+          "observation": "Карточка различает «этот чат / изменён вручную», «действует в этом чате», наследование от глобального, базовую по выбору владельца и заводскую ревизию (подписи + раскрываемый «Действующий текст (сохранён на сервере)» отдельно от черновика с бейджем «черновик не сохранён»).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -839,8 +1023,19 @@
       "acceptance": "При смене чата меняются только scope/история выбранного промпта; при переключении с несохранённым текстом появляется предупреждение с выбором сохранить/остаться/отменить, и текст не теряется молча.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.6 — предупреждение о несохранённом при смене чата",
+          "observation": "Смена вкладки: диалог с текстом «...Изменения можно сохранить кнопкой «Сохранить изменения»», черновик на месте. Смена чата: один диалог «Есть несохранённые изменения (1) для «Чат A». Переключить область и потерять их?»; отмена сохранила текст, согласие заменило текст данными нового чата. beforeunload взводится только при реально несохранённом (memeDraftDirty || workspacePromptDirty || speechBlockDirty).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -854,8 +1049,19 @@
       "acceptance": "Плейсхолдер {joke} в мемной карточке подан как спокойная подсказка с двумя режимами; сырая строка {joke}:0 удалена из видимой мета-строки, владельцу не предлагается обязательная вставка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.5 — сырая строка {joke}:0 убрана из мета-строки",
+          "observation": "Строк «{joke}: 0/1/2» в теле карточки нет; вместо них спокойная подсказка с двумя режимами; при 2 плейсхолдерах показывается предупреждение, а не обязательная вставка.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00058",
@@ -869,8 +1075,19 @@
       "acceptance": "Основная карточка не раздувается технической речевой трассой: существующая диагностика доступна в закрытом по умолчанию блоке «Диагностика/Подробная трасса».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.2 + Re-review 2 B2 — трасса не раздувает карточку",
+          "observation": "В свёрнутой карточке 0 строк диагностики ([data-pv-detail-line]=0), техническое — в закрытом по умолчанию блоке «Подробности и диагностика» (8 строк), меню закрывается; речевой трассы в основной карточке нет.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00060",
@@ -899,8 +1116,19 @@
       "acceptance": "«История версий» открывается из каждого редактора промпта: на десктопе боковая панель/модальное окно читаемой ширины, на мобильном полноэкранная панель; редактируемый контекст не теряется, отдельной глубокой страницы нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.3 + Re-review 2 B1 — панель из каждого редактора, читаемая ширина",
+          "observation": "Панель истории: боковая 560 px на 1366, полноэкранная 390x844 с фокусом внутри и Escape; открывается из карточки каждого редактора (Re-review 2 B1: в «Характере» та же карточка и та же панель, [data-speech-core-more]=0, вторая реализация удалена); отдельной глубокой страницы нет, редактируемый контекст не теряется.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -914,8 +1142,19 @@
       "acceptance": "Шапка панели показывает понятное имя промпта, область действия, статус текущей ревизии, текущую owner baseline и встроенную заводскую ревизию, с короткой русской легендой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки — шапка панели с человекочитаемым статусом",
+          "observation": "Шапка показывает имя промпта, область (global/чат), статус текущей ревизии, owner baseline или заводскую ревизию с короткой русской легендой; сырые id доступны только в «Подробностях» (п.2).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -929,8 +1168,29 @@
       "acceptance": "Список сохранений и активаций полный и хронологический, с постраничной загрузкой/виртуализацией: не обрезан до 10/12/50; в строке есть номер/дата, источник (ручная/импортирована/из релиза/восстановлена), автор, область, статус и кнопка «Посмотреть».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §3 — живая лента истории не обрезана",
+          "observation": "Прод: каталог 200 count=112; лента истории отдаётся страницами с next_cursor, конец честный (has_more=false на 4-й записи при page_size=2); обрезки до 10/12/50 на живом ответе не видно.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.3/п.4 — полный хронологический список с постраничной загрузкой",
+          "observation": "Лента 50 → 100 → 131 без дублей, `order` уникальны, конец «Это вся доступная история»; догрузка идёт с cursor= (проверено записанными URL, не счётчиком); строка-событие без revision_id — без кнопок действий; retired помечен «снята с регистрации».",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -985,8 +1245,19 @@
       "acceptance": "Для доступной совместимой ревизии доступны действия «Применить эту версию», «Сравнить с текущей», «Назначить базовой», «Скопировать»; diff «было -> стало» показывается для любой выбранной пары и красит только строки изменений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.4 — действия над доступной ревизией и diff",
+          "observation": "«Посмотреть» отдаёт дословное тело (rev-001, 34 симв., posts не изменились); diff «было → стало»: 1 «+», 1 «−», 1 контекст, контекст нейтрален; «Применить»/«Сравнить»/«Назначить базовой»/«Скопировать» есть только для доступной совместимой ревизии, для retired/несовместимой — причина вместо кнопки.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00067",
@@ -1027,7 +1298,8 @@
       ],
       "notes": [
         "Серверный контракт «Применить / Назначить базовой / Восстановить базовую» разделён и доказан на кандидате c3ea182b.",
-        "Не проверена UI-часть: подтверждение действия и описание последствий при назначении базовой. Пробел покрытия закрыт решением координатора 2026-11-04 — добавлена отдельная строка `PVR-UX-BASECONFIRM-01` в срезе PVR-S4-UX; серверная часть здесь остаётся доказанной."
+        "Не проверена UI-часть: подтверждение действия и описание последствий при назначении базовой. Пробел покрытия закрыт решением координатора 2026-11-04 — добавлена отдельная строка `PVR-UX-BASECONFIRM-01` в срезе PVR-S4-UX; серверная часть здесь остаётся доказанной.",
+        "Открыт только элемент «Назначить базовой — с подтверждением»: поведение apply/assign/restore доказано (S4 review §Поклаузно п.4, Re-review 2 B3/M4), но отдельный диалог подтверждения для «Назначить/Восстановить» на живом UI не наблюдался — закрывается той же проверкой, что PVR-UX-BASECONFIRM-01."
       ]
     },
     {
@@ -1081,8 +1353,19 @@
       "acceptance": "Недоступная операция показывает причину (нет прав, code-only, несовместима, retired, журнал недоступен); активная кнопка, которая ничего не делает, не отображается ни на одном экране.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "PVR-S4 review §Карта приёмки + §Поклаузно п.4 — недоступное действие с причиной, без кнопки-пустышки",
+          "observation": "retired: ни «Применить», ни «Назначить», причина «retired: версия снята с регистрации...»; несовместимая: «Несовместима с текущей схемой <2>: читать и сравнивать можно, применять нельзя»; действующая версия: «Применить» отсутствует; строка-событие без revision_id — кнопок нет. Объём подтверждения — карточка и «Характер» (Re-review 2 B1).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00070",
@@ -1298,6 +1581,16 @@
           "candidate_commit_full": "254f524264e20e703b64c952c7824dd59f3af144",
           "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §3 — keyset-пагинация живой истории",
+          "observation": "Прод: page_size=2 → 2 страницы, 4 записи, 0 дублей; next_cursor отдан на первой странице и отсутствует на последней (has_more=false); total/page.size не отдаются — контракт §3.4 total_known=null. Оговорка: ветка «>50 ревизий на блок» на живых данных НЕ наблюдалась (максимум 10 ревизий на блок) — она покрыта durable-тестом, не продом.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": [
@@ -1329,6 +1622,16 @@
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
           "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "evidence/deploy-2.58.155-reconcile.md §3 — захват текущих байтов при первом включении на живой БД",
+          "observation": "Прод 06:50:45: `pre_versioning capture | values=2` → legacy_import для initiative.meme.joke (чат 1, rev:f501a080291c, 539ceb6970ea, 1357) и summary.cover.style_id (чат 1, rev:ac2c44f1bd1f, cdd0c0d252d0, 12), outcome=recorded, detail=pre_versioning_import; время импорта фактическое (06:50:45), историческая дата 04:47 не подставлена.",
+          "type": "production",
+          "artifact_path": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md",
+          "artifact_sha256": "cffca374840f681e0c47add469915868ebbbaad4f04bc3ca085b92711816263a",
+          "candidate_commit": "f4a44167",
+          "candidate_commit_full": "f4a44167fa42fc0f23d681a76554246754172830",
+          "deployed_on": "2026-11-04"
         }
       ],
       "notes": []
@@ -1387,7 +1690,7 @@
       "acceptance": "Специальные карточки дают тот же результат, что общий editor API; после Save/Activate/Promote UI перечитывает фактическое состояние с сервера и не рисует оптимистическое «сохранено» до ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S0/S1 review §1/§2/§3 — серверная эквивалентность специальных карточек и общего API",
@@ -1398,6 +1701,16 @@
           "candidate_commit": "7dd02046",
           "candidate_commit_full": "7dd020468c8d1d68d1c4072467c9e93f081e7aa4",
           "merged_in": "9a5834fd433af84949aedcf83ed42512bed444cf",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S4 review §Поклаузно п.8 + Re-review 2 B1 + Re-review 3 B4 (Approved)",
+          "observation": "После «Применить» UI делает 2 дополнительных GET и показывает активную строку с сервера (rev-004), оптимистичного «сохранено» нет; «Применить» в «Характере» бьёт именно в core.personality и textarea перечитывается в текст выбранной ревизии; Re-review 3 подтвердил, что подтверждение успеха видно без прокрутки (sticky, измерено на 1536 и 390) и убирается только кнопкой ×.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
           "reviewed_on": "2026-11-04"
         }
       ],
@@ -1499,7 +1812,7 @@
       "acceptance": "«Назначить базовой» меняет только указатель эталона и пишет событие с автором и датой, не переписывая активную редакцию; UI явно сообщает «Базовая версия изменена, действующий текст пока прежний».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "PVR-S2 review §2 — назначение пишет только событие с автором и датой",
@@ -1510,6 +1823,16 @@
           "candidate_commit": "c3ea182b",
           "candidate_commit_full": "c3ea182b59120c21c933612070f1cc407326f323",
           "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e",
+          "reviewed_on": "2026-11-04"
+        },
+        {
+          "ref": "PVR-S4 review §Поклаузно п.4 + Re-review 2 B3/M4 — назначение эталона не меняет действующий текст",
+          "observation": "После «Назначить базовой» UI пишет «Базовая версия изменена, действующий текст пока прежний», textarea не изменился; e2e теперь проверяет, что среди новых POST нет /activate и действующая ревизия в панели не меняется — мутация M4 (assign дополнительно активирует) ловится дважды (node + e2e на 5 вьюпортах).",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s4-review.md",
+          "candidate_commit": "217cde65",
+          "candidate_commit_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+          "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
           "reviewed_on": "2026-11-04"
         }
       ],
@@ -1723,8 +2046,19 @@
       "acceptance": "CI/pytest аудит проверяет зарегистрированные изменяемые prompt-fields на соответствие pg_key <-> block_id <-> UI-editor <-> versioned write; специализированный POST без журнала ломает тест (негативный тест на фиктивном обходе приложен).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "S5 review §1 п.3/§2/§4 + tests/test_prompt_field_audit.py — аудит принуждения с негативным тестом",
+          "observation": "15 passed; аудит импортирует реальные prompt_registry/param_catalog/prompt_release_policy/create_app; счётчики 112/111/102/39/73 запинены; мутации «специализированный POST без журнала», «удалён baseline/restore», «промпт скрыт из каталога» — все CAUGHT, включая две независимые мутации ревьюера; test_guard_is_not_vacuous_for_a_journalled_write доказывает, что журнальная запись проходит.",
+          "type": "test",
+          "artifact_path": "tests/test_prompt_field_audit.py",
+          "candidate_commit": "40cf25ea",
+          "candidate_commit_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+          "merged_in": "cad6766ae109224ac69f30d160ceb6be4ddb8b3b",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1739,7 +2073,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "notes": [
+        "Аудит покрывает «поле без редактора» и read-only для code-only блоков на уровне тестов, но на живом каталоге (count=112) не проверялось, что code-only блоки показаны read-only с причиной и без активных кнопок включения."
+      ]
     },
     {
       "source_id": "L00111",
@@ -1753,8 +2090,19 @@
       "acceptance": "Правило зафиксировано как проектное для всех текущих и будущих промптов, а запрет менять сегодняшние тексты мемов описан как ограничение только этого пакета, а не проекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "S5 review §1 п.1 (PROVEN) — область действия правила",
+          "observation": "Правило зафиксировано как проектное для всех текущих и будущих промптов; запрет менять сегодняшние тексты мемов объявлен ограничением только этого пакета — глобального запрета в AGENTS.md/README.md нет.",
+          "type": "review",
+          "artifact_path": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md",
+          "candidate_commit": "40cf25ea",
+          "candidate_commit_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+          "merged_in": "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
+          "reviewed_on": "2026-11-04"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1803,24 +2151,44 @@
       "reviewed_full": "c3ea182b59120c21c933612070f1cc407326f323",
       "merged_in": "c02f6180da0cfc852870c18975d76e180c35404e"
     },
-    "note": "candidate_commit карты = merged-состояние эпика на evol/impl; deployed_commit пуст — деплоя не было. Гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не меняется). S3 принят ревьюером как 254f5242 и слит в evol/impl как bf90a2ae.",
+    "note": "candidate_commit карты = merged-состояние эпика на evol/impl; гейт review требует совпадения одного map-level candidate_commit с --candidate, поэтому посрезовое ревью прогоняется на копии карты с закреплённым candidate_commit среза (сама карта не меняется). S3 принят как 254f5242 (слияние bf90a2ae), S4 — 217cde65 (слияние fb19340b), S5/S6 — 40cf25ea (слияние 04f77c74). Выложенный пакет — f4a44167 (release/2.58.155), см. deployment_binding.",
     "PVR-S3-HISTORY": {
       "reviewed": "254f5242",
       "reviewed_full": "254f524264e20e703b64c952c7824dd59f3af144",
       "merged_in": "bf90a2aebde6a5765e36bc81abff4525fe9f402d"
+    },
+    "PVR-S4-UX": {
+      "reviewed": "217cde65",
+      "reviewed_full": "217cde651c81546b5b1da4bc8e35f90fb779598b",
+      "merged_in": "fb19340bac81b191e3385849434a965b75ac1cfa",
+      "approved": "Re-review 3 Approved (B4 закрыт), B1/B2/B3 — Re-review 2"
+    },
+    "PVR-S5-STD-DOC": {
+      "reviewed": "40cf25ea",
+      "reviewed_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+      "merged_in": "04f77c74",
+      "approved": "Re-review 2 Approved (F1+F2)"
+    },
+    "PVR-S6-AUDIT": {
+      "reviewed": "40cf25ea",
+      "reviewed_full": "40cf25ea6fa2f9d9b5dfd460ba4c8d593baf894a",
+      "merged_in": "04f77c74",
+      "approved": "аудит полей/маршрутов принят в S5 Re-review 2 (мутации CAUGHT)"
     }
   },
   "merge_state": {
     "branch": "evol/impl",
-    "head": "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
-    "head_short": "bf90a2ae",
+    "head": "04f77c74de857ac2fa992d8e4a43f9057752ea7b",
+    "head_short": "04f77c74",
     "contains_merges": [
       "9a5834fd433af84949aedcf83ed42512bed444cf",
       "c02f6180da0cfc852870c18975d76e180c35404e",
-      "bf90a2aebde6a5765e36bc81abff4525fe9f402d"
+      "bf90a2aebde6a5765e36bc81abff4525fe9f402d",
+      "fb19340b",
+      "04f77c74de857ac2fa992d8e4a43f9057752ea7b"
     ],
-    "deployed": false,
-    "note": "head — последний слиянный код-кандидат (S3, bf90a2ae); коммит самой карты идёт следом и код не меняет. deployed_commit пуст: деплоя не было."
+    "deployed": true,
+    "note": "head — текущее состояние интеграционной ветки evol/impl (04f77c74: PVR-S5 стандарт влит после Approved). Релиз 2.58.155 собран отдельно от неё: ветка release/2.58.155 набрана черри-пиками PV-пакета поверх прода-базы 2de11dc0, выложен f4a44167. В evol/impl релиз пока не впитан (так делали для 2.58.152-154); до впитывания app.css/docs/test_evol018 на ветке релиза отличаются от evol/impl."
   },
   "reconciliation": {
     "reconciled_on": "2026-11-04",
@@ -1829,19 +2197,21 @@
       "PVR-S0-GUARD",
       "PVR-S1-WRITE",
       "PVR-S2-BASELINE",
-      "PVR-S3-HISTORY"
+      "PVR-S3-HISTORY",
+      "PVR-S4-UX",
+      "PVR-S5-STD-DOC",
+      "PVR-S6-AUDIT"
     ],
-    "verified_rows": 24,
-    "ready_for_live_rows": 2,
+    "verified_rows": 48,
+    "ready_for_live_rows": 0,
     "pending_rows_in_reconciled_slices": [
-      "PVR-INV-02",
-      "PVR-INV-06",
       "PVR-APPLY-01",
-      "PVR-WRITE-08",
-      "PVR-BASE-05"
+      "PVR-UX-02",
+      "PVR-UX-BASECONFIRM-01",
+      "PVR-STD-04"
     ],
     "coverage_complete": false,
-    "note": "Эпик не завершён: PVR-S4..PVR-S7 не реализованы/не проверены. S3 (PVR-S3-HISTORY) принят ревьюером на кандидате 254f5242 (слияние bf90a2ae) и привязан здесь: 5 строк среза VERIFIED. N1/N2 закрыты, D1-D3 остаются за своими срезами. PVR-GOAL-01 перенесён в PVR-S7-VERIFY (решение координатора), добавлена строка PVR-UX-BASECONFIRM-01 в PVR-S4-UX."
+    "note": "Учёт релиза 2.58.155 (f4a44167, база 2de11dc0): привязаны S4 (Approved 217cde65, слияние fb19340b) и S5/S6 (Approved 40cf25ea), а также живые доказательства прода — журнал, capture legacy, отсутствие автоназначения baseline, каталог/versions, keyset-пагинация, байтовая неизменность промптов, отсутствие DDL, совпадение index.html/app.js с одобренным кандидатом. Эпик НЕ завершён: S7 (PVR-GOAL-01, PVR-REV-01..04, PVR-EXEC-01) не проведён, открыты PVR-APPLY-01, PVR-UX-02, PVR-UX-BASECONFIRM-01, PVR-STD-04. Живые записи новых ревизий через каждый специализированный endpoint, история >50 ревизий на блок и заводская поставка при pinned scope на проде не наблюдались — это НЕ доказано, хотя соответствующие срезы приняты ревью на кодовом и тестовом уровне."
   },
   "disclosures": [
     {
@@ -1943,6 +2313,87 @@
       "blocks_parent_done": false,
       "note": "PromptJournalBypass на втором этапе пакета (запись непромптных настроек) отдаётся как 500; лучше честный 409/503 в формате partial_save. Данные не теряются.",
       "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s0s1-review.md замечание 4"
+    },
+    {
+      "id": "A1-DRIFT-LABEL-MISLEADING",
+      "owner_slice": "PVR-S4-UX",
+      "affects_rows": [
+        "PVR-HISTUI-02",
+        "PVR-HISTUI-03"
+      ],
+      "blocks_parent_done": false,
+      "severity": "UX-wording",
+      "note": "Чатовая история версий показывает заводской указатель (fac:2f30ca1f9a6b) как «активный», хотя фактически в чате действует текст владельца (override). Это документированное поведение контракта §3.2 (статус берётся из PG-значения, а не из действующей ревизии журнала), на старте 2.58.155 activation_drift = 0, но формулировка читается как «действует заводская версия» и вводит владельца в заблуждение.",
+      "obligations": [
+        "В истории явно разделить «действует в чате (override владельца)» и «указатель наследования/заводская ревизия»."
+      ],
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.1"
+    },
+    {
+      "id": "A2-EVIDENCE-WRITES-INTO-TRACKED-FILES",
+      "owner_slice": "PVR-S6-AUDIT",
+      "affects_rows": [
+        "PVR-BYTES-01",
+        "PVR-INV-01"
+      ],
+      "blocks_parent_done": false,
+      "severity": "test-hygiene",
+      "note": "Предсуществующая проблема: проверочные/мутационные скрипты пишут в отслеживаемые git файлы evidence/** (evidence/pvr-s1/capture_prompt_bytes.py перезаписывает prompt-bytes-baseline.json). Прогон на другом HEAD молча меняет зафиксированные байтовые снимки — уже привело к расхождению snapshot direct.base.l2_writer (68f0233d → 44736968, отмечено в S5 Re-review 2 п.2).",
+      "obligations": [
+        "Скрипты должны писать в WorkspaceData/temp или в явно указанный --out, а отслеживаемые снимки — только по осознанному коммиту."
+      ],
+      "evidence_ref": "plans/features/prompt-versioning-ux/reports/pv-s5-review.md Re-review 2 п.2"
+    },
+    {
+      "id": "A3-DEPLOYED-CSS-NOT-REVIEWED",
+      "owner_slice": "PVR-S4-UX",
+      "affects_rows": [
+        "PVR-INV-04",
+        "PVR-HISTUI-01"
+      ],
+      "blocks_parent_done": true,
+      "severity": "review-gap",
+      "note": "В выложенном f4a44167 файл web/static/app.css отличается от одобренного кандидата 217cde65: введён токен --z-panel: 90 вместо литерала 90 и .pv-result--sticky z-index 3 → 2. Отдельного ревью-вердикта на эту правку в репозитории нет; в evol/impl (04f77c74) её тоже нет — то есть она существует только на ветке релиза.",
+      "obligations": [
+        "Узкий ревью-чек правки (z-index/sticky на 1536 и 390, панель поверх модалки) либо осознанное принятие с записью решения."
+      ],
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §2/§5 п.2"
+    },
+    {
+      "id": "A4-RELEASE-BRANCH-NOT-ABSORBED",
+      "owner_slice": "PVR-S7-VERIFY",
+      "affects_rows": [],
+      "blocks_parent_done": false,
+      "severity": "ops",
+      "note": "release/2.58.155 (f4a44167) не влит в evol/impl: ветки разошлись от e52a06b2. Содержимое слоя версионирования совпадает, но app.css, docs/prompt-versioning-contract.md и tests/test_evol018_prompt_audit.py на ветке релиза отличаются от evol/impl — следующая интеграция покажет их как дельту, пока релиз не впитан (как делали для 2.58.152-154).",
+      "obligations": [
+        "Впитать release/2.58.155 в evol/impl (merge, не rebase) до следующего релиза."
+      ],
+      "evidence_ref": "plans/features/epic-prompt-versioning-ux-01/evidence/deploy-2.58.155-reconcile.md §5 п.3"
     }
-  ]
+  ],
+  "deployment_binding": {
+    "version": "2.58.155",
+    "branch": "release/2.58.155",
+    "deployed_commit": "f4a44167fa42fc0f23d681a76554246754172830",
+    "prod_base_before_release": "2de11dc0c3a836b44e047484a80ddb0425891ad0",
+    "prod_base_version": "2.58.154",
+    "deployed_at": "2026-11-04 06:50:43 UTC",
+    "deploy_window": "06:50:22-06:50:43 UTC",
+    "release_branch_relation": "release/2.58.155 набран черри-пиками PV-пакета поверх прода-базы 2de11dc0; f4a44167 не является предком evol/impl 04f77c74 и наоборот (общая база e52a06b2). В evol/impl релиз ещё не впитан.",
+    "content_identity": "Слои версионирования совпадают с одобренными кандидатами байт-в-байт: prompt_release_policy 87993f9d3f, prompt_factory 610098414e, web/api/routes dc8a3a6318, web/api/speech 8cdf1ce3de, prompt_registry dbf0b937b2, test_prompt_field_audit cfa4252acf, AGENTS.md f70ed268ea, web/index.html 4c648efb03c4, web/app.js 22267af731f5 (последние два — как у S4 Approved 217cde65 и как отдаёт прод по sha256sum DevOps). Отличия: web/static/app.css 98e96f1be61c против одобренного 17bfa2aa0cc7 (пост-ревью правка z-index, ревью-вердикта нет); docs/prompt-versioning-contract.md 0b87aa7c74 против a013ab10dd (документ сам фиксирует 293 файла под аудитом в 2.58.155 вместо 294, пин test_evol018_prompt_audit обновлён так же).",
+    "health": "200 loopback + 200 по SNI + 200 публично, version=2.58.155",
+    "restarts": "NRestarts=0, один процесс (MainPID 1867207)",
+    "schema": "user_version=41 без изменений, DDL нет",
+    "media": "66 файлов без изменений",
+    "journal": "210 строк: 0 Traceback / 0 CRITICAL / 0 ERROR / 0 database is locked / 0 activation_drift (на старте 2.58.154 было 4) / 0 ошибок записи промптов",
+    "prompt_bytes": "До/после совпадают: global joke 2f30ca1f9a6b (95 Б), image f81fe7e4b505 (51 Б), summary отсутствует; чат 1 joke 539ceb6970ea, image 11cf82f45c3a; чат 2 joke 4bc3425f2f3d, image 11388ab3a936. Правка текста в чате 1 сделана владельцем в 04:47:01 UTC до релиза, прежние байты сохранены ревизией rev:99b88b0b89d7 (reason=drift_recovery).",
+    "release_apply": "release applied | release=evol-016-cutover | blocks=110 | changed=0 | retired=0; pre_versioning capture values=2 (legacy_import: initiative.meme.joke chat1 rev:f501a080291c, summary.cover.style_id chat1 rev:ac2c44f1bd1f)",
+    "live_api": "GET /api/prompts/catalog 200 count=112; GET /api/prompts/initiative.meme.joke/versions 200 entries=4 (2 ревизии + 2 активации) has_more=false journal_available=true; keyset-пагинация page_size=2 -> 2 страницы / 4 записи / 0 дублей / total_known=null; GET .../baseline 200 source=factory baseline=null, событий baseline% в prompt_activations 0; журнал в БД 171 ревизия / 102 блока / 166 активаций, максимум 10 ревизий на блок",
+    "ui": "/web/index.html 200 (18 вхождений prompt-version-card, шаблон #prompt-version-card-tpl, pv-grid); /web/app.js 200 (обработка next_cursor); Playwright на публичном домене — Vue отрисован, 0 ошибок JS, панели в DOM; sha256 index.html 4c648efb… / app.js 22267af7… совпадают с одобренным кандидатом; сумма app.css на сервере не снималась",
+    "rollback": "git checkout -B release/2.58.154 2de11dc0 + systemctl restart admin_bot; DDL нет, журнал и тексты промптов сохраняются",
+    "provenance": "Факты сервера переданы DevOps (отчёт plans/features/evol/release-258155-deploy.md, на момент учёта untracked в основном checkout) и сведены в evidence/deploy-2.58.155-reconcile.md; тождество содержимого PM проверил локально по git.",
+    "open": "Живые записи новых ревизий через каждый специализированный endpoint — NOT OBSERVED (записей в живые промпты не было); история >50 ревизий на блок — NOT OBSERVED (максимум 10); заводская поставка при pinned scope на проде — не запускалась; реальный Telegram WebView устройства владельца — не проверялся; web/static/app.css на проде содержит правку z-index без независимого ревью.",
+    "gate_note": "Проверено 04.11.2026: `check --stage release --slice PVR-S0-GUARD --candidate f4a44167 --deployed-commit f4a44167` даёт 3 ошибки — (1) map-level candidate_commit (44e1e589) не равен выложенному f4a44167, (2) PVR-HEAD-01 не имеет доказательства, привязанного к f4a44167 (эта строка про фиксацию базы ДО работы). Посрезовый release-гейт прогонять на копии карты с закреплённым candidate_commit = выложенный SHA (как описано в slice_candidates.note) либо после A4 — впитывания релиза в evol/impl, когда merged-состояние совпадёт с продом. Полный release-гейт эпика сейчас невозможен: 10 строк PENDING (S7 и три UI-уточнения). Plan-гейт: EXIT 0."
+  }
 }
