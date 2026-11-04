@@ -39,7 +39,14 @@
     ]
   },
   "shared_file_note": "direct_chat_service.py, direct_l1.py, param_catalog.py и стадии саммари/фактчека имеют последовательных владельцев (A -> C -> CLOCK -> D -> E); параллельные полосы по этим файлам запрещены. web/app.js, web/index.html, web/static/app.css дополнительно сериализованы внешним пакетом EPIC-CM-VISUAL-01 (CMV-D/E).",
-  "architecture": "ARCHITECT_REQUIRED до Builder для UR-A, UR-C, UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F (TurnRequest/ContextSelection, ToolEvidence, LLMCompletion, ChatClock, effective-config).",
+  "architecture": "Контракт доставлен: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966, статус ARCHITECT_VALIDATED, checkpoint-1 «контракты сфризены»). Барьер UR-A СНЯТ 2026-11-05 — Builder может создавать services/turn_types.py и единый вход _execute_turn по §2.1-§2.2 контракта. Для UR-C-CLOCK, UR-C-SCHED, UR-D, UR-F записи сохранены как «срез не начат», новых архитектурных проходов не требуется: те же §3-§5 контракта их уже фиксируют.",
+  "architecture_evidence": {
+    "contract": "plans/features/unified-reply/arch/unified-reply-contract.md",
+    "commit": "4359b966",
+    "status": "ARCHITECT_VALIDATED",
+    "lifted_for": ["UR-A"],
+    "note": "Существует только контракт-документ: services/turn_types.py ещё не создан (ур-A не начат), services/turn_request.py в проекте никогда не существовал — имя в write_scope исправлено."
+  },
   "slices": [
     {
       "id": "UR-A",
@@ -50,9 +57,10 @@
         "services/direct_chat_service.py",
         "services/direct_l1.py",
         "services/direct_capabilities.py",
-        "services/turn_request.py",
+        "services/turn_types.py",
         "tests/test_ur_turn_engine.py"
       ],
+      "write_scope_note": "services/turn_types.py — единственный разрешённый новый модуль контракта (§2 контракта: «только фрозен-датаклассы и enums, без логики»); прежнее имя services/turn_request.py было ошибочным — такого файла в проекте никогда не было. services/direct_context_composer.py НЕ добавлен в write_scope UR-A: §2.6 контракта закрепляет composer за UR-C (UR-A — R, чтение), и один писатель на файл сохраняется; ContextSelection-типы UR-A кладёт в turn_types.py, сборку делает UR-C.",
       "acceptance": "Direct и Initiative проходят один L1-код: на трассе совпадают резолв слота, схема плана, repair и набор доступных capabilities, difference только в trigger/action/delivery; отдельный path plan_initiative_decision(capabilities=()) исчез, прямое обращение не теряется, значимые поля TurnRequest видны в трассе.",
       "can_parallel_with": [
         "UR-B",
@@ -60,8 +68,9 @@
       ],
       "join_barrier": "до UR-B, UR-C: единый вход и права нужны tools и контексту",
       "risk": "R3",
-      "next_role": "Architect (контракт TurnRequest/L1) -> Builder",
-      "why_one_slice": "Один связный результат: один вход и один L1 на два режима; разделение дало бы две копии permission/fallback-логики."
+      "next_role": "Builder (контракт TurnRequest/L1 зафиксирован 4359b966, барьер снят)",
+      "why_one_slice": "Один связный результат: один вход и один L1 на два режима; разделение дало бы две копии permission/fallback-логики.",
+      "status_note": "Не начат: services/turn_types.py отсутствует, вызовов _execute_turn нет, живые маршруты (direct_chat_service.py:4777 Direct, :12932 Initiative) продолжают использовать _l1_tool_phase. Именно здесь остаётся живое подключение run_tool_phase (UR-B) и build_context_selection (UR-C)."
     },
     {
       "id": "UR-B",
@@ -83,9 +92,10 @@
       ],
       "join_barrier": "до UR-C-CLOCK (вызов time-helper в оркестраторе) и до UR-G",
       "risk": "R3",
-      "next_role": "Architect (контракт ToolEvidence/search_intent) -> Builder",
+      "next_role": "Reviewer (повторно на живом подключении после UR-A)",
       "why_one_slice": "Один проверяемый результат — фактический поиск с честной трассой; отдельная ветка для инициативы запрещена источником.",
-      "bgs01_note": "Acceptance приведён к решению владельца BGS-01 (2026-11-05): privacy-вето удалено, обязательное обезличивание запроса больше не требуется."
+      "bgs01_note": "Acceptance приведён к решению владельца BGS-01 (2026-11-05): privacy-вето удалено, обязательное обезличивание запроса больше не требуется.",
+      "status_note": "Влит: ur/b-search @5adaa21b -> merge da6299e9. Привязано 13/24 строк (см. evidence/ur-b-evidence.md). Открыто: run_tool_phase не вызывается живыми маршрутами, поля оси не запрашиваются промптом L1."
     },
     {
       "id": "UR-C",
@@ -114,8 +124,9 @@
       ],
       "join_barrier": "до UR-C-CLOCK и UR-D; без него нет общего входа контекста",
       "risk": "R3",
-      "next_role": "Architect (ContextSelection/provenance) -> Builder",
-      "why_one_slice": "Один результат — что именно видит модель; контекст, память и self-history разделяются только одним контрактом отбора."
+      "next_role": "Reviewer (повторно на живом подключении после UR-A)",
+      "why_one_slice": "Один результат — что именно видит модель; контекст, память и self-history разделяются только одним контрактом отбора.",
+      "status_note": "Влит: ur/c-context @e0985f5c -> merge 9ac64a61. Привязано 21/66 строк (см. evidence/ur-c-evidence.md). Открыто: build_context_selection вызывается только из тестов; model_capacity.py/direct_l1.py/direct_chat_service.py/param_catalog.py в diff не входили."
     },
     {
       "id": "UR-C-CLOCK",

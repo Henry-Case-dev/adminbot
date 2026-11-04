@@ -2,20 +2,19 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "",
+  "candidate_commit": "da6299e9",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
   "task_id": "unified-reply",
-  "source_note": "PLANNING-ONLY карта (все строки PENDING, доказательств нет). Источник: дословный снимок plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, редакция 1.1), взятый из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-* и обязательны; запреты §12 — UR-BAN-*; пакеты §10 — слайсы UR-A..UR-G плюс два подпакета времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), поскольку §10 не выделил сквозное время в отдельный пакет, а §9 объявляет его обязательной частью эпика.",
+  "source_note": "Карта эпика (261 обязательная строка) к дословному снимку plans/owner_inputs/2026-11-05-unified-reply.md (503 строки, UR-01..UR-30, ред. 1.1) из plans/current_task.md L5651-6153. Родители UR-NN покрывают заголовки разделов, подтребования UR-NN.M — независимо проверяемые пункты; чеклисты §11 (А-Д) вынесены как UR-ACC-*, запреты §12 — UR-BAN-*, пакеты §10 — срезы UR-A..UR-G плюс UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28). Состояние 2026-11-05: UR-B (merge da6299e9) и UR-C (merge 9ac64a61) влиты и приняты ревью — привязано 34 строки VERIFIED (13/24 и 21/66), остальные PENDING с причиной в pending_reason. UR-A не начат: services/turn_types.py отсутствует, единый вход _execute_turn не создан.",
   "evidence_convention": "Каждая закрытая строка требует candidate-bound evidence с artifact_path (repo-relative), observation и типом; для финальных отчётов — artifact_sha256. Устные заверения, число тестов и скриншоты без реального payload/trace доказательством не считаются.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=true только у строк, которые физически проверяются на рабочем развёртывании (UR-ACC-E9, UR-30.7) и у размеченного набора поиска (UR-08.2, preprod).",
   "plan_ref": "plans/features/unified-reply/plan.md",
-  "architecture_classification": "ARCHITECT_REQUIRED",
+  "architecture_classification": "ARCH_REUSE_CONFIRMED для UR-A: контракт 4359b966 (ARCHITECT_VALIDATED) зафиксировал TurnRequest/ContextSelection/ToolEvidence/LLMCompletion/ChatClock; ARCHITECT_REQUIRED для UR-C-CLOCK/UR-C-SCHED/UR-D/UR-F не снимается этим изменением (их Builder ещё не стартовал)",
   "arch_trigger": "Меняются публичные/сквозные контракты: единый TurnRequest/ContextSelection, единый L1/L2 исполнитель (замена двух реализаций), ToolEvidence, LLMCompletion (finish_reason/continuation), единый ChatClock/TimeSnapshot и его инъекция во все маршруты, per-chat планирование Summary и Goodmorning, контракт effective-config для UI и аддитивные миграции ledger. Это больше, чем изменение внутри существующих контрактов; заморозить эти интерфейсы должен Architect.",
   "blocked_by_architecture": [
-    "UR-A",
     "UR-C",
     "UR-C-CLOCK",
     "UR-C-SCHED",
@@ -23,7 +22,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "not_started",
+  "merge_state": "partial: UR-B (da6299e9) и UR-C (9ac64a61) влиты и привязаны — 13/24 и 21/66 VERIFIED; живое подключение остаётся за UR-A (единый вход/_execute_turn) и последующими срезами",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -383,7 +382,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Права/состояние провайдеров до планирования (direct_capabilities) срезом не менялись; dedup/времена/ошибки в одной ToolEvidence тестами не проверены"
     },
     {
       "source_id": "M-00105",
@@ -397,8 +397,17 @@
       "acceptance": "Переиспользуются direct_execution/tool_router/search_service/mca_retrieval_context/direct_capabilities; новые WebSearchAgent, отдельная ветка поиска инициативы и параллельный ToolRouter не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Нет параллельной реализации поиска: один ToolRouter, ни одного WebSearchAgent",
+          "observation": "Структурная проверка дерева: `class ToolRouter` встречается ровно один раз (services/tool_router.py); `WebSearchAgent` не найден ни в одном файле; run_tool_phase переиспользует ToolRouter/ToolDeps.search, а не новый роутер.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "M-00109",
@@ -487,8 +496,17 @@
       "acceptance": "knowledge_origin (conversation_only/internal_memory/open_world/mixed) и search_intent (required/beneficial/not_applicable) формируются по смыслу, одинаково для Direct и Initiative.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "knowledge_origin/search_intent формируются по смыслу и разбираются в обоих режимах",
+          "observation": "TestSearchAxisSchema::test_chat_only_not_applicable_preserved фиксирует conversation_only+not_applicable как llm-значение, test_identical_schema_for_initiative_path — ту же схему на инициативном парсере.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "M-00127",
@@ -502,8 +520,17 @@
       "acceptance": "При open_world/mixed без указанного search_intent сервер нормализует решение к required; при required и доступном инструменте до L2 происходит хотя бы один действительный поиск. Невозможность поиска фиксируется технической причиной (rbac_denied, provider_down, tool_unavailable, ssrf_block, explicit_no_web), а не privacy_blocked.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "open_world/mixed без intent нормализуются к required; required без инструмента — честный unavailable",
+          "observation": "test_open_world_without_intent_normalized_to_required (source=normalized_open_world), test_mixed_without_intent_normalized_to_required, test_missing_search_tool_required_is_unavailable (status unavailable, skip_reason tool_absent, claim_forbidden_no_search) — privacy_blocked не возникает.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ],
       "bgs_note": "BGS-01 §0.1/§2 п.1: privacy_blocked больше не генерируется; остаются технические причины отказа (RBAC, provider, SSRF, explicit no-web).",
       "superseded_text": "При open_world/mixed без указанного search_intent сервер нормализует решение к required; при required обязателен хотя бы один действительный поиск до L2, а невозможность безопасного запроса даёт privacy_blocked вместо ложного успеха.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -520,8 +547,17 @@
       "acceptance": "conversation_only/not_applicable допустим, когда внешние сведения не нужны по смыслу: разбор сказанного в чате, личная реакция, короткая реплика, внутренняя шутка. Приватность темы или имя участника не являются причиной not_applicable, а юмор не запрещает поиск, если используются внешние факты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "conversation_only допустим по смыслу; приватность темы и имя участника не причина отказа",
+          "observation": "test_chat_only_not_applicable_preserved и test_chat_only_joke_no_search: шутка о своём чате идёт без вызова поиска; TestNoTopicVeto: 5 «приватно звучащих» запросов доходят до провайдера ровно один раз с темой в запросе.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ],
       "bgs_note": "BGS-01 §2 п.3: not_applicable выбирается по информационной потребности, а не по приватности контекста.",
       "superseded_text": "conversation_only/not_applicable допустим для разбора приватной переписки, личной реакции, разговорной реплики и внутренней шутки; юмор сам по себе не запрещает поиск, если используются внешние факты.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -538,8 +574,17 @@
       "acceptance": "Прямое требование пользователя проверить в интернете не демотируется моделью в not_applicable при разрешённом инструменте; отказ по правам или недоступности сообщается с истинной причиной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прямая просьба проверить в интернете не демотируется и даёт реальный вызов",
+          "observation": "TestExplicitRequestForcesRequired: явная просьба без capabilities и без ключевых слов даёт user_forced/required и настоящий вызов провайдера; test_explicit_request_without_tool_is_unavailable сообщает истинную причину вместо тихого пропуска.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_review_fixes.py",
+          "artifact_sha256": "81c7efa1b26a578bca31476c27289871c1b2e6e5ecdd8ad80751bce0d301de58",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "M-00133",
@@ -554,7 +599,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "SILENT/REACT покрыты (test_silent_react_zero_tool_calls), но утверждение про Observer (нет постоянного поиска по каждому окну) тестами не проверено"
     },
     {
       "source_id": "M-00145",
@@ -568,8 +614,17 @@
       "acceptance": "В финальной трассе каждого REPLY фиксируются search_intent, search_called, search_status, source_ids, source_count, search_skip_reason, evidence_used; секреты и сырые приватные сообщения в обычные логи не пишутся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "В трассе нет секретов и сырых приватных сообщений",
+          "observation": "test_trace_fields_and_emission_are_private_safe: в payload события reply_search_evidence нет телефона, имени, алиаса и текста запроса; test_trace_fields_and_emission_are_private_safe проверяет emit_mca_event.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "M-00147",
@@ -587,7 +642,8 @@
       "evidence": [],
       "bgs_note": "BGS-07 §8 (UR-08 + tests): «0 утечек приватного текста» заменено на проверку реального payload — нет полного чата и секретов; разговор об участнике утечкой по умолчанию не считается.",
       "superseded_text": "На размеченном наборе открытых фактологических задач реальные поисковые вызовы происходят практически всегда: 100% явно поисковых, минимум 95% смешанных внешних, 0 утечек приватного текста и 0 ложных заявлений об успешном поиске.",
-      "superseded_by": "BGS-01 (owner 2026-11-05)"
+      "superseded_by": "BGS-01 (owner 2026-11-05)",
+      "pending_reason": "live_required=true, live_when=preprod: размеченного набора открытых задач и реального прогона нет"
     },
     {
       "source_id": "M-00153",
@@ -602,7 +658,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "M-00155",
@@ -617,7 +674,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "M-00164",
@@ -632,7 +690,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Снятие 800/12x200/max_tokens=700 и сохранение render-проекций требует direct_chat_service.py/direct_l1.py — этих файлов нет в diff UR-C"
     },
     {
       "source_id": "M-00168",
@@ -647,7 +706,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/direct_l1.py (вне diff UR-C): снятие L1_WINDOW_MESSAGES/L1_WINDOW_LINE_CHARS и переход build_l1_context на отобранные фрагменты не реализованы этим срезом"
     },
     {
       "source_id": "M-00175",
@@ -662,7 +722,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/direct_l1.py (вне diff UR-C): снятие L1_WINDOW_MESSAGES/L1_WINDOW_LINE_CHARS и переход build_l1_context на отобранные фрагменты не реализованы этим срезом"
     },
     {
       "source_id": "M-00179",
@@ -677,7 +738,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/model_capacity.py — файла нет в diff среза 9ac64a61; «единственный allocator на model_capacity/auto_budget» доказан только частично (auto_budget изменён, capacity-резолвер нет). Stopped by planner honesty rule"
     },
     {
       "source_id": "M-00188",
@@ -692,7 +754,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "M-00192",
@@ -707,7 +770,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "M-00194",
@@ -722,7 +786,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "M-00196",
@@ -737,7 +802,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "M-00198",
@@ -752,7 +818,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "M-00200",
@@ -767,7 +834,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "M-00204",
@@ -782,7 +850,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "M-00215",
@@ -797,7 +866,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "M-00221",
@@ -1055,7 +1125,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00293",
@@ -1070,7 +1141,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00294",
@@ -1085,7 +1157,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00295",
@@ -1100,7 +1173,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00296",
@@ -1115,7 +1189,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00297",
@@ -1130,7 +1205,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00298",
@@ -1145,7 +1221,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00299",
@@ -1160,7 +1237,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00300",
@@ -1175,7 +1253,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00301",
@@ -1190,7 +1269,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00302",
@@ -1205,7 +1285,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00303",
@@ -1235,7 +1316,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00305",
@@ -1265,7 +1347,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00307",
@@ -1295,7 +1378,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует UI-инспектора и services/param_catalog.py (подписи/legacy-пометки): web/** и param_catalog.py не входят в diff UR-C — это срез UR-F"
     },
     {
       "source_id": "M-00309",
@@ -1429,8 +1513,17 @@
       "acceptance": "Источник истины — mca_bot_outputs (chat_id, Telegram ID, sent_at, parent_message_ref, output_kind, correlation_id, revision_no, delivery_status, содержимое/ссылка); bot_replies остаётся TTL-кэшем, а истечение часа не означает забывания, thread_chain восстанавливает бот-ход из ledger.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Источник истины — mca_bot_outputs с полным набором полей",
+          "observation": "TestLedgerHistoryReadPath: строки несут chat_id, tg_message_id, sent_at, parent, correlation_id, revision, delivery_status, content_ref (media_only) и self_referential.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "M-00338",
@@ -1445,7 +1538,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "M-00342",
@@ -2258,7 +2352,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Ответ инициативы с настоящим вызовом поиска требует подключения исполнителя на инициативном маршруте (direct_chat_service.py:12932 всё ещё _l1_tool_phase)"
     },
     {
       "source_id": "L00031",
@@ -2273,7 +2368,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Снятие 800/12x200/max_tokens=700 и сохранение render-проекций требует direct_chat_service.py/direct_l1.py — этих файлов нет в diff UR-C"
     },
     {
       "source_id": "L00032",
@@ -2287,8 +2383,17 @@
       "acceptance": "Вопрос о событии старше свежего окна получает исходные сообщения с датой и источником, а собственные отправленные реплики бота доступны как история разговора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Событие старше свежего окна достаётся с датой и источником; свои реплики — история",
+          "observation": "test_old_episode_reachable_with_real_messages (эпизод вне окна, msg: id) и test_bot_output_survives_ttl_with_date_and_parent (своя реплика с sent_at=1700000000 и parent tg:700).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00033",
@@ -2588,7 +2693,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "run_tool_phase не подключён к живым маршрутам: direct_chat_service.py:4777 (Direct) и :12932 (Initiative) вызывают _l1_tool_phase → run_adaptive_chain/run_simple_tools. Единый tool-этап на двух режимах в проде не включён"
     },
     {
       "source_id": "L00107",
@@ -2647,8 +2753,17 @@
       "acceptance": "L1 формирует knowledge_origin и search_intent по смыслу; набор полей и JSON-схема идентичны для Direct и Initiative.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Одна схема knowledge_origin/search_intent для Direct и Initiative",
+          "observation": "test_identical_schema_for_initiative_path: инициативный parse_l1_plan и прямой normalize_l1_plan дают одинаковые knowledge_origin/search_intent/search_intent_source; TestSearchAxisSchema проверяет закрытые наборы и невалидные значения без инвалидации плана.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00135",
@@ -2662,8 +2777,17 @@
       "acceptance": "Поисковый запрос строится как обычная целевая задача из смысла вопроса; в него не уходит весь чат целиком, API-ключи, токены, телефоны, e-mail и приватные ссылки. Тема разговора, имя или признаки участника сами по себе не блокируют поиск: privacy_blocked больше не генерируется, а недоступность инструмента даёт честную техническую причину.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Запрос строится из смысла хода; секреты и весь чат не уходят; тема не блокирует",
+          "observation": "TestPayloadHygiene: телефон/почта/t.me/id/sk-/ghp_/api_key вычищены, имя участника остаётся, test_whole_chat_is_not_sent ограничивает длину запроса; test_no_privacy_classifier_left_in_module и test_private_sounding_text_never_yields_privacy_blocked подтверждают отсутствие содержательного вето.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ],
       "bgs_note": "BGS-01 §2 п.4: запрос — обычная целевая задача; запрет обязательного обезличивателя и privacy-вето; сохраняется только гигиена секретов и запрет неконтролируемого дампа чата.",
       "superseded_text": "Поисковый запрос строится из публичных сущностей; приватные данные наружу не уходят, при невозможности фиксируется privacy_blocked.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -2680,8 +2804,17 @@
       "acceptance": "L1 формулирует поисковую задачу (что подтвердить и какие сведения нужны) без обязательного обезличивания; наружу не уходят user_id/tg_id, API-ключи и токены, телефоны, e-mail, приватные ссылки и полный дамп переписки. При недоступности инструмента ответ строится без притворной проверки и с истинной технической причиной, а не через privacy_blocked.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L1-задача поиска без обязательного обезличивания; идентификаторы не уходят",
+          "observation": "TestIdsStrippedSearchStillRuns: id/телефон вычищены, а имя участника и тема сохранены и поиск состоялся; test_markers_ref_resolves_in_evidence — открываемый ref полного текста; test_payload_stripper_is_hygiene_not_veto в test_unified_reply_ur_b_no_topic_veto.py.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_review_fixes.py",
+          "artifact_sha256": "81c7efa1b26a578bca31476c27289871c1b2e6e5ecdd8ad80751bce0d301de58",
+          "candidate_commit": "da6299e9"
+        }
+      ],
       "bgs_note": "BGS-01 §2 п.4/п.7: удалены «публичные сущности» и privacy_blocked как отказ; payload-гигиена (ключи, токены, телефоны, e-mail, приватные ссылки, полный дамп) сохранена.",
       "superseded_text": "L1 формулирует поисковую задачу (что подтвердить и какие публичные сущности участвуют); user_id, telegram_id, частные цитаты, закрытые алиасы, телефоны и приватные ссылки наружу не уходят, при невозможности фиксируется privacy_blocked и локальный ответ без притворной проверки.",
       "superseded_by": "BGS-01 (owner 2026-11-05)"
@@ -2698,8 +2831,17 @@
       "acceptance": "Поиск выполняется существующим execute_web_search с сохранением source metadata и точных найденных URL; пустая, нерелевантная и противоречивая выдача не считается успешной верификацией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "execute_web_search через ToolRouter: точные URL; пустая/противоречивая выдача не верификация",
+          "observation": "test_no_invented_sources (набор URL == выдача провайдера), test_empty_result_honest (empty + claim_forbidden_no_evidence), test_contradictory_results_not_evidence (contradictory, evidence_used=False, limitations «противоречат»).",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00139",
@@ -2714,7 +2856,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Дата источника и остановка adaptive-добора при отсутствии прироста доказательств тестами не проверены"
     },
     {
       "source_id": "L00140",
@@ -2728,8 +2871,17 @@
       "acceptance": "_SEARCH_MAX_SYMBOLS, ORCHESTRATOR_QUERY_CHARS и ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS не режут существенные доказательства по месту: полный результат хранится вне payload, в L2 идут отобранные фрагменты под бюджет, а обрезанный snippet не выдаётся за полную статью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Полный результат вне payload; в L2 — фрагменты под бюджет; snippet не выдаётся за статью",
+          "observation": "test_full_source_addressable_beyond_payload: full_text(src.content_ref) длиннее payload (600) и содержит доказательство, fragment(80) <= 80, в пакете «полный текст: ev:». test_orchestrator_evidence_is_addressable_and_bounded: ref=ev:abc123 и snippet <= ORCHESTRATOR_EVIDENCE_SNIPPET_CHARS.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00141",
@@ -2744,7 +2896,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Отсутствие добавочной LLM-модели «поисковик-надзиратель» ни одним тестом не проверено (покрыт только reuse без повторного вызова)"
     },
     {
       "source_id": "L00143",
@@ -2758,8 +2911,17 @@
       "acceptance": "В трассе REPLY есть search_intent, search_called, search_status, source_ids, source_count, search_skip_reason, evidence_used; при required без полезной выдачи нет заявлений «я проверил» и выдуманных ссылок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Трасса REPLY: 7 полей; при required без выдачи нет «я проверил» и ссылок",
+          "observation": "test_trace_fields_and_emission_are_private_safe: набор полей трассы ровно {search_intent, search_called, search_status, source_ids, source_count, search_skip_reason, evidence_used}; test_no_invented_sources и test_empty_result_honest запрещают claim_allowed без источника.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00149",
@@ -2788,8 +2950,17 @@
       "acceptance": "Один ContextSelection для Direct/Initiative с типизированными фрагментами и provenance; окно сообщений является только кандидатным набором.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Один ContextSelection с типизированными фрагментами и правдивой provenance",
+          "observation": "test_provenance_counts_are_truthful: raw/selected/included счётчики непротиворечивы, policy_version в as_dict; test_budget_is_actually_respected_after_compression: каждый фрагмент либо в payload, либо в dropped с reason_code.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00157",
@@ -2803,8 +2974,17 @@
       "acceptance": "P0 (полный текущий текст, media, разрешённый reply) не отрезается ничем, кроме отдельного физического overflow-пути, и это видно в инспекторе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "P0 не режется: overflow явный, полный текст остаётся доступен",
+          "observation": "test_p0_overflow_is_explicit_and_keeps_full_text_available: overflow=True, overflow_parts с reason_code=physical_overflow, вхождение+ссылки == part_total; test_long_question_keeps_middle_and_end: середина и конец вопроса в selection без изменений.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00158",
@@ -2818,8 +2998,17 @@
       "acceptance": "Reply-parent, автор по Telegram UID, актуальный алиас, цепочка и исправления этой ветки входят в контекст; говорящие не перемешиваются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Reply-ветка >3 ходов: авторы по UID, имена и reply-parent не перемешаны",
+          "observation": "test_reply_branch_more_than_three_hops_keeps_authors: цепь из 5 ходов, authors {Вася, Петя}, uids {11,12}, бот-ход ts=1050, reply_to_tg_id=14, speaker_uid по bot_user_id.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00159",
@@ -2833,8 +3022,17 @@
       "acceptance": "Свежие соседние реплики включают недавний ответ самого бота как факт диалога, а не как образец стиля или факт о мире.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Свежие соседи включают ответ бота как факт диалога, а не образец стиля",
+          "observation": "test_bot_turn_is_dialog_fact_not_style_anchor: kind=bot_statement, role=self_output, authority=SUPPORTING, в note нет «подраж», в as_dict нет сырого текста.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -2849,7 +3047,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00161",
@@ -2864,7 +3063,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00162",
@@ -2878,8 +3078,17 @@
       "acceptance": "Общий нерелевантный фон и необязательные стилевые примеры исключаются первыми при нехватке ёмкости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Нерелевантный фон снимается первым, релевантная память и ветка уцелевают",
+          "observation": "test_drops_irrelevant_before_relevant: ROLE_BACKGROUND dropped, KIND_SUMMARY_INFERENCE в dropped, memory и thread остались, included_tokens <= budget.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -2894,7 +3103,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/direct_l1.py (вне diff UR-C): снятие L1_WINDOW_MESSAGES/L1_WINDOW_LINE_CHARS и переход build_l1_context на отобранные фрагменты не реализованы этим срезом"
     },
     {
       "source_id": "L00170",
@@ -2908,8 +3118,17 @@
       "acceptance": "limits.chat_current_question_max_chars не режет вход модели: UI-выдержка отделена, длинный вопрос обрабатывается overflow-путём без тихой потери конца.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Полный текст вопроса входит в отбор; UI-выдержка отделена",
+          "observation": "test_long_question_keeps_middle_and_end: text > 800 символов попадает в selection.current_question целиком, preview_text(800) короче и не равен тексту — выдержка интерфейса не режет вход модели.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00171",
@@ -2924,7 +3143,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/direct_l1.py (вне diff UR-C): снятие L1_WINDOW_MESSAGES/L1_WINDOW_LINE_CHARS и переход build_l1_context на отобранные фрагменты не реализованы этим срезом"
     },
     {
       "source_id": "L00172",
@@ -2953,8 +3173,17 @@
       "acceptance": "Инструментальная задача не режется по символам так, что теряется публичная сущность запроса; source request остаётся доступным, а поисковая формулировка строится структурно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инструментальная задача не теряет публичную сущность; исходный запрос доступен",
+          "observation": "test_whole_chat_is_not_sent: evidence.search_task == исходный текст, усечён только поисковый запрос; test_orchestrator_evidence_is_addressable_and_bounded: запрос «запрос * 400» обрезан структурно, слово не рвётся.",
+          "type": "test",
+          "artifact_path": "tests/test_unified_reply_ur_b_search_first.py",
+          "artifact_sha256": "5a9c0f42e0be15628231959a324ba7ea022ce41a47f6e6de4b43cf6aff185dcf",
+          "candidate_commit": "da6299e9"
+        }
+      ]
     },
     {
       "source_id": "L00177",
@@ -2969,7 +3198,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/model_capacity.py — файла нет в diff среза 9ac64a61; «единственный allocator на model_capacity/auto_budget» доказан только частично (auto_budget изменён, capacity-резолвер нет). Stopped by planner honesty rule"
     },
     {
       "source_id": "L00181",
@@ -2983,8 +3213,17 @@
       "acceptance": "По умолчанию действует Dynamic-режим, а не ручные 16000 на каждый блок и не -1 как ложная бесконечность.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "По умолчанию Dynamic, ручные значения — явные режимы",
+          "observation": "test_dynamic_is_default_mode: DEFAULT_DIRECT_POLICY_MODE=dynamic, resolve_policy_mode(None)=dynamic, (0)=dynamic, (-1)=unlimited, (12000)=cap.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00182",
@@ -2998,8 +3237,17 @@
       "acceptance": "Model-aware stage budget применяется и к L1, и к инициативе; stage-резерв не забирает произвольную половину окна.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Model-aware stage budget для L1 и инициативы, без «половины окна»",
+          "observation": "test_initiative_stages_are_model_aware: initiative.l1/l2 и direct.l1 — arithmetic=direct, overflow=priority_reduce; test_stage_budget_never_exceeds_physical_window: effective_input_budget <= auto_input_budget и <= context_window.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00183",
@@ -3014,7 +3262,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Зависит от services/model_capacity.py — файла нет в diff среза 9ac64a61; «единственный allocator на model_capacity/auto_budget» доказан только частично (auto_budget изменён, capacity-резолвер нет). Stopped by planner honesty rule"
     },
     {
       "source_id": "L00184",
@@ -3028,8 +3277,17 @@
       "acceptance": "Allocator не режет ничего при достаточной ёмкости, а при нехватке убирает нерелевантное, затем вторичные конспекты, затем менее важные сообщения и лишь потом сжимает длинные релевантные материалы со ссылкой на оригинал.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Allocator не режет помещающееся и снимает нерелевантное раньше важного",
+          "observation": "test_no_trim_when_everything_fits (dropped пуст), test_drops_irrelevant_before_relevant, test_budget_is_actually_respected_after_compression (included <= budget, сняты самые старые соседи).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00185",
@@ -3044,7 +3302,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00186",
@@ -3059,7 +3318,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Требует services/param_catalog.py (правка каталога/legacy-параметров) — файла нет в diff UR-C"
     },
     {
       "source_id": "L00190",
@@ -3073,8 +3333,17 @@
       "acceptance": "Условие обновления конспекта определяется вытесняемым содержанием и watermark, а не магическими числами строк или сообщений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Обновление конспекта по watermark/вытеснению, а не по магическим числам",
+          "observation": "TestSummaryConditions: watermark_current → refresh=False; fits_working_window → False при 30 сообщениях; displaced_by_new_messages → True; test_fill_ratio_is_not_a_trigger — значение доли не влияет на решение.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00202",
@@ -3089,7 +3358,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "L00208",
@@ -3103,8 +3373,17 @@
       "acceptance": "Запрос памяти строится из смысловой темы, адресата и reply-parent, а разрешение местоимений опирается на реальные uid/reply связи, а не только на последнюю реплику.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Запрос памяти из темы, адресата и reply-parent с реальными UID",
+          "observation": "TestMemoryQuery: build_memory_query содержит тему, имя адресата, текст родителя и цитату в нужном порядке; build_memory_request отдаёт subject_entity_ids=(11,12), participants c 13, reply_target=12.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00209",
@@ -3118,8 +3397,17 @@
       "acceptance": "Возвращаются исходные сообщения и соседние реплики эпизода с идентификаторами: на вопрос о прошлой ситуации модель видит слова участника, а не только короткий факт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Старый эпизод возвращается исходными сообщениями с идентификаторами",
+          "observation": "test_old_episode_reachable_with_real_messages: эпизод вне свежего окна достаётся через mca_retrieval_context.retrieve, «348» присутствует, фрагменты имеют source_id вида msg: и валидные kind.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00210",
@@ -3134,7 +3422,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "L00211",
@@ -3148,8 +3437,17 @@
       "acceptance": "Учитываются дата, исправления и конфликтующие версии: поздняя прямая правка пользователя приоритетнее, а конфликт источников виден L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Поздняя правка приоритетнее, конфликт виден L2",
+          "observation": "TestCorrectionsAndConflicts: старая версия superseded_by=P3, новая P1 (в memory и fresh_neighbours при большом бюджете), под давлением старая снимается первой; mark_source_conflicts помечает conflicting с note.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00212",
@@ -3164,7 +3462,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "L00213",
@@ -3178,8 +3477,17 @@
       "acceptance": "Без достоверного найденного факта бот не изображает память о прошлом; игровой ответ допустим только при явном ролевом задании.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Без найденной памяти нет выдуманного recall",
+          "observation": "test_no_memory_no_invention: memory пуст, summary_map None, memory_found=False, слово темы отсутствует во всех фрагментах кроме текущего вопроса.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_context_selection.py",
+          "artifact_sha256": "49c8c441ac8982a84bfb52cc550c68a9ac5259723cb352e378098253c94983f5",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00217",
@@ -3347,7 +3655,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Диалоговый сценарий «честно описывает инструменты и реально ищет» требует E2E/live (UR-G), юнит-доказательств нет"
     },
     {
       "source_id": "L00249",
@@ -3362,7 +3671,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Диалоговый сценарий «правда, что ИИ тупеет…» требует E2E/live (UR-G), юнит-доказательств нет"
     },
     {
       "source_id": "L00253",
@@ -3646,8 +3956,17 @@
       "acceptance": "Собственные доставленные сообщения бота доступны как события разговора через durable ledger, а не как стилевые примеры и не только в пределах TTL-кэша.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Свои доставленные реплики доступны как события диалога вне TTL-кэша",
+          "observation": "test_bot_output_survives_ttl_with_date_and_parent: TTL-кеш пуст, фрагмент из ledger с sent_at, reply_to_tg_id, correlation_id и source_id bot_output:; test_gate_off_means_no_pretend_memory — без ledger история не подделывается.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00331",
@@ -3661,8 +3980,17 @@
       "acceptance": "Единый read-path отдаёт человеческие и собственные доставленные сообщения в хронологии с speaker_uid, tg_message_id, sent_at_utc, reply_to, correlation_id, revision, source_kind, без подмешивания своих реплик в style_anchors, и без фиксированного предела «последние три».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Единый read-path: хронология, только доставленные, scope по chat_id",
+          "observation": "test_chronological_delivered_only_and_chat_scoped: порядок 102,103,101 по sent_at, failed (104) и чужой чат (105) исключены; test_chunks_share_correlation_and_keep_order — чанки одной корреляции в порядке отправки.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00332",
@@ -3676,8 +4004,17 @@
       "acceptance": "Собственные ответы вплетены в reply-граф по parent_message_ref: на «ты только что сказал…» и «вчера ты обещал…» ответ строится из фактически отправленного, а не из draft, пересказа или чужих слов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Свой ответ вплетён в reply-граф по parent_message_ref и после TTL",
+          "observation": "test_ttl_cache_turn_gets_real_sent_at_from_ledger: ts из ledger (1500), reply_to_item_id=tg:700, correlation; test_parent_link_survives_expired_bot_reply_parents — родитель восстановлен из ledger при протухшем bot_reply_parents.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00333",
@@ -3692,7 +4029,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00334",
@@ -3706,8 +4044,17 @@
       "acceptance": "Авторитет учитывается: «что бот сказал» подтверждается ledger, «что верно в мире» — подтверждёнными источниками; вымысел и roleplay не повышают достоверность, а новые правки не стирают факт прошлой ошибки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "«Бот это говорил» подтверждается ledger, но не становится истиной о мире",
+          "observation": "test_bot_turn_is_dialog_fact_not_style_anchor: authority=AUTHORITY_SUPPORTING (не PRIMARY) и role=self_output — слова бота остаются фактом коммуникации, а не источником о мире.",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00335",
@@ -3722,7 +4069,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00336",
@@ -3736,8 +4084,17 @@
       "acceptance": "Все выборки строго scoped к chat_id, проверяют доступ и self ID и корректно обрабатывают старые/пустые строки, media-only, удаление, неизвестную дату, редактирование, повторную отправку и неудавшийся send.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Scope по chat_id и честная обработка media-only/неизвестной даты/неудачи",
+          "observation": "test_chronological_delivered_only_and_chat_scoped (chat_id изолирован, failed исключён), test_media_only_and_unknown_date_are_honest (text=, media_only=True, time_known=False, sent_at=0, note про медиа).",
+          "type": "test",
+          "artifact_path": "tests/test_ur_bot_output_history.py",
+          "artifact_sha256": "7dcc1fa8ef8ea1a35dfe3ba2cb585d6596ac8dce555a83df5388f88e12642d65",
+          "candidate_commit": "9ac64a61"
+        }
+      ]
     },
     {
       "source_id": "L00340",
@@ -4916,7 +5273,8 @@
       "evidence": [],
       "bgs_note": "BGS-01 §2 п.3: запрет частого поиска обоснован смыслом и бюджетом, а не приватностью.",
       "superseded_text": "Поиск не запускается на каждую реакцию, молчание и проверку Observer, но скрытый обход поиска при планировании внешних фактов запрещён.",
-      "superseded_by": "BGS-01 (owner 2026-11-05)"
+      "superseded_by": "BGS-01 (owner 2026-11-05)",
+      "pending_reason": "Запрет поиска на реакцию и молчание покрыт, часть про Observer и скрытый обход при планировании внешних фактов — нет"
     },
     {
       "source_id": "L00480",
@@ -4931,7 +5289,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Отсутствие бесконечных tool-loop/retry и запрет гигантского prompt без материала тестами не проверены; физические лимиты проверены частично"
     },
     {
       "source_id": "L00481",
@@ -4946,7 +5305,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "Не покрыто тестами среза: объём чтения под нагрузкой, разделение типов памяти, identity-prior при семантическом конфликте и физическая пагинация на больших объёмах требуют отдельного доказательства"
     },
     {
       "source_id": "L00482",
@@ -4961,7 +5321,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "ContextSelection ещё не подключён к живому ходу: build_context_selection вызывается только из тестов, direct_chat_service.py его не использует. Фактический payload L1/L2 и полнота send-paths ledger не доказаны"
     },
     {
       "source_id": "L00483",
@@ -5241,9 +5602,12 @@
     "Миграция/переиндексация эмбеддингов, новая агентная инфраструктура, OpenSpec/GitHub Issues — запрещены §12."
   ],
   "disclosures": [
-    "Карта создана до Builder: ни одна строка не VERIFIED, evidence пуст, candidate_commit пуст.",
     "Секции §2 (основание) и §13 (указатели файлов) классифицированы как контекст: это подтверждённое текущее поведение и навигация, решения вынесены в UR-01..19.",
-    "Ручные наблюдения владельца (скриншоты панели, диалог.txt) не превращены в обязательные live-проверки: они служат fixture/контекстом."
+    "Ручные наблюдения владельца (скриншоты панели, диалог.txt) не превращены в обязательные live-проверки: они служат fixture/контекстом.",
+    "Bookkeeping 2026-11-05: 34 строки VERIFIED привязаны к merge-кандидатам UR-B (da6299e9) и UR-C (9ac64a61); каждая — к конкретному тест-файлу с artifact_sha256. Тесты прогнаны локально на evol/impl @ 1cb76b62 (156 passed в пяти файлах); файлы срезов UR-C не менялись после 9ac64a61, evidence_policy.py менялся после da6299e9 (BGS-02).",
+    "Честная граница привязки: run_tool_phase (UR-B) и build_context_selection (UR-C) вызываются только из тестов — живые маршруты direct_chat_service.py (4777/12932 и сборка контекста) не переключены. Строки, требующие фактического payload/трассы живого хода, оставлены PENDING с причиной в поле pending_reason.",
+    "Ось knowledge_origin/search_intent не запрашивается у модели: имён полей нет в каноне промпта L1 (prompt_registry.py), в отличие от ранее добавленного recheck (prompt_registry.py:175-177, 2808-2809). Сам direct_l1.resolve_search_axis это признаёт — «пока канон промпта L1 не дополнен полями оси, это единственный живой сигнал в проде».",
+    "UR-08.2 остаётся live_required/preprod: размеченного набора и прогона нет; статус PENDING не понижен."
   ],
   "amended_by": [
     {
@@ -5354,5 +5718,11 @@
       "old_acceptance": "verbalize_validated сохраняет обязательные проверки формата, опасной подмены формы, фактического искажения и буквальных правил владельца, но косметическое клише не вызывает полной перегенерации живого ответа; мат, сленг и абсурд по настройкам не стираются.",
       "new_acceptance": "verbalize_validated сохраняет обязательные проверки формата, сохранности чисел/отрицаний и буквальных правил владельца при фактически выполненной трансформации, цитировании или протокольной ошибке, но косметическое клише или метатекст не вызывают полной перегенерации живого ответа; мат, сленг и абсурд по настройкам не стираются."
     }
-  ]
+  ],
+  "slice_candidates": {
+    "UR-B": "da6299e9",
+    "UR-C": "9ac64a61",
+    "note": "Оба merge уже в evol/impl; 9ac64a61 — предок da6299e9. Поле candidate_commit — последний принятый интегрированный кандидат; для повторного review UR-B выставьте его в da6299e9."
+  },
+  "architecture_note": "Барьер UR-A снят: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». Реально существует только контракт-документ: services/turn_types.py ещё не создан, services/turn_request.py в проекте никогда не существовал — имя файла в графе исправлено на turn_types.py."
 }
