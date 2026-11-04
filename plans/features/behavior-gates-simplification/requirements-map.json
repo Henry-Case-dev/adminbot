@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-behavior-gates-simplification.md",
   "source_sha256": "4f5457440e958efd20c50f8031af97da9c9d7a1d25e3094ea4ea75e607ec7284",
-  "candidate_commit": "da6299e9",
+  "candidate_commit": "e2fdd9d8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -82,7 +82,7 @@
       "source_text_sha256": "18c3f7c4ac4b8ba5b310f46a34b57f8fec7bf29df3f8bf813c89bdeb4e53c4b3",
       "source_excerpt": "| Смысловая постцензура | удаление предложения про цену после неудачи retrieval; вырезание «по моим наблюдениям» | Прекратить автоматическое вырезание",
       "disposition": "required",
-      "reason": "",
+      "reason": "Компонентные половины доказаны (evidence-guard — tests/test_bgs02_egress_observation.py, speech-guard — tests/test_bgs0304_speech_observation.py), но строка сформулирована как фактическая доставка в Telegram: живой прогон сценария §9 не выполнялся, поэтому доставка закрепляется на BGS-08-ACCEPT.",
       "req_id": "BGS-00.8",
       "slice": "BGS-02-EGRESS",
       "acceptance": "Смысловая постцензура прекращена: предложение про цену после неудачи retrieval и фраза «по моим наблюдениям» доходят до Telegram без удаления (проверяется на evidence-guard и speech-guard).",
@@ -1026,7 +1026,7 @@
       "source_text_sha256": "9de1ddc16f08264ee574dd4726f21584314f04f4e751286b5683e6bb0de22351",
       "source_excerpt": "- `services/direct_chat_service.py::_evidence_context(...)` и инструментальный маршрут: обязательные разрешения и состояния инструментов. Удалять только privacy-вызов; остальные технические условия оставить.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код _evidence_context этим срезом не менялся (приватный вызов снят полосой BGS-01); в evidence/bgs-01-evidence.md привязки этой строки нет, поэтому доказательство нужно связать отдельно — закрывается на этапе BGS-07-MATRIX без нового кода.",
       "req_id": "BGS-ANC-03",
       "slice": "BGS-02-EGRESS",
       "acceptance": "В services/direct_chat_service.py::_evidence_context удалён только privacy-вызов; остальные технические условия инструментального маршрута (права, разрешения, состояния) сохранены.",
@@ -1047,8 +1047,31 @@
       "acceptance": "guard_egress и drop_claim_sentence в services/evidence_policy.py больше не удаляют содержательные предложения и не выполняют повторный lookup ради прохождения защитного фильтра.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "guard_egress больше не удаляет предложения и не делает повторный lookup ради фильтра",
+          "observation": "test_drop_branch_and_rewrite_helper_do_not_exist проверяет отсутствие GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, EgressVerdict и параметров lookup/rewrite/drop_allowed; test_previously_dropped_claim_is_now_delivered_byte_identical: delivered == answer, observed=1, code=observed_unverified_claim (вырезания нет). Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Контракт выхода guard_egress — наблюдение (код + место)",
+          "observation": "В services/evidence_policy.py:926–931 остались только GUARD_NONE и GUARD_OBSERVED_UNVERIFIED; EgressObservation (1083–1125) несёт observed/location/claim_key/note и не является приказом; guard_egress (1143–1214) возвращает только наблюдение, drop_claim_sentence удалена целиком. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -1062,8 +1085,31 @@
       "acceptance": "_run_evidence_egress_guard пересобран вместе с общим Direct/Initiative: после L2 нет скрытого второго поиска и удаления мысли, диагностика сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "_run_evidence_egress_guard пересобран: после L2 нет второго поиска и удаления мысли",
+          "observation": "test_direct_handle_delivers_claim_and_makes_no_reroll на реальном handle(): ровно один Writer-вызов, событие EVIDENCE_EGRESS_CHECK с observed=1 доезжает до телеметрии, а в _send_direct_answer уходит текст, равный L2 байт-в-байт; test_drop_branch_and_rewrite_helper_do_not_exist фиксирует отсутствие _evidence_lookup/_evidence_rewrite у DirectChatService. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Единый postprocess Direct и Initiative в services/direct_chat_service.py",
+          "observation": "_run_evidence_egress_guard (2696–2726) возвращает ровно входной текст и заполняет stats; call-site Direct (5312–5335) и Initiative (12981–12996) вызывают тот же guard и тот же _emit_evidence_egress_event (6429–6473); диагностика сохранена. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00053",
@@ -1750,7 +1796,7 @@
       "source_text_sha256": "6a6d1e6ff7b9881d483500dfa1139227f3fc5aa9eaf3db336a90781ae136bd5e",
       "source_excerpt": "## 3. BGS-02 — убрать смысловую постцензуру из Evidence Egress Guard",
       "disposition": "required",
-      "reason": "",
+      "reason": "Агрегатная строка §3 закрывается только вместе с BGS-02.5 (структура фактчека) и BGS-02.9 (Inspector); сейчас доказаны п.1–4, 6–8 и 10, этого недостаточно для VERIFIED раздела.",
       "req_id": "BGS-02",
       "slice": "BGS-02-EGRESS",
       "acceptance": "Смысловая постцензура Evidence Egress Guard удалена: готовый ответ доставляется без программного удаления содержательных предложений из-за неподтверждённости, а фактчек не ослаблен.",
@@ -1771,8 +1817,31 @@
       "acceptance": "Ветка GUARD_DROP_CLAIM и любой эквивалентный postprocess/rewrite, удаляющий целые содержательные предложения из-за отсутствия evidence, отсутствуют в активных путях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ветка удаления и эквивалентный rewrite отсутствуют в активных путях",
+          "observation": "test_drop_branch_and_rewrite_helper_do_not_exist: нет GUARD_DROP_CLAIM/drop_claim_sentence/EgressVerdict/_evidence_rewrite/EVIDENCE_EGRESS_HINT, GUARD_ACTIONS == (none, observed_unverified_claim); test_previously_dropped_claim_is_now_delivered_byte_identical: ранее вырезавшийся claim доставлен целиком; test_direct_handle_delivers_claim_and_makes_no_reroll: в отправку уходит L2-текст. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Удалённые элементы постцензуры",
+          "observation": "services/evidence_policy.py: drop_claim_sentence и константы GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP отсутствуют; services/direct_chat_service.py: _evidence_lookup, _evidence_rewrite и EVIDENCE_EGRESS_HINT удалены, параметры lookup/rewrite/drop_allowed сняты с guard-функции. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00090",
@@ -1786,8 +1855,38 @@
       "acceptance": "Проверка claim↔evidence сохранена в фактчеке, поисковом evidence packet и телеметрии, но для обычного Direct/Initiative отсутствие подтверждения даёт неопределённость, а не удаление мысли.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Проверка claim↔evidence сохранена и опирается на реально доставленную выдержку",
+          "observation": "test_claim_evidence_check_still_works_on_delivered_sources: «Я прочитал документацию: там 16 ГБ видеопамяти» без выдержки — observed=1 и текст доставлен целиком; с выдержкой про 16 ГБ — observed=0 (source_fetched ≠ verified); test_observation_event_carries_code_and_location_only: claim_key и reason_code уходят в EVIDENCE_EGRESS_CHECK и evidence_egress_check. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Фактчековый корпус остаётся зелёным на кандидате",
+          "observation": "tests/test_evol_evidence_corpus.py проходит в прогоне полосы после слияния b0bb2310 — доказательная связь целевого фактчека не ослаблена изменением egress-guard'а. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_corpus.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Пакет доказательств и связка claim↔evidence не менялись",
+          "observation": "В services/evidence_policy.py сохранены _supported, delivered_claim_keys, claims_coverage, _content_ref/source_ids; изменён только контракт выхода guard'а (наблюдение вместо приказа), новый активный код REASON_EVIDENCE_CLAIM_OBSERVED при сохранённом legacy-декодере REASON_EVIDENCE_CLAIM_REMOVED (174–180). Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00091",
@@ -1801,8 +1900,31 @@
       "acceptance": "Если поиск уже выполнялся до Writer, повторный тот же lookup после Writer не запускается ради защитного фильтра; адресное уточнение допустимо только при новом внешнем факте, смысловой пользе и остатке бюджета.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Второго адресного lookup после Writer нет",
+          "observation": "test_drop_branch_and_rewrite_helper_do_not_exist: у DirectChatService отсутствуют _evidence_lookup и _evidence_rewrite; test_direct_handle_delivers_claim_and_makes_no_reroll: один Writer-вызов и ни одного повторного поиска после генерации. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "guard_egress не запрашивает поиск",
+          "observation": "services/evidence_policy.py:1143–1214 возвращает только EgressObservation и не имеет ветвей повторного lookup; прежний адресный поиск удалён из services/direct_chat_service.py целиком. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -1816,8 +1938,38 @@
       "acceptance": "L2 получает реальные evidence и статус поиска и не выдаёт неисполненный поиск за исполненный; сомнение формулируется самостоятельно, без обязательных фраз «информации недостаточно» в каждом ответе и без превращения шуток в оговорки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "L2 получает реальный статус проверки, а не вырезание мысли",
+          "observation": "test_direct_handle_unverified_claim_not_labelled_verified: при required_unmet и SEARCH_PROVIDER_DOWN в блоки Writer'а приходят «внешняя проверка НЕ выполнена», «не утверждай, что проверил», «выдержек нет — не добавляй внешних фактов», а доставленный текст равен L2 без метки «проверено» и без ссылки; test_claim_evidence_check_still_works_on_delivered_sources: при реальной выдержке наблюдения нет. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Машинная строка Writer'у строится из фактов пакета и не содержит обязательных фраз-оговорок",
+          "observation": "services/direct_chat_service.py:6378–6425 (_evidence_writer_note) выводит класс, обязательность, число источников, покрытие claim и код неудачи; фразы «информации недостаточно» в сервисном коде нет (поиск по репозиторию вне tests/plans дал 0 совпадений), сомнение не подменяется шаблоном. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Шутки и метатекст не превращаются в оговорки",
+          "observation": "test_natural_phrase_passthrough_byte_identical и test_quoted_phrase_passthrough_byte_identical: «по моим наблюдениям», «я нейросеть», «мои промпты» и их цитаты доставляются байт-в-байт. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs0304_speech_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00093",
@@ -1825,7 +1977,7 @@
       "source_text_sha256": "bf9d5eeb495446214addebced4ddd4c3a7ba95d5aa1e99ddf492bf62b9259e0b",
       "source_excerpt": "5. Отдельный целевой Factcheck **не теряет** свою структуру claims, вердикты, source attribution, связь `claim_id → evidence_id`, коррекции агрегатора и запрет ложноположительной верификации из `PVR-FC`. Не переносить свободный режим обычно",
       "disposition": "required",
-      "reason": "",
+      "reason": "Структура целевого фактчека этим срезом не затрагивалась (evidence/bgs-02-egress-evidence.md, раздел «Что НЕ доказано»); нужен прогон фактчекового корпуса с коррекциями агрегатора и запретом ложноположительной верификации — закрывается в BGS-07-MATRIX.",
       "req_id": "BGS-02.5",
       "slice": "BGS-02-EGRESS",
       "acceptance": "Целевой фактчек сохраняет структуру claims, вердикты, source attribution, связь claim_id→evidence_id, коррекции агрегатора и запрет ложноположительной верификации из PVR-FC.",
@@ -1846,8 +1998,38 @@
       "acceptance": "Изменение postprocess применяется к инициативе через единый L1/Tools/L2; отдельного «расслабленного» Writer или режима только для одной функции нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Инициатива не получает второго Writer'а после guard'а",
+          "observation": "test_egress_observation_makes_no_second_initiative_writer_call: после egress-наблюдения инициативный путь не делает повторной записи и не подменяет доставленный текст. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_evol_reply_context_consumers.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Инициатива идёт тем же evidence-контуром, что Direct",
+          "observation": "test_scenario29_initiative_uses_same_evidence_contour: тот же _evidence_preflight и тот же postprocess, отдельного «расслабленного» режима нет. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_evol_evidence_routing.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Единый call-site инициативы",
+          "observation": "services/direct_chat_service.py:12981–12996 вызывает тот же _run_evidence_egress_guard и _emit_evidence_egress_event, что и Direct; собственного Writer'а/режима для одной функции нет. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -1861,8 +2043,31 @@
       "acceptance": "Потенциальная ошибка обычного ответа даёт диагностику без правки текста; retry допустим для ошибки обработчика инструмента/протокола, но не для готового ответа по словесной эвристике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Диагностика без правки текста и без перегенерации готового ответа",
+          "observation": "test_direct_handle_delivers_claim_and_makes_no_reroll: len(calls) == 1 — готовый ответ не перегенерируется по словесной эвристике; test_observation_event_carries_code_and_location_only: диагностика (код, место, reason_code) уходит в событие без изменения доставленного текста. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Взаимоисключение с freshness-ретраем снято вместе с ретраем guard'а",
+          "observation": "services/direct_chat_service.py:5353–5356: _evidence_retry_used_here больше не существует, единственный оставшийся повтор — duplicate-guard; guard не возвращает приказ на retry. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00097",
@@ -1891,8 +2096,31 @@
       "acceptance": "Цена/версия/характеристика без хорошей ссылки не исчезает молча из доставленного ответа; при необходимости остаётся явно выраженная неопределённость.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Цена и версия без ссылки не исчезают из доставленного ответа",
+          "observation": "test_previously_dropped_claim_is_now_delivered_byte_identical: «Модели GeForce RTX 9090 не существует. Ну и ладно.» доставлено целиком; test_sentence_index_counts_content_sentences_not_split_pieces: фраза «Новая модель GeForce RTX 9090 стоит 700 долларов.» доставлена байт-в-байт, а место claim'а указывает ровно на неё. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Ни одно поле наблюдения не является инструкцией изменить ответ",
+          "observation": "services/evidence_policy.py:1083–1125, 1156–1163: EgressObservation содержит только код, место, claim_key и note; явная неопределённость остаётся делом L2, а не правки алгоритма. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/evidence_policy.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -1900,7 +2128,7 @@
       "source_text_sha256": "6d954582117793421f16d10c6f8fa4109623dcd5386da3dd32136f89065bd5e0",
       "source_excerpt": "- Точное соответствие готового текста и фактической доставки фиксируется в inspector. Удаление предложения проходит только из-за явно выбранной пользователем операции или узкой технической санитаризации, а не «низкого evidence score».",
       "disposition": "required",
-      "reason": "",
+      "reason": "Backend-событие готово, но Inspector UI (показ точного соответствия готового текста и доставки) в срезе не реализован — UI-часть принадлежит UR-F/PVR-UI (зависимость BGS-06); живой UI-прогон не выполнялся.",
       "req_id": "BGS-02.9",
       "slice": "BGS-02-EGRESS",
       "acceptance": "Inspector фиксирует точное соответствие готового текста и фактической доставки; удаление предложения происходит только по явной операции пользователя или узкой технической санитаризации, а не по «низкому evidence score».",
@@ -1921,8 +2149,31 @@
       "acceptance": "Ответ вне целевого фактчека не получает ложный знак «проверено» и несуществующую ссылку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Ответ вне целевого фактчека не получает ложную метку «проверено»",
+          "observation": "test_direct_handle_unverified_claim_not_labelled_verified: в доставленном тексте нет «https://» и «источник:», метки верификации пайплайн не добавляет — единственное изменение это диагностическое событие. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "test",
+          "artifact_path": "tests/test_bgs02_egress_observation.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "В postprocess нет отдельной метки «проверено» или ссылки",
+          "observation": "services/direct_chat_service.py:6429–6473 — событие EVIDENCE_EGRESS_CHECK несёт только observed/code/место/reason/note (без текста, R17); вставки метки или ссылки в текст нет. Прогон полосы после слияния b0bb2310: 162 passed по tests/test_bgs02_egress_observation.py, tests/test_evol_evidence_routing.py, tests/test_evol_evidence_corpus.py, tests/test_bgs0304_speech_observation.py, tests/test_bgs01_factcheck_no_name_strip.py; дерево tests/services в e2fdd9d8 совпадает с b0bb2310 (git diff пуст).",
+          "type": "static",
+          "artifact_path": "services/direct_chat_service.py",
+          "candidate_commit": "e2fdd9d8"
+        },
+        {
+          "ref": "Сводка среза BGS-02: изменённые швы, форма события, мутационные пробы, раздел «Что НЕ доказано»",
+          "observation": "Документ фиксирует удаление GUARD_DROP_CLAIM/GUARD_HINT_RETRY/GUARD_ONE_LOOKUP, drop_claim_sentence, _evidence_lookup и _evidence_rewrite, замену EgressVerdict на EgressObservation (observed/sentence_index/char_start/char_end), доставку ровно L2-текста в Direct и Initiative и явный перечень непроверенного (живой прогон §9, Inspector UI, BGS-02.5/BGS-02.11).",
+          "type": "static",
+          "artifact_path": "plans/features/behavior-gates-simplification/evidence/bgs-02-egress-evidence.md",
+          "candidate_commit": "e2fdd9d8",
+          "artifact_sha256": "46253f534275b438e8c5aec0cffe918ad1c2590b157b690d9e6fa69c3af6cfe6"
+        }
+      ]
     },
     {
       "source_id": "L00102",
@@ -1930,7 +2181,7 @@
       "source_text_sha256": "81bab3383dae1c60bb76e869727e7d8ab15e5b446242fe178903bbc9717e8498",
       "source_excerpt": "- Полный фактчек по четырёхчастной картинке про тестостерон по-прежнему требует прямых доказательств и не превращает отсутствие подтверждения в `mixed`.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Четырёхчастный фактчек про тестостерон не проверялся (evidence/bgs-02-egress-evidence.md, раздел «Что НЕ доказано»); требуется отдельный прогон на фактчековом корпусе, чтобы подтвердить, что отсутствие доказательств не превращается в mixed.",
       "req_id": "BGS-02.11",
       "slice": "BGS-02-EGRESS",
       "acceptance": "Фактчек четырёхчастной картинки про тестостерон по-прежнему требует прямых доказательств и не превращает отсутствие подтверждения в mixed.",
@@ -3651,7 +3902,7 @@
   ],
   "owner_input_id": "2026-11-05-behavior-gates-simplification",
   "task_id": "behavior-gates-simplification-01",
-  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл). BGS-01-строки привязаны к da6299e9, строки BGS-03/04 — к 2618cb1e (кандидат полосы) с дополнительной проверкой неизменности артефакта и повторного прогона в da6299e9. Число зелёных тестов без утверждения о поведении и устное заверение доказательством не считаются. Строки, не покрытые этими полосами, остаются PENDING с указанной причиной.",
+  "evidence_convention": "Привязка на review-стадии: каждая VERIFIED-строка несёт candidate-bound evidence с ref (человеческое объяснение), observation (что наблюдалось), type (test|ui|live|production|provider|static) и artifact_path (реальный repo-relative файл). BGS-01-строки привязаны к da6299e9, строки BGS-03/04 — к 2618cb1e (кандидат полосы) с дополнительной проверкой неизменности артефакта и повторного прогона в da6299e9. Число зелёных тестов без утверждения о поведении и устное заверение доказательством не считаются. Строки, не покрытые этими полосами, остаются PENDING с указанной причиной. Строки BGS-02-EGRESS привязаны к e2fdd9d8: дерево tests/services там идентично b0bb2310 (git diff пуст), где выполнен прогон полосы 162 passed; строки, зависящие от Inspector UI (BGS-02.9) и от неизменённого фактчекового кода (BGS-02.5/02.11), остаются PENDING с причиной.",
   "live_policy_note": "PET_PROJECT: деплой и проверка на проде разрешены после независимого ревью без отдельного согласования. live_required=false у всех строк на этапе планирования: обязательные проверки исполняются агентом локально/на стенде, а post-deploy проверка (BGS-08.22) добавляется как live evidence на release-стадии, когда реальный кандидат задеплоен. Ручное участие владельца гейтом не является.",
   "supersedes_in_other_maps": [
     {
@@ -3682,7 +3933,7 @@
   "architecture_classification": "ARCH_REUSE_CONFIRMED_WITH_UNRESOLVED_ARCH_DOC",
   "architecture_note": "arch/bgs-integration-contract.md в этом worktree ОТСУТСТВУЕТ (документ архитектора утерян при рестарте сервера). Настоящая карта не выдумывает контрактов: она использует фактически существующие контракты (evidence_policy.allowed/guard_egress, ToolEvidence из UR-B, public_speech_guard/outgoing_guard, negative_constraints/style_policy, param_catalog + effective-config UR-20—22) и фиксирует только зависимости и порядок записи. Если Builder обнаружит новую общую границу (новый ToolEvidence-статус, изменение схемы настроек, общий валидатор речи на несколько подсистем), работа останавливается и вопрос уходит Architect — PM контракт не замораживает.",
   "placement": "Волна 1 (параллельно): BGS-01-PRIVACY (активный лейн ur/b-search, кандидат 1001514e на ревью), BGS-03-SPEECH, BGS-04-GUARD-SCOPE, backend-часть BGS-06-ADMIN. Волна 2: BGS-02-EGRESS (после BGS-01, общий файл services/evidence_policy.py). Волна 3: BGS-05-BUDGET после UR-C/UR-D; UI-часть BGS-06 после UR-F/PVR UI. Волна 4: BGS-07-MATRIX (join) и BGS-08-ACCEPT (финальные проверки).",
-  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS, BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
+  "merge_state": "BGS-01-PRIVACY: ur/b-search 5adaa21b + bgs/factcheck-privacy 1da5fefa слиты в da6299e9 (Reviewer Approved). BGS-03-SPEECH и BGS-04-GUARD-SCOPE: bgs/speech-guards bb9b0b7b слит как 2618cb1e (Reviewer Approved). BGS-02-EGRESS: bgs/egress-guard 48e85ded (+док-привязка e2fdd9d8) принят Reviewer и слит как b0bb2310; прогон полосы после слияния — 162 passed (test_bgs02_egress_observation, test_evol_evidence_routing, test_evol_evidence_corpus, test_bgs0304_speech_observation, test_bgs01_factcheck_no_name_strip). BGS-05-BUDGET, BGS-06-ADMIN, BGS-07-MATRIX, BGS-08-ACCEPT не начаты.",
   "blocked_by_upstream": [
     "unified-reply:UR-C, unified-reply:UR-D — BGS-05-BUDGET пересчитывает пределы поверх их executor/budget",
     "unified-reply:UR-B — BGS-01 применяется к свежему UR-B дереву, а не к релизному снимку",
